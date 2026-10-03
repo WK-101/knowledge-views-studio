@@ -76,10 +76,11 @@
     <string name="set_answer_gesture_summary">Swipe or tap</string>
     <string name="set_answer_gesture_kw">slide, swipe, tap, pocket, answer</string>
     <string name="set_call_background_title">Call screen background</string>
-    <string name="set_call_background_summary">The caller\'s colour, or plain. A contact\'s call-screen picture still shows.</string>
-    <string name="set_call_background_kw">tint, colour, color, plain, background, call screen, incoming screen, wallpaper</string>
+    <string name="set_call_background_summary">The caller\'s colour, plain, or Poster: a contact\'s call-screen picture fills the screen with their name over it. Their picture shows with every choice.</string>
+    <string name="set_call_background_kw">tint, colour, color, plain, background, call screen, incoming screen, wallpaper, poster, contact poster, full screen, style</string>
     <string name="set_call_background_caller">Caller\'s colour</string>
     <string name="set_call_background_plain">Plain</string>
+    <string name="set_call_background_poster">Poster</string>
     <!-- Settings › Privacy & security › Lock screen › Caller on the lock screen. -->
     <string name="set_group_lock_screen">Lock screen</string>
     <string name="set_lock_screen_caller_title">Caller on the lock screen</string>

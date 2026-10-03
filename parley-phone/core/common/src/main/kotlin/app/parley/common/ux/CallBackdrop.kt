@@ -3,10 +3,12 @@ package app.parley.common.ux
 import kotlin.math.roundToInt
 
 /**
- * Settings › Calls › "Call screen background": the caller's colour as a soft tint at the top (the default), or the
- * theme's plain background. A contact's own call-screen picture is a separate, per-contact choice and shows either way.
+ * Settings › Calls › "Call screen background": the caller's colour as a soft tint at the top (the default), the
+ * theme's plain background, or [POSTER]: like the caller's colour, but a contact's call-screen picture fills the
+ * screen with the name set large over it. A contact's own call-screen picture is a separate, per-contact choice and
+ * shows with every style.
  */
-enum class CallScreenBackground { CALLER_COLOUR, PLAIN }
+enum class CallScreenBackground { CALLER_COLOUR, PLAIN, POSTER }
 
 /**
  * The call screen's background, kept readable: how strongly the caller's colour may tint the theme's surface, and
@@ -73,21 +75,60 @@ object CallBackdrop {
     /** What colour the top of the screen takes. */
     enum class Tint { CALLER, WARNING, NONE }
 
-    /** What the call screen draws behind the caller: a tint, and whether the contact's picture goes over it. */
-    data class Plan(val tint: Tint, val picture: Boolean)
+    /**
+     * What the call screen draws behind the caller: a tint, whether the contact's picture goes over it, and whether
+     * that picture may be a [poster] (the name set large over a mostly clear picture, see [posterLayout]).
+     */
+    data class Plan(val tint: Tint, val picture: Boolean, val poster: Boolean = false)
 
     /**
      * The background for a call. [warn] is a ringing call screened as likely spam: its red wash is a warning, not
      * decoration, so it stays with a plain background too. [hasPicture] is the contact's call-screen picture, which
      * the user set for that person on purpose and which shows whatever the style; [allowPicture] is off where a
-     * picture doesn't fit (the picture-in-picture window).
+     * picture doesn't fit (the picture-in-picture window). A poster needs a picture, and never covers a spam warning
+     * or a call masked on the lock screen (which has no picture anyway).
      */
-    fun plan(style: CallScreenBackground, warn: Boolean, hasPicture: Boolean, allowPicture: Boolean = true): Plan {
+    fun plan(style: CallScreenBackground, warn: Boolean, hasPicture: Boolean, allowPicture: Boolean = true, masked: Boolean = false): Plan {
         val tint = when {
             warn -> Tint.WARNING
             style == CallScreenBackground.PLAIN -> Tint.NONE
             else -> Tint.CALLER
         }
-        return Plan(tint, picture = hasPicture && allowPicture)
+        val picture = hasPicture && allowPicture
+        return Plan(tint, picture, poster = picture && style == CallScreenBackground.POSTER && !warn && !masked)
+    }
+
+    /**
+     * Whether the screen lays the caller out as a poster: only in the single-column layout with room for it. Two
+     * panes (landscape, tablets), a short window, the open keypad and a waiting second call keep the classic layout
+     * over the same picture.
+     */
+    fun posterLayout(plan: Plan, twoPane: Boolean, short: Boolean, keypadOpen: Boolean, callWaiting: Boolean): Boolean =
+        plan.poster && !twoPane && !short && !keypadOpen && !callWaiting
+
+    /** The scrim's opacity behind the controls at the bottom of a picture. */
+    const val OPAQUE_BOTTOM = 0.96f
+
+    /**
+     * A poster's scrim from top to bottom, as (position, alpha) stops over the screen's height (0..1): [scrim] at the
+     * very top fading to clear by [guard] (the status bar's icons stay readable), clear down to [fade] above
+     * [textTop], at least [scrim] from [textTop] on (the readable minimum, see [scrimAlpha]) and [OPAQUE_BOTTOM]
+     * behind the controls. [open] is how clear the clear part is (1 clear, 0 the full scrim as in the classic layout),
+     * so the screen can move between the two smoothly. With no clear room left, it is [scrim] all the way down.
+     */
+    fun posterStops(textTop: Float, guard: Float, fade: Float, scrim: Float, open: Float = 1f): List<Pair<Float, Float>> {
+        val top = textTop.coerceIn(0f, 1f)
+        val clearFrom = guard.coerceIn(0f, top)
+        val clearTo = (top - fade.coerceAtLeast(0f)).coerceAtLeast(clearFrom)
+        return buildList {
+            add(0f to scrim)
+            if (clearTo > clearFrom) {
+                val clear = scrim * (1f - open.coerceIn(0f, 1f))
+                add(clearFrom to clear)
+                add(clearTo to clear)
+            }
+            add(top to scrim)
+            add(1f to maxOf(scrim, OPAQUE_BOTTOM))
+        }
     }
 }

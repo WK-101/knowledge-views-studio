@@ -3,7 +3,7 @@ package app.parley.telecom.ui
 import android.app.KeyguardManager
 import android.text.format.DateFormat
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -39,10 +41,13 @@ import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -66,7 +71,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +90,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -98,7 +103,8 @@ import java.time.format.DateTimeFormatter
  * Who is calling, in order of importance (docs/CALL_SCREEN_DESIGN.md): the photo, the name, one calm line with the
  * label and number, small tags for the SIM and the number's verification (warnings in the error colour), the status
  * or running time in a pill, and the caller card (who is this, the pinned note, open promises, the last call).
- * [compact] (keypad open) keeps only the name, secondary line and status.
+ * [compact] (keypad open) keeps only the name, secondary line and status. [poster] leaves the photo out (the
+ * call-screen picture behind is the caller) and sets the name large.
  */
 @Composable
 internal fun CallerHeader(
@@ -109,20 +115,14 @@ internal fun CallerHeader(
     timing: CallTiming?,
     avatarSize: Dp,
     onReply: () -> Unit,
+    poster: Boolean = false,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = ringingActions(call, ended, onReply).fillMaxWidth()) {
-        if (!compact) {
+        if (!compact && !poster) {
             CallerAvatar(call, ended, timing, avatarSize, onOpenContact)
             Spacer(Modifier.height(Spacing.l))
         }
-        Text(
-            call.displayTitle,
-            style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        CallerName(call, compact, poster, onOpenContact)
         // The caller's pronouns, right under the name.
         call.pronouns?.let { CallerPronouns(it) }
         SecondaryLine(call)
@@ -147,6 +147,29 @@ internal fun CallerHeader(
     }
 }
 
+/** The caller's name: emphasized, smaller with the keypad open, large over a poster. */
+@Composable
+private fun CallerName(call: CallUi, compact: Boolean, poster: Boolean, onOpenContact: (CallUi) -> Unit) {
+    Text(
+        call.displayTitle,
+        style = when {
+            compact -> ParleyType.callerNameCompact
+            poster -> ParleyType.posterName
+            else -> ParleyType.callerName
+        },
+        color = MaterialTheme.colorScheme.onSurface,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        // Without the photo to tap, the poster's name opens the contact.
+        modifier = if (poster) {
+            Modifier.clickable(enabled = !call.hidden, onClickLabel = stringResource(R.string.incall_open_contact)) { onOpenContact(call) }
+        } else {
+            Modifier
+        },
+    )
+}
+
 /** TalkBack: while ringing, the caller's name offers answer, decline, reply, stop ringing and block as actions. */
 @Composable
 private fun ringingActions(call: CallUi, ended: Boolean, onReply: () -> Unit): Modifier {
@@ -165,34 +188,52 @@ private fun ringingActions(call: CallUi, ended: Boolean, onReply: () -> Unit): M
     }
 }
 
-/** The photo, inside the remaining-time ring when the call will be ended, with a slow halo while it rings. */
+/** The photo, inside the remaining-time ring when the call will be ended, in a slowly turning frame while it rings. */
 @Composable
 private fun CallerAvatar(call: CallUi, ended: Boolean, timing: CallTiming?, size: Dp, onOpenContact: (CallUi) -> Unit) {
     val ringing = call.state == CallState.RINGING && !ended
-    val still = ParleyMotion.reducedMotion()
-    val halo = MaterialTheme.colorScheme.primary
-    // Read only while drawing, so the halo redraws without recomposing the header; a still ring with animations off.
-    val breathing = if (ringing && !still) {
-        rememberInfiniteTransition(label = "halo").animateFloat(0f, 1f, infiniteRepeatable(tween(HALO_MS), RepeatMode.Restart), label = "t")
+    val dim by animateFloatAsState(if (!ended && call.state == CallState.HOLDING) HELD_ALPHA else 1f, ParleyMotion.effects(), label = "held")
+    CallTimeRing(if (ended) null else timing, size) {
+        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+            RingingFrame(ringing, size)
+            Avatar(
+                call.title, call.photoUri, size = size,
+                modifier = Modifier
+                    .alpha(dim)
+                    .clickable(enabled = !call.hidden, onClickLabel = stringResource(R.string.incall_open_contact)) { onOpenContact(call) },
+            )
+        }
+    }
+}
+
+/**
+ * Phone by Google's ringing avatar, kept calm: a scalloped cookie (Material 3 Expressive's [MaterialShapes]) a little
+ * larger than the photo, in a veil of the primary colour, turning once every [FRAME_TURN_MS] while the call rings and
+ * fading away once it's answered. The turn and the fade are read only in the layer's transform, so the header never
+ * recomposes and the shape's path is never rebuilt per frame; with Android's animations off the frame stands still.
+ * It overflows the photo's box without taking space, so the layout doesn't move when it goes.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun RingingFrame(ringing: Boolean, size: Dp) {
+    val shown = animateFloatAsState(if (ringing) 1f else 0f, ParleyMotion.slowEffects(), label = "frame")
+    val visible = ringing || shown.value > 0f
+    if (!visible) return
+    val turn = if (!ParleyMotion.reducedMotion()) {
+        rememberInfiniteTransition(label = "frame").animateFloat(0f, 360f, infiniteRepeatable(tween(FRAME_TURN_MS, easing = LinearEasing)), label = "turn")
     } else {
         null
     }
-    val dim by animateFloatAsState(if (!ended && call.state == CallState.HOLDING) HELD_ALPHA else 1f, ParleyMotion.effects(), label = "held")
-    CallTimeRing(if (ended) null else timing, size) {
-        Avatar(
-            call.title, call.photoUri, size = size,
-            modifier = Modifier
-                .alpha(dim)
-                .drawBehind {
-                    if (ringing) {
-                        val r = this.size.minDimension / 2
-                        val breathe = breathing?.value ?: 0f
-                        drawCircle(halo.copy(alpha = HALO_ALPHA * (1f - breathe)), radius = r * (1f + HALO_GROW * breathe))
-                    }
-                }
-                .clickable(enabled = !call.hidden, onClickLabel = stringResource(R.string.incall_open_contact)) { onOpenContact(call) },
-        )
-    }
+    val shape = MaterialShapes.Cookie9Sided.toShape()
+    Box(
+        Modifier
+            .requiredSize(size * FRAME_SCALE)
+            .graphicsLayer {
+                rotationZ = turn?.value ?: 0f
+                alpha = shown.value
+            }
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = FRAME_ALPHA), shape),
+    )
 }
 
 /** "Mobile · +44 20 …", or for an unknown number while it rings, "Not in your contacts · Leeds". */
@@ -409,7 +450,7 @@ private fun CallTimer(connectTime: Long) {
     val spoken = stringResource(R.string.incall_duration_description, spokenDuration(LocalResources.current, elapsed))
     // Tabular digits, so the pill doesn't wobble as the seconds tick.
     Text(
-        clockText(elapsed), style = MaterialTheme.typography.titleMedium.merge(TextStyle(fontFeatureSettings = "tnum")),
+        clockText(elapsed), style = ParleyType.callTimer,
         modifier = Modifier.semantics { contentDescription = spoken },
     )
 }
@@ -480,8 +521,14 @@ private fun MemoryLines(m: CallerMemory) {
     }
 }
 
-private const val HALO_MS = 1800
 private const val HELD_ALPHA = 0.55f
 private const val LOCAL_TIME_REFRESH_MS = 30_000L
-private const val HALO_ALPHA = 0.35f
-private const val HALO_GROW = 0.22f
+
+/** One slow turn of the ringing frame: calm, not a spinner. */
+private const val FRAME_TURN_MS = 24_000
+
+/** The frame's size against the photo's: its scallops show a little beyond the photo's edge. */
+private const val FRAME_SCALE = 1.24f
+
+/** The frame's veil of the primary colour, like the halo it replaces. */
+private const val FRAME_ALPHA = 0.32f

@@ -31,6 +31,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.R
 import app.parley.ui.Avatar
 import app.parley.ui.ParleyShapes
+import app.parley.ui.tabular
 
 /**
  * The picture-in-picture window: who, the timer (or the call's status, or hold mode's wait) and a Muted tag. Mute
@@ -74,7 +75,7 @@ private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
                     }
                 } else {
                     val elapsed by rememberCallSeconds(call.connectTimeMillis)
-                    Text(clockText(elapsed), style = MaterialTheme.typography.labelMedium, color = scheme.primary, maxLines = 1)
+                    Text(clockText(elapsed), style = MaterialTheme.typography.labelMedium.tabular(), color = scheme.primary, maxLines = 1)
                 }
                 if (audio.muted && call.isLive) {
                     Row(

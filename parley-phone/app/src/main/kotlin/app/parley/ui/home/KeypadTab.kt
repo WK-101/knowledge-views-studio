@@ -36,6 +36,7 @@ import app.parley.common.T9
 import app.parley.common.calls.CallPill
 import app.parley.common.calls.DialTarget
 import app.parley.common.calls.CallReason
+import app.parley.ui.ParleyType
 import app.parley.ui.menus.CallReasonFlow
 import app.parley.ui.menus.ReasonTarget
 import app.parley.common.ux.Tips
@@ -128,7 +129,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -674,7 +674,7 @@ private class FormattedNumber(private val countryIso: String) : OutputTransforma
 @Composable
 private fun NumberField(state: TextFieldState, countryIso: String, modifier: Modifier) {
     val long = state.text.length > 14
-    val style = MaterialTheme.typography.headlineMedium.copy(
+    val style = ParleyType.typedDigits.copy(
         fontSize = if (long) 24.sp else 32.sp,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurface,
@@ -801,7 +801,7 @@ private fun DialKey(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(digit, fontSize = digitSize, lineHeight = digitSize, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurface)
+        Text(digit, style = ParleyType.keypadDigit(digitSize), color = MaterialTheme.colorScheme.onSurface)
         val subStyle = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.8.sp)
         if (digit == "1") {
             Icon(Icons.Rounded.Voicemail, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

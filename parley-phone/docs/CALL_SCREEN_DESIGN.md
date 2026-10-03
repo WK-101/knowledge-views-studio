@@ -238,3 +238,47 @@ Left out: detecting driving by motion or location (no such permission), announci
 
 - **Spoken changes**: a polite live region says "Call connected", "On hold", "Call resumed" and "Call ended" (or why it ended) as the call changes; nothing when the screen opens, never the timer (`CallAnnouncements` in core:common, `CallAnnouncer.kt`).
 - **Voice Access on the slide control**: the red and green ends are named buttons for accessibility services only, so "tap Answer" and "tap Decline" work while a finger still has to slide. See [ACCESSIBILITY.md](ACCESSIBILITY.md).
+
+## Revision 5.2: polish
+
+Three changes in look only (COMPETITIVE_ANALYSIS_7 §8.4: D1, D2, D5); the call path, the grid and the controls are unchanged. Where this section and the specs above disagree, this section wins.
+
+### Ringing frame
+
+The breathing halo around the ringing caller is replaced by a **scalloped frame**: Material 3 Expressive's `MaterialShapes.Cookie9Sided` (a `RoundedPolygon` that ships with material3), 1.24 × the photo's size, in a 32% veil of `primary`, behind the photo or monogram. It turns once every **24 s** (linear, a calm drift, not a spinner) while the call rings and fades away (`ParleyMotion.slowEffects`) once it is answered or ends.
+
+- **Cheap**: the turn and the fade are read only in the frame's `graphicsLayer`, so the header never recomposes and the shape's outline is built once; no path work per frame.
+- **Still** when Android's animations are off (`ParleyMotion.reducedMotion`): the frame shows, standing.
+- **No layout shift**: the frame overflows the photo's box (`requiredSize`), so nothing moves when it goes.
+- Phone by Google clips the photo itself in a turning scallop; Parley keeps the photo round (a turning face is restless) and turns only the frame around it.
+- It sits on the same backgrounds as the halo did (tint, plain, a picture under its scrim) and isn't text, so no contrast rule changes. Two panes and landscape use the same header; the picture-in-picture window has no avatar.
+
+### Type
+
+Roles live in `core/ui` `ParleyType` (`ParleyType.kt`, unit-tested), so call sites don't tweak weights one by one. The emphasized styles are held to at least one step heavier than the plain scale (Medium for headlines and display, SemiBold for titles): the material3 release in use still gives its emphasized headlines the plain Regular weight. No bundled font: the system's own, with its weights (Roboto Flex would cost APK budget for a small gain).
+
+| Role | Style |
+|---|---|
+| Caller's name | `headlineLargeEmphasized` (same size as before, Medium weight) |
+| Name with the keypad open, the waiting call's name | `headlineSmallEmphasized` (replaces a per-site SemiBold) |
+| Name over a poster | `displayMediumEmphasized` |
+| Call timer in the status pill | `titleMediumEmphasized` (SemiBold), tabular |
+| Hold mode's waiting time | `displayMedium`, tabular |
+| Tones typed in a call and the in-call keys | `headlineMedium`, tabular |
+| Main keypad's number and digits | the number `headlineMedium` tabular at 32/24sp; the keys light, tabular (`ParleyType.keypadDigit`) |
+| Countdowns ("12:31 left", Call time's "Ends in", auto-answer's "Answering in 3 s", "On hold · 02:10", the picture-in-picture time) | their style, tabular (`TextStyle.tabular()`) |
+| Home title (Contacts, Recents, Favourites) | `headlineSmallEmphasized` |
+
+Tabular figures (`fontFeatureSettings = "tnum"`) keep every digit the same width, so a ticking time doesn't wobble. Top bars were checked: every `ParleyTopBar` title uses the kit's defaults (`titleLarge`, `headlineMedium` when large) with no weight of its own; only the home header sets a style, now from `ParleyType`.
+
+### Poster
+
+Settings › Calls › Answering › **Call screen background** gains a third choice, **Poster** (folded into the existing setting rather than a new one, as the settings ceiling asks): like *Caller's colour*, but for a caller with a **call-screen picture** the picture is the poster.
+
+- **Layout**: no photo (the picture is the caller); the name in `displayMedium` emphasized, centred, up to 2 lines, tappable to open the contact (the photo did that before); the rest of the header (secondary line, tags, status pill, caller card) under it as usual. The caller sits **at the bottom of the free space**, just above the controls, both while ringing and during the call, so the picture shows above the name.
+- **Scrim** (`CallBackdrop.posterStops`, unit-tested): the readable minimum (`CallBackdrop.scrimAlpha`, 4.5:1 for `onSurface` and `onSurfaceVariant` over any pixel) at the very top for the status bar's icons, clear from 32dp below the status bar, fading back in over 48dp above the caller's text, at least the minimum from the text's top edge down, and 96% behind the controls. The text's top edge is measured from the layout and read only while drawing.
+- **When it applies** (`CallBackdrop.plan` and `posterLayout`, unit-tested; `callBackdropPlan` in the call screen): the Poster style, a call-screen picture, and the one-column layout. Two panes (landscape, tablets), a short window, the open keypad and a waiting second call keep the classic layout over the same picture (opening the keypad closes the clear part smoothly). A likely-spam warning, the picture-in-picture window and a call masked on the lock screen never show a poster.
+- **Privacy follows the picture**: no picture means no poster. "Show contact photo on the call screen" off (or a contact's own *Hide*) hands the screen no picture; "Caller on the lock screen" masking removes it; private contacts have no call-screen picture and discreet mode shows them as a number. So each of those shows the classic layout.
+- Without a picture, Poster looks like *Caller's colour*.
+
+Left out: a poster made from the contact photo (usually too small to fill a screen sharply), video posters (Samsung), and the poster in two panes (the name would sit beside, not over, the picture).

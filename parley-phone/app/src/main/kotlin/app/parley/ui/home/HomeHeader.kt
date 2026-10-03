@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.ux.Tips
+import app.parley.ui.ParleyType
 import app.parley.ui.common.CoachMarkAnchor
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.BackButton
@@ -84,7 +85,7 @@ fun HomeHeader(
         } else {
             var menuOpen by rememberSaveable { mutableStateOf(false) }
             ParleyTopBar(
-                title = { Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(title, style = ParleyType.homeTitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     // A one-time tip under the search icon.
                     CoachMarkAnchor(Tips.HEADER_SEARCH, stringResource(R.string.ux_tip_search)) {

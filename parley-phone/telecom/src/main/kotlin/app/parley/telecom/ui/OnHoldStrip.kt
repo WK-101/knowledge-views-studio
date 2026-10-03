@@ -38,6 +38,7 @@ import app.parley.telecom.CallUi
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.ParleyShapes
+import app.parley.ui.tabular
 
 /**
  * "Ana on hold · 02:10" with Swap, Merge and End inline. Tapping the strip swaps, only when the call in front
@@ -77,7 +78,10 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(held.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(res.getString(R.string.incall_on_hold_for, clockText(heldFor)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(
+                    res.getString(R.string.incall_on_hold_for, clockText(heldFor)), style = MaterialTheme.typography.bodySmall.tabular(),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
             }
             if (canSwap) FilledTonalIconButton(onClick = swap) { Icon(Icons.Rounded.SwapCalls, res.getString(R.string.incall_swap_calls)) }
             if (canMerge) {

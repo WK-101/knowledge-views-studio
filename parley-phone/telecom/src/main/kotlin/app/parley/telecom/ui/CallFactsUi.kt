@@ -48,7 +48,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,6 +61,7 @@ import app.parley.ui.CallColors
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import app.parley.ui.rowColors
 import app.parley.ui.systemMessage
@@ -127,7 +127,7 @@ internal fun HoldModePanel(call: CallUi, onKeypad: () -> Unit) {
         }
         Text(
             clockText(waited),
-            style = MaterialTheme.typography.displayMedium.merge(TextStyle(fontFeatureSettings = "tnum")),
+            style = ParleyType.bigClock,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = Spacing.xs).semantics { contentDescription = spoken },
         )
