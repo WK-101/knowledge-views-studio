@@ -65,9 +65,12 @@ object OtherFields {
     }
 
     /** A work row's office location and job description (Organization.OFFICE_LOCATION, JOB_DESCRIPTION). */
-    fun workExtras(r: DataRow): List<Field> = listOfNotNull(
-        r["data9"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Office", it, r.mimeType) },
-        r["data6"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Job description", it, r.mimeType) },
+    fun workExtras(r: DataRow): List<Field> = workExtras(r["data9"], r["data6"])
+
+    /** The same two read-only lines from a contact's details (a private contact keeps them without a work row). */
+    fun workExtras(office: String?, jobDescription: String?): List<Field> = listOfNotNull(
+        office?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Office", it, Mime.ORG) },
+        jobDescription?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Job description", it, Mime.ORG) },
     )
 
     /** Any other kind: its first non-empty text column under a label made from the mimetype. */

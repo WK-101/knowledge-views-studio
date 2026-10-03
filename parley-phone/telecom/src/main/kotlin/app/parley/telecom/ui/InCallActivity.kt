@@ -31,6 +31,7 @@ import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
+import app.parley.telecom.DeclineBlock
 import app.parley.telecom.forLockScreen
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.R
@@ -42,6 +43,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 import app.parley.common.calls.CallWaiting
+import app.parley.common.calls.LockScreenCaller
 import app.parley.ui.systemMessage
 
 class InCallActivity : ComponentActivity() {
@@ -115,12 +117,7 @@ class InCallActivity : ComponentActivity() {
             fun shown(c: CallUi) = if (!locked) c else c.forLockScreen(look.lockScreenCaller, if (c.state == CallState.RINGING) incoming else ongoing)
             val shownCalls = remember(calls, locked, look.lockScreenCaller) { calls.map(::shown) }
             val shownEnded = remember(ended, locked, look.lockScreenCaller) { ended?.let(::shown) }
-            // Spoken only when the screen may show it: a call masked on the lock screen isn't announced by name either.
-            val spokenName = ringingCall?.takeIf { r -> shownCalls.none { it.id == r.id && it.lockMasked } }?.name?.takeIf { ringingCall.contactId != null }
-            if (look.speakCallerName) SpeakCallerName(ringingCall?.id, spokenName)
-            // "Blocked and declined" names the number only when its call isn't masked (unknown: masked to be safe).
-            val blockMasked = blockedHere != null && locked &&
-                look.lockScreenCaller.masks((calls + listOfNotNull(ended)).firstOrNull { it.id == blockedHere.callId }?.savedCaller ?: true)
+            if (look.speakCallerName) SpeakCallerName(ringingCall?.id, spokenName(ringingCall, shownCalls))
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
                 if (inPip) PipCallCard(shownCalls, audio, shownEnded, look.callBackground) else InCallScreen(
                     calls = shownCalls,
@@ -139,8 +136,7 @@ class InCallActivity : ComponentActivity() {
                         CallManager.dismissFailure(c.id)
                         if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
                     },
-                    declineBlock = blockedHere,
-                    declineBlockMasked = blockMasked,
+                    declineBlock = blockedHere?.let { masked(it, calls + listOfNotNull(ended), locked, look.lockScreenCaller) },
                     onUndoBlock = {
                         keepEnded = true
                         CallManager.undoDeclineBlock()
@@ -156,6 +152,17 @@ class InCallActivity : ComponentActivity() {
             }
         }
     }
+
+    /** The ringing contact's name to speak: none while the call is masked on the lock screen. */
+    private fun spokenName(ringing: CallUi?, shown: List<CallUi>): String? =
+        ringing?.takeIf { r -> r.contactId != null && shown.none { it.id == r.id && it.lockMasked } }?.name
+
+    /**
+     * "Blocked and declined" names the number only when its call isn't masked on the lock screen; a call no longer
+     * known counts as a saved caller, to be safe.
+     */
+    private fun masked(block: DeclineBlock, calls: List<CallUi>, locked: Boolean, mode: LockScreenCaller): DeclineBlock =
+        if (locked && mode.masks(calls.firstOrNull { it.id == block.callId }?.savedCaller ?: true)) block.copy(masked = true) else block
 
     /** Opens one of Parley's own screens without turning the call screen into a PiP window. */
     private fun startOwnScreen(intent: Intent) {

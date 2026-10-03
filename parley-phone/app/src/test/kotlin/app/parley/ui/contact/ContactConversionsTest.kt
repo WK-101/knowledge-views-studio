@@ -12,10 +12,12 @@ import androidx.test.core.app.ApplicationProvider
 import app.parley.common.circle.InteractionType
 import app.parley.common.people.ContactRef
 import app.parley.common.people.RelationLinks
+import app.parley.common.record.NewContactAccount
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
+import app.parley.data.DeviceAccounts
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeCallLogProvider
 import app.parley.data.testing.FakeContactsProvider
@@ -59,7 +61,10 @@ class ContactConversionsTest {
         c = DataContainer(context)
     }
 
-    @After fun tearDown() = c.scope.cancel()
+    @After fun tearDown() {
+        DeviceAccounts.newContactsOverride = null
+        c.scope.cancel()
+    }
 
     private fun picture(): Uri {
         val f = File(context.cacheDir, "bg.png")
@@ -277,6 +282,25 @@ class ContactConversionsTest {
         assertNotNull(c.people.backgrounds.forLookupKey(key))
         assertTrue(c.contactKeys.waitingKeys().isEmpty())
         assertNothingUnder(privateKey)
+    }
+
+    @Test fun make_visible_names_the_account_android_16_really_put_it_in() = runBlocking {
+        val google = AccountRef("com.google", "ana@example.org")
+        val (phoneId, _) = ada()
+        val grace = ContactDetails(given = "Grace", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE)))
+        val inCloud = c.contacts.save(null, grace, google, null, false)!!.contactId
+        val conversions = ContactConversions(c)
+        val phoneOnly = conversions.makePrivate(phoneId, c.contacts.details(phoneId)!!)
+        val cloudCopy = conversions.makePrivate(inCloud, c.contacts.details(inCloud)!!)
+        // Android 16 with a cloud default: it refuses the phone.
+        provider.refusePhoneOnlyInserts = true
+        val default = NewContactAccount.SystemDefault(NewContactAccount.State.CLOUD, google)
+        DeviceAccounts.newContactsOverride = { DeviceAccounts.NewContacts(36, default, DeviceAccounts.localAccount(it)) }
+        val made = conversions.makeVisible(phoneOnly.vaultId, c.vault.details(phoneOnly.vaultId)!!, AccountRef(null, null))
+        assertEquals(google, (made as ContactConversions.MadeVisible.Done).redirectedTo)
+        // Its own copy was in that account already: nothing was redirected, so nothing to say.
+        val back = conversions.makeVisible(cloudCopy.vaultId, c.vault.details(cloudCopy.vaultId)!!, AccountRef(null, null))
+        assertNull((back as ContactConversions.MadeVisible.Done).redirectedTo)
     }
 
     @Test fun private_calls_go_back_before_the_entry_goes_or_nothing_changes() = runBlocking {

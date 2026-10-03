@@ -138,13 +138,21 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
         val c = runCatching {
             cr.query(
                 Calls.CONTENT_URI,
-                arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID, Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME, Calls.NEW, Calls.IS_READ),
+                arrayOf(
+                    Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID,
+                    Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME, Calls.NEW, Calls.IS_READ, Calls.FEATURES,
+                ),
                 null, null, Calls.DATE + " ASC",
             )
         }.getOrNull() ?: return@sequence
         c.use {
             while (it.moveToNext()) {
-                yield(CallLogRecord(it.getString(0), it.getLong(1), it.getLong(2), it.getInt(3), it.getInt(4), it.getString(5), it.getString(6), it.getString(7), it.getInt(8) != 0, it.getInt(9) != 0))
+                yield(
+                    CallLogRecord(
+                        it.getString(0), it.getLong(1), it.getLong(2), it.getInt(3), it.getInt(4), it.getString(5), it.getString(6), it.getString(7),
+                        it.getInt(8) != 0, it.getInt(9) != 0, it.getInt(10),
+                    ),
+                )
             }
         }
     }
@@ -174,6 +182,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
                 put(Calls.CACHED_NAME, rec.name)
                 put(Calls.NEW, if (rec.isNew) 1 else 0)
                 put(Calls.IS_READ, if (rec.isRead) 1 else 0)
+                put(Calls.FEATURES, rec.features)
             }
         }.toTypedArray()
         runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)

@@ -120,19 +120,23 @@ class BulkContactActions(private val c: DataContainer) {
     /** The vault must be unlocked before the batch can go on with [remaining]; [soFar] is what happened until then. */
     class BulkLocked(val soFar: MovedPrivate, val remaining: List<Long>, cause: VaultCrypto.LockedException) : Exception(cause.message, cause)
 
+    /** What a bulk "Make visible" did: how many [made] it, and the cloud accounts Android 16 put some of them in. */
+    data class MadeVisible(val made: Int, val redirectedTo: Set<AccountRef> = emptySet())
+
     /**
      * Makes the private ones among [ids] visible to other apps (lossless, like the page's "Make visible"), into
      * [account] when one wasn't kept. Throws [VaultCrypto.LockedException] before changing anything when the vault must
-     * be unlocked first. Returns how many were made visible.
+     * be unlocked first.
      */
-    suspend fun makeVisible(ids: Collection<Long>, account: AccountRef): Int {
+    suspend fun makeVisible(ids: Collection<Long>, account: AccountRef): MadeVisible {
         val vaultIds = BulkActions.targets(BulkAction.MAKE_VISIBLE, ids).ids.map { -it }
-        if (vaultIds.isEmpty()) return 0
+        if (vaultIds.isEmpty()) return MadeVisible(0)
         // Read them all first: a locked vault stops the whole batch rather than half of it.
         val details = vaultIds.associateWith { c.vault.details(it) }
         val conversions = ContactConversions(c)
-        return details.count { (v, d) ->
-            d != null && suspendRunCatching { conversions.makeVisible(v, d, account) }.getOrNull() is ContactConversions.MadeVisible.Done
+        val done = details.mapNotNull { (v, d) ->
+            d?.let { suspendRunCatching { conversions.makeVisible(v, it, account) }.getOrNull() as? ContactConversions.MadeVisible.Done }
         }
+        return MadeVisible(done.size, done.mapNotNull { it.redirectedTo }.toSet())
     }
 }

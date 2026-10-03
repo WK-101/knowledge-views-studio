@@ -625,7 +625,7 @@ object CallManager {
             number = number,
             hidden = hidden,
             name = found?.name ?: d.contactDisplayNameCompat() ?: d.callerDisplayName?.takeIf { it.isNotBlank() },
-            savedCaller = found != null || d.contactDisplayNameCompat() != null,
+            savedCaller = savedCaller(found, d),
             label = found?.label,
             photoUri = found?.photoUri,
             backgroundUri = found?.backgroundUri,
@@ -680,6 +680,9 @@ object CallManager {
             driving = drivingNow(state),
         ).withRangThrough(s)
     }
+
+    /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
+    private fun savedCaller(found: CallerDisplay?, d: Call.Details): Boolean = found != null || d.contactDisplayNameCompat() != null
 
     /** Why a call rings silently when it isn't a blocking rule: an allowance used up, or the drive profile (I11). */
     private fun silenceReasonOf(s: CallSession): String? = when {

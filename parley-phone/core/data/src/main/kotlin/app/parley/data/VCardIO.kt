@@ -173,9 +173,11 @@ class VCardIO(
         fun flush() {
             if (pending.isEmpty()) return
             // Imported photos are resized, turned upright and cropped like the editor's.
-            val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true)
+            // The report says where Android 16 put them when it refused the account chosen.
+            val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true, announceRedirect = false)
             results.forEachIndexed { i, res ->
                 if (res.contactId != null) report.imported++
+                res.redirectedTo?.let { report.savedInstead = it.displayLabel }
                 res.error?.let { report.fail(pending[i].index, it, pending[i].raw) }
             }
             pending.clear()

@@ -42,7 +42,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.R
-import app.parley.ui.people.rememberMyCard
+import app.parley.ui.people.rememberCardForSending
 import app.parley.common.ContactSummary
 import app.parley.common.NumberText
 import app.parley.common.messaging.IntroQueue
@@ -101,7 +101,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
     var awaitingReturn by rememberSaveable { mutableStateOf(false) }
     var editDetails by remember { mutableStateOf(false) }
     // My card's name and first number, as "Send my details" uses them.
-    val myCard = rememberMyCard(vm.c.people)
+    val myCard = rememberCardForSending(vm.c.people)
     val res = LocalResources.current
     val draft = MessagingText.myDetails(res, myCard.name, myCard.firstNumber)
     val installed = remember { MessengerLauncher.installed(context) }

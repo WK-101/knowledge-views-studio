@@ -110,7 +110,7 @@
     <ID>CyclomaticComplexMethod:ContactsChips.kt$@Composable fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
-    <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult?</ID>
+    <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$suspend fun save( original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean, announceRedirect: Boolean = true, ): SaveResult?</ID>
     <ID>CyclomaticComplexMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:ContentDiff.kt$ContentDiff$fun plan(current: List&lt;Existing&gt;, desired: List&lt;DataRow&gt;, userGroupIds: Set&lt;Long&gt;): Plan</ID>
     <ID>CyclomaticComplexMethod:CsvColumnMapping.kt$CsvColumnMapping$fun guess(header: List&lt;String&gt;?, sample: List&lt;List&lt;String&gt;&gt;): List&lt;ColumnTarget&gt;</ID>
@@ -314,7 +314,7 @@
     <ID>LongMethod:ContactPageSettings.kt$@Composable private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayout) -&gt; Unit)</ID>
     <ID>LongMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
     <ID>LongMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
-    <ID>LongMethod:ContactsRepository.kt$ContactsRepository$suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult?</ID>
+    <ID>LongMethod:ContactsRepository.kt$ContactsRepository$suspend fun save( original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean, announceRedirect: Boolean = true, ): SaveResult?</ID>
     <ID>LongMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>LongMethod:CsvMappingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CsvMappingScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:DetailPeople.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -&gt; Unit, onChanged: (Long?) -&gt; Unit)</ID>

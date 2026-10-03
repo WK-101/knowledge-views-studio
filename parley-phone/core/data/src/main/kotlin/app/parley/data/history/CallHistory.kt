@@ -436,11 +436,17 @@ class CallHistory(
         try {
             cr.query(
                 Calls.CONTENT_URI,
-                arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID, Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME),
+                arrayOf(
+                    Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID,
+                    Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME, Calls.FEATURES,
+                ),
                 since?.let { "${Calls.DATE} >= ?" }, since?.let { arrayOf(it.toString()) }, Calls.DATE + " DESC",
             )?.use { c ->
                 while (c.moveToNext()) {
-                    out += CallLogRecord(c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3), c.getInt(4), c.getString(5), c.getString(6), c.getString(7), isNew = false, isRead = true)
+                    out += CallLogRecord(
+                        c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3), c.getInt(4), c.getString(5), c.getString(6), c.getString(7),
+                        isNew = false, isRead = true, features = c.getInt(8),
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -793,12 +799,13 @@ class CallHistory(
         accountId = accountId,
         isNew = false,
         presentationHidden = presentation != Calls.PRESENTATION_ALLOWED || number.isNullOrBlank(),
+        video = (features and Calls.FEATURES_VIDEO) != 0,
     )
 
     private fun CallEntry.toRecord() = CallLogRecord(
         number = number, date = date, duration = durationSec, type = ProviderColumns.typeOf(type),
         presentation = if (presentationHidden) Calls.PRESENTATION_RESTRICTED else Calls.PRESENTATION_ALLOWED,
-        accountId = accountId, name = cachedName, isNew = false, isRead = true,
+        accountId = accountId, name = cachedName, isNew = false, isRead = true, features = if (video) Calls.FEATURES_VIDEO else 0,
     )
 
     private fun CallLogRecord.toValues() = ContentValues().apply {
@@ -810,6 +817,7 @@ class CallHistory(
         put(Calls.PHONE_ACCOUNT_ID, accountId)
         put(Calls.PHONE_ACCOUNT_COMPONENT_NAME, accountComponent)
         put(Calls.CACHED_NAME, name)
+        put(Calls.FEATURES, features)
         // Restored history is not news: no badge, no notification.
         put(Calls.NEW, 0)
         put(Calls.IS_READ, 1)
@@ -818,12 +826,16 @@ class CallHistory(
     private fun encode(r: CallLogRecord): String = JSONObject()
         .put("n", r.number ?: JSONObject.NULL).put("d", r.date).put("s", r.duration).put("t", r.type).put("p", r.presentation)
         .put("a", r.accountId ?: JSONObject.NULL).put("c", r.accountComponent ?: JSONObject.NULL).put("m", r.name ?: JSONObject.NULL)
+        .apply { if (r.features != 0) put("f", r.features) }
         .toString()
 
     private fun decode(s: String): CallLogRecord {
         val o = JSONObject(s)
         fun str(k: String) = if (o.isNull(k)) null else o.optString(k)
-        return CallLogRecord(str("n"), o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1), str("a"), str("c"), str("m"), isNew = false, isRead = true)
+        return CallLogRecord(
+            str("n"), o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1), str("a"), str("c"), str("m"),
+            isNew = false, isRead = true, features = o.optInt("f"),
+        )
     }
 
     companion object {
@@ -845,6 +857,6 @@ class CallHistory(
 
         /** A private (vault) call as a history row; its id is the negated private-call id. */
         fun privateEntry(p: PrivateCall): CallEntry =
-            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
+            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false, video = p.video)
     }
 }

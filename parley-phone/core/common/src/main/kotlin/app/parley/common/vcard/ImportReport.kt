@@ -18,6 +18,8 @@ data class ImportReport(
     val skippedDuplicates: Int = 0,
     val failures: List<CardFailure> = emptyList(),
     val unmappedProperties: Map<String, Int> = emptyMap(),
+    /** The account Android put the contacts in instead of the one chosen (Android 16's cloud default), as shown. */
+    val savedInstead: String? = null,
 ) {
     val cardsFailed: Int get() = failures.size
 
@@ -52,6 +54,7 @@ class ImportReportBuilder {
     var skippedDuplicates = 0
     val failures = ArrayList<CardFailure>()
     val unmapped = LinkedHashMap<String, Int>()
+    var savedInstead: String? = null
 
     fun unmapped(name: String, count: Int = 1) {
         unmapped[name] = (unmapped[name] ?: 0) + count
@@ -61,7 +64,7 @@ class ImportReportBuilder {
         failures += CardFailure(index, reason, snippet(raw))
     }
 
-    fun build() = ImportReport(cardsParsed, imported, skippedDuplicates, failures.toList(), unmapped.toMap())
+    fun build() = ImportReport(cardsParsed, imported, skippedDuplicates, failures.toList(), unmapped.toMap(), savedInstead)
 
     companion object {
         const val SNIPPET_CHARS = 300

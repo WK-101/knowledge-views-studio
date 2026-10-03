@@ -32,12 +32,13 @@ import app.parley.ui.Bidi
 import app.parley.ui.ParleyShapes
 
 /**
- * After "Block & decline": what happened, and Undo while the rule is Parley's own new one. [masked]: the call was
- * masked on the lock screen, so the card says "this number" instead of showing it.
+ * After "Block & decline": what happened, and Undo while the rule is Parley's own new one. A call masked on the lock
+ * screen ([DeclineBlock.masked]) gets "this number" instead of the number.
  */
 @Composable
-internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit, masked: Boolean = false) {
+internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit) {
     val number = Bidi.ltr(block.number)
+    val masked = block.masked
     val (title, body) = when {
         block.pending -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_pending)
         block.undone -> stringResource(R.string.decline_title) to

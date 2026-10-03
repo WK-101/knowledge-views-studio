@@ -214,4 +214,6 @@ data class DeclineBlock(
     val pending: Boolean = false,
     /** The call was answered elsewhere (a headset) while the rule was written: blocked, but not declined. */
     val answered: Boolean = false,
+    /** Its call is masked on the lock screen: the card says "this number" rather than showing it. */
+    val masked: Boolean = false,
 )

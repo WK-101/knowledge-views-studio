@@ -169,9 +169,8 @@ fun InCallScreen(
     failed: CallUi? = null,
     onRetry: (CallUi) -> Unit = {},
     onDismissFailure: (CallUi) -> Unit = {},
-    /** The call just declined with "Block & decline" (Undo), and whether its number stays out of sight (lock screen). */
+    /** The call just declined with "Block & decline" (Undo). */
     declineBlock: DeclineBlock? = null,
-    declineBlockMasked: Boolean = false,
     onUndoBlock: () -> Unit = {},
     /** Simple mode: large buttons and (optionally) a question before declining. */
     simple: Boolean = false,
@@ -196,8 +195,7 @@ fun InCallScreen(
     val sheets = remember { InCallSheets() }
     LoadFamilyCallState(primary, sheets.family)
     val screen = ScreenState(
-        live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock,
-        declineBlockMasked = declineBlockMasked, audio = audio,
+        live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock, audio = audio,
         keypadOpen = keypadOpen, incoming = IncomingPrefs(answerGesture, simple, confirmDecline),
     )
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -264,7 +262,6 @@ private class ScreenState(
     val ended: CallUi?,
     val failed: CallUi?,
     val declineBlock: DeclineBlock?,
-    val declineBlockMasked: Boolean,
     val audio: AudioUi,
     val keypadOpen: Boolean,
     val incoming: IncomingPrefs,
@@ -328,7 +325,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     // A call just declined with "Block & decline" while another call goes on: Undo stays at hand.
     if (primary != null && s.declineBlock != null) {
         Spacer(Modifier.height(Spacing.m))
-        DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { CallManager.dismissDeclineBlock() }, masked = s.declineBlockMasked)
+        DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { CallManager.dismissDeclineBlock() })
     }
     s.others.forEach { other ->
         if (other.state == CallState.HOLDING) OnHoldStrip(other, primary) else OtherCallBanner(other)
@@ -390,7 +387,7 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
             ended != null && ended.drop != null ->
                 DropCard(ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl))
             // "Blocked and declined", with Undo.
-            s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) }, masked = s.declineBlockMasked)
+            s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })
             // Block, save, message or report an unknown number right after the call.
             ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = a.onPostCall)
             // "Anything to remember?" after a call with a contact (opt-in).

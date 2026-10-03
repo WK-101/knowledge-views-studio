@@ -9,6 +9,9 @@ import android.provider.ContactsContract.RawContacts
 import androidx.annotation.VisibleForTesting
 import app.parley.common.record.AccountKinds
 import app.parley.common.record.NewContactAccount
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * Which contacts accounts exist on this device and which Parley may write to. One place for the rules
@@ -59,6 +62,19 @@ object DeviceAccounts {
         fun target(requested: AccountRef?): AccountRef = decide(requested).account
 
         fun offered(targets: List<AccountRef>): List<AccountRef> = NewContactAccount.offered(targets, sdk, default, local)
+    }
+
+    private val redirectsFlow = MutableSharedFlow<AccountRef>(extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /**
+     * Each time Android 16 took a new contact into its cloud default instead of the account asked for (a save, an
+     * import, a restore, an undo), so the app can say where it went. Writes that tell the user themselves (Make visible,
+     * the import report) don't report here.
+     */
+    val redirects: SharedFlow<AccountRef> = redirectsFlow
+
+    internal fun noteRedirect(to: AccountRef) {
+        redirectsFlow.tryEmit(to)
     }
 
     /** Replaces the device's answer in tests: Robolectric has no Android 16 Contacts Provider. */

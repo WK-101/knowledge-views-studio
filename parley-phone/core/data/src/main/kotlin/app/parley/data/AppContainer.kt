@@ -316,6 +316,8 @@ class DataContainer(context: Context) {
         runCatching { vault }
         runCatching { history }
         runCatching { people }
+        // My card: built here so the one-time fold-in of the old "My details" writes on IO, not on the first screen.
+        runCatching { people.me }
         runCatching { directory }
     }
 

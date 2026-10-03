@@ -723,9 +723,18 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     /**
      * Saves [edited]. When [original] is null a new raw contact is created in [account].
-     * Returns the aggregate contact id and the raw contact written.
+     * Returns the aggregate contact id and the raw contact written. A new contact Android 16 put into its cloud
+     * default instead is reported in [SaveResult.redirectedTo] and, unless [announceRedirect] is false (the caller
+     * says so itself), on [DeviceAccounts.redirects].
      */
-    suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult? =
+    suspend fun save(
+        original: ContactDetails?,
+        edited: ContactDetails,
+        account: AccountRef?,
+        photo: Uri?,
+        removePhoto: Boolean,
+        announceRedirect: Boolean = true,
+    ): SaveResult? =
         withContext(Dispatchers.IO) {
             val expected = original?.editRawVersion
             val versioned = original?.editRawId?.takeIf { expected != null }
@@ -823,7 +832,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             }
             val orgAction = WorkRow.action(
                 exists = orgId != null,
-                editedBlank = edited.company.isBlank() && edited.title.isBlank() && edited.department.isBlank(),
+                // A new row also counts the office and job description it carries (a private contact made visible
+                // may hold only those); an existing row's are the provider's, kept as they are.
+                editedBlank = edited.company.isBlank() && edited.title.isBlank() && edited.department.isBlank() &&
+                    (orgId != null || (edited.officeLocation.isBlank() && edited.jobDescription.isBlank())),
                 same = o != null && t(o.company) == t(edited.company) && t(o.title) == t(edited.title) && t(o.department) == t(edited.department),
                 holdsOthers = orgId != null && workRowHoldsOthers(orgId),
             )
@@ -966,7 +978,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 val key = contactId?.let { id -> cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }
                 writeLog.version(cr, finalRawId)?.let { v -> writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
             }
-            contactId?.let { SaveResult(it, finalRawId, redirectedTo) }
+            contactId?.let { SaveResult(it, finalRawId, redirectedTo) }?.also { r -> if (announceRedirect) r.redirectedTo?.let(DeviceAccounts::noteRedirect) }
         }
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */
@@ -1324,23 +1336,22 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      * to nothing.
      */
     fun resolveContactId(uri: Uri): Long? = try {
-        val seg = uri.pathSegments
-        val rowId = seg.getOrNull(1)?.toLongOrNull()
+        val seg = uri.pathSegments.takeIf { uri.authority == ContactsContract.AUTHORITY }.orEmpty()
+        val rawId = seg.getOrNull(1)?.toLongOrNull()?.takeIf { seg.first() == "raw_contacts" }
+        // data/<id>, data/phones/<id>, data/emails/<id>…
+        val dataId = seg.lastOrNull()?.toLongOrNull()?.takeIf { seg.first() == "data" && seg.size > 1 }
         when {
-            uri.authority == ContactsContract.AUTHORITY && seg.firstOrNull() == "raw_contacts" && rowId != null ->
-                cr.safeQuery(
-                    ContentUris.withAppendedId(RawContacts.CONTENT_URI, rowId), arrayOf(RawContacts.CONTACT_ID), "${RawContacts.DELETED} = 0", null,
-                )?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
-            // data/<id>, data/phones/<id>, data/emails/<id>…
-            uri.authority == ContactsContract.AUTHORITY && seg.firstOrNull() == "data" && seg.size > 1 && seg.last().toLongOrNull() != null ->
-                cr.safeQuery(ContentUris.withAppendedId(Data.CONTENT_URI, seg.last().toLong()), arrayOf(Data.CONTACT_ID))
-                    ?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
-            else -> Contacts.lookupContact(cr, uri)?.let { ContentUris.parseId(it) }
-                ?: cr.safeQuery(uri, arrayOf(Data.CONTACT_ID))?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+            rawId != null -> firstLong(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), RawContacts.CONTACT_ID, "${RawContacts.DELETED} = 0")
+            dataId != null -> firstLong(ContentUris.withAppendedId(Data.CONTENT_URI, dataId), Data.CONTACT_ID)
+            else -> Contacts.lookupContact(cr, uri)?.let { ContentUris.parseId(it) } ?: firstLong(uri, Data.CONTACT_ID)
         }
     } catch (_: Exception) {
         null
     }
+
+    /** The first row's [column] at [uri] as a number, or null when there is none. */
+    private fun firstLong(uri: Uri, column: String, selection: String? = null): Long? =
+        cr.safeQuery(uri, arrayOf(column), selection)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
 }
 
 internal fun ContentResolver.safeQuery(

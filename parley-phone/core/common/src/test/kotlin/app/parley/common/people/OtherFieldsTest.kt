@@ -32,4 +32,13 @@ class OtherFieldsTest {
         )
         assertEquals(emptyList<OtherFields.Field>(), OtherFields.describe(listOf(DataRow(Mime.ORG, mapOf("data1" to "Acme")))))
     }
+
+    @Test fun a_private_contacts_office_and_job_description_show_from_its_details() {
+        assertEquals(
+            listOf("Office" to "Room 4", "Job description" to "Builds rockets"),
+            OtherFields.workExtras(" Room 4 ", "Builds rockets").map { it.label to it.value },
+        )
+        assertEquals(listOf("Job description"), OtherFields.workExtras("", "Builds rockets").map { it.label })
+        assertEquals(emptyList<OtherFields.Field>(), OtherFields.workExtras(null, " "))
+    }
 }

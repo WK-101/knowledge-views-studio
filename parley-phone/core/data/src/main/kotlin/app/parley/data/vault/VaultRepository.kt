@@ -88,7 +88,26 @@ data class VaultCallerCard(
     val pronouns: String? = null,
 )
 
-data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val name: String, val date: Long, val durationSec: Long, val type: Int)
+data class PrivateCall(
+    val id: Long,
+    val vaultId: Long,
+    val number: String,
+    val name: String,
+    val date: Long,
+    val durationSec: Long,
+    val type: Int,
+    /** Android logged it as a video call (kept sealed with the number; false for calls stored before it was). */
+    val video: Boolean = false,
+)
+
+/** The private call sealed in this row, or null when it can't be opened now. */
+private fun PrivateCallEntity.opened(): PrivateCall? = runCatching {
+    val o = JSONObject(String(VaultCrypto.openCallerId(blob)))
+    PrivateCall(id, vaultId, o.optString("n"), o.optString("name"), date, durationSec, type, o.optBoolean("v"))
+}.getOrNull()
+
+/** A call-log row's FEATURES say it was a video call. */
+private fun isVideo(features: Int): Boolean = (features and CallLog.Calls.FEATURES_VIDEO) != 0
 
 /**
  * [VaultRepository.hasCallChoices] without building the vault: false until it has been read. A call in a process
@@ -149,14 +168,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     val privateCalls: StateFlow<List<PrivateCall>> = dao.privateCalls()
-        .map { list ->
-            list.mapNotNull { c ->
-                runCatching {
-                    val o = JSONObject(String(VaultCrypto.openCallerId(c.blob)))
-                    PrivateCall(c.id, c.vaultId, o.optString("n"), o.optString("name"), c.date, c.durationSec, c.type)
-                }.getOrNull()
-            }
-        }
+        .map { list -> list.mapNotNull { it.opened() } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
@@ -927,7 +939,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         try {
             cr.query(
                 CallLog.Calls.CONTENT_URI,
-                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE),
+                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE, CallLog.Calls.FEATURES),
                 "${CallLog.Calls.DATE} >= ?", arrayOf(sinceMillis.toString()), null,
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -935,9 +947,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     val hit = lookup(number) ?: continue
                     // A contact being made visible: its calls are going back to this log, never into its private history.
                     if (hit.first in leaving) continue
-                    val date = c.getLong(2)
-                    val type = c.getInt(4)
-                    val stored = runCatching { storePrivateCall(hit.first, number, hit.second.name, date, c.getLong(3), type) }.getOrDefault(false)
+                    val (date, type) = c.getLong(2) to c.getInt(4)
+                    val video = isVideo(c.getInt(5))
+                    val stored = runCatching { storePrivateCall(hit.first, number, hit.second.name, date, c.getLong(3), type, video) }.getOrDefault(false)
                     if (!stored) continue
                     ids += c.getLong(0)
                     moved++
@@ -953,13 +965,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * Stores one private call unless it is already there (a sweep retried, a restore run twice). True when the call is
      * now stored, whether by this call or before.
      */
-    suspend fun storePrivateCall(vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int): Boolean = withContext(Dispatchers.IO) {
-        // Rows from before the dedupe key have none: count those by their columns.
-        if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
-        val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", name).toString().toByteArray())
-        dao.addPrivateCall(PrivateCallEntity(vaultId = vaultId, blob = blob, date = date, durationSec = durationSec, type = type, dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type)))
-        true
-    }
+    suspend fun storePrivateCall(vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int, video: Boolean = false): Boolean =
+        withContext(Dispatchers.IO) {
+            // Rows from before the dedupe key have none: count those by their columns.
+            if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
+            val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", name).apply { if (video) put("v", true) }.toString().toByteArray())
+            dao.addPrivateCall(PrivateCallEntity(vaultId = vaultId, blob = blob, date = date, durationSec = durationSec, type = type, dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type)))
+            true
+        }
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
 
@@ -1002,12 +1015,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /** The private calls of entry [vaultId], read straight from the database (backup). */
     suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) {
-        dao.allPrivateCalls().filter { it.vaultId == vaultId }.mapNotNull { c ->
-            runCatching {
-                val o = JSONObject(String(VaultCrypto.openCallerId(c.blob)))
-                PrivateCall(c.id, c.vaultId, o.optString("n"), o.optString("name"), c.date, c.durationSec, c.type)
-            }.getOrNull()
-        }
+        dao.allPrivateCalls().filter { it.vaultId == vaultId }.mapNotNull { it.opened() }
     }
 
     /** How many private calls entry [vaultId] holds, whether or not each can be opened now. */

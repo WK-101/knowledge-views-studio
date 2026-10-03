@@ -107,7 +107,7 @@ class BulkContactActionsTest {
         bulk.star(ids, true)
 
         // Only Ada is converted; she arrives with her star and her label as the address book's own.
-        assertEquals(1, bulk.makeVisible(ids, AccountRef(null, null)))
+        assertEquals(1, bulk.makeVisible(ids, AccountRef(null, null)).made)
         assertTrue(c.vault.summariesNow().isEmpty())
         val visible = c.contacts.snapshot().first { it.displayName == "Ada" }.id
         assertTrue("Team" in c.contacts.labelTitlesOf(visible))

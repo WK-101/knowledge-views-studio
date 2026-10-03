@@ -50,7 +50,10 @@ class PeopleContainer(private val c: DataContainer) {
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
     val diagnostics by lazy { Diagnostics(c.appContext) }
 
-    /** Your own card. The old "My details" is folded into it the first time it's used, so there's one copy. */
+    /**
+     * Your own card. The old "My details" is folded into it the first time it's used, so there's one copy: written to
+     * disk first, then the old copy is forgotten. [DataContainer.warmStores] builds it on IO at start-up.
+     */
     val me by lazy {
         MeCardStore(c.appContext).also { store ->
             c.messaging.legacyMyDetails()?.let { old ->
