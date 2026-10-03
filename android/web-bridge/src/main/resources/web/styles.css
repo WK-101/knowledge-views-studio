@@ -494,6 +494,14 @@ body {
 .modal input:focus, .modal textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
 .modal input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 
+.note-read {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  color: var(--ink);
+  margin: 0 0 12px;
+}
+
 .attachments { margin-bottom: 12px; }
 .att-h {
   margin: 4px 0 8px;

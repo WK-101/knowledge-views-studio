@@ -8,6 +8,8 @@ import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.web.bridge.DataBridgeClient
 import com.wkhan.hexis.web.crypto.CryptoBox
+import com.wkhan.hexis.web.pairing.ClientPresence
+import com.wkhan.hexis.web.pairing.WebClient
 
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -38,12 +40,13 @@ import java.util.concurrent.ConcurrentHashMap
 class WebServer(
     private val appContext: Context,
     private val port: Int,
-    private val aeadKey: ByteArray,
+    private val clients: () -> List<WebClient>,
     private val dataClient: DataBridgeClient,
     private val changeHub: ChangeHub,
 ) {
     @Volatile private var engine: ApplicationEngine? = null
     private val seenNonces = ConcurrentHashMap<String, Long>()
+    private val aeadCache = ConcurrentHashMap<String, ByteArray>() // keyB64 → derived AEAD key
 
     fun start() {
         if (engine != null) return
@@ -74,15 +77,34 @@ class WebServer(
         val body = runCatching { receiveText() }.getOrNull()
         if (body.isNullOrBlank()) { respond(HttpStatusCode.BadRequest, "empty"); return }
 
+        // Identify the caller by trying each live client's key: a body only opens under the key of a client
+        // that still exists (revoked / expired clients can't be matched → locked out instantly).
+        val match = matchClient(body)
+        if (match == null) { respond(HttpStatusCode.Unauthorized, "unauthorized"); return }
+        val (client, plaintext) = match
+        val key = aeadKeyFor(client)
+        ClientPresence.mark(client.id)
+
         val req = try {
-            BridgeCodec.decodeString<ApiRequest>(CryptoBox.openText(aeadKey, body))
+            BridgeCodec.decodeString<ApiRequest>(plaintext)
         } catch (t: Throwable) {
-            // Tag failed / not encrypted with our key / malformed → unauthenticated.
-            respond(HttpStatusCode.Unauthorized, "unauthorized")
-            return
+            respond(HttpStatusCode.BadRequest, "malformed"); return
         }
 
         if (!freshAndUnseen(req.ts, req.nonce)) { respond(HttpStatusCode.Forbidden, "replay"); return }
+
+        // A read-only client (a share link) may read and long-poll, never mutate.
+        if (client.readOnly && req.kind == KIND_MUTATE) {
+            respondText(CryptoBox.sealText(key, BridgeCodec.encodeString(ApiResponse(ok = false, error = "read_only"))))
+            return
+        }
+
+        // "hello" lets the browser learn its own access (read-only?) so it can hide edit controls up front.
+        if (req.kind == KIND_HELLO) {
+            val hello = BridgeCodec.encodeString(HelloInfo(readOnly = client.readOnly, name = client.name))
+            respondText(CryptoBox.sealText(key, BridgeCodec.encodeString(ApiResponse(ok = true, dataJson = hello))))
+            return
+        }
 
         // "await" is a long-poll over the live-change hub — it holds the request until a change or timeout,
         // reusing this same end-to-end-encrypted channel instead of a separate (weaker) SSE socket.
@@ -90,7 +112,7 @@ class WebServer(
             val since = decodeVersions(req.paramsJson)
             val now = changeHub.await(since, AWAIT_MS)
             val api = ApiResponse(ok = true, dataJson = now?.let { BridgeCodec.encodeString(it) })
-            respondText(CryptoBox.sealText(aeadKey, BridgeCodec.encodeString(api)))
+            respondText(CryptoBox.sealText(key, BridgeCodec.encodeString(api)))
             return
         }
 
@@ -104,9 +126,21 @@ class WebServer(
         } else {
             ApiResponse(ok = resp.ok, dataJson = resp.payloadJson, error = resp.error?.let { it.message ?: it.type.name })
         }
-        // Encrypt the response with the same key so only the paired browser can read it.
-        respondText(CryptoBox.sealText(aeadKey, BridgeCodec.encodeString(api)))
+        // Encrypt the response with the matched client's key so only that paired browser can read it.
+        respondText(CryptoBox.sealText(key, BridgeCodec.encodeString(api)))
     }
+
+    /** First live client whose key opens [body]; also returns the decrypted plaintext (so we open once). */
+    private fun matchClient(body: String): Pair<WebClient, String>? {
+        for (client in clients()) {
+            val plaintext = runCatching { CryptoBox.openText(aeadKeyFor(client), body) }.getOrNull()
+            if (plaintext != null) return client to plaintext
+        }
+        return null
+    }
+
+    private fun aeadKeyFor(client: WebClient): ByteArray =
+        aeadCache.getOrPut(client.keyB64) { client.aeadKey() }
 
     private fun decodeVersions(json: String): Map<String, Long> =
         runCatching { BridgeCodec.decodeString<Map<String, Long>>(json) }.getOrDefault(emptyMap())
@@ -188,5 +222,6 @@ class WebServer(
         const val KIND_QUERY = "query"
         const val KIND_MUTATE = "mutate"
         const val KIND_AWAIT = "await"
+        const val KIND_HELLO = "hello"
     }
 }

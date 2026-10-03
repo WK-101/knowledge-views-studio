@@ -88,6 +88,11 @@
     return api.ok && api.dataJson ? JSON.parse(api.dataJson) : null; // null = timeout, re-poll
   }
 
+  async function hello() {
+    const api = await call({ kind: "hello" });
+    return api.ok && api.dataJson ? JSON.parse(api.dataJson) : { readOnly: false };
+  }
+
   // ---- state + render ----------------------------------------------------------------------------
   const el = (id) => document.getElementById(id);
   const state = { tasks: [], notes: [], calendar: [], time: [], habits: [] };
@@ -101,6 +106,7 @@
   let seen = {}; // last-seen change versions per domain
   let tab = "tasks";
   let selectMode = false;
+  let readOnly = false; // a share-link client: read + live refresh, no edits
   const selected = new Set();
 
   function setStatus(msg, kind) {
@@ -165,6 +171,15 @@
   }
 
   function taskRow(t) {
+    if (readOnly) {
+      return (
+        '<li class="row' + (t.completed ? " done" : "") + '">' +
+        '<span class="box" aria-hidden="true">' + (t.completed ? "&#x2713;" : "") + "</span>" +
+        '<span class="label">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
+        (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
+        "</li>"
+      );
+    }
     if (selectMode) {
       const on = selected.has(t.id);
       return (
@@ -197,14 +212,17 @@
           '<button data-bulk="star">Star</button>' +
           '<button data-bulk="delete" class="danger">Delete</button></div>'
         : "";
+    const tools = readOnly
+      ? ""
+      : '<div class="tasktools">' +
+        (selectMode
+          ? '<span class="hint">Tap tasks to select</span>'
+          : '<form id="addTask" class="add"><input id="addTaskInput" type="text" placeholder="Add a task…" autocomplete="off" />' +
+            '<button type="submit">Add</button></form>') +
+        '<button id="selectToggle" class="ghost">' + (selectMode ? "Done" : "Select") + "</button>" +
+        "</div>";
     el("tasksView").innerHTML =
-      '<div class="tasktools">' +
-      (selectMode
-        ? '<span class="hint">Tap tasks to select</span>'
-        : '<form id="addTask" class="add"><input id="addTaskInput" type="text" placeholder="Add a task…" autocomplete="off" />' +
-          '<button type="submit">Add</button></form>') +
-      '<button id="selectToggle" class="ghost">' + (selectMode ? "Done" : "Select") + "</button>" +
-      "</div>" +
+      tools +
       bulkBar +
       (open.length ? '<ul class="list">' + open.map(taskRow).join("") + "</ul>" : '<p class="empty">No open tasks.</p>') +
       (done.length ? '<h3 class="subhead">Completed</h3><ul class="list">' + done.map(taskRow).join("") + "</ul>" : "");
@@ -213,7 +231,7 @@
   function renderNotes() {
     const sorted = state.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
     el("notesView").innerHTML =
-      '<div class="add"><button id="addNote" type="button">New note</button></div>' +
+      (readOnly ? "" : '<div class="add"><button id="addNote" type="button">New note</button></div>') +
       (sorted.length
         ? '<div class="cards">' +
           sorted
@@ -315,13 +333,14 @@
   function openModal(html, onSave, onDelete) {
     const back = document.createElement("div");
     back.className = "modal-back";
+    const actions = onSave
+      ? (onDelete ? '<button class="danger" data-m="del">Delete</button>' : "") +
+        '<span class="spacer"></span>' +
+        '<button data-m="cancel">Cancel</button><button class="primary" data-m="save">Save</button>'
+      : '<span class="spacer"></span><button class="primary" data-m="cancel">Close</button>';
     back.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">' + html +
-      '<div class="modal-actions">' +
-      (onDelete ? '<button class="danger" data-m="del">Delete</button>' : "") +
-      '<span class="spacer"></span>' +
-      '<button data-m="cancel">Cancel</button><button class="primary" data-m="save">Save</button>' +
-      "</div></div>";
+      '<div class="modal-actions">' + actions + "</div></div>";
     const close = () => back.remove();
     back.addEventListener("click", (e) => {
       if (e.target === back || e.target.dataset.m === "cancel") close();
@@ -363,7 +382,19 @@
     );
   }
 
+  function viewNote(n) {
+    openModal(
+      "<h3>" + esc(n.title || "Untitled") + "</h3>" +
+        '<pre class="note-read">' + esc(n.body || "") + "</pre>" +
+        '<div class="attachments" id="mAttach"></div>',
+      null,
+      null
+    );
+    loadAttachments(n.id);
+  }
+
   function editNote(n) {
+    if (readOnly && n) return viewNote(n);
     const isNew = !n;
     n = n || { id: "", title: "", body: "", pinned: false };
     openModal(
@@ -590,6 +621,12 @@
       } catch (_e) {
         /* non-fatal */
       }
+    }
+
+    try {
+      readOnly = (await hello()).readOnly === true;
+    } catch (_e) {
+      readOnly = false; // non-fatal: default to full UI; the server still enforces access
     }
 
     try {

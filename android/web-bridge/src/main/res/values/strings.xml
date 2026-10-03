@@ -3,7 +3,7 @@
     <string name="app_name">Hexis Web</string>
 
     <!-- Control screen -->
-    <string name="control_intro">Serve your Hexis tasks and notes to a browser on the same Wi-Fi. Nothing leaves this device until you open the page — the connection is end-to-end encrypted with a pairing key only you have.</string>
+    <string name="control_intro">Serve your Hexis tasks and notes to a browser on the same Wi-Fi. Nothing leaves this device until you open the page — each paired device has its own end-to-end-encryption key you can revoke anytime.</string>
     <string name="connect">Connect to Hexis</string>
     <string name="reconnect">Reconnect to Hexis</string>
     <string name="start_server">Start web server</string>
@@ -15,8 +15,8 @@
 
     <string name="open_on_computer">Open on your computer:\n%1$s</string>
     <string name="hint_connect_first">Tap “Connect to Hexis” and approve access, then start the server.</string>
-    <string name="hint_connected">Start the server, then scan the QR or open the link on your computer.</string>
-    <string name="hint_running">Scan the QR with your phone camera, or type the link above into a browser on the same Wi-Fi. The part after “#” is your pairing key — it never leaves your devices.</string>
+    <string name="hint_connected">Start the server, then add a device to show its QR.</string>
+    <string name="hint_running">Add a device (full access) or a read-only share link, then scan its QR or open its link on a browser on the same Wi-Fi. The part after “#” is that device’s key — it never leaves your devices.</string>
 
     <string name="connected_ok">Connected to Hexis</string>
     <string name="err_core_missing">Hexis core app not found (or not a trusted build).</string>

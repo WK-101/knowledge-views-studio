@@ -26,3 +26,10 @@ data class ApiResponse(
     val dataJson: String? = null,
     val error: String? = null,
 )
+
+/** Answer to a `hello` request: lets the browser learn its own access so it can tailor the UI. */
+@Serializable
+data class HelloInfo(
+    val readOnly: Boolean = false,
+    val name: String = "",
+)

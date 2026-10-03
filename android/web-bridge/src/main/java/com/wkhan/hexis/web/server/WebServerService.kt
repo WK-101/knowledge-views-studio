@@ -15,7 +15,7 @@ import android.util.Log
 import com.wkhan.hexis.web.R
 import com.wkhan.hexis.web.bridge.DataBridgeClient
 import com.wkhan.hexis.web.net.LanAddress
-import com.wkhan.hexis.web.pairing.PairingStore
+import com.wkhan.hexis.web.pairing.ClientStore
 
 /**
  * Hosts the local [WebServer] as a user-visible `dataSync` foreground service with a persistent "serving
@@ -37,7 +37,7 @@ class WebServerService : Service() {
             return START_NOT_STICKY
         }
 
-        val aead = PairingStore(this).aeadKey()
+        val clientStore = ClientStore(applicationContext)
         val client = DataBridgeClient(applicationContext).also { dataClient = it }
         runCatching { client.connect() } // best-effort; queries report "not connected" until granted
         // Live refresh: one core `changes` stream fans out to browser long-polls via the hub. Best-effort —
@@ -45,9 +45,12 @@ class WebServerService : Service() {
         val hub = ChangeHub()
         runCatching { client.openChanges { domain -> hub.publish(domain) } }
 
+        // The server matches each request against the LIVE client set (read fresh) so a revoke/expiry on the
+        // control screen takes effect at once, with no restart.
         val port = PORTS.firstNotNullOfOrNull { candidate ->
-            runCatching { WebServer(applicationContext, candidate, aead, client, hub).also { it.start() } to candidate }
-                .getOrNull()
+            runCatching {
+                WebServer(applicationContext, candidate, { clientStore.active() }, client, hub).also { it.start() } to candidate
+            }.getOrNull()
         }
         if (port == null) {
             Log.w(TAG, "could not bind any port")
