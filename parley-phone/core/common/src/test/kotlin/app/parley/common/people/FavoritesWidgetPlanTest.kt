@@ -22,6 +22,29 @@ class FavoritesWidgetPlanTest {
         assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, FavoritesWidgetPlan.MAX_ROWS), FavoritesWidgetPlan.grid(2000, 2000))
     }
 
+    @Test fun before_android_12_portrait_and_landscape_each_get_their_own_size() {
+        // A 4×2 widget on a phone: about 300 dp wide in portrait, 500+ dp in landscape, and the reverse for height.
+        val l = FavoritesWidgetPlan.layouts(minWidth = 300, minHeight = 110, maxWidth = 520, maxHeight = 190, listed = null)
+        l as FavoritesWidgetPlan.Layouts.ByOrientation
+        assertEquals(FavoritesWidgetPlan.Size(300, 190), l.portrait)
+        assertEquals(FavoritesWidgetPlan.Size(520, 110), l.landscape)
+        // Never both maximums: portrait doesn't get landscape's 7 columns, landscape doesn't get portrait's rows.
+        assertEquals(FavoritesWidgetPlan.Grid(4, 2), FavoritesWidgetPlan.grid(l.portrait.widthDp, l.portrait.heightDp))
+        assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, 1), FavoritesWidgetPlan.grid(l.landscape.widthDp, l.landscape.heightDp))
+        assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, 2), FavoritesWidgetPlan.grid(520, 190))
+    }
+
+    @Test fun from_android_12_the_listed_sizes_are_drawn() {
+        val listed = listOf(FavoritesWidgetPlan.Size(300, 190), FavoritesWidgetPlan.Size(520, 110), FavoritesWidgetPlan.Size(300, 190))
+        val l = FavoritesWidgetPlan.layouts(300, 110, 520, 190, listed) as FavoritesWidgetPlan.Layouts.Listed
+        assertEquals(listOf(FavoritesWidgetPlan.Size(300, 190), FavoritesWidgetPlan.Size(520, 110)), l.sizes)
+        // An empty or unusable list falls back to the orientations.
+        assertTrue(FavoritesWidgetPlan.layouts(300, 110, 520, 190, emptyList()) is FavoritesWidgetPlan.Layouts.ByOrientation)
+        assertTrue(FavoritesWidgetPlan.layouts(300, 110, 520, 190, listOf(FavoritesWidgetPlan.Size(0, 0))) is FavoritesWidgetPlan.Layouts.ByOrientation)
+        val many = (1..40).map { FavoritesWidgetPlan.Size(100 + it, 100) }
+        assertEquals(FavoritesWidgetPlan.MAX_LISTED, (FavoritesWidgetPlan.layouts(0, 0, 0, 0, many) as FavoritesWidgetPlan.Layouts.Listed).sizes.size)
+    }
+
     @Test fun favourites_keep_their_order_and_fill_the_grid() {
         val favs = (1L..10L).map { fav(it, "P$it", "+4420700000$it") }
         val shown = FavoritesWidgetPlan.shown(favs, FavoritesWidgetPlan.Grid(4, 2), locked = false) as FavoritesWidgetPlan.Shown.Tiles

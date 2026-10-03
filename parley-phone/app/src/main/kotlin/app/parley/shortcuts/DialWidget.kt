@@ -1,7 +1,6 @@
 package app.parley.shortcuts
 
 import app.parley.security.LockedActivity
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
@@ -70,9 +69,8 @@ class DialWidget : AppWidgetProvider() {
                 ?: Shortcuts.monogram(name, 160)
             views.setImageViewBitmap(R.id.widget_photo, circle(icon))
             views.setContentDescription(R.id.widget_root, context.getString(R.string.widget_call_name, name))
-            val pi = PendingIntent.getActivity(
-                context, id, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1)),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            val pi = WidgetTaps.activity(
+                context, WidgetTaps.Kind.DIAL, id, 0, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1), name),
             )
             views.setOnClickPendingIntent(R.id.widget_root, pi)
             manager.updateAppWidget(id, views)

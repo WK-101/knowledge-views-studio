@@ -319,8 +319,8 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
-        <!-- The missed-call notification's "Call back": the sheet above, reachable only by Parley's own pending intent,
-             so no other app can place a call through it. -->
+        <!-- The missed-call notification's "Call back", and widget or shortcut calls that ask first: the sheet above,
+             reachable only by Parley's own intents, so no other app can place a call through it. -->
         <activity-alias
             android:name=".messaging.MissedCallBack"
             android:exported="false"

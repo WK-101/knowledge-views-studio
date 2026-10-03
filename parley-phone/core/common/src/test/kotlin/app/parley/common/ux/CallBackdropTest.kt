@@ -103,13 +103,19 @@ class CallBackdropTest {
 
     @Test fun poster_layout_only_in_one_roomy_column() {
         val plan = CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true)
-        assertTrue(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = false))
-        assertFalse(CallBackdrop.posterLayout(plan, twoPane = true, short = false, keypadOpen = false, callWaiting = false))
-        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = true, keypadOpen = false, callWaiting = false))
-        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = true, callWaiting = false))
-        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = true))
+        assertTrue(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = false, pictureShown = true))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = true, short = false, keypadOpen = false, callWaiting = false, pictureShown = true))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = true, keypadOpen = false, callWaiting = false, pictureShown = true))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = true, callWaiting = false, pictureShown = true))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = true, pictureShown = true))
         val classic = CallBackdrop.plan(CallScreenBackground.CALLER_COLOUR, warn = false, hasPicture = true)
-        assertFalse(CallBackdrop.posterLayout(classic, twoPane = false, short = false, keypadOpen = false, callWaiting = false))
+        assertFalse(CallBackdrop.posterLayout(classic, twoPane = false, short = false, keypadOpen = false, callWaiting = false, pictureShown = true))
+    }
+
+    @Test fun a_picture_that_cannot_be_shown_keeps_the_classic_layout() {
+        val plan = CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true)
+        // Deleted, moved or unreadable (or still decoding): the caller keeps the photo, ringing frame and time ring.
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = false, pictureShown = false))
     }
 
     @Test fun poster_text_always_sits_on_the_readable_scrim() {

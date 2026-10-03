@@ -2,6 +2,7 @@ package app.parley.messaging
 
 import app.parley.security.LockedActivity
 import android.Manifest
+import androidx.annotation.VisibleForTesting
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
@@ -131,15 +132,20 @@ class NumberActionActivity : LockedActivity() {
         data class Emergency(val number: String) : Stage
 
         /**
-         * "Call back" from a missed-call notification: no sheet, only the call's questions when the gate has any
-         * (the unlock is asked only then), otherwise the call is placed at once.
+         * A call started outside Parley's screens: "Call back" from a missed-call notification ([missed]), or a widget,
+         * shortcut or reminder with "Confirm before calling" on. No sheet, only the call's questions when the gate has
+         * any (the unlock is asked only then), otherwise the call is placed at once. [name] is shown in the question.
          */
-        data class CallBack(val number: String) : Stage
+        data class CallBack(val number: String, val name: String?, val missed: Boolean) : Stage
     }
 
     private var stage by mutableStateOf<Stage>(Stage.NoNumber)
+
     /** The call's open questions (dial guard, allowance, confirm, SIM), as in Parley itself. */
-    private var pendingCall by mutableStateOf<PendingCall?>(null)
+    @get:VisibleForTesting
+    internal var pendingCall by mutableStateOf<PendingCall?>(null)
+        private set
+
     private var callSims by mutableStateOf<List<SimAccount>>(emptyList())
     private val gate by lazy { CallGate(container) }
     /** Names stay hidden while this is true; read from disk before anything is shown, then cleared by unlocking. */
@@ -176,7 +182,7 @@ class NumberActionActivity : LockedActivity() {
             }
             reveal(settings)
             settingsSnapshot = settings
-            (stage as? Stage.CallBack)?.let { callBack(it.number) }
+            (stage as? Stage.CallBack)?.let(::callBack)
         }
     }
 
@@ -252,7 +258,7 @@ class NumberActionActivity : LockedActivity() {
         stage = initialStage(intent)
         // Still locked (e.g. showing an emergency number): the new text goes through the same gate.
         if (appLock) settingsSnapshot?.let(::reveal)
-        if (settingsSnapshot != null) (stage as? Stage.CallBack)?.let { callBack(it.number) }
+        if (settingsSnapshot != null) (stage as? Stage.CallBack)?.let(::callBack)
     }
 
     override fun onPause() {
@@ -284,7 +290,7 @@ class NumberActionActivity : LockedActivity() {
             MessageNumber.ACTION -> return Stage.Enter
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
             Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-            ACTION_CALL_BACK -> callBackStage(intent)?.let { return it }
+            ACTION_CALL_BACK, ACTION_CALL_CONFIRM -> callBackStage(intent)?.let { return it }
             ACTION_MESSAGE_ON -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it, intent.getStringExtra(EXTRA_ACCOUNT_ID)) }
             else -> null
         }.orEmpty().take(MAX_TEXT)
@@ -323,7 +329,7 @@ class NumberActionActivity : LockedActivity() {
     /** Only through the unexported alias: this activity is exported, and a call back may place the call at once. */
     private fun callBackStage(intent: Intent): Stage? =
         intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() && intent.component?.className == CALL_BACK_ALIAS }
-            ?.let { Stage.CallBack(it) }
+            ?.let { Stage.CallBack(it, intent.getStringExtra(EXTRA_NAME)?.takeIf(String::isNotBlank), missed = intent.action == ACTION_CALL_BACK) }
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -701,14 +707,20 @@ class NumberActionActivity : LockedActivity() {
         }
     }
 
-    /** The missed calls are seen once the user calls back; then the call takes the usual path. */
-    private fun callBack(number: String) {
+    /**
+     * The call takes the usual path. Only the missed-call notification's "Call back" marks the missed calls seen, and
+     * only once the call is placed ([place]): a widget or shortcut call, or a cancelled question, leaves them as they were.
+     */
+    private fun callBack(s: Stage.CallBack) = call(s.number, s.name)
+
+    /** After a call was placed: a call back from the missed-call notification means the missed calls were seen. */
+    private fun placed() {
+        if ((stage as? Stage.CallBack)?.missed != true) return
         val app = applicationContext
         container.scope.launch {
             MissedCallNotifier.cancelAll(app)
             MissedCallActionReceiver.seen(app)
         }
-        call(number, null)
     }
 
     private fun place(number: String, simId: String?, remember: Boolean, confirmed: Boolean, name: String?) {
@@ -717,11 +729,12 @@ class NumberActionActivity : LockedActivity() {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall = r.pending
                 is CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { showMessage(
-                        this@NumberActionActivity,
-                        DialText.placeFailure(this@NumberActionActivity, it.reason),
-                        long = true,
-                    ) }
+                    val failed = r.result as? PlaceResult.Failed
+                    if (failed != null) {
+                        showMessage(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, failed.reason), long = true)
+                    } else {
+                        placed()
+                    }
                     finish()
                 }
             }
@@ -731,7 +744,14 @@ class NumberActionActivity : LockedActivity() {
     companion object {
         const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
         const val ACTION_CALL_BACK = "app.parley.action.CALL_BACK"
+
+        /** A call from a widget, shortcut or reminder that asks first ("Confirm before calling"). */
+        const val ACTION_CALL_CONFIRM = "app.parley.action.CALL_CONFIRM"
         const val EXTRA_NUMBER = "number"
+
+        /** The contact's name, shown in the call's question. */
+        const val EXTRA_NAME = "name"
+
         /** PhoneAccountHandle id of the call the number comes from. */
         const val EXTRA_ACCOUNT_ID = "account_id"
         /** Selected or shared text beyond this is ignored (a phone number is never that far in). */
@@ -745,6 +765,17 @@ class NumberActionActivity : LockedActivity() {
             .setClassName(context, CALL_BACK_ALIAS)
             .setAction(ACTION_CALL_BACK)
             .putExtra(EXTRA_NUMBER, number)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        /**
+         * Calls [number] through the call gate with its questions ("Confirm before calling" with [name]), for widgets,
+         * shortcuts and reminders. Unlike [callBackIntent] it never touches the missed calls.
+         */
+        fun confirmCallIntent(context: Context, number: String, name: String?): Intent = Intent()
+            .setClassName(context, CALL_BACK_ALIAS)
+            .setAction(ACTION_CALL_CONFIRM)
+            .putExtra(EXTRA_NUMBER, number)
+            .putExtra(EXTRA_NAME, name)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

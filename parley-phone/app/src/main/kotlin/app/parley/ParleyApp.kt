@@ -19,6 +19,7 @@ import app.parley.shortcuts.FavoritesWidget
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
 import app.parley.ui.contact.CallerTunes
+import app.parley.ui.contact.ContactCamera
 import app.parley.ui.history.ExportFiles
 import app.parley.work.FolderSyncWorker
 import app.parley.work.MaintenanceWorker
@@ -92,6 +93,8 @@ class ParleyApp : Application() {
             }
             // Plaintext call-history exports never outlive the next start.
             ExportFiles.cleanup(this@ParleyApp)
+            // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
+            runCatching { ContactCamera.sweep(this@ParleyApp) }
         }
         // Alongside: the preference-backed stores the call screen and the first screens read, built on IO so their
         // first read never parses a file on the main thread (the view model touches several as it is created).

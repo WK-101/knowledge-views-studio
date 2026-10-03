@@ -11,6 +11,7 @@ import app.parley.common.history.TypeGroup
 import app.parley.common.ux.ListSections.Place
 import app.parley.testing.AppTestbed
 import app.parley.testing.AppTestbed.Companion.DAY
+import app.parley.testing.AppTestbed.Companion.HOUR
 import app.parley.testing.AppTestbed.Companion.MINUTE
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -36,15 +37,19 @@ class RecentsViewModelTest {
     private lateinit var t: AppTestbed
     private val zone = TimeZone.getDefault()
 
-    /** A time today, in the past: half way between midnight (UTC) and now. */
+    /**
+     * Midday of the day the view model takes as today, in the past. The clock is fixed at 18:00 that day (UTC), so
+     * every call a test places a few minutes or hours before [today] is on the same day, whenever the test runs.
+     */
     private var today = 0L
+    private var now = 0L
 
     @Before fun setUp() {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         t = AppTestbed()
-        val now = System.currentTimeMillis()
-        val midnight = now - now % DAY
-        today = midnight + (now - midnight) / 2
+        val wall = System.currentTimeMillis()
+        today = wall - wall % DAY - DAY + 12 * HOUR
+        now = today + 6 * HOUR
     }
 
     @After fun tearDown() {
@@ -52,7 +57,7 @@ class RecentsViewModelTest {
         TimeZone.setDefault(zone)
     }
 
-    private fun recents(): RecentsViewModel = t.viewModel { RecentsViewModel(t.c) }.also { vm ->
+    private fun recents(): RecentsViewModel = t.viewModel { RecentsViewModel(t.c) { now } }.also { vm ->
         t.keep(vm.list)
         t.keep(vm.unreturnedMissed)
         t.keep(vm.unknownToday)
@@ -348,7 +353,7 @@ class RecentsViewModelTest {
 
     @Test fun the_list_is_null_until_the_call_log_has_loaded_then_holds_the_rows() {
         t.call("+44 20 7946 0001", today, Calls.INCOMING_TYPE, 5)
-        val vm = t.viewModel { RecentsViewModel(t.c) }
+        val vm = t.viewModel { RecentsViewModel(t.c) { now } }
         assertNull(vm.list.value)
         t.keep(vm.list)
         assertNotNull(vm.groupsWhen())

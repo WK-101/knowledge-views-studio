@@ -247,7 +247,7 @@ Three changes in look only (COMPETITIVE_ANALYSIS_7 §8.4: D1, D2, D5); the call 
 
 The breathing halo around the ringing caller is replaced by a **scalloped frame**: Material 3 Expressive's `MaterialShapes.Cookie9Sided` (a `RoundedPolygon` that ships with material3), 1.24 × the photo's size, in a 32% veil of `primary`, behind the photo or monogram. It turns once every **24 s** (linear, a calm drift, not a spinner) while the call rings and fades away (`ParleyMotion.slowEffects`) once it is answered or ends.
 
-- **Cheap**: the turn and the fade are read only in the frame's `graphicsLayer`, so the header never recomposes and the shape's outline is built once; no path work per frame.
+- **Cheap**: the turn and the fade are read only in the frame's `graphicsLayer`, so the header never recomposes while it turns or fades (once, when the fade ends, the frame leaves) and the shape's outline is built once; no path work per frame.
 - **Still** when Android's animations are off (`ParleyMotion.reducedMotion`): the frame shows, standing.
 - **No layout shift**: the frame overflows the photo's box (`requiredSize`), so nothing moves when it goes.
 - Phone by Google clips the photo itself in a turning scallop; Parley keeps the photo round (a turning face is restless) and turns only the frame around it.
@@ -279,7 +279,7 @@ Settings › Calls › Answering › **Call screen background** gains a third ch
 - **Scrim** (`CallBackdrop.posterStops`, unit-tested): the readable minimum (`CallBackdrop.scrimAlpha`, 4.5:1 for `onSurface` and `onSurfaceVariant` over any pixel) at the very top for the status bar's icons, clear from 32dp below the status bar, fading back in over 48dp above the caller's text, at least the minimum from the text's top edge down, and 96% behind the controls. The text's top edge is measured from the layout and read only while drawing.
 - **When it applies** (`CallBackdrop.plan` and `posterLayout`, unit-tested; `callBackdropPlan` in the call screen): the Poster style, a call-screen picture, and the one-column layout. Two panes (landscape, tablets), a short window, the open keypad and a waiting second call keep the classic layout over the same picture (opening the keypad closes the clear part smoothly). A likely-spam warning, the picture-in-picture window and a call masked on the lock screen never show a poster.
 - **Privacy follows the picture**: no picture means no poster. "Show contact photo on the call screen" off (or a contact's own *Hide*) hands the screen no picture; "Caller on the lock screen" masking removes it; private contacts have no call-screen picture and discreet mode shows them as a number. So each of those shows the classic layout.
-- Without a picture, Poster looks like *Caller's colour*.
+- Without a picture, Poster looks like *Caller's colour*. The same goes for a picture that can't be shown (the file was deleted or moved, a permission is gone): the call screen decodes the picture itself (`rememberCallPicture`) and lays out a poster only once it is there, so the caller keeps the photo, the ringing frame and the remaining-time ring. While a readable picture decodes (a moment), the classic layout shows and moves into the poster with the usual spring.
 
 Left out: a poster made from the contact photo (usually too small to fill a screen sharply), video posters (Samsung), and the poster in two panes (the name would sit beside, not over, the picture).
 

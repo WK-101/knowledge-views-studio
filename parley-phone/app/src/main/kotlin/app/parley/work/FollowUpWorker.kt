@@ -83,11 +83,8 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
         (contact.phones.firstOrNull { it.isPrimary } ?: contact.phones.firstOrNull())?.number?.let { phone ->
-            b.addAction(
-                0,
-                ctx.getString(R.string.work_action_call),
-                PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id), PendingIntent.FLAG_IMMUTABLE),
-            )
+            val call = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id, contact.displayName)
+            b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
         }
         try {
             NotificationManagerCompat.from(ctx).notify(tag, 0, b.build())

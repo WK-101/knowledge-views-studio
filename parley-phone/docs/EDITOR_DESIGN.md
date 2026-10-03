@@ -222,8 +222,12 @@ the whole picture as well.
 - **Photo menu.** Tapping the header photo opens one menu: **Choose photo** (the system photo picker), **Take photo**
   and, with a photo, **Adjust framing** and a red **Remove photo**, then the line saying what Parley keeps.
 - **Take photo** asks the phone's camera app for one picture (`ActivityResultContracts.TakePicture` into a file of
-  Parley's cache shared through its FileProvider, `ContactCamera`), as Scan QR does: no camera permission. The file is
-  deleted once the contact is saved, when its framing is cancelled, and in any case after a day.
+  Parley's cache shared through its FileProvider, `ContactCamera`), as Scan QR does: no camera permission. The cache
+  isn't sealed, so the file is kept only while the editor needs it: it is deleted once the contact is saved, when its
+  framing is cancelled, when another photo replaces it or it is removed, and when the editor is left without saving.
+  A shot that a stopped process left behind is cleared at the next start or by the daily upkeep once it is a day old
+  (an editor restored after the process was stopped still finds its photo until then); the framed avatar written for
+  Android during a save is deleted once written, and any left by an unfinished save after ten minutes.
 - **Frame photo** (`PhotoFramer`) follows every new picture: the whole picture behind a dimmed cover with a circle cut
   out (the square around it, faintly, is Android's thumbnail). Drag to move, pinch to zoom (up to 8×, never smaller
   than 48 px of picture); the point under the fingers stays under them. Every gesture has a 48 dp button (zoom out, zoom

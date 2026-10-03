@@ -17,6 +17,9 @@ import app.parley.container
 import app.parley.CallGate
 import app.parley.messaging.NumberActionActivity
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.content.ContentUris
+import android.provider.ContactsContract
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
 class ShortcutActivity : Activity() {
@@ -29,7 +32,7 @@ class ShortcutActivity : Activity() {
         when (kind) {
             Shortcuts.Kind.CALL -> if (!number.isNullOrBlank()) {
                 if (contactId > 0) ShortcutManagerCompat.reportShortcutUsed(this, "fav-$contactId")
-                call(number)
+                call(number, intent.getStringExtra(EXTRA_NAME), contactId)
                 return
             }
             Shortcuts.Kind.MESSAGE -> if (!number.isNullOrBlank()) runCatching {
@@ -49,7 +52,7 @@ class ShortcutActivity : Activity() {
      * or label SIM, which may have no service. The platform check crosses into the phone process, so it runs off the
      * main thread; the activity stays (invisible) until it answers.
      */
-    private fun call(number: String) {
+    private fun call(number: String, name: String?, contactId: Long) {
         val c = container
         c.scope.launch(Dispatchers.Main) {
             val gate = CallGate(c)
@@ -58,9 +61,12 @@ class ShortcutActivity : Activity() {
                 return@launch finish()
             }
             if (isFinishing || isDestroyed) return@launch
-            // "Confirm before calling" asks here too, with the same questions as in Parley (the call gate's sheet).
+            // "Confirm before calling" asks here too, with the same questions as in Parley (the call gate's sheet), and
+            // the name as Parley shows it. Only asks: the missed calls are left as they are.
             if (c.settings.current().confirmBeforeCall) {
-                startActivity(NumberActionActivity.callBackIntent(this@ShortcutActivity, number))
+                val who = name ?: withContext(Dispatchers.IO) { nameOf(contactId) }
+                if (isFinishing || isDestroyed) return@launch
+                startActivity(NumberActionActivity.confirmCallIntent(this@ShortcutActivity, number, who))
                 return@launch finish()
             }
             // One tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
@@ -68,6 +74,18 @@ class ShortcutActivity : Activity() {
             c.scope.launch { c.placer.call(number) }
             finish()
         }
+    }
+
+    /** A phone contact's name (shortcuts pinned before the name was part of them). */
+    private fun nameOf(contactId: Long): String? = if (contactId <= 0) {
+        null
+    } else {
+        runCatching {
+            contentResolver.query(
+                ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId),
+                arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null,
+            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
     private fun guardThenCall(number: String) {
@@ -95,5 +113,6 @@ class ShortcutActivity : Activity() {
         const val EXTRA_KIND = "kind"
         const val EXTRA_NUMBER = "number"
         const val EXTRA_CONTACT = "contact"
+        const val EXTRA_NAME = "name"
     }
 }

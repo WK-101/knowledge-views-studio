@@ -26,6 +26,7 @@ import app.parley.blocking.ListsUpdaterClient
 import app.parley.blocking.SpamListWorker
 import app.parley.common.people.TemporaryDue
 import app.parley.data.people.TemporaryContactStore
+import app.parley.ui.contact.ContactCamera
 import app.parley.ui.history.ExportFiles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.filterNotNull
@@ -64,6 +65,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.
         step("export cleanup") { ExportFiles.cleanup(ctx, olderThanMillis = TimeUnit.HOURS.toMillis(1)) }
+        // Contact photos taken with the camera app that no editor needs any more (Parley's cache isn't sealed).
+        step("camera photos") { ContactCamera.sweep(ctx) }
         step("plan warnings") { HistoryWorker.warnPlans(ctx) }
         // Screening upkeep and lists from the optional "Parley Lists" app (read through its provider).
         step("screening upkeep") { SpamListWorker.run(c) }

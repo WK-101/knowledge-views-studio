@@ -124,7 +124,10 @@ internal fun EditorPhoto(vm: AppViewModel, editor: EditorViewModel, name: String
     var frameKept by rememberSaveable { mutableStateOf(false) }
     // The system photo picker needs no storage permission (also for private contacts' encrypted photos).
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) framePick = uri.toString() }
-    val takePhoto = rememberTakePhoto(vm) { framePick = it }
+    val takePhoto = rememberTakePhoto(vm) {
+        editor.tookPhoto(Uri.parse(it))
+        framePick = it
+    }
     val preview by produceState<ImageBitmap?>(null, photo, frame, kept?.id) {
         value = if (frame == null) null else framedPreview(vm, context, photo, kept, frame)
     }
@@ -161,6 +164,7 @@ internal fun EditorPhoto(vm: AppViewModel, editor: EditorViewModel, name: String
     val o = kept
     if (frameKept && o != null) {
         // The kept picture is reframed as it is; "whole" isn't offered (its whole copy is already the original).
+        // Done without moving the circle changes nothing: the photo Android has isn't rewritten (and synced) for it.
         PhotoFramer(
             vm, FramingSource.Kept(o), initial = frame ?: o.frame, allowWhole = false,
             onDone = { f ->
@@ -168,6 +172,7 @@ internal fun EditorPhoto(vm: AppViewModel, editor: EditorViewModel, name: String
                 frameKept = false
             },
             onCancel = { frameKept = false },
+            onUnchanged = { frameKept = false },
         )
     }
 }
@@ -232,7 +237,8 @@ private const val FRAMING_PX = 2048
  * area is laid out left to right in every language, so "left" is always the screen's left.
  *
  * [initial]: the frame to start from (null: centred, or on a face when one is found). [onDone] gets the chosen
- * square, or null for "Use whole photo" (offered with [allowWhole]).
+ * square, or null for "Use whole photo" (offered with [allowWhole]). With [onUnchanged], Done when the user never
+ * moved the circle (or moved it back to where it started) calls that instead.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -243,12 +249,16 @@ internal fun PhotoFramer(
     allowWhole: Boolean,
     onDone: (PhotoFrame?) -> Unit,
     onCancel: () -> Unit,
+    onUnchanged: (() -> Unit)? = null,
 ) {
     val loaded = rememberFramingPicture(vm, source)
     Dialog(onCancel, DialogProperties(usePlatformDefaultWidth = false)) {
         val bitmap = loaded?.getOrNull()
         var frame by remember(bitmap) { mutableStateOf(bitmap?.let { startFrame(initial, it) }) }
         var touched by remember(bitmap) { mutableStateOf(initial != null) }
+        // Whether the user moved the circle at all (a face-centred start isn't a change of theirs).
+        var moved by remember(bitmap) { mutableStateOf(false) }
+        val start = remember(bitmap) { frame }
         val face by produceState<Pair<Double, Double>?>(null, bitmap) { value = bitmap?.let { b -> withContext(Dispatchers.Default) { FaceFinder.find(b) } } }
         // A new photo starts centred on the face, unless the user has already moved it.
         LaunchedEffect(face) {
@@ -263,7 +273,7 @@ internal fun PhotoFramer(
                     navigationIcon = { IconButton(onCancel) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
                     actions = {
                         Button(
-                            onClick = { onDone(if (bitmap == null) null else frame) },
+                            onClick = { FramingDone.finish(if (bitmap == null) null else frame, moved, start, bitmap, onDone, onUnchanged) },
                             enabled = loaded != null && (bitmap != null || allowWhole),
                             modifier = Modifier.padding(end = 8.dp).heightIn(min = 40.dp),
                         ) { Text(stringResource(R.string.main_done)) }
@@ -275,6 +285,7 @@ internal fun PhotoFramer(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     FramingPicture(loaded != null, bitmap, frame) { next ->
                         touched = true
+                        moved = true
                         frame = next
                     }
                 }
@@ -285,6 +296,7 @@ internal fun PhotoFramer(
                     )
                     FramingButtons(hasFace = face != null) { change ->
                         touched = true
+                        moved = true
                         frame = frame?.let { f -> change(f, bitmap.width, bitmap.height, face) }
                     }
                 }
@@ -332,6 +344,26 @@ private fun FramingPicture(loaded: Boolean, bitmap: Bitmap?, frame: PhotoFrame?,
             val image = remember(bitmap) { bitmap.asImageBitmap() }
             FramingArea(image, frame, onFrame)
         }
+    }
+}
+
+/** Whether Done on the framing screen leaves the photo as it was. */
+internal object FramingDone {
+    /**
+     * Unchanged when the user never moved the circle ([moved]), or brought it back to [start] (the same pixels of a
+     * [width]×[height] picture). An unreadable picture ([done] null) changes nothing either.
+     */
+    fun unchanged(moved: Boolean, start: PhotoFrame?, done: PhotoFrame?, width: Int, height: Int): Boolean = when {
+        done == null -> true
+        !moved -> true
+        start == null || width <= 0 || height <= 0 -> false
+        else -> FrameMath.same(start, done, width, height)
+    }
+
+    /** Done on the framing screen: [onUnchanged] when given and nothing changed, else [onDone] with [frame]. */
+    @Suppress("LongParameterList")
+    fun finish(frame: PhotoFrame?, moved: Boolean, start: PhotoFrame?, bitmap: Bitmap?, onDone: (PhotoFrame?) -> Unit, onUnchanged: (() -> Unit)?) {
+        if (onUnchanged != null && unchanged(moved, start, frame, bitmap?.width ?: 0, bitmap?.height ?: 0)) onUnchanged() else onDone(frame)
     }
 }
 
@@ -462,12 +494,25 @@ internal object FaceFinder {
 
 /**
  * Photos the camera app takes for a contact ("Take photo"): ACTION_IMAGE_CAPTURE into a file of Parley's cache shared
- * through its FileProvider, as "Scan QR" does, so Parley needs no camera permission. A photo is deleted once the
- * contact is saved, when its framing is cancelled, and in any case after a day.
+ * through its FileProvider, as "Scan QR" does, so Parley needs no camera permission. The cache isn't sealed, so a shot
+ * (perhaps a private contact's face) is kept only while the editor needs it: it is deleted once the contact is saved,
+ * when its framing is cancelled, when another photo replaces it or it is removed, and when the editor is left without
+ * saving. A shot left behind by a process that ended meanwhile goes in [sweep] (at start and in the daily upkeep).
  */
 object ContactCamera {
     private const val DIR = "contact_camera"
-    private const val STALE_MS = 24 * 60 * 60 * 1000L
+
+    /** The framed avatar written for Android's contacts provider during a save (deleted once written). */
+    internal const val FRAMED_DIR = "framed"
+
+    /**
+     * A shot this old is no longer in any editor: kept this long only so that an editor restored after the process
+     * was stopped in the background (the camera app open, or Parley left for a while) still finds its photo.
+     */
+    internal const val STALE_MS = 24 * 60 * 60 * 1000L
+
+    /** A save takes seconds; a framed file older than this was left by a save that never finished. */
+    internal const val FRAMED_STALE_MS = 10 * 60 * 1000L
 
     private fun dir(context: Context) = File(context.cacheDir, DIR).apply { mkdirs() }
 
@@ -476,7 +521,7 @@ object ContactCamera {
     /** A new, empty file for the camera app to write to, and its content URI; older leftovers are cleared first. */
     fun newPhoto(context: Context): Pair<File, Uri> {
         val now = System.currentTimeMillis()
-        runCatching { dir(context).listFiles()?.forEach { if (now - it.lastModified() > STALE_MS) it.delete() } }
+        sweep(context, now)
         val f = File(dir(context), "photo-$now.jpg")
         return f to FileProvider.getUriForFile(context, authority(context), f)
     }
@@ -486,5 +531,12 @@ object ContactCamera {
         if (uri == null || uri.authority != authority(context) || uri.pathSegments.firstOrNull() != DIR) return
         val name = uri.lastPathSegment ?: return
         runCatching { File(dir(context), name).takeIf { it.parentFile == dir(context) }?.delete() }
+    }
+
+    /** Clears shots and framed files that no editor or save can still be using (see [STALE_MS], [FRAMED_STALE_MS]). */
+    fun sweep(context: Context, now: Long = System.currentTimeMillis()) {
+        fun clear(folder: File, age: Long) = runCatching { folder.listFiles()?.forEach { if (now - it.lastModified() > age) it.delete() } }
+        clear(File(context.cacheDir, DIR), STALE_MS)
+        clear(File(context.cacheDir, FRAMED_DIR), FRAMED_STALE_MS)
     }
 }

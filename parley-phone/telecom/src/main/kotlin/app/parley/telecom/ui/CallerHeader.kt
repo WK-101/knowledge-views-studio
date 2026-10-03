@@ -50,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -57,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
@@ -194,7 +196,7 @@ private fun CallerAvatar(call: CallUi, ended: Boolean, timing: CallTiming?, size
     val ringing = call.state == CallState.RINGING && !ended
     val dim by animateFloatAsState(if (!ended && call.state == CallState.HOLDING) HELD_ALPHA else 1f, ParleyMotion.effects(), label = "held")
     CallTimeRing(if (ended) null else timing, size) {
-        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size).testTag(CALLER_PHOTO_TAG), contentAlignment = Alignment.Center) {
             RingingFrame(ringing, size)
             Avatar(
                 call.title, call.photoUri, size = size,
@@ -206,19 +208,25 @@ private fun CallerAvatar(call: CallUi, ended: Boolean, timing: CallTiming?, size
     }
 }
 
+/** The caller's photo in tests (a poster leaves it out). */
+internal const val CALLER_PHOTO_TAG = "caller-photo"
+
 /**
  * Phone by Google's ringing avatar, kept calm: a scalloped cookie (Material 3 Expressive's [MaterialShapes]) a little
  * larger than the photo, in a veil of the primary colour, turning once every [FRAME_TURN_MS] while the call rings and
- * fading away once it's answered. The turn and the fade are read only in the layer's transform, so the header never
- * recomposes and the shape's path is never rebuilt per frame; with Android's animations off the frame stands still.
+ * fading away once it's answered. The turn and the fade are read only in the layer's transform, so the header doesn't
+ * recompose while it turns or fades (only once, when the fade ends) and the shape's path is never rebuilt per frame;
+ * with Android's animations off the frame stands still.
  * It overflows the photo's box without taking space, so the layout doesn't move when it goes.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun RingingFrame(ringing: Boolean, size: Dp) {
     val shown = animateFloatAsState(if (ringing) 1f else 0f, ParleyMotion.slowEffects(), label = "frame")
-    val visible = ringing || shown.value > 0f
-    if (!visible) return
+    // Read through derivedStateOf: the header recomposes when the fade-out ends, not on each of its frames (the
+    // fade itself is drawn in the layer below).
+    val fading by remember { derivedStateOf { shown.value > 0f } }
+    if (!ringing && !fading) return
     val turn = if (!ParleyMotion.reducedMotion()) {
         rememberInfiniteTransition(label = "frame").animateFloat(0f, 360f, infiniteRepeatable(tween(FRAME_TURN_MS, easing = LinearEasing)), label = "turn")
     } else {
