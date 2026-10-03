@@ -40,6 +40,31 @@ object MeCards {
     fun fromMyDetails(name: String, number: String): MeCard = MeCard(name = name.trim(), phones = listOfNotNull(number.trim().ifEmpty { null }))
 
     /**
+     * [card] with the name and number that "Send my details" uses set to [name] and [number]: the quick edit next to
+     * "Send my details". The name is replaced; the number becomes the first one (a number already on the card,
+     * compared by digits, moves up rather than appearing twice), and an empty one removes the first number. Every
+     * other field is kept.
+     */
+    fun withNameAndNumber(card: MeCard, name: String, number: String): MeCard {
+        val n = number.trim()
+        val digits = n.filter(Char::isDigit)
+        val phones = card.phones.filter { it.isNotBlank() }
+        val rest = if (n.isEmpty()) phones.drop(1) else phones.filterNot { digits.isNotEmpty() && it.filter(Char::isDigit) == digits }
+        val kept = if (n.isEmpty() || phones.any { digits.isNotEmpty() && it.filter(Char::isDigit) == digits }) rest else rest.drop(1)
+        return card.copy(name = name.trim(), phones = listOfNotNull(n.ifEmpty { null }) + kept)
+    }
+
+    /**
+     * Folds the old "My details" (name and number, kept apart before My card existed) into [card]: an empty card
+     * takes them as they are; otherwise what was typed there replaces the card's name and first number, since it was
+     * the more recent edit (the editor kept both copies the same). An empty value never clears the card's.
+     */
+    fun absorbMyDetails(card: MeCard, name: String, number: String): MeCard = when {
+        card.isEmpty -> fromMyDetails(name, number)
+        else -> withNameAndNumber(card, name.trim().ifEmpty { card.name }, number.trim().ifEmpty { card.firstNumber.orEmpty() })
+    }
+
+    /**
      * What "Me" shows: Parley's own card, completed with the phone's profile. Parley's fields win (they're what you
      * typed in Parley); lists are joined without duplicates (numbers compared by digits, e-mails ignoring case).
      */

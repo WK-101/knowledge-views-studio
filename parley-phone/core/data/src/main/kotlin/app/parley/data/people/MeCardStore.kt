@@ -28,8 +28,8 @@ import org.json.JSONObject
 /**
  * Your own card ("Me").
  *
- * - Parley's copy lives in Parley's private storage, like the "My details" it replaces: it was read from there once
- *   ([migrateFrom]) so nothing typed before is lost, and "Send my details" keeps using its name and number.
+ * - Parley's copy lives in Parley's private storage. It replaced the separate "My details", folded in once
+ *   ([absorbMyDetails]) so nothing typed there is lost; "Send my details" uses the card's name and first number.
  * - Android's profile contact (ContactsContract.Profile, "Me" in other contacts apps) is read and shown with it when
  *   the phone has one. Since Android 6 the profile is covered by the contacts permission Parley already has; the old
  *   READ_PROFILE/WRITE_PROFILE permissions no longer exist. Parley doesn't write to it: whatever is in the profile
@@ -53,15 +53,20 @@ class MeCardStore(context: Context) {
         _shareParts.value = parts
     }
 
-    /** One-time import of the old "My details" (name and number). Returns true when something was imported. */
-    fun migrateFrom(name: String, number: String): Boolean {
-        if (prefs.getBoolean(K_MIGRATED, false)) return false
-        val imported = MeCards.fromMyDetails(name, number)
-        val merged = if (_card.value.isEmpty) imported else _card.value
-        prefs.edit { putBoolean(K_MIGRATED, true) }
-        if (merged != _card.value) save(merged)
-        return !imported.isEmpty
+    /**
+     * Folds in the old "My details" (name and number) that the messaging store kept apart, once, so My card is the
+     * only copy. Before the first import a filled-in card is kept as it is; after it, the old copy could only have
+     * changed through "Send my details", so its values are the newer ones ([MeCards.absorbMyDetails]).
+     */
+    fun absorbMyDetails(name: String, number: String) {
+        val card = _card.value
+        val next = if (!prefs.getBoolean(K_MIGRATED, false) && !card.isEmpty) card else MeCards.absorbMyDetails(card, name, number)
+        prefs.edit(commit = true) { putBoolean(K_MIGRATED, true) }
+        if (next != card) save(next)
     }
+
+    /** "Send my details" quick edit: the card's name and first number ([MeCards.withNameAndNumber]). */
+    fun setNameAndNumber(name: String, number: String) = save(MeCards.withNameAndNumber(_card.value, name, number))
 
     fun save(card: MeCard) {
         val c = card.cleaned()

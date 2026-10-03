@@ -37,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.common.NumberText
 import app.parley.container
-import app.parley.data.messaging.MyDetails
+import app.parley.common.people.MeCard
 import app.parley.ui.Bidi
 import java.util.Locale
 import app.parley.ui.ParleyDialog
@@ -102,19 +102,22 @@ fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (Strin
     )
 }
 
-/** Your name and number for "Send my details". Nothing is read without asking: the number is only a suggestion. */
+/**
+ * The name and number on My card, edited right where "Send my details" needs them (the rest of the card is in
+ * Contacts › My card). Nothing is read without asking: the SIM's number is only a suggestion for an empty field.
+ */
 @Composable
-fun MyDetailsDialog(initial: MyDetails, suggestNumber: suspend () -> String?, onDismiss: () -> Unit, onSave: (MyDetails) -> Unit) {
-    var name by rememberSaveable { mutableStateOf(initial.name) }
-    var number by rememberSaveable { mutableStateOf(initial.number) }
+fun MyCardNameNumberDialog(card: MeCard, suggestNumber: suspend () -> String?, onDismiss: () -> Unit, onSave: (name: String, number: String) -> Unit) {
+    var name by rememberSaveable { mutableStateOf(card.name) }
+    var number by rememberSaveable { mutableStateOf(card.firstNumber.orEmpty()) }
     LaunchedEffect(Unit) {
         if (number.isEmpty()) suggestNumber()?.let { if (number.isEmpty()) number = it }
     }
     ConfirmDialog(
-        title = stringResource(R.string.msg_my_details),
+        title = stringResource(R.string.me_title),
         text = null,
         confirmLabel = stringResource(R.string.main_save),
-        onConfirm = { onSave(MyDetails(name, number)) },
+        onConfirm = { onSave(name, number) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.main_cancel),
         confirmEnabled = name.isNotBlank() || number.isNotBlank(),

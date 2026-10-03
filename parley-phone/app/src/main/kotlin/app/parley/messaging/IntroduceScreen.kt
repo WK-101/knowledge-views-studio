@@ -38,11 +38,11 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.R
+import app.parley.ui.people.rememberMyCard
 import app.parley.common.ContactSummary
 import app.parley.common.NumberText
 import app.parley.common.messaging.IntroQueue
@@ -100,9 +100,10 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
     var appPackage by rememberSaveable { mutableStateOf<String?>(null) }
     var awaitingReturn by rememberSaveable { mutableStateOf(false) }
     var editDetails by remember { mutableStateOf(false) }
-    val details by store.myDetails.collectAsStateWithLifecycle()
+    // My card's name and first number, as "Send my details" uses them.
+    val myCard = rememberMyCard(vm.c.people)
     val res = LocalResources.current
-    val draft = MessagingText.myDetails(res, details.name, details.number)
+    val draft = MessagingText.myDetails(res, myCard.name, myCard.firstNumber)
     val installed = remember { MessengerLauncher.installed(context) }
     val app = installed.firstOrNull { it.packageName == appPackage }
 
@@ -127,7 +128,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
         // My card › Shared with (I22): they now have your details.
-        CardSharing.record(vm.c, t.name, t.number, ShareMethod.INTRODUCE, listOfNotNull(details.number.ifBlank { null }))
+        CardSharing.record(vm.c, t.name, t.number, ShareMethod.INTRODUCE, listOfNotNull(myCard.firstNumber))
         queue = queue.markOpened()
         awaitingReturn = true
     }
@@ -197,13 +198,13 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     if (editDetails) {
-        MyDetailsDialog(
-            initial = details,
+        MyCardNameNumberDialog(
+            card = myCard,
             suggestNumber = { withContext(Dispatchers.IO) { vm.c.sims.ownNumbers().firstOrNull() } },
             onDismiss = { editDetails = false },
-        ) { d ->
+        ) { name, number ->
             editDetails = false
-            store.setMyDetails(d)
+            vm.c.people.me.setNameAndNumber(name, number)
         }
     }
 }

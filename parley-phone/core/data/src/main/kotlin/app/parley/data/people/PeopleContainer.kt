@@ -49,8 +49,16 @@ class PeopleContainer(private val c: DataContainer) {
     val audit by lazy { ContactsAudit(c.appContext) }
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
     val diagnostics by lazy { Diagnostics(c.appContext) }
-    /** Your own card. */
-    val me by lazy { MeCardStore(c.appContext) }
+
+    /** Your own card. The old "My details" is folded into it the first time it's used, so there's one copy. */
+    val me by lazy {
+        MeCardStore(c.appContext).also { store ->
+            c.messaging.legacyMyDetails()?.let { old ->
+                store.absorbMyDetails(old.name, old.number)
+                c.messaging.forgetLegacyMyDetails()
+            }
+        }
+    }
 
     /** My card's id and signing key (I14). */
     val cardIdentity by lazy { MyCardIdentity(c.appContext) }

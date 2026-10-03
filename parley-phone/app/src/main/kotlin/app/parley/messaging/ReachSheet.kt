@@ -64,11 +64,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.common.CallOnEntry
 import app.parley.common.Messenger
-import app.parley.common.MessageDrafts
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.cards.ShareMethod
@@ -87,6 +85,7 @@ import app.parley.data.MessengerAction
 import app.parley.data.Messengers
 import app.parley.data.PhoneEnv
 import app.parley.ui.Bidi
+import app.parley.ui.people.rememberMyCard
 import app.parley.ui.contact.AppBadge
 import app.parley.ui.contact.ContactMessaging
 import app.parley.ui.contact.Reach
@@ -464,7 +463,8 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val installed = remember { MessengerLauncher.installed(context) }
     val chatApps = remember(installed) { ReachPlan.chatApps(installed, store.lastApp) }
     val callApps = remember(installed) { ReachPlan.chatApps(installed, store.lastCallApp) }
-    val details by store.myDetails.collectAsStateWithLifecycle()
+    // "Send my details" uses My card's name and first number.
+    val myCard = rememberMyCard(c.people)
     var draft by rememberSaveable { mutableStateOf("") }
     var editDetails by remember { mutableStateOf(false) }
     var askSave by remember { mutableStateOf(false) }
@@ -486,7 +486,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
 
     /** "Send my details" went out (the draft still carries your number): it goes into My card › Shared with (I22). */
     fun sharedDetails() {
-        val mine = details.number
+        val mine = myCard.firstNumber.orEmpty()
         if (mine.isNotBlank() && draft.contains(mine)) CardSharing.record(c, "", e164 ?: number, ShareMethod.SEND_DETAILS, listOf(mine))
     }
 
@@ -563,13 +563,13 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
             Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = {
-                        val text = MessagingText.myDetails(res, details.name, details.number)
+                        val text = MessagingText.myDetails(res, myCard.name, myCard.firstNumber)
                         if (text == null) editDetails = true else draft = text
                     },
                     label = { Text(stringResource(R.string.msg_send_details)) },
                     leadingIcon = { Icon(Icons.Rounded.Badge, null) },
                 )
-                if (details.name.isNotEmpty() || details.number.isNotEmpty()) {
+                if (myCard.name.isNotEmpty() || myCard.firstNumber != null) {
                     TextButton({ editDetails = true }) { Text(stringResource(R.string.msg_edit_details)) }
                 }
             }
@@ -644,14 +644,14 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         }
     }
     if (editDetails) {
-        MyDetailsDialog(
-            initial = details,
+        MyCardNameNumberDialog(
+            card = myCard,
             suggestNumber = { withContext(Dispatchers.IO) { c.sims.ownNumbers().firstOrNull() } },
             onDismiss = { editDetails = false },
-        ) { d ->
+        ) { name, number ->
             editDetails = false
-            store.setMyDetails(d)
-            MessageDrafts.myDetails(d.name, d.number)?.let { draft = it }
+            c.people.me.setNameAndNumber(name, number)
+            MessagingText.myDetails(res, name, number)?.let { draft = it }
         }
     }
     if (askSave) {

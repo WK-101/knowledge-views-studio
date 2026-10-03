@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.ui.people.rememberMyCard
 import app.parley.AppViewModel
 import app.parley.common.KeypadLayout
 import app.parley.ui.people.PeopleRoutes
@@ -76,13 +77,13 @@ fun KeypadLettersRow(vm: AppViewModel, icon: ImageVector? = null) {
     }
 }
 
-/** Settings › Messaging: "My card", which replaced "My details" and still fills in "Send my details". */
+/** Settings › Messaging: "My card", whose name and first number fill in "Send my details". */
 @Composable
 fun MyDetailsRow(vm: AppViewModel, icon: ImageVector? = null) {
-    val details by vm.c.messaging.myDetails.collectAsStateWithLifecycle()
+    val card = rememberMyCard(vm.c.people)
     LinkRow(
         settingTitle("my_details"),
-        listOf(details.name, details.number.takeIf { it.isNotBlank() }?.let(::bidiLtr).orEmpty()).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") },
+        listOfNotNull(card.name, card.firstNumber?.let(::bidiLtr)).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") },
         icon,
     ) { vm.navigate(NavEvent.Route(PeopleRoutes.Me)) }
 }

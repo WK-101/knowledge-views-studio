@@ -703,7 +703,7 @@
     <string name="msg_only_sms">Chat apps need a full number with its country code. Only SMS is available for this number.</string>
     <string name="msg_optional">Message (optional)</string>
     <string name="msg_send_details">Send my details</string>
-    <string name="msg_edit_details">Edit my details</string>
+    <string name="msg_edit_details">Edit My card</string>
     <string name="msg_will_copy">Your message will be copied for pasting</string>
     <string name="msg_more_actions_for">More %1$s actions</string>
     <string name="msg_open_chat">Open chat</string>
@@ -711,8 +711,7 @@
     <string name="msg_chat_or_profile">Open chat or profile</string>
     <string name="msg_country_title">Country of this number</string>
     <string name="msg_search_countries">Search countries or +code</string>
-    <string name="msg_my_details">My details</string>
-    <string name="msg_my_details_body">Used only to fill in “Send my details”. Stays on this phone.</string>
+    <string name="msg_my_details_body">Your name and first number on My card fill in “Send my details”. The rest of your card is in Contacts › My card. Stays on this phone.</string>
     <string name="msg_your_name">Your name</string>
     <string name="msg_your_number">Your number</string>
     <!-- "Last messaged via Signal · 2 days ago"; the time span comes from Android. -->

@@ -26,7 +26,7 @@ import java.util.Locale
 /** "Last messaged via Signal · 2 days ago" for one number. [number] is null for entries kept from before F13. */
 data class LastMessaged(val app: MessengerApp?, val label: String, val at: Long, val number: String? = null, val key: String = "")
 
-/** Your details for "Send my details". */
+/** The old "My details" (name and number) for "Send my details", read once to fold into My card. */
 data class MyDetails(val name: String = "", val number: String = "")
 
 /** A chat Parley opened for a number that isn't a contact; offered as a temporary contact on return. */
@@ -54,9 +54,6 @@ class MessagingStore(
     private val _keypadLayout = MutableStateFlow(storedLayout())
     /** The chosen keypad alphabet, or null for "same as the phone's language". */
     val keypadLayoutChoice: StateFlow<KeypadLayout?> = _keypadLayout.asStateFlow()
-
-    private val _myDetails = MutableStateFlow(MyDetails(prefs.getString(K_MY_NAME, "").orEmpty(), prefs.getString(K_MY_NUMBER, "").orEmpty()))
-    val myDetails: StateFlow<MyDetails> = _myDetails.asStateFlow()
 
     private val _recordEnabled = MutableStateFlow(prefs.getBoolean(K_RECORD_ENABLED, true))
     /** "Keep a record of numbers you message" (on by default). */
@@ -111,10 +108,15 @@ class MessagingStore(
         _keypadLayout.value = layout
     }
 
-    fun setMyDetails(d: MyDetails) {
-        prefs.edit { putString(K_MY_NAME, d.name.trim()).putString(K_MY_NUMBER, d.number.trim()) }
-        _myDetails.value = d.copy(name = d.name.trim(), number = d.number.trim())
-    }
+    /**
+     * The name and number kept here before My card replaced "My details", or null when there are none (any more).
+     * [app.parley.data.people.PeopleContainer] folds them into My card once and then [forgetLegacyMyDetails].
+     */
+    fun legacyMyDetails(): MyDetails? =
+        if (!prefs.contains(K_MY_NAME) && !prefs.contains(K_MY_NUMBER)) null
+        else MyDetails(prefs.getString(K_MY_NAME, "").orEmpty(), prefs.getString(K_MY_NUMBER, "").orEmpty())
+
+    fun forgetLegacyMyDetails() = prefs.edit(commit = true) { remove(K_MY_NAME).remove(K_MY_NUMBER) }
 
     /** Package of the messenger chosen last time, offered first. */
     var lastApp: String?

@@ -42,7 +42,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -84,18 +83,21 @@ import app.parley.ui.contact.InfoRow
 import app.parley.ui.contact.mePartLabel
 import app.parley.ui.contact.profileRows
 import app.parley.ui.people.cards.CardSharing
+import app.parley.data.people.PeopleContainer
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.material.icons.rounded.Key
 
-/** Imports the old "My details" once, so the card starts with what was typed there. */
+/**
+ * My card as "Send my details" and Introduce myself use it: Parley's copy, completed with the phone's profile ("Me")
+ * as My card shows it. The old "My details" was folded into it ([app.parley.data.people.PeopleContainer.me]).
+ */
 @Composable
-private fun MigrateMyDetails(vm: AppViewModel) {
-    LaunchedEffect(Unit) {
-        val old = vm.c.messaging.myDetails.value
-        vm.c.people.me.migrateFrom(old.name, old.number)
-    }
+fun rememberMyCard(people: PeopleContainer): MeCard {
+    val own by people.me.card.collectAsStateWithLifecycle()
+    val profile by produceState<MeCard?>(null) { value = people.me.profile() }
+    return remember(own, profile) { MeCards.merge(own, profile) }
 }
 
 /**
@@ -104,7 +106,6 @@ private fun MigrateMyDetails(vm: AppViewModel) {
  */
 @Composable
 fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
-    MigrateMyDetails(vm)
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()
     val parts by vm.c.people.me.shareParts.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = vm.c.people.me.profile() }
@@ -145,7 +146,6 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
-    MigrateMyDetails(vm)
     val context = LocalContext.current
     val store = vm.c.people.me
     val own by store.card.collectAsStateWithLifecycle()
