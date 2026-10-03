@@ -15,7 +15,7 @@ object FavoriteOrder {
         callCounts: Map<Long, Int> = emptyMap(),
         collator: Comparator<String> = Collator.getInstance().apply { strength = Collator.PRIMARY }.let { c -> Comparator { a, b -> c.compare(a, b) } },
     ): List<ContactSummary> {
-        val byName = favorites.sortedWith { a, b -> collator.compare(a.displayName, b.displayName) }
+        val byName = favorites.sortedWith { a, b -> collator.compare(a.sortName, b.sortName) }
         return when (sort) {
             FavoriteSort.NAME -> byName
             FavoriteSort.MOST_CALLED -> byName.sortedByDescending { callCounts[it.id] ?: 0 }

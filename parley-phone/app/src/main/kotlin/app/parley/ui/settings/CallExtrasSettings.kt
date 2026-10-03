@@ -25,24 +25,24 @@ import app.parley.RecentFilter
 import app.parley.common.StartTab
 import app.parley.common.calls.MissedReAlert
 import app.parley.ui.Destination
+import app.parley.ui.LinkRow
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.SwitchRow
 import app.parley.ui.activityViewModel
 import app.parley.ui.home.RecentsViewModel
 
 /**
- * Settings › Calls additions of v3.1: the pocket-dial guard, missed-call re-alert and voicemail. The
- * proximity sensor switch and "Power button ends call" are under Advanced ([CallsAdvancedGroup]).
+ * Settings › Calls: missed-call re-alert and voicemail. The pocket-dial guard is [PocketGuardRow]; the proximity
+ * sensor switch and "Power button ends call" are on Calls › During calls ([CallFeedbackGroup]).
  */
 @Composable
-internal fun CallExtrasGroups(vm: AppViewModel, open: (Destination) -> Unit = {}) {
+internal fun CallExtrasGroups(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     val recents: RecentsViewModel = activityViewModel()
     val choices = MissedReAlert.CHOICES
     val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
     val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
     val voicemailSub = stringResource(R.string.set_voicemail_sub)
-    val pocketSub = stringResource(R.string.set_pocket_guard_sub)
-    val menusSub = stringResource(if (cfg.rememberMenuKeys) R.string.phone_menus_on else R.string.phone_menus_off)
     SegmentedGroup(stringResource(R.string.set_group_missed_voicemail)) {
         menuRow(
             "missed_realert", choiceLabels, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
@@ -54,22 +54,31 @@ internal fun CallExtrasGroups(vm: AppViewModel, open: (Destination) -> Unit = {}
             vm.navigate(NavEvent.Tab(StartTab.RECENTS))
         }
     }
-    SegmentedGroup(stringResource(R.string.set_group_during_calls)) {
-        switchRow(
-            "pocket_guard", cfg.pocketGuard, Icons.Rounded.PhonelinkLock,
-            sub = pocketSub,
-        ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
-        // I6: menu memory has a page of its own (the Calls page keeps to its number of rows).
-        linkRow("phone_menus", Icons.Rounded.Dialpad, sub = menusSub) { open(CallsRoutes.PhoneMenus) }
-    }
+}
+
+/** Settings › Calls › Before you call: a favourite, the widget or a shortcut asks first while the phone is covered. */
+@Composable
+internal fun PocketGuardRow(vm: AppViewModel) {
+    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    SwitchRow(
+        settingTitle("pocket_guard"), stringResource(R.string.set_pocket_guard_sub), cfg.pocketGuard, Icons.Rounded.PhonelinkLock,
+    ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
+}
+
+/** Settings › Calls › Situations: menu memory, a page of its own. */
+@Composable
+internal fun PhoneMenusRow(vm: AppViewModel, open: (Destination) -> Unit) {
+    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    val menusSub = stringResource(if (cfg.rememberMenuKeys) R.string.phone_menus_on else R.string.phone_menus_off)
+    LinkRow(settingTitle("phone_menus"), menusSub, Icons.Rounded.Dialpad) { open(CallsRoutes.PhoneMenus) }
 }
 
 /**
- * Calls › Advanced: the connect buzz, the proximity sensor (only for broken sensors) and Android's "Power button
- * ends call".
+ * Calls › During calls: the buzz on call events and when a call connects, the proximity sensor (only for broken
+ * sensors) and Android's "Power button ends call".
  */
 @Composable
-internal fun CallsAdvancedGroup(vm: AppViewModel) {
+internal fun CallFeedbackGroup(vm: AppViewModel) {
     val context = LocalContext.current
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     // Android has no intent for "Power button ends call" alone: the Accessibility page opens and the row says where to look.
@@ -83,7 +92,8 @@ internal fun CallsAdvancedGroup(vm: AppViewModel) {
         },
         stringResource(R.string.set_power_button_sub),
     ).joinToString(". ")
-    AdvancedGroup(setOf("connect_haptic", "proximity_sensor", "power_button_ends_call")) {
+    SegmentedGroup(stringResource(R.string.set_group_call_feedback)) {
+        item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
         item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
         switchRow(
             "proximity_sensor", cfg.proximitySensor, Icons.Rounded.Sensors,

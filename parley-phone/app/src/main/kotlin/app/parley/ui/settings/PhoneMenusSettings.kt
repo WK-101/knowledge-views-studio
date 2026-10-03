@@ -26,8 +26,11 @@ import kotlinx.serialization.Serializable
 
 /** Settings › Calls pages of their own that aren't a feature's graph. */
 object CallsRoutes {
-    /** I6: menu memory's switch (the Calls page keeps to its number of rows). */
+    /** Menu memory's switch, a page of its own under Calls › Situations. */
     @Serializable data object PhoneMenus : Destination
+
+    /** One of Calls' own pages ([CallsSubPage] by name); [focus] is a setting to scroll to and highlight (from search). */
+    @Serializable data class Page(val page: String, val focus: String? = null) : Destination
 }
 
 /**

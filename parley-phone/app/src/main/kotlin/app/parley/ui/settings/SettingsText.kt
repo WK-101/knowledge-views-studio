@@ -31,6 +31,7 @@ object SettingsText {
         "mirror_relations" to Triple(R.string.set_mirror_relations_title, R.string.set_mirror_relations_summary, R.string.set_mirror_relations_kw),
         "temp_ask_first" to Triple(R.string.set_temp_ask_first_title, R.string.set_temp_ask_first_summary, R.string.set_temp_ask_first_kw),
         "sort_names" to Triple(R.string.set_sort_names_title, R.string.set_sort_names_summary, R.string.set_sort_names_kw),
+        "name_order" to Triple(R.string.set_name_order_title, R.string.set_name_order_summary, R.string.set_name_order_kw),
         "second_line" to Triple(R.string.set_second_line_title, R.string.set_second_line_summary, R.string.set_second_line_kw),
         "prefer_nickname" to Triple(R.string.set_prefer_nickname_title, R.string.set_prefer_nickname_summary, R.string.set_prefer_nickname_kw),
         "swipe_actions" to Triple(R.string.set_swipe_actions_title, R.string.set_swipe_actions_summary, R.string.set_swipe_actions_kw),

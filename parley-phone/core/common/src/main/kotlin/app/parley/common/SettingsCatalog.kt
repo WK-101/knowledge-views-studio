@@ -28,6 +28,9 @@ enum class SettingsCategory(val title: String, val summary: String) {
 enum class SettingPlace {
     TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
 
+    /** Settings › Calls' own pages: Answering, During calls, and SIMs & carrier (Calls itself keeps a short list). */
+    CALLS_ANSWERING, CALLS_DURING, CALLS_SIMS,
+
     /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN (I21). */
     APP_LOCK,
 }
@@ -103,7 +106,11 @@ object SettingsCatalog {
             "favorites", "favourites", "starred", "combine", "merge", "merge tabs", "fewer tabs", "strip", "carousel", "section", "frequent", "layout"),
         e("recent_tap", "Tapping a call in Recents", "Open its details, or call back straight away", L,
             "tap", "call back", "details", "accidental", "row", "recents", "tap recents to call", "one tap"),
-        e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
+        // "Sort by" and "Show names as" are apart, as in Android's Contacts; both keep the words of the one setting they were.
+        e("sort_names", "Sort by", "First name or last name, for lists and the A–Z index", A,
+            "sort and show names by", "sort names", "order", "alphabetical", "surname", "family name", "given name", "a-z"),
+        e("name_order", "Show names as", "First name first, or last name first", A,
+            "sort and show names by", "name format", "display order", "last name first", "surname first", "family name", "given name"),
         e("second_line", "Second line under names", "Company, nickname, account or number", A, "subtitle", "company", "account", "details"),
         e("prefer_nickname", "Prefer nicknames", "Show “Bob” instead of “Robert Jones” in lists", A, "nickname", "short name"),
         e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", L,
@@ -118,49 +125,57 @@ object SettingsCatalog {
         // When Android refuses the role request without asking.
         e("default_dialer_help", "Can't make Parley the default phone app?", "A step-by-step guide for your Android version, with App info", C,
             "default dialer", "role", "restricted settings", "sideload", "app info", "not asked"),
-        e("answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
-        e("call_background", "Call screen background", "The caller's colour, or plain", C,
+        at(SettingPlace.CALLS_ANSWERING, "answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
+        at(SettingPlace.CALLS_ANSWERING, "call_background", "Call screen background", "The caller's colour, or plain", C,
             "tint", "colour", "color", "plain", "background", "call screen", "incoming screen", "wallpaper"),
-        e("caller_photo", "Show contact photo on the call screen", "The photo and call-screen picture; each contact can override it", C,
+        at(SettingPlace.CALLS_ANSWERING, "caller_photo",
+            "Show contact photo on the call screen", "The photo and call-screen picture; each contact can override it", C,
             "photo", "picture", "avatar", "image", "caller", "call screen", "incoming screen", "hide photo"),
         // Accessibility: RTT, where the carrier supports it. Its group also links Android's TTY and RTT settings, which
-        // this entry's words find (the Calls page keeps to its number of searchable rows).
-        e("answer_rtt", "Answer with RTT", "Switch answered calls to real-time text where your carrier supports it", C,
+        // this entry's words find.
+        at(SettingPlace.CALLS_ANSWERING, "answer_rtt", "Answer with RTT", "Switch answered calls to real-time text where your carrier supports it", C,
             "rtt", "real-time text", "real time text", "tty", "teletype", "deaf", "hard of hearing", "hearing", "text call", "type",
             "accessibility"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
         // Remember what matters.
-        e("memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,
+        at(SettingPlace.CALLS_DURING, "memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,
             "note", "notes", "remember", "promise", "follow up", "after call", "post-call", "memory"),
-        e("memory_lock_screen", "Notes on the lock screen", "Show the last note and promises on the incoming-call screen while the phone is locked", C,
+        at(SettingPlace.CALLS_DURING, "memory_lock_screen",
+            "Notes on the lock screen", "Show the last note and promises on the incoming-call screen while the phone is locked", C,
             "lock screen", "note", "promise", "incoming", "privacy"),
-        e("pre_call_peek", "Peek before calling", "The last note, promises and a good time to call, before you call from a contact's page", C,
+        at(SettingPlace.CALLS_DURING, "pre_call_peek",
+            "Peek before calling", "The last note, promises and a good time to call, before you call from a contact's page", C,
             "peek", "before calling", "note", "promise", "good time", "local time", "time zone"),
-        e("call_haptics", "Vibrate on call events", "When a call connects, ends, is swapped or merged", C, "vibration", "haptic", "buzz"),
-        e("connect_haptic", "Vibrate when a call connects", "A short buzz when the other person answers", C, "vibration", "haptic", "answered", "picked up"),
-        e("unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C, "sound", "ring", "tone", "unknown numbers"),
+        at(SettingPlace.CALLS_DURING, "call_haptics", "Vibrate on call events", "When a call connects, ends, is swapped or merged", C,
+            "vibration", "haptic", "buzz"),
+        at(SettingPlace.CALLS_DURING, "connect_haptic", "Vibrate when a call connects", "A short buzz when the other person answers", C,
+            "vibration", "haptic", "answered", "picked up"),
+        at(SettingPlace.CALLS_ANSWERING, "unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C,
+            "sound", "ring", "tone", "unknown numbers"),
         e("pocket_guard", "Ask before pocket calls", "A favourite, the widget or a shortcut asks first while the phone is covered", C,
             "pocket dial", "butt dial", "accidental", "proximity", "widget", "shortcut", "favourite", "favorite"),
         e("missed_realert", "Remind me of missed calls", "Alert again every few minutes until you've seen them", C,
             "re-alert", "repeat", "reminder", "missed call", "nag", "notification"),
         // Auto-answer: off by default; only known callers, never during another call, always with a countdown and Cancel.
-        e("auto_answer", "Answer automatically", "Off. With a headset or Bluetooth, in simple mode, or for people you choose, after a few seconds", C,
+        at(SettingPlace.CALLS_ANSWERING, "auto_answer",
+            "Answer automatically", "Off. With a headset or Bluetooth, in simple mode, or for people you choose, after a few seconds", C,
             "auto answer", "auto-answer", "answer automatically", "headset", "bluetooth", "car", "hands-free", "handsfree", "earbuds",
             "simple mode", "chosen", "countdown", "seconds"),
         // Haptic caller ID: set on a contact's or a label's page.
-        e("caller_vibration", "Vibration for callers", "Give a person or a label a rhythm of their own, so you can tell who's calling without looking", C,
+        at(SettingPlace.CALLS_ANSWERING, "caller_vibration",
+            "Vibration for callers", "Give a person or a label a rhythm of their own, so you can tell who's calling without looking", C,
             "vibration pattern", "custom vibration", "haptic", "haptic caller id", "vibrate", "heartbeat", "morse", "pocket", "deaf", "silent"),
-        // Bring in my helper: a screen of its own, linked from the Calls page (and simple mode's setup).
+        // Bring in my helper: a screen of its own, linked from Calls › Situations (and simple mode's setup).
         at(SettingPlace.HELPERS, "call_helpers", "Helpers", "Up to 3 people you trust, added to a call with one tap", C,
             "helper", "family", "trusted", "add call", "conference", "merge", "scam"),
-        // I11: a screen of its own, linked from the Calls page; off until a car is marked.
+        // The drive profile: a screen of its own, linked from Calls › Situations; off until a car is marked.
         at(
             SettingPlace.DRIVE_PROFILE, "drive_profile", "Drive profile",
             "When your car connects: hear who's calling, answer favourites, reply that you're driving", C,
             "car", "driving", "drive", "bluetooth", "android auto", "announce", "say caller name", "hands-free", "handsfree", "auto answer",
             "silence unknown", "driving reply",
         ),
-        // I6: a screen of its own, linked from the Calls page's "During calls" (the Calls page keeps to its number of rows).
+        // Phone menus: a screen of its own, linked from Calls › Situations.
         at(
             SettingPlace.PHONE_MENUS, "phone_menus", "Phone menus",
             "The keys you pressed in a phone menu, offered again next time", C,
@@ -179,15 +194,17 @@ object SettingsCatalog {
         ),
         at(SettingPlace.SIMS, "local_sim_hint", "Suggest a local SIM abroad", "Once per trip, when your other SIM is local where you are", C,
             "roaming", "dual sim", "second sim", "esim", "travel", "abroad", "cost", "holiday"),
-        e("proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
+        at(SettingPlace.CALLS_DURING, "proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
             "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor"),
-        e("power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,
+        at(SettingPlace.CALLS_DURING, "power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,
             "power", "hang up", "end call", "accessibility", "button"),
         e("voicemail", "Voicemail", "Your voicemail inbox and the carrier's voicemail settings", C,
             "visual voicemail", "vvm", "inbox", "mailbox", "voice mail", "messages"),
-        e("sims", "SIMs & plan minutes", "Plan minutes and settings for each SIM", C, "dual sim", "sim card", "esim", "plan"),
-        e("sim_accounts", "SIM & calling accounts", "Default SIM, Wi-Fi calling (system settings)", C, "wifi calling", "wi-fi", "volte", "default sim", "calling account"),
-        e("carrier_settings", "Call forwarding, waiting & voicemail", "Carrier settings (system)", C, "forward", "divert", "voicemail", "call waiting", "carrier", "operator"),
+        at(SettingPlace.CALLS_SIMS, "sims", "SIMs & plan minutes", "Plan minutes and settings for each SIM", C, "dual sim", "sim card", "esim", "plan"),
+        at(SettingPlace.CALLS_SIMS, "sim_accounts", "SIM & calling accounts", "Default SIM, Wi-Fi calling (system settings)", C,
+            "wifi calling", "wi-fi", "volte", "default sim", "calling account"),
+        at(SettingPlace.CALLS_SIMS, "carrier_settings", "Call forwarding, waiting & voicemail", "Carrier settings (system)", C,
+            "forward", "divert", "voicemail", "call waiting", "carrier", "operator"),
 
         // Keypad
         e("keypad_tones", "Keypad tones", "Play a tone for each key", K, "dtmf", "sound", "beep", "dialpad"),

@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
@@ -75,7 +74,6 @@ import app.parley.ui.calltime.NotificationHealthBanner
 import app.parley.ui.calltime.ReturnToCallChip
 import app.parley.ui.circle.CircleTab
 import app.parley.ui.common.CoachMarkAnchor
-import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.history.ClearHistoryMenuItem
 import app.parley.ui.history.RecentsExportMenuItem
 import app.parley.ui.history.RecentsInsightsAction
@@ -326,20 +324,15 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
-            // "Who's in…" (trip mode).
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
-        // While the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
-        StartTab.FAVORITES -> if (StartTab.CIRCLE !in settings.navTabs.visible) {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
-        }
+        // "Who's in…" is the Contacts search's city chip now, not an item of these menus.
+        StartTab.FAVORITES -> Unit
     }
-    if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {
+    if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE) {
         HorizontalDivider()
     }
     MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(Routes.Tools) }

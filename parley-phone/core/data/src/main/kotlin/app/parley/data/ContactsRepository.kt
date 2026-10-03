@@ -300,7 +300,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         if (blank.isNotEmpty()) {
             val names = blankNames(blank.map { out[it].second.id })
             blank.forEach { i ->
-                out[i] = out[i].let { (t, s) -> t to (names[s.id] ?: ContactText.NO_NAME).let { n -> s.copy(displayName = n, displayNameAlt = n) } }
+                out[i] = out[i].let { (t, s) ->
+                    t to (names[s.id] ?: ContactText.NO_NAME).let { n -> s.copy(displayName = n, displayNameAlt = n, sortName = n) }
+                }
             }
         }
         return out
@@ -394,6 +396,11 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         // first") reads it from its own row; without this every favourite looks unstarred on a phone with a work profile.
         return if (strict && !found.work) found.copy(starred = starredOf(found.contactId)) else found
     }
+
+    /** The personal contact [contactId]'s name in "Family, Given" form, for "Show names as"; null when it can't be read. */
+    fun alternativeName(contactId: Long): String? =
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts.DISPLAY_NAME_ALTERNATIVE), "${Contacts._ID}=?", arrayOf(contactId.toString()), null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null }
 
     /** Whether the personal contact [contactId] is a favourite (false when it can't be read). */
     private fun starredOf(contactId: Long): Boolean =

@@ -65,7 +65,8 @@ class Diagnostics(private val context: Context) {
         appendLine("== Settings (no personal data)")
         appendLine("theme=${settings.themeMode} amoled=${settings.amoledBlack} dynamic=${settings.dynamicColor} density=${settings.density}")
         appendLine("answer=${settings.answerGesture} confirmBeforeCall=${settings.confirmBeforeCall} tones=${settings.dialpadTones} haptics=${settings.dialpadHaptics}")
-        appendLine("startTab=${settings.startTab} sortByFirstName=${settings.sortByFirstName} simLabels=${settings.showSimLabels} rowActions=${settings.contactRowActions}")
+        appendLine("startTab=${settings.startTab} sortByFirstName=${settings.sortByFirstName} namesLastFirst=${settings.showNamesLastFirst}")
+        appendLine("simLabels=${settings.showSimLabels} rowActions=${settings.contactRowActions}")
         appendLine("defaultAccount=${settings.defaultAccountType ?: "phone"} (name ${if (settings.defaultAccountName != null) "set" else "not set"})")
         appendLine("quickReplies=${settings.quickReplies.size} customised=${settings.quickReplies != AppSettings.DEFAULT_QUICK_REPLIES}")
         // Flags and counts only: the screening settings hold phone numbers, a reply text and ringtone URIs.

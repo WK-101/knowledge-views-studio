@@ -21,16 +21,16 @@ object PrivateListing {
     fun isPrivate(row: ContactSummary): Boolean = row.id < 0
 
     /**
-     * [device] (already in display order) with [private] merged in by [compare] on the shown name; ties keep the device
-     * contact first, and the device list's own order is never changed.
+     * [device] (already in list order) with [private] merged in by [compare] on the name the list is sorted by
+     * ([ContactSummary.sortName]); ties keep the device contact first, and the device list's own order is never changed.
      */
     fun merge(device: List<ContactSummary>, private: List<ContactSummary>, compare: Comparator<String>): List<ContactSummary> {
         if (private.isEmpty()) return device
-        val extra = private.sortedWith { a, b -> compare.compare(a.displayName, b.displayName) }
+        val extra = private.sortedWith { a, b -> compare.compare(a.sortName, b.sortName) }
         val out = ArrayList<ContactSummary>(device.size + extra.size)
         var j = 0
         for (d in device) {
-            while (j < extra.size && compare.compare(extra[j].displayName, d.displayName) < 0) out += extra[j++]
+            while (j < extra.size && compare.compare(extra[j].sortName, d.sortName) < 0) out += extra[j++]
             out += d
         }
         while (j < extra.size) out += extra[j++]

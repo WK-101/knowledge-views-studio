@@ -7,6 +7,7 @@ import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.common.people.BroadSearch
 import app.parley.common.people.LabelFilter
+import app.parley.common.people.NameOrder
 import app.parley.common.people.ContactRef
 import app.parley.common.people.PrivateLabels
 import app.parley.common.people.PersonExtra
@@ -88,8 +89,8 @@ class PeopleUi(
             true
         }
         if (s.preferNickname) {
-            shown = shown.map { ct -> ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) }
-                .sortedWith { a, b -> filteredCollator.compare(a.displayName, b.displayName) }
+            shown = shown.map { ct -> NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) }
+                .sortedWith { a, b -> filteredCollator.compare(a.sortName, b.sortName) }
         }
         shown to (hints as Map<Long, String>)
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
@@ -97,11 +98,11 @@ class PeopleUi(
     val filtered: StateFlow<List<ContactSummary>?> = searched.map { it?.first }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
-     * [filtered] with its letter headers, worked out once per list change here instead of in the list's builder
+     * [filtered] with its letter headers (from the name it is sorted by, so the A–Z rail matches "Sort by"), worked out once per list change here instead of in the list's builder
      * (which runs again on selection, hint and settings changes).
      */
     val listing: StateFlow<List<ListSections.Row<String, ContactSummary>>?> = filtered.map { list ->
-        list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.displayName) } }
+        list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.sortName) } }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** "Matched: address" for contacts the search found by another field than the name or number. */
@@ -122,7 +123,8 @@ class PeopleUi(
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index) { list, s, counts, idx ->
-        val favs = list.orEmpty().filter { it.starred }.map { ct -> if (s.preferNickname) ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
+        val favs = list.orEmpty().filter { it.starred }
+            .map { ct -> if (s.preferNickname) NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
         FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts) { a, b -> favoritesCollator.compare(a, b) }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

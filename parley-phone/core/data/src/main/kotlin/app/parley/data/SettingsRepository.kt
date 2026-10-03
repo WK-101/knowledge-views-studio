@@ -19,6 +19,7 @@ import app.parley.common.ScreeningSettings
 import app.parley.common.StartTab
 import app.parley.common.SurfaceLayout
 import app.parley.common.ThemeMode
+import app.parley.common.people.NameOrder
 import app.parley.common.security.DuressPolicy
 import app.parley.common.security.SafetyOverlay
 import app.parley.data.security.Concealment
@@ -159,6 +160,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             dialpadHaptics = this[K.haptics] ?: d.dialpadHaptics,
             startTab = enumOr(this[K.startTab], d.startTab),
             sortByFirstName = this[K.sortFirst] ?: d.sortByFirstName,
+            showNamesLastFirst = NameOrder.showLastFirst(this[K.namesLastFirst], this[K.sortFirst] ?: d.sortByFirstName),
             showSimLabels = this[K.simLabels] ?: d.showSimLabels,
             defaultAccountType = this[K.accType]?.ifEmpty { null },
             defaultAccountName = this[K.accName]?.ifEmpty { null },
@@ -211,6 +213,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.haptics] = s.dialpadHaptics
         this[K.startTab] = s.startTab.name
         this[K.sortFirst] = s.sortByFirstName
+        this[K.namesLastFirst] = s.showNamesLastFirst
         this[K.simLabels] = s.showSimLabels
         this[K.accType] = s.defaultAccountType.orEmpty()
         this[K.accName] = s.defaultAccountName.orEmpty()
@@ -262,6 +265,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val haptics = booleanPreferencesKey("dialpad_haptics")
         val startTab = stringPreferencesKey("start_tab")
         val sortFirst = booleanPreferencesKey("sort_first_name")
+        val namesLastFirst = booleanPreferencesKey("names_last_first")
         val simLabels = booleanPreferencesKey("sim_labels")
         val accType = stringPreferencesKey("default_account_type")
         val accName = stringPreferencesKey("default_account_name")

@@ -51,9 +51,12 @@
     <string name="set_mirror_relations_title">Add relations to both contacts</string>
     <string name="set_mirror_relations_summary">“Mother: Ana” here adds “Child” on Ana’s contact</string>
     <string name="set_mirror_relations_kw">relation, relationship, two-way, both ways, reciprocal, family, mirror, spouse, parent, child</string>
-    <string name="set_sort_names_title">Sort and show names by</string>
-    <string name="set_sort_names_summary">First name or last name</string>
-    <string name="set_sort_names_kw">order, alphabetical, surname, family name, given name</string>
+    <string name="set_sort_names_title">Sort by</string>
+    <string name="set_sort_names_summary">First name or last name, for lists and the A–Z index</string>
+    <string name="set_sort_names_kw">sort and show names by, sort names, order, alphabetical, surname, family name, given name, a-z</string>
+    <string name="set_name_order_title">Show names as</string>
+    <string name="set_name_order_summary">First name first, or last name first</string>
+    <string name="set_name_order_kw">sort and show names by, name format, display order, last name first, surname first, family name, given name</string>
     <string name="set_second_line_title">Second line under names</string>
     <string name="set_second_line_summary">Company, nickname, account or number</string>
     <string name="set_second_line_kw">subtitle, company, account, details</string>
@@ -404,6 +407,8 @@
     <string name="set_density_compact">Compact</string>
     <string name="set_sort_first_name">First name</string>
     <string name="set_sort_last_name">Last name</string>
+    <string name="set_name_order_first">First name first</string>
+    <string name="set_name_order_last">Last name first</string>
     <string name="set_nav_tabs_help">Drag to reorder. Links that open a hidden tab (dialling a number, a missed call) still work.</string>
     <string name="set_answer_swipe">Swipe</string>
     <string name="set_answer_tap">Tap</string>
@@ -538,6 +543,19 @@
     <string name="set_call_time_supervised">supervised</string>
     <string name="set_group_missed_voicemail">Missed calls and voicemail</string>
     <string name="set_group_during_calls">During calls</string>
+    <!-- Settings › Calls: its own pages, so the Calls page stays a short list. -->
+    <string name="set_calls_answering_title">Answering</string>
+    <string name="set_calls_answering_summary">How you answer, ringtones, auto-answer and RTT</string>
+    <string name="set_calls_during_title">During calls</string>
+    <string name="set_calls_during_summary">Vibration, the screen at your ear, notes after calls</string>
+    <string name="set_calls_sims_title">SIMs &amp; carrier</string>
+    <string name="set_calls_sims_summary">SIMs, plan minutes, forwarding and voicemail settings</string>
+    <string name="set_calls_situations_title">Situations</string>
+    <string name="set_calls_situations_summary">Helpers, driving, phone menus and call time</string>
+    <string name="set_calls_situations_intro">For particular calls: bringing in a helper, driving, phone menus and how long calls last.</string>
+    <string name="set_group_before_calling">Before you call</string>
+    <string name="set_group_incoming">Incoming calls</string>
+    <string name="set_group_call_feedback">Vibration and screen</string>
     <plurals name="set_every_minutes">
         <item quantity="one">Every minute</item>
         <item quantity="other">Every %1$d minutes</item>

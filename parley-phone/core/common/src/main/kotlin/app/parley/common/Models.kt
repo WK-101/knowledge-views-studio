@@ -17,10 +17,12 @@ data class ContactSummary(
     val starred: Boolean,
     val phones: List<PhoneEntry>,
     val emails: List<String> = emptyList(),
-    /** "Family, Given" form used when the user sorts by last name. */
+    /** The "Family, Given" form, for sorting by last name and showing names last name first ([app.parley.common.people.NameOrder]). */
     val displayNameAlt: String = displayName,
     /** How the name is pronounced, when the contact has one (furigana, pinyin…): searched on the keypad too. */
     val phoneticName: String? = null,
+    /** The name the list is sorted, sectioned and indexed by ("Sort by"), which may differ from the shown one. */
+    val sortName: String = displayName,
 )
 
 enum class CallType { INCOMING, OUTGOING, MISSED, REJECTED, BLOCKED, VOICEMAIL, ANSWERED_EXTERNALLY, UNKNOWN }

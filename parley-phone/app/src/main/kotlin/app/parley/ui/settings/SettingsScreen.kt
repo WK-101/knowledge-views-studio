@@ -445,6 +445,9 @@ internal fun settingRoute(e: SettingEntry): Destination = when (val place = e.pl
     null -> Routes.settingsPage(e.category, e.key)
     SettingPlace.TOOLS -> toolsRoute(e.key)
     SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
+    // Calls' own pages, scrolled to the setting.
+    SettingPlace.CALLS_ANSWERING, SettingPlace.CALLS_DURING, SettingPlace.CALLS_SIMS ->
+        CallsRoutes.Page(CallsSubPage.at(place)?.name ?: CallsSubPage.ANSWERING.name, e.key)
     else -> placeRoutes.getValue(place)
 }
 

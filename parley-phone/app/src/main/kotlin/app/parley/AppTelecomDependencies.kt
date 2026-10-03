@@ -13,6 +13,7 @@ import app.parley.common.RuleType
 import app.parley.data.PlaceResult
 import app.parley.blocking.DialText as PlaceFailureText
 import app.parley.common.people.CallerCard
+import app.parley.common.people.NameOrder
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
@@ -115,6 +116,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 return@withContext CallerDisplay(it.name, photo, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
             }
             val cfg = c.circle.config.value
+            val lastFirst = c.settings.settings.value.showNamesLastFirst
             // The extra reads run side by side, so they stay well inside the call path's lookup time (a timeout there
             // treats a contact as unknown).
             val (parts, choices) = coroutineScope {
@@ -125,12 +127,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
                 val memory = async { it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() } }
                 val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
-                CallerParts(note.await(), org.await(), pronouns.await(), memory.await()) to choices.await()
+                // "Show names as" last name first: the "Family, Given" form, as in the lists.
+                val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
+                CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await()) to choices.await()
             }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
             val photo = showsPhoto(it.lookupKey)
             CallerDisplay(
-                it.name, it.photoUri.takeIf { photo }, it.numberLabel, it.contactId, it.lookupKey, parts.note, last,
+                NameOrder.shown(it.name, parts.alternative, lastFirst), it.photoUri.takeIf { photo }, it.numberLabel, it.contactId, it.lookupKey,
+                parts.note, last,
                 backgroundUri = if (photo) c.people.backgrounds.forLookupKey(it.lookupKey) else null,
                 subtitle = CallerCard.subtitle(parts.org?.second, parts.org?.first),
                 memory = parts.memory,
@@ -158,7 +163,14 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     /** What [callerInfo] reads beside the contact lookup. */
-    private data class CallerParts(val note: String?, val org: Pair<String, String>?, val pronouns: String?, val memory: CallerMemory?)
+    private data class CallerParts(
+        val note: String?,
+        val org: Pair<String, String>?,
+        val pronouns: String?,
+        val memory: CallerMemory?,
+        /** The "Family, Given" name, read only when names show last name first. */
+        val alternative: String?,
+    )
 
     /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */
     private fun showsPhoto(key: String?): Boolean =
