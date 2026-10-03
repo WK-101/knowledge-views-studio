@@ -18,6 +18,7 @@ import app.parley.data.DataItem
 import app.parley.data.ScreenRequest
 import app.parley.data.WorkProfile
 import app.parley.data.testing.FakeAndroidKeyStore
+import app.parley.data.vault.VaultCrypto
 import app.parley.data.testing.FakeContactsProvider
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -132,5 +133,34 @@ class CallScreenerTest {
         assertTrue(c.screener.test(null).blocked)
         delay(200)
         assertTrue(c.blocks.screenedSince(0).isEmpty())
+    }
+    @Test fun aContactsCallIsLookedUpOnce() {
+        screening { it.copy(blockNonContacts = true, ringLoudFavourites = true) }
+        addContact("+1 202 555 0100")
+        provider.phoneLookups = 0
+        val r = screen("+1 202 555 0100")
+        assertEquals(AllowReason.CONTACT, r.allowedBy)
+        assertEquals("one PhoneLookup gives \"is a contact\", the name, the star and the ringtone", 1, provider.phoneLookups)
+    }
+
+    @Test fun aPrivateCallerIsLookedUpInTheVaultOnce() = runBlocking {
+        screening { it.copy(blockNonContacts = true) }
+        c.vault.save(null, ContactDetails(given = "Private", phones = listOf(DataItem(null, "+1 202 555 0188", Phone.TYPE_MOBILE))))
+        // Once to warm the vault's own caches; then count.
+        screen("+1 202 555 0188")
+        VaultCrypto.Meter.reset()
+        provider.phoneLookups = 0
+        val r = screen("+1 202 555 0188")
+        assertFalse(r.blocked)
+        assertEquals(1, VaultCrypto.Meter.hmacs.get())
+        assertEquals(1, provider.phoneLookups)
+    }
+
+    @Test fun theUnknownCallerLookupsStartedAlongsideDecideOnlyForUnknownCallers() = runBlocking {
+        // They start with the contact lookups; a contact's call never waits for or depends on them.
+        screening { it.copy(blockNonContacts = true, repeatCallers = true) }
+        addContact("+1 202 555 0100")
+        assertEquals(AllowReason.CONTACT, screen("+1 202 555 0100").allowedBy)
+        assertTrue(screen("+1 202 555 0143").blocked)
     }
 }

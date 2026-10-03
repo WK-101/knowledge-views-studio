@@ -36,7 +36,11 @@ import app.parley.data.security.Concealment
 import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -237,6 +241,23 @@ class CallScreener(
         val privateVoicemail: Boolean = false,
     )
 
+    /** What the contacts provider says about a number: a contact (with its row when it is a personal one), not one, or unknown. */
+    private sealed interface ContactAnswer {
+        class Found(val bits: ContactBits?) : ContactAnswer
+        object NotFound : ContactAnswer
+        object Unknown : ContactAnswer
+    }
+
+    /** A vault lookup: [hit] is the private contact (null: none). A lookup that failed is a null [VaultAnswer]. */
+    private class VaultAnswer(val hit: Pair<Long, CallerInfo>?)
+
+    /**
+     * Gathers the facts, the lookups at the same time: the contacts provider, the vault, the spam lists, the call log,
+     * the blocked-call log, Android's block list and the SIMs answer independently, and the call screening service has
+     * 3 s in all. Each number is looked up once (one PhoneLookup row gives "is a contact", the name, the star and the
+     * ringtone; the vault's answer also names a private caller). The lookups only an unknown caller needs start with
+     * the others and are dropped for a contact. Only the labels wait, for the contact's id.
+     */
     private suspend fun gather(
         req: ScreenRequest,
         s: ScreeningSettings,
@@ -245,74 +266,63 @@ class CallScreener(
         knownContact: Boolean? = null,
         rules: List<BlockRule>,
         tones: Map<String, String> = emptyMap(),
-    ): Gathered {
+    ): Gathered = coroutineScope {
         val number = req.number?.takeIf { it.isNotBlank() }
         // National numbers are read with the country of the SIM that took the call, when known.
         val iso = PhoneEnv.countryIso(context, req.simId)
         if (number == null || req.hidden) {
-            return Gathered(IncomingCallFacts(number = null, hidden = true, isContact = false, verification = req.verification, countryIso = iso, simId = req.simId), null)
+            return@coroutineScope Gathered(
+                IncomingCallFacts(number = null, hidden = true, isContact = false, verification = req.verification, countryIso = iso, simId = req.simId),
+                null,
+            )
         }
         val parts = PhoneNumbers.forwardedParts(number)
         val primary = parts.first()
+        val io = Dispatchers.IO
+        val live = replayHistory == null
+        val contactLookups = if (knownContact == null) parts.map { p -> async(io) { contactLookup(p) } } else emptyList()
+        val vaultLookups = if (knownContact == null) parts.map { p -> async(io) { vaultLookup(p, iso) } } else emptyList()
+        val maybeUnknown = knownContact != true
+        // Kept as results: a failure counts (as before) only when the answer is used, never for a contact's call.
+        val listLookup = if (maybeUnknown) async(io) { runCatching { lists?.lookup(number, iso) } } else null
+        val wantsHistory = s.allowDialled || s.allowAnswered || s.repeatCallers
+        val pastCalls = if (maybeUnknown && wantsHistory) async(io) { runCatching { history(number, at, replayHistory, iso) } } else null
+        val blockedLookup = if (maybeUnknown && s.repeatCallers && live) async(io) { blockedTimes(number, at, s) } else null
+        val systemBlocked = if (live) async(io) { blocks.isSystemBlocked(primary) } else null
+        val ownNumbers = if (s.blockNeighbourSpoofing) async(io) { sims.ownNumbers() } else null
+
         // If contacts can't be checked (no permission, provider failing) fail open: never block a real contact.
+        val inContacts = contactLookups.awaitAll()
+        val inVault = vaultLookups.awaitAll()
         var lookupFailed = false
         val isContact = knownContact ?: run {
-            val inContacts = parts.map { contacts.isContact(it) }
-            val inVault = parts.map { p -> runCatching { vault.lookup(p, iso) != null }.getOrNull() }
-            val yes = inContacts.any { it == true } || inVault.any { it == true }
-            lookupFailed = !yes && (inContacts.any { it == null } || inVault.any { it == null })
+            val yes = inContacts.any { it is ContactAnswer.Found } || inVault.any { it?.hit != null }
+            lookupFailed = !yes && (inContacts.any { it is ContactAnswer.Unknown } || inVault.any { it == null })
             yes || lookupFailed
         }
-        var starred = false
-        var labels = emptySet<String>()
-        var labelFailed = false
-        var contactName: String? = null
-        var contactRingtone: String? = null
-        var privateTone: String? = null
-        var privateVoicemail = false
         val needLabels = rules.any { it.enabled && it.type == RuleType.LABEL } || (s.offHours.enabled && s.offHours.allow == OffHoursAllow.LABEL) ||
             tones.isNotEmpty()
-        if (isContact && !lookupFailed) {
-            try {
-                contactDetails(primary)?.let { d ->
-                    starred = d.starred
-                    contactName = d.name
-                    contactRingtone = d.ringtone
-                    // Titles in every account: label rules, off hours and ringtones name labels by title.
-                    if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: error("contacts unavailable")
-                } ?: privateCaller(primary, iso, needLabels)?.let { p ->
-                    contactName = p.name
-                    starred = p.starred
-                    labels = p.labels
-                    privateTone = p.ringtone
-                    privateVoicemail = p.sendToVoicemail
-                }
-            } catch (_: Exception) {
-                labelFailed = true
-            }
-        }
+        val who = if (isContact && !lookupFailed) caller(primary, iso, inContacts.firstOrNull(), inVault.firstOrNull(), needLabels) else Caller()
         val nf = NumberFacts.of(primary, iso)
         val emergency = EmergencyNumbers.isEmergency(context, primary)
-        val lookup = if (!isContact) lists?.lookup(number, iso) else null
-        val history = if (!isContact && (s.allowDialled || s.allowAnswered || s.repeatCallers)) history(number, at, replayHistory, iso) else emptyList()
-        val blockedAttempts = if (!isContact && s.repeatCallers && replayHistory == null) {
-            runCatching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
-        } else {
-            emptyList()
-        }
+        val lookup = if (!isContact) listLookup?.await()?.getOrThrow() else null
+        val history = if (!isContact) pastCalls?.await()?.getOrThrow().orEmpty() else emptyList()
+        val blockedAttempts = if (!isContact) blockedLookup?.await().orEmpty() else emptyList()
+        // Not needed any more for a contact (they may still be running).
+        if (isContact) listOfNotNull(listLookup, pastCalls, blockedLookup).forEach { it.cancel() }
         val facts = IncomingCallFacts(
             number = number,
             hidden = false,
             isContact = isContact,
             verification = req.verification,
             countryIso = iso,
-            ownNumbers = if (s.blockNeighbourSpoofing) sims.ownNumbers() else emptyList(),
-            inSystemBlockList = replayHistory == null && blocks.isSystemBlocked(primary),
+            ownNumbers = ownNumbers?.await().orEmpty(),
+            inSystemBlockList = systemBlocked?.await() == true,
             isEmergency = emergency,
             contactLookupFailed = lookupFailed,
-            contactStarred = starred,
-            contactLabels = labels,
-            labelLookupFailed = labelFailed,
+            contactStarred = who.starred,
+            contactLabels = who.labels,
+            labelLookupFailed = who.labelFailed,
             callerName = req.callerName,
             simId = req.simId,
             region = nf.region,
@@ -322,9 +332,71 @@ class CallScreener(
             listLookupFailed = lookup?.failed == true,
             history = history,
             blockedAttempts = blockedAttempts,
-            reputation = reputationOf(primary, iso, s, unknown = !isContact && !emergency && replayHistory == null),
+            reputation = reputationOf(primary, iso, s, unknown = !isContact && !emergency && live),
         )
-        return Gathered(facts, contactName, contactRingtone != null, privateTone, privateVoicemail)
+        Gathered(facts, who.name, who.ringtone != null, who.privateTone, who.privateVoicemail)
+    }
+
+    /** Who a known caller is: a device contact's row, or a private contact's choices. */
+    private class Caller(
+        val name: String? = null,
+        val starred: Boolean = false,
+        val labels: Set<String> = emptySet(),
+        val labelFailed: Boolean = false,
+        val ringtone: String? = null,
+        val privateTone: String? = null,
+        val privateVoicemail: Boolean = false,
+    )
+
+    /**
+     * The contact behind [primary], from the answers already gathered ([contact], [private]; a replay, which knew the
+     * contact already, asks now). Labels are read only when [needLabels].
+     */
+    @Suppress("TooGenericExceptionCaught") // Labels that can't be read are a fact of their own (labelLookupFailed).
+    private suspend fun caller(primary: String, iso: String, contact: ContactAnswer?, private: VaultAnswer?, needLabels: Boolean): Caller = try {
+        val personal = ((contact ?: withContext(Dispatchers.IO) { contactLookup(primary) }) as? ContactAnswer.Found)?.bits
+        if (personal != null) {
+            // Titles in every account: label rules, off hours and ringtones name labels by title.
+            val labels = if (needLabels) withContext(Dispatchers.IO) { contacts.labelTitlesOrNull(personal.id) } ?: error("contacts unavailable") else emptySet()
+            Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone)
+        } else {
+            privateCaller((private ?: vaultLookup(primary, iso))?.hit, needLabels)?.let { p ->
+                Caller(p.name, p.starred, p.labels, privateTone = p.ringtone, privateVoicemail = p.sendToVoicemail)
+            } ?: Caller()
+        }
+    } catch (_: Exception) {
+        Caller(labelFailed = true)
+    }
+
+    private suspend fun blockedTimes(number: String, at: Long, s: ScreeningSettings): List<Long> =
+        runCatching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
+
+    /** One vault lookup; null when it failed (the caller fails open). */
+    private suspend fun vaultLookup(number: String, iso: String): VaultAnswer? = runCatching { VaultAnswer(vault.lookup(number, iso)) }.getOrNull()
+
+    /**
+     * One PhoneLookup for [number] with everything the call path reads, and the work profile's lookup when the personal
+     * one finds nothing (as [ContactsRepository.isContact]).
+     */
+    private fun contactLookup(number: String): ContactAnswer {
+        if (number.isBlank()) return ContactAnswer.NotFound
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return ContactAnswer.Unknown
+        val personal = try {
+            contactDetails(number)?.let { ContactAnswer.Found(it) } ?: ContactAnswer.NotFound
+        } catch (_: Exception) {
+            ContactAnswer.Unknown
+        }
+        if (personal is ContactAnswer.Found || !WorkProfile.exists(context)) return personal
+        val work = try {
+            context.contentResolver.query(
+                Uri.withAppendedPath(ContactsContract.PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(number)),
+                arrayOf(ContactsContract.PhoneLookup._ID), null, null, null,
+            )?.use { it.count > 0 }
+        } catch (_: Exception) {
+            // The policy may forbid the lookup: then the personal answer stands.
+            null
+        }
+        return if (work == true) ContactAnswer.Found(null) else personal
     }
 
     /**
@@ -359,8 +431,8 @@ class CallScreener(
      * A private caller: Parley's own star, labels, ringtone and "send to voicemail", from its sealed caller-ID copy
      * (readable while the phone is locked); the address book knows nothing of them. Null when no private contact has it.
      */
-    private suspend fun privateCaller(number: String, iso: String, needLabels: Boolean): PrivateCaller? {
-        val hit = runCatching { vault.lookup(number, iso) }.getOrNull() ?: return null
+    private suspend fun privateCaller(hit: Pair<Long, CallerInfo>?, needLabels: Boolean): PrivateCaller? {
+        hit ?: return null
         val p = runCatching { vault.summary(hit.first) }.getOrNull() ?: return PrivateCaller(hit.second.name, false, emptySet(), null, false)
         val labels = if (needLabels && p.labels.isNotEmpty()) {
             PrivateLabels.titles(p.labels, runCatching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList()))
@@ -374,7 +446,6 @@ class CallScreener(
     }
 
     private fun contactDetails(number: String): ContactBits? {
-        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
         val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
         return context.contentResolver.query(
             uri, arrayOf(

@@ -21,8 +21,9 @@ import java.io.IOException
  * of the number asked about are ever opened.
  *
  * Each [Source] is rebuilt only when its fingerprint changed (incremental), and a source with a state ([Source.update])
- * reads only what is new since; a source that can't be read now keeps its previous hints. The file is device-local (`no_backup/number_memory`): it is rebuilt from the stores it indexes, so a
- * backup has nothing to carry, and "Delete all Parley data" removes it with the key.
+ * reads only what is new since; a source that can't be read now keeps its previous hints. The file is device-local
+ * (`no_backup/number_memory`): it is rebuilt from the stores it indexes, so a backup has nothing to carry, and
+ * "Delete all Parley data" removes it with the key.
  */
 class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
     /** The keyed hash and the sealing; a fake in tests. */
