@@ -2174,3 +2174,14 @@ Set up: two phones (A, B) sharing "Family" through a Syncthing folder as in 29.1
 6. **Smooth.** With a few thousand calls, fling Recents top to bottom in Cards: no dropped frames compared with Rich (Profile GPU rendering bars stay as low), and rows don't jump while new calls arrive.
 7. **Private and discreet.** A private contact's calls show in their day's card with the lock. Turn on discreet mode: they disappear and the neighbouring rows' cards close up around the gap (first and last corners redrawn).
 
+
+## 33. Features (5.3)
+
+### 33.3 Work profile
+Needs a phone with a work profile (Settings › Passwords & accounts › Work, or Google's Test DPC app from the Play Store set up as a work profile) and a few contacts saved in the work profile's Contacts app.
+1. **Contacts search.** In Contacts, search for part of a work contact's name: below the personal matches a **Work** header lists them, each with a small briefcase on the photo and its number (or "From your work profile"). A personal contact with the same name still appears above, once. Search for a work contact's number: the same row appears. TalkBack reads the briefcase as "Work contact" and the row's action as "open in your work apps".
+2. **Keypad search.** On the Keypad, open the header search and type the same name: the Work section appears after the personal and private results. A work-only match no longer shows "No matches"; "Create contact" appears only when nothing matches anywhere.
+3. **Open and call.** Tap a work row: the work profile's own contact card opens (with the work badge, in the work apps). Tap the call button on the row: Parley calls the number as for any contact. With the work profile paused (Quick Settings › Work apps off), search again: no Work section, and nothing else changes.
+4. **The admin's say.** In Test DPC, turn off "Cross-profile contacts search" (and caller ID): the Work section no longer appears; personal search is unchanged. Turn it back on: it returns.
+5. **Never kept.** Work contacts never appear in the Contacts list without a search, in Favourites, in widgets, in backups, exports, History & undo or Recents' names. Remove the work profile: no trace is left in Parley.
+6. **Filters.** With a label, account or the Private filter chosen in Contacts, the Work section stays hidden (it belongs to a plain search). On a phone without a work profile, nothing about searches changes.
