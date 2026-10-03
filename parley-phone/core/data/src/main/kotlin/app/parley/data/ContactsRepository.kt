@@ -41,6 +41,8 @@ import app.parley.common.PhoneEntry
 import app.parley.common.PhoneNumbers
 import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
+import app.parley.common.AltCalendar
+import app.parley.common.people.AddressParts
 import app.parley.common.people.Handles
 import app.parley.common.people.RowEdits
 import app.parley.common.record.ContentDiff
@@ -545,12 +547,13 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val addrs = ArrayList<PostalItem>()
         val events = ArrayList<EventItem>()
         val groups = HashSet<Long>()
+        val customs = ArrayList<CustomFieldItem>()
         val dataIds = ArrayList<Long>()
         cr.safeQuery(
             Data.CONTENT_URI,
             arrayOf(
                 Data._ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6,
-                Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.IS_SUPER_PRIMARY,
+                Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.IS_SUPER_PRIMARY, Data.DATA11, Data.DATA14,
             ),
             if (forEdit) "${Data.RAW_CONTACT_ID}=?" else "${Data.CONTACT_ID}=?",
             arrayOf(if (forEdit) target!!.id.toString() else contactId.toString()),
@@ -562,10 +565,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 when (c.getString(1)) {
                     StructuredName.CONTENT_ITEM_TYPE -> if (base.nameId == null) base = base.copy(
                         nameId = id, given = s(3), family = s(4), prefix = s(5), middle = s(6), suffix = s(7),
-                        phoneticGiven = s(8), phoneticFamily = s(10),
+                        phoneticGiven = s(8), phoneticFamily = s(10), phoneticMiddle = s(9),
                     )
                     Nickname.CONTENT_ITEM_TYPE -> if (base.nicknameId == null) base = base.copy(nicknameId = id, nickname = s(2))
                     Mime.PRONOUNS -> if (base.pronounsId == null) base = base.copy(pronounsId = id, pronouns = s(2))
+                    // Parley's rows for RFC 9554's name parts and the language, and custom fields (ExtraRows).
+                    Mime.NAME_PARTS -> if (base.namePartsId == null) base = base.copy(namePartsId = id, secondSurname = s(2), generation = s(3))
+                    Mime.LANGUAGE -> if (base.languageId == null) base = base.copy(languageId = id, language = s(2))
+                    Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD -> customs += CustomFieldItem(id, s(2), s(3), c.getString(1))
                     Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) {
                         base = base.copy(orgId = id, company = s(2), title = s(5), department = s(6), jobDescription = s(7), officeLocation = s(10))
                     }
@@ -580,12 +587,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     StructuredPostal.CONTENT_ITEM_TYPE -> {
                         var p = PostalItem(
                             id, street = s(5), city = s(8), region = s(9), postcode = s(10), country = s(11).ifEmpty { "" },
-                            type = c.getInt(3), label = c.getString(4), poBox = s(6), neighborhood = s(7),
+                            type = c.getInt(3), label = c.getString(4), poBox = s(6), neighborhood = s(7), parts = s(13),
                         )
                         if (p.isBlank) p = p.copy(street = s(2))
                         addrs += p
                     }
-                    Event.CONTENT_ITEM_TYPE -> events += EventItem(id, s(2), c.getInt(3), c.getString(4))
+                    Event.CONTENT_ITEM_TYPE -> events += EventItem(id, s(2), c.getInt(3), c.getString(4), c.getString(14)?.takeIf { it.isNotBlank() })
                     GroupMembership.CONTENT_ITEM_TYPE -> groups += c.getLong(2)
                 }
             }
@@ -594,6 +601,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             phones = if (forEdit) phones else phones.distinctBy { PhoneIdentity.key(it.value, PhoneEnv.countryIso(context)) + it.type },
             emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
             handles = if (forEdit) handles else handles.distinctBy { it.service to it.value.trim().lowercase() },
+            customFields = if (forEdit) customs else customs.distinctBy { it.label.trim() to it.value.trim() },
             readOnlyDataIds = if (forEdit) readOnlyDataIds(dataIds) else emptySet(),
         )
     }
@@ -623,13 +631,17 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val out = ArrayList<ContactEvent>()
         cr.safeQuery(
             Data.CONTENT_URI,
-            arrayOf(Data.CONTACT_ID, Data.LOOKUP_KEY, Data.DISPLAY_NAME_PRIMARY, Data.PHOTO_THUMBNAIL_URI, Event.START_DATE, Event.TYPE, Event.LABEL),
+            arrayOf(
+                Data.CONTACT_ID, Data.LOOKUP_KEY, Data.DISPLAY_NAME_PRIMARY, Data.PHOTO_THUMBNAIL_URI, Event.START_DATE, Event.TYPE, Event.LABEL,
+                AltCalendar.COLUMN,
+            ),
             "${Data.MIMETYPE}=?", arrayOf(Event.CONTENT_ITEM_TYPE),
         )?.use { c ->
             while (c.moveToNext()) {
                 val date = c.getString(4) ?: continue
                 val id = c.getLong(0)
-                out += ContactEvent(id, c.getString(1).orEmpty(), c.getString(2) ?: continue, c.getString(3), date, c.getInt(5), c.getString(6), phones[id])
+                val name = c.getString(2) ?: continue
+                out += ContactEvent(id, c.getString(1).orEmpty(), name, c.getString(3), date, c.getInt(5), c.getString(6), phones[id], c.getString(7))
             }
         }
         return out.distinctBy { "${it.contactId}|${it.date}|${it.type}" }
@@ -761,11 +773,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
             val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
             var redirectedTo: AccountRef? = null
+            // The account written to: custom fields take its kind (CustomFields).
+            var targetType: String? = original?.rawContacts?.firstOrNull { it.id == original.editRawId }?.account?.type
             if (original == null || original.editRawId == null) {
                 // Android 16 refuses the phone while the user's default is a cloud account: that account takes it.
                 val decision = DeviceAccounts.newContacts(context).decide(if (original == null) account else null)
                 val acc = decision.account
                 if (decision.redirected) redirectedTo = acc
+                targetType = acc.type
                 ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
                     .withValue(RawContacts.ACCOUNT_TYPE, acc.type)
                     .withValue(RawContacts.ACCOUNT_NAME, acc.name)
@@ -815,11 +830,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 put(StructuredName.SUFFIX, edited.suffix.trim().ifEmpty { null })
                 put(StructuredName.PHONETIC_GIVEN_NAME, edited.phoneticGiven.trim().ifEmpty { null })
                 put(StructuredName.PHONETIC_FAMILY_NAME, edited.phoneticFamily.trim().ifEmpty { null })
+                put(StructuredName.PHONETIC_MIDDLE_NAME, edited.phoneticMiddle.trim().ifEmpty { null })
             }
             val o = original
-            val sameName = o != null && listOf(o.prefix, o.given, o.middle, o.family, o.suffix, o.phoneticGiven, o.phoneticFamily).map(::t) ==
-                listOf(edited.prefix, edited.given, edited.middle, edited.family, edited.suffix, edited.phoneticGiven, edited.phoneticFamily).map(::t)
-            single(original?.nameId, StructuredName.CONTENT_ITEM_TYPE, edited.composedName.isBlank() && edited.phoneticGiven.isBlank() && edited.phoneticFamily.isBlank(), nameValues, sameName)
+            fun nameOf(d: ContactDetails) =
+                listOf(d.prefix, d.given, d.middle, d.family, d.suffix, d.phoneticGiven, d.phoneticFamily, d.phoneticMiddle).map(::t)
+            val sameName = o != null && nameOf(o) == nameOf(edited)
+            val noName = edited.composedName.isBlank() && edited.phoneticGiven.isBlank() && edited.phoneticFamily.isBlank() && edited.phoneticMiddle.isBlank()
+            single(original?.nameId, StructuredName.CONTENT_ITEM_TYPE, noName, nameValues, sameName)
             single(
                 original?.nicknameId, Nickname.CONTENT_ITEM_TYPE, edited.nickname.isBlank(), ContentValues().apply { put(Nickname.NAME, edited.nickname.trim()) },
                 o != null && t(o.nickname) == t(edited.nickname),
@@ -829,6 +847,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 original?.pronounsId, Mime.PRONOUNS, edited.pronouns.isBlank(), ContentValues().apply { put(Data.DATA1, edited.pronouns.trim()) },
                 o != null && t(o.pronouns) == t(edited.pronouns),
             )
+            // Name parts, language and custom fields: Parley's rows (custom fields as Google's in a Google account).
+            ExtraRows.write(original, edited, targetType, ExtraRows.Writer(::insert, ::update, ::delete))
             // The work row: only company, title and department are written; a row that still holds an office, a job
             // description or the like is kept with those cleared rather than deleted (see WorkRow).
             val orgId = original?.orgId
@@ -886,11 +906,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             multi(original?.emails.orEmpty(), edited.emails, Email.CONTENT_ITEM_TYPE, Email.ADDRESS, Email.TYPE, Email.LABEL)
             multi(original?.websites.orEmpty(), edited.websites, Website.CONTENT_ITEM_TYPE, Website.URL, Website.TYPE, Website.LABEL)
             multi(original?.relations.orEmpty(), edited.relations, Relation.CONTENT_ITEM_TYPE, Relation.NAME, Relation.TYPE, Relation.LABEL)
-            multi(
-                original?.events.orEmpty().map { DataItem(it.id, it.date, it.type, it.label) },
-                edited.events.map { DataItem(it.id, it.date, it.type, it.label) },
-                Event.CONTENT_ITEM_TYPE, Event.START_DATE, Event.TYPE, Event.LABEL,
-            )
+            ExtraRows.events(original?.events.orEmpty(), edited.events, ExtraRows.Writer(::insert, ::update, ::delete))
 
             // Messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
             fun handleRow(h: HandleItem) = Handles.toColumns(h.handle).let { (m, v) -> RowEdits.Row(h.id, m, v) }
@@ -923,6 +939,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     put(StructuredPostal.FORMATTED_ADDRESS, a.formatted)
                     put(StructuredPostal.TYPE, a.type)
                     put(StructuredPostal.LABEL, a.label?.takeIf { a.type == 0 })
+                    // RFC 9554's parts aren't edited: written with a new row only, an existing row keeps its own.
+                    if (a.id == null && a.parts.isNotBlank()) put(AddressParts.COLUMN, a.parts)
                 }
                 val prev = a.id?.let { addrBefore[it] }
                 val same = prev != null && prev.type == a.type && prev.label?.takeIf { prev.type == 0 } == a.label?.takeIf { a.type == 0 } &&
@@ -1380,6 +1398,10 @@ private val FIELD_NAMES: Map<String, String> = mapOf(
     StructuredName.CONTENT_ITEM_TYPE to "Name",
     Nickname.CONTENT_ITEM_TYPE to "Nickname",
     Mime.PRONOUNS to "Pronouns",
+    Mime.NAME_PARTS to "Name",
+    Mime.LANGUAGE to "Language",
+    Mime.CUSTOM_FIELD to "Custom fields",
+    Mime.GOOGLE_CUSTOM_FIELD to "Custom fields",
     Organization.CONTENT_ITEM_TYPE to "Company",
     Note.CONTENT_ITEM_TYPE to "Note",
     Phone.CONTENT_ITEM_TYPE to "Phone",

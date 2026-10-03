@@ -11,6 +11,8 @@ import app.parley.common.record.withoutMessengers
 import app.parley.common.vcard.ColumnTarget
 import app.parley.common.vcard.ContactCsv
 import app.parley.common.vcard.CsvColumnMapping
+import app.parley.common.vcard.CsvExports
+import app.parley.common.vcard.CsvFormat
 import app.parley.common.vcard.ImportReport
 import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
@@ -72,8 +74,13 @@ class VCardIO(
         ExportResult(n, failures)
     }
 
-    /** Writes the given contacts as a structured CSV (see [ContactCsv]). */
-    suspend fun exportCsv(target: Uri, list: List<ContactSummary>, progress: (Int, Int) -> Unit = { _, _ -> }): ExportResult = withContext(Dispatchers.IO) {
+    /** Writes the given contacts as a CSV in [format]: Parley's own ([ContactCsv]), Google's or Outlook's ([CsvExports]). */
+    suspend fun exportCsv(
+        target: Uri,
+        list: List<ContactSummary>,
+        format: CsvFormat = CsvFormat.PARLEY,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+    ): ExportResult = withContext(Dispatchers.IO) {
         // CSV has no photos, so records are read without them and fit in memory even for large books.
         val records = ArrayList<ContactRecord>(list.size)
         for (r in store.readAll(list.map { it.id }, fullPhoto = false)) {
@@ -82,7 +89,7 @@ class VCardIO(
             if (records.size % PROGRESS_EVERY == 0) progress(records.size, list.size)
         }
         val out = cr.openOutputStream(target, "wt") ?: return@withContext ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
-        BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8)).use { ContactCsv.write(records, it, store.groupTitles()) }
+        BufferedWriter(OutputStreamWriter(out, Charsets.UTF_8)).use { CsvExports.write(format, records, it, store.groupTitles()) }
         progress(list.size, list.size)
         ExportResult(records.size)
     }

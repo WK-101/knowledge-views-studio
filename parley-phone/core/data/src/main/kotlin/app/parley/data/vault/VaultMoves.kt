@@ -193,9 +193,15 @@ class VaultMoves(
             val addrPool = original.addresses.toMutableList()
             val events = original.events.toMutableList()
             val handlePool = original.handles.toMutableList()
+            val customPool = original.customFields.toMutableList()
             return original.copy(
                 prefix = d.prefix, given = d.given, middle = d.middle, family = d.family, suffix = d.suffix,
                 phoneticGiven = d.phoneticGiven, phoneticFamily = d.phoneticFamily, nickname = d.nickname, pronouns = d.pronouns,
+                phoneticMiddle = d.phoneticMiddle, secondSurname = d.secondSurname, generation = d.generation, language = d.language,
+                customFields = d.customFields.map { f ->
+                    val i = customPool.indexOfFirst { it.label.trim() == f.label.trim() && it.value.trim() == f.value.trim() }
+                    if (i >= 0) customPool.removeAt(i).let { o -> f.copy(id = o.id, mime = o.mime) } else f.copy(id = null, mime = null)
+                },
                 company = d.company, title = d.title, department = d.department, note = d.note,
                 phones = items(original.phones, d.phones), emails = items(original.emails, d.emails),
                 websites = items(original.websites, d.websites), relations = items(original.relations, d.relations),

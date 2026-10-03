@@ -23,11 +23,10 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.record.Mime
 import app.parley.common.record.withoutMessengers
 import app.parley.common.vcard.VCardMapper
+import app.parley.common.vcard.VCardStream
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
 import app.parley.data.records.ContactRecordStore
-import ezvcard.Ezvcard
-import ezvcard.VCardVersion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -326,7 +325,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         if (!PARLEY_NAME.matches(base)) return false
         val uid = runCatching {
             cr.openInputStream(uri)?.use { Bounded.readBytes(it, Bounded.Caps.SYNC_FILE) }
-                ?.let { Ezvcard.parse(String(it, Charsets.UTF_8)).first()?.uid?.value }
+                ?.let { VCardStream.parseOne(String(it, Charsets.UTF_8))?.uid?.value }
         }.getOrNull() ?: return false
         return sha(uid.toByteArray()).take(32) == base
     }
@@ -484,11 +483,11 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun render(r: ContactRecord, uid: String): ByteArray {
         val card = VCardMapper.toVCard(r.withoutMessengers(), runTitles ?: records.groupTitles())
         card.uid = ezvcard.property.Uid(uid)
-        return Ezvcard.write(card).version(VCardVersion.V4_0).prodId(false).go().toByteArray()
+        return VCardStream.writeOne(card).toByteArray()
     }
 
     private fun parse(bytes: ByteArray): ContactRecord? = runCatching {
-        Ezvcard.parse(String(bytes, Charsets.UTF_8)).first()?.let { VCardMapper.fromVCard(it) }
+        VCardStream.parseOne(String(bytes, Charsets.UTF_8))?.let { VCardMapper.fromVCard(it) }
     }.getOrNull()
 
     /** Hashed, so names are short, filesystem-safe, never collide after sanitising and say nothing about the person. */

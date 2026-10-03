@@ -902,4 +902,11 @@
     <string name="set_rtt_system_summary">Android\'s own call accessibility settings: RTT visibility and TTY mode</string>
     <string name="set_rtt_about">RTT sends text letter by letter during a call, so you can type and read instead of (or as well as) talking. It works only where your carrier supports it, mostly on 4G and Wi-Fi calling in the US, and the other phone has to support it too. Where it isn\'t offered, Parley doesn\'t show it. Switch to RTT any time from More in a call.</string>
     <string name="set_rtt_unavailable">None of your SIMs offers RTT right now. Your carrier may not support it, or it may be off in Android\'s TTY and RTT settings.</string>
+    <string name="set_csv_format_title">Export as .csv</string>
+    <string name="set_csv_format_parley">Parley CSV</string>
+    <string name="set_csv_format_parley_summary">Every column Parley has; imports back into Parley as it is</string>
+    <string name="set_csv_format_google">Google Contacts CSV</string>
+    <string name="set_csv_format_google_summary">Google\'s own columns, ready to import into Google Contacts</string>
+    <string name="set_csv_format_outlook">Outlook CSV</string>
+    <string name="set_csv_format_outlook_summary">Outlook\'s own columns, ready to import into Outlook</string>
 </resources>

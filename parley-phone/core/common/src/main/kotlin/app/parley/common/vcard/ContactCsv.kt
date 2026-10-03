@@ -12,7 +12,8 @@ import java.io.Reader
 
 /**
  * Structured CSV for spreadsheets: fixed, human-readable columns (name parts, nickname, organisation, title,
- * numbered phone/e-mail/address groups, birthday, notes, labels). It is an interchange format, not a backup:
+ * department, numbered phone/e-mail/address groups, birthday, notes, labels). [CsvExports] writes Google's and
+ * Outlook's layouts too. It is an interchange format, not a backup:
  * only the fields above are included, and several notes are joined into one cell.
  *
  * Cells that a spreadsheet would run as a formula (starting with `=`, `+`, `-`, `@`, tab or CR) are written
@@ -23,7 +24,7 @@ object ContactCsv {
     const val GROUP_SEPARATOR = " ::: "
     private const val NOTE_SEPARATOR = "\n\n"
 
-    private val BASE = listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title")
+    private val BASE = listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title", "Department")
     private val TAIL = listOf("Birthday", "Notes", "Groups")
     private val ADDRESS_PARTS = listOf(
         "Street" to Col.D4, "PO Box" to Col.D5, "Neighborhood" to Col.D6, "City" to Col.D7,
@@ -80,7 +81,7 @@ object ContactCsv {
             add(name?.get(Col.D4).orEmpty()); add(name?.get(Col.D2).orEmpty()); add(name?.get(Col.D5).orEmpty())
             add(name?.get(Col.D3).orEmpty()); add(name?.get(Col.D6).orEmpty())
             add(rows.filter { it.mimeType == Mime.NICKNAME }.mapNotNull { it[Col.D1] }.joinToString(", "))
-            add(org?.get(Col.D1).orEmpty()); add(org?.get(Col.D4).orEmpty())
+            add(org?.get(Col.D1).orEmpty()); add(org?.get(Col.D4).orEmpty()); add(org?.get(Col.D5).orEmpty())
             val phones = rows.filter { it.mimeType == Mime.PHONE }
             for (i in 0 until slots.phones) { val p = phones.getOrNull(i); add(p?.let { typeName(it, PHONE_TYPES) }.orEmpty()); add(p?.get(Col.D1).orEmpty()) }
             val emails = rows.filter { it.mimeType == Mime.EMAIL }
@@ -298,7 +299,9 @@ object ContactCsv {
                 val nameParts = listOf(Col.D4 to cell("Prefix"), Col.D2 to cell("Given"), Col.D5 to cell("Middle"), Col.D3 to cell("Family"), Col.D6 to cell("Suffix"))
                 if (nameParts.any { it.second.isNotEmpty() }) put(Mime.NAME, *nameParts.toTypedArray())
                 cell("Nickname").split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { put(Mime.NICKNAME, Col.D1 to it) }
-                if (cell("Organization").isNotEmpty() || cell("Title").isNotEmpty()) put(Mime.ORG, Col.D1 to cell("Organization"), Col.D4 to cell("Title"))
+                if (cell("Organization").isNotEmpty() || cell("Title").isNotEmpty() || cell("Department").isNotEmpty()) {
+                    put(Mime.ORG, Col.D1 to cell("Organization"), Col.D4 to cell("Title"), Col.D5 to cell("Department"))
+                }
                 var i = 1
                 while (idx.containsKey("phone $i value")) {
                     val v = cell("Phone $i Value")

@@ -106,6 +106,10 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.people.EditorForm
+import app.parley.common.people.PhoneTypes
+import app.parley.data.CustomFieldItem
+import androidx.compose.material.icons.automirrored.rounded.ShortText
+import androidx.compose.material.icons.rounded.Translate
 import app.parley.common.people.HandleService
 import app.parley.common.people.Handles
 import app.parley.common.people.LifeEvents
@@ -150,7 +154,8 @@ import androidx.compose.material.icons.rounded.AlternateEmail
 import app.parley.ui.ParleyFormField
 import app.parley.ui.formFieldShape
 
-private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
+// The six common phone types; Android's other fourteen are behind "More types…" (PhoneTypes).
+private val phoneTypes = PhoneTypes.common
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
 private val postalTypes = listOf(StructuredPostal.TYPE_HOME, StructuredPostal.TYPE_WORK, StructuredPostal.TYPE_OTHER)
 private val webTypes = listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.TYPE_OTHER)
@@ -162,6 +167,7 @@ private const val KEY_NICK = -2L
 private const val KEY_NOTE = -3L
 private const val KEY_COMPANY = -4L
 private const val KEY_CONTEXT = -5L
+private const val KEY_LANGUAGE = -6L
 
 /** Phones, e-mails and websites share one row layout; this says how each differs. */
 private class MultiKind(
@@ -200,6 +206,7 @@ private const val G_ADDR = "addr"
 private const val G_DATE = "date"
 private const val G_HANDLE = "handle"
 private const val G_REL = "rel"
+private const val G_CUSTOM = "custom"
 
 /** What a form line shows in the start gutter: the group's icon and title, on the group's first line only. */
 private class Lead(val icon: ImageVector?, val title: String?) {
@@ -353,7 +360,9 @@ fun ContactEditScreen(
         val profileRow = d.websites.mapIndexed { i, w ->
             profileRows.getOrPut(webKeys[i]) { SocialProfiles.fromWebsite(w.value, w.type, w.label) != null }
         }
-        val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname, d.pronouns).any { it.isNotBlank() }
+        val nameDetailsFilled = listOf(
+            d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticMiddle, d.phoneticFamily, d.nickname, d.pronouns, d.secondSurname, d.generation,
+        ).any { it.isNotBlank() }
         // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
         val shownKinds = shownKinds(d, profileRow, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
         val allowed = buildSet {
@@ -395,6 +404,8 @@ fun ContactEditScreen(
                 EditorForm.Kind.RELATION -> addRow(G_REL, cur.relations.size) { it.copy(relations = it.relations + DataItem(type = Relation.TYPE_SPOUSE)) }
                 EditorForm.Kind.NOTE -> focusKey = KEY_NOTE
                 EditorForm.Kind.WHEN_THEY_CALL -> focusKey = KEY_CONTEXT
+                EditorForm.Kind.CUSTOM_FIELD -> addRow(G_CUSTOM, cur.customFields.size) { it.copy(customFields = it.customFields + CustomFieldItem()) }
+                EditorForm.Kind.LANGUAGE -> focusKey = KEY_LANGUAGE
                 EditorForm.Kind.LABELS, EditorForm.Kind.CALL_BACKGROUND -> Unit
             }
         }
@@ -628,6 +639,27 @@ fun ContactEditScreen(
                 }
             }
 
+            if (d.customFields.isNotEmpty()) {
+                val customKeys = keys.keys(G_CUSTOM, d.customFields.size)
+                group(Icons.AutoMirrored.Rounded.ShortText, R.string.edit_custom_fields, customKeys, FormTokens.segmentGap) { i, k, lead, _ ->
+                    val f = d.customFields.getOrNull(i) ?: return@group
+                    CustomFieldRow(
+                        f, lockedRow(f.id), fr(k), lead.icon, lead.title, i, d.customFields.size,
+                        onChange = { n2 -> update { it.copy(customFields = it.customFields.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                        onRemove = { removeRow(G_CUSTOM, i) { it.copy(customFields = it.customFields.filterIndexed { j, _ -> j != i }) } },
+                    )
+                }
+            }
+
+            if (EditorForm.Kind.LANGUAGE in shownKinds) {
+                keyIndex[KEY_LANGUAGE] = n
+                put("language") {
+                    LanguageRow(d.language, lockedRow(d.languageId), fr(KEY_LANGUAGE), Icons.Rounded.Translate, Modifier.animateItem()) { v ->
+                        update { it.copy(language = v) }
+                    }
+                }
+            }
+
             if (EditorForm.Kind.LABELS in shownKinds) {
                 put("labels") { LabelsRow(accountGroups, d.groupIds, Modifier.animateItem()) { ids -> update { it.copy(groupIds = ids) } } }
             }
@@ -777,6 +809,8 @@ private fun shownKinds(
         show(EditorForm.Kind.HANDLE, d.handles.isNotEmpty())
         show(EditorForm.Kind.RELATION, d.relations.isNotEmpty())
         show(EditorForm.Kind.NOTE, d.note.isNotBlank())
+        show(EditorForm.Kind.CUSTOM_FIELD, d.customFields.isNotEmpty())
+        show(EditorForm.Kind.LANGUAGE, d.language.isNotBlank())
         if (hasLabels) show(EditorForm.Kind.LABELS, d.groupIds.isNotEmpty())
         if (isVault) show(EditorForm.Kind.WHEN_THEY_CALL, d.context.isNotBlank() || d.pinnedNote.isNotBlank())
         if (lookup != null) show(EditorForm.Kind.CALL_BACKGROUND, hasBackground || bgChange != BackgroundChange.None)
@@ -794,6 +828,7 @@ private fun blankKinds(d: ContactDetails, profileRow: List<Boolean>): Set<Editor
     }
     if (d.handles.any { it.value.isBlank() }) add(EditorForm.Kind.HANDLE)
     if (d.relations.any { it.value.isBlank() }) add(EditorForm.Kind.RELATION)
+    if (d.customFields.any { it.isBlank }) add(EditorForm.Kind.CUSTOM_FIELD)
 }
 
 @Suppress("CyclomaticComplexMethod") // One icon per kind.
@@ -812,6 +847,8 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.LABELS -> Icons.AutoMirrored.Rounded.Label
     EditorForm.Kind.CALL_BACKGROUND -> Icons.Rounded.Wallpaper
     EditorForm.Kind.NAME_DETAILS -> Icons.Rounded.Badge
+    EditorForm.Kind.CUSTOM_FIELD -> Icons.AutoMirrored.Rounded.ShortText
+    EditorForm.Kind.LANGUAGE -> Icons.Rounded.Translate
 }
 
 @Suppress("CyclomaticComplexMethod") // One label per kind.
@@ -830,6 +867,8 @@ private fun kindLabel(k: EditorForm.Kind): Int = when (k) {
     EditorForm.Kind.LABELS -> R.string.home_labels
     EditorForm.Kind.CALL_BACKGROUND -> R.string.ppl_bg_title
     EditorForm.Kind.NAME_DETAILS -> R.string.edit_name_details
+    EditorForm.Kind.CUSTOM_FIELD -> R.string.edit_custom_field
+    EditorForm.Kind.LANGUAGE -> R.string.edit_language
 }
 
 /** The account's labels as chips. */
@@ -916,7 +955,11 @@ private fun NameBlock(
     }
 }
 
-/** First and last name as one block, with prefix, middle, suffix, phonetic names and nickname around them when open. */
+/**
+ * First and last name as one block, with prefix, middle, suffix, phonetic names, nickname and pronouns around them
+ * when open. RFC 9554's second surname and generation join the block only for a contact that has them (another app
+ * or a card wrote them), so the usual block stays as short as it was.
+ */
 @Composable
 private fun NameFields(
     d: ContactDetails,
@@ -926,50 +969,72 @@ private fun NameFields(
     update: ((ContactDetails) -> ContactDetails) -> Unit,
 ) {
     val locked = lockedRow(d.nameId)
+    val partsLocked = lockedRow(d.namePartsId)
     val words = KeyboardCapitalization.Words
     val spec = ParleyMotion.spatial<IntSize>()
-    val count = if (expanded) 9 else 2
+    // Once shown, the RFC 9554 lines stay while they're being cleared.
+    var showParts by rememberSaveable { mutableStateOf(false) }
+    if (d.secondSurname.isNotBlank() || d.generation.isNotBlank()) showParts = true
 
-    // Line positions in the block (for the segment shapes): prefix, first, middle, last, suffix, phonetic ×2, nickname, pronouns.
-    fun pos(full: Int, short: Int) = formFieldShape(if (expanded) full else short, count)
+    val lines = nameLines(expanded, showParts)
+    fun pos(key: String) = formFieldShape(lines.indexOf(key).coerceAtLeast(0), lines.size)
     val gap = Modifier.padding(top = FormTokens.segmentGap)
+    val enter = expandVertically(spec) + fadeIn()
+    val exit = shrinkVertically(spec) + fadeOut()
     Column {
-        AnimatedVisibility(expanded, enter = expandVertically(spec) + fadeIn(), exit = shrinkVertically(spec) + fadeOut()) {
+        AnimatedVisibility(expanded, enter = enter, exit = exit) {
             val below = Modifier.padding(bottom = FormTokens.segmentGap)
-            EditorField(stringResource(R.string.edit_prefix), d.prefix, below, shape = pos(0, 0), cap = words, locked = locked) { v ->
+            EditorField(stringResource(R.string.edit_prefix), d.prefix, below, shape = pos("prefix"), cap = words, locked = locked) { v ->
                 update { it.copy(prefix = v) }
             }
         }
-        EditorField(stringResource(R.string.edit_first_name), d.given, shape = pos(1, 0), cap = words, locked = locked, focus = first) { v ->
+        EditorField(stringResource(R.string.edit_first_name), d.given, shape = pos("first"), cap = words, locked = locked, focus = first) { v ->
             update { it.copy(given = v) }
         }
-        AnimatedVisibility(expanded, enter = expandVertically(spec) + fadeIn(), exit = shrinkVertically(spec) + fadeOut()) {
-            EditorField(stringResource(R.string.edit_middle_name), d.middle, gap, shape = pos(2, 0), cap = words, locked = locked) { v ->
+        AnimatedVisibility(expanded, enter = enter, exit = exit) {
+            EditorField(stringResource(R.string.edit_middle_name), d.middle, gap, shape = pos("middle"), cap = words, locked = locked) { v ->
                 update { it.copy(middle = v) }
             }
         }
-        EditorField(stringResource(R.string.edit_last_name), d.family, gap, shape = pos(3, 1), cap = words, locked = locked) { v ->
+        EditorField(stringResource(R.string.edit_last_name), d.family, gap, shape = pos("last"), cap = words, locked = locked) { v ->
             update { it.copy(family = v) }
         }
-        AnimatedVisibility(expanded, enter = expandVertically(spec) + fadeIn(), exit = shrinkVertically(spec) + fadeOut()) {
+        AnimatedVisibility(expanded, enter = enter, exit = exit) {
             Column {
-                EditorField(stringResource(R.string.edit_suffix), d.suffix, gap, shape = pos(4, 1), cap = words, locked = locked) { v ->
+                if (showParts) {
+                    EditorField(
+                        stringResource(R.string.edit_second_surname), d.secondSurname, gap, shape = pos("second"), cap = words, locked = partsLocked,
+                    ) { v ->
+                        update { it.copy(secondSurname = v) }
+                    }
+                }
+                EditorField(stringResource(R.string.edit_suffix), d.suffix, gap, shape = pos("suffix"), cap = words, locked = locked) { v ->
                     update { it.copy(suffix = v) }
                 }
-                EditorField(stringResource(R.string.edit_phonetic_first), d.phoneticGiven, gap, shape = pos(5, 1), cap = words, locked = locked) { v ->
+                if (showParts) {
+                    EditorField(
+                        stringResource(R.string.edit_generation), d.generation, gap, shape = pos("generation"), cap = words, locked = partsLocked,
+                    ) { v ->
+                        update { it.copy(generation = v) }
+                    }
+                }
+                EditorField(stringResource(R.string.edit_phonetic_first), d.phoneticGiven, gap, shape = pos("pg"), cap = words, locked = locked) { v ->
                     update { it.copy(phoneticGiven = v) }
                 }
-                EditorField(stringResource(R.string.edit_phonetic_last), d.phoneticFamily, gap, shape = pos(6, 1), cap = words, locked = locked) { v ->
+                EditorField(stringResource(R.string.edit_phonetic_middle), d.phoneticMiddle, gap, shape = pos("pm"), cap = words, locked = locked) { v ->
+                    update { it.copy(phoneticMiddle = v) }
+                }
+                EditorField(stringResource(R.string.edit_phonetic_last), d.phoneticFamily, gap, shape = pos("pf"), cap = words, locked = locked) { v ->
                     update { it.copy(phoneticFamily = v) }
                 }
                 EditorField(
-                    stringResource(R.string.edit_nickname), d.nickname, gap, shape = pos(7, 1), cap = words, locked = lockedRow(d.nicknameId), focus = nick,
+                    stringResource(R.string.edit_nickname), d.nickname, gap, shape = pos("nick"), cap = words, locked = lockedRow(d.nicknameId), focus = nick,
                 ) { v ->
                     update { it.copy(nickname = v) }
                 }
                 // Pronouns (vCard PRONOUNS), shown beside the name on the page and the call screen; typed as people write them.
                 EditorField(
-                    stringResource(R.string.edit_pronouns), d.pronouns, gap, shape = pos(8, 1), cap = KeyboardCapitalization.None,
+                    stringResource(R.string.edit_pronouns), d.pronouns, gap, shape = pos("pronouns"), cap = KeyboardCapitalization.None,
                     locked = lockedRow(d.pronounsId),
                 ) { v ->
                     update { it.copy(pronouns = v) }
@@ -979,10 +1044,25 @@ private fun NameFields(
     }
 }
 
+/** The name block's lines in order, for the segment shapes: first and last, and around them the details when open. */
+private fun nameLines(expanded: Boolean, parts: Boolean): List<String> = buildList {
+    if (expanded) add("prefix")
+    add("first")
+    if (expanded) add("middle")
+    add("last")
+    if (expanded) {
+        if (parts) add("second")
+        add("suffix")
+        if (parts) add("generation")
+        addAll(listOf("pg", "pm", "pf", "nick", "pronouns"))
+    }
+}
+
 /**
  * One phone, email or website: the value (flag and formatting for numbers), its type selector inside at the end, and
  * "⊖". [showType]: false for My card, whose numbers and addresses have no types.
  */
+@Suppress("CyclomaticComplexMethod") // Locked rows, types, phones' "More types" and hints, each a branch.
 @Composable
 private fun MultiRow(
     kind: MultiKind,
@@ -1000,12 +1080,19 @@ private fun MultiRow(
     val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { NumberInfo.flag(NumberInfo.region(item.value, iso)) } else null
     val current = if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else kind.typeLabel(res, item.type)
     var custom by remember { mutableStateOf(false) }
+    // Phones: Android's other types behind "More types…", before "Custom…".
+    var moreTypes by remember { mutableStateOf(false) }
+    val more = if (kind === PHONES) listOf(stringResource(R.string.edit_phone_more_types)) else emptyList()
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(kind.remove), onRemove) } } else null) {
         TypedLine(
             pill = if (locked || !showType) null else {
                 {
-                    TypePill(current, kind.types.map { kind.typeLabel(res, it) } + stringResource(R.string.edit_custom_more)) { t ->
-                        if (t in kind.types.indices) onChange(item.copy(type = kind.types[t], label = null)) else custom = true
+                    TypePill(current, kind.types.map { kind.typeLabel(res, it) } + more + stringResource(R.string.edit_custom_more)) { t ->
+                        when {
+                            t in kind.types.indices -> onChange(item.copy(type = kind.types[t], label = null))
+                            t < kind.types.size + more.size -> moreTypes = true
+                            else -> custom = true
+                        }
                     }
                 }
             },
@@ -1020,6 +1107,7 @@ private fun MultiRow(
         }
     }
     if (custom) CustomLabelDialog(item.label.takeIf { item.type == 0 }, { custom = false }) { l -> onChange(item.copy(type = 0, label = l)) }
+    if (moreTypes) PhoneMoreTypesDialog(item.type, { moreTypes = false }) { t -> moreTypes = false; onChange(item.copy(type = t, label = null)) }
 }
 
 /** A date: tapping the value opens the year-optional picker; its type pill at the end. */
@@ -1044,7 +1132,9 @@ private fun DateRow(
                 if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, stringResource(R.string.edit_date),
                 modifier = Modifier.fillMaxWidth().semantics { if (!locked) onClick(label = pickLabel) { picking = true; true } },
                 shape = shape, readOnly = true, placeholder = pickLabel,
-                supporting = if (locked) eventLabel(res, ev) else null,
+                // The calendar it comes round by, when not the Gregorian one ("Chinese lunar calendar").
+                supporting = if (locked) listOfNotNull(eventLabel(res, ev), calendarLine(res, ev.calendar)).joinToString(" · ")
+                else calendarLine(res, ev.calendar),
                 trailing = if (locked) { { LockIcon() } } else trailing,
                 interactionSource = source,
             )
@@ -1052,7 +1142,10 @@ private fun DateRow(
     }
     if (custom) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { custom = false }) { onChange(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
     if (picking || openPicker) {
-        EventDateDialog(ev.date, onDismiss = { picking = false; onPickerClosed() }) { onChange(ev.copy(date = it)); picking = false; onPickerClosed() }
+        EventDateDialog(
+            ev.date, onDismiss = { picking = false; onPickerClosed() }, initialCalendar = ev.calendar,
+            onPickCalendar = { date, cal -> onChange(ev.copy(date = date, calendar = cal)); picking = false; onPickerClosed() },
+        ) { onChange(ev.copy(date = it)); picking = false; onPickerClosed() }
     }
 }
 
@@ -1076,6 +1169,7 @@ private fun EventTypePill(ev: EventItem, onChange: (EventItem) -> Unit, onCustom
  * One address as a block of lines: street (with the type pill), PO box and neighbourhood when it has them (F25),
  * postcode and city, region and country; then its map link ("Add from map link").
  */
+@Suppress("CyclomaticComplexMethod") // One branch per optional line of the block.
 @Composable
 private fun AddressRow(
     a: PostalItem,
@@ -1156,6 +1250,8 @@ private fun AddressRow(
                 }
             },
         )
+        // RFC 9554's room, floor, building… another app wrote: kept with the address, shown here, not edited.
+        if (a.parts.isNotBlank()) AddressPartsLine(a.parts)
         if (!locked) AddressMapLinkRow(mapLink, onMapLink, onRemoveMapLink)
     }
     if (custom) CustomLabelDialog(a.label.takeIf { a.type == 0 }, { custom = false }) { l -> onChange(a.copy(type = 0, label = l)) }

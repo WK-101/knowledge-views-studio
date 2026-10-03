@@ -20,6 +20,7 @@ import android.util.Log
 import app.parley.common.Hex
 import app.parley.common.backup.RecordJson
 import app.parley.common.people.Batches
+import app.parley.common.people.CustomFields
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.ContentDiff
@@ -420,7 +421,8 @@ class ContactRecordStore(private val context: Context) {
             val rows = ArrayList<ContentValues>()
             for (row in flagged[gi]) {
                 val v = ContentValues()
-                v.put(Data.MIMETYPE, row.mimeType)
+                // A custom field takes the account's kind: Google's in a Google account, so it syncs (CustomFields).
+                v.put(Data.MIMETYPE, CustomFields.mimeIn(row.mimeType, account.type))
                 if (row.mimeType == Mime.GROUP) {
                     val id = groups.resolve(row, account) ?: continue
                     v.put(Data.DATA1, id)
@@ -571,7 +573,7 @@ class ContactRecordStore(private val context: Context) {
                     val id = groups.resolve(row, account) ?: continue
                     DataRow(Mime.GROUP, mapOf(Col.D1 to id.toString()))
                 } else {
-                    row
+                    row.copy(mimeType = CustomFields.mimeIn(row.mimeType, account.type))
                 }
             }
         }

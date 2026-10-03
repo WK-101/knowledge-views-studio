@@ -1,5 +1,8 @@
 package app.parley.ui.birthdays
 
+import app.parley.common.AltCalendar
+import app.parley.common.AltCalendars
+import app.parley.data.people.IcuCalendars
 import app.parley.ui.Destination
 import android.provider.ContactsContract.CommonDataKinds.Event
 import androidx.compose.foundation.clickable
@@ -48,8 +51,12 @@ import app.parley.ui.avatarSize
 
 data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate)
 
+/** Dates soonest first; one kept by another calendar counts from its next Gregorian day ([AltCalendars.effective]). */
 fun upcoming(events: List<ContactEvent>, today: LocalDate = LocalDate.now()): List<UpcomingEvent> =
-    events.mapNotNull { e -> EventDate.parse(e.date)?.let { UpcomingEvent(e, it.daysUntil(today), it) } }.sortedBy { it.days }
+    events.mapNotNull { e ->
+        EventDate.parse(e.date)?.let { AltCalendars.effective(it, AltCalendar.byKey(e.calendar), today, IcuCalendars) }
+            ?.let { UpcomingEvent(e, it.daysUntil(today), it) }
+    }.sortedBy { it.days }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

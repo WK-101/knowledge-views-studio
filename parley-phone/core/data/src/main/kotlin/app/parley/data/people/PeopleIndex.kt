@@ -17,6 +17,8 @@ import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.people.BroadSearch
+import app.parley.common.people.CustomFields
+import app.parley.common.record.Mime
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PersonExtra
 import app.parley.common.people.SocialProfiles
@@ -81,6 +83,7 @@ class PeopleIndex(
         val websites = ArrayList<String>(0)
         val handles = ArrayList<String>(0)
         val profiles = ArrayList<String>(0)
+        val custom = ArrayList<String>(0)
     }
 
     private fun load(): PeopleIndexData {
@@ -106,10 +109,11 @@ class PeopleIndex(
         query(
             Data.CONTENT_URI,
             arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4),
-            "${Data.MIMETYPE} IN (?,?,?,?,?,?,?,?,?)",
+            "${Data.MIMETYPE} IN (?,?,?,?,?,?,?,?,?,?,?)",
             arrayOf(
                 Organization.CONTENT_ITEM_TYPE, Nickname.CONTENT_ITEM_TYPE, GroupMembership.CONTENT_ITEM_TYPE, Event.CONTENT_ITEM_TYPE,
                 StructuredPostal.CONTENT_ITEM_TYPE, Note.CONTENT_ITEM_TYPE, Website.CONTENT_ITEM_TYPE, Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE,
+                Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD,
             ),
         ) { c ->
             val a = acc(c.getLong(0))
@@ -130,6 +134,9 @@ class PeopleIndex(
                     SocialProfiles.fromWebsite(url, c.getInt(3), c.getString(4))?.let { a.profiles += SocialProfiles.searchTerms(it) }
                 }
                 Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.handles += it }
+                // A custom field's label is DATA1 and its value DATA2.
+                Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD ->
+                    CustomFields.display(c.getString(2).orEmpty(), c.getString(3).orEmpty()).takeIf { it.isNotEmpty() }?.let { a.custom += it }
             }
         }
 
@@ -138,7 +145,7 @@ class PeopleIndex(
         extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
         titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
         val search = byId.mapValues { (_, a) ->
-            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles, a.profiles)
+            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles, a.profiles, a.custom)
         }
         return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
     }

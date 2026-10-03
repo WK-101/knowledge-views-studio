@@ -34,6 +34,9 @@ enum class ContactSection(val id: String, val defaultMode: SectionMode, val fami
     PROFILES("profiles", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
     DATES("dates", SectionMode.OPEN, SectionFamily.ABOUT),
     ABOUT("about", SectionMode.OPEN, SectionFamily.ABOUT),
+
+    /** The rarer facts: custom fields, the language to use, name and address parts other apps wrote. */
+    MORE("more", SectionMode.OPEN, SectionFamily.ABOUT),
     NOTE("note", SectionMode.OPEN, SectionFamily.ABOUT),
     TIMELINE("timeline", SectionMode.OPEN),
     INSIGHTS("insights", SectionMode.FOLDED),

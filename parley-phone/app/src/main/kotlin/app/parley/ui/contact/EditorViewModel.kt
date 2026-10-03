@@ -680,13 +680,14 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
 /** The draft as a new contact: no contact, name, note or row ids of the one it was made from. */
 private fun ContactDetails.asNewContact(): ContactDetails =
-    copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, pronounsId = null, orgId = null, noteId = null).withoutRowIds()
+    copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, pronounsId = null, orgId = null, noteId = null, namePartsId = null, languageId = null)
+        .withoutRowIds()
 
 /** The draft as new rows only (for saving it as a new contact). */
 private fun ContactDetails.withoutRowIds(): ContactDetails = copy(
     phones = phones.map { it.copy(id = null) }, emails = emails.map { it.copy(id = null) }, websites = websites.map { it.copy(id = null) },
     relations = relations.map { it.copy(id = null) }, addresses = addresses.map { it.copy(id = null) }, events = events.map { it.copy(id = null) },
-    handles = handles.map { it.copy(id = null) }, editRawId = null, editRawVersion = null,
+    handles = handles.map { it.copy(id = null) }, customFields = customFields.map { it.copy(id = null, mime = null) }, editRawId = null, editRawVersion = null,
     rawContacts = emptyList(), writableRawIds = emptyList(), readOnlyDataIds = emptySet(),
 )
 
@@ -700,13 +701,15 @@ internal object EditorDrafts {
             addresses = EditorForm.meaningful(d.addresses, { it.id == null }, { it.isBlank }),
             events = EditorForm.meaningful(d.events, { it.id == null }, { it.date.isBlank() }),
             handles = EditorForm.meaningful(d.handles, { it.id == null }, { it.value.isBlank() }),
+            customFields = EditorForm.meaningful(d.customFields, { it.id == null }, { it.isBlank }),
         )
     }
 
     /** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
     fun texts(d: ContactDetails): List<String> = with(d) {
         listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, department, note) +
-            listOf(phoneticGiven, phoneticFamily, context, pinnedNote) +
+            listOf(phoneticGiven, phoneticFamily, phoneticMiddle, secondSurname, generation, language, context, pinnedNote) +
+            customFields.flatMap { listOf(it.label, it.value) } +
             (phones + emails + websites + relations).map { it.value } + events.map { it.date } + handles.map { it.value } +
             addresses.flatMap { listOf(it.street, it.poBox, it.neighborhood, it.city, it.region, it.postcode, it.country) }
     }

@@ -197,6 +197,7 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
 }
 
 /** A section's name, as the page and Settings › Contact page sections show it. */
+@Suppress("CyclomaticComplexMethod") // One title per section.
 fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
     when (s) {
         ContactSection.STAY -> R.string.contact_page_sec_stay
@@ -208,6 +209,7 @@ fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
         ContactSection.PROFILES -> R.string.contact_page_sec_profiles
         ContactSection.ABOUT -> R.string.contact_page_sec_about
         ContactSection.OTHER -> R.string.contact_page_sec_other
+        ContactSection.MORE -> R.string.contact_page_sec_more
         ContactSection.TIMELINE -> R.string.contact_page_sec_timeline
         ContactSection.INSIGHTS -> R.string.contact_page_sec_insights
         ContactSection.NOTE -> R.string.contact_page_sec_note

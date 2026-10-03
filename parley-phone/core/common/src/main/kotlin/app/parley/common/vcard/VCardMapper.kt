@@ -3,7 +3,10 @@ package app.parley.common.vcard
 import java.io.ByteArrayOutputStream
 import java.util.IdentityHashMap
 import java.util.Locale
+import app.parley.common.AltCalendar
+import app.parley.common.people.AddressParts
 import app.parley.common.people.Profile
+import app.parley.common.people.ProfileService
 import app.parley.common.people.SocialProfiles
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -14,6 +17,7 @@ import ezvcard.VCard
 import ezvcard.VCardVersion
 import ezvcard.io.scribe.ScribeIndex
 import ezvcard.parameter.ImageType
+import ezvcard.parameter.VCardParameters
 import ezvcard.property.Address
 import ezvcard.property.Anniversary
 import ezvcard.property.Birthday
@@ -24,6 +28,7 @@ import ezvcard.property.FormattedName
 import ezvcard.property.Impp
 import ezvcard.property.Kind
 import ezvcard.property.Label
+import ezvcard.property.Language
 import ezvcard.property.Nickname
 import ezvcard.property.Note
 import ezvcard.property.Organization
@@ -70,6 +75,12 @@ import java.util.Base64
  * - per kind, one row is primary (IS_PRIMARY and IS_SUPER_PRIMARY both set); names, photos and groups carry no flags;
  * - dates use `yyyy-MM-dd`, or `--MM-dd` without a year (Apple's year 1604 means "no year").
  *
+ * **RFC 9554**: N's secondary surname and generation ([Mime.NAME_PARTS]) and ADR's room … direction (the address
+ * row's [AddressParts.COLUMN]) travel as those components ([Rfc9554]); languages as `LANG` (or `LANGUAGE`, for the card's
+ * own); social profiles as `SOCIALPROFILE` with `SERVICE-TYPE` and `USERNAME` (the older `URL` + `X-ABLabel` and
+ * `X-SOCIALPROFILE` are still read). A date kept by another calendar ([AltCalendar]) carries `CALSCALE`. Custom
+ * fields ([Mime.CUSTOM_FIELD], and Google's, which become them) are `itemN.X-PARLEY-CUSTOM` with an `X-ABLabel`.
+ *
  * **Starred** is written as `X-PARLEY-STARRED:1` (not `CATEGORIES:starred`, which would collide with a real
  * label named "starred"); on import both forms are understood.
  */
@@ -81,6 +92,19 @@ object VCardMapper {
 
     /** vCard 4.0's pronouns property (RFC 9554), for [Mime.PRONOUNS]. */
     const val PRONOUNS = "PRONOUNS"
+
+    /** RFC 9554's LANGUAGE: the language the card is written in (RFC 6350's LANG is the language to use with them). */
+    const val LANGUAGE = "LANGUAGE"
+
+    /** A custom field's value, grouped with its label in an `X-ABLabel`. */
+    const val X_CUSTOM = "X-PARLEY-CUSTOM"
+
+    /** [Mime.LANGUAGE]'s DATA3 for a language read from [LANGUAGE] rather than LANG. */
+    const val CARD_LANGUAGE = "card"
+    private const val CALSCALE = "CALSCALE"
+    private const val GREGORIAN = "gregorian"
+    private const val SERVICE_TYPE = "SERVICE-TYPE"
+    private const val USERNAME = "USERNAME"
     private const val X_BLOB = "X-PARLEY-BLOB"
     private const val X_DERIVED = "X-PARLEY-DERIVED"
     private const val X_LABEL = "X-ABLabel"
@@ -98,8 +122,8 @@ object VCardMapper {
 
     /** Row order used by [canonical] and import: the order kinds appear in on a contact card. */
     private val MIME_ORDER = listOf(
-        Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE, Mime.EVENT,
-        Mime.IM, Mime.SIP, Mime.RELATION, Mime.NOTE, Mime.GROUP, Mime.PHOTO,
+        Mime.NAME, Mime.NAME_PARTS, Mime.NICKNAME, Mime.PRONOUNS, Mime.LANGUAGE, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE,
+        Mime.EVENT, Mime.IM, Mime.SIP, Mime.RELATION, Mime.NOTE, Mime.CUSTOM_FIELD, Mime.GROUP, Mime.PHOTO,
     )
     private val MAPPED = MIME_ORDER.toSet()
 
@@ -112,7 +136,7 @@ object VCardMapper {
     )
 
     /** Kinds whose primary flags are meaningless once flattened to one raw contact. */
-    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS)
+    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS, Mime.NAME_PARTS, Mime.CUSTOM_FIELD)
 
     private val DATE_FULL = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
     private val DATE_BASIC = Regex("""^(\d{4})(\d{2})(\d{2})$""")
@@ -138,7 +162,7 @@ object VCardMapper {
         var photo: DataRow? = null
         var photoIsDefault = false
         for (raw in record.raws) for (r in raw.rows) {
-            val n = normalizeRow(r, groupTitles) ?: continue
+            val n = normalizeRow(parleyKind(r), groupTitles) ?: continue
             when {
                 n.mimeType == Mime.GROUP && n[Col.GROUP_TITLE].equals(STARRED_CATEGORY, ignoreCase = true) -> starred = true
                 n.mimeType == Mime.NAME -> if (name == null || (name[Col.D1] != record.displayName && n[Col.D1] == record.displayName)) name = n
@@ -183,7 +207,10 @@ object VCardMapper {
      * normalised), or null when the row holds nothing a vCard would keep. Used to compare rows read from the
      * provider with rows parsed from a vCard without every row looking changed.
      */
-    fun canonicalRow(r: DataRow, groupTitles: Map<Long, String> = emptyMap()): DataRow? = normalizeRow(r, groupTitles)
+    fun canonicalRow(r: DataRow, groupTitles: Map<Long, String> = emptyMap()): DataRow? = normalizeRow(parleyKind(r), groupTitles)
+
+    /** Google's custom fields are Parley's own anywhere but in a Google account ([app.parley.common.people.CustomFields]). */
+    private fun parleyKind(r: DataRow): DataRow = if (r.mimeType == Mime.GOOGLE_CUSTOM_FIELD) r.copy(mimeType = Mime.CUSTOM_FIELD) else r
 
     /** Identity of a [canonicalRow] result: its content, ignoring primary flags. */
     fun rowIdentity(n: DataRow): String = n.canonicalKey + "|" + (n.values - Col.ALL.toSet()).toSortedMap() + "|" + n.blob?.contentHashCode()
@@ -247,7 +274,8 @@ object VCardMapper {
 
     private fun hasContent(mime: String, v: Map<String, String>): Boolean = when (mime) {
         Mime.NAME -> v.keys.any { it != Col.D10 && it != Col.D11 }
-        Mime.POSTAL -> listOf(Col.D1, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9, Col.D10).any { v[it] != null }
+        Mime.POSTAL -> listOf(Col.D1, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9, Col.D10, AddressParts.COLUMN).any { v[it] != null }
+        Mime.NAME_PARTS, Mime.CUSTOM_FIELD -> v[Col.D1] != null || v[Col.D2] != null
         Mime.ORG -> listOf(Col.D1, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9).any { v[it] != null }
         Mime.GROUP -> v[Col.GROUP_TITLE] != null
         Mime.PHOTO -> true
@@ -304,10 +332,18 @@ object VCardMapper {
                     r[Col.D4] != null -> SLOT_SECOND
                     else -> SLOT_REST
                 }
+                Mime.WEBSITE -> websiteSlot(r)
                 else -> SLOT_FIRST
             }
         }
     }
+
+    /** Websites, then profiles: they are written as URL and SOCIALPROFILE, which come back as two groups. */
+    private fun websiteSlot(r: DataRow): Int = if (profileService(r) != null) SLOT_SECOND else SLOT_FIRST
+
+    /** The service of a website row written as SOCIALPROFILE: a custom label naming a service ([SocialProfiles]). */
+    private fun profileService(r: DataRow): ProfileService? =
+        if (r[Col.D2] == "0") SocialProfiles.labelled(SocialProfiles.TYPE_CUSTOM, r[Col.D3]) else null
 
     /** What Android would show as the name when there is no name row. */
     private fun fallbackDisplayName(rows: List<DataRow>): String {
@@ -379,6 +415,8 @@ object VCardMapper {
 
         // Name
         val nameRow = rows.firstOrNull { it.mimeType == Mime.NAME }
+        // RFC 9554's secondary surname and generation are N's sixth and seventh components.
+        val nameParts = rows.firstOrNull { it.mimeType == Mime.NAME_PARTS }?.let { listOf(it[Col.D1].orEmpty(), it[Col.D2].orEmpty()) }
         val fn = add(FormattedName(c.displayName.ifEmpty { nameRow?.let(::composeName).orEmpty() }))
         // Without a name row the display name is derived (company, number...); say so, so no name row is invented.
         if (nameRow == null) fn.addParameter(X_DERIVED, "1")
@@ -394,6 +432,7 @@ object VCardMapper {
             if (v[Col.D9] != null || v[Col.D7] != null) {
                 n.parameters.setSortAs(*listOf(v[Col.D9].orEmpty(), v[Col.D7].orEmpty()).dropLastWhile { it.isEmpty() }.toTypedArray())
             }
+            nameParts?.let { Rfc9554.setParts(n, it) }
             add(n)
             val consumed = mutableSetOf(Col.D2, Col.D3, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9)
             if (v[Col.D1] == c.displayName) consumed += Col.D1
@@ -401,6 +440,9 @@ object VCardMapper {
             v[Col.D7]?.let { raw(X_PHONETIC_FIRST, it) }
             v[Col.D8]?.let { raw(X_PHONETIC_MIDDLE, it) }
             v[Col.D9]?.let { raw(X_PHONETIC_LAST, it) }
+        } else if (nameParts != null) {
+            // Only the RFC 9554 parts: an N holding just them (FN says it's derived, so no name row comes back).
+            add(StructuredName().also { Rfc9554.setParts(it, nameParts) })
         }
         if (c.key.isNotEmpty()) add(Uid(c.key))
 
@@ -411,7 +453,7 @@ object VCardMapper {
         for (r in rows) {
             val v = r.present()
             when (r.mimeType) {
-                Mime.NAME -> Unit
+                Mime.NAME, Mime.NAME_PARTS -> Unit
                 Mime.NICKNAME -> {
                     val p = Nickname().also { it.values += v.getValue(Col.D1) }
                     add(p)
@@ -435,8 +477,14 @@ object VCardMapper {
                     a.postalCode = v[Col.D9]
                     a.country = v[Col.D10]
                     a.label = v[Col.D1]
+                    val consumed = mutableSetOf(Col.D1, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9, Col.D10)
+                    // RFC 9554's parts, when stored in the form AddressParts writes (anything else rides as a residual).
+                    v[AddressParts.COLUMN]?.takeIf { AddressParts.fromComponents(AddressParts.toComponents(it)) == it }?.let {
+                        Rfc9554.setParts(a, AddressParts.toComponents(it))
+                        consumed += AddressParts.COLUMN
+                    }
                     add(a)
-                    finish(a, r, typed(a, Types.POSTAL, v) + setOf(Col.D1, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9, Col.D10))
+                    finish(a, r, typed(a, Types.POSTAL, v) + consumed)
                 }
                 Mime.ORG -> {
                     val parts = ArrayList<VCardProperty>()
@@ -452,8 +500,19 @@ object VCardMapper {
                     finish(anchor, r, typed(anchor, Types.ORG, v, parts.drop(1)) + setOf(Col.D1, Col.D4, Col.D5, Col.D6))
                 }
                 Mime.WEBSITE -> {
-                    val p = add(Url(v.getValue(Col.D1)))
-                    finish(p, r, typed(p, Types.WEBSITE, v) + Col.D1)
+                    val service = profileService(r)
+                    if (service != null) {
+                        // RFC 9554: the address as the value, the label as SERVICE-TYPE, verbatim, so it comes back as it was.
+                        val url = v.getValue(Col.D1)
+                        val p = raw(SOCIAL, url)
+                        p.addParameter(SERVICE_TYPE, v.getValue(Col.D3))
+                        SocialProfiles.fromWebsite(url, SocialProfiles.TYPE_CUSTOM, v[Col.D3])?.handle?.takeIf { it.isNotBlank() }
+                            ?.let { p.addParameter(USERNAME, it) }
+                        finish(p, r, setOf(Col.D1, Col.D2, Col.D3))
+                    } else {
+                        val p = add(Url(v.getValue(Col.D1)))
+                        finish(p, r, typed(p, Types.WEBSITE, v) + Col.D1)
+                    }
                 }
                 Mime.EVENT -> {
                     val date = v.getValue(Col.D1)
@@ -475,6 +534,11 @@ object VCardMapper {
                             }
                             if (label != null) { raw(X_LABEL, label, g); consumed += Col.D2; if (t == "0") consumed += Col.D3 }
                         }
+                    }
+                    // A date kept by another calendar (AltCalendar): its name as CALSCALE.
+                    v[AltCalendar.COLUMN]?.takeIf { AltCalendar.byKey(it)?.key == it }?.let {
+                        p.parameters.put(VCardParameters.CALSCALE, it)
+                        consumed += AltCalendar.COLUMN
                     }
                     finish(p, r, consumed)
                 }
@@ -507,6 +571,17 @@ object VCardMapper {
                 Mime.PRONOUNS -> {
                     val p = raw(PRONOUNS, v.getValue(Col.D1))
                     finish(p, r, setOf(Col.D1))
+                }
+                Mime.LANGUAGE -> {
+                    val p = if (v[Col.D3] == CARD_LANGUAGE) raw(LANGUAGE, v.getValue(Col.D1))
+                    else add(Language(v.getValue(Col.D1)).also { l -> v[Col.D2]?.split(',')?.filter { it.isNotBlank() }?.forEach { l.parameters.addType(it) } })
+                    finish(p, r, setOf(Col.D1, Col.D2) + listOfNotNull(Col.D3.takeIf { v[it] == CARD_LANGUAGE }))
+                }
+                Mime.CUSTOM_FIELD -> {
+                    val g = newGroup()
+                    val p = raw(X_CUSTOM, v[Col.D2].orEmpty(), g)
+                    v[Col.D1]?.let { raw(X_LABEL, it, g) }
+                    finish(p, r, setOf(Col.D1, Col.D2))
                 }
                 Mime.PHOTO -> {
                     val bytes = r.blob ?: continue
@@ -578,7 +653,10 @@ object VCardMapper {
         val phonetic = HashMap<String, String>()
         var sortAs: List<String> = emptyList()
         var photoDone = false
-        val social = ArrayList<Profile>()
+        // Social profiles in file order: a Profile (iOS forms), or an RFC 9554 SOCIALPROFILE with a known SERVICE-TYPE
+        // kept as written (address and label, with its property). Added after every URL is read.
+        val social = ArrayList<Any>()
+        var nameParts: List<String> = emptyList()
 
         // Organization units: ORG, TITLE and ROLE belong together when they share a group; ungrouped ones pair in order.
         class OrgUnit(val pos: Int, val slot: Int) { var org: Organization? = null; var title: Title? = null; var role: Role? = null }
@@ -598,7 +676,8 @@ object VCardMapper {
         fun pref(p: VCardProperty): Int? =
             p.parameters.pref ?: if (p.parameters.types.any { it.equals("pref", true) }) 1 else null
 
-        fun emit(mime: String, values: MutableMap<String, String>, p: VCardProperty?, spec: TypeSpec? = null, blob: ByteArray? = null): DataRow {
+        fun emit(kind: String, values: MutableMap<String, String>, p: VCardProperty?, spec: TypeSpec? = null, blob: ByteArray? = null): DataRow {
+            val mime = if (kind == Mime.GOOGLE_CUSTOM_FIELD) Mime.CUSTOM_FIELD else kind
             if (spec != null) {
                 val (t, l) = spec.resolve(p?.parameters?.types.orEmpty(), p?.let(::labelOf))
                 t?.let { values[Col.D2] = it }
@@ -611,12 +690,19 @@ object VCardMapper {
             rows += row to (rank ?: Int.MAX_VALUE)
             return row
         }
+
+        /** A date's CALSCALE other than Gregorian, for the event row's [AltCalendar.COLUMN]. */
+        fun calendar(p: VCardProperty, v: MutableMap<String, String>): MutableMap<String, String> {
+            p.parameters.get(CALSCALE).firstOrNull()?.trim()?.lowercase(Locale.ROOT)
+                ?.takeIf { it.isNotEmpty() && it != GREGORIAN }?.let { v[AltCalendar.COLUMN] = it }
+            return v
+        }
         fun birthday(date: String, p: VCardProperty) {
-            val r = emit(Mime.EVENT, mutableMapOf(Col.D1 to date, Col.D2 to "3"), p)
+            val r = emit(Mime.EVENT, calendar(p, mutableMapOf(Col.D1 to date, Col.D2 to "3")), p)
             if (!birthdaySlot) { birthdaySlot = true; slots[r] = SLOT_FIRST }
         }
         fun anniversary(date: String, p: VCardProperty) {
-            val r = emit(Mime.EVENT, mutableMapOf(Col.D1 to date, Col.D2 to "1"), p)
+            val r = emit(Mime.EVENT, calendar(p, mutableMapOf(Col.D1 to date, Col.D2 to "1")), p)
             if (!anniversarySlot) { anniversarySlot = true; slots[r] = SLOT_SECOND }
         }
 
@@ -636,6 +722,7 @@ object VCardMapper {
                     }
                     namePrefs = p
                     sortAs = p.parameters.sortAs
+                    nameParts = Rfc9554.parts(p)
                 } else skip("N")
                 is Nickname -> p.values.filter { it.isNotBlank() }.forEach { emit(Mime.NICKNAME, mutableMapOf(Col.D1 to it), p, Types.NICKNAME) }
                 is Telephone -> {
@@ -649,6 +736,7 @@ object VCardMapper {
                     put(Col.D5, p.poBoxes); put(Col.D6, p.extendedAddresses); put(Col.D4, p.streetAddresses)
                     put(Col.D7, p.localities); put(Col.D8, p.regions); put(Col.D9, p.postalCodes); put(Col.D10, p.countries)
                     p.label?.takeIf { it.isNotEmpty() }?.let { v[Col.D1] = it }
+                    AddressParts.fromComponents(Rfc9554.parts(p))?.let { v[AddressParts.COLUMN] = it }
                     if (v.isEmpty()) skip("ADR") else emit(Mime.POSTAL, v, p, Types.POSTAL)
                 }
                 is Organization -> orgUnit(p, "ORG").org = p
@@ -678,6 +766,10 @@ object VCardMapper {
                     }
                 }
                 is Label -> if (!p.value.isNullOrBlank()) emit(Mime.POSTAL, mutableMapOf(Col.D1 to p.value), p, Types.POSTAL)
+                is Language -> p.value?.trim()?.takeIf { it.isNotEmpty() }?.let { tag ->
+                    val types = p.parameters.types.filter { !it.equals("pref", true) }.joinToString(",")
+                    emit(Mime.LANGUAGE, mutableMapOf(Col.D1 to tag, Col.D2 to types), p)
+                } ?: skip("LANG")
                 is Uid -> uid = p.value
                 is ProductId, is Revision -> Unit
                 is Kind -> if (p.isGroup) skip("KIND")
@@ -689,6 +781,13 @@ object VCardMapper {
                         name == X_ANDROID_CUSTOM -> importAndroidCustom(p, ::emit) ?: skip(X_ANDROID_CUSTOM)
                         name == PRONOUNS -> unescapeRaw(value).trim().takeIf { it.isNotEmpty() }
                             ?.let { emit(Mime.PRONOUNS, mutableMapOf(Col.D1 to it), p) } ?: skip(name)
+                        name == LANGUAGE -> unescapeRaw(value).trim().takeIf { it.isNotEmpty() }
+                            ?.let { emit(Mime.LANGUAGE, mutableMapOf(Col.D1 to it, Col.D3 to CARD_LANGUAGE), p) } ?: skip(name)
+                        name == X_CUSTOM -> {
+                            val label = labelOf(p).orEmpty()
+                            val text = unescapeRaw(value)
+                            if (label.isEmpty() && text.isEmpty()) skip(name) else emit(Mime.CUSTOM_FIELD, mutableMapOf(Col.D1 to label, Col.D2 to text), p)
+                        }
                         name == X_PHONETIC_FIRST -> phonetic[Col.D7] = unescapeRaw(value)
                         name == X_PHONETIC_MIDDLE -> phonetic[Col.D8] = unescapeRaw(value)
                         name == X_PHONETIC_LAST -> phonetic[Col.D9] = unescapeRaw(value)
@@ -702,7 +801,7 @@ object VCardMapper {
                                 }
                                 val v = linkedMapOf(Col.D1 to date, Col.D2 to t)
                                 l?.let { v[Col.D3] = it }
-                                emit(Mime.EVENT, v, p)
+                                emit(Mime.EVENT, calendar(p, v), p)
                             }
                         }
                         // ez-vcard keeps dates it cannot parse (e.g. 3.0 "--04-13") as raw BDAY / ANNIVERSARY.
@@ -717,8 +816,16 @@ object VCardMapper {
                             ?.let { emit(Mime.IM, mutableMapOf(Col.D1 to it, Col.D5 to Types.LEGACY_IM.getValue(name).toString()), p, Types.IM) } ?: skip(name)
                         // Social profiles (iOS / vCard 3 X-SOCIALPROFILE, RFC 9554 SOCIALPROFILE): website rows labelled with
                         // the service, the form Android apps show and sync (SocialProfiles). Added after every URL is read.
+                        name == SOCIAL && ProfileService.byLabel(p.getParameter(SERVICE_TYPE)) != null && unescapeRaw(value).isNotBlank() ->
+                            social += SocialRow(
+                                mutableMapOf(
+                                    Col.D1 to unescapeRaw(value).trim(), Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(),
+                                    Col.D3 to p.getParameter(SERVICE_TYPE).orEmpty(),
+                                ),
+                                p,
+                            )
                         name == X_SOCIAL || name == SOCIAL -> {
-                            val type = p.getParameter("SERVICE-TYPE") ?: p.parameters.types.firstOrNull { !it.equals("pref", true) }
+                            val type = p.getParameter(SERVICE_TYPE) ?: p.parameters.types.firstOrNull { !it.equals("pref", true) }
                             val user = p.getParameter("X-USER") ?: p.getParameter("USERNAME")
                             SocialProfiles.fromSocialProfile(type, user, unescapeRaw(value))?.let { social += it } ?: skip(name)
                         }
@@ -733,11 +840,21 @@ object VCardMapper {
             }
         }
 
-        // A social profile that a URL already holds (Parley writes profiles as labelled URLs) isn't added twice.
-        val sites = rows.map { it.first }.filter { it.mimeType == Mime.WEBSITE }
-            .mapNotNull { r -> r.values[Col.D1]?.let { v -> SocialProfiles.fromWebsite(v, r.values[Col.D2]?.toIntOrNull(), r.values[Col.D3]) ?: v } }
-        social.distinct().filter { it !in sites && it.url !in sites }.forEach { pr ->
-            emit(Mime.WEBSITE, mutableMapOf(Col.D1 to pr.url, Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(), Col.D3 to pr.service.label), null)
+        // A social profile that a URL already holds (Parley wrote profiles as labelled URLs) isn't added twice.
+        val siteRows = rows.map { it.first }.filter { it.mimeType == Mime.WEBSITE }
+        val sites = siteRows.mapNotNull { r ->
+            r.values[Col.D1]?.let { v -> SocialProfiles.fromWebsite(v, r.values[Col.D2]?.toIntOrNull(), r.values[Col.D3]) ?: v }
+        }
+        val urls = siteRows.mapNotNull { it.values[Col.D1] }.toMutableSet()
+        val seen = HashSet<Profile>()
+        for (entry in social) {
+            if (entry is Profile) {
+                val known = entry in sites || entry.url in sites
+                if (known || !seen.add(entry) || !urls.add(entry.url)) continue
+                emit(Mime.WEBSITE, mutableMapOf(Col.D1 to entry.url, Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(), Col.D3 to entry.service.label), null)
+            } else if (entry is SocialRow && urls.add(entry.values.getValue(Col.D1))) {
+                emit(Mime.WEBSITE, entry.values, entry.property)
+            }
         }
 
         // Organization units become rows at the position of their first property.
@@ -760,6 +877,15 @@ object VCardMapper {
             rows[u.pos] = (if (hasContent(Mime.ORG, v)) row else PLACEHOLDER) to (rank ?: Int.MAX_VALUE)
             slots[row] = u.slot
         }
+
+        // RFC 9554's name parts are a row of their own; an N holding only them (FN derived) makes no name row.
+        nameParts.takeIf { it.any(String::isNotBlank) }?.let { parts ->
+            val v = linkedMapOf<String, String>()
+            parts.getOrNull(0)?.takeIf { it.isNotEmpty() }?.let { v[Col.D1] = it }
+            parts.getOrNull(1)?.takeIf { it.isNotEmpty() }?.let { v[Col.D2] = it }
+            rows += DataRow(Mime.NAME_PARTS, v) to Int.MAX_VALUE
+        }
+        if (fnDerived && nameRow?.isEmpty() == true) nameRow = null
 
         // Name row: N (or FN alone when it isn't just the company/number shown in its place) plus phonetics.
         val nonName = rows.map { it.first }.filter { it !== PLACEHOLDER }
@@ -791,7 +917,11 @@ object VCardMapper {
         rows.forEachIndexed { i, (r, _) ->
             if (r === PLACEHOLDER) return@forEachIndexed
             val p = best[r.mimeType]?.first == i && r.mimeType !in NO_FLAGS
-            val slot = slots[r] ?: if (r.mimeType == Mime.EVENT) SLOT_REST else SLOT_FIRST
+            val slot = slots[r] ?: when (r.mimeType) {
+                Mime.EVENT -> SLOT_REST
+                Mime.WEBSITE -> websiteSlot(r)
+                else -> SLOT_FIRST
+            }
             all += (if (r.isPrimary == p && r.isSuperPrimary == p) r else r.copy(isPrimary = p, isSuperPrimary = p)) to slot
         }
         val displayName = fn?.takeIf { it.isNotBlank() } ?: fallbackDisplayName(all.map { it.first })
@@ -806,6 +936,9 @@ object VCardMapper {
     }
 
     private val PLACEHOLDER = DataRow("", emptyMap())
+
+    /** An RFC 9554 SOCIALPROFILE kept as written: the website row's columns and the property (for PREF and residuals). */
+    private class SocialRow(val values: MutableMap<String, String>, val property: VCardProperty)
 
     /** The row's non-null values (canonical rows never hold nulls, but the model allows them). */
     private fun DataRow.present(): Map<String, String> {

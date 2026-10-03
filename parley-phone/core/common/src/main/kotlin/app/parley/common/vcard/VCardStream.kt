@@ -3,6 +3,7 @@ package app.parley.common.vcard
 import app.parley.common.record.ContactRecord
 import app.parley.common.security.Bounded
 import app.parley.common.security.LimitExceededException
+import ezvcard.VCard
 import ezvcard.VCardVersion
 import ezvcard.io.text.VCardReader
 import ezvcard.io.text.VCardWriter
@@ -29,6 +30,7 @@ object VCardStream {
         private val writer = VCardWriter(out, VCardVersion.V4_0).apply {
             isCaretEncodingEnabled = true // RFC 6868: lets parameter values (address LABEL) hold line breaks and quotes
             isAddProdId = false
+            Rfc9554.scribes.forEach { registerScribe(it) }
         }
 
         fun write(record: ContactRecord, groupTitles: Map<Long, String> = emptyMap()) {
@@ -105,6 +107,7 @@ object VCardStream {
         val record = try {
             val reader = VCardReader(raw)
             reader.defaultQuotedPrintableCharset = Charsets.UTF_8
+            Rfc9554.scribes.forEach { reader.registerScribe(it) }
             val card = reader.use { it.readNext() }
             if (card == null) {
                 report.fail(index, "Could not read this card.", raw)
@@ -124,6 +127,26 @@ object VCardStream {
         }
         report.cardsParsed++
         onCard(ParsedCard(index, record, raw))
+    }
+
+    /** The first card of [text] (RFC 9554's name and address parts included), or null. */
+    fun parseOne(text: String): VCard? {
+        val reader = VCardReader(text)
+        reader.defaultQuotedPrintableCharset = Charsets.UTF_8
+        Rfc9554.scribes.forEach { reader.registerScribe(it) }
+        return reader.use { it.readNext() }
+    }
+
+    /** [card] as vCard 4.0 text, without a PRODID (RFC 9554's name and address parts included). */
+    fun writeOne(card: VCard, caretEncoding: Boolean = false): String {
+        val sw = StringWriter()
+        VCardWriter(sw, VCardVersion.V4_0).use { w ->
+            w.isCaretEncodingEnabled = caretEncoding
+            w.isAddProdId = false
+            Rfc9554.scribes.forEach { w.registerScribe(it) }
+            w.write(card)
+        }
+        return sw.toString()
     }
 
     /** Convenience for tests and small inputs: parses all cards in [text]. */

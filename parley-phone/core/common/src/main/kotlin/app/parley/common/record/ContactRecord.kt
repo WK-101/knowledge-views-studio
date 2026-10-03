@@ -82,8 +82,33 @@ object Mime {
      */
     const val PRONOUNS = "vnd.android.cursor.item/vnd.parley.pronouns"
 
+    /**
+     * A custom field ("Shoe size: 38"): DATA1 its label, DATA2 its value, like Google's user-defined field
+     * ([GOOGLE_CUSTOM_FIELD]), which Parley writes instead in Google accounts so the field syncs
+     * ([app.parley.common.people.CustomFields]). vCard carries it as a grouped `X-PARLEY-CUSTOM` with an `X-ABLabel`.
+     */
+    const val CUSTOM_FIELD = "vnd.android.cursor.item/vnd.parley.custom_field"
+
+    /** Google Contacts' user-defined field: DATA1 the label, DATA2 the value. */
+    const val GOOGLE_CUSTOM_FIELD = "vnd.com.google.cursor.item/contact_user_defined_field"
+
+    /**
+     * The name parts RFC 9554 added to vCard's N and Android has no columns for: DATA1 the secondary surname
+     * (Spanish and Portuguese double surnames), DATA2 the generation ("Jr.", "III").
+     */
+    const val NAME_PARTS = "vnd.android.cursor.item/vnd.parley.name_parts"
+
+    /**
+     * A language to use with the person: DATA1 a BCP 47 tag ("es-MX") or the name as typed, DATA2 vCard's TYPE
+     * ("work"), DATA3 "card" when it came from RFC 9554's `LANGUAGE` (the card's own language) rather than `LANG`.
+     */
+    const val LANGUAGE = "vnd.android.cursor.item/vnd.parley.language"
+
     /** Kinds Parley shows/edits; everything else is preserved but read-only. */
-    val CORE = setOf(NAME, PHONE, EMAIL, POSTAL, ORG, NICKNAME, NOTE, WEBSITE, EVENT, IM, RELATION, SIP, PHOTO, GROUP, PRONOUNS)
+    val CORE = setOf(
+        NAME, PHONE, EMAIL, POSTAL, ORG, NICKNAME, NOTE, WEBSITE, EVENT, IM, RELATION, SIP, PHOTO, GROUP, PRONOUNS,
+        CUSTOM_FIELD, GOOGLE_CUSTOM_FIELD, NAME_PARTS, LANGUAGE,
+    )
 }
 
 /** Column names for readability: Data.DATA1..DATA15. */

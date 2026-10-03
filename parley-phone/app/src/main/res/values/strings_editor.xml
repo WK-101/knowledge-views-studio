@@ -96,4 +96,39 @@
     <string name="frame_whole">Use whole photo</string>
     <string name="frame_loading">Opening the photo</string>
     <string name="frame_unreadable">This photo can\'t be framed here, so it will be used whole.</string>
+
+    <!-- More fields: name parts, custom fields, language, phone types, other calendars -->
+    <string name="edit_phonetic_middle">Phonetic middle name</string>
+    <string name="edit_second_surname">Second surname</string>
+    <string name="edit_generation">Generation</string>
+    <string name="edit_custom_field">Custom field</string>
+    <string name="edit_custom_fields">Custom fields</string>
+    <string name="edit_custom_field_label">Label</string>
+    <string name="edit_custom_field_placeholder">Shoe size</string>
+    <string name="edit_custom_field_value">Value</string>
+    <string name="edit_remove_custom_field">Remove custom field</string>
+    <string name="edit_language">Language</string>
+    <string name="edit_language_hint">The language to use with them, like Spanish or pt-BR</string>
+    <string name="edit_language_saved_as">Saved as %1$s</string>
+    <string name="edit_phone_more_types">More types…</string>
+    <string name="edit_phone_types_title">Number type</string>
+    <string name="edit_calendar">Calendar</string>
+    <string name="edit_calendar_gregorian">Gregorian</string>
+    <string name="edit_calendar_chinese">Chinese lunar</string>
+    <string name="edit_calendar_hebrew">Hebrew</string>
+    <string name="edit_calendar_hijri">Hijri (Islamic)</string>
+    <string name="edit_calendar_needs_year">To follow another calendar, include the year.</string>
+    <string name="edit_calendar_named">%1$s calendar</string>
+    <string name="edit_address_parts">Also: %1$s</string>
+    <string name="addr_part_room">Room</string>
+    <string name="addr_part_apartment">Apartment</string>
+    <string name="addr_part_floor">Floor</string>
+    <string name="addr_part_street_number">Street number</string>
+    <string name="addr_part_street_name">Street name</string>
+    <string name="addr_part_building">Building</string>
+    <string name="addr_part_block">Block</string>
+    <string name="addr_part_subdistrict">Subdistrict</string>
+    <string name="addr_part_district">District</string>
+    <string name="addr_part_landmark">Landmark</string>
+    <string name="addr_part_direction">Direction</string>
 </resources>

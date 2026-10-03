@@ -484,7 +484,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val sameLine: (String, String) -> Boolean = { a, b -> PhoneNumbers.same(a, b, region) }
         // Dates that come round again (a date of death doesn't), with their place in d.events.
         val dated = remember(d.events) {
-            d.events.mapIndexedNotNull { i, ev -> EventDate.parse(ev.date)?.takeUnless { LifeEvents.isDeath(ev.type, ev.label) }?.let { i to it } }
+            // A date kept by another calendar counts from its next Gregorian day.
+            d.events.mapIndexedNotNull { i, ev ->
+                EventDate.parse(ev.date)?.takeUnless { LifeEvents.isDeath(ev.type, ev.label) }?.let { effectiveDate(it, ev.calendar, today) }?.let { i to it }
+            }
         }
         fun dateText(i: Int, days: Long): String {
             val label = eventLabel(resources, d.events[i])
@@ -615,7 +618,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         val key = if (canYearly) YearlyEvents.key(ev.type, ev.label, date!!) else null
                         val on = key != null && key in yearly
                         GroupDataRow(
-                            Icons.Rounded.Cake, i == 0, describeLifeEvent(resources, d, ev),
+                            Icons.Rounded.Cake, i == 0, describeCalendarEvent(resources, ev.date, ev.calendar, today) ?: describeLifeEvent(resources, d, ev),
                             eventLabel(resources, ev) + (if (on) sep + resources.getString(R.string.circle_yearly_label) else ""),
                             onClick = {},
                             trailing = if (key == null) null else ({
@@ -667,6 +670,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 if (d.note.isNotBlank()) item {
                     GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.detail_note), onClick = {}, headline = { LinkifiedText(d.note) })
                 }
+            }
+        }
+        // Custom fields, the language, RFC 9554's name and address parts.
+        val more = remember(d) { moreFacts(resources, d) }
+        if (more.isNotEmpty()) {
+            sections.addRows(ContactSection.MORE, sectionTitle(resources, ContactSection.MORE), resources.getQuantityString(R.plurals.contact_page_count_items, more.size, more.size)) {
+                more.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
             }
         }
         val note = meta?.pinnedNote

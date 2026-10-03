@@ -4,7 +4,7 @@ import app.parley.common.TextSearch
 
 /**
  * Contacts-tab search over more than names and numbers: e-mail, nickname, company and job title, postal
- * address, notes, websites and messenger handles. Only for the Contacts tab's search box (never the keypad's T9).
+ * address, notes, websites, messenger handles and custom fields. Only for the Contacts tab's search box (never the keypad's T9).
  * [match] says which field matched, so the row can say "Matched: address".
  */
 object BroadSearch {
@@ -21,6 +21,9 @@ object BroadSearch {
 
         /** A social or professional profile's handle ("@ana.lima" on Instagram). */
         PROFILE,
+
+        /** A custom field's label or value ("Shoe size: 38"). */
+        CUSTOM,
     }
 
     /** The extra searchable text of one contact (everything beyond the summary's name, numbers and e-mails). */
@@ -34,6 +37,8 @@ object BroadSearch {
         val handles: List<String> = emptyList(),
         /** Profile handles as typed and shown ([SocialProfiles.searchTerms]). */
         val profiles: List<String> = emptyList(),
+        /** Custom fields, label and value ([CustomFields.display]). */
+        val custom: List<String> = emptyList(),
     )
 
     /** Which field [query] matches first, or null for no match. A blank query matches everything by name. */
@@ -54,6 +59,7 @@ object BroadSearch {
             any(extra.profiles) -> Field.PROFILE
             any(extra.websites) -> Field.WEBSITE
             any(extra.handles) -> Field.HANDLE
+            any(extra.custom) -> Field.CUSTOM
             else -> null
         }
     }

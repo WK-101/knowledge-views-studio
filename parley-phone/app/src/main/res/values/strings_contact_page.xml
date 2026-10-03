@@ -158,4 +158,11 @@
     <!-- A profile's row: the button opens it in the service's app, or in the browser. %1$s: the service. -->
     <string name="detail_open_profile">Open on %1$s</string>
     <string name="detail_copy_link">Copy link</string>
+    <string name="contact_page_sec_more">More</string>
+    <string name="detail_language">Language</string>
+    <string name="detail_custom_field">Custom field</string>
+    <string name="detail_second_surname">Second surname</string>
+    <string name="detail_generation">Generation</string>
+    <string name="detail_address_parts">Address details · %1$s</string>
+    <string name="detail_next_by_calendar">%1$s · next %2$s</string>
 </resources>
