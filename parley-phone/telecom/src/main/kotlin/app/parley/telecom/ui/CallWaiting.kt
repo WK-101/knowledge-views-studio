@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallManager
@@ -48,6 +47,7 @@ import app.parley.telecom.CallUi
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyType
 import app.parley.ui.topOnly
 import app.parley.ui.Spacing
 import androidx.compose.material3.contentColorFor
@@ -134,7 +134,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(if (ringing.silenced) R.string.incall_waiting_call_silenced else R.string.incall_waiting_call), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(ringing.displayTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(ringing.displayTitle, style = ParleyType.callerNameCompact, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         val shownNumber = ringing.number?.takeIf { ringing.name != null && !ringing.lockMasked }?.let(Bidi::ltr)
                         val sub = listOfNotNull(ringing.label, shownNumber, ringing.accountLabel, ringing.location)
                             .joinToString(stringResource(R.string.tc_separator))

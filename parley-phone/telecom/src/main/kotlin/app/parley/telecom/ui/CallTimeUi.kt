@@ -59,6 +59,7 @@ import app.parley.telecom.CallClock
 import app.parley.telecom.CallTiming
 import app.parley.telecom.CallUi
 import app.parley.ui.Bidi
+import app.parley.ui.tabular
 import kotlinx.coroutines.delay
 import app.parley.ui.ParleySheet
 import androidx.compose.ui.semantics.heading
@@ -170,7 +171,7 @@ internal fun RemainingLine(timing: CallTiming?) {
     }
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelLarge.tabular(),
         color = color,
         modifier = Modifier.padding(top = 4.dp).semantics { contentDescription = spoken },
     )
@@ -316,7 +317,7 @@ private fun CallTimeSection(call: CallUi, timing: CallTiming?, onDismiss: () -> 
                 else -> stringResource(R.string.calltime_no_limit)
             }
             Text(
-                status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                status, style = MaterialTheme.typography.bodyMedium.tabular(), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = Spacing.xs),
             )
             Spacer(Modifier.height(Spacing.m))

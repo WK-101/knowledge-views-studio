@@ -41,6 +41,7 @@ import app.parley.telecom.R
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
+import app.parley.ui.tabular
 import kotlinx.coroutines.delay
 
 /**
@@ -77,7 +78,7 @@ internal fun AutoAnswerCountdown(call: CallUi) {
             Row(Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.xs, bottom = Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Timer, null)
                 Spacer(Modifier.width(Spacing.s))
-                Text(text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(text, style = MaterialTheme.typography.titleSmall.tabular(), modifier = Modifier.weight(1f))
                 val cancelDesc = stringResource(R.string.call_auto_answer_cancel_desc)
                 FilledTonalButton({ CallManager.cancelAutoAnswer(call.id) }, Modifier.semantics { contentDescription = cancelDesc }) {
                     Text(stringResource(R.string.call_auto_answer_cancel))
