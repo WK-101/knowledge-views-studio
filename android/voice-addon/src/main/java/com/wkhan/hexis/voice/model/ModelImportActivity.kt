@@ -214,11 +214,8 @@ class ModelImportActivity : Activity() {
         }
     }
 
-    private fun isValidModel(dir: File): Boolean {
-        val files = dir.listFiles()?.map { it.name } ?: return false
-        fun onnx(prefix: String) = files.any { it.startsWith(prefix) && it.endsWith(".onnx") }
-        return onnx("encoder") && onnx("decoder") && onnx("joiner") && files.contains("tokens.txt")
-    }
+    private fun isValidModel(dir: File): Boolean =
+        dir.listFiles()?.any { it.name.endsWith(".bin") } == true
 
     private fun succeed() {
         progress.visibility = View.GONE

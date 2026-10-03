@@ -5,9 +5,7 @@ import java.util.Properties
 //
 // It holds RECORD_AUDIO (which the core never does), captures the mic in its own process, and returns
 // only text to the core over the :bridge spine. No launcher surface; no settings UI (all controls
-// live in the core). The real sherpa-onnx engine drops in behind the SttEngine interface later —
-// this build ships an echo dev engine so the whole pipeline is exercisable offline and on-device
-// before the native engine + model (which need network to fetch) are integrated.
+// live in the core). On-device STT is whisper.cpp, built from source in the :whisper module.
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -80,10 +78,8 @@ dependencies {
     implementation(project(":bridge"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    // sherpa-onnx (k2-fsa) v1.13.8 — the offline streaming STT engine. Slimmed to arm64-v8a; bundles
-    // the Kotlin API (com.k2fsa.sherpa.onnx) + native libs. Apache-2.0. Resolved via the flatDir repo
-    // declared in settings.gradle.kts.
-    implementation(":sherpa-onnx-1.13.8-arm64@aar")
+    // On-device STT engine: whisper.cpp built from vendored source (CPU, arm64-v8a).
+    implementation(project(":whisper"))
 
     testImplementation("junit:junit:4.13.2")
 }
