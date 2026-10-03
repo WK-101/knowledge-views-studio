@@ -116,6 +116,7 @@ import app.parley.common.people.LifeEvents
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RelationTypes
 import app.parley.common.people.RowKeys
+import app.parley.common.people.RowOrder
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
@@ -388,6 +389,15 @@ fun ContactEditScreen(
             keys.removed(group, i)
             update(change)
         }
+
+        /** Swaps rows [a] and [b] of [group] (Move up / Move down): their keys go along, so focus and animations follow. */
+        fun <T> swapRows(group: String, a: Int, b: Int, get: (ContactDetails) -> List<T>, set: (ContactDetails, List<T>) -> ContactDetails) {
+            keys.swapped(group, a, b)
+            update { set(it, RowOrder.swap(get(it), a, b)) }
+        }
+        // Rows another app marks read-only can't be written again, so their group keeps the provider's order.
+        val readOnly = original?.readOnlyDataIds.orEmpty()
+        fun movable(ids: List<Long?>) = RowOrder.canReorder(ids, readOnly)
         fun addKind(k: EditorForm.Kind) {
             editor.revealed = revealed + k
             val cur = editor.draft ?: d
@@ -511,13 +521,28 @@ fun ContactEditScreen(
             /**
              * A group: one item per row (keys from [RowKeys]) stacked as one segmented block, the group's icon in the
              * gutter of its first line, a small gap after its last. [row] gets the row's index, key, gutter and shape.
+             * With [swap] (rows i and j of the group trade places) and two rows or more, each row can move up or down
+             * ([LocalRowMoves]).
              */
-            fun group(icon: ImageVector, title: Int, rowKeys: List<Long>, gap: Dp, row: @Composable (Int, Long, Lead, Shape) -> Unit) {
+            fun group(
+                icon: ImageVector,
+                title: Int,
+                rowKeys: List<Long>,
+                gap: Dp,
+                swap: ((Int, Int) -> Unit)? = null,
+                row: @Composable (Int, Long, Lead, Shape) -> Unit,
+            ) {
                 rowKeys.forEachIndexed { i, k ->
                     put(k) {
                         val lead = if (i == 0) Lead(icon, stringResource(title)) else Lead.None
                         val bottom = if (i == rowKeys.lastIndex) FormTokens.groupGap else gap
-                        Box(Modifier.animateItem().padding(bottom = bottom)) { row(i, k, lead, formFieldShape(i, rowKeys.size)) }
+                        val moves = if (swap == null || rowKeys.size < 2) null else RowMoves(
+                            up = if (i > 0) { { swap(i, i - 1) } } else null,
+                            down = if (i < rowKeys.lastIndex) { { swap(i, i + 1) } } else null,
+                        )
+                        CompositionLocalProvider(LocalRowMoves provides moves) {
+                            Box(Modifier.animateItem().padding(bottom = bottom)) { row(i, k, lead, formFieldShape(i, rowKeys.size)) }
+                        }
                     }
                 }
             }
@@ -527,7 +552,10 @@ fun ContactEditScreen(
                 val items = kind.get(d)
                 val rowKeys = keys.keys(kind.group, items.size)
                 val idx = items.indices.filter(only)
-                group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap) { j, k, lead, shape ->
+                val swap = if (meCard || !movable(idx.map { items[it].id })) null else { a: Int, b: Int ->
+                    swapRows(kind.group, idx[a], idx[b], kind.get, kind.set)
+                }
+                group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap, swap) { j, k, lead, shape ->
                     val i = idx.getOrNull(j) ?: return@group
                     val item = items.getOrNull(i) ?: return@group
                     MultiRow(kind, item, fr(k), lead, shape, showType = !meCard,
@@ -564,7 +592,10 @@ fun ContactEditScreen(
             }
 
             if (d.events.isNotEmpty()) {
-                group(Icons.Rounded.Cake, R.string.edit_important_dates, keys.keys(G_DATE, d.events.size), FormTokens.segmentGap) { i, k, lead, shape ->
+                val swap = if (!movable(d.events.map { it.id })) null else { a: Int, b: Int ->
+                    swapRows(G_DATE, a, b, { it.events }) { c, l -> c.copy(events = l) }
+                }
+                group(Icons.Rounded.Cake, R.string.edit_important_dates, keys.keys(G_DATE, d.events.size), FormTokens.segmentGap, swap) { i, k, lead, shape ->
                     val ev = d.events.getOrNull(i) ?: return@group
                     DateRow(
                         ev, lead, shape, openPicker = pickDateFor == k, onPickerClosed = { if (pickDateFor == k) pickDateFor = null },
@@ -577,7 +608,11 @@ fun ContactEditScreen(
             val addressLinks = AddressMapLinks.matches(d)
             if (d.addresses.isNotEmpty()) {
                 // Each address is its own block of lines, so addresses sit a little apart.
-                group(Icons.Rounded.Place, R.string.detail_address, keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap) { i, k, lead, _ ->
+                // A map link follows its address by the address's label, so it moves along.
+                val swap = if (meCard || !movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
+                    swapRows(G_ADDR, a, b, { it.addresses }) { c, l -> c.copy(addresses = l) }
+                }
+                group(Icons.Rounded.Place, R.string.detail_address, keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
                     val a = d.addresses.getOrNull(i) ?: return@group
                     AddressRow(
                         a, fr(k), lead,
@@ -601,7 +636,10 @@ fun ContactEditScreen(
             }
 
             if (d.handles.isNotEmpty()) {
-                group(Icons.Rounded.Forum, R.string.edit_handles, keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap) { i, k, lead, _ ->
+                val swap = if (!movable(d.handles.map { it.id })) null else { a: Int, b: Int ->
+                    swapRows(G_HANDLE, a, b, { it.handles }) { c, l -> c.copy(handles = l) }
+                }
+                group(Icons.Rounded.Forum, R.string.edit_handles, keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap, swap) { i, k, lead, _ ->
                     val h = d.handles.getOrNull(i) ?: return@group
                     HandleRow(
                         h, fr(k), lead, i, d.handles.size,
@@ -613,7 +651,11 @@ fun ContactEditScreen(
 
             // Profiles first (Instagram, LinkedIn…), then the other websites: one list of website rows underneath.
             val profileIdx = d.websites.indices.filter { profileRow.getOrElse(it) { false } }
-            group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileIdx.map { webKeys[it] }, FormTokens.segmentGap) { j, k, lead, shape ->
+            val profileSwap = if (!movable(profileIdx.map { d.websites[it].id })) null else { a: Int, b: Int ->
+                swapRows(WEBSITES.group, profileIdx[a], profileIdx[b], WEBSITES.get, WEBSITES.set)
+            }
+            val profileKeys = profileIdx.map { webKeys[it] }
+            group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileKeys, FormTokens.segmentGap, profileSwap) { j, k, lead, shape ->
                 val i = profileIdx.getOrNull(j) ?: return@group
                 val w = d.websites.getOrNull(i) ?: return@group
                 // Never drops out mid-typing: a value that reads as no profile keeps the row's own service.
@@ -628,7 +670,10 @@ fun ContactEditScreen(
             if (profileRow.any { !it }) multi(WEBSITES) { i -> !profileRow.getOrElse(i) { false } }
 
             if (d.relations.isNotEmpty()) {
-                group(Icons.Rounded.People, R.string.edit_relations, keys.keys(G_REL, d.relations.size), FormTokens.segmentGap) { i, k, lead, shape ->
+                val swap = if (!movable(d.relations.map { it.id })) null else { a: Int, b: Int ->
+                    swapRows(G_REL, a, b, { it.relations }) { c, l -> c.copy(relations = l) }
+                }
+                group(Icons.Rounded.People, R.string.edit_relations, keys.keys(G_REL, d.relations.size), FormTokens.segmentGap, swap) { i, k, lead, shape ->
                     val item = d.relations.getOrNull(i) ?: return@group
                     RelationRow(
                         vm, item, fr(k), lead, shape,
@@ -641,7 +686,10 @@ fun ContactEditScreen(
 
             if (d.customFields.isNotEmpty()) {
                 val customKeys = keys.keys(G_CUSTOM, d.customFields.size)
-                group(Icons.AutoMirrored.Rounded.ShortText, R.string.edit_custom_fields, customKeys, FormTokens.segmentGap) { i, k, lead, _ ->
+                val swap = if (!movable(d.customFields.map { it.id })) null else { a: Int, b: Int ->
+                    swapRows(G_CUSTOM, a, b, { it.customFields }) { c, l -> c.copy(customFields = l) }
+                }
+                group(Icons.AutoMirrored.Rounded.ShortText, R.string.edit_custom_fields, customKeys, FormTokens.segmentGap, swap) { i, k, lead, _ ->
                     val f = d.customFields.getOrNull(i) ?: return@group
                     CustomFieldRow(
                         f, lockedRow(f.id), fr(k), lead.icon, lead.title, i, d.customFields.size,
