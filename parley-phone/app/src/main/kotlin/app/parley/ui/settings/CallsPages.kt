@@ -142,6 +142,7 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
             set { it.copy(callBackground = CallScreenBackground.entries[i]) }
         }
         switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
+        item("flip_to_silence") { FlipToSilenceRow(vm) }
     }
     // Auto-answer and the haptic caller ID.
     CallerRingGroup(vm, open)
@@ -152,6 +153,8 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
 /** Calls › During calls: vibration, the screen at your ear, the power button, and notes before and after calls. */
 @Composable
 private fun DuringCallsPage(vm: AppViewModel) {
+    // "Start calls on speaker".
+    CallSpeakerGroup(vm)
     CallFeedbackGroup(vm)
     // The memory prompt, notes on the lock screen and the pre-call peek.
     MemorySettingsGroup(vm)

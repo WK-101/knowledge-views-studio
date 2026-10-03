@@ -32,6 +32,11 @@ data class AppSettings(
     val defaultAccountType: String? = null,
     val defaultAccountName: String? = null,
     val quickReplies: List<String> = DEFAULT_QUICK_REPLIES,
+    /**
+     * The reply offered first to numbers that aren't saved (declining with a message, the post-call card): asks them
+     * to text their name. Edited with the quick replies; blank: not offered.
+     */
+    val nameReply: String = DEFAULT_NAME_REPLY,
     val screening: ScreeningSettings = ScreeningSettings(),
     val onboardingDone: Boolean = false,
     // Security
@@ -94,6 +99,8 @@ data class AppSettings(
             "I'm in a meeting.",
             "Can you text me instead?",
         )
+
+        const val DEFAULT_NAME_REPLY = "Sorry, I don't answer unknown numbers. Please text me your name and why you're calling."
     }
 }
 

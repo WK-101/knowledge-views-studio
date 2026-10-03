@@ -11,6 +11,12 @@ import kotlinx.serialization.json.Json
 data class CallExtrasConfig(
     /** Turn the screen off near the ear during earpiece calls. Off for broken sensors or listening in a pocket. */
     val proximitySensor: Boolean = true,
+    /** …only once the call is answered, not while an outgoing call is being dialled ([ScreenAtEar]). */
+    val proximityOnceAnswered: Boolean = false,
+    /** Start calls on the speaker: never (the default), always, or for numbers that aren't saved ([SpeakerOnStart]). */
+    val speakerDefault: SpeakerDefault = SpeakerDefault.OFF,
+    /** Turning the phone face down while it rings silences it ([FlipDetector]). Off by default. */
+    val flipToSilence: Boolean = false,
     /** Ask before calling from a favourite, the widget or a shortcut while the proximity sensor is covered. */
     val pocketGuard: Boolean = true,
     /** Re-alert for unseen missed calls every N minutes; 0 = off (the default). */
@@ -27,7 +33,8 @@ data class CallExtrasConfig(
     val rememberMenuKeys: Boolean = true,
 ) {
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        // A choice this version doesn't know (written by a newer one) reads as its default, not as a broken document.
+        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; coerceInputValues = true }
 
         fun decode(text: String?): CallExtrasConfig = if (text.isNullOrBlank()) {
             CallExtrasConfig()

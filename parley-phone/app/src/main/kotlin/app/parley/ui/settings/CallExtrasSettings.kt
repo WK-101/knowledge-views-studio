@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Accessibility
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.PhonelinkLock
 import androidx.compose.material.icons.rounded.Sensors
@@ -23,6 +25,8 @@ import app.parley.RecentFilter
 import app.parley.common.StartTab
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
+import app.parley.common.calls.ScreenAtEar
+import app.parley.common.calls.SpeakerDefault
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SwitchRow
 import app.parley.ui.activityViewModel
@@ -73,7 +77,18 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     // Android has no intent for "Power button ends call" alone: the Accessibility page opens and the row says where to look.
     val powerEnds = remember { powerButtonEndsCall(context) }
-    val proximitySub = stringResource(if (cfg.proximitySensor) R.string.set_proximity_on else R.string.set_proximity_off)
+    val proximity = ScreenAtEar.mode(cfg.proximitySensor, cfg.proximityOnceAnswered)
+    val proximitySub = stringResource(
+        when (proximity) {
+            ScreenAtEar.Mode.OFF -> R.string.set_proximity_off
+            ScreenAtEar.Mode.DURING_CALLS -> R.string.set_proximity_on
+            ScreenAtEar.Mode.ONCE_ANSWERED -> R.string.set_proximity_once_answered_sub
+        },
+    )
+    // In the order of ScreenAtEar.Mode.
+    val proximityChoices = listOf(
+        stringResource(R.string.set_off), stringResource(R.string.set_proximity_during), stringResource(R.string.set_proximity_once_answered),
+    )
     val powerSub = listOfNotNull(
         when (powerEnds) {
             true -> stringResource(R.string.set_on)
@@ -85,14 +100,41 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
     SegmentedGroup(stringResource(R.string.set_group_call_feedback)) {
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
         item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
-        switchRow(
-            "proximity_sensor", cfg.proximitySensor, Icons.Rounded.Sensors,
-            sub = proximitySub,
-        ) { v -> vm.c.callExtras.update { it.copy(proximitySensor = v) } }
+        // One row for "proximity only after answering" too, rather than a second switch.
+        menuRow("proximity_sensor", proximityChoices, proximity.ordinal, Icons.Rounded.Sensors, sub = proximitySub) { i ->
+            val m = ScreenAtEar.Mode.entries[i]
+            vm.c.callExtras.update { it.copy(proximitySensor = m != ScreenAtEar.Mode.OFF, proximityOnceAnswered = m == ScreenAtEar.Mode.ONCE_ANSWERED) }
+        }
         linkRow(
             "power_button_ends_call", Icons.Rounded.Accessibility, external = true,
             sub = powerSub,
         ) { runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
+    }
+}
+
+/**
+ * Calls › During calls › Speaker: "Start calls on speaker" (never, always, or numbers not in your contacts). It only
+ * ever replaces the earpiece and never switches an emergency call ([SpeakerOnStart]).
+ */
+@Composable
+internal fun CallSpeakerGroup(vm: AppViewModel) {
+    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    // In the order of SpeakerDefault.
+    val choices = listOf(stringResource(R.string.set_speaker_never), stringResource(R.string.set_speaker_always), stringResource(R.string.set_speaker_unknown))
+    val sub = stringResource(if (cfg.speakerDefault == SpeakerDefault.OFF) R.string.set_speaker_off_sub else R.string.set_speaker_sub)
+    SegmentedGroup(stringResource(R.string.set_group_call_audio)) {
+        menuRow("speaker_default", choices, cfg.speakerDefault.ordinal, Icons.AutoMirrored.Rounded.VolumeUp, sub = sub) { i ->
+            vm.c.callExtras.update { it.copy(speakerDefault = SpeakerDefault.entries[i]) }
+        }
+    }
+}
+
+/** Calls › Answering: "Flip to silence" (off by default), a row of the incoming-calls group. */
+@Composable
+internal fun FlipToSilenceRow(vm: AppViewModel) {
+    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    SwitchRow(settingTitle("flip_to_silence"), stringResource(R.string.set_flip_sub), cfg.flipToSilence, Icons.Rounded.ScreenRotation) { v ->
+        vm.c.callExtras.update { it.copy(flipToSilence = v) }
     }
 }
 

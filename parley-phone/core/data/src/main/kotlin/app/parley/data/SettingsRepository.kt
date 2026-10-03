@@ -168,6 +168,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             defaultAccountType = this[K.accType]?.ifEmpty { null },
             defaultAccountName = this[K.accName]?.ifEmpty { null },
             quickReplies = this[K.replies]?.split(SEP)?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() } ?: d.quickReplies,
+            nameReply = this[K.nameReply] ?: d.nameReply,
             // v1 toggles keep their own keys; everything added later lives in one JSON value.
             screening = ScreeningSettings.decode(this[K.screeningJson]).copy(
                 blockHidden = this[K.blockHidden] ?: false,
@@ -223,6 +224,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.accType] = s.defaultAccountType.orEmpty()
         this[K.accName] = s.defaultAccountName.orEmpty()
         this[K.replies] = s.quickReplies.joinToString(SEP)
+        this[K.nameReply] = s.nameReply
         this[K.blockHidden] = s.screening.blockHidden
         this[K.blockNonContacts] = s.screening.blockNonContacts
         this[K.blockNeighbour] = s.screening.blockNeighbourSpoofing
@@ -275,6 +277,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val accType = stringPreferencesKey("default_account_type")
         val accName = stringPreferencesKey("default_account_name")
         val replies = stringPreferencesKey("quick_replies")
+        val nameReply = stringPreferencesKey("name_reply")
         val blockHidden = booleanPreferencesKey("block_hidden")
         val blockNonContacts = booleanPreferencesKey("block_non_contacts")
         val blockNeighbour = booleanPreferencesKey("block_neighbour")

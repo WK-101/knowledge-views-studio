@@ -54,6 +54,7 @@ import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.CallerPhoto
 import app.parley.common.people.ContactRef
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.VerifyCallBack
 import app.parley.security.AppLock
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -99,7 +100,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
         // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded,
-            callBackground = s.callBackground, lockScreenCaller = s.lockScreenCaller,
+            callBackground = s.callBackground, lockScreenCaller = s.lockScreenCaller, nameReply = s.nameReply,
         )
         // Built inside the flow (on the container's scope), not here on the main thread in Application.onCreate.
     }.combine(flow { emitAll(c.extras.simple) }) { look, simple ->
@@ -446,6 +447,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun proximityEnabled(): Boolean = c.callExtras.config.value.proximitySensor
 
+    override fun proximityOnceAnswered(): Boolean = c.callExtras.config.value.proximityOnceAnswered
+
+    override fun speakerDefault(): SpeakerDefault = c.callExtras.config.value.speakerDefault
+
+    override fun flipToSilence(): Boolean = c.callExtras.config.value.flipToSilence
+
     override fun tipSeen(id: String): Boolean = id in c.ux.state.value.seenTips
 
     override fun markTipSeen(id: String) {
@@ -488,6 +495,17 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             return@withContext numbers.map { VerifyCallBack.Saved(info.name, it) }.ifEmpty { listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel)) }
         }
         emptyList()
+    }
+
+    /** Every saved number for "Send to another number"; private contacts only outside discreet mode. */
+    override suspend fun handOffTargets(): List<VerifyCallBack.Saved>? = withContext(Dispatchers.IO) {
+        if (appLocked()) return@withContext null
+        val res = app.resources
+        val contacts = (c.contacts.contacts.value ?: c.contacts.loadNow()).flatMap { s ->
+            s.phones.map { p -> VerifyCallBack.Saved(s.displayName, p.number, Phone.getTypeLabel(res, p.type, p.label).toString()) }
+        }
+        if (c.settings.current().hideVault) return@withContext contacts
+        contacts + c.vault.contacts.value.flatMap { v -> v.numbers.map { VerifyCallBack.Saved(v.name, it) } }
     }
 
     override suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = withContext(Dispatchers.IO) {

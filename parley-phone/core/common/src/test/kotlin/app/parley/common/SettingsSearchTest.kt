@@ -42,6 +42,7 @@ class SettingsSearchTest {
         mapOf(
             "answer_gesture" to SettingPlace.CALLS_ANSWERING, "auto_answer" to SettingPlace.CALLS_ANSWERING, "answer_rtt" to SettingPlace.CALLS_ANSWERING,
             "unknown_ringtone" to SettingPlace.CALLS_ANSWERING, "proximity_sensor" to SettingPlace.CALLS_DURING,
+            "flip_to_silence" to SettingPlace.CALLS_ANSWERING, "speaker_default" to SettingPlace.CALLS_DURING,
             "power_button_ends_call" to SettingPlace.CALLS_DURING, "memory_prompt" to SettingPlace.CALLS_DURING,
             "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
             "call_helpers" to SettingPlace.HELPERS, "drive_profile" to SettingPlace.DRIVE_PROFILE, "phone_menus" to SettingPlace.PHONE_MENUS,
@@ -49,6 +50,8 @@ class SettingsSearchTest {
         // Their old words still find them.
         assertEquals("answer_gesture", keys("answer incoming calls").first())
         assertTrue("power_button_ends_call" in keys("power button"))
+        assertEquals("speaker_default", keys("speakerphone").first())
+        assertEquals("flip_to_silence", keys("face down").first())
         assertTrue("sim_accounts" in keys("wifi calling"))
     }
 
@@ -189,8 +192,10 @@ class SettingsSearchTest {
 
         /**
          * Every setting, wherever it lives (links not counted). 161 before 5.1; 5.1 added "Show names as" (name_order),
-         * which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does.
+         * which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does. 5.3 added
+         * "Start calls on speaker" (speaker_default) and "Flip to silence" (flip_to_silence), which the owner approved
+         * with the plan; "proximity only after answering" folded into the proximity setting instead.
          */
-        const val SETTINGS_CEILING = 162
+        const val SETTINGS_CEILING = 164
     }
 }
