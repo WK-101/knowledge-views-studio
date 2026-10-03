@@ -26,6 +26,8 @@ data class AppSettings(
     val dialpadHaptics: Boolean = true,
     val startTab: StartTab = StartTab.RECENTS,
     val sortByFirstName: Boolean = true,
+    /** "Show names as": last name first ("Jones, Robert"); apart from [sortByFirstName], as in Android's Contacts. */
+    val showNamesLastFirst: Boolean = false,
     val showSimLabels: Boolean = true,
     val defaultAccountType: String? = null,
     val defaultAccountName: String? = null,
