@@ -301,8 +301,7 @@ object CallManager {
             scope.launch {
                 var looked = false
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
-                // Only a lookup that answered: after a timeout nobody knows whether the caller is saved.
-                if (looked) s.lookupDone = true
+                if (looked) lookedUp(s, found, number, accountId)
                 if (found != null) {
                     s.info = found
                     if (incoming) {
@@ -338,6 +337,22 @@ object CallManager {
             }
         }
         publish()
+    }
+
+    /**
+     * The caller lookup answered (after a timeout nobody knows whether the caller is saved). Discreet mode hides private
+     * contacts from the lookup, yet they are saved: "Start calls on speaker" asks before it treats the number as unknown.
+     */
+    private fun lookedUp(s: CallSession, found: CallerDisplay?, number: String, accountId: String?) {
+        if (found != null) {
+            s.lookupDone = true
+            return
+        }
+        scope.launch {
+            s.savedPrivately = runCatching { deps.isSavedCaller(number, accountId) }.getOrDefault(false)
+            s.lookupDone = true
+            publish()
+        }
     }
 
     /** I11: in the car, the caller's name once through its speakers (a contact, or a private contact discreet mode shows). */
@@ -1556,7 +1571,7 @@ object CallManager {
             started = if (incoming) st == CallState.ACTIVE else st in SPEAKER_DIAL_STATES,
             emergency = isEmergencyCall(c, number),
             savedCaller = when {
-                s.info != null || d.contactDisplayNameCompat() != null -> true
+                s.info != null || s.savedPrivately || d.contactDisplayNameCompat() != null -> true
                 hidden || s.lookupDone -> false
                 else -> null
             },

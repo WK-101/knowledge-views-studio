@@ -80,6 +80,14 @@ internal class SpeakerOnStartCallTest : CallPathTest() {
         assertEquals(listOf(speaker), asked)
     }
 
+    @Test fun aPrivateContactHiddenByDiscreetModeIsStillSaved() {
+        deps.speaker = SpeakerDefault.UNKNOWN_NUMBERS
+        deps.savedHidden += "+15550000003"
+        listen()
+        dialling("t1")
+        assertTrue(asked.isEmpty())
+    }
+
     @Test fun waitsForTheRoutesToBeKnown() {
         deps.speaker = SpeakerDefault.ALWAYS
         CallManager.routeRequests = { asked += it }

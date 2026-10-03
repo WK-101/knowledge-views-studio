@@ -25,6 +25,9 @@ internal class CallSession(val id: String) {
     /** The caller lookup has finished (found someone or not), or there was nothing to look up (a hidden number). */
     var lookupDone = false
 
+    /** A private contact the lookup didn't show (discreet mode): still a saved caller, never "unknown" to the speaker. */
+    var savedPrivately = false
+
     /** I1: what Parley remembers about a number that isn't a contact, once looked up. */
     var numberMemory: NumberMemoryLine? = null
 
