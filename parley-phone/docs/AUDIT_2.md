@@ -164,6 +164,8 @@
 | **Marital status** (your question) | No separate field. Show "Married to …" / "Partner of …" on the page from relations (spouse, partner, ex), and keep custom fields for anything else. A dedicated field wouldn't sync or be readable by any other app |
 | **Signature features** (§8): which to build first | X1 spoof warning, X2 Recall, X3 Situations in the first wave |
 
+**Owner decisions (3 Oct 2026):** compressed dex yes; keep all Recents style combinations; the other cut/hide recommendations, the relations-based relationship status and the first signature wave (X1–X3) are approved.
+
 ## 7. The plan
 
 Each phase is one release, built, reviewed and fixed the same way as 5.0.1–5.3. Phase B (public release) stays deferred.
