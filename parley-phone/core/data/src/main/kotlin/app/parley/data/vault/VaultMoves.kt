@@ -49,7 +49,7 @@ class VaultMoves(
      */
     suspend fun moveIn(contactId: Long, shown: ContactDetails, carryInteractions: Boolean = true): MovedIn = withContext(Dispatchers.IO) {
         val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
-            ?: throw IllegalStateException("Couldn't read the whole contact, so it wasn't moved")
+            ?: error("Couldn't read the whole contact, so it wasn't moved")
         // Read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
         val carried = shown.lookupKey.takeIf { it.isNotEmpty() && carryInteractions }?.let { key ->
             runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()

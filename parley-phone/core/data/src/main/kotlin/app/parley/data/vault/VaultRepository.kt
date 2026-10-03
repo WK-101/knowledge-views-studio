@@ -11,7 +11,6 @@ import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
-import app.parley.common.PhoneNumbers
 import app.parley.common.NotificationPrivacy
 import app.parley.common.VaultNumberKeys
 import androidx.room.withTransaction
@@ -19,7 +18,6 @@ import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactPhotoProcessor
-import app.parley.data.DataItem
 import app.parley.data.PhoneEnv
 import app.parley.data.R
 import app.parley.data.db.AppDatabase
@@ -27,6 +25,18 @@ import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
+import app.parley.data.vault.CallerIdCopy.C_TITLE
+import app.parley.data.vault.CallerIdCopy.C_COMPANY
+import app.parley.data.vault.CallerIdCopy.C_REGION
+import app.parley.data.vault.CallerIdCopy.C_STAR
+import app.parley.data.vault.CallerIdCopy.C_LABELS
+import app.parley.data.vault.CallerIdCopy.C_TONE
+import app.parley.data.vault.CallerIdCopy.C_VOICEMAIL
+import app.parley.data.vault.CallerIdCopy.C_VIBRATION
+import app.parley.data.vault.CallerIdCopy.C_AUTO_ANSWER
+import app.parley.data.vault.CallerIdCopy.C_PRONOUNS
+import app.parley.data.vault.CallerIdCopy.C_NAME_ALT
+import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -189,38 +199,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     private fun openSummary(e: VaultCallerRow): VaultSummary? = runCatching {
-        val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
-        val nums = o.optJSONArray("numbers") ?: JSONArray()
-        VaultSummary(
-            e.id, o.optString("name"), (0 until nums.length()).map { nums.getString(it) }, e.expiresAt,
-            updatedAt = o.optLong("u", e.createdAt), purgeHistory = o.optBoolean("purge", false),
-            starred = o.optBoolean(C_STAR, false), labels = labelsOf(o),
-            ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
-            vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
-            choicesKnown = o.has(C_SEEDED),
-            nameAlt = alternativeOf(o),
-        )
+        CallerIdCopy.summary(e.id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))), e.expiresAt, e.createdAt)
     }.getOrNull()
-
-    /**
-     * The "Family, Given" form kept in the caller-ID copy. Entries saved before it was kept have the whole name only:
-     * it is guessed from that (not for a company name, which has no family name).
-     */
-    private fun alternativeOf(o: JSONObject): String {
-        val name = o.optString("name")
-        o.optString(C_NAME_ALT).takeIf { it.isNotBlank() }?.let { return it }
-        return if (name == o.optString(C_COMPANY)) name else NameOrder.guessAlternative(name)
-    }
-
-    private fun labelsOf(o: JSONObject): List<PrivateLabels.Membership> {
-        val a = o.optJSONArray(C_LABELS) ?: return emptyList()
-        return (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { PrivateLabels.Membership(it.optLong("i"), it.optString("t")) } }
-            .filter { it.title.isNotBlank() }
-    }
-
-    private fun putLabels(o: JSONObject, labels: List<PrivateLabels.Membership>) {
-        if (labels.isEmpty()) o.remove(C_LABELS) else o.put(C_LABELS, JSONArray(labels.map { JSONObject().put("i", it.groupId).put("t", it.title) }))
-    }
 
     /**
      * What the caller-ID copy [o] keeps for the call path and the lists (the star, labels, ringtone and "send to
@@ -229,7 +209,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     private fun withCallerChoices(d: ContactDetails, o: JSONObject): ContactDetails = if (!o.has(C_SEEDED)) d else d.copy(
         starred = o.optBoolean(C_STAR, false),
-        groupIds = PrivateLabels.ids(labelsOf(o), runCatching { labelGroups() }.getOrDefault(emptyList())),
+        groupIds = PrivateLabels.ids(CallerIdCopy.labelsOf(o), runCatching { labelGroups() }.getOrDefault(emptyList())),
         customRingtone = o.optString(C_TONE).ifEmpty { null },
         sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
     )
@@ -263,7 +243,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // The photo is kept apart (encrypted, readable for caller ID); anything older in the record is stale.
             openMain(e) to false
         } catch (_: VaultCrypto.KeyLostException) {
-            rebuiltFromCallerId(id, caller) to true
+            CallerIdCopy.rebuilt(id, caller) to true
         }
         Opened(withCallerChoices(d.copy(photoUri = photoUri(id)), caller), lost)
     }
@@ -277,7 +257,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val e = dao.callerRow(id) ?: return@withContext null
         runCatching {
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
-            withCallerChoices(rebuiltFromCallerId(id, o), o).copy(photoUri = photoUri(id), starred = o.optBoolean(C_STAR, false))
+            withCallerChoices(CallerIdCopy.rebuilt(id, o), o).copy(photoUri = photoUri(id), starred = o.optBoolean(C_STAR, false))
         }.getOrNull()
     }
 
@@ -381,7 +361,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun keepWhatIsLeft(id: Long): Boolean = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext false
         if (!detailsLost(id)) return@withContext false
-        save(id, rebuiltFromCallerId(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))))
+        save(id, CallerIdCopy.rebuilt(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))))
         true
     }
 
@@ -475,25 +455,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /**
-     * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, and the
-     * caller card's job title and company, "who is this" line and note for calls, so re-sealing loses none of them.
-     */
-    private fun rebuiltFromCallerId(id: Long, o: JSONObject): ContactDetails {
-        val nums = o.optJSONArray("numbers") ?: JSONArray()
-        val labels = o.optJSONArray("labels") ?: JSONArray()
-        val title = o.optString(C_TITLE)
-        val company = o.optString(C_COMPANY)
-        // Entries saved before title and company were kept apart only have the combined line: keep it as the title.
-        val fallbackTitle = if (title.isEmpty() && company.isEmpty()) o.optString("sub") else title
-        return ContactDetails(
-            id = -id, lookupKey = "", displayName = o.optString("name"), given = o.optString("name"),
-            phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
-            title = fallbackTitle, company = company,
-            context = o.optString("ctx"), pinnedNote = o.optString("note"), pronouns = o.optString(C_PRONOUNS),
-        )
-    }
-
-    /**
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
      * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
      * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
@@ -546,7 +507,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 // The caller card's extra lines, readable while the phone is locked like the name.
                 .apply {
                     CallerCard.subtitle(shown.title, shown.company)?.let { put("sub", it) }
-                    // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
+                    // Kept apart too, so a lost detail key can restore them (see CallerIdCopy.rebuilt).
                     shown.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
                     shown.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
                     shown.context.trim().ifEmpty { null }?.let { put("ctx", it) }
@@ -560,7 +521,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 .apply { if (shown.starred) put(C_STAR, true) }
                 // Labels, ringtone and "send to voicemail": applied to calls while the phone is locked.
                 .apply {
-                    putLabels(this, labels)
+                    CallerIdCopy.putLabels(this, labels)
                     shown.customRingtone?.takeIf { it.isNotBlank() }?.let { put(C_TONE, it) }
                     if (shown.sendToVoicemail) put(C_VOICEMAIL, true)
                     // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
@@ -676,7 +637,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val after = change(before)
             if (after == before) return@withLock true
             if (after.starred) o.put(C_STAR, true) else o.remove(C_STAR)
-            putLabels(o, after.labels)
+            CallerIdCopy.putLabels(o, after.labels)
             if (after.ringtone.isNullOrBlank()) o.remove(C_TONE) else o.put(C_TONE, after.ringtone)
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
             if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
@@ -714,7 +675,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     detail.optBoolean("starred"), detail.optString("ringtone").ifEmpty { null }, detail.optBoolean("vm"), record,
                 )
                 if (!o.has(C_STAR) && seed.starred) o.put(C_STAR, true)
-                if (!o.has(C_LABELS)) putLabels(o, seed.labels)
+                if (!o.has(C_LABELS)) CallerIdCopy.putLabels(o, seed.labels)
                 if (!o.has(C_TONE)) seed.ringtone?.let { o.put(C_TONE, it) }
                 if (!o.has(C_VOICEMAIL) && seed.sendToVoicemail) o.put(C_VOICEMAIL, true)
             }
@@ -987,7 +948,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // Rows from before the dedupe key have none: count those by their columns.
             if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
             val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", name).apply { if (video) put("v", true) }.toString().toByteArray())
-            dao.addPrivateCall(PrivateCallEntity(vaultId = vaultId, blob = blob, date = date, durationSec = durationSec, type = type, dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type)))
+            dao.addPrivateCall(
+                PrivateCallEntity(
+                    vaultId = vaultId,
+                    blob = blob,
+                    date = date,
+                    durationSec = durationSec,
+                    type = type,
+                    dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type),
+                ),
+            )
             true
         }
 
@@ -1046,6 +1016,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val PHOTO_PX = 512
         const val K_KEYS_VERSION = "number_keys_version"
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
+
         /**
          * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
          * digits as an extra fallback for every number, with the region stored at save time.
@@ -1055,17 +1026,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val REC_BLOBS = "parleyRecordBlobs"
         const val REC_OF = "parleyRecordOf"
         const val INTERACTIONS = "parleyInteractions"
-        const val C_TITLE = "t"
-        const val C_COMPANY = "co"
-        const val C_REGION = "rg"
-        const val C_STAR = "star"
-        const val C_LABELS = "lb"
-        const val C_TONE = "rt"
-        const val C_VOICEMAIL = "vm"
-        const val C_VIBRATION = "vb"
-        const val C_AUTO_ANSWER = "aa"
-        const val C_PRONOUNS = "pn"
-        const val C_NAME_ALT = "alt"
         const val K_CALL_CHOICES = "call_choices"
         const val K_CHOICES_SEEDED = "caller_choices_seeded"
         const val K_SPLIT = "details_split"
@@ -1075,8 +1035,5 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
         /** How long opened details stay in memory: short, and only while the phone is unlocked (see openMain). */
         const val OPENED_MS = 60_000L
-
-        /** Marks a caller-ID copy that keeps the star, labels, ringtone and voicemail itself. */
-        const val C_SEEDED = "cs"
     }
 }

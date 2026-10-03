@@ -4,12 +4,10 @@ import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
 import android.provider.ContactsContract
-import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
-import app.parley.common.Duplicates
 import app.parley.common.StoredStatus
 import app.parley.common.backup.RecordJson
 import app.parley.common.backup.SyncCrypto
@@ -38,7 +36,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
-import java.util.Locale
 import android.content.res.Resources
 import app.parley.data.R
 
@@ -797,9 +794,9 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 val recs = records.readAllById(page, fullPhoto = false).toList()
                 stats = stats.copy(contactsRead = stats.contactsRead + recs.size, largestPage = maxOf(stats.largestPage, recs.size))
                 for ((id, r) in recs) {
-                    val keys = matchKeys(r)
+                    val keys = FolderSyncRules.matchKeys(r)
                     keys.forEach { k -> byMatch.putIfAbsent(k, id) }
-                    if (keys.isEmpty()) nameKey(r)?.let { byName.getOrPut(it) { ArrayList(1) } += id }
+                    if (keys.isEmpty()) FolderSyncRules.nameKey(r)?.let { byName.getOrPut(it) { ArrayList(1) } += id }
                 }
             }
             val taken = HashSet<Long>()
@@ -809,10 +806,10 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 val d = readFile(name, file.uri) ?: continue
                 if (FolderSyncRules.isResurrection(d.version, gone[name])) continue
                 val remote = parse(d.vcard) ?: continue
-                val keys = matchKeys(remote)
+                val keys = FolderSyncRules.matchKeys(remote)
                 val match = free(keyed[remote.key]?.contactId) ?: free(remote.key.takeIf { it.isNotEmpty() }?.let(::idFor))
                     ?: keys.firstNotNullOfOrNull { k -> free(byMatch[k]) }
-                    ?: if (keys.isEmpty()) nameKey(remote)?.let { byName[it]?.singleOrNull() }?.let(::free) else null
+                    ?: if (keys.isEmpty()) FolderSyncRules.nameKey(remote)?.let { byName[it]?.singleOrNull() }?.let(::free) else null
                 if (match != null) {
                     val h = idOf[match] ?: continue
                     val rec = readOne(h) ?: continue
@@ -858,7 +855,11 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         if (held.isNotEmpty()) {
             finish(StoredStatus.of(SyncStatus.PAUSED, held.size), held.size)
         } else {
-            finish(StoredStatus.of(SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked))
+            finish(
+                StoredStatus.of(
+                    SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked,
+                ),
+            )
         }
         contacts.refresh()
         return rep
@@ -869,18 +870,6 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             if (c.moveToFirst()) FolderSyncRules.stamp(if (c.isNull(0)) null else c.getLong(0), if (c.isNull(1)) null else c.getLong(1)) else null
         }
     }.getOrNull()
-
-    /** A contact's phones and e-mails as match keys, for pairing a new file with a contact that has none yet. */
-    private fun matchKeys(r: ContactRecord): Set<String> = r.raws.flatMap { it.rows }.mapNotNull { row ->
-        when (row.mimeType) {
-            Mime.PHONE -> row["data1"]?.let { PhoneIdentity.portableKey(it) }?.let { "p:$it" }
-            Mime.EMAIL -> row["data1"]?.let { Duplicates.emailKey(it) }?.let { "e:$it" }
-            else -> null
-        }
-    }.toSet()
-
-    /** The name a contact without phones and e-mails is paired by, when exactly one such contact has it. */
-    private fun nameKey(r: ContactRecord): String? = r.displayName.trim().lowercase(Locale.ROOT).replace(WHITESPACE, " ").takeIf { it.isNotEmpty() }
 
     /**
      * Applies a remote edit to contact [id] in place (same contact id, links, call history and read-only parts),
@@ -909,6 +898,5 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         const val MAX_FILES = 50_000
         const val LISTING_TRIES = 3
         val PARLEY_NAME = Regex("[0-9a-f]{32}")
-        val WHITESPACE = Regex("\\s+")
     }
 }

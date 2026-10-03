@@ -62,7 +62,7 @@ internal class HistoryCrypto(
                 ByteArray(64).also { random.nextBytes(it) }.also { k ->
                     val tmp = File(file.parentFile, file.name + ".tmp")
                     tmp.writeBytes(wrap(k))
-                    if (!tmp.renameTo(file)) throw IllegalStateException("Couldn't store the archive key")
+                    check(tmp.renameTo(file)) { "Couldn't store the archive key" }
                 }
             }
             val k = SecretKeySpec(raw, 0, 32, "AES") to SecretKeySpec(raw, 32, 32, "HmacSHA256")
