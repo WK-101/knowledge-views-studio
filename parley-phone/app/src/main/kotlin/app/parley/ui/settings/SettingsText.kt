@@ -52,6 +52,8 @@ object SettingsText {
         "auto_answer" to Triple(R.string.set_auto_answer_title, R.string.set_auto_answer_summary, R.string.set_auto_answer_kw),
         "caller_vibration" to Triple(R.string.set_caller_vibration_title, R.string.set_caller_vibration_summary, R.string.set_caller_vibration_kw),
         "proximity_sensor" to Triple(R.string.set_proximity_sensor_title, R.string.set_proximity_sensor_summary, R.string.set_proximity_sensor_kw),
+        "speaker_default" to Triple(R.string.set_speaker_default_title, R.string.set_speaker_default_summary, R.string.set_speaker_default_kw),
+        "flip_to_silence" to Triple(R.string.set_flip_to_silence_title, R.string.set_flip_to_silence_summary, R.string.set_flip_to_silence_kw),
         "power_button_ends_call" to Triple(R.string.set_power_button_ends_call_title, R.string.set_power_button_ends_call_summary, R.string.set_power_button_ends_call_kw),
         "voicemail" to Triple(R.string.set_voicemail_title, R.string.set_voicemail_summary, R.string.set_voicemail_kw),
         "sims" to Triple(R.string.set_sims_title, R.string.set_sims_summary, R.string.set_sims_kw),

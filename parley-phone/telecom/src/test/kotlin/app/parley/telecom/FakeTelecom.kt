@@ -16,6 +16,7 @@ import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.SpeakerDefault
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.robolectric.Shadows.shadowOf
@@ -153,6 +154,10 @@ internal class FakeDependencies : TelecomDependencies {
     val undone = ArrayList<Long>()
     var emergency = setOf("112", "911", "999")
     var autoAnswerConfig = CallExtrasConfig()
+    var speaker = SpeakerDefault.OFF
+
+    /** Saved callers the lookup doesn't show (private contacts in discreet mode). */
+    val savedHidden = HashSet<String>()
     var overQuota = false
     val usage = ArrayList<String>()
     val quality = ArrayList<CallQualityFacts>()
@@ -178,6 +183,8 @@ internal class FakeDependencies : TelecomDependencies {
     override fun isEmergencyNumber(number: String) = number in emergency
     override suspend fun preferredAccountId(number: String): String? = null
     override fun autoAnswer() = autoAnswerConfig
+    override fun speakerDefault() = speaker
+    override suspend fun isSavedCaller(number: String, accountId: String?) = number in contacts || number in savedHidden
     override suspend fun silenceOverQuota(number: String, accountId: String?) = overQuota
     override fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {
         usage += number.orEmpty()

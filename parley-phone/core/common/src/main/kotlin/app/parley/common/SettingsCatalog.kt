@@ -169,6 +169,9 @@ object SettingsCatalog {
             "vibration", "haptic", "buzz"),
         at(SettingPlace.CALLS_DURING, "connect_haptic", "Vibrate when a call connects", "A short buzz when the other person answers", C,
             "vibration", "haptic", "answered", "picked up"),
+        // Off by default: turning the phone face down while it rings silences it (never declines).
+        at(SettingPlace.CALLS_ANSWERING, "flip_to_silence", "Flip to silence", "Turn the phone face down while it rings to stop the ringing", C,
+            "flip", "face down", "turn over", "silence", "mute ringer", "stop ringing", "shh", "quiet", "sensor"),
         at(SettingPlace.CALLS_ANSWERING, "unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C,
             "sound", "ring", "tone", "unknown numbers"),
         e("pocket_guard", "Ask before pocket calls", "A favourite, the widget or a shortcut asks first while the phone is covered", C,
@@ -213,8 +216,11 @@ object SettingsCatalog {
         ),
         at(SettingPlace.SIMS, "local_sim_hint", "Suggest a local SIM abroad", "Once per trip, when your other SIM is local where you are", C,
             "roaming", "dual sim", "second sim", "esim", "travel", "abroad", "cost", "holiday"),
-        at(SettingPlace.CALLS_DURING, "proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
-            "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor"),
+        at(SettingPlace.CALLS_DURING, "proximity_sensor", "Turn the screen off at your ear", "During earpiece calls, or only once a call is answered", C,
+            "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor", "after answering", "while dialling", "dialing"),
+        // Off by default; only ever replaces the earpiece, never for emergency calls.
+        at(SettingPlace.CALLS_DURING, "speaker_default", "Start calls on speaker", "Never, always, or for numbers not in your contacts", C,
+            "speaker", "speakerphone", "loudspeaker", "hands-free", "handsfree", "default", "always speaker", "unknown numbers", "auto speaker"),
         at(SettingPlace.CALLS_DURING, "power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,
             "power", "hang up", "end call", "accessibility", "button"),
         e("voicemail", "Voicemail", "Your voicemail inbox and the carrier's voicemail settings", C,
@@ -335,7 +341,8 @@ object SettingsCatalog {
         e("import_calls", "Import call history from CSV", "From Parley, Logger or a spreadsheet, with a dry run first", H, "csv", "import", "call log"),
 
         // Messaging
-        e("quick_replies", "Quick reply messages", "Sent when you decline a call with a message", M, "sms", "decline", "reply", "text"),
+        e("quick_replies", "Quick reply messages", "Sent when you decline a call with a message", M, "sms", "decline", "reply", "text",
+            "unknown numbers", "text me your name", "who is calling"),
         e("my_details", "My card", "Your own details: share them as a QR code or vCard, and use them for “Send my details”", M,
             "me", "my details", "my number", "my name", "share", "business card", "profile", "vcard", "qr"),
         e("messaged_numbers", "Messaged numbers", "Numbers you opened a chat with from Parley: see, delete or stop keeping them", M,

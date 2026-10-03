@@ -593,8 +593,8 @@ internal fun MessagingPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     if (editReplies) {
-        QuickRepliesDialog(s.quickReplies, onDismiss = { editReplies = false }) { list ->
-            set { it.copy(quickReplies = list) }
+        QuickRepliesDialog(s.quickReplies, s.nameReply, onDismiss = { editReplies = false }) { list, nameReply ->
+            set { it.copy(quickReplies = list, nameReply = nameReply) }
             editReplies = false
         }
     }

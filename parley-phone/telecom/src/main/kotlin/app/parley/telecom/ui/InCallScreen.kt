@@ -109,7 +109,9 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
 import app.parley.telecom.HelperCalls
+import app.parley.common.calls.NameReply
 import app.parley.common.calls.SafeWords
+import app.parley.common.calls.ScamCheck
 import app.parley.telecom.R
 import app.parley.telecom.RouteType
 import app.parley.telecom.RttUi
@@ -144,6 +146,12 @@ private class InCallSheets {
 
     /** Family safety: the safe-word card and "Add my helper" (WP-8). */
     val family = FamilyCallState()
+
+    /** "Send to another number" for this ringing call. */
+    var handOff by mutableStateOf<String?>(null)
+
+    /** "Is this a scam?" for this call (live, or just ended from the post-call card). */
+    var scamFor by mutableStateOf<CallUi?>(null)
 
     /** L3: the RTT conversation sheet for this call, and the calls whose sheet already opened by itself once. */
     var rttFor by mutableStateOf<String?>(null)
@@ -247,6 +255,7 @@ fun InCallScreen(
         }
     }
     InCallDialogs(screen, sheets, quickReplies, onOpenContact, onAddCall, askDeclineFor, onAskDeclineDone, onUnlock)
+    ScamCheckDialog(screen, sheets, onAddCall, onUnlock, withVerify(onPostCall, shown, sheets, onUnlock))
 }
 
 /** Whether the caller is laid out as a poster (see [CallBackdrop.posterLayout]). */
@@ -277,6 +286,8 @@ private fun withVerify(
 ): (PostCallChoice) -> Unit = { choice ->
     onPostCall(choice)
     if (choice is PostCallChoice.Verify && shown != null) onUnlock { sheets.verifyFor = shown }
+    // Nothing in it names the caller, so it opens over the lock screen like the card itself.
+    if (choice is PostCallChoice.ScamCheck && shown != null) sheets.scamFor = shown
 }
 
 /** Where the ringing caller sits in the space above the controls (-1 top, 0 middle). */
@@ -409,6 +420,8 @@ private fun ColumnScope.ControlsSection(s: ScreenState, sheets: InCallSheets, a:
             hasActiveCall = s.others.any { it.state == CallState.ACTIVE },
             onMessage = { sheets.replyFor = primary.id },
             onBlockAndDecline = if (primary.canBlockAndDecline && !s.incoming.simple) ({ CallManager.blockAndDecline(primary.id) }) else null,
+            // Saved numbers are listed only once the phone is unlocked.
+            onDeflect = if (primary.canDeflect && !s.incoming.simple) ({ a.onUnlock { sheets.handOff = primary.id } }) else null,
             simple = s.incoming.simple,
             confirmDecline = s.incoming.confirmDecline,
         )
@@ -809,6 +822,7 @@ private fun InCallDialogs(
     HelperPick(primary, s, sheets)
     RttDialog(s, sheets)
     VerifyDialog(s, sheets)
+    HandOffDialog(s, sheets)
     // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = s.live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
     if (askCall != null) {
@@ -872,7 +886,61 @@ private fun MoreSheet(
         onAddHelper = addHelper(context, primary, s, sheets.family),
         onRtt = rttAction(primary, rtt, sheets),
         rttActive = rtt.active,
+        onScamCheck = if (primary.scamCheckOffered) ({ sheets.scamFor = primary }) else null,
     )
+}
+
+/** "Send to another number", while the call still rings and can be sent on. */
+@Composable
+private fun HandOffDialog(s: ScreenState, sheets: InCallSheets) {
+    val id = sheets.handOff ?: return
+    val call = s.live.firstOrNull { it.id == id }?.takeIf { it.canDeflect }
+    if (call != null) {
+        HandOffSheet(call) { sheets.handOff = null }
+    } else {
+        LaunchedEffect(id) { sheets.handOff = null }
+    }
+}
+
+/**
+ * "Is this a scam?": during the call (safe word, Check it's really them, the official number, hang up), or from
+ * the post-call card (Call a saved number, Block, Report).
+ */
+@Composable
+private fun ScamCheckDialog(
+    s: ScreenState,
+    sheets: InCallSheets,
+    onAddCall: () -> Unit,
+    onUnlock: (() -> Unit) -> Unit,
+    onPostCall: (PostCallChoice) -> Unit,
+) {
+    val v = sheets.scamFor ?: return
+    val live = s.live.firstOrNull { it.id == v.id }
+    val close = { sheets.scamFor = null }
+    when {
+        live != null -> {
+            val safeWord = ScamCheck.safeWordReminder(sheets.family.promptsFor(live).isNotEmpty(), live.isEmergency)
+            val actions = ScamCheckActions(
+                onVerify = if (live.canVerify) ({ onUnlock { sheets.verifyFor = live } }) else null,
+                onSafeWord = if (safeWord) ({ sheets.family.claimed[live.id] = true }) else null,
+                onCallOfficial = { CallManager.hangup(live.id); onAddCall() },
+                onHangUp = { CallManager.hangup(live.id) },
+                blockReportNext = !live.hidden && !live.number.isNullOrBlank(),
+            )
+            ScamCheckSheet(live = true, actions, close)
+        }
+        s.primary == null && v.postCallCard -> {
+            val number = v.number.orEmpty()
+            val actions = ScamCheckActions(
+                onVerify = { onPostCall(PostCallChoice.Verify(number)) },
+                onBlock = { onPostCall(PostCallChoice.Block(number)) },
+                onReport = { onPostCall(PostCallChoice.Report(number)) },
+            )
+            ScamCheckSheet(live = false, actions, close)
+        }
+        // That call ended while another goes on: nothing left to check.
+        else -> LaunchedEffect(v.id) { sheets.scamFor = null }
+    }
 }
 
 /** L3: More › "Switch to RTT" where the call's SIM supports it, or "RTT conversation" once it's on. */
@@ -955,7 +1023,17 @@ private fun ReplySheet(call: CallUi, quickReplies: List<String>, onDismiss: () -
         }
         // I11: in the car, the driving replies come first.
         DrivingReplies(call, onDismiss)
-        replies.forEach { msg ->
+        // "Text me your name" first for a number that isn't saved, with what it's for under it.
+        val nameReply = nameReplyFor(call)
+        if (nameReply != null) {
+            ParleyListItem(
+                headlineContent = { Text(nameReply) },
+                supportingContent = { Text(stringResource(R.string.name_reply_tag)) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { CallManager.reject(call.id, nameReply); onDismiss() },
+            )
+        }
+        NameReply.replies(replies, null).filter { it != nameReply }.forEach { msg ->
             ParleyListItem(
                 headlineContent = { Text(msg) },
                 colors = rowColors(),

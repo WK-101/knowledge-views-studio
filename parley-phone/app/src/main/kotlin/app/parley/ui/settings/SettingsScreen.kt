@@ -352,18 +352,32 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
 }
 
 @Composable
-internal fun QuickRepliesDialog(current: List<String>, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
+internal fun QuickRepliesDialog(
+    current: List<String>,
+    nameReply: String,
+    onDismiss: () -> Unit,
+    /** The quick replies, and the reply for numbers not in your contacts (blank: off). */
+    onSave: (List<String>, String) -> Unit,
+) {
     val items = remember { mutableStateListOf<String>().apply { addAll(current) } }
+    var name by remember { mutableStateOf(nameReply) }
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_quick_replies_dialog)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items.indices.forEach { i -> OutlinedTextField(items[i], { items[i] = it }, singleLine = true) }
+                // "Text me your name": offered first to unknown numbers, on its own so it can be turned off.
+                OutlinedTextField(
+                    name, { name = it }, label = { Text(stringResource(R.string.set_name_reply_label)) },
+                    supportingText = { Text(stringResource(R.string.set_name_reply_help)) }, minLines = 2,
+                )
             }
         },
-        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }) }) { Text(stringResource(R.string.set_save)) } },
-        dismissButton = { TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES) }) { Text(stringResource(R.string.set_reset)) } },
+        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }, name.trim()) }) { Text(stringResource(R.string.set_save)) } },
+        dismissButton = {
+            TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES, AppSettings.DEFAULT_NAME_REPLY) }) { Text(stringResource(R.string.set_reset)) }
+        },
     )
 }
 

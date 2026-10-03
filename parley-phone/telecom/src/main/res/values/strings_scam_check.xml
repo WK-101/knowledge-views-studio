@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Is this a scam?": a calm, offline checklist for calls from numbers that aren't saved. -->
+    <string name="scam_title">Is this a scam?</string>
+    <string name="scam_more_explainer">Signs to look out for, and safe ways to check</string>
+    <string name="scam_postcall">Was it a scam?</string>
+    <string name="scam_body">Parley can\'t hear the call. These are things scammers often ask for. If any of them come up, it\'s fine to hang up.</string>
+    <string name="scam_body_ended">These are things scammers often ask for. If any of them came up, it\'s worth checking before you do anything.</string>
+    <string name="scam_signs_heading">Warning signs</string>
+    <string name="scam_ways_out_heading">Safe ways to check</string>
+    <string name="scam_sign_pressure">They\'re rushing you</string>
+    <string name="scam_sign_pressure_detail">“Act now”, threats, or asking you to stay on the line</string>
+    <string name="scam_sign_payment">They want gift cards, crypto or a wire transfer</string>
+    <string name="scam_sign_payment_detail">Real companies and officials don\'t take payment this way</string>
+    <string name="scam_sign_codes">They ask for a code, PIN or password</string>
+    <string name="scam_sign_codes_detail">Even a code just sent to your phone. Nobody genuine needs it.</string>
+    <string name="scam_sign_remote">They want you to install an app</string>
+    <string name="scam_sign_remote_detail">Or to let them into your phone or computer</string>
+    <string name="scam_sign_safe_account">They say your money needs a “safe account”</string>
+    <string name="scam_sign_safe_account_detail">Your bank will never ask you to move money to keep it safe</string>
+    <string name="scam_sign_family">A family member is in trouble and needs money now</string>
+    <string name="scam_sign_family_detail">Often from a new number. Call them on the number you know.</string>
+    <string name="scam_safe_word">Ask your family safe word</string>
+    <string name="scam_safe_word_detail">Shows your question on the call screen</string>
+    <string name="scam_official_number">Hang up and call the official number</string>
+    <string name="scam_official_number_detail">The one on your card, a statement or their website</string>
+    <string name="scam_hang_up">Hang up</string>
+    <string name="scam_hang_up_detail">Then block or report the number on the next screen</string>
+    <string name="scam_block">Block this number</string>
+    <string name="scam_report">Report this number</string>
+    <!-- "Text me your name": the reply for numbers that aren't saved. -->
+    <string name="name_reply_tag">For numbers not in your contacts</string>
+    <string name="postcall_name_reply">Ask their name</string>
+</resources>

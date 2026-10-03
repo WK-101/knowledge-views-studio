@@ -1,9 +1,11 @@
 package app.parley.telecom
 
 import app.parley.common.Verification
+import app.parley.common.calls.CallHandOff
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.LockScreenCaller
+import app.parley.common.calls.ScamCheck
 import app.parley.common.calls.LiveCallState
 import app.parley.common.spam.Reputation
 
@@ -106,6 +108,8 @@ data class CallUi(
     val savedCaller: Boolean = false,
     /** Shown on the lock screen with less about the caller ([forLockScreen]): [name] stands in, the number stays out of sight. */
     val lockMasked: Boolean = false,
+    /** What the network lets this call do: send it on to another number while it rings ([CallHandOff]). */
+    val handOff: CallHandOff.Facts? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -133,6 +137,13 @@ data class CallUi(
     /** I10 "I'm on hold" can start: a connected, active call. */
     val canHoldMode: Boolean
         get() = state == CallState.ACTIVE && !isEmergency && holdModeSince == 0L
+
+    /** "Send to another number" on a ringing call the network can deflect. */
+    val canDeflect: Boolean get() = handOff?.let(CallHandOff::deflectOffered) == true
+
+    /** "Is this a scam?" under More: a live call from a number that isn't saved (a hidden one too), never an emergency call. */
+    val scamCheckOffered: Boolean
+        get() = ScamCheck.offered(isLive, savedCaller, lookedUp = noContact, hidden = hidden, emergency = isEmergency, conference = isConference)
 
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean

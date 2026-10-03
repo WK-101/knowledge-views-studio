@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
 import android.hardware.display.DisplayManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -315,11 +316,15 @@ class InCallActivity : ComponentActivity() {
         val deps = TelecomGraph.dependencies
         when (choice) {
             // Verify is handled on the call screen itself (the saved-number sheet); touching it keeps the screen up.
-            PostCallChoice.Touched, is PostCallChoice.Verify -> keepEnded = true
+            PostCallChoice.Touched, is PostCallChoice.Verify, PostCallChoice.ScamCheck -> keepEnded = true
             PostCallChoice.Done -> finishAndRemoveTask()
             is PostCallChoice.Block -> openApp { deps.postCallIntent(this, PostCallAction.BLOCK, choice.number) }
             is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
             is PostCallChoice.NumberMemory -> openApp { deps.postCallIntent(this, PostCallAction.NUMBER_MEMORY, choice.number) }
+            // The messaging app, with the text ready for the user to send (Parley sends nothing itself).
+            is PostCallChoice.NameReply -> openApp {
+                Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", choice.number, null)).putExtra("sms_body", choice.text)
+            }
             // Explicit intent into the app's "Message on…" sheet (this module can't depend on the app).
             is PostCallChoice.MessageOn -> openApp {
                 Intent(ACTION_MESSAGE_ON).setClassName(packageName, MESSAGE_ON_ACTIVITY).putExtra("number", choice.number)

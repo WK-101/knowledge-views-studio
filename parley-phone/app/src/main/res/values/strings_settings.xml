@@ -108,8 +108,14 @@
     <string name="set_missed_realert_summary">Alert again every few minutes until you\'ve seen them</string>
     <string name="set_missed_realert_kw">re-alert, repeat, reminder, missed call, nag, notification</string>
     <string name="set_proximity_sensor_title">Turn the screen off at your ear</string>
-    <string name="set_proximity_sensor_summary">Uses the proximity sensor during earpiece calls</string>
-    <string name="set_proximity_sensor_kw">proximity, sensor, screen off, black screen, pocket, broken sensor</string>
+    <string name="set_proximity_sensor_summary">During earpiece calls, or only once a call is answered</string>
+    <string name="set_proximity_sensor_kw">proximity, sensor, screen off, black screen, pocket, broken sensor, after answering, while dialling, dialing</string>
+    <string name="set_speaker_default_title">Start calls on speaker</string>
+    <string name="set_speaker_default_summary">Never, always, or for numbers not in your contacts</string>
+    <string name="set_speaker_default_kw">speaker, speakerphone, loudspeaker, hands-free, handsfree, default, always speaker, unknown numbers, auto speaker</string>
+    <string name="set_flip_to_silence_title">Flip to silence</string>
+    <string name="set_flip_to_silence_summary">Turn the phone face down while it rings to stop the ringing</string>
+    <string name="set_flip_to_silence_kw">flip, face down, turn over, silence, mute ringer, stop ringing, shh, quiet, sensor</string>
     <string name="set_power_button_ends_call_title">Power button ends call</string>
     <string name="set_power_button_ends_call_summary">Android\'s accessibility setting</string>
     <string name="set_power_button_ends_call_kw">power, hang up, end call, accessibility, button</string>
@@ -239,7 +245,7 @@
     <string name="set_import_calls_kw">csv, import, call log</string>
     <string name="set_quick_replies_title">Quick reply messages</string>
     <string name="set_quick_replies_summary">Sent when you decline a call with a message</string>
-    <string name="set_quick_replies_kw">sms, decline, reply, text</string>
+    <string name="set_quick_replies_kw">sms, decline, reply, text, unknown numbers, text me your name, who is calling</string>
     <string name="set_my_details_title">My card</string>
     <string name="set_my_details_summary">Your own details: share them as a QR code or vCard, and use them for “Send my details”</string>
     <string name="set_my_details_kw">me, my details, my number, my name, share, business card, profile, vcard, qr</string>
@@ -563,6 +569,18 @@
     <string name="set_pocket_guard_sub">A favourite, the direct-dial widget or a shortcut asks first while the proximity sensor is covered</string>
     <string name="set_proximity_on">The screen turns off at your ear so your cheek can\'t press buttons. Turn off if the sensor is broken or the screen goes dark in your pocket.</string>
     <string name="set_proximity_off">Off: the screen stays on during earpiece calls. Be careful not to press buttons with your cheek.</string>
+    <string name="set_proximity_during">During calls</string>
+    <string name="set_proximity_once_answered">Once answered</string>
+    <string name="set_proximity_once_answered_sub">The screen stays on while a call is being dialled, so you can see it connect, and turns off at your ear once the other person answers.</string>
+    <string name="set_group_call_audio">Speaker</string>
+    <string name="set_speaker_never">Never</string>
+    <string name="set_speaker_always">Always</string>
+    <string name="set_speaker_unknown">Numbers not in your contacts</string>
+    <string name="set_speaker_sub">Calls start on the speaker once they\'re answered or dialled. A headset, earbuds or your car always come first, and emergency calls are never switched. Tap Speaker to switch back.</string>
+    <string name="set_speaker_off_sub">Calls start on the earpiece or your headset, as usual.</string>
+    <string name="set_flip_sub">Stops the sound only: the call isn\'t declined. Turn the phone over while it rings; a phone that was already face down still rings.</string>
+    <string name="set_name_reply_label">For numbers not in your contacts</string>
+    <string name="set_name_reply_help">Offered first when you decline an unknown number with a message, and after the call. Leave it empty to turn it off.</string>
     <string name="set_power_button_sub">Opens Android\'s Accessibility settings: look for “Power button ends call” (under System controls or Interaction controls on some phones).</string>
 
     <!-- Keypad letters -->
