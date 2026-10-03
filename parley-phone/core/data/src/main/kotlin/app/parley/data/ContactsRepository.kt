@@ -1317,10 +1317,27 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     fun contactUri(id: Long, lookupKey: String): Uri = Contacts.getLookupUri(id, lookupKey)
 
-    /** Resolves a contact from a contacts URI (lookup or id based) coming from another app. */
+    /**
+     * Resolves a contact from a contacts URI (lookup or id based) coming from another app. A `raw_contacts/<id>` or
+     * `data/<id>` link names a row, not a contact: its contact is read from the row. (`Contacts.lookupContact` would
+     * take the row's own `_id` for a contact id and open someone else.) A raw contact that is being deleted resolves
+     * to nothing.
+     */
     fun resolveContactId(uri: Uri): Long? = try {
-        val lookup = Contacts.lookupContact(cr, uri)
-        lookup?.let { ContentUris.parseId(it) } ?: cr.safeQuery(uri, arrayOf(Data.CONTACT_ID))?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        val seg = uri.pathSegments
+        val rowId = seg.getOrNull(1)?.toLongOrNull()
+        when {
+            uri.authority == ContactsContract.AUTHORITY && seg.firstOrNull() == "raw_contacts" && rowId != null ->
+                cr.safeQuery(
+                    ContentUris.withAppendedId(RawContacts.CONTENT_URI, rowId), arrayOf(RawContacts.CONTACT_ID), "${RawContacts.DELETED} = 0", null,
+                )?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
+            // data/<id>, data/phones/<id>, data/emails/<id>…
+            uri.authority == ContactsContract.AUTHORITY && seg.firstOrNull() == "data" && seg.size > 1 && seg.last().toLongOrNull() != null ->
+                cr.safeQuery(ContentUris.withAppendedId(Data.CONTENT_URI, seg.last().toLong()), arrayOf(Data.CONTACT_ID))
+                    ?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+            else -> Contacts.lookupContact(cr, uri)?.let { ContentUris.parseId(it) }
+                ?: cr.safeQuery(uri, arrayOf(Data.CONTACT_ID))?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        }
     } catch (_: Exception) {
         null
     }
