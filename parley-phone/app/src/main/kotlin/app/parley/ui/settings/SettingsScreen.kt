@@ -390,12 +390,15 @@ internal fun exportMessage(context: Context, r: VCardIO.ExportResult): String {
 
 /** [ImportReport.summary] in the current language: "Imported 12 of 14 · 1 duplicate skipped · 1 failed". */
 @Composable
-internal fun importSummary(report: ImportReport): String = buildList {
-    add(stringResource(R.string.set_import_imported_of, report.imported, report.cardsParsed + report.cardsFailed))
-    if (report.skippedDuplicates > 0) add(pluralStringResource(R.plurals.set_import_duplicates_skipped, report.skippedDuplicates, report.skippedDuplicates))
-    if (report.cardsFailed > 0) add(pluralStringResource(R.plurals.set_import_failed, report.cardsFailed, report.cardsFailed))
+internal fun importSummary(report: ImportReport): String = importSummaryText(LocalResources.current, report)
+
+/** [importSummary] outside composition (the end of an import job). */
+internal fun importSummaryText(res: android.content.res.Resources, report: ImportReport): String = buildList {
+    add(res.getString(R.string.set_import_imported_of, report.imported, report.cardsParsed + report.cardsFailed))
+    if (report.skippedDuplicates > 0) add(res.getQuantityString(R.plurals.set_import_duplicates_skipped, report.skippedDuplicates, report.skippedDuplicates))
+    if (report.cardsFailed > 0) add(res.getQuantityString(R.plurals.set_import_failed, report.cardsFailed, report.cardsFailed))
     val unmapped = report.unmappedProperties.values.sum()
-    if (unmapped > 0) add(pluralStringResource(R.plurals.set_import_unmapped, unmapped, unmapped))
+    if (unmapped > 0) add(res.getQuantityString(R.plurals.set_import_unmapped, unmapped, unmapped))
 }.joinToString(" · ")
 
 /** What an import did: counts, then every failed card with its reason, then fields that had no place. */

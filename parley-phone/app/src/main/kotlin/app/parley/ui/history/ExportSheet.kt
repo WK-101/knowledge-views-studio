@@ -18,10 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +31,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.ParleySheet
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -48,20 +48,20 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
+    val running by vm.jobs.running.collectAsStateWithLifecycle()
+    val busy = running.any { it.kind == UserJobs.Kind.SHARE }
+    val preparing = stringResource(R.string.hist_export_preparing)
 
+    // The file is prepared as an app job: closing the sheet or leaving Recents doesn't stop it half way.
     fun run(block: suspend () -> Unit) {
         if (busy) return
-        busy = true
+        val job = vm.jobs.start(UserJobs.Kind.SHARE, preparing, { e -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) }) {
+            block()
+            null
+        }
         scope.launch {
-            try {
-                block()
-                onDismiss()
-            } catch (e: Exception) {
-                vm.toast(res.getString(R.string.hist_export_failed, e.message ?: e.javaClass.simpleName))
-            } finally {
-                busy = false
-            }
+            job.join()
+            onDismiss()
         }
     }
 

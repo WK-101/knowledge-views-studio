@@ -13,6 +13,8 @@ import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
 import app.parley.security.AppLock
 import app.parley.data.security.LockTransitions
+import app.parley.jobs.JobNotices
+import app.parley.jobs.UserJobs
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
@@ -39,6 +41,9 @@ class ParleyApp : Application() {
      * binder thread before onCreate has built it, and must answer at once (nothing) rather than wait.
      */
     val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
+
+    /** Exports, imports and backups started from screens, in the app's scope (see [UserJobs]). */
+    val jobs: UserJobs by lazy { UserJobs(container.scope) { JobNotices.post(this, it) } }
 
     override fun onCreate() {
         super.onCreate()

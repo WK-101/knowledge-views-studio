@@ -12,7 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
@@ -85,7 +84,6 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -111,6 +109,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
+import app.parley.ui.common.JobProgress
 import app.parley.BuildConfigInfo
 import app.parley.blocking.BlockingActions
 import app.parley.common.AppSettings
@@ -124,7 +126,6 @@ import app.parley.common.calls.LockScreenCaller
 import app.parley.common.ux.RecentsStyle
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
-import app.parley.data.VCardIO
 import app.parley.messaging.CsvImportRequest
 import app.parley.messaging.MessagingInbox
 import app.parley.messaging.MessagingRoutes
@@ -342,7 +343,7 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
             // Learns at once (or forgets everything), in the app's scope so leaving the page doesn't stop it.
             vm.c.scope.launch {
                 vm.c.settings.update { it.copy(screening = it.screening.copy(learnFromCalls = v)) }
-                runCatching { ReputationLearner.learn(vm.c) }
+                catching { ReputationLearner.learn(vm.c) }
             }
         }
         switchRow("silence_sales_lines", s.screening.silenceSalesLines, Icons.AutoMirrored.Rounded.VolumeOff, enabled = s.screening.learnFromCalls) { v ->
@@ -376,7 +377,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     var importAccounts by remember { mutableStateOf<Pair<Uri, List<AccountRef>>?>(null) }
     var skipDuplicates by remember { mutableStateOf(true) }
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
-    var progress by remember { mutableStateOf<String?>(null) }
     val tempCount = rememberTemporaryItems(vm).size
     // Android 16's cloud default, when it takes new contacts instead of the phone: said under "Save new contacts to".
     var systemDefault by remember { mutableStateOf<AccountRef?>(null) }
@@ -385,28 +385,25 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     val exporting = stringResource(R.string.set_exporting)
     val importing = stringResource(R.string.set_importing)
+    // Exports and imports run as app jobs: leaving this page never stops one half way (or leaves half a file).
+    val exportFailed = { e: Throwable -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
-        if (uri != null) scope.launch {
-            progress = exporting
-            val r = vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty())
-            progress = null
-            vm.toast(exportMessage(context, r))
+        if (uri != null) {
+            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed) { p ->
+                exportMessage(context, vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty()) { done, total -> p.update(done, total) })
+            }
         }
     }
     // Parley's own columns, or Google's or Outlook's, chosen in the sheet before the file is.
     var csvFormat by rememberSaveable { mutableStateOf(CsvFormat.PARLEY) }
     var chooseCsv by rememberSaveable { mutableStateOf(false) }
     val csvExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) scope.launch {
-            progress = exporting
-            val r = try {
-                vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty(), csvFormat)
-            } catch (e: Exception) {
-                VCardIO.ExportResult(0, listOf(e.message ?: "error"))
+        if (uri != null) {
+            val format = csvFormat
+            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed) { p ->
+                exportMessage(context, vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty(), format) { done, total -> p.update(done, total) })
             }
-            progress = null
-            vm.toast(exportMessage(context, r))
         }
     }
     // A large import offers "Back up first?" before anything is written.
@@ -420,12 +417,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
 
-    progress?.let { msg ->
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text(msg, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-        }
-    }
+    JobProgress(vm, UserJobs.Kind.EXPORT, UserJobs.Kind.IMPORT)
     val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_contact_list)) {
@@ -497,21 +489,22 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                             importAccounts = null
                             scope.launch {
                                 // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
-                                val preview = runCatching { vm.c.vcards.csvPreview(uri) }.getOrNull()
+                                val preview = catching { vm.c.vcards.csvPreview(uri) }.getOrNull()
                                 if (preview != null && !preview.parley) {
                                     MessagingInbox.csvImport = CsvImportRequest(uri, a, skipDuplicates)
                                     open(MessagingRoutes.CsvMapping)
                                     return@launch
                                 }
-                                progress = importing
-                                val report = try {
-                                    vm.c.vcards.import(uri, a, skipDuplicates = skipDuplicates)
-                                } catch (e: Exception) {
-                                    vm.toast(res.getString(R.string.set_import_failed_toast, e.message.orEmpty()))
-                                    null
+                                val skip = skipDuplicates
+                                vm.jobs.start(
+                                    UserJobs.Kind.IMPORT, importing,
+                                    { e -> res.getString(R.string.set_import_failed_toast, UserErrorText.of(context, e)) },
+                                ) { p ->
+                                    val report = vm.c.vcards.import(uri, a, { done, total -> p.update(done, total) }, skipDuplicates = skip)
+                                    // The details, if this page is still open; the summary is said either way.
+                                    importReport = report
+                                    importSummaryText(res, report)
                                 }
-                                progress = null
-                                importReport = report
                             }
                         })
                     }
@@ -702,7 +695,7 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
         ) { open(Routes.Backup) }
         remindersLinkRow(open)
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
-        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.Sync) }
+        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SyncMarkdown) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }

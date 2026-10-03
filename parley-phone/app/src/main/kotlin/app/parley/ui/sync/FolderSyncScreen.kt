@@ -23,6 +23,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,9 +68,24 @@ import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.sync.shared.SharedLabelRoutes
 
+/** A list state that, when [atEnd], scrolls to the last item once the list has items. */
+@Composable
+private fun rememberListStartingAtEnd(atEnd: Boolean): LazyListState {
+    val state = rememberLazyListState()
+    if (atEnd) {
+        LaunchedEffect(Unit) {
+            val count = snapshotFlow { state.layoutInfo.totalItemsCount }.first { it > 0 }
+            state.scrollToItem(count - 1)
+        }
+    }
+    return state
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}) {
+fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}, focusMarkdown: Boolean = false) {
+    // "Export notes as Markdown" lands on its section (the last one), not on the top of Sync.
+    val listState = rememberListStartingAtEnd(focusMarkdown)
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -96,7 +116,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.sync_title), onBack = back)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.padding(p), state = listState) {
             item {
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {
                     Column(Modifier.padding(16.dp)) {

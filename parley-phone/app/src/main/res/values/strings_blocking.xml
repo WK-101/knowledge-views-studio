@@ -488,6 +488,7 @@
     <string name="blk_fail_not_allowed">Parley isn\'t allowed to read the updater (it\'s signed by a different developer)</string>
     <string name="blk_fail_read_list">Couldn\'t read the list</string>
     <string name="blk_fail_read_file">Couldn\'t read the file</string>
+    <string name="blk_fail_read_file_because">Couldn\'t read the file: %1$s</string>
     <string name="blk_fail_install">Couldn\'t install the list</string>
     <!-- %1$s new key (or "unsigned"), %2$s installed key. -->
     <string name="blk_fail_different_key">This update is signed by a different key (%1$s) than the installed list (%2$s)</string>

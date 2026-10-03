@@ -24,7 +24,7 @@
     <string name="set_cat_notifications_title">Notifications &amp; device</string>
     <string name="set_cat_notifications_summary">Full-screen calls, battery, system settings</string>
     <string name="set_cat_about_title">About</string>
-    <string name="set_cat_about_summary">Version, licence, diagnostics</string>
+    <string name="set_cat_about_summary">Version and licence, diagnostics, crash reports</string>
 
     <!-- Settings catalog: title, summary and search keywords (comma-separated) per setting key -->
     <string name="set_theme_title">Theme</string>

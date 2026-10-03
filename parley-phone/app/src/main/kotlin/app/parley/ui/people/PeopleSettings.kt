@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,6 +30,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.platform.LocalContext
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
 import app.parley.ui.ParleyDialog
 
 /** Settings › Appearance: second line under names. */
@@ -80,18 +82,24 @@ fun hasSeveralAccounts(vm: AppViewModel): Boolean = vm.people.index.collectAsSta
 /** Settings › Contacts: export the contacts of one account (with per-account counts). */
 @Composable
 fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val res = LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     var chooseAccount by remember { mutableStateOf(false) }
     var exportAccount by remember { mutableStateOf<AccountRef?>(null) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         val a = exportAccount
-        if (uri != null && a != null) scope.launch {
+        if (uri != null && a != null) {
             val ids = vm.contacts.value.orEmpty().filter { a.displayLabel in idx.extras[it.id]?.accounts.orEmpty() }.map { it.id }
-            val r = vm.c.vcards.exportIds(uri, ids)
-            val done = res.getQuantityString(R.plurals.export_account_done, r.exported, r.exported, a.displayLabel)
-            vm.toast(if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size))
+            // An app job: leaving Settings doesn't stop the export half way.
+            vm.jobs.start(
+                UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting),
+                { e -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) },
+            ) { p ->
+                val r = vm.c.vcards.exportIds(uri, ids) { done, total -> p.update(done, total) }
+                val done = res.getQuantityString(R.plurals.export_account_done, r.exported, r.exported, a.displayLabel)
+                if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size)
+            }
         }
     }
     LinkRow(

@@ -1,6 +1,7 @@
 package app.parley.ui.common
 
 import android.net.Uri
+import app.parley.common.catching
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.LinearProgressIndicator
@@ -19,13 +20,14 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
 import app.parley.common.ux.BackupNudge
 import android.content.res.Resources
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.people.accountLabel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +39,7 @@ import app.parley.ui.people.cards.rememberSignedCardText
 @Composable
 fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var running by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
@@ -48,17 +51,15 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     // The decision waits for the count (the rows can't be tapped before it's in); a count that can't be taken asks.
     var count by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(uri) {
-        count = runCatching { vm.c.vcards.estimateCount(uri) }.getOrElse { e ->
-            if (e is CancellationException) throw e
-            BackupNudge.LARGE_IMPORT
-        }
+        count = catching { vm.c.vcards.estimateCount(uri) }.getOrElse { BackupNudge.LARGE_IMPORT }
     }
 
     // A signed card (I14, e.g. someone's My card sent as a file): an update for the contact who has it, or a warning.
     val signed by rememberSignedCardText(vm, uri)
 
     ParleyDialog(
-        onDismissRequest = { if (!running) onDone() },
+        // The import runs on as an app job, so the dialog can always be closed.
+        onDismissRequest = onDone,
         title = { Text(stringResource(if (result != null) R.string.import_finished else R.string.import_into)) },
         text = {
             Column {
@@ -78,15 +79,23 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                 modifier = Modifier.clickable(enabled = known != null) {
                                     backupFirst.ask(known ?: return@clickable, BackupNudge.LARGE_IMPORT) {
                                         running = true
+                                        // An app job: closing the dialog or leaving Parley doesn't stop the import half way.
+                                        val job = vm.jobs.start(
+                                            UserJobs.Kind.IMPORT, res.getString(R.string.import_importing),
+                                            { e -> res.getString(R.string.import_failed, UserErrorText.of(context, e)).also { result = it } },
+                                        ) { p ->
+                                            val r = vm.c.vcards.importVCard(
+                                                uri, a,
+                                                { done, total ->
+                                                    p.update(done, total)
+                                                    progress = if (total > 0) done.toFloat() / total else 0f
+                                                },
+                                                skipDuplicates = true,
+                                            )
+                                            importedInto(res, r, a).also { result = it }
+                                        }
                                         scope.launch {
-                                            result = try {
-                                                val r = vm.c.vcards.importVCard(
-                                                    uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true,
-                                                )
-                                                importedInto(res, r, a)
-                                            } catch (e: Exception) {
-                                                res.getString(R.string.import_failed, e.message.orEmpty())
-                                            }
+                                            job.join()
                                             running = false
                                         }
                                     }

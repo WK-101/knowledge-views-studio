@@ -175,7 +175,7 @@
     <string name="pocket_title">Phone covered</string>
     <string name="pocket_body">Your phone\'s proximity sensor is covered. Is it in a pocket or a bag? Call only if you meant to.</string>
     <string name="vm_removed_after_sync">Removed from other apps after the next sync</string>
-    <string name="vm_couldnt_delete">Couldn\'t delete</string>
+    <string name="vm_couldnt_delete_because">Couldn\'t delete: %1$s</string>
     <plurals name="vm_contacts_deleted">
         <item quantity="one">Contact deleted</item>
         <item quantity="other">%d contacts deleted</item>

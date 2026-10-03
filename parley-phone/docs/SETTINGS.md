@@ -4,7 +4,7 @@ Where every setting lives, by page and group. The keys in `code` are the stable 
 
 **Search covers everything below**, including settings on screens of their own (marked ↗): their catalog entries carry a `SettingPlace`, and search opens that screen.
 
-**Advanced** groups are folded at the end of a page. They open by themselves when search points at a setting inside.
+**Advanced** groups are folded at the end of a page. They open by themselves when search points at a setting inside. Three pages have one today: Contacts, Recents & history, and Privacy & security.
 
 The Settings list starts with **Tools** (the one hub, the same page as every tab's ⋮ › Tools; see the glossary), then the categories below. **Reminders** ↗ is a page of its own for every kind of reminder, linked from Calls, Contacts, Recents & history and Backup & sync (see [Reminders](#reminders-)).
 
@@ -76,6 +76,8 @@ Screens of their own for particular calls; search opens each screen directly.
 | Keys | Keypad letters `keypad_letters` · Speed dial `speed_dial` ↗ · USSD replies `ussd` |
 
 ## Call time
+Not settings of its own: two links, to the Call time screen and to the SIMs row.
+
 | Group | Settings |
 |---|---|
 | — | Reminders & limits `call_time` ↗ (in it: Talk-time reminders `ct_reminders`, Call time limits `ct_limits`, Supervised mode `ct_supervised`) · SIMs & plan minutes `sims` |
@@ -130,7 +132,7 @@ Screens of their own for particular calls; search opens each screen directly.
 | Family safety | Family safe word `family_safe_word` ↗ (set on a label's page) |
 | Private contacts | Hide private contacts `hide_vault` · Private call history `private_history` |
 | Your data | Privacy dashboard `privacy_dashboard` · Who can see your contacts `who_can_see` · Let apps show private names `private_names` |
-| Advanced | Private names in other phone apps `private_directory` · App permissions (system) `app_permissions` |
+| Advanced | Private names in other phone apps `private_directory` · App permissions (system) `app_permissions` · Delete all Parley data `delete_all_data` (everything Parley keeps on this phone, after an optional backup) |
 
 **Caller on the lock screen** (`lock_screen_caller`, *Name* by default, as before): what the incoming and ongoing call notifications and the call screen show about the caller while the phone is locked. *Initials* shows only the initials of a saved name ("AL"), with no photo, number, label, pronouns, notes or subject, and none of the lines that could name them: the rule or label a call rang through by, a limit named after them, the time where they are. An unknown number still shows its number, also when the network sends a name with it. *Just "Incoming call"* shows nothing about who it is ("Ongoing call" once answered). Conference participants are masked one by one, and "Speak caller's name" stays quiet while the name is hidden. A screening warning ("Likely spam") still shows: it is about safety, not about who it is. Once you unlock, everything shows again. With Initials or Just "Incoming call" the notifications are also marked private, so a lock screen set to hide sensitive content shows the same short version. Emergency calls always show in full. Private contacts and discreet mode can only hide more: this setting never brings back a name they hide.
 
@@ -167,10 +169,14 @@ Every reminder Parley sends, on one page (`SettingPlace.REMINDERS`), each with i
 
 Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v1`), To call (`to_call_v1`) and Backup reminders (`backup_reminder_v1`). Three kinds stay outside it, because their channels also carry notices that aren't reminders and turning the group off must never hide those: missed calls (their own channel, with the calls), due temporary contacts (Contacts housekeeping) and backup results (`backup_v1`, Backups: a scheduled backup that failed, or rotation paused). The backup reminder used to share `backup_v1`; its own channel starts no louder than Backups was set, so someone who had turned Backups off doesn't start getting reminders.
 
+Channel **Exports and imports** (`jobs_v1`, quiet): the end of an export, import or file preparation you started, only when you left Parley before it finished. While a Parley screen shows, the same message is a snackbar instead.
+
 ## About
 | Group | Settings |
 |---|---|
-| — | Parley version `version` · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
+| — | Parley version `version` (with the licence, GPL-3.0) · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
+
+The page's summary ("Version and licence, diagnostics, crash reports") names exactly these rows.
 | In Tools ↗ | Tools `what_parley_can_do` (the hub itself, at the top of Settings; search finds it as "What Parley can do" too) |
 
 ## Changes in 5.1
@@ -190,7 +196,7 @@ Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v
 - **Appearance was split.** Navigation bar, Open on, the combined layouts, Tapping a call in Recents, the row buttons, Swipe actions and Simple mode moved to the new **Layout & gestures** page. Theme, language, lists and names stay in Appearance.
 - **The "Call history" sub-screen is folded into Recents & history.** "Keep full call history" is shown once (with the count of kept calls), and so are Import and the retention. The kept-forever numbers and "Excel-friendly CSV" are rows of the page. Deleted calls are restored in **History & undo › Calls**. The old route (`settings/history`, used by the archive notices) opens the page.
 - **One row for SIMs and plan minutes.** "SIMs" is now "SIMs & plan minutes". Call time links to the same row instead of a second "Plan minutes per SIM" row. Search still finds "plan minutes".
-- **Advanced groups** hold the rarely needed switches: the connect buzz, the proximity sensor, Power button ends call, Import from SIM, Export one account, Show SIM in call history, Private names in other phone apps and App permissions.
+- **Advanced groups** hold the rarely needed switches: Import from SIM, Export one account, Show SIM in call history, Private names in other phone apps and App permissions (and, later, Delete all Parley data). The connect buzz, the proximity sensor and Power button ends call were in one at first; since Calls was split into its pages they are shown openly on Calls › During calls.
 - **Circle settings have their own group** in Contacts, instead of sitting under Birthdays.
 - **Scan QR code** moved from Settings › Contacts to Tools (and stays in the Contacts header).
 - **Undo** is one place: "Recently deleted & changed" is **History & undo**, and "What changed" is its **Snapshots** tab.

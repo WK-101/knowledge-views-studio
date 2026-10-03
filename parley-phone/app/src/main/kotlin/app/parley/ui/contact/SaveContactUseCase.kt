@@ -1,6 +1,7 @@
 package app.parley.ui.contact
 
 import android.net.Uri
+import app.parley.jobs.UserErrorText
 import app.parley.R
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ExpiryChange
@@ -105,7 +106,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             }
         }.getOrElse { e ->
             if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
-            return Outcome.Failed(e.message.orEmpty())
+            return Outcome.Failed(UserErrorText.of(c.appContext, e))
         } ?: return Outcome.NotSaved
         // A photo the camera app took for this contact has been copied where it belongs.
         ContactCamera.forget(c.appContext, r.photo)

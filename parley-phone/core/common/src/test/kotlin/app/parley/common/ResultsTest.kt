@@ -22,3 +22,17 @@ class ResultsTest {
         assertTrue(thrown is StackOverflowError)
     }
 }
+
+class CatchingTest {
+    @Test fun failures_become_results_and_cancellation_does_not() {
+        assertEquals("ok", catching { "ok" }.getOrNull())
+        assertTrue(catching { error("broken") }.isFailure)
+        val thrown = runCatching { catching { throw CancellationException("left the screen") } }.exceptionOrNull()
+        assertTrue(thrown is CancellationException)
+    }
+
+    @Test fun the_older_name_behaves_the_same() {
+        val thrown = runCatching { suspendRunCatching { throw CancellationException("stop") } }.exceptionOrNull()
+        assertTrue(thrown is CancellationException)
+    }
+}

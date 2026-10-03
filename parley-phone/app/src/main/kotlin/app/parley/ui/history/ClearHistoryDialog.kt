@@ -33,8 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import kotlinx.coroutines.CancellationException
 import app.parley.common.CallEntry
-import app.parley.common.PhoneNumbers
 import app.parley.common.calls.ClearHistory
 import app.parley.common.calls.ClearScope
 import app.parley.common.history.ExportFormat
@@ -75,7 +76,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
     // number would look unknown (and calls with family and friends would go).
     val contactsReady = contactsAllowed && !contacts.isNullOrEmpty()
     val known = remember(contacts) {
-        PhoneIdentity.KnownSet(contacts.orEmpty().flatMap { ct -> ct.phones.map { it.number } }.filter { PhoneNumbers.digits(it).length >= 3 }, iso)
+        PhoneIdentity.KnownSet(contacts.orEmpty().flatMap { ct -> ct.phones.map { it.number } }.filter { PhoneIdentity.digits(it).length >= 3 }, iso)
     }
     val isKnown = { n: String -> n in known }
     // Private contacts' calls are never cleared here, not even before the vault has moved them out of the system log.
@@ -143,8 +144,10 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
                                         val rows = ExportFiles.rows(context, list) { e -> ExportFiles.nameFor(e) { n -> vm.contactFor(n)?.displayName } }
                                         ExportFiles.share(context, ExportFiles.write(context, rows, null, ExportFormat.CSV), ExportFormat.CSV)
                                         step = ClearStep.CONFIRM
+                                    } catch (e: CancellationException) {
+                                        throw e
                                     } catch (e: Exception) {
-                                        vm.toast(res.getString(R.string.hist_export_failed, e.message ?: e.javaClass.simpleName))
+                                        vm.toast(res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)))
                                     } finally {
                                         busy = false
                                     }

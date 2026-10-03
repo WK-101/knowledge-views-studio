@@ -22,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -39,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.jobs.UserJobs
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 
@@ -48,7 +48,6 @@ import app.parley.ui.ParleyScaffold
 fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
-    val scope = rememberCoroutineScope()
     var mask by remember { mutableStateOf(true) }
     var tables by remember { mutableStateOf(false) }
     val report by produceState("", mask, tables) {
@@ -68,11 +67,13 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        if (uri != null) scope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(report.toByteArray()) } }.isSuccess
+        if (uri != null) {
+            val text = report
+            val app = context.applicationContext
+            vm.jobs.start(UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting), { res.getString(R.string.diag_save_failed) }) {
+                withContext(Dispatchers.IO) { app.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } }
+                res.getString(R.string.diag_saved)
             }
-            vm.toast(res.getString(if (ok) R.string.diag_saved else R.string.diag_save_failed))
         }
     }
     // Scroll-linked top-bar tint.

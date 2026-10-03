@@ -1,6 +1,7 @@
 package app.parley.ui.contact
 
 import app.parley.common.calls.CallReason
+import app.parley.jobs.UserErrorText
 import app.parley.ui.menus.CallReasonFlow
 import app.parley.ui.menus.MenuShortcutsBlock
 import app.parley.ui.menus.ReasonTarget
@@ -43,7 +44,6 @@ import app.parley.common.circle.YearlyEvents
 import app.parley.common.people.ContactPage
 import app.parley.common.people.ContactSection
 import app.parley.common.people.SocialProfiles
-import app.parley.common.PhoneNumbers
 import app.parley.common.ReachGroups
 import app.parley.common.people.ContactGlance
 import app.parley.common.people.GlanceFact
@@ -494,7 +494,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val today = remember { LocalDate.now() }
         val sep = stringResource(R.string.main_separator)
         val region = PhoneEnv.countryIso(context)
-        val sameLine: (String, String) -> Boolean = { a, b -> PhoneNumbers.same(a, b, region) }
+        val sameLine: (String, String) -> Boolean = { a, b -> PhoneIdentity.same(a, b, region) }
         // Dates that come round again (a date of death doesn't), with their place in d.events.
         val dated = remember(d.events) {
             // A date kept by another calendar counts from its next Gregorian day.
@@ -1116,7 +1116,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 icon = Icons.Rounded.Lock,
                 onConfirm = {
                     confirmPrivate = false
-                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.detail_move_failed, e.message.orEmpty())) }) {
+                    scope.launchVault(
+                        context as? FragmentActivity,
+                        { e -> vm.toast(resources.getString(R.string.detail_move_failed, UserErrorText.of(context, e))) },
+                    ) {
                         // The note for calls and the messaging choice go with them, sealed; the rest is re-keyed.
                         val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
                         vm.toast(resources.getString(R.string.detail_moved_private))
@@ -1136,7 +1139,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 icon = Icons.Rounded.LockOpen,
                 onConfirm = {
                     confirmVisible = false
-                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                    scope.launchVault(
+                        context as? FragmentActivity,
+                        { e -> vm.toast(resources.getString(R.string.vault_move_failed, UserErrorText.of(context, e))) },
+                    ) {
                         val s = vm.settings.value
                         // Restores the original contact losslessly when the vault kept its record; else the default account.
                         val requested = AccountRef(s.defaultAccountType, s.defaultAccountName)

@@ -1,6 +1,7 @@
 package app.parley.ui.qr
 
 import app.parley.ui.sync.shared.SharedLabelInbox
+import app.parley.jobs.UserErrorText
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.Destination
 import android.content.Context
@@ -395,7 +396,7 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
         vm.navigate(NavEvent.NewContact(details))
     }
     Action(stringResource(R.string.qs_add_private), Icons.Rounded.Lock) {
-        scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
+        scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
             val id = vm.c.vault.save(null, details)
             vm.toast(res.getString(R.string.sqr_saved_private))
             onDismiss()

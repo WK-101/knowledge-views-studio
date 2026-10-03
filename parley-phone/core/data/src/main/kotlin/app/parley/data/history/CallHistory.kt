@@ -1,5 +1,6 @@
 package app.parley.data.history
 
+import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
 import app.parley.common.security.LimitExceededException
@@ -12,7 +13,6 @@ import android.net.Uri
 import android.provider.CallLog.Calls
 import android.util.Log
 import app.parley.common.CallEntry
-import app.parley.common.PhoneNumbers
 import app.parley.common.backup.CallHistoryLine
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.history.CallCsvImport
@@ -160,7 +160,7 @@ class CallHistory(
 
     /** The newest call with [number]'s line in [calls], or null (the caller's "last call" line). */
     fun lastCallWith(number: String, region: String? = countryIso): CallEntry? =
-        calls.value?.firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
+        calls.value?.firstOrNull { !it.presentationHidden && PhoneIdentity.same(it.number, number, region) }
 
     /** The shared index over [calls] and contacts, rebuilt off the main thread when either changes. */
     val index: StateFlow<CallLogIndex?> = combine(calls, contacts.contacts) { c, ct -> c to ct }
@@ -551,7 +551,7 @@ class CallHistory(
     /**
      * Every call with [number] (any format), optionally only since [since]: all of its system call-log rows (read
      * from the provider, not the newest-3000 window Recents shows) plus every archived call, so a delete built from
-     * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneNumbers.sameExact]):
+     * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneIdentity.sameExact]):
      * the list is deleted from, and a loose match (last digits) would reach other people's calls.
      */
     suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = withContext(Dispatchers.IO) {
@@ -562,7 +562,7 @@ class CallHistory(
         val archived = ArrayList<CallEntry>()
         scanArchive { a ->
             val e = a.toEntry()
-            val matches = e.date >= since && !e.presentationHidden && PhoneNumbers.sameExact(e.number, number, iso)
+            val matches = e.date >= since && !e.presentationHidden && PhoneIdentity.sameExact(e.number, number, iso)
             if (matches && seen.add(HistoryMerge.key(e))) archived += e
         }
         (system + archived).sortedByDescending { it.date }
@@ -581,7 +581,7 @@ class CallHistory(
         runCatching {
             // The filter URI matches loosely (the last digits); only rows that are exactly this line are deleted.
             cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID, Calls.NUMBER), null, null, null)
-                ?.use { c -> while (c.moveToNext()) if (PhoneNumbers.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
+                ?.use { c -> while (c.moveToNext()) if (PhoneIdentity.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
         }
         ids.chunked(500).forEach { chunk ->
             n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
@@ -591,7 +591,7 @@ class CallHistory(
                 val person = personMac(number, iso)
                 // Also rows filed under another form of the number.
                 val other = ArrayList<Long>()
-                scanArchive { if (!it.record.number.isNullOrBlank() && PhoneNumbers.sameExact(it.record.number, number, iso)) other += it.rowId }
+                scanArchive { if (!it.record.number.isNullOrBlank() && PhoneIdentity.sameExact(it.record.number, number, iso)) other += it.rowId }
                 n += dao.deleteByPerson(person)
                 other.chunked(500).forEach { dao.deleteIds(it) }
                 dao.removeKeepForever(listOf(person))
@@ -678,10 +678,10 @@ class CallHistory(
             val bytes = try {
                 Bounded.readBytes(input, MAX_IMPORT_BYTES.toLong())
             } catch (_: LimitExceededException) {
-                throw IllegalArgumentException(context.getString(R.string.data_file_too_large))
+                throw ExplainedFailure(context.getString(R.string.data_file_too_large))
             }
             String(bytes, Charsets.UTF_8)
-        } ?: throw IllegalArgumentException(context.getString(R.string.data_file_open_failed))
+        } ?: throw ExplainedFailure(context.getString(R.string.data_file_open_failed))
         val existing = HashSet<String>()
         readProvider(null).forEach { existing += importKey(it) }
         scanArchive { existing += importKey(it.record) }

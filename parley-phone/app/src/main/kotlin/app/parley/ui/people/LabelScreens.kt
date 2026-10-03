@@ -1,6 +1,8 @@
 package app.parley.ui.people
 
 import app.parley.ui.Destination
+import app.parley.common.catching
+import app.parley.jobs.UserErrorText
 import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
@@ -223,8 +225,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             onConfirm = {
                 mergeTarget = false
                 scope.launch {
-                    val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse {
-                        vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString()))
+                    val n = catching { vm.c.people.labels.merge(picked, target) }.getOrElse {
+                        vm.toast(res.getString(R.string.lbl_merge_failed, UserErrorText.of(context, it)))
                         return@launch
                     }
                     vm.toast(if (n > 0) res.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else res.getString(R.string.lbl_merged, target))
@@ -339,10 +341,10 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
                     return@launch
                 }
                 // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
-                runCatching { vm.c.people.labels.rename(old, name) }
+                catching { vm.c.people.labels.rename(old, name) }
                     // A shared label follows its rename on this phone (the others keep their own label's name).
                     .onSuccess { vm.c.sharedLabels.renamed(old, name.trim()) }
-                    .onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
+                    .onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, UserErrorText.of(context, it))) }
                 vm.c.contacts.refresh()
                 onDone(name.trim())
             }
