@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,6 +30,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -45,6 +46,7 @@ import app.parley.common.ux.Job
 import app.parley.security.AppLock
 import app.parley.ui.EmptyState
 import app.parley.ui.LinkRow
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.SettingsScaffold
@@ -108,7 +110,9 @@ fun CapabilitiesScreen(vm: AppViewModel, back: () -> Unit) {
                 top.forEach { row(it) }
                 if (open) rest.forEach { row(it) }
                 if (rest.isNotEmpty()) item("more_${job.name}") {
-                    MoreRow(open, rest.size) { opened = (if (open) openJobs - job.name else openJobs + job.name).joinToString(",") }
+                    MoreRow(open, rest.size, stringResource(CapabilityText.job(job))) {
+                        opened = (if (open) openJobs - job.name else openJobs + job.name).joinToString(",")
+                    }
                 }
             }
         }
@@ -157,12 +161,19 @@ private fun HubRow(c: Capability, title: String, summary: String, snoozing: Bool
     }
 }
 
-/** "n more" under a job's featured rows, or "Show fewer" once open. */
+/**
+ * "n more" under a job's featured rows, or "Show fewer" once open. TalkBack hears the job and the state: "4 more,
+ * collapsed, double-tap to show 4 more in Stop spam".
+ */
 @Composable
-private fun MoreRow(open: Boolean, count: Int, toggle: () -> Unit) {
+private fun MoreRow(open: Boolean, count: Int, job: String, toggle: () -> Unit) {
     val label = if (open) stringResource(R.string.discover_fewer) else pluralStringResource(R.plurals.discover_more, count, count)
-    ListItem(
-        modifier = Modifier.clickable(role = Role.Button, onClick = toggle),
+    val action = if (open) stringResource(R.string.discover_fewer_in, job) else pluralStringResource(R.plurals.discover_more_in, count, count, job)
+    val state = stringResource(if (open) R.string.blk_expanded else R.string.blk_collapsed)
+    ParleyListItem(
+        modifier = Modifier
+            .clickable(role = Role.Button, onClickLabel = action, onClick = toggle)
+            .semantics { stateDescription = state },
         headlineContent = { Text(label, color = MaterialTheme.colorScheme.primary) },
         trailingContent = { Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.primary) },
         colors = rowColors(),

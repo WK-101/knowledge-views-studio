@@ -23,7 +23,7 @@ enum class Job(val title: String) {
 enum class AppScreen {
     BLOCKING, SPAM_LISTS, TEST_A_CALL, RULE_TEMPLATES, BLOCK_LIST_IMPORT,
     HISTORY_UNDO, SNAPSHOTS, BACKUP, SYNC, HEALTH_CHECK, DUPLICATES, COMING_FROM,
-    CIRCLE, BIRTHDAYS, TO_CALL, CALL_INSIGHTS,
+    CIRCLE, BIRTHDAYS, TO_CALL, CALL_INSIGHTS, TRIP,
     LABELS, SCAN_QR, MY_CARD, HELPERS,
     PRIVACY_DASHBOARD, WHO_CAN_SEE, TEMPORARY,
     KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT,
@@ -128,6 +128,9 @@ object CapabilityCatalog {
             "remind me", "call back", "missed").top(),
         setting("remember", TOUCH, "Anything to remember?", "A note and a follow-up after calls with your contacts", "memory_prompt",
             "note", "promise", "follow up"),
+        // Also a chip on Contacts; this row keeps it reachable when the Contacts tab is hidden.
+        screen("whos_in", TOUCH, "Who's in…", "People linked to a city you're visiting, by address, notes or number", AppScreen.TRIP,
+            "who's in", "whos in", "trip", "travel", "city", "visiting", "abroad"),
         screen("insights", TOUCH, "Call insights", "Talk time, top people and calls you didn't return", AppScreen.CALL_INSIGHTS,
             "statistics", "stats", "talk time"),
 

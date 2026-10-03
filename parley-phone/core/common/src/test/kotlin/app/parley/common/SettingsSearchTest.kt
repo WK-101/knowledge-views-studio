@@ -63,16 +63,24 @@ class SettingsSearchTest {
 
     /**
      * Settings may not grow without anyone noticing: a new one replaces one, or folds into one, so the total stays at
-     * or below [SETTINGS_CEILING]. Lower the ceiling when settings go.
+     * or below [SETTINGS_CEILING]. Lower the ceiling when settings go. Links to pages and lists (Reminders, To call)
+     * are searchable but hold no value, so they don't count.
      */
     @Test fun settings_do_not_grow_silently() {
-        val n = SettingsCatalog.entries.size
+        val n = SettingsCatalog.settings.size
         assertTrue(
-            "Settings has $n entries, more than its ceiling of $SETTINGS_CEILING. Replace an existing setting or fold the new " +
+            "Settings has $n settings, more than its ceiling of $SETTINGS_CEILING. Replace an existing setting or fold the new " +
                 "one into it rather than adding to the list; a setting moved onto a screen of its own (SettingPlace) still counts. " +
                 "Raise SETTINGS_CEILING only when the owner agrees.",
             n <= SETTINGS_CEILING,
         )
+    }
+
+    @Test fun links_are_ways_to_pages_not_settings() {
+        assertEquals(listOf("reminders", "to_call"), SettingsCatalog.entries.filter { it.link }.map { it.key })
+        // Still found by search.
+        assertTrue("reminders" in keys("reminders"))
+        assertTrue("to_call" in keys("call back later"))
     }
 
     @Test fun every_reminder_is_on_reminders_and_found_by_its_old_words() {
@@ -179,7 +187,10 @@ class SettingsSearchTest {
         /** Searchable rows a category page may hold itself. */
         const val PAGE_LIMIT = 22
 
-        /** Every searchable setting, wherever it lives. */
-        const val SETTINGS_CEILING = 164
+        /**
+         * Every setting, wherever it lives (links not counted). 161 before 5.1; 5.1 added "Show names as" (name_order),
+         * which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does.
+         */
+        const val SETTINGS_CEILING = 162
     }
 }

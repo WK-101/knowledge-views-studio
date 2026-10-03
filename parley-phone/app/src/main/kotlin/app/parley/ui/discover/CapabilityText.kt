@@ -32,6 +32,7 @@ object CapabilityText {
         "birthdays" to (R.string.discover_birthdays_title to R.string.discover_birthdays_summary),
         "to_call" to (R.string.discover_to_call_title to R.string.discover_to_call_summary),
         "remember" to (R.string.discover_remember_title to R.string.discover_remember_summary),
+        "whos_in" to (R.string.discover_whos_in_title to R.string.discover_whos_in_summary),
         "insights" to (R.string.discover_insights_title to R.string.discover_insights_summary),
         "labels" to (R.string.discover_labels_title to R.string.discover_labels_summary),
         "caller_vibration" to (R.string.discover_caller_vibration_title to R.string.discover_caller_vibration_summary),

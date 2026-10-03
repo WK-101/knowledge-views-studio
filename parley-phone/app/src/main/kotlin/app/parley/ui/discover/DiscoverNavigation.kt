@@ -71,6 +71,7 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.BIRTHDAYS -> Routes.Birthdays
     AppScreen.TO_CALL -> ToCallRoutes.List
     AppScreen.CALL_INSIGHTS -> HistoryRoutes.Insights
+    AppScreen.TRIP -> ExtrasRoutes.Trip
     AppScreen.LABELS -> PeopleRoutes.Labels
     AppScreen.SCAN_QR -> QrRoutes.Scan
     AppScreen.MY_CARD -> PeopleRoutes.Me
