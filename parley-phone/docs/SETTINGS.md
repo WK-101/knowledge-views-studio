@@ -6,7 +6,7 @@ Where every setting lives, by page and group. The keys in `code` are the stable 
 
 **Advanced** groups are folded at the end of a page. They open by themselves when search points at a setting inside.
 
-The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the glossary) and **What Parley can do**, then the categories below.
+The Settings list starts with **Tools** (the one hub, the same page as every tab's ⋮ › Tools; see the glossary), then the categories below. **Reminders** ↗ is a page of its own for every kind of reminder, linked from Calls, Contacts, Recents & history and Backup & sync (see [Reminders](#reminders-)).
 
 ## Appearance
 | Group | Settings |
@@ -30,7 +30,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 |---|---|
 | — | Default phone app `default_dialer` · Can't make Parley the default phone app? `default_dialer_help` |
 | Answering and calling | Answer incoming calls by `answer_gesture` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` · Confirm before calling `confirm_call` · Vibrate on call events `call_haptics` · Ringtone for unknown callers `unknown_ringtone` |
-| Missed calls and voicemail | Remind me of missed calls `missed_realert` · Voicemail `voicemail` |
+| Missed calls and voicemail | Reminders `reminders` ↗ (with Remind me of missed calls `missed_realert`) · Voicemail `voicemail` |
 | During calls | Ask before pocket calls `pocket_guard` |
 | Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
@@ -70,8 +70,8 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Contact list | Call and message buttons in the list `row_actions` (off by default) |
 | Organise | Save new contacts to `default_account` · Labels `labels` · Add relations to both contacts `mirror_relations` (on by default) · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` · Find & merge duplicates `duplicates` · Contact health check `health` · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) |
 | Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` |
-| Birthdays and reminders | Birthdays & dates `birthdays` · Birthday reminders `birthday_reminders` · Reminder time `reminder_time` |
-| Circle: keeping in touch | Keep-in-touch nudges `nudges` · Remind me before dates `date_lead` · How keep-in-touch reminders arrive `circle_delivery` · At most per week `circle_weekly_cap` · Log messages you start `log_prompts` |
+| Birthdays and reminders | Birthdays & dates `birthdays` · Reminders `reminders` ↗ (birthday and keep-in-touch reminders are there) |
+| Circle: keeping in touch | Log messages you start `log_prompts` |
 | Advanced | Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
 | In Tools ↗ | Scan QR code `scan_qr` (also the Contacts header) · Coming from another phone? `coming_from` (also onboarding's last step) |
 
@@ -79,7 +79,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | Call history | Keep full call history `archive` (with the number of calls kept) · Keep call history `retention` · Numbers kept forever `kept_forever` (while the full history is kept) · Clear call history `clear_history` · Deleted calls `history_details` ↗ (History & undo › Calls) |
-| Recents | Call list layout `recents_layout` · Recents style `recents_style` · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) · Call insights `insights` · People card in Call insights `people_card` · Who usually reaches out first `first_mover` |
+| Recents | Call list layout `recents_layout` · Recents style `recents_style` · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) · Reminders `reminders` ↗ · Call insights `insights` · People card in Call insights `people_card` · Who usually reaches out first `first_mover` |
 | Export & import | Import call history from CSV `import_calls` · Excel-friendly CSV `csv_bom` |
 | Advanced | Show SIM in call history `sim_labels` |
 
@@ -119,7 +119,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Backup & sync
 | Group | Settings |
 |---|---|
-| Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) · Remind me to back up `backup_reminder` · Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export notes as Markdown `markdown_export` |
+| Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) · Reminders `reminders` ↗ (with Remind me to back up `backup_reminder`) · Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export notes as Markdown `markdown_export` |
 | Undo | History & undo `journal` ↗ · Daily snapshots `time_machine` ↗ (History & undo › Snapshots) |
 
 **Shared labels** (`shared_labels`, a screen of its own reached from Sync between your phones, and searchable as "family phonebook"; nothing is shared until you choose a label's ⋮ › Share this label…): every label shared with other people's phones, each with its own folder and passphrase, and **Join a shared label** (`shared_labels_join`) from an invitation file or a QR code. The label page shows each shared label's members, changes ("Ana changed Dr Lee's number · 2 days ago") and contacts changed on two phones. Runs with the folder sync's schedule (shortly after start, after a change to the address book, hourly), whether or not "Sync between your phones" is set up. Kept on this phone only, sealed (`no_backup/shared_labels`: a new phone joins again with an invitation). See [SHARED_LABELS.md](SHARED_LABELS.md).
@@ -129,11 +129,31 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 |---|---|
 | — | Notification health card · Notification settings `notification_settings` · Allow full-screen incoming calls `full_screen` · Battery optimisation `battery` · Xiaomi: lock screen & pop-up permissions `xiaomi` (Xiaomi, Redmi, POCO only) |
 
+## Reminders ↗
+Every reminder Parley sends, on one page (`SettingPlace.REMINDERS`), each with its switch and time. The settings are stored where they always were; only the page is new. Search opens it scrolled to the row, and an old link to one of these rows on its category page (Circle ⋮ › Circle settings) opens it too. Their notification channels share one channel group, **Reminders**, with the same channel ids as before, so sound and importance choices stay.
+
+| Group | Settings |
+|---|---|
+| Missed calls | Remind me of missed calls `missed_realert` (off) |
+| To call and follow-ups | To call `to_call` ↗ (each item has its own time) · Anything to remember? after calls `memory_prompt` (also under Calls, with the other note settings) |
+| Keep in touch | Keep-in-touch nudges `nudges` · How keep-in-touch reminders arrive `circle_delivery` (weekly digest by default) · At most per week `circle_weekly_cap` (one at a time only) |
+| Birthdays and dates | Birthday reminders `birthday_reminders` · Reminder time `reminder_time` · Remind me before dates `date_lead` |
+| Backups | Remind me to back up `backup_reminder` |
+| Temporary contacts | Ask before deleting temporary contacts `temp_ask_first` (also on the Temporary contacts screen) |
+| Notifications | Reminder notifications (Android's notification settings for Parley) |
+
+Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v1`), To call (`to_call_v1`) and Backups (`backup_v1`). Missed calls stay in their own channel with the calls, and due temporary contacts in Contacts housekeeping, because those channels also carry notices that aren't reminders.
+
 ## About
 | Group | Settings |
 |---|---|
 | — | Parley version `version` · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
-| In Tools ↗ | What Parley can do `what_parley_can_do` (also at the top of Settings and in the What's new card) |
+| In Tools ↗ | Tools `what_parley_can_do` (the hub itself, at the top of Settings; search finds it as "What Parley can do" too) |
+
+## Changes in 5.1
+
+- **One hub.** Tools and "What Parley can do" are one page, **Tools**: every feature grouped by the job you want done, the most used rows of each job shown first and the rest under "n more", with search. Lock now, Expecting a call (a switch), Import & export contacts and the other former Tools rows are in it. The Settings list has one **Tools** row (it had Tools and What Parley can do). The Privacy dashboard lives under Settings › Privacy & security › Your data and stays in the hub's "Keep it private" job. Old links to the Tools page open the hub.
+- **One Reminders page.** Remind me of missed calls (from Calls), Birthday reminders, Reminder time, Remind me before dates, Keep-in-touch nudges, How keep-in-touch reminders arrive and At most per week (from Contacts) and Remind me to back up (from Backup & sync) moved to **Reminders**, which also lists To call, the after-call prompt and Ask before deleting temporary contacts. Contacts, Recents & history, Calls and Backup & sync link to it. Nothing stored changed, and search finds each by its old words.
 
 ## Changes in 4.1
 
