@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
@@ -42,7 +43,7 @@ object FolderSyncNotice {
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(
-            context, 79, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_SYNC).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            context, 79, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_SYNC).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
         val text = context.resources.getQuantityString(R.plurals.sync_paused_notify_text, count, count)

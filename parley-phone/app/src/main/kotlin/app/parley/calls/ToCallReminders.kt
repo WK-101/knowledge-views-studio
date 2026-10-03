@@ -13,7 +13,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.parley.IntentRoutes
-import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
@@ -162,7 +161,7 @@ object ToCallReminders {
         val keys = due.map { it.key }.toTypedArray()
         val open = PendingIntent.getActivity(
             context, 70,
-            Intent(context, MainActivity::class.java).setAction(IntentRoutes.ACTION_SHOW_TO_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notNow = PendingIntent.getBroadcast(

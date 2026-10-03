@@ -263,6 +263,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Parley's own way into the main screen: its notifications, widgets, shortcuts and tiles start this alias with
+             their internal actions (missed calls, a caller's page, Back up…). Not exported, so no other app can send
+             them; MainActivity ignores those actions unless they came through here (IntentRoutes.OWN_ENTRY). -->
+        <activity-alias
+            android:name=".InternalEntry"
+            android:exported="false"
+            android:targetActivity=".MainActivity" />
 
         <!-- Parley as the system contact picker (other apps choose contacts, numbers, e-mails, addresses). -->
         <activity

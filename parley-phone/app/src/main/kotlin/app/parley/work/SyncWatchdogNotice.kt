@@ -8,7 +8,6 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.IntentRoutes
-import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
@@ -37,7 +36,7 @@ object SyncWatchdogNotice {
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.watch_channel), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
-            context, 81, Intent(context, MainActivity::class.java).setAction(IntentRoutes.ACTION_OPEN_HEALTH).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            context, 81, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_OPEN_HEALTH).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
         val res = context.resources

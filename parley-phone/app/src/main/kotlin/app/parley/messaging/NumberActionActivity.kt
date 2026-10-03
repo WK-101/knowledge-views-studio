@@ -461,7 +461,7 @@ class NumberActionActivity : LockedActivity() {
     private fun makeContact(text: String) {
         val id = PasteInbox.put(text)
         startActivity(
-            Intent(this, MainActivity::class.java).setAction(IntentRoutes.ACTION_PASTE_CONTACT).putExtra(IntentRoutes.EXTRA_PASTE_ID, id)
+            IntentRoutes.own(this).setAction(IntentRoutes.ACTION_PASTE_CONTACT).putExtra(IntentRoutes.EXTRA_PASTE_ID, id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         finish()
@@ -471,7 +471,7 @@ class NumberActionActivity : LockedActivity() {
     private fun saveAll() {
         MessagingInbox.bulkText = sourceText
         startActivity(
-            Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_BULK_ADD).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(this).setAction(MainActivity.ACTION_BULK_ADD).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         finish()
     }

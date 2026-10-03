@@ -108,6 +108,13 @@ class ExportedComponentsTest {
         assertTrue(LockedActivity::class.java.isAssignableFrom(Class.forName(target)))
     }
 
+    /** Parley's internal actions arrive only through this alias, which no other app can start. */
+    @Test fun the_internal_entry_alias_is_private_and_opens_main_activity() {
+        val alias = context.packageManager.getActivityInfo(ComponentName(context, IntentRoutes.OWN_ENTRY), PackageManager.MATCH_DISABLED_COMPONENTS)
+        assertTrue("InternalEntry must not be exported", !alias.exported)
+        assertEquals(MainActivity::class.java.name, alias.targetActivity)
+    }
+
     @Test fun parleys_own_providers_are_not_readable_by_other_apps() {
         for (name in listOf("app.parley.privatenames.VaultPhotoProvider", "androidx.core.content.FileProvider")) {
             val info = packageInfo().providers.orEmpty().firstOrNull { it.name == name } ?: continue

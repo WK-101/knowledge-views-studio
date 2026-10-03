@@ -18,6 +18,7 @@ import android.os.Build
 import android.text.format.DateUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.R
@@ -236,7 +237,7 @@ object MissedCallNotifier {
 
     private fun openRecents(context: Context) = PendingIntent.getActivity(
         context, 10,
-        Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        IntentRoutes.own(context).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
@@ -257,7 +258,7 @@ object MissedCallNotifier {
         }
         val pi = PendingIntent.getActivity(
             context, req,
-            Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_POST_CALL)
+            IntentRoutes.own(context).setAction(MainActivity.ACTION_POST_CALL)
                 .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, "BLOCK").putExtra(MainActivity.EXTRA_NUMBER, number)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

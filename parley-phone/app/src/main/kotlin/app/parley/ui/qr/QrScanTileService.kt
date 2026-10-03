@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 
@@ -27,7 +28,7 @@ class QrScanTileService : TileService() {
     @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_SCAN_QR).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = IntentRoutes.own(this).setAction(MainActivity.ACTION_SCAN_QR).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         } else {

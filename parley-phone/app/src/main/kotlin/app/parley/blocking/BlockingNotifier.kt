@@ -12,6 +12,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.BlockReason
@@ -120,7 +121,7 @@ object BlockingNotifier {
         }
         val open = PendingIntent.getActivity(
             context, 30,
-            Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BLOCKING).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BLOCKING).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val id = if (blocked) ID_BLOCKED else ID_LIKELY
