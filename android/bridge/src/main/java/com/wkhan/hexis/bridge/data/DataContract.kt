@@ -30,6 +30,9 @@ object DataApi {
     // Domains
     const val DOMAIN_TASKS = "tasks"
     const val DOMAIN_NOTES = "notes"
+    const val DOMAIN_CALENDAR = "calendar"
+    const val DOMAIN_TIME = "time"
+    const val DOMAIN_HABITS = "habits"
 
     // Ops (read)
     const val OP_LIST = "list"

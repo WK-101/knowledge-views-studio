@@ -90,7 +90,14 @@
 
   // ---- state + render ----------------------------------------------------------------------------
   const el = (id) => document.getElementById(id);
-  const state = { tasks: [], notes: [] };
+  const state = { tasks: [], notes: [], calendar: [], time: [], habits: [] };
+  const TABS = [
+    { key: "tasks", tab: "tabTasks", view: "tasksView" },
+    { key: "notes", tab: "tabNotes", view: "notesView" },
+    { key: "calendar", tab: "tabCalendar", view: "calendarView" },
+    { key: "time", tab: "tabTime", view: "timeView" },
+    { key: "habits", tab: "tabHabits", view: "habitsView" },
+  ];
   let seen = {}; // last-seen change versions per domain
   let tab = "tasks";
 
@@ -125,6 +132,34 @@
     if (!v) return null;
     const [y, m, d] = v.split("-").map(Number);
     return new Date(y, m - 1, d, 12, 0, 0, 0).getTime(); // local noon, avoids TZ day-shift
+  }
+  function fmtTime(ms) {
+    if (!ms) return "";
+    try {
+      return new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    } catch (_e) {
+      return "";
+    }
+  }
+  function fmtDateTime(ms) {
+    if (!ms) return "";
+    try {
+      return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    } catch (_e) {
+      return "";
+    }
+  }
+  function fmtDuration(min) {
+    const m = Math.max(0, Math.round(min || 0));
+    if (m < 60) return m + "m";
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return r ? h + "h " + r + "m" : h + "h";
+  }
+  function argb(color) {
+    if (color == null) return null;
+    const n = (Number(color) >>> 0) & 0xffffff;
+    return "#" + n.toString(16).padStart(6, "0");
   }
 
   function renderTasks() {
@@ -165,13 +200,85 @@
         : '<p class="empty">No notes.</p>');
   }
 
+  function renderCalendar() {
+    const now = Date.now();
+    const upcoming = state.calendar
+      .filter((e) => (e.endMillis || e.startMillis) >= now - 12 * 3600 * 1000)
+      .slice(0, 200);
+    if (!upcoming.length) {
+      el("calendarView").innerHTML = '<p class="empty">No upcoming events.</p>';
+      return;
+    }
+    const row = (e) => {
+      const when = e.allDay ? fmtDate(e.startMillis) + " · all day" : fmtDateTime(e.startMillis) + "–" + fmtTime(e.endMillis);
+      const dot = argb(e.colorArgb);
+      return (
+        '<li class="erow">' +
+        '<span class="cdot" style="background:' + (dot || "var(--accent)") + '"></span>' +
+        '<span class="einfo"><span class="etitle">' + esc(e.title || "Untitled") + "</span>" +
+        '<span class="emeta">' + esc(when) + (e.location ? " · " + esc(e.location) : "") +
+        (e.calendarName ? " · " + esc(e.calendarName) : "") + "</span></span>" +
+        (e.recurring ? '<span class="chip">↻</span>' : "") +
+        "</li>"
+      );
+    };
+    el("calendarView").innerHTML = '<ul class="list">' + upcoming.map(row).join("") + "</ul>";
+  }
+
+  function renderTime() {
+    const entries = state.time.slice(0, 200);
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const todayMin = entries
+      .filter((e) => e.startMillis >= todayStart)
+      .reduce((sum, e) => sum + (e.minutes || 0), 0);
+    if (!entries.length) {
+      el("timeView").innerHTML = '<p class="empty">No time entries.</p>';
+      return;
+    }
+    const row = (e) =>
+      '<li class="erow">' +
+      '<span class="einfo"><span class="etitle">' + esc(e.activityName || "Activity") +
+      (e.running ? ' <span class="chip live">● live</span>' : "") + "</span>" +
+      '<span class="emeta">' + esc(fmtDateTime(e.startMillis)) + (e.note ? " · " + esc(e.note) : "") + "</span></span>" +
+      '<span class="dur">' + esc(fmtDuration(e.minutes)) + "</span>" +
+      "</li>";
+    el("timeView").innerHTML =
+      '<div class="summary">Today · <strong>' + esc(fmtDuration(todayMin)) + "</strong> tracked</div>" +
+      '<ul class="list">' + entries.map(row).join("") + "</ul>";
+  }
+
+  function renderHabits() {
+    const habits = state.habits;
+    if (!habits.length) {
+      el("habitsView").innerHTML = '<p class="empty">No habits.</p>';
+      return;
+    }
+    const row = (h) => {
+      const done = h.doneToday;
+      const prog = h.targetPerDay > 1 ? " " + (h.todayCount || 0) + "/" + h.targetPerDay : "";
+      return (
+        '<li class="row' + (done ? " done" : "") + '">' +
+        '<span class="box" aria-hidden="true">' + (done ? "&#x2713;" : "") + "</span>" +
+        '<span class="label">' + (h.emoji ? esc(h.emoji) + " " : "") + esc(h.name) +
+        (h.paused ? ' <span class="chip">paused</span>' : "") + "</span>" +
+        (prog ? '<span class="due">' + esc(prog.trim()) + "</span>" : "") +
+        "</li>"
+      );
+    };
+    const active = habits.filter((h) => !h.paused);
+    const paused = habits.filter((h) => h.paused);
+    el("habitsView").innerHTML =
+      '<ul class="list">' + active.map(row).join("") + "</ul>" +
+      (paused.length ? '<h3 class="subhead">Paused</h3><ul class="list">' + paused.map(row).join("") + "</ul>" : "");
+  }
+
   function selectTab(which) {
     tab = which;
-    const isTasks = which === "tasks";
-    el("tabTasks").setAttribute("aria-selected", String(isTasks));
-    el("tabNotes").setAttribute("aria-selected", String(!isTasks));
-    el("tasksView").hidden = !isTasks;
-    el("notesView").hidden = isTasks;
+    for (const t of TABS) {
+      const on = t.key === which;
+      el(t.tab).setAttribute("aria-selected", String(on));
+      el(t.view).hidden = !on;
+    }
   }
 
   // ---- editor modal ------------------------------------------------------------------------------
@@ -306,6 +413,18 @@
       state.notes = await query("notes", "list");
       renderNotes();
     }
+    if (domain === "calendar" || !domain) {
+      state.calendar = await query("calendar", "list");
+      renderCalendar();
+    }
+    if (domain === "time" || !domain) {
+      state.time = await query("time", "list");
+      renderTime();
+    }
+    if (domain === "habits" || !domain) {
+      state.habits = await query("habits", "list");
+      renderHabits();
+    }
     el("footText").textContent =
       state.tasks.length + " tasks · " + state.notes.length + " notes · end-to-end encrypted";
   }
@@ -327,10 +446,11 @@
       try {
         const now = await awaitChanges(seen);
         if (now) {
+          const known = TABS.map((t) => t.key);
           const changed = Object.keys(now).filter((d) => (now[d] || 0) > (seen[d] || 0));
           seen = now;
           for (const d of changed) {
-            if (d === "tasks" || d === "notes") await reload(d);
+            if (known.includes(d)) await reload(d);
           }
           setStatus("", "ok");
         }
@@ -342,8 +462,7 @@
   }
 
   async function boot() {
-    el("tabTasks").addEventListener("click", () => selectTab("tasks"));
-    el("tabNotes").addEventListener("click", () => selectTab("notes"));
+    for (const t of TABS) el(t.tab).addEventListener("click", () => selectTab(t.key));
     el("refreshBtn").addEventListener("click", () => reload().catch((e) => alert(e.message)));
     wireViewEvents();
 

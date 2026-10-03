@@ -57,6 +57,9 @@ class WebBridgeDataTest {
                 DataPage(payloadJson = BridgeCodec.encodeString(listOf(fakeTask)), total = 1)
             query.domain == DataApi.DOMAIN_NOTES && query.op == DataApi.OP_LIST ->
                 DataPage(payloadJson = "[]", total = 0)
+            query.op == DataApi.OP_LIST &&
+                query.domain in setOf(DataApi.DOMAIN_CALENDAR, DataApi.DOMAIN_TIME, DataApi.DOMAIN_HABITS) ->
+                DataPage(payloadJson = "[]", total = 0) // breadth domains (W3) route through the same gate
             else -> throw UnsupportedDomainException("${query.domain}.${query.op}")
         }
 
@@ -129,6 +132,30 @@ class WebBridgeDataTest {
         val resp = dispatcher(tokens).dispatchInvoke(req, caller)
         assertFalse(resp.ok)
         assertEquals(BridgeErrorType.UNSUPPORTED, resp.error?.type)
+    }
+
+    // ---- breadth domains (W3) -----------------------------------------------------------------------
+
+    @Test fun calendarRead_withScope_ok() {
+        val tokens = InMemoryTokenAuthority()
+        val t = tokens.mint(consumer, setOf(BridgeScopes.DATA_CALENDAR_READ))
+        val req = RequestEnvelope(
+            header = EnvelopeHeader(capabilityId = Capabilities.DATA, method = DataApi.METHOD_QUERY, token = t.value),
+            payloadJson = BridgeCodec.encodeString(DataQuery(domain = DataApi.DOMAIN_CALENDAR, op = DataApi.OP_LIST)),
+        )
+        assertTrue(dispatcher(tokens).dispatchInvoke(req, caller).ok)
+    }
+
+    @Test fun habitsRead_withoutScope_isUnauthorized() {
+        val tokens = InMemoryTokenAuthority()
+        val t = tokens.mint(consumer, setOf(BridgeScopes.DATA_TASKS_READ)) // no habits scope
+        val req = RequestEnvelope(
+            header = EnvelopeHeader(capabilityId = Capabilities.DATA, method = DataApi.METHOD_QUERY, token = t.value),
+            payloadJson = BridgeCodec.encodeString(DataQuery(domain = DataApi.DOMAIN_HABITS, op = DataApi.OP_LIST)),
+        )
+        val resp = dispatcher(tokens).dispatchInvoke(req, caller)
+        assertFalse(resp.ok)
+        assertEquals(BridgeErrorType.UNAUTHORIZED, resp.error?.type)
     }
 
     // ---- writes (W2) --------------------------------------------------------------------------------

@@ -6,8 +6,11 @@ import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataPage
 import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.bridge.data.DataResult
+import com.wkhan.hexis.bridge.data.EventDto
+import com.wkhan.hexis.bridge.data.HabitDto
 import com.wkhan.hexis.bridge.data.NoteDto
 import com.wkhan.hexis.bridge.data.TaskDto
+import com.wkhan.hexis.bridge.data.TimeEntryDto
 import com.wkhan.hexis.data.AppRepository
 import com.wkhan.hexis.data.entity.ListEntity
 import com.wkhan.hexis.data.entity.NoteEntity
@@ -31,17 +34,30 @@ import kotlinx.serialization.Serializable
 class RepositoryDataSource(private val repo: AppRepository) : DataSource {
 
     override suspend fun query(query: DataQuery): DataPage = when (query.domain) {
-        DataApi.DOMAIN_TASKS -> when (query.op) {
-            DataApi.OP_LIST -> listPage(allTasks(), query) { it.toDto() }
-            DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getTask(it)?.toDto() })
-            else -> throw UnsupportedDomainException("tasks.${query.op}")
-        }
-        DataApi.DOMAIN_NOTES -> when (query.op) {
-            DataApi.OP_LIST -> listPage(allNotes(), query) { it.toDto() }
-            DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getNote(it)?.toDto() })
-            else -> throw UnsupportedDomainException("notes.${query.op}")
-        }
+        DataApi.DOMAIN_TASKS -> queryTasks(query)
+        DataApi.DOMAIN_NOTES -> queryNotes(query)
+        DataApi.DOMAIN_CALENDAR -> queryListOnly(query) { allEventDtos() }
+        DataApi.DOMAIN_TIME -> queryListOnly(query) { allTimeEntryDtos() }
+        DataApi.DOMAIN_HABITS -> queryListOnly(query) { allHabitDtos() }
         else -> throw UnsupportedDomainException(query.domain)
+    }
+
+    private suspend fun queryTasks(query: DataQuery): DataPage = when (query.op) {
+        DataApi.OP_LIST -> listPage(allTasks(), query) { it.toDto() }
+        DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getTask(it)?.toDto() })
+        else -> throw UnsupportedDomainException("tasks.${query.op}")
+    }
+
+    private suspend fun queryNotes(query: DataQuery): DataPage = when (query.op) {
+        DataApi.OP_LIST -> listPage(allNotes(), query) { it.toDto() }
+        DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getNote(it)?.toDto() })
+        else -> throw UnsupportedDomainException("notes.${query.op}")
+    }
+
+    /** The breadth domains (calendar/time/habits) are list-only; the DTOs are already projected. */
+    private suspend inline fun <reified D> queryListOnly(query: DataQuery, load: () -> List<D>): DataPage {
+        if (query.op != DataApi.OP_LIST) throw UnsupportedDomainException("${query.domain}.${query.op}")
+        return listPage(load(), query) { it }
     }
 
     override suspend fun mutate(mutation: DataMutation): DataResult = when (mutation.domain) {
@@ -53,10 +69,16 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
     override fun changes(): Flow<String> = flow {
         val ws = repo.activeWs()
         // Room emits current state on subscribe; drop(1) keeps that initial frame from firing a redundant
-        // reload — only real subsequent changes become ticks.
+        // reload — only real subsequent changes become ticks. The broad (unscoped) observers for
+        // calendar/time/habits are fine here: a tick only says "this domain changed", never carries data,
+        // and the handler filters ticks to the domains the caller may read.
         val tasks = repo.observeTasksByWorkspace(ws).drop(1).map { DataApi.DOMAIN_TASKS }
         val notes = repo.observeNotesByWorkspace(ws, trashed = false).drop(1).map { DataApi.DOMAIN_NOTES }
-        emitAll(merge(tasks, notes))
+        val calendar = repo.allEvents.drop(1).map { DataApi.DOMAIN_CALENDAR }
+        val time = repo.allTimeEntries.drop(1).map { DataApi.DOMAIN_TIME }
+        val habits = repo.allHabits.drop(1).map { DataApi.DOMAIN_HABITS }
+        val checkins = repo.allCheckins.drop(1).map { DataApi.DOMAIN_HABITS }
+        emitAll(merge(tasks, notes, calendar, time, habits, checkins))
     }
 
     // ---- writes -------------------------------------------------------------------------------------
@@ -173,6 +195,75 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
             .filter { it.workspaceId == ws && !it.trashed }
             .sortedWith(compareByDescending<NoteEntity> { it.pinned }.thenByDescending { it.updatedAt })
             .toList()
+    }
+
+    // ---- breadth reads (W3): calendar / time / habits, all active-workspace scoped --------------------
+
+    private suspend fun allEventDtos(): List<EventDto> {
+        val calById = repo.eventCalendarsOnce().associateBy { it.id }
+        return repo.wsEventsOnce()
+            .sortedBy { it.startMillis }
+            .map { e ->
+                EventDto(
+                    id = e.id,
+                    title = e.title,
+                    calendarId = e.calendarId,
+                    calendarName = calById[e.calendarId]?.name.orEmpty(),
+                    location = e.location,
+                    notes = e.notes,
+                    startMillis = e.startMillis,
+                    endMillis = e.endMillis,
+                    allDay = e.allDay,
+                    recurring = e.rrule.isNotBlank(),
+                    colorArgb = e.colorArgb,
+                    linkedTaskId = e.linkedTaskId,
+                )
+            }
+    }
+
+    private suspend fun allTimeEntryDtos(): List<TimeEntryDto> {
+        val ws = repo.activeWs()
+        val actById = repo.wsTimeActivitiesOnce().associateBy { it.id }
+        val now = System.currentTimeMillis()
+        return repo.timeEntriesOnce()
+            .filter { it.workspaceId == ws }
+            .sortedByDescending { it.startMillis }
+            .map { te ->
+                TimeEntryDto(
+                    id = te.id,
+                    activityId = te.activityId,
+                    activityName = actById[te.activityId]?.name.orEmpty(),
+                    startMillis = te.startMillis,
+                    endMillis = te.endMillis,
+                    minutes = te.minutes(now),
+                    note = te.note,
+                    kind = te.kind,
+                    running = te.running,
+                )
+            }
+    }
+
+    private suspend fun allHabitDtos(): List<HabitDto> {
+        val today = java.time.LocalDate.now().toEpochDay()
+        val todayCheckins = repo.getHabitCheckinsOnce().filter { it.epochDay == today }.associateBy { it.habitId }
+        return repo.wsHabitsOnce()
+            .sortedBy { it.sortOrder }
+            .map { h ->
+                val c = todayCheckins[h.id]
+                HabitDto(
+                    id = h.id,
+                    name = h.name,
+                    emoji = h.emoji,
+                    colorArgb = h.colorArgb,
+                    targetPerDay = h.targetPerDay,
+                    unit = h.unit,
+                    habitType = h.habitType,
+                    category = h.category,
+                    paused = h.paused,
+                    todayCount = c?.count ?: 0,
+                    doneToday = c?.status == "done",
+                )
+            }
     }
 
     // ---- paging + encoding --------------------------------------------------------------------------

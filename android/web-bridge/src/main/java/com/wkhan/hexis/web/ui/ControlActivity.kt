@@ -143,6 +143,9 @@ class ControlActivity : Activity() {
         val scopes = listOf(
             BridgeScopes.DATA_TASKS_READ, BridgeScopes.DATA_TASKS_WRITE,
             BridgeScopes.DATA_NOTES_READ, BridgeScopes.DATA_NOTES_WRITE,
+            BridgeScopes.DATA_CALENDAR_READ, // calendar / time / habits are read-only companions (W3)
+            BridgeScopes.DATA_TIME_READ,
+            BridgeScopes.DATA_HABITS_READ,
         ).joinToString(",")
         val intent = Intent(DataConsent.ACTION).apply {
             setPackage(provider.packageName)

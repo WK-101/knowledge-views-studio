@@ -158,24 +158,30 @@ class DataCapabilityHandler(
     private fun readScope(domain: String): String? = when (domain) {
         DataApi.DOMAIN_TASKS -> BridgeScopes.DATA_TASKS_READ
         DataApi.DOMAIN_NOTES -> BridgeScopes.DATA_NOTES_READ
-        "calendar" -> BridgeScopes.DATA_CALENDAR_READ
-        "time" -> BridgeScopes.DATA_TIME_READ
-        "habits" -> BridgeScopes.DATA_HABITS_READ
+        DataApi.DOMAIN_CALENDAR -> BridgeScopes.DATA_CALENDAR_READ
+        DataApi.DOMAIN_TIME -> BridgeScopes.DATA_TIME_READ
+        DataApi.DOMAIN_HABITS -> BridgeScopes.DATA_HABITS_READ
         else -> null
     }
 
     private fun writeScope(domain: String): String? = when (domain) {
         DataApi.DOMAIN_TASKS -> BridgeScopes.DATA_TASKS_WRITE
         DataApi.DOMAIN_NOTES -> BridgeScopes.DATA_NOTES_WRITE
-        "calendar" -> BridgeScopes.DATA_CALENDAR_WRITE
-        "time" -> BridgeScopes.DATA_TIME_WRITE
-        "habits" -> BridgeScopes.DATA_HABITS_WRITE
+        DataApi.DOMAIN_CALENDAR -> BridgeScopes.DATA_CALENDAR_WRITE
+        DataApi.DOMAIN_TIME -> BridgeScopes.DATA_TIME_WRITE
+        DataApi.DOMAIN_HABITS -> BridgeScopes.DATA_HABITS_WRITE
         else -> null
     }
 
     private companion object {
-        /** Domains the `changes` stream can tick for (W2). */
-        val DOMAINS = listOf(DataApi.DOMAIN_TASKS, DataApi.DOMAIN_NOTES)
+        /** Domains the `changes` stream can tick for. */
+        val DOMAINS = listOf(
+            DataApi.DOMAIN_TASKS,
+            DataApi.DOMAIN_NOTES,
+            DataApi.DOMAIN_CALENDAR,
+            DataApi.DOMAIN_TIME,
+            DataApi.DOMAIN_HABITS,
+        )
     }
 }
 
