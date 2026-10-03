@@ -688,7 +688,8 @@ internal object EditorDrafts {
 
     /** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
     fun texts(d: ContactDetails): List<String> = with(d) {
-        listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, department, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
+        listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, department, note) +
+            listOf(phoneticGiven, phoneticFamily, context, pinnedNote) +
             (phones + emails + websites + relations).map { it.value } + events.map { it.date } + handles.map { it.value } +
             addresses.flatMap { listOf(it.street, it.poBox, it.neighborhood, it.city, it.region, it.postcode, it.country) }
     }

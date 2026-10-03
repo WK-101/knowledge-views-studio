@@ -34,7 +34,10 @@ object RecordDetails {
         rows.firstOrNull { it.mimeType == Mime.NICKNAME }?.let { d = d.copy(nickname = s(it[Col.D1])) }
         rows.firstOrNull { it.mimeType == Mime.PRONOUNS }?.let { d = d.copy(pronouns = s(it[Col.D1])) }
         rows.firstOrNull { it.mimeType == Mime.ORG }?.let {
-            d = d.copy(company = s(it[Col.D1]), title = s(it[Col.D4]), department = s(it[Col.D5]), jobDescription = s(it[Col.D6]), officeLocation = s(it[Col.D9]))
+            d = d.copy(
+                company = s(it[Col.D1]), title = s(it[Col.D4]), department = s(it[Col.D5]),
+                jobDescription = s(it[Col.D6]), officeLocation = s(it[Col.D9]),
+            )
         }
         rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { d = d.copy(note = it.joinToString("\n\n")) }
         fun items(mime: String, default: Int) = rows.filter { it.mimeType == mime && !it[Col.D1].isNullOrBlank() }

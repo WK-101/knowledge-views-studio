@@ -47,7 +47,8 @@ class NewContactAccountTest {
     }
 
     @Test fun phone_sim_unset_or_unreadable_defaults_keep_the_phone() {
-        val defaults: List<SystemDefault<String>?> = listOf(SystemDefault(State.LOCAL, null), SystemDefault(State.NOT_SET, null), SystemDefault(State.SIM, sim), SystemDefault(State.UNKNOWN, null), null)
+        fun d(state: State, account: String?): SystemDefault<String>? = SystemDefault(state, account)
+        val defaults = listOf(d(State.LOCAL, null), d(State.NOT_SET, null), d(State.SIM, sim), d(State.UNKNOWN, null), null)
         for (d in defaults) {
             assertEquals(Decision(phone, false), decide(36, d, null))
             assertEquals(Decision(phone, false), decide(36, d, phone))

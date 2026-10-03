@@ -169,6 +169,7 @@
 
     <!-- App-wide messages -->
     <string name="main_call_permission_needed">Phone permission is needed to place calls</string>
+    <string name="main_edit_not_found">This contact isn\'t on the phone any more</string>
     <string name="pocket_title">Phone covered</string>
     <string name="pocket_body">Your phone\'s proximity sensor is covered. Is it in a pocket or a bag? Call only if you meant to.</string>
     <string name="vm_removed_after_sync">Removed from other apps after the next sync</string>

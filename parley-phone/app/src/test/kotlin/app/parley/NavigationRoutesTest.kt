@@ -182,6 +182,36 @@ class NavigationRoutesTest {
         opens(Routes.forEvent(NavEvent.NewContact(ContactDetails()))!!)
     }
 
+    @Test fun otherAppsEditContactOpensTheEditor() {
+        val lookup = Uri.parse("content://com.android.contacts/contacts/lookup/abc/7")
+        val contact = Uri.parse("content://com.android.contacts/contacts/7")
+        val raw = Uri.parse("content://com.android.contacts/raw_contacts/12")
+        for (u in listOf(lookup, contact, raw)) {
+            val t = resolve(Intent.ACTION_EDIT, u, "vnd.android.cursor.item/contact")
+            assertEquals(u, t?.editContact)
+            // Nothing opens before the link is resolved (off the main thread, behind the app lock).
+            assertNull(t?.event)
+            assertNull(t?.resolveContact)
+        }
+        assertNull("only content links", resolve(Intent.ACTION_EDIT, Uri.parse("tel:+15550100")))
+        assertNull(resolve(Intent.ACTION_EDIT))
+
+        assertNull(IntentRoutes.rawContactId(lookup))
+        assertNull(IntentRoutes.rawContactId(contact))
+        assertEquals(12L, IntentRoutes.rawContactId(raw))
+        assertNull(IntentRoutes.rawContactId(Uri.parse("content://elsewhere/raw_contacts/12")))
+
+        // A contact opens its editor; a raw contact opens the editor of that copy.
+        val whole = IntentRoutes.editorFor(7, null)
+        assertEquals(Routes.edit(id = 7), whole)
+        opens(whole)
+        assertEquals(7L, nav.currentBackStackEntry!!.toRoute<Routes.Edit>().id)
+        val copy = IntentRoutes.editorFor(7, 12)
+        opens(copy)
+        val r = nav.currentBackStackEntry!!.toRoute<PeopleRoutes.EditRaw>()
+        assertEquals(7L to 12L, r.id to r.raw)
+    }
+
     @Test fun argumentsSurviveWithoutHandEncoding() {
         // Characters a hand-built query string used to mangle (and a second decode used to break).
         val number = "+44 (20) 7946/0000 #1&x=%41?"

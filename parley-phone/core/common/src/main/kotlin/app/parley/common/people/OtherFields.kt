@@ -28,11 +28,12 @@ object OtherFields {
     fun describe(rows: List<DataRow>, fromMessenger: (DataRow) -> Boolean = { false }): List<Field> {
         val out = ArrayList<Field>()
         for (r in rows) {
-            if (fromMessenger(r)) continue
-            // The work row's parts the editor doesn't change (its company, title and department show under the name).
-            if (r.mimeType == Mime.ORG) out += workExtras(r)
-            if (r.mimeType in Mime.CORE) continue
-            describe(r)?.let { out += it }
+            when {
+                fromMessenger(r) -> Unit
+                // The work row's parts the editor doesn't change (its company, title and department show under the name).
+                r.mimeType == Mime.ORG -> out += workExtras(r)
+                r.mimeType !in Mime.CORE -> describe(r)?.let { out += it }
+            }
         }
         return out.distinctBy { Triple(it.label, it.value, it.mimeType) }
     }

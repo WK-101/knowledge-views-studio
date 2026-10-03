@@ -301,9 +301,9 @@ class ContactRecordStore(private val context: Context) {
         // into the phone while the user's default is a cloud account (Android refuses it), but into that account.
         val newContacts = DeviceAccounts.newContacts(context)
         val safeTarget = target?.let { newContacts.target(if (isWritableAccount(it)) it else localAccount()) }
-        val available = if (safeTarget == null) availableAccounts() else emptySet()
-        val plans = records.mapIndexed { i, r ->
-            val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos, newContacts)
+        val (available, sources) = if (safeTarget == null) ownAccounts(records, newContacts) else emptySet<AccountRef>() to records
+        val plans = sources.mapIndexed { i, r ->
+            val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos)
             if (plan.raws.isEmpty()) results[i] = InsertResult(null, context.getString(R.string.data_write_only_messenger))
             plan
         }
@@ -326,6 +326,26 @@ class ContactRecordStore(private val context: Context) {
         return results.map { it ?: InsertResult(null, context.getString(R.string.data_write_not_written)) }
     }
 
+    /** Accounts records can be restored into as they were, and the records with Android 16's refusals applied. */
+    private fun ownAccounts(records: List<ContactRecord>, newContacts: DeviceAccounts.NewContacts): Pair<Set<AccountRef>, List<ContactRecord>> {
+        val cloud = newContacts.cloudInstead ?: return availableAccounts() to records
+        val available = availableAccounts() + cloud
+        return available to records.map { toCloud(it, cloud, available, newContacts) }
+    }
+
+    /**
+     * A record restored into its own accounts while Android 16 refuses the phone: a phone-only copy, or one whose
+     * account is gone, goes to the cloud default [cloud] instead. Messenger copies stay as they are (they are skipped).
+     */
+    private fun toCloud(r: ContactRecord, cloud: AccountRef, available: Set<AccountRef>, newContacts: DeviceAccounts.NewContacts): ContactRecord =
+        r.copy(
+            raws = r.raws.map { raw ->
+                val a = AccountRef(raw.accountType, raw.accountName)
+                val keep = Messengers.isMessengerAccount(raw.accountType) || (a in available && !newContacts.decide(a).redirected)
+                if (keep) raw else raw.copy(accountType = cloud.type, accountName = cloud.name, dataSet = null)
+            },
+        )
+
     private class PlannedRaw(val account: AccountRef, val dataSet: String?, val rows: List<ContentValues>, val photo: ByteArray?)
 
     private class Plan(val record: ContactRecord, val raws: List<PlannedRaw>, val processPhotos: Boolean = false) {
@@ -333,15 +353,7 @@ class ContactRecordStore(private val context: Context) {
         val bytes = raws.sumOf { r -> OP_OVERHEAD + r.rows.sumOf { estimate(it) } }
     }
 
-    private fun plan(
-        r: ContactRecord,
-        target: AccountRef?,
-        available: Set<AccountRef>,
-        groups: GroupResolver,
-        includeReadOnly: Boolean,
-        processPhotos: Boolean = false,
-        newContacts: DeviceAccounts.NewContacts,
-    ): Plan {
+    private fun plan(r: ContactRecord, target: AccountRef?, available: Set<AccountRef>, groups: GroupResolver, includeReadOnly: Boolean, processPhotos: Boolean = false): Plan {
         val sources = r.raws.filter { includeReadOnly || !Messengers.isMessengerAccount(it.accountType) }
         val grouped: List<Pair<AccountRef, List<RawRecord>>> = if (target != null) {
             if (sources.isEmpty()) emptyList() else listOf(target to sources)
@@ -349,8 +361,7 @@ class ContactRecordStore(private val context: Context) {
             val local = localAccount()
             sources.map { raw ->
                 val a = AccountRef(raw.accountType, raw.accountName)
-                // A phone-only copy goes to the cloud default when Android 16 refuses the phone.
-                newContacts.target(if (a.type == null || a in available) a else local) to listOf(raw)
+                (if (a.type == null || a in available) a else local) to listOf(raw)
             }
         }
         // Rows each new raw contact gets, de-duplicated; photos are written separately.
