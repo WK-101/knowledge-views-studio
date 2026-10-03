@@ -449,6 +449,17 @@
             android:taskAffinity=""
             android:launchMode="singleTask"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize" />
+        <!-- Translucent voice-capture popup — push-to-talk straight from the widget, routed to task/note/
+             timer/search/command. Needs the optional voice addon; shows an install prompt without one.
+             Launched only by our own Quick-bar widget (explicit component), so not exported. -->
+        <activity
+            android:name=".widget.QuickVoiceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Hexis.QuickCapture"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- R107 Quick-bar widget: a modular toolbar of quick-capture buttons. -->
         <receiver

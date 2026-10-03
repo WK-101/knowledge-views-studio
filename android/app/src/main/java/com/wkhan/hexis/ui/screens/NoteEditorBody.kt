@@ -99,6 +99,7 @@ import com.wkhan.hexis.ui.components.borderlessFieldColors
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // large pre-existing editor composable
 fun NoteBodyEditor(
     value: String,
     onValueChange: (String) -> Unit,
@@ -111,6 +112,10 @@ fun NoteBodyEditor(
     onFontScaleChange: (Int) -> Unit = {},
     onInk: (() -> Unit)? = null,
     resetKey: Any? = null,
+    /** When true, "Dictate (voice)" uses the Hexis Voice addon; otherwise the platform recognizer. */
+    voiceDictateAvailable: Boolean = false,
+    /** Start addon dictation; the transcript is delivered to the provided sink (inserted at the caret). */
+    onVoiceDictate: ((onText: (String) -> Unit) -> Unit)? = null,
 ) {
     // Seed the field synchronously and keyed to the note (resetKey) so opening or switching a note shows its
     // body on the SAME frame — no post-composition round-trip that would flash a blank pane. The caret starts
@@ -169,6 +174,13 @@ fun NoteBodyEditor(
         if (!spoken.isNullOrBlank()) insertBlock(spoken)
     }
     fun startVoice() {
+        // Prefer the Hexis Voice addon (on-device Whisper) when it's connected; it records and returns
+        // the transcript, which we insert at the caret. Fall back to the platform recognizer otherwise.
+        val dictate = onVoiceDictate
+        if (voiceDictateAvailable && dictate != null) {
+            dictate { spoken -> if (spoken.isNotBlank()) insertBlock(spoken) }
+            return
+        }
         runCatching {
             voiceLauncher.launch(
                 android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {

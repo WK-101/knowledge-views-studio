@@ -206,10 +206,43 @@ class AppViewModel internal constructor(
     private val _voiceUi = kotlinx.coroutines.flow.MutableStateFlow(VoiceCaptureUi())
     val voiceUi: StateFlow<VoiceCaptureUi> = _voiceUi
 
+    /** True when a voice addon is installed, connected and the bridge is enabled — the single gate
+     *  every voice entry point keys off, so with no addon the core shows no voice UI at all. */
+    val voiceAvailable: StateFlow<Boolean> =
+        bridgeState.map { it.enabled && it.grantedVoicePackage != null }
+            .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    /** One-shot navigation requests a voice action raises for the host (search / command palette). */
+    sealed interface VoiceNav {
+        data class Search(val query: String) : VoiceNav
+        data class Palette(val text: String) : VoiceNav
+    }
+    private val _voiceNav = kotlinx.coroutines.flow.MutableSharedFlow<VoiceNav>(extraBufferCapacity = 4)
+    val voiceNav: kotlinx.coroutines.flow.SharedFlow<VoiceNav> = _voiceNav
+
+    private enum class VoiceMode { COMMAND, DICTATE }
+    @Volatile private var voiceMode = VoiceMode.COMMAND
+    @Volatile private var dictationSink: ((String) -> Unit)? = null
+
     private val voiceController by lazy { com.wkhan.hexis.addon.VoiceCaptureController(appCtx) }
 
-    /** Start a push-to-talk capture against the connected voice addon. */
+    /** Push-to-talk capture → the intent router (review sheet with task / note / search / command /
+     *  timer actions). */
     fun startVoiceCapture() {
+        voiceMode = VoiceMode.COMMAND
+        dictationSink = null
+        launchVoiceCapture()
+    }
+
+    /** Push-to-talk capture → deliver the final transcript straight to [onText] (e.g. insert into a
+     *  note), skipping the review sheet. Used by in-place dictation. */
+    fun startVoiceDictation(onText: (String) -> Unit) {
+        voiceMode = VoiceMode.DICTATE
+        dictationSink = onText
+        launchVoiceCapture()
+    }
+
+    private fun launchVoiceCapture() {
         viewModelScope.launch {
             val cap = com.wkhan.hexis.bridge.Capabilities.VOICE_STT
             val pkg = kotlinx.coroutines.withContext(Dispatchers.IO) { bridgeRegistry.grantedPackage(cap) }
@@ -218,6 +251,7 @@ class AppViewModel internal constructor(
                 bridgeRegistry.discoverVoice().firstOrNull { it.packageName == pkg }
             }
             if (pkg == null || token == null || provider == null) {
+                dictationSink = null
                 _voiceUi.value = VoiceCaptureUi(
                     status = VoiceStatus.ERROR,
                     error = "No connected voice addon. Connect one in Settings → Addon bridges.",
@@ -225,15 +259,15 @@ class AppViewModel internal constructor(
                 return@launch
             }
             _voiceUi.value = VoiceCaptureUi(status = VoiceStatus.LISTENING)
-            // Bias recognition toward the user's OWN vocabulary — project / tag / context names — sent
-            // ephemerally (NO_PERSIST in the controller) so the engine can recognize "add to Groceries"
-            // without the addon ever seeing or keeping the user's data. This is the accuracy differentiator
-            // over a plain transcriber.
+            // Bias recognition toward the user's OWN vocabulary — list / tag / context / activity names
+            // — sent ephemerally (NO_PERSIST in the controller) so the engine recognizes "add to
+            // Groceries" or "start timer for Deep Work" without the addon ever seeing or keeping the data.
             val hotwords = (
                 lists.value.map { it.name } +
                     tags.value.map { it.name } +
-                    contexts.value.map { it.name }
-                ).map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(100)
+                    contexts.value.map { it.name } +
+                    timeVm.timeActivities.value.map { it.name }
+                ).map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(120)
             voiceController.start(
                 provider = provider,
                 token = token,
@@ -244,16 +278,22 @@ class AppViewModel internal constructor(
                         _voiceUi.value = _voiceUi.value.copy(status = VoiceStatus.LISTENING, partial = text)
                     }
                     override fun onFinal(text: String) {
+                        if (voiceMode == VoiceMode.DICTATE) {
+                            val sink = dictationSink
+                            viewModelScope.launch(Dispatchers.Main) { sink?.invoke(text.trim()) }
+                            finishVoice()
+                            return
+                        }
                         val proposal = com.wkhan.hexis.domain.voice.VoiceCommandAnalyzer.analyze(text)
-                        val draft = (proposal as? com.wkhan.hexis.domain.voice.VoiceProposal.AddTask)?.quickAddText ?: text
                         _voiceUi.value = _voiceUi.value.copy(
                             status = VoiceStatus.REVIEW,
                             partial = text,
-                            draftText = draft,
+                            draftText = proposal.payloadText,
                             intent = proposal.intent,
                         )
                     }
                     override fun onError(message: String) {
+                        dictationSink = null
                         _voiceUi.value = VoiceCaptureUi(status = VoiceStatus.ERROR, error = message)
                     }
                 },
@@ -270,21 +310,62 @@ class AppViewModel internal constructor(
         voiceController.stop()
     }
 
-    /** Commit the (possibly edited) plan through the single quick-add funnel, so a voice task is
-     *  identical to a typed one. */
+    private fun finishVoice() {
+        voiceController.close()
+        dictationSink = null
+        _voiceUi.value = VoiceCaptureUi()
+    }
+
+    // ---- Voice router actions (the review sheet routes the transcript to the right feature) ---------
+
+    /** Add as a task through the single quick-add funnel, so a voice task is identical to a typed one. */
     fun commitVoiceCapture(text: String) {
         viewModelScope.launch {
             val trimmed = text.trim()
             if (trimmed.isNotEmpty()) quickAddOne(trimmed, QuickAddOptions())
-            voiceController.close()
-            _voiceUi.value = VoiceCaptureUi()
+            finishVoice()
         }
+    }
+
+    fun commitVoiceNote(text: String) {
+        viewModelScope.launch {
+            val t = text.trim()
+            if (t.isNotEmpty()) createNote(body = t) {}
+            finishVoice()
+            if (t.isNotEmpty()) toast("Note added")
+        }
+    }
+
+    fun commitVoiceStartTimer(name: String) {
+        val n = name.trim()
+        if (n.isNotEmpty()) {
+            timeVm.startTimeTrackingByName(n)
+            toast("Tracking $n")
+        }
+        finishVoice()
+    }
+
+    fun commitVoiceStopTimer() {
+        timeVm.stopTimeTracking()
+        toast("Timer stopped")
+        finishVoice()
+    }
+
+    /** Open whole-app search with the spoken query (host performs the navigation). */
+    fun commitVoiceSearch(text: String) {
+        _voiceNav.tryEmit(VoiceNav.Search(text.trim()))
+        finishVoice()
+    }
+
+    /** Hand the transcript to the command palette (host opens it pre-filled). */
+    fun commitVoiceCommand(text: String) {
+        _voiceNav.tryEmit(VoiceNav.Palette(text.trim()))
+        finishVoice()
     }
 
     fun cancelVoiceCapture() {
         voiceController.cancel()
-        voiceController.close()
-        _voiceUi.value = VoiceCaptureUi()
+        finishVoice()
     }
 
     // ---- File transcription (Phase 3): Open Transcribe client -----------------------------------

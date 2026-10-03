@@ -104,7 +104,7 @@ object WidgetPrefs {
     // Quick-bar widget: how many buttons (4–7) and which action each slot fires. Slot 0 is the centre;
     // it defaults to "app" — the brand mark that opens Hexis — but every slot (centre included) is a
     // freely assignable action, so "app" is just the first option in the pool.
-    val QUICK_ACTIONS = listOf("app", "task", "note", "habit", "time", "search", "dailynote", "closeday", "weekreview")
+    val QUICK_ACTIONS = listOf("app", "task", "note", "habit", "time", "voice", "search", "dailynote", "closeday", "weekreview")
     private val QUICK_DEFAULT = listOf("app", "task", "note", "habit", "time", "search", "closeday", "weekreview", "dailynote")
 
     fun quickCount(ctx: Context, id: Int): Int =

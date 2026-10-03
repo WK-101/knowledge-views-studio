@@ -519,6 +519,7 @@ fun AppRoot(
         val openOccasion: (String?) -> Unit = { id -> argOverlay = OverlayArg.Occasions(id) }
         // Tier Ω: the command palette (recap + Journal are now [OverlayArg]) and the annual-report picker.
         var showPalette by remember { mutableStateOf(false) }
+        var paletteInitial by remember { mutableStateOf("") }
         var showAnnual by rememberSaveable { mutableStateOf(false) }
         // G4 interactive time-blocking: which (day, minute) slot the user tapped on the calendar.
         var blockAt by remember { mutableStateOf<Pair<java.time.LocalDate, Int>?>(null) }
@@ -654,6 +655,16 @@ fun AppRoot(
         // Voice addon: discover + load grant state on launch so the mic FAB knows whether a voice
         // addon is installed and connected (it appears only then).
         LaunchedEffect(Unit) { vm.refreshBridge() }
+        // A voice action that needs navigation (search / command palette) raises it here, so the voice
+        // router stays decoupled from the host's navigation state.
+        LaunchedEffect(Unit) {
+            vm.voiceNav.collect { nav ->
+                when (nav) {
+                    is AppViewModel.VoiceNav.Search -> { searchQuery = nav.query; tab = Tab.SEARCH }
+                    is AppViewModel.VoiceNav.Palette -> { paletteInitial = nav.text; showPalette = true }
+                }
+            }
+        }
         // Account-free folder sync: reconcile once on launch when a sync folder is configured.
         LaunchedEffect(settings.syncEnabled, settings.syncFolder) {
             if (settings.syncEnabled && settings.syncFolder.isNotBlank()) vm.runSyncNow { _, _ -> }
@@ -723,6 +734,9 @@ fun AppRoot(
                 a == "new_note" -> { vm.createNote { id -> editingNote = id }; launchAction.value = null }
                 a == "new_daily_note" -> { vm.openDailyNote(java.time.LocalDate.now().toEpochDay()) { id -> editingNote = id }; launchAction.value = null }
                 a == "open_journal" -> { argOverlay = OverlayArg.Journal(com.wkhan.hexis.domain.PeriodRange.DAY, java.time.LocalDate.now().toEpochDay()); launchAction.value = null }
+                // Quick-bar voice popup routed a transcript to whole-app search / the command palette.
+                a != null && a.startsWith("voice_search:") -> { searchQuery = a.removePrefix("voice_search:"); tab = Tab.SEARCH; launchAction.value = null }
+                a != null && a.startsWith("voice_command:") -> { paletteInitial = a.removePrefix("voice_command:"); showPalette = true; launchAction.value = null }
                 a != null && a.startsWith(com.wkhan.hexis.MainActivity.ACTION_TRACK_ACTIVITY) -> {
                     val id = a.removePrefix(com.wkhan.hexis.MainActivity.ACTION_TRACK_ACTIVITY)
                     vm.timeVm.startTimeTracking(id); openOverlay(Overlay.TIME_TRACKING); launchAction.value = null
@@ -1091,11 +1105,12 @@ fun AppRoot(
                 },
                 floatingActionButton = {
                     val selecting by vm.selectionActive.collectAsStateWithLifecycle()
-                    val voiceBridge by vm.bridgeState.collectAsStateWithLifecycle()
                     // Mic FAB — a voice-capture entry point that appears ONLY when a voice addon is
-                    // installed, connected, and the bridge is enabled. It stacks above the per-tab FAB.
-                    val voiceReady = voiceBridge.enabled && voiceBridge.grantedVoicePackage != null &&
-                        !(tab == Tab.TASKS && selecting)
+                    // installed, connected, and the bridge is enabled. It keys off the single
+                    // [AppViewModel.voiceAvailable] gate (same source every voice entry point uses), so with
+                    // no addon the core shows no voice affordance at all. It stacks above the per-tab FAB.
+                    val voiceAvailable by vm.voiceAvailable.collectAsStateWithLifecycle()
+                    val voiceReady = voiceAvailable && !(tab == Tab.TASKS && selecting)
                     androidx.compose.foundation.layout.Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
@@ -1379,7 +1394,7 @@ fun AppRoot(
 
 
         // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
-        if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false }) { cmd ->
+        if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false; paletteInitial = "" }, initialText = paletteInitial) { cmd ->
             val now = java.time.LocalDate.now()
             val td = now.toEpochDay()
             when (cmd) {

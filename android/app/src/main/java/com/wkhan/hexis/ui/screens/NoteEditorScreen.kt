@@ -142,6 +142,8 @@ fun NoteEditorScreen(
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val settings by vm.settings.collectAsStateWithLifecycle()
+    // Reactive so "Dictate (voice)" switches to the addon the moment it connects, even mid-edit.
+    val voiceAvailable by vm.voiceAvailable.collectAsStateWithLifecycle()
     val notes by vm.notes.collectAsStateWithLifecycle()
     val notebooks by vm.notebooks.collectAsStateWithLifecycle()
     val folders by vm.folders.collectAsStateWithLifecycle()
@@ -521,6 +523,8 @@ fun NoteEditorScreen(
                             onFontScaleChange = { vm.setNotesFontScale(it) },
                             onInk = { showInk = true },
                             resetKey = noteId,
+                            voiceDictateAvailable = voiceAvailable,
+                            onVoiceDictate = { sink -> vm.startVoiceDictation(sink) },
                         )
                     }
                     if (previewVisible) {

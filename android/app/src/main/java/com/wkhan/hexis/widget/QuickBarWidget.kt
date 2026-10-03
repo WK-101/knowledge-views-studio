@@ -84,6 +84,7 @@ class QuickBarWidget : BaseWidgetProvider() {
             "habit" -> Intent(context, QuickHabitsActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
             "time" -> Intent(context, QuickTimeActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
             "search" -> Intent(context, QuickSearchActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+            "voice" -> Intent(context, QuickVoiceActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
             "closeday" -> appIntent(context, "open_close_day")
             "weekreview" -> appIntent(context, "open_weekreview")
             "dailynote" -> appIntent(context, "new_daily_note")
@@ -101,7 +102,7 @@ class QuickBarWidget : BaseWidgetProvider() {
 
     private fun labelFor(key: String): String = when (key) {
         "app" -> "Open Hexis"; "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
-        "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"
+        "voice" -> "Voice"; "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"
         "dailynote" -> "Daily note"; else -> key
     }
 
@@ -114,7 +115,7 @@ class QuickBarWidget : BaseWidgetProvider() {
         /** Human-readable names for the settings screen. */
         fun displayName(key: String): String = when (key) {
             "app" -> "Open Hexis"; "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
-            "time" -> "Quick time track"; "search" -> "Quick search"; "closeday" -> "Close the day"
+            "time" -> "Quick time track"; "voice" -> "Quick voice capture"; "search" -> "Quick search"; "closeday" -> "Close the day"
             "weekreview" -> "Weekly review"; "dailynote" -> "Today's daily note"; else -> key
         }
 

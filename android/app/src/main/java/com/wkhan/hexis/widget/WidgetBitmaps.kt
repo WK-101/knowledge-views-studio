@@ -268,6 +268,7 @@ object WidgetBitmaps {
         "note" -> R.drawable.wic_note
         "habit" -> R.drawable.wic_habit
         "time" -> R.drawable.wic_time
+        "voice" -> R.drawable.wic_voice
         "search" -> R.drawable.wic_search
         "dailynote" -> R.drawable.wic_dailynote
         "closeday" -> R.drawable.wic_closeday

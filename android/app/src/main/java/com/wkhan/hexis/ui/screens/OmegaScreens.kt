@@ -140,8 +140,14 @@ private fun commandCatalog(s: com.wkhan.hexis.domain.AppSettings): List<Pair<Str
  * answered inline so the palette stays open for another question.
  */
 @Composable
-fun CommandPaletteDialog(vm: AppViewModel, onDismiss: () -> Unit, onRun: (OmegaCommand.Command) -> Unit) {
-    var text by remember { mutableStateOf("") }
+@Suppress("LongMethod", "CyclomaticComplexMethod") // large pre-existing command-palette composable
+fun CommandPaletteDialog(
+    vm: AppViewModel,
+    onDismiss: () -> Unit,
+    initialText: String = "",
+    onRun: (OmegaCommand.Command) -> Unit,
+) {
+    var text by remember { mutableStateOf(initialText) }
     var answer by remember { mutableStateOf<String?>(null) }
     var showAll by remember { mutableStateOf(false) }   // catalogue folded by default; tap "All commands" to expand
     val focus = remember { FocusRequester() }

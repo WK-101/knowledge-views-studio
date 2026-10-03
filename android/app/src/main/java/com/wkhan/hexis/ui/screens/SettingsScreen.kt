@@ -404,9 +404,15 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
-            Action("Try voice capture") { vm.startVoiceCapture() }
-            Action("Transcribe an audio file") { transcribeFile.launch(arrayOf("audio/*")) }
+            // Only offer the addon-powered actions once an addon is actually present/connected, so a core
+            // with no addon shows the explanation above and nothing that would just error on tap.
+            if (bridge.grantedVoicePackage != null) {
+                Spacer(Modifier.height(4.dp))
+                Action("Try voice capture") { vm.startVoiceCapture() }
+            }
+            if (bridge.voiceProviders.isNotEmpty()) {
+                Action("Transcribe an audio file") { transcribeFile.launch(arrayOf("audio/*")) }
+            }
 
             if (bridge.grantedVoicePackage != null) {
                 Spacer(Modifier.height(8.dp))
