@@ -4,8 +4,15 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import kotlin.math.ln
 
-/** How Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: the U3 icons. */
-enum class RecentsStyle { RICH, SIMPLE }
+/**
+ * How Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: the U3 icons. Cards: the
+ * Rich rows, each day's calls in one rounded card (stored by name, offered in this order).
+ */
+enum class RecentsStyle(val rich: Boolean, val cards: Boolean) {
+    RICH(rich = true, cards = false),
+    SIMPLE(rich = false, cards = false),
+    CARDS(rich = true, cards = true),
+}
 
 /**
  * What a call was, finer than [CallType] (an outgoing call nobody answered is its own class), each with a

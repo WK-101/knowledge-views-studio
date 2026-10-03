@@ -43,6 +43,7 @@ import app.parley.R
 import app.parley.RecentFilter
 import app.parley.common.ux.CallClass
 import app.parley.common.ux.CallGlance
+import app.parley.common.ux.RecentsStyle
 import app.parley.ui.CallClassBadge
 import app.parley.ui.CallDurationBar
 import app.parley.ui.CallSequenceDots
@@ -70,13 +71,15 @@ internal data class RecentRowFacts(
 
 /**
  * Marks on Recents other than the call icons and the filter chips: the Filter and saved-filter chips, and what a row
- * can show next to its name and time, in the style ([rich] or [simple]) that shows it. Each one has a line in the
- * legend of that style, and [onRow] is the one place that decides which a row draws.
+ * can show next to its name and time, in the styles ([rich], [simple], [cards]) that show it. Each one has a line in
+ * the legend of those styles, and [onRow] is the one place that decides which a row draws.
  */
-internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Boolean, val simple: Boolean) {
+internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Boolean, val simple: Boolean, val cards: Boolean = rich) {
     FILTER(RecentsLegend.Section.FILTERS, rich = true, simple = true),
     SAVED_FILTER(RecentsLegend.Section.FILTERS, rich = true, simple = true),
-    ACCENT(RecentsLegend.Section.ROWS, rich = true, simple = false),
+
+    // A card's rounded corners would cut the edge bar; the card and the badge already set each row apart.
+    ACCENT(RecentsLegend.Section.ROWS, rich = true, simple = false, cards = false),
     NOT_RETURNED(RecentsLegend.Section.ROWS, rich = true, simple = false),
     COUNT(RecentsLegend.Section.ROWS, rich = true, simple = false),
     COUNT_TEXT(RecentsLegend.Section.ROWS, rich = false, simple = true),
@@ -89,26 +92,35 @@ internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Bo
     SCREENING(RecentsLegend.Section.ROWS, rich = true, simple = true),
     ;
 
-    fun shownIn(richStyle: Boolean): Boolean = if (richStyle) rich else simple
+    fun shownIn(style: RecentsStyle): Boolean = when (style) {
+        RecentsStyle.RICH -> rich
+        RecentsStyle.SIMPLE -> simple
+        RecentsStyle.CARDS -> cards
+    }
 
     companion object {
-        /** The marks [RecentRow] draws for a row in the Rich ([richStyle]) or Simple style: these, and no others. */
-        fun onRow(f: RecentRowFacts, richStyle: Boolean): Set<RecentsMark> = buildSet {
-            val attention = f.unreturned && !f.hidden
-            if (richStyle) {
-                add(ACCENT)
-                if (attention) add(NOT_RETURNED)
-                if (f.calls > 1) add(COUNT)
-                if (f.sequence) add(SEQUENCE)
-                if (f.cls.answered) add(DURATION)
-                if (attention && f.callButton) add(CALL_BACK)
-            } else {
-                if (f.calls > 1) add(COUNT_TEXT)
-                if (f.missed) add(MISSED_NAME)
-            }
+        /** The marks [RecentRow] draws for a row in [style]: these, and no others. */
+        fun onRow(f: RecentRowFacts, style: RecentsStyle): Set<RecentsMark> = buildSet {
+            if (style.rich) addAll(richMarks(f, edge = ACCENT.shownIn(style))) else addAll(simpleMarks(f))
             if (f.video) add(VIDEO)
             if (f.private) add(PRIVATE)
             if (f.screening) add(SCREENING)
+        }
+
+        /** The Rich look's own marks; [edge]: with the coloured edge (not in a card). */
+        private fun richMarks(f: RecentRowFacts, edge: Boolean): Set<RecentsMark> = buildSet {
+            val attention = f.unreturned && !f.hidden
+            if (edge) add(ACCENT)
+            if (attention) add(NOT_RETURNED)
+            if (f.calls > 1) add(COUNT)
+            if (f.sequence) add(SEQUENCE)
+            if (f.cls.answered) add(DURATION)
+            if (attention && f.callButton) add(CALL_BACK)
+        }
+
+        private fun simpleMarks(f: RecentRowFacts): Set<RecentsMark> = buildSet {
+            if (f.calls > 1) add(COUNT_TEXT)
+            if (f.missed) add(MISSED_NAME)
         }
     }
 }
@@ -117,7 +129,7 @@ internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Bo
  * Recents ⋮ › "What do the colours mean?": everything Recents draws in the style in use, in three groups. It's built
  * from the enums themselves ([CallClass] or [CallType], [RecentFilter], [RecentsMark]) with exhaustive `when`s, and
  * the rows draw their marks from [RecentsMark.onRow], so a new badge, chip or mark can't reach Recents without a line
- * here (RecentsLegendTest checks both styles).
+ * here (RecentsLegendTest checks every style).
  */
 internal object RecentsLegend {
     enum class Section(@StringRes val title: Int) {
@@ -158,9 +170,10 @@ internal object RecentsLegend {
     /** The Simple style's icon for a call of [type]. */
     fun simpleIcon(type: CallType): CallType = if (type == CallType.ANSWERED_EXTERNALLY) CallType.INCOMING else type
 
-    /** The legend for the Rich or Simple style, section by section, in the order Recents shows things. */
-    fun sections(rich: Boolean): List<Pair<Section, List<Entry>>> {
-        val marks = RecentsMark.entries.filter { it.shownIn(rich) }.map { Entry.Mark(it, rich) }
+    /** The legend for [style], section by section, in the order Recents shows things. */
+    fun sections(style: RecentsStyle): List<Pair<Section, List<Entry>>> {
+        val rich = style.rich
+        val marks = RecentsMark.entries.filter { it.shownIn(style) }.map { Entry.Mark(it, rich) }
         val calls: List<Entry> =
             if (rich) CallClass.entries.map { Entry.Badge(it) } else CallType.entries.map(::simpleIcon).distinct().map { Entry.TypeIcon(it) }
         return listOf(
@@ -171,7 +184,7 @@ internal object RecentsLegend {
     }
 
     @StringRes
-    fun footer(rich: Boolean): Int = if (rich) R.string.recents_legend_footer else R.string.recents_legend_footer_simple
+    fun footer(style: RecentsStyle): Int = if (style.rich) R.string.recents_legend_footer else R.string.recents_legend_footer_simple
 
     @StringRes
     private fun badgeMeaning(cls: CallClass): Int = when (cls) {
@@ -334,9 +347,9 @@ fun RecentsLegendHost() {
         onDismissRequest = { legendRequested.value = false },
         title = { Text(stringResource(R.string.recents_legend_title)) },
         text = {
-            val rich = richCalls()
+            val style = LocalRecentsStyle.current
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                RecentsLegend.sections(rich).forEachIndexed { i, (section, entries) ->
+                RecentsLegend.sections(style).forEachIndexed { i, (section, entries) ->
                     Text(
                         stringResource(section.title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = if (i == 0) 0.dp else 16.dp, bottom = 4.dp).semantics { heading() },
@@ -344,7 +357,7 @@ fun RecentsLegendHost() {
                     entries.forEach { LegendRow(it) }
                 }
                 Text(
-                    stringResource(RecentsLegend.footer(rich)),
+                    stringResource(RecentsLegend.footer(style)),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp),
                 )

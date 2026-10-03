@@ -39,12 +39,12 @@ import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
 import app.parley.ui.ParleyShapes
 
-/** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
+/** Rich, Simple or Cards call rows, from Settings › Recents style (provided by ParleyRoot). */
 val LocalRecentsStyle = staticCompositionLocalOf { RecentsStyle.RICH }
 
 /** Whether call rows use the rich look. */
 @Composable
-fun richCalls(): Boolean = LocalRecentsStyle.current == RecentsStyle.RICH
+fun richCalls(): Boolean = LocalRecentsStyle.current.rich
 
 /** The words for a call class: "Missed call", "No answer"… (TalkBack reads these; the legend shows them). */
 @StringRes
@@ -60,9 +60,16 @@ fun callClassLabel(cls: CallClass): Int = when (cls) {
     CallClass.UNKNOWN -> R.string.hist_type_unknown
 }
 
-/** The two Recents styles' names, in [RecentsStyle] order. */
+/** The Recents styles' names, in [RecentsStyle] order. */
 @Composable
-fun recentsStyleLabels(): List<String> = listOf(stringResource(R.string.recents_style_rich), stringResource(R.string.recents_style_simple))
+fun recentsStyleLabels(): List<String> = RecentsStyle.entries.map { stringResource(recentsStyleLabel(it)) }
+
+@StringRes
+private fun recentsStyleLabel(style: RecentsStyle): Int = when (style) {
+    RecentsStyle.RICH -> R.string.recents_style_rich
+    RecentsStyle.SIMPLE -> R.string.recents_style_simple
+    RecentsStyle.CARDS -> R.string.recents_style_cards
+}
 
 /**
  * A thin bar in the call's colour along the row's leading edge (right in right-to-left languages), drawn over the
