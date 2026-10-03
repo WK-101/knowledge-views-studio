@@ -195,7 +195,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     supportingContent = {
                         // The rich style names the call class ("No answer" for an outgoing call nobody took).
                         val typeText = if (richCalls()) callClassLabel(CallClass.of(e)) else HistoryText.callType(e.type)
-                        Text(listOfNotNull(stringResource(typeText), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
+                        val video = if (e.video) stringResource(R.string.recents_video_call) else null
+                        val length = Format.duration(e.durationSec).ifBlank { null }
+                        val parts = listOfNotNull(stringResource(typeText), video, length, e.accountId?.let { simLabels[it] })
+                        Text(parts.joinToString(" · "))
                     },
                     trailingContent = { CallLengthGlance(e) },
                 )

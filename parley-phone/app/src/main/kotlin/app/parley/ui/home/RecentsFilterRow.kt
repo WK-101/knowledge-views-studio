@@ -175,7 +175,7 @@ private fun RichFilterRow(vm: AppViewModel, filters: List<RecentFilter>, filter:
 
 /** A filter's icon: the same call badge as the calls it keeps; All has a history clock, Unknown and Contacts a person. */
 @Composable
-private fun FilterIcon(f: RecentFilter) {
+internal fun FilterIcon(f: RecentFilter) {
     val cls = f.callClass
     val icon = when (f) {
         RecentFilter.UNKNOWN -> Icons.Rounded.QuestionMark

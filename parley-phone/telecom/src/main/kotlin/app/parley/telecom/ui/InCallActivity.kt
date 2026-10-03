@@ -24,12 +24,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
+import app.parley.telecom.forLockScreen
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.R
 import app.parley.telecom.live
@@ -107,11 +109,18 @@ class InCallActivity : ComponentActivity() {
             val ringingCall = calls.firstOrNull { it.state == CallState.RINGING }
                 ?.takeIf { r -> !r.silenced && !r.systemSilenced && calls.none { it.id != r.id && it.isLive && it.state != CallState.RINGING } }
             if (look.speakCallerName) SpeakCallerName(ringingCall?.id, ringingCall?.name?.takeIf { ringingCall.contactId != null })
+            // Over the lock screen, the caller as Settings › Privacy & security › Caller on the lock screen allows.
+            val locked = rememberKeyguardLocked()
+            val incoming = stringResource(R.string.notif_incoming_call)
+            val ongoing = stringResource(R.string.notif_ongoing_call)
+            fun shown(c: CallUi) = if (!locked) c else c.forLockScreen(look.lockScreenCaller, if (c.state == CallState.RINGING) incoming else ongoing)
+            val shownCalls = remember(calls, locked, look.lockScreenCaller) { calls.map(::shown) }
+            val shownEnded = remember(ended, locked, look.lockScreenCaller) { ended?.let(::shown) }
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
-                if (inPip) PipCallCard(calls, audio, ended, look.callBackground) else InCallScreen(
-                    calls = calls,
+                if (inPip) PipCallCard(shownCalls, audio, shownEnded, look.callBackground) else InCallScreen(
+                    calls = shownCalls,
                     audio = audio,
-                    ended = ended,
+                    ended = shownEnded,
                     answerGesture = look.answerGesture,
                     quickReplies = look.quickReplies,
                     keypadOpen = keypad || showDialpad,
@@ -119,7 +128,7 @@ class InCallActivity : ComponentActivity() {
                     onAddCall = { unlockThen { startOwnScreen(deps.mainIntent(this, dialpad = true)) } },
                     onOpenContact = { c -> unlockThen { startOwnScreen(deps.contactIntent(this, c.contactId, c.number)) } },
                     onPostCall = ::onPostCall,
-                    failed = failed,
+                    failed = failed?.let(::shown),
                     onRetry = ::retry,
                     onDismissFailure = { c ->
                         CallManager.dismissFailure(c.id)

@@ -110,6 +110,9 @@ internal class CallSession(val id: String) {
     var wifiSeen = false
     var hdSeen = false
 
+    /** The call came in as a video call; Parley answers it audio-only, and the call screen says so. */
+    var videoOffered = false
+
     /** The SIM's name, remembered while connected. */
     var simLabel: String? = null
 

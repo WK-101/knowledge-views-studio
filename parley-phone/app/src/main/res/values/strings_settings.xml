@@ -77,6 +77,14 @@
     <string name="set_call_background_kw">tint, colour, color, plain, background, call screen, incoming screen, wallpaper</string>
     <string name="set_call_background_caller">Caller\'s colour</string>
     <string name="set_call_background_plain">Plain</string>
+    <!-- Settings › Privacy & security › Lock screen › Caller on the lock screen. -->
+    <string name="set_group_lock_screen">Lock screen</string>
+    <string name="set_lock_screen_caller_title">Caller on the lock screen</string>
+    <string name="set_lock_screen_caller_summary">The name, initials or just \"Incoming call\" while the phone is locked. Private contacts can hide more.</string>
+    <string name="set_lock_screen_caller_kw">lock screen, lockscreen, caller name, hide name, initials, notification, incoming call, privacy, locked</string>
+    <string name="set_lock_screen_caller_name">Name</string>
+    <string name="set_lock_screen_caller_initials">Initials</string>
+    <string name="set_lock_screen_caller_none">Just \"Incoming call\"</string>
     <string name="set_caller_photo_title">Show contact photo on the call screen</string>
     <string name="set_caller_photo_summary">The photo and call-screen picture. Each contact can override it in Settings for this contact.</string>
     <string name="set_caller_photo_kw">photo, picture, avatar, image, caller, call screen, incoming screen, hide photo</string>
@@ -287,9 +295,9 @@
     <string name="set_journal_title">History &amp; undo</string>
     <string name="set_journal_summary">Deleted contacts and calls, changes and daily snapshots: undo for 30 days</string>
     <string name="set_journal_kw">undo, trash, restore, deleted, bin, recently deleted, journal</string>
-    <string name="set_time_machine_title">Daily snapshots (time machine)</string>
+    <string name="set_time_machine_title">Daily snapshots</string>
     <string name="set_time_machine_summary">Daily snapshots for 6 months: see and undo changes</string>
-    <string name="set_time_machine_kw">snapshots, history, versions, restore</string>
+    <string name="set_time_machine_kw">snapshots, history, versions, restore, time machine</string>
     <string name="set_notification_settings_title">Notification settings</string>
     <string name="set_notification_settings_summary">Sounds and importance of Parley\'s notifications (system)</string>
     <string name="set_notification_settings_kw">sound, missed call, notification, alerts</string>

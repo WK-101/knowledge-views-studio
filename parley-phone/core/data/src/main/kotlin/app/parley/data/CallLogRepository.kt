@@ -59,7 +59,10 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
         val out = ArrayList<CallEntry>()
         cr.safeQuery(
             uri,
-            arrayOf(Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION, Calls.PHONE_ACCOUNT_ID, Calls.NEW, Calls.NUMBER_PRESENTATION),
+            arrayOf(
+                Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION, Calls.PHONE_ACCOUNT_ID, Calls.NEW,
+                Calls.NUMBER_PRESENTATION, Calls.FEATURES,
+            ),
             selection, args,
             sort = Calls.DATE + " DESC",
         )?.use { c ->
@@ -74,6 +77,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
                     accountId = c.getString(6),
                     isNew = c.getInt(7) != 0,
                     presentationHidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED,
+                    video = (c.getInt(9) and Calls.FEATURES_VIDEO) != 0,
                 )
             }
         }

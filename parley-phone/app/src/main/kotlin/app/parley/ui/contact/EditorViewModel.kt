@@ -29,7 +29,6 @@ import app.parley.data.ContactEditRebase
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.GroupInfo
-import app.parley.data.messaging.MyDetails
 import app.parley.data.vault.VaultCrypto
 import app.parley.ui.people.MeCardDetails
 import app.parley.ui.people.BackgroundChange
@@ -390,12 +389,11 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         }
     }
 
-    /** My card: saved to Parley's own copy (clearing it is allowed); "Send my details" follows its name and number. */
+    /** My card: saved to Parley's own copy (clearing it is allowed); "Send my details" reads its name and number. */
     private fun saveMeCard(e: ContactDetails) {
         val card = MeCardDetails.toCard(e)
         c.people.me.save(card)
         c.people.me.setShareParts(meParts)
-        c.messaging.setMyDetails(MyDetails(card.name, card.firstNumber.orEmpty()))
         message(R.string.me_saved)
         eventChannel.trySend(EditorEvent.Done(null))
     }

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -200,7 +202,7 @@ private fun SecondaryLine(call: CallUi) {
     val label = call.label?.let { l -> if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }
     val parts = buildList {
         label?.let(::add)
-        call.number?.takeIf { call.name != null }?.let { add(Bidi.ltr(it)) }
+        call.number?.takeIf { call.name != null && !call.lockMasked }?.let { add(Bidi.ltr(it)) }
         if (call.unknown && call.state == CallState.RINGING) {
             add(stringResource(R.string.incall_not_in_contacts))
             call.location?.let(::add)
@@ -302,6 +304,7 @@ private fun callTagSpecs(call: CallUi): List<TagSpec> {
         call.accountLabel?.takeIf { !call.state.dialling }?.let { add(TagSpec(Icons.Rounded.SimCard, it)) }
         if (connected && call.hdAudio) add(TagSpec(Icons.Rounded.Hd, stringResource(R.string.incall_hd_voice)))
         if (connected && call.wifi) add(TagSpec(Icons.Rounded.Wifi, stringResource(R.string.incall_wifi_calling)))
+        videoAsVoiceTag(call)?.let(::add)
         verificationTag(call.verification)?.let(::add)
         if (call.isEmergency) add(TagSpec(Icons.Rounded.Warning, stringResource(R.string.incall_emergency_call), warn = true))
         // The caller marked it urgent (Call Composer): their claim, shown as information, not as a warning.
@@ -313,6 +316,14 @@ private fun callTagSpecs(call: CallUi): List<TagSpec> {
     }
 }
 
+/** A video call is answered with voice only (no camera access): said plainly, not left to look broken. */
+@Composable
+private fun videoAsVoiceTag(call: CallUi): TagSpec? {
+    if (!call.videoAsVoice || call.state == CallState.DISCONNECTED) return null
+    val text = if (call.state == CallState.RINGING) R.string.incall_video_as_voice_ringing else R.string.incall_video_as_voice
+    return TagSpec(Icons.Rounded.VideocamOff, stringResource(text), spoken = stringResource(R.string.incall_video_as_voice_a11y))
+}
+
 /** "Verified number", or the "Possibly spoofed" warning. */
 @Composable
 private fun verificationTag(v: Verification): TagSpec? = when (v) {
@@ -321,7 +332,8 @@ private fun verificationTag(v: Verification): TagSpec? = when (v) {
     Verification.NOT_VERIFIED -> null
 }
 
-private class TagSpec(val icon: ImageVector, val text: String, val warn: Boolean = false)
+/** A tag's icon and words; [spoken] replaces [text] for TalkBack when the short words need more. */
+private class TagSpec(val icon: ImageVector, val text: String, val warn: Boolean = false, val spoken: String? = null)
 
 private val CallState.dialling: Boolean get() = this == CallState.DIALING || this == CallState.CONNECTING || this == CallState.NEW
 
@@ -336,7 +348,8 @@ private fun Tag(spec: TagSpec) {
         Modifier
             .clip(ParleyShapes.pill)
             .then(if (warn) Modifier.background(scheme.errorContainer) else Modifier)
-            .padding(horizontal = if (warn) Spacing.m else Spacing.xs, vertical = Spacing.xs),
+            .padding(horizontal = if (warn) Spacing.m else Spacing.xs, vertical = Spacing.xs)
+            .then(spec.spoken?.let { words -> Modifier.clearAndSetSemantics { contentDescription = words } } ?: Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, Modifier.size(16.dp), tint = ink)

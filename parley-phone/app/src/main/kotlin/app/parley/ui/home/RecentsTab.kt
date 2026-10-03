@@ -307,7 +307,7 @@ fun RecentRow(
             if (rich) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        (if (g.vaultId != null) "🔒 " else "") + g.shownTitle,
+                        (if (g.vaultId != null) "$PRIVATE_MARK " else "") + g.shownTitle,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (attention) FontWeight.Bold else null,
                         modifier = Modifier.weight(1f, fill = false),
@@ -318,8 +318,9 @@ fun RecentRow(
                     }
                 }
             } else {
+                val counted = if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
                 Text(
-                    (if (g.vaultId != null) "🔒 " else "") + (if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle),
+                    (if (g.vaultId != null) "$PRIVATE_MARK " else "") + counted,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
@@ -339,6 +340,11 @@ fun RecentRow(
                     }
                 } else {
                     CallTypeIcon(e.type, size = 20.dp)
+                }
+                // Android logged it as a video call (Parley answered it as voice).
+                if (e.video) {
+                    Spacer(Modifier.width(4.dp))
+                    VideoCallMark(contentDescription = stringResource(R.string.recents_video_call))
                 }
                 Spacer(Modifier.width(6.dp))
                 val location = rememberNumberLocation(g.number, countryIso, enabled = g.contact == null && g.vaultId == null && !g.hidden)

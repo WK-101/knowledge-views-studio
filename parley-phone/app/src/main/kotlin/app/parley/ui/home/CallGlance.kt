@@ -1,31 +1,22 @@
 package app.parley.ui.home
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -39,17 +30,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.ux.CallClass
 import app.parley.common.ux.CallGlance
 import app.parley.common.ux.RecentsStyle
-import app.parley.ui.CallClassBadge
 import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
-import kotlinx.coroutines.flow.MutableStateFlow
-import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyShapes
 
 /** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
@@ -71,20 +58,6 @@ fun callClassLabel(cls: CallClass): Int = when (cls) {
     CallClass.NO_ANSWER -> R.string.recents_class_no_answer
     CallClass.BLOCKED -> R.string.hist_type_blocked
     CallClass.UNKNOWN -> R.string.hist_type_unknown
-}
-
-/** What each badge means, for the legend. */
-@StringRes
-private fun callClassMeaning(cls: CallClass): Int = when (cls) {
-    CallClass.MISSED -> R.string.recents_legend_missed
-    CallClass.DECLINED -> R.string.recents_legend_declined
-    CallClass.INCOMING -> R.string.recents_legend_incoming
-    CallClass.ANSWERED_ELSEWHERE -> R.string.recents_legend_elsewhere
-    CallClass.VOICEMAIL -> R.string.recents_legend_voicemail
-    CallClass.OUTGOING -> R.string.recents_legend_outgoing
-    CallClass.NO_ANSWER -> R.string.recents_legend_no_answer
-    CallClass.BLOCKED -> R.string.recents_legend_blocked
-    CallClass.UNKNOWN -> R.string.recents_legend_unknown
 }
 
 /** The two Recents styles' names, in [RecentsStyle] order. */
@@ -153,50 +126,4 @@ fun CallLengthGlance(e: CallEntry) {
         cls.answered -> CallDurationBar(CallGlance.durationFraction(e.durationSec), cls)
         cls == CallClass.NO_ANSWER -> Text(stringResource(R.string.recents_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue))
     }
-}
-
-/** A badge with its words, for a list of call classes (the legend). */
-@Composable
-private fun LegendRow(cls: CallClass) {
-    Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        CallClassBadge(cls, size = 32.dp)
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(stringResource(callClassLabel(cls)), style = MaterialTheme.typography.bodyLarge)
-            Text(stringResource(callClassMeaning(cls)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-private val legendRequested = MutableStateFlow(false)
-
-/** Recents ⋮ › "What do the colours mean?". */
-@Composable
-fun RecentsLegendMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem({ Text(stringResource(R.string.recents_legend_menu)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) }, onClick = {
-        closeMenu()
-        legendRequested.value = true
-    })
-}
-
-/** Shows the legend when asked from the Recents ⋮ menu. */
-@Composable
-fun RecentsLegendHost() {
-    val shown by legendRequested.collectAsStateWithLifecycle()
-    if (!shown) return
-    ParleyDialog(
-        onDismissRequest = { legendRequested.value = false },
-        title = { Text(stringResource(R.string.recents_legend_title)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                CallClass.entries.filter { it != CallClass.UNKNOWN }.forEach { LegendRow(it) }
-                Text(
-                    stringResource(R.string.recents_legend_footer),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-        },
-        confirmButton = { TextButton({ legendRequested.value = false }) { Text(stringResource(R.string.main_close)) } },
-    )
 }

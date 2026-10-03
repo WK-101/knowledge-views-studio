@@ -103,10 +103,13 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | App lock | App lock `app_lock` · Lock again after `lock_after` · Unlock with `app_lock_method` ↗ (in it: Parley PIN `parley_pin`, Duress PIN `duress_pin`, Keep private details locked `duress_lock_vault`) · Hide screen content `secure_screen` |
+| Lock screen | Caller on the lock screen `lock_screen_caller` (Name) |
 | Family safety | Family safe word `family_safe_word` ↗ (set on a label's page) |
 | Private contacts | Hide private contacts `hide_vault` · Private call history `private_history` |
 | Your data | Privacy dashboard `privacy_dashboard` · Who can see your contacts `who_can_see` · Let apps show private names `private_names` |
 | Advanced | Private names in other phone apps `private_directory` · App permissions (system) `app_permissions` |
+
+**Caller on the lock screen** (`lock_screen_caller`, *Name* by default, as before): what the incoming and ongoing call notifications and the call screen show about the caller while the phone is locked. *Initials* shows only the initials of a saved name ("AL"), with no photo, number, label, pronouns, notes or subject; an unknown number still shows its number. *Just "Incoming call"* shows nothing about who it is ("Ongoing call" once answered). Once you unlock, everything shows again. With Initials or Just "Incoming call" the notifications are also marked private, so a lock screen set to hide sensitive content shows the same short version. Emergency calls always show in full. Private contacts and discreet mode can only hide more: this setting never brings back a name they hide.
 
 **Duress unlock** (WP-20, nothing on by default; threat model in [SECURITY_MODEL.md](SECURITY_MODEL.md#duress-unlock)):
 - **Unlock with** (`app_lock_method`, with the app lock on): "Fingerprint or screen lock" (as before) or **Parley PIN** (`parley_pin`): 4–12 digits, kept as a sealed scrypt hash in `no_backup/app_pin`, never in backups (a new phone sets its own). Changing either PIN asks for the fingerprint or screen lock first. Wrong PINs: five free tries, then 30 s doubling to an hour.
@@ -117,7 +120,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) · Remind me to back up `backup_reminder` · Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export notes as Markdown `markdown_export` |
-| Undo | History & undo `journal` ↗ · Daily snapshots (time machine) `time_machine` ↗ (History & undo › Snapshots) |
+| Undo | History & undo `journal` ↗ · Daily snapshots `time_machine` ↗ (History & undo › Snapshots) |
 
 **Shared labels** (`shared_labels`, a screen of its own reached from Sync between your phones, and searchable as "family phonebook"; nothing is shared until you choose a label's ⋮ › Share this label…): every label shared with other people's phones, each with its own folder and passphrase, and **Join a shared label** (`shared_labels_join`) from an invitation file or a QR code. The label page shows each shared label's members, changes ("Ana changed Dr Lee's number · 2 days ago") and contacts changed on two phones. Runs with the folder sync's schedule (shortly after start, after a change to the address book, hourly), whether or not "Sync between your phones" is set up. Kept on this phone only, sealed (`no_backup/shared_labels`: a new phone joins again with an invitation). See [SHARED_LABELS.md](SHARED_LABELS.md).
 

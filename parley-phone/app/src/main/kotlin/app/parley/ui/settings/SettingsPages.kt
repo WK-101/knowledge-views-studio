@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
@@ -125,6 +126,7 @@ import app.parley.common.ThemeMode
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.ux.BackupNudge
 import app.parley.common.ux.CallScreenBackground
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.ux.RecentsStyle
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
@@ -680,6 +682,17 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
             linkRow("app_lock_method", Icons.Rounded.Dialpad, sub = unlockWith) { open(AppLockRoutes.UnlockWith) }
         }
         switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
+    }
+    // How much of a caller's name call notifications and the call screen show while the phone is locked.
+    val lockCallerLabels = listOf(
+        stringResource(R.string.set_lock_screen_caller_name),
+        stringResource(R.string.set_lock_screen_caller_initials),
+        stringResource(R.string.set_lock_screen_caller_none),
+    )
+    SegmentedGroup(stringResource(R.string.set_group_lock_screen)) {
+        choiceRow("lock_screen_caller", lockCallerLabels, s.lockScreenCaller.ordinal, Icons.Rounded.ScreenLockPortrait) { i ->
+            set { it.copy(lockScreenCaller = LockScreenCaller.entries[i]) }
+        }
     }
     // The family safe word, by label (WP-8).
     FamilySafetyPrivacyGroup(open)

@@ -65,4 +65,27 @@ class MeCardsTest {
         assertEquals(card.cleaned().profiles, read.mapNotNull { SocialProfiles.fromWebsite(it[Col.D1]!!, it[Col.D2]?.toInt(), it[Col.D3]) })
         assertEquals(card.cleaned().profiles, MeCards.merge(card, MeCard(name = "x")).profiles)
     }
+
+    @Test fun the_quick_edit_sets_the_name_and_first_number_and_keeps_the_rest() {
+        val card = MeCard(name = "Ana", phones = listOf("+44 7700 900123", "+44 20 7946 0000"), emails = listOf("ana@x.org"), company = "Acme")
+        val renamed = MeCards.withNameAndNumber(card, " Ana Lima ", "+447700900123")
+        assertEquals("Ana Lima", renamed.name)
+        assertEquals(listOf("+447700900123", "+44 20 7946 0000"), renamed.phones)
+        assertEquals(listOf("ana@x.org"), renamed.emails)
+        assertEquals("Acme", renamed.company)
+        // A new number replaces the first; the second one, typed again, moves up.
+        assertEquals(listOf("+33 6 12 34 56 78", "+44 20 7946 0000"), MeCards.withNameAndNumber(card, "Ana", "+33 6 12 34 56 78").phones)
+        assertEquals(listOf("+442079460000", "+44 7700 900123"), MeCards.withNameAndNumber(card, "Ana", "+442079460000").phones)
+        assertEquals(listOf("+44 20 7946 0000"), MeCards.withNameAndNumber(card, "Ana", " ").phones)
+        assertEquals(listOf("+1 555"), MeCards.withNameAndNumber(MeCard(), "", "+1 555").phones)
+    }
+
+    @Test fun old_my_details_fold_into_my_card_without_losing_anything() {
+        assertEquals(MeCard(name = "Ana", phones = listOf("+44 7700 900123")), MeCards.absorbMyDetails(MeCard(), " Ana ", " +44 7700 900123 "))
+        val card = MeCard(name = "Ana", phones = listOf("+44 7700 900123"), emails = listOf("ana@x.org"))
+        // Edited later in the old dialog: those values win; empty ones never clear the card.
+        assertEquals(card.copy(name = "Ana Lima", phones = listOf("+33 6 12 34 56 78")), MeCards.absorbMyDetails(card, "Ana Lima", "+33 6 12 34 56 78"))
+        assertEquals(card, MeCards.absorbMyDetails(card, "", ""))
+        assertEquals(card, MeCards.absorbMyDetails(card, "Ana", "+447700900123").copy(phones = card.phones))
+    }
 }

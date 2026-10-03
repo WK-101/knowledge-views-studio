@@ -25,7 +25,7 @@ class FakeCallLogProvider : ContentProvider() {
         db.execSQL(
             "CREATE TABLE calls (_id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT, date INTEGER NOT NULL DEFAULT 0, duration INTEGER NOT NULL DEFAULT 0, " +
                 "type INTEGER NOT NULL DEFAULT 0, presentation INTEGER NOT NULL DEFAULT 1, subscription_id TEXT, subscription_component_name TEXT, " +
-                "name TEXT, new INTEGER NOT NULL DEFAULT 0, is_read INTEGER NOT NULL DEFAULT 0)",
+                "name TEXT, new INTEGER NOT NULL DEFAULT 0, is_read INTEGER NOT NULL DEFAULT 0, features INTEGER NOT NULL DEFAULT 0)",
         )
         return true
     }

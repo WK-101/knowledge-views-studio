@@ -7,13 +7,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
-import java.io.PrintWriter
-import java.io.StringWriter
 
 /**
  * Opt-in local crash capture. When "Keep crash reports" is on, the last uncaught exception is written to
- * Parley's private storage (before the process dies) and offered on the next start: share it by e-mail or any app
- * (numbers and e-mail addresses masked), or dismiss it. Nothing is sent by Parley, which has no internet access.
+ * Parley's private storage (before the process dies) and offered on the next start: share it by email or any app
+ * (exception messages left out, numbers and email addresses masked), or dismiss it. Nothing is sent by Parley, which has no internet access.
  * Off by default; turning it off deletes a stored report.
  */
 class CrashStore(context: Context) {
@@ -37,13 +35,12 @@ class CrashStore(context: Context) {
     }
 
     private fun store(thread: Thread, error: Throwable) {
-        val sw = StringWriter()
-        error.printStackTrace(PrintWriter(sw))
         val version = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty()
         val o = JSONObject()
             .put("t", System.currentTimeMillis())
             .put("th", thread.name)
-            .put("s", Reports.trimStack(sw.toString()))
+            // Class names and frames only: an exception's message can hold a number or a name.
+            .put("s", Reports.trimStack(Reports.scrubbedStack(error)))
             .put("v", version)
             .put("a", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
         // commit(): the process is about to die, an asynchronous write could be lost.

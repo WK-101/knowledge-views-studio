@@ -135,7 +135,9 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(if (ringing.silenced) R.string.incall_waiting_call_silenced else R.string.incall_waiting_call), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(ringing.displayTitle, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        val sub = listOfNotNull(ringing.label, ringing.number?.takeIf { ringing.name != null }?.let(Bidi::ltr), ringing.accountLabel, ringing.location).joinToString(stringResource(R.string.tc_separator))
+                        val shownNumber = ringing.number?.takeIf { ringing.name != null && !ringing.lockMasked }?.let(Bidi::ltr)
+                        val sub = listOfNotNull(ringing.label, shownNumber, ringing.accountLabel, ringing.location)
+                            .joinToString(stringResource(R.string.tc_separator))
                         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

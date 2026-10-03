@@ -667,6 +667,7 @@ object CallManager {
             blockingDecline = s.blockingDecline,
             hdAudio = d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             wifi = d.hasProperty(Call.Details.PROPERTY_WIFI),
+            videoAsVoice = s.videoOffered || incomingVideo(d),
             pronouns = found?.pronouns,
             autoAnswerAt = if (state == CallState.RINGING) s.autoAnswerAt else 0,
             subject = s.subject,
@@ -705,8 +706,13 @@ object CallManager {
      * What a call reports while it goes on, kept for its facts: Wi-Fi calling, HD voice and the SIM while connected
      * (Telecom clears them as the call ends), and the caller's subject and priority, which some networks send late.
      */
+    /** An incoming call offered with video (answered audio-only all the same). */
+    private fun incomingVideo(d: Call.Details): Boolean = d.callDirection == Call.Details.DIRECTION_INCOMING && VideoProfile.isVideo(d.videoState)
+
     private fun noteFacts(c: Call, s: CallSession, st: CallState) {
         val d = c.details
+        // Kept once seen: answering audio-only turns the call's video state off.
+        if (incomingVideo(d)) s.videoOffered = true
         if (st == CallState.ACTIVE || st == CallState.HOLDING) {
             if (d.hasProperty(Call.Details.PROPERTY_WIFI)) s.wifiSeen = true
             if (d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO)) s.hdSeen = true
@@ -955,6 +961,7 @@ object CallManager {
     fun answer(id: String) {
         if (sessions[id]?.blockingDecline == true) return
         val call = find(id) ?: return
+        // Always audio-only: video needs the camera, which Parley doesn't ask for. A video call says so on screen.
         call.answer(VideoProfile.STATE_AUDIO_ONLY)
         answered(id)
     }

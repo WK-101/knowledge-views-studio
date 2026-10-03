@@ -281,7 +281,7 @@ internal fun CallMoreSheet(
         if (onCopyNumber != null) {
             ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.incall_copy_number)) },
-                supportingContent = call.number?.let { n -> { Text(Bidi.ltr(n)) } },
+                supportingContent = call.number?.takeIf { !call.lockMasked }?.let { n -> { Text(Bidi.ltr(n)) } },
                 leadingContent = { Icon(Icons.Rounded.ContentCopy, null) },
                 colors = rowColors(),
                 modifier = Modifier.clickable { onDismiss(); onCopyNumber() },
