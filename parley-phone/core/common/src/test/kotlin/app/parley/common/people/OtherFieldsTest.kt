@@ -19,7 +19,8 @@ class OtherFieldsTest {
         )
         val fields = OtherFields.describe(rows) { it.mimeType.contains("whatsapp") }
         assertEquals(
-            listOf("File as" to "Smith, Anna", "Shoe size" to "38", "Pet name" to "Rex"),
+            // Google's custom fields are edited now (CustomFields), so they aren't "other" fields.
+            listOf("File as" to "Smith, Anna", "Pet name" to "Rex"),
             fields.map { it.label to it.value },
         )
     }

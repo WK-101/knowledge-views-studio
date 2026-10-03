@@ -26,8 +26,8 @@ class ContactCsvTest {
 
     @Test fun header_has_the_fixed_columns() {
         val h = ContactCsv.header(ContactCsv.Slots(2, 1, 1))
-        assertEquals(listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title"), h.take(8))
-        assertEquals(listOf("Phone 1 Type", "Phone 1 Value", "Phone 2 Type", "Phone 2 Value", "Email 1 Type", "Email 1 Value"), h.subList(8, 14))
+        assertEquals(listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title", "Department"), h.take(9))
+        assertEquals(listOf("Phone 1 Type", "Phone 1 Value", "Phone 2 Type", "Phone 2 Value", "Email 1 Type", "Email 1 Value"), h.subList(9, 15))
         assertEquals(listOf("Birthday", "Notes", "Groups"), h.takeLast(3))
     }
 

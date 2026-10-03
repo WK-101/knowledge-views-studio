@@ -10,18 +10,24 @@ object EditorForm {
      * The editor's groups that can be added or hidden. The first seven are the original optional kinds; the rest joined
      * when the editor started showing only what a contact holds (plus name and phone), so a new contact is short.
      * Names are kept in saved state, so entries are only ever appended. PROFILE: social and professional profiles
-     * (Instagram, LinkedIn…), kept as labelled website rows ([SocialProfiles]).
+     * (Instagram, LinkedIn…), kept as labelled website rows ([SocialProfiles]). CUSTOM_FIELD: label-and-value fields
+     * ([CustomFields]); LANGUAGE: the language to use with them ([Languages]).
      */
-    enum class Kind { NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL, PROFILE }
+    enum class Kind {
+        NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL, PROFILE,
+        CUSTOM_FIELD, LANGUAGE,
+    }
 
     /** The "Add" chips' order: the commonest kinds first, so the ones people want are visible without scrolling. */
     val chipOrder: List<Kind> = listOf(
         Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE,
-        Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS,
+        Kind.CUSTOM_FIELD, Kind.LANGUAGE, Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS,
     )
 
     /** Kinds that hold several rows: their chip stays after the group is shown and adds another row. */
-    val repeatable: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE)
+    val repeatable: Set<Kind> = setOf(
+        Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE, Kind.CUSTOM_FIELD,
+    )
 
     /**
      * The "Add" chips, the editor's one add control: every [allowed] kind not on screen yet ([shown]), plus the

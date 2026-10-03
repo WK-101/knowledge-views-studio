@@ -1,0 +1,2 @@
+# Golden CSV files: compared byte for byte (CRLF line ends included), so git must not convert them.
+*.csv -text

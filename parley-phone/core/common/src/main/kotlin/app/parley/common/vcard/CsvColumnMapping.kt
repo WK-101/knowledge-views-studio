@@ -26,6 +26,7 @@ enum class CsvField {
     EMAIL_LABEL,
     ORG,
     TITLE,
+    DEPARTMENT,
     ADDRESS,
     WEBSITE,
     BIRTHDAY,
@@ -63,7 +64,8 @@ object CsvColumnMapping {
         add(ColumnTarget(CsvField.EMAIL))
         listOf(1, 2, 3).forEach { add(ColumnTarget(CsvField.EMAIL, it)) }
         add(ColumnTarget(CsvField.EMAIL_LABEL))
-        listOf(CsvField.ORG, CsvField.TITLE, CsvField.ADDRESS, CsvField.WEBSITE, CsvField.BIRTHDAY, CsvField.NOTES, CsvField.LABELS).forEach { add(ColumnTarget(it)) }
+        listOf(CsvField.ORG, CsvField.TITLE, CsvField.DEPARTMENT, CsvField.ADDRESS, CsvField.WEBSITE, CsvField.BIRTHDAY, CsvField.NOTES, CsvField.LABELS)
+            .forEach { add(ColumnTarget(it)) }
     }
 
     /** Which well-known layout a header comes from, for the screen's "Looks like a Google export" line. */
@@ -126,6 +128,9 @@ object CsvColumnMapping {
         return out.map { it ?: ColumnTarget.IGNORED }
     }
 
+    /** Google's numbered columns that are read (the other numbered ones are ignored). */
+    private val KEPT_NUMBERED = listOf("organization1name", "organization1title", "organization1department", "address1formatted")
+
     private val NAME_FIELDS = setOf(CsvField.FULL_NAME, CsvField.GIVEN, CsvField.FAMILY, CsvField.MIDDLE)
 
     private fun byName(n: String, outlookTitle: Boolean): ColumnTarget? {
@@ -138,9 +143,8 @@ object CsvColumnMapping {
         Regex("^e?mail\\d+(type|label)$").find(n)?.let { return t(CsvField.EMAIL_LABEL) }
         Regex("^e?mail\\d+value$").find(n)?.let { return t(CsvField.EMAIL) }
         Regex("^(website|web)\\d+value$").find(n)?.let { return t(CsvField.WEBSITE) }
-        if (Regex("^(website|web|address|relation|event|im|organization|customfield|externalid|location)\\d*(type|label|\\d)").containsMatchIn(n) &&
-            !n.startsWith("organization1name") && !n.startsWith("organization1title") && !n.startsWith("address1formatted")
-        ) return t(CsvField.IGNORE)
+        val numbered = Regex("^(website|web|address|relation|event|im|organization|customfield|externalid|location)\\d*(type|label|\\d)").containsMatchIn(n)
+        if (numbered && KEPT_NUMBERED.none { n.startsWith(it) }) return t(CsvField.IGNORE)
         return when (n) {
             "name", "fullname", "displayname", "contactname", "contact", "names", "nomcomplet", "nombre", "nome", "naam", "имя", "фио" -> t(CsvField.FULL_NAME)
             "givenname", "firstname", "first", "forename", "vorname", "prenom", "prénom", "nombrepila", "voornaam" -> t(CsvField.GIVEN)
@@ -172,6 +176,7 @@ object CsvColumnMapping {
             "emaildisplayname", "email2displayname", "email3displayname", "emailtype", "email2type", "email3type" -> t(CsvField.IGNORE)
             "company", "organization", "organisation", "organizationname", "organization1name", "org", "firma", "empresa", "société", "societe", "entreprise" -> t(CsvField.ORG)
             "jobtitle", "organizationtitle", "organization1title", "position", "role" -> t(CsvField.TITLE)
+            "department", "organizationdepartment", "organization1department", "dept", "abteilung", "departement", "departamento" -> t(CsvField.DEPARTMENT)
             "notes", "note", "comment", "comments", "remarks", "notiz", "notizen" -> t(CsvField.NOTES)
             "birthday", "birthdate", "dateofbirth", "dob", "geburtstag", "anniversaire", "cumpleaños" -> t(CsvField.BIRTHDAY)
             "labels", "label", "groupmembership", "categories", "category", "groups", "group", "tags", "gruppe" -> t(CsvField.LABELS)
@@ -242,6 +247,7 @@ object CsvColumnMapping {
         val notes = ArrayList<String>()
         var org = ""
         var title = ""
+        var department = ""
         mapping.forEachIndexed { i, target ->
             val v = cell(i)
             if (v.isEmpty()) return@forEachIndexed
@@ -259,6 +265,7 @@ object CsvColumnMapping {
                 }
                 CsvField.ORG -> if (org.isEmpty()) org = v
                 CsvField.TITLE -> if (title.isEmpty()) title = v
+                CsvField.DEPARTMENT -> if (department.isEmpty()) department = v
                 CsvField.ADDRESS -> split(v).forEach { put(Mime.POSTAL, Col.D1 to it, Col.D2 to "3") }
                 CsvField.WEBSITE -> split(v).forEach { put(Mime.WEBSITE, Col.D1 to it, Col.D2 to "7") }
                 CsvField.BIRTHDAY -> put(Mime.EVENT, Col.D1 to VCardMapper.normalizeDate(v), Col.D2 to "3")
@@ -267,7 +274,7 @@ object CsvColumnMapping {
                 else -> Unit
             }
         }
-        if (org.isNotEmpty() || title.isNotEmpty()) put(Mime.ORG, Col.D1 to org, Col.D4 to title)
+        if (org.isNotEmpty() || title.isNotEmpty() || department.isNotEmpty()) put(Mime.ORG, Col.D1 to org, Col.D4 to title, Col.D5 to department)
         if (notes.isNotEmpty()) put(Mime.NOTE, Col.D1 to notes.joinToString("\n"))
         // Labels alone don't make a contact.
         if (rows.none { it.mimeType != Mime.GROUP }) return null

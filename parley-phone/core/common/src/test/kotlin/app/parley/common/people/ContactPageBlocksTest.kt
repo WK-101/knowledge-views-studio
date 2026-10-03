@@ -13,7 +13,7 @@ class ContactPageBlocksTest {
     @Test fun defaults_join_contact_info_and_about_into_one_group_each() {
         val blocks = ContactPageLayout().blocks(all)
         assertEquals(
-            listOf("stay", "phones+emails+addresses+messengers+profiles", "dates+about+note", "timeline", "insights", "other", "settings"),
+            listOf("stay", "phones+emails+addresses+messengers+profiles", "dates+about+more+note", "timeline", "insights", "other", "settings"),
             blocks.map { it.key },
         )
         assertEquals(SectionFamily.CONTACT_INFO, blocks[1].family)
@@ -37,7 +37,7 @@ class ContactPageBlocksTest {
     @Test fun a_section_moved_away_from_its_family_stays_apart() {
         val l = ContactPageLayout().let { it.moved(it.order.indexOf(ContactSection.EMAILS), it.order.indexOf(ContactSection.TIMELINE)) }
         assertEquals(
-            listOf("stay", "phones+addresses+messengers+profiles", "dates+about+note", "timeline", "emails", "insights", "other", "settings"),
+            listOf("stay", "phones+addresses+messengers+profiles", "dates+about+more+note", "timeline", "emails", "insights", "other", "settings"),
             l.keys(),
         )
     }
@@ -73,6 +73,6 @@ class ContactPageBlocksTest {
         assertEquals(ContactSection.TIMELINE, l.order[0])
         assertEquals(ContactSection.DATES, l.order[2])
         // Dates sits before the contact info here, so it isn't joined with About.
-        assertEquals(listOf("timeline", "stay", "dates", "phones+emails+addresses+messengers+profiles", "about"), l.keys().take(5))
+        assertEquals(listOf("timeline", "stay", "dates", "phones+emails+addresses+messengers+profiles", "about+more"), l.keys().take(5))
     }
 }

@@ -4,7 +4,7 @@ import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 
 /**
- * Data rows Parley doesn't edit (Google's "File as", user-defined fields, identity rows, any app's own kinds),
+ * Data rows Parley doesn't edit (Google's "File as", identity rows, any app's own kinds),
  * turned into read-only label/value lines for the contact page, so nothing looks lost. Rows Parley shows elsewhere
  * (the kinds it edits, photos, labels, handles) and messenger apps' own action rows are left out.
  */
@@ -12,7 +12,7 @@ object OtherFields {
     data class Field(val label: String, val value: String, val mimeType: String)
 
     const val GOOGLE_FILE_AS = "vnd.com.google.cursor.item/contact_file_as"
-    const val GOOGLE_USER_FIELD = "vnd.com.google.cursor.item/contact_user_defined_field"
+    const val GOOGLE_USER_FIELD = Mime.GOOGLE_CUSTOM_FIELD
     const val GOOGLE_EXTERNAL_ID = "vnd.com.google.cursor.item/contact_external_id"
     const val GOOGLE_MISC = "vnd.com.google.cursor.item/contact_misc"
     const val GOOGLE_JOT = "vnd.com.google.cursor.item/contact_jot"
