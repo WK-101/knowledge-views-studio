@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Contacts search over every field, and its filters. -->
+<resources>
+    <!-- "Matched: …" names the field a contact was found by (see search_matched). -->
+    <string name="search_field_phonetic">phonetic name</string>
+    <string name="search_field_relation">relation</string>
+    <string name="search_field_date">date</string>
+    <string name="search_field_label">label</string>
+    <string name="search_field_pronouns">pronouns</string>
+    <string name="search_field_language">language</string>
+    <string name="search_field_account">account</string>
+
+    <string name="cs_filters">Filters</string>
+    <string name="cs_filters_count">Filters · %1$d</string>
+    <string name="cs_filter_title">Filter contacts</string>
+    <string name="cs_filter_hint">Choose as many as you like. Contacts must match one choice in each group.</string>
+    <string name="cs_remove_filter">Remove filter: %1$s</string>
+    <string name="cs_clear">Clear filters</string>
+    <plurals name="cs_show_results">
+        <item quantity="one">Show %d contact</item>
+        <item quantity="other">Show %d contacts</item>
+    </plurals>
+    <string name="cs_show_all">Show all</string>
+    <string name="cs_show_fewer">Show fewer</string>
+
+    <string name="cs_group_kept">Private and temporary</string>
+    <string name="cs_group_country">Country</string>
+    <string name="cs_group_place">City or region</string>
+    <string name="cs_group_company">Company</string>
+    <string name="cs_group_birthday">Birthday</string>
+    <string name="cs_group_relation">Relation</string>
+    <string name="cs_group_language">Language</string>
+    <string name="cs_group_custom">Custom field</string>
+    <string name="cs_group_has">Has</string>
+    <string name="cs_group_missing">Missing info</string>
+
+    <string name="cs_temporary">Temporary</string>
+    <string name="cs_has_email">Has an email</string>
+    <string name="cs_has_address">Has an address</string>
+    <string name="cs_has_photo">Has a photo</string>
+    <string name="cs_has_birthday">Has a birthday</string>
+    <string name="cs_birthday_in">Birthday in %1$s</string>
+    <string name="cs_no_number">No number</string>
+    <string name="cs_no_name">No name</string>
+    <string name="cs_custom_value">Has “%1$s”</string>
+
+    <string name="cs_private_locked">Private contacts are searched by name and number until you unlock them.</string>
+    <string name="cs_private_unlock">Unlock</string>
+</resources>

@@ -39,7 +39,8 @@ import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 
 /**
- * Contacts-tab filter row: All · Private · Unlabelled · labels (multi-select, AND/OR) · account, plus shortcuts
+ * Contacts-tab filter row: All · Filters (while searching or filtering) · Private · Unlabelled · labels (multi-select,
+ * AND/OR) · account, plus shortcuts
  * to the selected label's page, to label management and to the city scope ("Who's in…").
  */
 @Composable
@@ -57,6 +58,8 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
+        // Filters (country, company, birthday…) and the ones in use, next to the search.
+        ContactFieldFilterChips(vm, vaultHidden)
         // While a word is searched, the city scope comes first: the people tied to that city.
         if (cityQuery != null) CityChip(vm, cityQuery, open)
         if (!vaultHidden) {

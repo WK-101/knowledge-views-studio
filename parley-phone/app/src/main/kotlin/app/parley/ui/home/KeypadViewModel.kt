@@ -101,11 +101,12 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
 
     val searchQuery = MutableStateFlow("")
 
-    private val contactIndex = directory.contacts.map { list -> TextSearchIndex(list.orEmpty(), { it.displayName }, { ct -> ct.phones.map { it.number } }) }
+    private val contactIndex = directory.contacts
+        .map { list -> TextSearchIndex(list.orEmpty(), { it.displayName }, { ct -> ct.phones.map { it.number } }, countryIso) }
         .flowOn(Dispatchers.Default)
     private val vaultIndex = combine(
         c.vault.contacts, hideVault,
-    ) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list, { it.name }, { it.numbers }) }
+    ) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list, { it.name }, { it.numbers }, countryIso) }
         .flowOn(Dispatchers.Default)
 
     /** Matches for [searchQuery]; null until the first search has run. */

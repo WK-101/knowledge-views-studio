@@ -180,7 +180,7 @@ device contact's link to a private one.
 | Temporary: make temporary, change date, keep permanently | Yes | Expiry menu | Yes, same rows |
 | Delete | Yes (History & undo) | Yes | Yes, with "Deleted private contacts" in History & undo: a sealed copy for 30 days (with the photo as picked and the relations other contacts link to it), listed after the vault's unlock, restored whole. When the copy can't be kept nothing is deleted, and "Delete without a copy" is offered |
 | Editor | Full | Full fields, no call-screen picture | Full, plus call-screen picture and relation links |
-| Contacts list, search | Yes | Separate "Private" view | **In the one list** with a lock badge; the "Private" chip is a filter; selectable |
+| Contacts list, search | Yes | Separate "Private" view | **In the one list** with a lock badge; the "Private" chip is a filter; selectable. Search and filters reach every field while its details are open (kept in memory only, `PrivateSearch`), name and number otherwise |
 | Keypad results, T9 | Yes | Separate rows with an emoji lock | Same rows as contacts with the lock badge |
 | Caller ID, missed calls, lock screen | Yes | Yes | **Unchanged** (caller-ID copy; discreet mode shows only the number) |
 | Other apps (ContactDirectory, private-name lookup for approved apps) | Address book | Approved-app lookup only | **Unchanged** |
