@@ -314,6 +314,8 @@ object SettingsCatalog {
             "After the duress PIN, private contacts' details stay locked until your Parley PIN", S,
             "duress", "vault", "lock", "private contacts", "details"),
         e("secure_screen", "Hide screen content", "Blocks screenshots and hides Parley in the recent-apps view", S, "screenshot", "recents", "secure", "flag secure"),
+        e("lock_screen_caller", "Caller on the lock screen", "The name, initials or just \"Incoming call\" while the phone is locked", S,
+            "lock screen", "lockscreen", "caller name", "hide name", "initials", "notification", "incoming call", "privacy", "locked"),
         e("family_safe_word", "Family safe word", "A private question for callers who say they're family, set on a label's page", S,
             "safe word", "scam", "grandparent", "impostor", "voice clone", "family", "question"),
         e("hide_vault", "Hide private contacts", "Discreet mode: private contacts and their calls disappear from lists and search", S, "vault", "discreet", "private", "hidden"),
@@ -333,7 +335,10 @@ object SettingsCatalog {
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
         e("journal", "History & undo", "Deleted contacts and calls, changes and daily snapshots: undo for 30 days", U,
             "undo", "trash", "restore", "deleted", "bin", "recently deleted", "journal"),
-        e("time_machine", "Daily snapshots (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),
+        e(
+            "time_machine", "Daily snapshots", "Daily snapshots for 6 months: see and undo changes", U,
+            "snapshots", "history", "versions", "restore", "time machine",
+        ),
         e("markdown_export", "Export notes as Markdown", "One .md file per person with notes and timeline, to a folder you choose", U,
             "markdown", "md", "obsidian", "notes", "logseq", "export", "folder", "timeline"),
 

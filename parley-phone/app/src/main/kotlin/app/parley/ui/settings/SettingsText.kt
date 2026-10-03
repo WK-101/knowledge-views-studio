@@ -123,6 +123,7 @@ object SettingsText {
         "duress_pin" to Triple(R.string.set_duress_pin_title, R.string.set_duress_pin_summary, R.string.set_duress_pin_kw),
         "duress_lock_vault" to Triple(R.string.set_duress_lock_vault_title, R.string.set_duress_lock_vault_summary, R.string.set_duress_lock_vault_kw),
         "secure_screen" to Triple(R.string.set_secure_screen_title, R.string.set_secure_screen_summary, R.string.set_secure_screen_kw),
+        "lock_screen_caller" to Triple(R.string.set_lock_screen_caller_title, R.string.set_lock_screen_caller_summary, R.string.set_lock_screen_caller_kw),
         "family_safe_word" to Triple(R.string.set_family_safe_word_title, R.string.set_family_safe_word_summary, R.string.set_family_safe_word_kw),
         "call_helpers" to Triple(R.string.set_call_helpers_title, R.string.set_call_helpers_summary, R.string.set_call_helpers_kw),
         "drive_profile" to Triple(R.string.set_drive_profile_title, R.string.set_drive_profile_summary, R.string.set_drive_profile_kw),

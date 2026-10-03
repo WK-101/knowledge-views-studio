@@ -928,7 +928,7 @@ private fun ConferenceSheet(conference: CallUi, onDismiss: () -> Unit) {
         conference.children.forEach { child ->
             ParleyListItem(
                 headlineContent = { Text(child.displayTitle) },
-                supportingContent = child.number?.takeIf { child.name != null }?.let { n -> { Text(Bidi.ltr(n)) } },
+                supportingContent = child.number?.takeIf { child.name != null && !child.lockMasked }?.let { n -> { Text(Bidi.ltr(n)) } },
                 leadingContent = { Avatar(child.title, child.photoUri, 40.dp) },
                 colors = rowColors(),
                 trailingContent = {

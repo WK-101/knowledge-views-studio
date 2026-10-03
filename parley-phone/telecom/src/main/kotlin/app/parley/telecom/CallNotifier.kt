@@ -1,12 +1,15 @@
 package app.parley.telecom
 
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
@@ -15,11 +18,13 @@ import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
 import app.parley.common.calls.AutoAnswer
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calltime.CallChronometer
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
@@ -42,9 +47,24 @@ class CallNotifier(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val directlyLaunched = HashSet<String>()
     private val photoLoaded = HashSet<String>()
+    private var screenOff = false
+
+    /**
+     * Posts again when the phone locks or unlocks, so the caller's name follows "Caller on the lock screen": masked
+     * while locked, in full once unlocked. Both are system broadcasts that need no permission.
+     */
+    private val lockWatcher = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, intent: Intent) {
+            // The keyguard may lock a little after the screen goes off: counted as locked from then until unlocked.
+            screenOff = intent.action == Intent.ACTION_SCREEN_OFF
+            if (lockMode() != LockScreenCaller.NAME && CallManager.state.value.any { it.isLive }) update(CallManager.state.value)
+        }
+    }
 
     init {
         instance = this
+        val lockChanges = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_USER_PRESENT) }
+        runCatching { ContextCompat.registerReceiver(context, lockWatcher, lockChanges, ContextCompat.RECEIVER_NOT_EXPORTED) }
         nm.createNotificationChannel(
             NotificationChannel(CH_INCOMING, context.getString(R.string.channel_incoming_calls), NotificationManager.IMPORTANCE_HIGH).apply {
                 // Telecom plays the ringtone and vibration; the channel itself stays silent.
@@ -69,8 +89,21 @@ class CallNotifier(private val context: Context) {
 
     private fun notificationsAllowed(): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
+    private fun lockMode(): LockScreenCaller = runCatching { TelecomGraph.dependencies.appearance.value.lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+
+    private fun keyguardLocked(): Boolean = screenOff || (context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked ?: true)
+
+    /** The call as a notification may show it now: with less about the caller while the phone is locked, if so chosen. */
+    private fun shown(call: CallUi, mode: LockScreenCaller, locked: Boolean): CallUi =
+        if (!locked || mode == LockScreenCaller.NAME) call else call.forLockScreen(mode, placeholder(call))
+
+    private fun placeholder(call: CallUi): String =
+        context.getString(if (call.state == CallState.RINGING) R.string.notif_incoming_call else R.string.notif_ongoing_call)
+
     fun update(calls: List<CallUi>) {
-        val live = calls.filter { it.isLive }
+        val mode = lockMode()
+        val locked = mode != LockScreenCaller.NAME && keyguardLocked()
+        val live = calls.filter { it.isLive }.map { shown(it, mode, locked) }
         if (live.isEmpty()) {
             cancelAll()
             return
@@ -171,6 +204,7 @@ class CallNotifier(private val context: Context) {
     /** Called when the in-call service goes away: no more re-posting from dismiss intents. */
     fun release() {
         cancelAll()
+        runCatching { context.unregisterReceiver(lockWatcher) }
         if (instance === this) instance = null
     }
 
@@ -305,14 +339,24 @@ class CallNotifier(private val context: Context) {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    /** What the lock screen shows when notification content is hidden: who (as on the call screen), no labels. */
+    /**
+     * What the lock screen shows when notification content is hidden: who (as on the call screen, or as little as
+     * "Caller on the lock screen" allows), no labels.
+     */
     private fun publicVersion(call: CallUi, channel: String, text: String): Notification =
         NotificationCompat.Builder(context, channel)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(call.title)
+            .setContentTitle(call.forLockScreen(lockMode(), placeholder(call)).title)
             .setContentText(text)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .build()
+
+    /**
+     * Public, as before, while the name may show on the lock screen; otherwise private, so a lock screen that hides
+     * sensitive content shows [publicVersion] (and [update] already posts the masked call while the phone is locked).
+     */
+    private fun callVisibility(): Int =
+        if (lockMode() == LockScreenCaller.NAME) NotificationCompat.VISIBILITY_PUBLIC else NotificationCompat.VISIBILITY_PRIVATE
 
     private fun buildIncoming(call: CallUi, autoAnswerLeft: Int = 0): Notification {
         val answer = answerIntent(call)
@@ -327,7 +371,7 @@ class CallNotifier(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(callVisibility())
             .setPublicVersion(publicVersion(call, CH_INCOMING, context.getString(R.string.notif_incoming_call)))
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
@@ -371,7 +415,7 @@ class CallNotifier(private val context: Context) {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(callVisibility())
             .setPublicVersion(publicVersion(call, CH_ONGOING, context.getString(R.string.notif_ongoing_call)))
             .setContentIntent(contentIntent())
             .setDeleteIntent(dismissIntent(ONGOING_ID, call.id))

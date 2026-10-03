@@ -12,6 +12,7 @@ import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.MenuStep
@@ -96,6 +97,8 @@ data class InCallAppearance(
     val speakCallerName: Boolean = false,
     /** Settings › Calls › "Call screen background": the caller's colour or plain. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
+    /** Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked. */
+    val lockScreenCaller: LockScreenCaller = LockScreenCaller.NAME,
 )
 
 /** Who is calling: the caller card and the post-call card's name suggestion. */

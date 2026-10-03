@@ -1,6 +1,7 @@
 package app.parley.common
 
 import app.parley.common.calls.RecentsLayout
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.RecentsStyle
 
@@ -68,6 +69,8 @@ data class AppSettings(
     val surfaces: SurfaceLayout = SurfaceLayout(),
     /** The call screen's background: the caller's colour, or the theme's plain background. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
+    /** How much of a caller's name call notifications and the call screen show while the phone is locked. */
+    val lockScreenCaller: LockScreenCaller = LockScreenCaller.NAME,
     /** Recents opens on the filter chip used last (see [app.parley.common.calls.RecentsCallers.restored]). */
     val rememberRecentsFilter: Boolean = true,
     /** The Recents filter chip used last, by name ("UNKNOWN"); empty for All. */

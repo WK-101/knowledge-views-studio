@@ -191,6 +191,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
             callBackground = enumOr(this[K.callBackground], d.callBackground),
+            lockScreenCaller = enumOr(this[K.lockScreenCaller], d.lockScreenCaller),
             showCallerPhoto = this[K.showCallerPhoto] ?: d.showCallerPhoto,
             answerWithRtt = this[K.answerWithRtt] ?: d.answerWithRtt,
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
@@ -239,6 +240,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
         this[K.callBackground] = s.callBackground.name
+        this[K.lockScreenCaller] = s.lockScreenCaller.name
         this[K.showCallerPhoto] = s.showCallerPhoto
         this[K.answerWithRtt] = s.answerWithRtt
         this[K.surfaces] = s.surfaces.encode()
@@ -289,6 +291,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")
         val callBackground = stringPreferencesKey("call_background")
+        val lockScreenCaller = stringPreferencesKey("lock_screen_caller")
         val showCallerPhoto = booleanPreferencesKey("show_caller_photo")
         val answerWithRtt = booleanPreferencesKey("answer_with_rtt")
         val surfaces = stringPreferencesKey("surface_layout")
