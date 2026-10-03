@@ -379,6 +379,8 @@ Of 31 applicable criteria from Privacy Guides, F-Droid, OWASP MASVS v2, Exodus, 
 
 ## 8. The plan
 
+**Owner decisions (3 Oct 2026).** Tap/NFC exchange and video calls are skipped. Phase B (trust and release) waits until the app is polished. The build order is A → C → D → E, with F alongside each phase.
+
 Each phase is a release. The order runs from what can lose data or break, through what blocks trust and what makes Parley hard to use, to how it looks, then new features, with quality work running alongside. Effort: S ≈ a day, M ≈ a few days, L ≈ more.
 
 ### 8.1 Phase A: Correctness (5.0.1, hotfix)
