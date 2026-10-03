@@ -41,12 +41,14 @@ object WorkSearch {
         val numbers = LinkedHashMap<Long, WorkContact>()
         byNumber.forEach { if (it.number != null) numbers.putIfAbsent(it.id, it) }
         val out = LinkedHashMap<Long, WorkContact>()
-        for (c in byName + byNumber) {
-            if (out.size >= limit) break
-            if (!isWorkId(c.id) || c.name.isBlank() || c.id in out) continue
-            val phone = numbers[c.id]
-            out[c.id] = if (c.number == null && phone != null) c.copy(number = phone.number, numberLabel = phone.numberLabel) else c
-        }
+        (byName + byNumber).asSequence()
+            .filter { isWorkId(it.id) && it.name.isNotBlank() }
+            .forEach { c ->
+                if (out.size < limit && c.id !in out) {
+                    val phone = numbers[c.id]
+                    out[c.id] = if (c.number == null && phone != null) c.copy(number = phone.number, numberLabel = phone.numberLabel) else c
+                }
+            }
         return out.values.toList()
     }
 }

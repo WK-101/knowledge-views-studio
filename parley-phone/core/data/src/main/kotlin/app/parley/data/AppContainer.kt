@@ -87,8 +87,10 @@ class DataContainer(context: Context) {
     val db: AppDatabase by lazy { AppDatabase.create(appContext) }
     val settings = SettingsRepository(appContext, scope)
     val contacts = ContactsRepository(appContext, scope, fullStart.sharing)
+
     /** Read-only search of the work profile's contacts (memory only; never stored or backed up). */
     val workContacts by lazy { WorkContactSearch(appContext) }
+
     val callLog = CallLogRepository(appContext, scope, fullStart.sharing)
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }

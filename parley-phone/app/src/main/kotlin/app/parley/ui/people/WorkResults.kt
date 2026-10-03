@@ -89,7 +89,11 @@ private fun WorkContactRow(c: WorkContact, onCall: (number: String, name: String
         },
         headlineContent = { Text(c.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
-            val line = if (number != null) listOfNotNull(c.numberLabel, Bidi.ltr(number)).joinToString(" · ") else stringResource(R.string.work_search_from_profile)
+            val line = if (number != null) {
+                listOfNotNull(c.numberLabel, Bidi.ltr(number)).joinToString(" · ")
+            } else {
+                stringResource(R.string.work_search_from_profile)
+            }
             Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
         trailingContent = number?.let {

@@ -933,8 +933,9 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     val foundVault = r.vault
     // The work profile's matches, read-only, after everyone else.
     val work = rememberWorkResults(q)
+    val nothing = found.isEmpty() && foundVault.isEmpty() && work.isEmpty()
     // The results of the query before this one stay up while the new search runs.
-    if (found.isEmpty() && foundVault.isEmpty() && work.isEmpty() && r.query == q) {
+    if (nothing && r.query == q) {
         // No match: offer to save what was typed as a new contact.
         EmptyState(
             Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),
