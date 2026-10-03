@@ -71,6 +71,9 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.common.ImageActionButtons
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyScaffold
@@ -319,12 +322,15 @@ internal fun MeQrDialog(
     // One signature per change (M4): the card is read with the profile inside, whatever [card] shows meanwhile.
     val text by CardSharing.rememberVcard(vm, parts.toSet())
     val bitmap = remember(text) { text?.let { qr(it, 720) } }
+    val fileName = stringResource(R.string.img_name_my_card_qr)
+    val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.me_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
+                actions?.let { ImageActionButtons(it, Modifier.padding(top = 8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
                 if (onScan != null) {
                     OutlinedButton({ CardSharing.swapStarted(); onScan() }) {

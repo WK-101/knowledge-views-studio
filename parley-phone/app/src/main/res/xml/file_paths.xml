@@ -6,6 +6,8 @@
     <cache-path name="qr" path="qr/" />
     <!-- A contact photo the camera app takes for the editor ("Take photo"; deleted once saved or cancelled). -->
     <cache-path name="contact_camera" path="contact_camera/" />
+    <!-- A picture handed to another app by Share (a private contact's deleted when the share returns). -->
+    <cache-path name="image_share" path="image_share/" />
     <!-- Ringtones made from a name, read by the phone's ringer (Contacts.CUSTOM_RINGTONE) and Parley's own. -->
     <files-path name="tunes" path="tunes/" />
 </paths>

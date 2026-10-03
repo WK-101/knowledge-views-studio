@@ -45,6 +45,14 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
+import app.parley.common.people.ContactRef
+import app.parley.ui.common.ExportableImage
+import app.parley.ui.common.ImageExport
+import app.parley.ui.contact.PhotoViewer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 
 /** What the editor will do with the call-screen background on save. */
 sealed interface BackgroundChange {
@@ -120,12 +128,29 @@ fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails) {
         }
     }
     val choose = stringResource(if (current == null) R.string.ppl_bg_choose else R.string.ppl_bg_change)
+    // Tapping the picture opens it full screen, with Save and Share; the rest of the row changes it.
+    var viewing by remember { mutableStateOf(false) }
+    val description = stringResource(R.string.ppl_bg_desc)
+    if (viewing && current != null) {
+        val name = stringResource(R.string.img_name_call_picture, d.displayName)
+        val export = ExportableImage(name, ExportableImage.Kind.CALL_PICTURE, ContactRef.isPrivateKey(key)) { ctx -> ImageExport.readUri(ctx, current) }
+        PhotoViewer(vm, current, export, description) { viewing = false }
+    }
     ListItem(
         modifier = Modifier.clickable(enabled = key.isNotEmpty(), onClickLabel = choose) {
             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { if (current != null) Preview(current, version, Modifier.size(40.dp, 56.dp)) else Icon(Icons.Rounded.Wallpaper, null) },
+        leadingContent = {
+            if (current != null) {
+                Box(
+                    Modifier.size(48.dp, 56.dp).clickable(onClickLabel = stringResource(R.string.img_view_call_picture)) { viewing = true },
+                    contentAlignment = Alignment.Center,
+                ) { Preview(current, version, Modifier.size(40.dp, 56.dp)) }
+            } else {
+                Icon(Icons.Rounded.Wallpaper, null)
+            }
+        },
         headlineContent = { Text(if (current != null) stringResource(R.string.ppl_bg_custom) else stringResource(R.string.ppl_bg_default)) },
         supportingContent = { Text(stringResource(if (current != null) R.string.ppl_bg_info_set else R.string.ppl_bg_info_none)) },
         trailingContent = if (current != null) ({

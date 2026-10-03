@@ -52,6 +52,9 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.common.ImageActionButtons
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.blocking.TemplateGallery
 import app.parley.blocking.TemplateInbox
 import app.parley.blocking.TemplateText
@@ -316,6 +319,8 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
             if (RuleTemplates.fitsInQr(link)) SecureQr.qr(link) to true else null to false
         }
     }
+    val fileName = stringResource(R.string.img_name_template_qr, TemplateText.name(LocalContext.current, t))
+    val actions = rememberImageActions(vm, result?.first?.let { generatedImage(fileName, it) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(TemplateText.name(LocalContext.current, t)) },
@@ -329,6 +334,7 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
                         r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(8.dp),
                     )
                 }
+                actions?.let { ImageActionButtons(it, Modifier.padding(top = 8.dp)) }
                 Text(
                     stringResource(R.string.blk_tpl_qr_help, remember { vm.c.lists.shareFingerprint() }),
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
