@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.common.CodeImageActions
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.common.ContactSummary
 import app.parley.common.TextSearch
 import app.parley.common.extras.SimpleConfig
@@ -223,7 +226,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         filePass = pass
         saver.launch("parley-simple-mode.parleysimple")
     }
-    if (showQr) SimpleQrDialog(cfg) { showQr = false }
+    if (showQr) SimpleQrDialog(vm, cfg) { showQr = false }
 }
 
 /** Simple mode's "Helpers" row: who "Add my helper" calls (the same list as Settings › Calls › Helpers). */
@@ -326,9 +329,11 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
 
 /** The setup as a `parley://simple` QR code with a one-time passcode to read out. */
 @Composable
-private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
+private fun SimpleQrDialog(vm: AppViewModel, cfg: SimpleConfig, onDismiss: () -> Unit) {
     val passcode = remember { SecureQr.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, cfg) { value = withContext(Dispatchers.Default) { SecureQr.qr(SimpleTransfer.qrLink(cfg, passcode)) } }
+    val fileName = stringResource(R.string.img_name_simple_qr)
+    val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.simple_show_qr)) },
@@ -338,6 +343,7 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.sqr_passcode), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
                 Text(stringResource(R.string.simple_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                actions?.let { CodeImageActions(it) }
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },

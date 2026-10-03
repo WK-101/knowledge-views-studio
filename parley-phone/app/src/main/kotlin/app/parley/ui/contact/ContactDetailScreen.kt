@@ -952,9 +952,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             )
         }
         webLink?.let { l -> ConfirmWebLink(l) { webLink = null } }
-        if (showQr) QrDialog(d) { showQr = false }
+        if (showQr) QrDialog(vm, d, isPrivate) { showQr = false }
         // A private contact's Parley key isn't part of what it shares.
-        if (secureQr) SecureQrDialog(if (isPrivate) d.copy(id = 0, lookupKey = "") else d) { secureQr = false }
+        if (secureQr) SecureQrDialog(vm, if (isPrivate) d.copy(id = 0, lookupKey = "") else d, isPrivate) { secureQr = false }
         if (copyToSim) CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
             var text by remember { mutableStateOf(TextFieldValue(meta?.pinnedNote.orEmpty())) }
@@ -1039,7 +1039,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             page.setExpiry(days)
         }
         d.photoUri?.takeIf { showPhoto }?.let { uri ->
-            original?.let { OriginalPhotoViewer(vm, it) { showPhoto = false } } ?: PhotoViewer(uri) { showPhoto = false }
+            val export = contactPhotoImage(vm, d.displayName, original, uri, contactId.takeUnless { isPrivate }, isPrivate)
+            original?.let { OriginalPhotoViewer(vm, it, export) { showPhoto = false } }
+                ?: PhotoViewer(vm, uri, export, stringResource(R.string.detail_contact_photo)) { showPhoto = false }
         }
         if (confirmDelete) {
             ConfirmDialog(

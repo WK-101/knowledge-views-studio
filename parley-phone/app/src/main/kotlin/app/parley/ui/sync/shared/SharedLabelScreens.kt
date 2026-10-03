@@ -61,6 +61,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.common.CodeImageActions
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.common.people.ContactRef
 import app.parley.common.security.Bounded
 import app.parley.common.security.PassphraseStrength
@@ -273,7 +276,7 @@ private fun InviteRows(vm: AppViewModel, id: String, title: String) {
             )
         }
     }
-    if (showQr) InviteQrDialog(vm, id) { showQr = false }
+    if (showQr) InviteQrDialog(vm, id, title) { showQr = false }
     if (askFilePass) {
         PassphraseDialog(stringResource(R.string.shl_invite_file), stringResource(R.string.shl_invite_file_pass), onDismiss = { askFilePass = false }) { p ->
             askFilePass = false
@@ -404,7 +407,7 @@ private fun PassphraseDialog(title: String, text: String, onDismiss: () -> Unit,
 
 /** The invitation as a `parley://label` QR code, with a one-time code to read out. */
 @Composable
-private fun InviteQrDialog(vm: AppViewModel, id: String, onDismiss: () -> Unit) {
+private fun InviteQrDialog(vm: AppViewModel, id: String, title: String, onDismiss: () -> Unit) {
     val res = LocalResources.current
     // L3: a longer code than a contact QR's (about 78 bits), since this one holds the label's key.
     val passcode = remember { SharedLabelInvites.newPasscode() }
@@ -417,6 +420,8 @@ private fun InviteQrDialog(vm: AppViewModel, id: String, onDismiss: () -> Unit) 
             value = withContext(Dispatchers.Default) { SecureQr.qr(link) }
         }
     }
+    val fileName = stringResource(R.string.img_name_invite_qr, title)
+    val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.shl_invite_qr)) },
@@ -429,6 +434,7 @@ private fun InviteQrDialog(vm: AppViewModel, id: String, onDismiss: () -> Unit) 
                 Text(stringResource(R.string.shl_invite_code), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 Text(Bidi.ltr(passcode), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
                 Text(stringResource(R.string.shl_invite_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                actions?.let { CodeImageActions(it) }
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },

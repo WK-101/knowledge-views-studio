@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -36,9 +35,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.EventDate
 import app.parley.ui.PhotoCache
+import app.parley.ui.common.ExportableImage
+import app.parley.ui.common.ImageViewerBar
+import app.parley.ui.common.rememberImageActions
 import java.time.LocalDate
 import java.time.MonthDay
 import java.time.format.DateTimeFormatter
@@ -119,10 +122,14 @@ fun LinkifiedText(text: String, modifier: Modifier = Modifier) {
     Text(annotated, modifier)
 }
 
-/** Full-screen photo with pinch-zoom and pan; tap to close. */
+/**
+ * Full-screen picture with pinch-zoom and pan; tap to close. With [export], Save and Share at the bottom
+ * ([ImageViewerBar]): a contact photo without a kept original, or the call-screen picture.
+ */
 @Composable
-fun PhotoViewer(uri: String, onDismiss: () -> Unit) {
+fun PhotoViewer(vm: AppViewModel, uri: String, export: ExportableImage?, description: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val actions = rememberImageActions(vm, export)
     val image by produceState<ImageBitmap?>(null, uri) { value = PhotoCache.load(context, uri, 1440)?.asImageBitmap() }
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -137,10 +144,11 @@ fun PhotoViewer(uri: String, onDismiss: () -> Unit) {
         ) {
             image?.let {
                 Image(
-                    it, stringResource(R.string.detail_contact_photo), contentScale = ContentScale.Fit,
+                    it, description, contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
                 )
             }
+            ImageViewerBar(actions, export, Modifier.align(Alignment.BottomCenter))
         }
     }
 }

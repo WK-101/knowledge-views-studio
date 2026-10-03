@@ -47,6 +47,9 @@ import app.parley.common.extras.Handshake
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import app.parley.ui.Bidi
+import app.parley.ui.common.CodeImageActions
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.ui.extras.HandshakeFields
 import app.parley.ui.extras.HandshakeInbox
 import app.parley.ui.extras.MyCardQrDialog
@@ -105,12 +108,15 @@ object SecureQr {
     }
 }
 
+/** The encrypted QR code and its passcode; Save and Share hand out the code alone (a [private] contact's after unlock). */
 @Composable
-fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
+fun SecureQrDialog(vm: AppViewModel, details: ContactDetails, private: Boolean, onDismiss: () -> Unit) {
     val passcode = remember { SecureQr.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, details) {
         value = withContext(Dispatchers.Default) { SecureQr.qr(SecureQr.encode(details, passcode)) }
     }
+    val fileName = stringResource(R.string.img_name_secure_qr, details.displayName)
+    val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it, private) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sqr_title)) },
@@ -123,6 +129,7 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
                     stringResource(R.string.sqr_hint),
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
                 )
+                actions?.let { CodeImageActions(it) }
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },

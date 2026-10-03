@@ -244,6 +244,37 @@ the whole picture as well.
   copy. The editor's header shows the framed circle as the lists will.
 - **Everywhere the editor is**: device, private and temporary contacts. My card has no photo (it isn't shared), so it
   has no photo menu.
+- **Save and share**: the photo viewer saves or shares the original as kept (see "Save and share (5.3.1)").
+
+### Save and share (5.3.1)
+
+Feedback: "When I open a saved contact and open its image then give option to save/share that image. In full original
+format. Not only in contact but every image place."
+
+- **Where.** Every place a picture opens or Parley shows one it made: the contact page's photo viewer (kept original or
+  Android's photo; device, private and temporary contacts alike), the call-screen picture (tap its thumbnail in the
+  contact page's settings; the Poster background is the same picture), and the QR codes: a contact's plain and secure
+  QR, My card's (also when swapping cards), a shared label's invitation, a rule template's and simple mode's setup.
+  The in-call screen opens no picture (tapping the photo opens the contact), so a masked lock-screen call offers
+  nothing. One helper serves them all: `ImageExport` and `rememberImageActions` (`app/.../ui/common/`), with
+  `ImageFiles` (core/common) reading the format from the bytes.
+- **What is handed out.** A kept original exactly as stored (`OriginalPhotos.exportBytes`): no decoding, no
+  re-encoding, the same format, MIME type and EXIF. Since 4.3 an original is kept byte for byte (JPEG, PNG, WebP) with
+  only its location tags removed, or once as a high-quality JPEG (HEIC, over 20 MB), so the file carries the camera and
+  date but no location; the viewer says so. Without an original (a photo another app set, or from before 4.3): the
+  largest copy Android has (the display photo, `PHOTO_FILE_ID`, through `openContactPhotoInputStream`), and for a
+  private contact the copy sealed for caller ID; the viewer says which. The call-screen picture is the JPEG Parley keeps
+  for the call screen; QR codes are lossless PNGs. The type and the extension come from the bytes (JPEG, PNG, WebP,
+  GIF, HEIC, HEIF, AVIF magic numbers), the name from the person ("Ana Lima.jpg", "Ana Lima call screen.jpg").
+- **Save** opens Android's "Save to" screen (`ACTION_CREATE_DOCUMENT` with the picture's own type and name): no storage
+  permission, the permission guard is unchanged. **Share** writes the picture into its own folder of Parley's cache and
+  hands a FileProvider `content://` URI with a read grant to the app chosen. Parley's cache isn't sealed, so a private
+  contact's copy is deleted when the share screen returns and whenever Parley locks, and any copy left goes before the next share, at the next
+  start (all) and in the daily upkeep (a private contact's after 10 minutes, others after an hour).
+- **Private contacts** ask for the private contacts' unlock before every save or share, and offer neither while
+  discreet mode hides private contacts (or after a duress unlock). A plain or secure QR of a private contact follows
+  the same rule. Codes opened with a passcode (secure QR, invitations, simple mode) say under the buttons that the
+  picture holds the code alone, so the passcode goes another way.
 
 ## More fields (5.3)
 

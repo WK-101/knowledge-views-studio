@@ -140,6 +140,7 @@ Parley as the phone app (or the call-screening role), like every screening featu
 | Circle: add, rhythm, Stay in touch, promises, Log interaction | Yes | No | Yes |
 | Circle list | Yes | No | Yes (with the lock badge). Reminder notifications still never name private contacts |
 | Call-screen picture | Yes | No | Yes (page and editor) |
+| Save and share the photo, call-screen picture and QR codes (5.3.1) | Yes | — | Yes, after the private contacts' unlock; never in discreet mode; a shared copy is deleted when the share returns (EDITOR_DESIGN.md "Save and share") |
 | Labels: page, filters, editor chips, Add to label, label ringtone, SIM, rhythm, rules, limits | Yes | No | Yes, membership kept sealed by Parley (see "Labels of a private contact") |
 | Ringtone, Send to voicemail | Yes (Android) | No | Yes, applied by Parley's call screening and ringer |
 | Custom fields, language, second surname and generation, address parts, dates by another calendar (5.3) | Yes (custom fields as Google's own kind in a Google account, Parley's rows elsewhere; see EDITOR_DESIGN.md "More fields") | — | Yes (sealed in the details; carried both ways by the conversions) |

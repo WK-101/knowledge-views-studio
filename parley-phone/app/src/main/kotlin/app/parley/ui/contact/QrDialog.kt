@@ -22,16 +22,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.common.ImageActionButtons
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.data.ContactDetails
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import app.parley.ui.ParleyDialog
 
-/** Generates the QR code on-device; the user picks which fields are shared. */
+/**
+ * Generates the QR code on-device; the user picks which fields are shared. Save and Share hand out the code as a PNG
+ * (a [private] contact's after the private contacts' unlock).
+ */
 @Composable
-fun QrDialog(details: ContactDetails, onDismiss: () -> Unit) {
+fun QrDialog(vm: AppViewModel, details: ContactDetails, private: Boolean, onDismiss: () -> Unit) {
     val fields = remember {
         mutableStateListOf<Pair<String, String>>().apply {
             details.phones.forEach { add("TEL" to it.value) }
@@ -48,12 +55,15 @@ fun QrDialog(details: ContactDetails, onDismiss: () -> Unit) {
         append("END:VCARD")
     }
     val bitmap = remember(vcard) { encode(vcard, 720) }
+    val fileName = stringResource(R.string.img_name_qr, details.displayName)
+    val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it, private) })
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.qr_share_title, details.displayName)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.qr_code), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
+                actions?.let { ImageActionButtons(it, Modifier.padding(top = 8.dp)) }
                 Text(stringResource(R.string.qr_scan_hint), modifier = Modifier.padding(vertical = 8.dp))
                 fields.forEachIndexed { i, (_, v) ->
                     Row(Modifier.fillMaxWidth().clickable { if (i in selected) selected.remove(i) else selected.add(i) }, verticalAlignment = Alignment.CenterVertically) {

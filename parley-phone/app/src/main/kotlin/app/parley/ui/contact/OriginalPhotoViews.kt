@@ -52,6 +52,10 @@ import app.parley.common.photo.PhotoMath
 import app.parley.data.people.OriginalPhotos
 import app.parley.ui.Avatar
 import app.parley.ui.ParleyShapes
+import app.parley.ui.common.ExportableImage
+import app.parley.ui.common.ImageExport
+import app.parley.ui.common.ImageViewerBar
+import app.parley.ui.common.rememberImageActions
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlin.math.roundToInt
@@ -136,14 +140,36 @@ fun HeroPhoto(
 }
 
 /**
+ * What Save and Share hand out for a contact's photo: the kept [original] byte for byte; without one, the largest
+ * copy there is (Android's display photo for a phone contact, the copy sealed for caller ID for a private one).
+ * [contactId]: the phone contact's id (null for a private contact).
+ */
+fun contactPhotoImage(
+    vm: AppViewModel,
+    name: String,
+    original: OriginalPhotos.Original?,
+    photoUri: String,
+    contactId: Long?,
+    private: Boolean,
+): ExportableImage {
+    val originals = vm.c.people.originals
+    return when {
+        original != null -> ExportableImage(name, ExportableImage.Kind.ORIGINAL, private) { originals.exportBytes(original) }
+        private -> ExportableImage(name, ExportableImage.Kind.PRIVATE_COPY, true) { ctx -> ImageExport.readUri(ctx, photoUri) }
+        else -> ExportableImage(name, ExportableImage.Kind.ANDROID_COPY, false) { ctx -> ImageExport.readAndroidPhoto(ctx, contactId, photoUri) }
+    }
+}
+
+/**
  * Full-screen viewer for a kept original: the whole picture fitted to the screen, pinch or double-tap to zoom (up to
  * 8×), and once zoomed the part in view is decoded again at full detail, only that part (so a 50 MP photo never sits
- * in memory whole). Tap to close.
+ * in memory whole). Tap to close. With [export], Save and Share hand out the original as kept ([ImageViewerBar]).
  */
 @OptIn(FlowPreview::class)
 @Composable
-fun OriginalPhotoViewer(vm: AppViewModel, original: OriginalPhotos.Original, onDismiss: () -> Unit) {
+fun OriginalPhotoViewer(vm: AppViewModel, original: OriginalPhotos.Original, export: ExportableImage?, onDismiss: () -> Unit) {
     val originals = vm.c.people.originals
+    val actions = rememberImageActions(vm, export)
     // A private contact's original stays opened while shown (see OriginalPhotos.Original), and no longer.
     DisposableEffect(original) { onDispose { originals.release(original) } }
     Dialog(onDismiss, DialogProperties(usePlatformDefaultWidth = false)) {
@@ -208,6 +234,7 @@ fun OriginalPhotoViewer(vm: AppViewModel, original: OriginalPhotos.Original, onD
                     }
                 }
             }
+            ImageViewerBar(actions, export, Modifier.align(Alignment.BottomCenter))
         }
     }
 }
