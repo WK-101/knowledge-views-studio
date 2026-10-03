@@ -135,13 +135,7 @@ class ParleyInCallService : InCallService() {
     private fun publishEndpoints() {
         fun map(e: CallEndpoint) = AudioRoute(
             key = e.identifier.toString(),
-            type = when (e.endpointType) {
-                CallEndpoint.TYPE_EARPIECE -> RouteType.EARPIECE
-                CallEndpoint.TYPE_SPEAKER -> RouteType.SPEAKER
-                CallEndpoint.TYPE_BLUETOOTH -> RouteType.BLUETOOTH
-                CallEndpoint.TYPE_WIRED_HEADSET -> RouteType.WIRED
-                else -> RouteType.STREAMING
-            },
+            type = AudioRouting.typeOf(e.endpointType),
             name = e.endpointName.toString(),
         )
         CallManager.updateAudio(AudioUi(endpoints.map(::map), currentEndpoint?.let(::map), muted))
@@ -154,34 +148,11 @@ class ParleyInCallService : InCallService() {
             publishEndpoints()
             return
         }
-        val routes = ArrayList<AudioRoute>()
-        val mask = audioState.supportedRouteMask
-        if (mask and CallAudioState.ROUTE_EARPIECE != 0) routes += AudioRoute("earpiece", RouteType.EARPIECE, "")
-        if (mask and CallAudioState.ROUTE_WIRED_HEADSET != 0) routes += AudioRoute("wired", RouteType.WIRED, "")
-        if (mask and CallAudioState.ROUTE_SPEAKER != 0) routes += AudioRoute("speaker", RouteType.SPEAKER, "")
         btDevices.clear()
-        var active: AudioRoute? = null
-        if (mask and CallAudioState.ROUTE_BLUETOOTH != 0) {
-            val devices = if (Build.VERSION.SDK_INT >= 28) audioState.supportedBluetoothDevices.toList() else emptyList()
-            if (devices.isEmpty()) {
-                routes += AudioRoute("bt", RouteType.BLUETOOTH, "")
-            } else {
-                devices.forEach { d ->
-                    val name = try { d.name } catch (_: SecurityException) { null }.orEmpty()
-                    btDevices[d.address] = d
-                    val r = AudioRoute(d.address, RouteType.BLUETOOTH, name)
-                    routes += r
-                    if (Build.VERSION.SDK_INT >= 28 && audioState.activeBluetoothDevice?.address == d.address) active = r
-                }
-            }
-        }
-        val current = when (audioState.route) {
-            CallAudioState.ROUTE_EARPIECE -> routes.firstOrNull { it.type == RouteType.EARPIECE }
-            CallAudioState.ROUTE_SPEAKER -> routes.firstOrNull { it.type == RouteType.SPEAKER }
-            CallAudioState.ROUTE_WIRED_HEADSET -> routes.firstOrNull { it.type == RouteType.WIRED }
-            CallAudioState.ROUTE_BLUETOOTH -> active ?: routes.firstOrNull { it.type == RouteType.BLUETOOTH }
-            else -> null
-        }
-        CallManager.updateAudio(AudioUi(routes, current, audioState.isMuted))
+        val devices = if (Build.VERSION.SDK_INT >= 28) audioState.supportedBluetoothDevices.toList() else emptyList()
+        devices.forEach { btDevices[it.address] = it }
+        val named = devices.map { d -> AudioRouting.Device(d.address, try { d.name } catch (_: SecurityException) { null }.orEmpty()) }
+        val active = if (Build.VERSION.SDK_INT >= 28) audioState.activeBluetoothDevice?.address else null
+        CallManager.updateAudio(AudioRouting.legacy(audioState.route, audioState.supportedRouteMask, audioState.isMuted, named, active))
     }
 }

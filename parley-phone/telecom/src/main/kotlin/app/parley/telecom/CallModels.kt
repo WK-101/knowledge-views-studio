@@ -186,6 +186,14 @@ data class AudioUi(
     val muted: Boolean = false,
 ) {
     val hasExternal: Boolean get() = routes.any { it.type == RouteType.BLUETOOTH || it.type == RouteType.WIRED }
+
+    /** Where the Speaker button goes: on to the speaker, or off it to a headset (Bluetooth, then wired), else the earpiece. */
+    fun speakerToggleTarget(): AudioRoute? = if (current?.type == RouteType.SPEAKER) {
+        routes.firstOrNull { it.type == RouteType.BLUETOOTH } ?: routes.firstOrNull { it.type == RouteType.WIRED }
+            ?: routes.firstOrNull { it.type == RouteType.EARPIECE }
+    } else {
+        routes.firstOrNull { it.type == RouteType.SPEAKER }
+    }
 }
 
 /** An outgoing call Parley asked Telecom to place, shown until the call exists. */

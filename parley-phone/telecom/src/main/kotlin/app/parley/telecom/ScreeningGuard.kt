@@ -3,6 +3,7 @@ package app.parley.telecom
 import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
+import androidx.annotation.VisibleForTesting
 import app.parley.common.Decision
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.EmergencyPolicy
@@ -78,6 +79,11 @@ object ScreeningGuard {
         val now = SystemClock.elapsedRealtime()
         return recent.lastOrNull { sameCaller(it.number, number) && now - it.at <= DECISION_TTL_MS }?.outcome
     }
+
+    /** Forgets every remembered decision: each test starts from a clean slate (the list outlives a test's calls). */
+    @VisibleForTesting
+    @Synchronized
+    internal fun forgetDecisions() = recent.clear()
 
     /** Hidden callers match each other; numbers match as the same line (the screening service and Telecom may format them differently). */
     private fun sameCaller(stored: String?, number: String?) =

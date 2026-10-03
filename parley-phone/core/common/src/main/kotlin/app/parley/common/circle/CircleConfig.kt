@@ -28,7 +28,7 @@ data class CircleConfig(
     val logModes: Map<InteractionChannel, LogMode> = emptyMap(),
     /** The Circle section at the top of Favourites is folded. */
     val favoritesSectionCollapsed: Boolean = false,
-    /** "Suggested from your calls" was dismissed. */
+    /** "Suggested for your Circle" was dismissed. */
     val suggestionsDismissed: Boolean = false,
     /** The People card in Insights. */
     val peopleCard: Boolean = true,

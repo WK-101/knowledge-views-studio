@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
 /**
- * "Suggested from your calls": the contacts you call most who aren't in your Circle yet, each with the rhythm
+ * "Suggested for your Circle": the contacts you call most who aren't in your Circle yet, each with the rhythm
  * your history suggests. One tap adds them; nothing is added on its own.
  */
 object CircleSuggestions {
@@ -21,6 +21,14 @@ object CircleSuggestions {
             .distinctBy { it.lookupKey }
             .sortedWith(compareByDescending<Candidate> { it.calls }.thenBy { it.lookupKey })
             .take(max)
+
+    /**
+     * Whether the Circle's section in Favourites or Contacts (used while the Circle tab is hidden) offers
+     * suggestions. The Circle is opt-in, so an empty one shows nothing there: its suggestions would only repeat
+     * Frequent, just below. The Circle tab itself still offers them while it's empty.
+     */
+    fun offerInSection(members: Int, suggestions: Int, dismissed: Boolean, searching: Boolean): Boolean =
+        !searching && members > 0 && suggestions > 0 && !dismissed
 
     fun daysFor(c: Candidate): Int = c.suggestedDays?.coerceIn(NaturalRhythm.MIN_DAYS, NaturalRhythm.MAX_DAYS) ?: DEFAULT_DAYS
 }

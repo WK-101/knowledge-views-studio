@@ -1464,19 +1464,15 @@ object CallManager {
         service?.setMuted(muted)
     }
 
+    /** Where a route request goes: the in-call service, which asks Telecom (tests listen here instead). */
+    internal var routeRequests: (AudioRoute) -> Unit = { service?.requestRoute(it) }
+
     fun setRoute(route: AudioRoute) {
-        service?.requestRoute(route)
+        routeRequests(route)
     }
 
     fun toggleSpeaker() {
-        val a = _audio.value
-        val target = if (a.current?.type == RouteType.SPEAKER) {
-            a.routes.firstOrNull { it.type == RouteType.BLUETOOTH } ?: a.routes.firstOrNull { it.type == RouteType.WIRED }
-                ?: a.routes.firstOrNull { it.type == RouteType.EARPIECE }
-        } else {
-            a.routes.firstOrNull { it.type == RouteType.SPEAKER }
-        }
-        target?.let { setRoute(it) }
+        _audio.value.speakerToggleTarget()?.let { setRoute(it) }
     }
 
     internal fun updateAudio(audio: AudioUi) {

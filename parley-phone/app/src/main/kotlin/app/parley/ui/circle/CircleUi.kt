@@ -27,7 +27,7 @@ data class CircleRow(
     val status: CircleStatus,
 )
 
-/** One "Suggested from your calls" entry. */
+/** One "Suggested for your Circle" entry. */
 data class CircleSuggestion(val contact: ContactSummary, val calls: Int, val days: Int)
 
 /**
