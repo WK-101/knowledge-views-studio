@@ -36,8 +36,8 @@ object RelationLinks {
         return out
     }
 
-    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
-    private fun unesc(s: String): String {
+    internal fun esc(s: String) = s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
+    internal fun unesc(s: String): String {
         val sb = StringBuilder()
         var i = 0
         while (i < s.length) {

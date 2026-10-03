@@ -12,9 +12,10 @@ import java.util.Locale
 
 /**
  * The Contacts search: every field of a contact, for address-book and private contacts alike. A query's words must all
- * be found (in any field each: "ana lisbon" finds Ana who lives in Lisbon), accent- and case-insensitively; a query
- * that is mostly digits is also looked for in the numbers, written nationally or internationally. [match] says which
- * field explained the match, so the row can say "Matched: address".
+ * be found (in any field each: "ana lisbon" finds Ana who lives in Lisbon), accent- and case-insensitively. A word of
+ * digits is also looked for in the numbers ("ana 912" is Ana whose number holds 912), and a query with no letters is
+ * looked for whole in the numbers, written nationally or internationally. [match] says which field explained the
+ * match, so the row can say "Matched: address".
  *
  * Each contact is prepared once into a [Doc] (texts folded, numbers in their digit forms), so a keystroke only folds
  * the query and scans prepared strings. Docs live in memory only; a private contact's is made from its opened details
@@ -81,8 +82,12 @@ object ContactSearch {
         }
         private val digits = PhoneNumbers.digits(folded)
 
-        /** Mostly digits: the whole query is also searched in the numbers. */
-        internal val byNumber = digits.length >= 2 && digits.length * 2 >= folded.count { !it.isWhitespace() }
+        /**
+         * Mostly digits and no letters: the whole query ("+351 912 345") is also searched in the numbers. A query with
+         * letters is matched word by word, so "ana 912" needs both Ana and 912.
+         */
+        internal val byNumber = digits.length >= 2 && folded.none { it.isLetter() } &&
+            digits.length * 2 >= folded.count { !it.isWhitespace() }
 
         /** The query's digits as typed, and without an international prefix ("0044…" → "44…"). */
         internal val digitForms: List<String> = if (!byNumber) emptyList() else listOfNotNull(
@@ -158,7 +163,12 @@ object ContactSearch {
      * Builds a [Doc]. Address-book contacts are fed their data rows ([row]); private contacts their opened details,
      * field by field. Blank values are skipped.
      */
-    class Builder(private val id: Long, private val region: String? = null) {
+    class Builder(
+        private val id: Long,
+        private val region: String? = null,
+        /** The languages month names are searched in: English and the phone's ("maio", "Mai" find May). */
+        private val languages: List<Locale> = monthLanguages(),
+    ) {
         private val fields = ArrayList<Field>()
         private val texts = ArrayList<String>()
         private val numbers = LinkedHashSet<String>()
@@ -209,7 +219,9 @@ object ContactSearch {
             parts: String? = null, formatted: String? = null,
         ) {
             val before = texts.size
-            add(Field.ADDRESS, listOf(street, poBox, neighborhood, city, region, postcode, country) + AddressParts.decode(parts).values)
+            // The country by its English name too, however it is written ("DE", "Deutschland" are found as Germany).
+            val countryName = country?.let(Countries::canonical)?.takeIf { it != country?.trim() }
+            add(Field.ADDRESS, listOf(street, poBox, neighborhood, city, region, postcode, country, countryName) + AddressParts.decode(parts).values)
             // A row with only its formatted form (some sync adapters write nothing else) still says where.
             if (texts.size == before) add(Field.ADDRESS, formatted)
             if (texts.size == before) return
@@ -250,13 +262,15 @@ object ContactSearch {
         /** A date ("1990-05-14" or "--05-14"), found by year, month name, "14 may" or its kind ("birthday"). */
         fun event(date: String?, type: Int, label: String?) {
             val d = EventDate.parse(date) ?: return add(Field.DATE, date, label)
-            val month = Month.of(d.month).getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+            val months = languages.flatMap { l ->
+                listOf(TextStyle.FULL, TextStyle.FULL_STANDALONE).map { Month.of(d.month).getDisplayName(it, l) }
+            }.distinct().filter { it.any(Char::isLetter) }
             val kind = when (type) {
                 TYPE_BIRTHDAY -> "birthday"
                 TYPE_ANNIVERSARY -> "anniversary"
                 else -> label
             }
-            add(Field.DATE, d.format(), d.year?.toString(), "${d.day} $month", "$month ${d.day}", kind)
+            add(Field.DATE, listOf(d.format(), d.year?.toString()) + months.flatMap { m -> listOf("${d.day} $m", "$m ${d.day}") } + kind)
             if (type == TYPE_BIRTHDAY) {
                 facets.flag(ContactFacets.HAS_BIRTHDAY)
                 facets.add(Facet.BIRTHDAY_MONTH, d.month.toString())
@@ -274,11 +288,13 @@ object ContactSearch {
 
         fun pronouns(s: String?) = add(Field.PRONOUNS, s)
 
-        /** The language as stored (a BCP 47 tag or the name as typed): found by tag and by its English name. */
+        /** The language as stored (a BCP 47 tag or the name as typed): found by tag, by its English name and by its name in the phone's language. */
         fun language(stored: String?) {
             if (stored.isNullOrBlank()) return
             val name = Languages.display(stored, Locale.ENGLISH)
-            add(Field.LANGUAGE, stored, name.takeIf { it != stored })
+            // Found by its name in the phone's language too ("Spanisch").
+            val local = languages.map { Languages.display(stored, it) }
+            add(Field.LANGUAGE, listOf(stored, name) + local)
             facets.add(Facet.LANGUAGE, name)
         }
 
@@ -321,6 +337,9 @@ object ContactSearch {
             return Doc(id, Array(order.size) { fields[order[it]] }, Array(order.size) { texts[order[it]] }, numbers.toTypedArray(), facets.build())
         }
     }
+
+    /** English and the phone's language (once when they are the same). */
+    fun monthLanguages(): List<Locale> = listOf(Locale.ENGLISH, Locale.getDefault()).distinctBy { it.language }
 
     /** ContactsContract's Event.TYPE_BIRTHDAY and TYPE_ANNIVERSARY. */
     const val TYPE_BIRTHDAY = 3

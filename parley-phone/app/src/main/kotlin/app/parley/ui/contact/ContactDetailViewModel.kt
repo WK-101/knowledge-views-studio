@@ -32,6 +32,7 @@ import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
 import app.parley.data.vault.VaultCrypto
+import app.parley.data.people.ParleyRelationRows
 import app.parley.data.people.RelationFromOther
 import app.parley.data.people.RelationsFromOthers
 import java.time.ZoneId
@@ -304,6 +305,15 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
+
+    /**
+     * This contact's relations kept in Parley only ([ParleyRelationRows]): shown with its other relations, not in
+     * discreet mode (they name private contacts).
+     */
+    val parleyRelations: StateFlow<List<DataItem>> =
+        combine(state.map { it.meta?.parleyRelations }.distinctUntilChanged(), c.settings.settings.map { it.hideVault }.distinctUntilChanged()) { s, hide ->
+            if (hide) emptyList() else ParleyRelationRows.decode(s)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
 
     val circleConfig = c.circle.config
 

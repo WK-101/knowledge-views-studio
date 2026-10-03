@@ -147,6 +147,16 @@ duress unlock) and needs the private contact's details open. A name the user sav
 row is theirs, as with any relation; Parley adds nothing to it. The Contact notes section of a backup leaves out a
 device contact's link to a private one.
 
+Picking a private contact in the relation picker of a device contact would put the private contact's name in that
+contact's Relation row, which its account syncs and every app with the contacts permission reads. So the editor asks
+first, saying exactly that, and offers **Keep it in Parley only**: the relation is then stored as a Parley-only
+relation (`ParleyRelations`, the `parleyRelations` column of `contact_meta`, keyed by the device contact's lookup key,
+sealed at rest like the pinned note, re-keyed and merged with the rest of the row). It is linked by name like any
+relation (`RelationLinks`), shown under About with "Kept in Parley only", counts for the relationship status line and
+for the private contact's "From their contact" row, and is carried by the Contact notes section of Parley's
+encrypted backups. It is never written to the address book, never mirrored, and hidden (neither shown nor saved over)
+in discreet mode. **Save on this contact** writes the name into the Relation row as before.
+
 ## Features by storage
 
 "Before" is 4.2 (a separate, reduced page for private contacts); "Now" is this change.

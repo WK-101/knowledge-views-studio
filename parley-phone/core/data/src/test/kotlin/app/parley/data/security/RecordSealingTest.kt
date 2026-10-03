@@ -64,6 +64,23 @@ class RecordSealingTest {
         assertArrayEquals("payload".toByteArray(), meta.journalEntry(id)!!.payload)
     }
 
+    /** A device contact's relation kept in Parley only names a private contact: sealed in the table, plain above it. */
+    @Test fun parley_only_relations_are_sealed_and_survive_whole_row_writes() = runBlocking {
+        val meta = SealedMetaDao(db.metaDao(), crypto)
+        meta.setMeta(ContactMetaEntity("k3", parleyRelations = "Ana\t13\t"))
+        assertTrue(crypto.isSealed(db.metaDao().meta("k3")!!.parleyRelations))
+        assertEquals("Ana\t13\t", meta.meta("k3")!!.parleyRelations)
+
+        meta.setParleyRelations("k3", "Rui\t14\t")
+        assertTrue(crypto.isSealed(db.metaDao().meta("k3")!!.parleyRelations))
+        assertEquals("Rui\t14\t", meta.meta("k3")!!.parleyRelations)
+        // A whole-row write of the row as read keeps them.
+        meta.setMeta(meta.meta("k3")!!.copy(pinnedNote = "Hi"))
+        assertEquals("Rui\t14\t", meta.meta("k3")!!.parleyRelations)
+        meta.setParleyRelations("k3", null)
+        assertEquals(null, db.metaDao().meta("k3")!!.parleyRelations)
+    }
+
     @Test fun older_plain_rows_stay_readable_and_are_resealed_once() = runBlocking {
         val raw = db.metaDao()
         raw.setMeta(ContactMetaEntity("k2", pinnedNote = "Plain from before"))

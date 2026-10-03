@@ -6,6 +6,7 @@ import app.parley.common.people.ContactRef
 import app.parley.common.people.ExpiryChange
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryChoice
+import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
 import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
@@ -17,6 +18,7 @@ import app.parley.data.TemporaryContacts
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.people.CallBackgrounds
 import app.parley.data.people.OriginalPhotos
+import app.parley.data.people.ParleyRelationRows
 import app.parley.data.people.RelationMirrors
 import app.parley.ui.people.BackgroundChange
 import app.parley.ui.people.CallBackgroundText
@@ -56,6 +58,8 @@ class SaveContactUseCase(private val c: DataContainer) {
         val temporary: TemporaryChoice? = null,
         /** An existing contact made temporary, given a new time, or kept permanently in the editor (null: untouched). */
         val expiry: ExpiryChange? = null,
+        /** How to keep [photo] whole, as the editor asked ([OriginalPhoto.nextQuestion]). */
+        val originalAnswers: OriginalPhoto.Answers = OriginalPhoto.Answers(),
         /**
          * A private contact as the editor loaded it: the star, labels, ringtone and "send to voicemail" are saved only
          * where the editor changed them, so a change made meanwhile from the list or the page isn't undone.
@@ -184,7 +188,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             if (bytes == null || !c.vault.setPhoto(id, bytes)) {
                 notes += R.string.edit_photo_failed
                 originals.clearPrivate(id)
-            } else if (!originals.keepPrivate(id, picked)) {
+            } else if (!originals.keepPrivate(id, picked, r.originalAnswers)) {
                 originals.clearPrivate(id)
             } else {
                 originals.setPrivateFrame(id, r.photoFrame.takeIf { framed != null })
@@ -239,7 +243,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val picked = r.photo
         val originals = c.people.originals
         when {
-            picked != null -> if (!originals.keep(key, picked, before)) originals.clear(key) else originals.setFrame(key, r.photoFrame)
+            picked != null -> if (!originals.keep(key, picked, before, r.originalAnswers)) originals.clear(key) else originals.setFrame(key, r.photoFrame)
             r.removePhoto -> originals.clear(key)
             r.photoFrame != null -> {
                 // Only the framing changed: the same original, now matched to the avatar just written.
@@ -283,7 +287,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             privateExtras(saved.id, r, details, notes)
             return -saved.id
         }
-        rememberRelations(saved.id, e, r.pickedLinks)
+        rememberRelations(saved.id, e, r.pickedLinks, r.original)
         originalPhoto(if (avatar == null && r.photoFrame != null) r.copy(photoFrame = null) else r, saved.id, null)
         mirrorRelations(r, saved.id, mirrors)
         return saved.id
@@ -325,7 +329,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val before = r.original?.lookupKey?.takeIf { it.isNotEmpty() }
         if (before != null && r.background != BackgroundChange.None) saveBackground(r.background, before, saved, notes)
         if (saved != null) {
-            rememberRelations(saved, r.draft, r.pickedLinks)
+            rememberRelations(saved, r.draft, r.pickedLinks, r.original)
             suspendRunCatching { originalPhoto(if (frameFailed) r.copy(photoFrame = null) else r, saved, photoBefore) }
             mirrorRelations(r, saved, mirrors)
         }
@@ -352,12 +356,28 @@ class SaveContactUseCase(private val c: DataContainer) {
         }
     }
 
-    /** Remembers which contact each relation names, by lookup key, beside the name-only Data row. */
-    private suspend fun rememberRelations(contactId: Long, e: ContactDetails, picked: Map<String, RelationLinks.Link>) = withContext(Dispatchers.IO) {
+    /**
+     * Remembers which contact each relation names, by lookup key, beside the name-only Data row; and the relations kept
+     * in Parley only ([ParleyRelationRows]) when the editor changed them ([original]: the contact as it loaded).
+     */
+    private suspend fun rememberRelations(
+        contactId: Long,
+        e: ContactDetails,
+        picked: Map<String, RelationLinks.Link>,
+        original: ContactDetails?,
+    ) = withContext(Dispatchers.IO) {
         val key = c.contacts.lookupKeyOf(contactId) ?: return@withContext
+        if (e.parleyRelations != original?.parleyRelations.orEmpty()) {
+            val stored = ParleyRelationRows.encode(e.parleyRelations)
+            c.meta.ensureMeta(key, contactId)
+            c.meta.setParleyRelations(key, stored)
+            // The save may have given the contact a new key; the row under the old one would bring removed ones back
+            // when the two rows are merged.
+            original?.lookupKey?.takeIf { it.isNotEmpty() && it != key }?.let { old -> c.meta.setParleyRelations(old, stored) }
+        }
         val m = c.meta.meta(key)
         val existing = RelationLinks.decode(m?.relationLinks)
-        val names = e.relations.map { it.value }.filter { it.isNotBlank() }
+        val names = (e.relations + e.parleyRelations).map { it.value }.filter { it.isNotBlank() }
         if (names.isEmpty() && existing.isEmpty()) return@withContext
         val people = c.contacts.snapshot().map { Triple(it.id, it.displayName, it.lookupKey) }
         val links = RelationLinks.update(names, existing, people, self = contactId, picked = picked)

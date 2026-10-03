@@ -36,7 +36,8 @@ object RelationsFromOthers {
             navs[m.lookupKey] = nav
             val names = RelationLinks.decode(m.relationLinks).filterValues { it.lookupKey == key }.keys
             val name = owner.displayName.ifBlank { owner.composedName }
-            owner.relations.filter { RelationLinks.nameKey(it.value) in names }.forEach { rel ->
+            // A device contact's relations kept in Parley only count too: they are how it relates to a private contact.
+            (owner.relations + ParleyRelationRows.decode(m.parleyRelations)).filter { RelationLinks.nameKey(it.value) in names }.forEach { rel ->
                 incoming += RelationMirror.Incoming(m.lookupKey, name, ownerPrivate, RelationMirrors.rowOf(rel))
             }
         }

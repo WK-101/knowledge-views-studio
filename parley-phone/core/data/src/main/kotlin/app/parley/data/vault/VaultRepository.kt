@@ -274,7 +274,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     val forgets: StateFlow<Int> get() = forgetCount
     private val forgetCount = MutableStateFlow(0)
 
-    /** Forgets every opened detail (the app lock locked, or a test). */
+    /** How long opened details stay in memory ([OPENED_MS]): what is made from them elsewhere follows the same rule. */
+    val openedForMs: Long get() = OPENED_MS
+
+    /** Forgets every opened detail (the app lock locked, the screen went off, or a test). */
     fun forgetOpened() {
         openedMain.clear()
         forgetCount.value++

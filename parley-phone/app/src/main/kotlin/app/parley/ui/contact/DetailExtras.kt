@@ -138,16 +138,21 @@ fun PhotoViewer(vm: AppViewModel, uri: String, export: ExportableImage?, descrip
         offset = if (scale == 1f) Offset.Zero else offset + pan
     }
     Dialog(onDismiss, DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(
-            Modifier.fillMaxSize().background(Color.Black).pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }, onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offset = Offset.Zero }) },
-            contentAlignment = Alignment.Center,
-        ) {
-            image?.let {
-                Image(
-                    it, description, contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
-                )
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    detectTapGestures(onTap = { onDismiss() }, onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offset = Offset.Zero })
+                },
+                contentAlignment = Alignment.Center,
+            ) {
+                image?.let {
+                    Image(
+                        it, description, contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
+                    )
+                }
             }
+            // Beside the picture, not in it: a tap on the bar's note or veil doesn't close the viewer.
             ImageViewerBar(actions, export, Modifier.align(Alignment.BottomCenter))
         }
     }

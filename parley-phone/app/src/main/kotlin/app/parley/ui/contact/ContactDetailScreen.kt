@@ -116,6 +116,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -238,14 +239,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var confirmDelete by remember { mutableStateOf(false) }
     // The sealed copy of a private contact couldn't be kept: ask before deleting it without one.
     var confirmDeleteNoCopy by remember { mutableStateOf(false) }
-    var showQr by remember { mutableStateOf(false) }
+    // The viewers come back after a rotation, so a "Save to" they opened still writes its file.
+    var showQr by rememberSaveable { mutableStateOf(false) }
     var simFor by remember { mutableStateOf<String?>(null) }
-    var showPhoto by remember { mutableStateOf(false) }
+    var showPhoto by rememberSaveable { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
     var relationChoice by remember { mutableStateOf<List<ContactSummary>?>(null) }
     var pinDialog by remember { mutableStateOf(false) }
     var reachOut by remember { mutableStateOf(false) }
-    var secureQr by remember { mutableStateOf(false) }
+    var secureQr by rememberSaveable { mutableStateOf(false) }
     var copyToSim by remember { mutableStateOf(false) }
     var messageSheet by remember { mutableStateOf<String?>(null) }
     var webLink by remember { mutableStateOf<HandleLink?>(null) }
@@ -259,6 +261,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     // The pre-call peek (the number about to be called).
     val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
     val relationsFromOthers by page.relationsFromOthers.collectAsStateWithLifecycle()
+    val parleyRelations by page.parleyRelations.collectAsStateWithLifecycle()
 
     /** Opens the contact relation [name] names: by the remembered link first, then by name; several namesakes: ask. */
     fun openRelation(name: String) = page.openRelation(name) { target ->
@@ -655,7 +658,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         // An address's map link opens from the address itself, so it isn't listed again as a website.
         // Profiles have their own group above.
         val sites = d.websites.filterIndexed { i, w -> i !in mapLinks.values && SocialProfiles.fromWebsite(w.value, w.type, w.label)?.handle.isNullOrBlank() }
-        val relationCount = d.relations.size + relationsFromOthers.size
+        val relationCount = d.relations.size + parleyRelations.size + relationsFromOthers.size
         if (sites.isNotEmpty() || d.note.isNotBlank() || relationCount > 0) {
             val n = sites.size + relationCount + (if (d.note.isNotBlank()) 1 else 0)
             sections.addRows(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
@@ -673,6 +676,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = { openRelation(rel.value) })
                     }
                 }
+                // Relations kept in Parley only: the same rows, saying where they live.
+                parleyRelations.forEachIndexed { i, rel ->
+                    item {
+                        val type = RelationTypes.fromAndroid(rel.type, rel.label)
+                        val label = relationLabel(resources, type?.key, type?.let { RelationText.label(resources, it) })
+                            ?: ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
+                        GroupDataRow(
+                            Icons.Rounded.People, d.relations.isEmpty() && i == 0, rel.value, resources.getString(R.string.detail_relation_parley_only, label),
+                            onClick = { openRelation(rel.value) },
+                        )
+                    }
+                }
                 // A private contact's relation to this one (or this private contact's from another): shown, never written
                 // where other apps could read it (RelationsFromOthers).
                 relationsFromOthers.forEachIndexed { i, other ->
@@ -680,7 +695,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         val known = other.row.typeKey?.let(RelationTypes::byKey)?.let { RelationText.label(resources, it) }
                         val type = relationLabel(resources, other.row.typeKey, known) ?: other.row.label.orEmpty()
                         GroupDataRow(
-                            Icons.Rounded.People, d.relations.isEmpty() && i == 0, other.row.name,
+                            Icons.Rounded.People, d.relations.isEmpty() && parleyRelations.isEmpty() && i == 0, other.row.name,
                             resources.getString(R.string.detail_relation_from_them, type),
                             onClick = { open(Routes.contact(other.navId)) },
                         )
@@ -885,8 +900,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     val work = listOf(d.title, d.department, d.company).filter { it.isNotBlank() }.joinToString(", ")
                     // "Married to Sam" / "Partner of Alex" from the relations (a tap opens them; a former spouse only
                     // shows on the relation's own row).
-                    val status = remember(d.relations, relationsFromOthers) {
-                        val own = d.relations.map { rel -> RelationMirrors.rowOf(rel) to { openRelation(rel.value) } }
+                    val status = remember(d.relations, parleyRelations, relationsFromOthers) {
+                        val own = (d.relations + parleyRelations).map { rel -> RelationMirrors.rowOf(rel) to { openRelation(rel.value) } }
                         val others = relationsFromOthers.map { o -> o.row to { open(Routes.contact(o.navId)) } }
                         RelationshipStatus.header(own + others) { it.first }.map { (kind, item) ->
                             val res = if (kind == RelationshipStatus.Kind.MARRIED) R.string.detail_married_to else R.string.detail_partner_of

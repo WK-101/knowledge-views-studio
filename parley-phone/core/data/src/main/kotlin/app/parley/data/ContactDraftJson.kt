@@ -26,6 +26,7 @@ object ContactDraftJson {
         put("department", d.department); put("office", d.officeLocation); put("jobDescription", d.jobDescription)
         putOpt("noteId", d.noteId); put("note", d.note)
         put("phones", items(d.phones)); put("emails", items(d.emails)); put("websites", items(d.websites)); put("relations", items(d.relations))
+        put("parleyRelations", items(d.parleyRelations))
         put("addresses", JSONArray().apply {
             d.addresses.forEach { a ->
                 put(
@@ -68,6 +69,7 @@ object ContactDraftJson {
             noteId = o.long("noteId"), note = o.optString("note"),
             phones = readItems(o.optJSONArray("phones")), emails = readItems(o.optJSONArray("emails")),
             websites = readItems(o.optJSONArray("websites")), relations = readItems(o.optJSONArray("relations")),
+            parleyRelations = readItems(o.optJSONArray("parleyRelations")),
             addresses = o.optJSONArray("addresses").objects().map { a ->
                 PostalItem(
                     a.long("id"), a.optString("street"), a.optString("city"), a.optString("region"), a.optString("postcode"), a.optString("country"),

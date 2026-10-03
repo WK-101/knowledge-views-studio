@@ -21,6 +21,8 @@ import app.parley.common.people.MeCards
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.RelationLinks
+import app.parley.common.photo.OriginalPhoto
+import app.parley.common.suspendRunCatching
 import app.parley.ui.people.RelationMirrorText
 import app.parley.common.people.RowKeys
 import app.parley.data.AccountRef
@@ -30,6 +32,7 @@ import app.parley.data.ContactEditRebase
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.GroupInfo
+import app.parley.data.people.ParleyRelationRows
 import app.parley.data.vault.VaultCrypto
 import app.parley.ui.people.MeCardDetails
 import app.parley.ui.people.BackgroundChange
@@ -123,6 +126,16 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
      */
     var photoFrame by mutableStateOf<PhotoFrame?>(null)
         private set
+
+    /**
+     * Keeping the picked photo whole ([OriginalPhoto.nextQuestion]): the question to ask now (a file over the size
+     * Parley keeps without asking, or a HEIC with a location it can't remove), and the answers given so far.
+     */
+    var photoQuestion by mutableStateOf<OriginalPhoto.Question?>(null)
+        private set
+    var photoAnswers by mutableStateOf(OriginalPhoto.Answers())
+        private set
+    private var photoProbe: OriginalPhoto.Probe? = null
 
     /** New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it). */
     var privateNew by mutableStateOf(false)
@@ -258,7 +271,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             return true
         }
         if (a.contactId != null) {
-            val d = if (a.rawId != null) c.contacts.editableRaw(a.contactId, a.rawId) else c.contacts.editable(a.contactId)
+            val d = (if (a.rawId != null) c.contacts.editableRaw(a.contactId, a.rawId) else c.contacts.editable(a.contactId))?.withParleyRelations()
             original = d
             base = d
             val loaded = withPhoneRow(d ?: ContactDetails())
@@ -288,6 +301,16 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         return true
     }
 
+    /**
+     * The contact with its relations kept in Parley only. Not in discreet mode: they name private contacts, and the
+     * editor then neither shows nor saves them (the save writes them only when they changed).
+     */
+    private suspend fun ContactDetails.withParleyRelations(): ContactDetails {
+        if (lookupKey.isEmpty() || c.settings.current().hideVault) return this
+        val stored = withContext(Dispatchers.IO) { c.meta.meta(lookupKey) }?.parleyRelations
+        return copy(parleyRelations = ParleyRelationRows.decode(stored))
+    }
+
     private suspend fun leaveLocked() {
         eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_unlock_first)))
         eventChannel.send(EditorEvent.Done(null))
@@ -310,11 +333,40 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     /** A photo picked or taken; [frame]: its square for the avatar, when framed already. */
     fun pickPhoto(uri: Uri, frame: PhotoFrame? = null) {
-        if (photo != uri) ContactCamera.forget(c.appContext, photo)
+        if (photo != uri) {
+            ContactCamera.forget(c.appContext, photo)
+            photoAnswers = OriginalPhoto.Answers()
+            askAboutPhoto(uri)
+        }
         photo = uri
         photoFrame = frame
         removePhoto = false
     }
+
+    /** Looks at the picked photo [uri] and asks what keeping it whole needs (nothing, for most photos). */
+    private fun askAboutPhoto(uri: Uri) {
+        photoProbe = null
+        photoQuestion = null
+        viewModelScope.launch {
+            val p = suspendRunCatching { c.people.originals.probe(uri) }.getOrNull() ?: return@launch
+            if (photo != uri) return@launch
+            photoProbe = p
+            photoQuestion = OriginalPhoto.nextQuestion(p, photoAnswers)
+        }
+    }
+
+    /** The answer to [photoQuestion]: keep the whole file / its location ([keep]), or a JPEG (also when dismissed). */
+    fun answerPhoto(keep: Boolean) {
+        val q = photoQuestion ?: return
+        photoAnswers = when (q) {
+            OriginalPhoto.Question.LARGE -> photoAnswers.copy(keepWhole = keep)
+            OriginalPhoto.Question.LOCATION -> photoAnswers.copy(keepLocation = keep)
+        }
+        photoQuestion = photoProbe?.let { OriginalPhoto.nextQuestion(it, photoAnswers) }
+    }
+
+    /** The size of the picked photo, for the question about a large file. */
+    val photoBytes: Long get() = photoProbe?.bytes ?: 0L
 
     /** The square for the avatar of the picked photo, or of the kept one when none was picked (null: whole). */
     fun frame(frame: PhotoFrame?) {
@@ -323,6 +375,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     fun clearPhoto() {
         ContactCamera.forget(c.appContext, photo)
+        photoQuestion = null
+        photoProbe = null
         photo = null
         photoFrame = null
         removePhoto = true
@@ -387,7 +441,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val request = SaveContactUseCase.Request(
             original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto, photoFrame = photoFrame,
             toVault = isVault, vaultId = args.vaultId, background = background, pickedLinks = pickedLinks,
-            temporary = temporary.takeIf { temporaryNew && isNew }, expiry = expiryChange,
+            temporary = temporary.takeIf { temporaryNew && isNew }, expiry = expiryChange, originalAnswers = photoAnswers,
             vaultLoaded = start.takeIf { (args.vaultId ?: 0L) > 0L },
         )
         viewModelScope.launch {
@@ -515,6 +569,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_PHOTO to photo,
             K_REMOVE_PHOTO to removePhoto,
             K_PHOTO_FRAME to photoFrame?.encode(),
+            K_KEEP_WHOLE to photoAnswers.keepWhole?.toString(),
+            K_KEEP_LOCATION to photoAnswers.keepLocation?.toString(),
             K_PRIVATE_NEW to privateNew,
             K_TEMPORARY to temporaryNew,
             K_TEMP_DAYS to temporary.days,
@@ -579,6 +635,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             photo = b.getParcelable(K_PHOTO)
             removePhoto = b.getBoolean(K_REMOVE_PHOTO)
             photoFrame = PhotoFrame.decode(b.getString(K_PHOTO_FRAME))
+            photoAnswers = OriginalPhoto.Answers(b.getString(K_KEEP_WHOLE)?.toBooleanStrictOrNull(), b.getString(K_KEEP_LOCATION)?.toBooleanStrictOrNull())
+            // A question not answered yet is asked again.
+            photo?.let { uri -> askAboutPhoto(uri) }
         }
         privateNew = b.getBoolean(K_PRIVATE_NEW)
         temporaryNew = b.getBoolean(K_TEMPORARY)
@@ -617,13 +676,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         if (o == null && restored.lookupKey.isNotEmpty()) {
             // Re-aggregated under another id: found again by its lookup key.
             o = c.contacts.resolve(restored.lookupKey, restored.id)?.let { id ->
-                (if (savedRaw > 0) c.contacts.editableRaw(id, savedRaw) else null) ?: c.contacts.editable(id)
+                ((if (savedRaw > 0) c.contacts.editableRaw(id, savedRaw) else null) ?: c.contacts.editable(id))?.withParleyRelations()
             }
         }
         // The contact now opens on another copy first: edit the copy the draft was made of while it is still writable.
         val movedOn = o != null && o.editRawId != savedRaw
         if (o != null && movedOn && savedRaw in o.writableRawIds) {
-            o = c.contacts.editableRaw(o.id, savedRaw) ?: o
+            o = c.contacts.editableRaw(o.id, savedRaw)?.withParleyRelations() ?: o
         }
         if (o !== original) {
             original = o
@@ -673,6 +732,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_PHOTO = "photo"
         const val K_REMOVE_PHOTO = "removePhoto"
         const val K_PHOTO_FRAME = "photoFrame"
+        const val K_KEEP_WHOLE = "keepWhole"
+        const val K_KEEP_LOCATION = "keepLocation"
         const val K_PRIVATE_NEW = "privateNew"
         const val K_BACKGROUND = "background"
         const val K_LINKS = "links"

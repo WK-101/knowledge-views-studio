@@ -18,8 +18,14 @@ object TextSearch {
         private val words = folded.split(' ').filter { it.isNotEmpty() }
         private val digits = PhoneNumbers.digits(folded)
 
-        /** Mostly digits: also searched in the numbers. */
-        private val byNumber = digits.length >= 2 && digits.length * 2 >= folded.count { !it.isWhitespace() }
+        /** Mostly digits and no letters: the whole query is also searched in the numbers. */
+        private val byNumber = digits.length >= 2 && folded.none { it.isLetter() } &&
+            digits.length * 2 >= folded.count { !it.isWhitespace() }
+
+        /** Each word's digits when it is a number ("912", "+351"), else null: such a word may be found in a number. */
+        private val wordDigits: List<String?> = words.map { w ->
+            if (w.length >= 2 && w.all { it in '0'..'9' || it == '+' }) PhoneNumbers.digits(w) else null
+        }
 
         /**
          * [foldedName] is already [normalize]d; [numberDigits] are the numbers as [PhoneNumbers.digits]; [extra] fields
@@ -27,15 +33,18 @@ object TextSearch {
          */
         fun matchesPrepared(foldedName: String, numberDigits: List<String>, extra: List<String> = emptyList()): Boolean {
             if (folded.isEmpty()) return true
-            if (words.all { foldedName.contains(it) }) return true
+            // Every word is needed: in the name, or (a word of digits) in a number. "ana 912" is Ana whose number holds 912.
+            if (words.indices.all { i -> foldedName.contains(words[i]) || wordDigits[i]?.let { d -> numberDigits.any { it.contains(d) } } == true }) {
+                return true
+            }
             if (byNumber && numberDigits.any { it.contains(digits) }) return true
             return extra.any { normalize(it).contains(folded) }
         }
     }
 
     /**
-     * Matches if every query word is contained in the name, or the query digits appear in
-     * one of the numbers, or the query is contained in one of the extra fields (emails, notes…).
+     * Matches if every query word is contained in the name (or, a word of digits, in a number), or a query without
+     * letters appears in one of the numbers, or the query is contained in one of the extra fields (emails, notes…).
      */
     fun matches(query: String, name: String, numbers: List<String> = emptyList(), extra: List<String> = emptyList()): Boolean {
         val q = Query(query)

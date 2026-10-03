@@ -154,6 +154,11 @@ data class ContactMetaEntity(
     val rhythm: String? = null,
     /** Life events remembered yearly, one [app.parley.common.circle.YearlyEvents] key per line (v6). */
     val yearlyEvents: String? = null,
+    /**
+     * Relations kept in Parley only, never written to the address book ([app.parley.common.people.ParleyRelations]),
+     * sealed at rest like the pinned note (v9).
+     */
+    val parleyRelations: String? = null,
 )
 
 /**
@@ -380,6 +385,9 @@ interface MetaDao {
 
     @Query("UPDATE contact_meta SET relationLinks = :links WHERE lookupKey = :key")
     suspend fun setRelationLinks(key: String, links: String?)
+
+    @Query("UPDATE contact_meta SET parleyRelations = :relations WHERE lookupKey = :key")
+    suspend fun setParleyRelations(key: String, relations: String?)
 
     /** Targeted writes, so a row read a while ago never overwrites newer edits (pinned note, a re-key). */
     @Query("UPDATE contact_meta SET lastNudgedAt = :at WHERE lookupKey = :key")
@@ -713,7 +721,7 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -725,9 +733,10 @@ interface PrefsDao {
     //     Stored number keys move to PhoneIdentity.key afterwards, in the app (PhoneKeyMigrator): that needs the
     //     phone's contacts and calls, which a schema migration can't read.
     // v8: an index on vault_numbers.hmac (caller ID looks private numbers up by it while the phone rings). Additive.
+    // v9: a nullable contact_meta column for relations kept in Parley only. Additive.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8), AutoMigration(from = 8, to = 9),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

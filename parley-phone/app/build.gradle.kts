@@ -149,6 +149,7 @@ dependencies {
     baselineProfile(project(":baselineprofile"))
     debugImplementation(libs.compose.ui.tooling.preview)
 
+    testImplementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

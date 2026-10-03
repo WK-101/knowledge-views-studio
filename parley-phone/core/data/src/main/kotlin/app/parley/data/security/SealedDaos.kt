@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * [MetaDao] with pinned notes, call-note texts and journal payloads sealed at rest ([RecordCrypto]). Everything above
+ * [MetaDao] with pinned notes, Parley-only relations, call-note texts and journal payloads sealed at rest ([RecordCrypto]). Everything above
  * it sees plain values; the table rows hold sealed ones. Plain rows from older versions read as they are until
  * [RecordSealing] re-seals them.
  *
@@ -39,9 +39,16 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     private fun open(note: String?) = if (crypto.isSealed(note)) crypto.openText(note) else note
 
     private fun ContactMetaEntity.opened() = when {
-        hidden -> copy(pinnedNote = shownWhileHidden(lookupKey, pinnedNote))
-        else -> copy(pinnedNote = open(pinnedNote))
+        hidden -> copy(pinnedNote = shownWhileHidden(lookupKey, pinnedNote), parleyRelations = open(parleyRelations))
+        else -> copy(pinnedNote = open(pinnedNote), parleyRelations = open(parleyRelations))
     }
+
+    /**
+     * What to store as [key]'s Parley-only relations when a write passes [relations]: sealed; or the stored ciphertext
+     * kept when a whole-row write passes back the "none" an unreadable one read as.
+     */
+    private suspend fun relationsToStore(key: String, relations: String?): String? =
+        crypto.sealText(relations) ?: dao.meta(key)?.parleyRelations?.takeIf { crypto.isUnreadable(it) }
 
     /** [key]'s note while notes are hidden: the one typed over a hidden one, one written since, or none. */
     private fun shownWhileHidden(key: String, stored: String?): String? {
@@ -107,7 +114,10 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     override suspend fun setPersonalMeta(key: String, note: String?, messenger: String?, links: String?, nudged: Long?): Int =
         dao.setPersonalMeta(key, noteToStore(key, note), messenger, links, nudged)
 
-    override suspend fun setMeta(e: ContactMetaEntity) = dao.setMeta(e.copy(pinnedNote = noteToStore(e.lookupKey, e.pinnedNote)))
+    override suspend fun setMeta(e: ContactMetaEntity) =
+        dao.setMeta(e.copy(pinnedNote = noteToStore(e.lookupKey, e.pinnedNote), parleyRelations = relationsToStore(e.lookupKey, e.parleyRelations)))
+
+    override suspend fun setParleyRelations(key: String, relations: String?) = dao.setParleyRelations(key, crypto.sealText(relations))
 
     override suspend fun addCallNote(n: CallNoteEntity): Long =
         dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty())).also { if (hidden && it > 0) Concealment.markWritten(callNoteToken(it)) }

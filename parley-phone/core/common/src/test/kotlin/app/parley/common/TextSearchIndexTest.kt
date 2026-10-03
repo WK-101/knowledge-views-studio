@@ -37,7 +37,7 @@ class TextSearchIndexTest {
 
     /** The index answers exactly like [TextSearch.matches] for names and numbers. */
     @Test fun agrees_with_text_search() {
-        val queries = listOf("jo", "José", "12 34", "1", "b", "kings tone", "é", "+33", "0 2", "ob 79")
+        val queries = listOf("jo", "José", "12 34", "1", "b", "kings tone", "é", "+33", "0 2", "ob 79", "zed 12", "jose 12", "bob 12")
         for (q in queries) {
             val expected = people.filter { TextSearch.matches(q, it.name, it.numbers) }
             assertEquals("query '$q'", expected, index.search(q))
@@ -48,6 +48,15 @@ class TextSearchIndexTest {
         val q = TextSearch.Query("Élise@")
         assertTrue(q.matchesPrepared(TextSearch.normalize("Bob"), emptyList(), listOf("elise@example.org")))
         assertFalse(q.matchesPrepared(TextSearch.normalize("Bob"), emptyList(), listOf("ann@example.org")))
+    }
+
+    /** The keypad's header search needs every word: a name word that matches nobody isn't saved by matching digits. */
+    @Test fun a_name_word_with_digits_needs_both() {
+        assertTrue(index.search("zed 1234").isEmpty())
+        assertTrue(index.search("bob 1234").isEmpty())
+        assertEquals(listOf("José Álvarez"), index.search("jose 1234").map { it.name })
+        assertFalse(TextSearch.matches("zed 1234", "José Álvarez", listOf("+33 6 12 34 56 78")))
+        assertTrue(TextSearch.matches("jose 1234", "José Álvarez", listOf("+33 6 12 34 56 78")))
     }
 
     @Test fun single_digit_is_not_a_number_search() {

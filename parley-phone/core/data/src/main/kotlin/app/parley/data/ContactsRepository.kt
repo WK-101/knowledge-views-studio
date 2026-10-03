@@ -814,8 +814,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 changed += fieldName(mime)
             }
             // Rows moved in the editor that must be written again, so each kind reads back in the order chosen.
-            val rewrite = ContactRowOrder.rewrite(original, edited, locked)
-            val kept = ContactRowOrder.columns(cr, rewrite)
+            val wanted = ContactRowOrder.rewrite(original, edited, locked, targetType)
+            val read = ContactRowOrder.columns(cr, wanted)
+            val rewrite = ContactRowOrder.kept(wanted, read)
+            val kept = read.orEmpty()
             fun replace(id: Long, mime: String, values: ContentValues) {
                 delete(id, mime)
                 insert(mime, ContentValues(kept[id] ?: ContentValues()).apply { putAll(values) })

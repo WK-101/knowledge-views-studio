@@ -83,7 +83,10 @@ object ContactEditRebase {
     fun rebase(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails, picks: Map<Field, Side>, fallback: Side = Side.MINE): ContactDetails {
         val sides = ThreeWayMerge.sides(fields(base, mine, theirs), picks, fallback, base != null)
         fun mineFor(f: Field) = sides[f] == Side.MINE
-        var out = theirs.copy(context = mine.context, pinnedNote = mine.pinnedNote, messengerPrefs = mine.messengerPrefs)
+        // Parley's own fields (relations kept in Parley only too) aren't the address book's: they stay as edited.
+        var out = theirs.copy(
+            context = mine.context, pinnedNote = mine.pinnedNote, messengerPrefs = mine.messengerPrefs, parleyRelations = mine.parleyRelations,
+        )
         fun <T> ids(l: List<T>, their: List<T>, id: (T) -> Long?, withId: (T, Long?) -> T) =
             ThreeWayMerge.rebaseIds(l, their.mapNotNull(id).toSet(), id, withId)
         fun rows(l: List<DataItem>, their: List<DataItem>) = ids(l, their, { it.id }) { r, i -> r.copy(id = i) }

@@ -158,11 +158,18 @@ fails above it, and CI runs it.
 The Contacts search looks at every field (`ContactSearch`, core/common). Each contact is prepared once, off the main
 thread, whenever the address book changes (`PeopleIndex`, which follows Android's change notifications): its texts
 folded, its numbers in their national and international digit forms. A keystroke then folds only the query and scans
-prepared strings. Measured with `ContactSearchSpeedTest` (core:common, 5,000 contacts with names, numbers, emails,
-addresses, work, notes, dates, relations, websites, custom fields and labels) and `PeopleIndexSearchTest` (core:data,
-Robolectric, 5,000 address-book contacts read through the index): about 1 ms per query (median; number queries a few
-ms), with a bound of 50 ms that the tests enforce. Private contacts are searched over their opened details, held in
-memory only (`PrivateSearch`); nothing is indexed on disk.
+prepared strings. `ContactSearchSpeedTest` (core:common) measures what the list runs per keystroke after its 80 ms
+debounce, `ContactListSearch.run`: the label and field filters, the search over every field with the "Matched: …"
+field, and with nicknames shown the renaming and the sort, over 5,000 contacts with names, numbers, emails, addresses,
+work, notes, dates, relations, websites, custom fields and labels. It doesn't include turning the matched fields into
+hint strings or the list's letter headers (one pass each over the results). `PeopleIndexSearchTest` (core:data,
+Robolectric) measures the matching alone over 5,000 address-book contacts read through the index. The medians are a
+few ms per query on a laptop and are printed by the tests. The tests don't enforce a wall-clock frame budget (a loaded
+CI machine would fail it); they check that the time grows in proportion with the contacts (four times the contacts
+may take at most ten times as long, so per-keystroke re-reading or pairwise work fails) and only a generous absolute
+bound. Private contacts are searched over their opened details, held in memory only (`PrivateSearch`) and dropped
+under the vault's own rule (60 s idle, the screen off, a lock); nothing is indexed on disk. Their docs are published
+at most every 750 ms while they open, since each publish rebuilds the list's search data.
 
 ### 4.5: opening a private contact
 

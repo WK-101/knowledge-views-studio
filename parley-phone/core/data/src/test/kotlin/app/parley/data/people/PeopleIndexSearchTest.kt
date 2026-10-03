@@ -96,7 +96,9 @@ class PeopleIndexSearchTest {
         repeat(3) { queries.forEach(::timeUs) }
         val medians = queries.associateWith { q -> List(ROUNDS) { timeUs(q) }.sorted()[ROUNDS / 2] / 1_000.0 }
         println("Contacts search over $COUNT address-book contacts, median per query (ms): $medians")
-        assertTrue("slowest query: $medians", medians.values.max() < 50)
+        // Only a plainly broken search fails here (a busy CI machine is slow too); the proportional check of the
+        // pipeline is ContactSearchSpeedTest's.
+        assertTrue("slowest query: $medians", medians.values.max() < 1_000)
 
         assertEquals(ContactSearch.Field.ADDRESS, ContactSearch.match("lisboa", built.search.getValue(4)))
         assertEquals(ContactSearch.Field.DATE, ContactSearch.match("october", built.search.getValue(9)))

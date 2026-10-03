@@ -14,6 +14,7 @@ import androidx.exifinterface.media.ExifInterface
 import app.parley.common.Hex
 import app.parley.common.people.ContactRef
 import app.parley.common.photo.FrameMath
+import app.parley.common.photo.ImageFiles
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
 import app.parley.common.photo.PhotoMath
@@ -37,8 +38,11 @@ import java.security.MessageDigest
  * Phone contacts' originals are keyed by lookup key (and follow key changes through [ContactKeys]) in
  * `files/contact_photos`, and go stale when another app replaces the photo ([OriginalPhoto.match]). Private contacts'
  * are sealed with the private-contacts caller key in `files/vault_photo_originals`, keyed by the private entry.
- * JPEG, PNG and WebP are kept byte for byte with their location tags removed; other formats (HEIC) and files over
- * [OriginalPhoto.MAX_BYTES] are written once as a high-quality JPEG.
+ * Every format Parley names (JPEG, PNG, WebP, GIF, HEIC/HEIF, AVIF) is kept byte for byte, in its own format
+ * ([OriginalPhoto.plan]): JPEG, PNG and WebP with their location tags removed (an EXIF rewrite that leaves the picture
+ * as it is). A HEIC/HEIF/AVIF with a location is kept with it only when the user said so, and a file over
+ * [OriginalPhoto.ASK_ABOVE_BYTES] only when they wanted it whole; otherwise, and for other formats, one high-quality
+ * JPEG without location is written. How it was kept ([OriginalPhoto.Kept]) is recorded beside it for the viewer.
  *
  * Beside each original its [PhotoFrame] is kept: the square the avatar was cut from ("Frame photo"), so it can be
  * adjusted again from the whole picture.
@@ -65,6 +69,8 @@ class OriginalPhotos(context: Context) {
         internal val preview: File? = null,
         /** The square the avatar was cut from; null: the whole picture (as before framing existed). */
         val frame: PhotoFrame? = null,
+        /** How it was kept (as picked, without its location, with it, or as a JPEG); null for one kept before 5.3.1. */
+        val kept: OriginalPhoto.Kept? = null,
     ) {
         /** [preview] when it exists and is newer than the original it was made from. */
         internal fun freshPreview(): File? = preview?.takeIf { it.isFile && it.lastModified() >= file.lastModified() }
@@ -138,9 +144,14 @@ class OriginalPhotos(context: Context) {
      * Keeps [source] as [lookupKey]'s original. [before]: the contact's Android photo URI before the new photo was
      * written (null for none), so the original can tell Android's new copy from the old one.
      */
-    suspend fun keep(lookupKey: String, source: Uri, before: String?): Boolean = withContext(Dispatchers.IO) {
+    suspend fun keep(
+        lookupKey: String,
+        source: Uri,
+        before: String?,
+        answers: OriginalPhoto.Answers = OriginalPhoto.Answers(),
+    ): Boolean = withContext(Dispatchers.IO) {
         if (lookupKey.isEmpty()) return@withContext false
-        val staged = stage(source, dir) ?: return@withContext false
+        val staged = stage(source, dir, answers) ?: return@withContext false
         val image = imageFor(lookupKey)
         if (!staged.file.renameTo(image)) {
             staged.file.delete()
@@ -243,8 +254,10 @@ class OriginalPhotos(context: Context) {
     /** Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. */
     fun put(key: String, c: Carried): Boolean = runCatching {
         val size = JSONObject().put("w", c.meta.optInt("w")).put("h", c.meta.optInt("h")).put("o", c.meta.optInt("o", ExifInterface.ORIENTATION_NORMAL))
-        // The avatar's square goes along (Make private, Make visible), so it can still be adjusted there.
+        // The avatar's square goes along (Make private, Make visible), so it can still be adjusted there; so does how
+        // the picture was kept.
         c.meta.optString(FRAME).takeIf { it.isNotEmpty() }?.let { size.put(FRAME, it) }
+        c.meta.optString(KEPT).takeIf { it.isNotEmpty() }?.let { size.put(KEPT, it) }
         val id = ContactRef.vaultIdOf(key)
         if (id != null) {
             privateDir.mkdirs()
@@ -293,8 +306,8 @@ class OriginalPhotos(context: Context) {
 
     /** Keeps [source] as private contact [id]'s original, sealed; nothing readable is left behind. */
     @Suppress("TooGenericExceptionCaught") // Keystore and file errors alike: nothing kept.
-    suspend fun keepPrivate(id: Long, source: Uri): Boolean = withContext(Dispatchers.IO) {
-        val staged = stage(source, privateDir) ?: return@withContext false
+    suspend fun keepPrivate(id: Long, source: Uri, answers: OriginalPhoto.Answers = OriginalPhoto.Answers()): Boolean = withContext(Dispatchers.IO) {
+        val staged = stage(source, privateDir, answers) ?: return@withContext false
         try {
             val sealed = VaultCrypto.sealCallerId(staged.file.readBytes())
             val tmp = File(privateDir, "v$id.tmp")
@@ -456,7 +469,9 @@ class OriginalPhotos(context: Context) {
 
     // ---- Writing
 
-    private class Staged(val file: File, val width: Int, val height: Int, val orientation: Int)
+    private class Staged(val file: File, val width: Int, val height: Int, val orientation: Int, val kept: OriginalPhoto.Kept? = null) {
+        fun keptAs(k: OriginalPhoto.Kept) = Staged(file, width, height, orientation, k)
+    }
 
     private fun original(meta: JSONObject, image: File, sealed: Boolean): Original? {
         val w = meta.optInt("w")
@@ -468,30 +483,55 @@ class OriginalPhotos(context: Context) {
             uw, uh, w, h, o, image, sealed,
             preview = if (sealed) File(image.parentFile, image.nameWithoutExtension + PREVIEW_SUFFIX) else null,
             frame = PhotoFrame.decode(meta.optString(FRAME))?.let { FrameMath.clamp(it, uw, uh) },
+            kept = OriginalPhoto.Kept.of(meta.optString(KEPT).ifEmpty { null }),
         )
     }
 
     private fun writeMeta(file: File, s: Staged, base: JSONObject) {
-        file.writeText(base.put("w", s.width).put("h", s.height).put("o", s.orientation).toString())
+        base.put("w", s.width).put("h", s.height).put("o", s.orientation)
+        s.kept?.let { base.put(KEPT, it.key) }
+        file.writeText(base.toString())
     }
 
-    /** Copies (or re-encodes) [source] into a temporary file in [into]; null when it isn't a picture. */
+    /**
+     * What Parley sees of [source] before keeping it: its format from its first bytes, its size, and whether it carries
+     * a location. The editor asks its questions from it ([OriginalPhoto.nextQuestion]); off the main thread.
+     */
+    suspend fun probe(source: Uri): OriginalPhoto.Probe = withContext(Dispatchers.IO) { probeNow(source) }
+
+    @Suppress("TooGenericExceptionCaught") // Any provider failure: nothing known.
+    private fun probeNow(source: Uri): OriginalPhoto.Probe {
+        val cr = app.contentResolver
+        val head = try {
+            cr.openInputStream(source)?.use { i -> ByteArray(HEAD_BYTES).let { b -> b.copyOf(readFully(i, b)) } }
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't read the picture's start", e)
+            null
+        }
+        val format = head?.let(ImageFiles::detect)
+        val size = runCatching {
+            cr.query(source, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
+        }.getOrNull() ?: runCatching { cr.openInputStream(source)?.use { countAtMost(it) } }.getOrNull() ?: -1L
+        val location = when (format) {
+            null -> null
+            ImageFiles.Format.GIF -> false
+            else -> runCatching { cr.openInputStream(source)?.use { hasLocation(ExifInterface(it)) } }.getOrNull()
+        }
+        return OriginalPhoto.Probe(format, size, location)
+    }
+
+    /** Copies (or re-encodes) [source] into a temporary file in [into], as [answers] chose; null when it isn't a picture. */
     @Suppress("TooGenericExceptionCaught", "CyclomaticComplexMethod") // Any failure: nothing kept, Android's copy stays.
-    private fun stage(source: Uri, into: File): Staged? {
+    private fun stage(source: Uri, into: File, answers: OriginalPhoto.Answers): Staged? {
         into.mkdirs()
         val tmp = File(into, "staging-" + System.nanoTime() + ".tmp")
         val cr = app.contentResolver
         try {
-            val mime = cr.getType(source)
-            val size = runCatching {
-                cr.query(source, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L }
-            }.getOrNull() ?: -1L
-            val copied = OriginalPhoto.keep(mime, if (size < 0) 1 else size) == OriginalPhoto.Keep.COPY && copyBounded(source, tmp)
-            if (copied) {
-                stripLocation(tmp)
-                inspect(tmp)?.let { return it }
-            }
-            // Another format, too large, or unreadable as it is: one high-quality, upright JPEG.
+            val probe = probeNow(source)
+            val plan = OriginalPhoto.plan(probe, answers)
+            if (plan.keep == OriginalPhoto.Keep.COPY) copy(source, tmp, probe, plan)?.let { return it }
+            // Too large and not wanted whole, a location not wanted kept, another format, or unreadable as it is: one
+            // high-quality, upright JPEG (without the file's metadata, location included).
             val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(cr, source)) { decoder, info, _ ->
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 val (tw, th) = OriginalPhoto.reencodeSize(info.size.width, info.size.height)
@@ -499,7 +539,7 @@ class OriginalPhotos(context: Context) {
             }
             tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, OriginalPhoto.REENCODE_QUALITY, it) }
             bmp.recycle()
-            return inspect(tmp) ?: run { tmp.delete(); null }
+            return inspect(tmp)?.keptAs(OriginalPhoto.Kept.JPEG) ?: run { tmp.delete(); null }
         } catch (e: Exception) {
             Log.w(TAG, "Couldn't keep the original photo", e)
         } catch (e: OutOfMemoryError) {
@@ -508,6 +548,46 @@ class OriginalPhotos(context: Context) {
         tmp.delete()
         return null
     }
+
+    /**
+     * [source] copied as it is into [tmp], its location tags removed when [plan] says; null when that can't be done
+     * (too large after all, unreadable, or a location that couldn't be removed: never a copy that still has it).
+     */
+    private fun copy(source: Uri, tmp: File, probe: OriginalPhoto.Probe, plan: OriginalPhoto.Plan): Staged? {
+        if (!copyBounded(source, tmp)) return null
+        val had = if (plan.stripLocation) locationOf(tmp) == true else probe.hasLocation ?: locationOf(tmp) ?: false
+        if (plan.stripLocation && had) stripLocation(tmp)
+        val has = if (plan.stripLocation) locationOf(tmp) != false else had
+        if (plan.stripLocation && has) return null
+        return inspect(tmp)?.keptAs(OriginalPhoto.kept(plan, had, has))
+    }
+
+    private fun readFully(i: java.io.InputStream, b: ByteArray): Int {
+        var n = 0
+        while (n < b.size) {
+            val r = i.read(b, n, b.size - n)
+            if (r < 0) break
+            n += r
+        }
+        return n
+    }
+
+    /** The bytes of a stream, counted up to just past [OriginalPhoto.MAX_BYTES]. */
+    private fun countAtMost(i: java.io.InputStream): Long {
+        var total = 0L
+        val buf = ByteArray(64 * 1024)
+        while (total <= OriginalPhoto.MAX_BYTES) {
+            val n = i.read(buf)
+            if (n < 0) break
+            total += n
+        }
+        return total
+    }
+
+    /** Whether [f] carries a location; null when its metadata can't be read. */
+    private fun locationOf(f: File): Boolean? = runCatching { hasLocation(ExifInterface(f)) }.getOrNull()
+
+    private fun hasLocation(exif: ExifInterface): Boolean = exif.latLong != null || LOCATION_TAGS.any { exif.getAttribute(it) != null }
 
     /** Streams [source] into [to]; false (and nothing left) when it is larger than [OriginalPhoto.MAX_BYTES]. */
     private fun copyBounded(source: Uri, to: File): Boolean {
@@ -530,7 +610,10 @@ class OriginalPhotos(context: Context) {
         return total
     }
 
-    /** Removes location tags in place without touching the picture (EXIF rewrite only); keeps the orientation. */
+    /**
+     * Removes location tags in place without touching the picture (EXIF rewrite only); keeps the orientation. The
+     * caller checks the result ([locationOf]): a failure leaves the tags.
+     */
     private fun stripLocation(f: File) {
         runCatching {
             val exif = ExifInterface(f)
@@ -561,9 +644,15 @@ class OriginalPhotos(context: Context) {
         /** The avatar's square in an original's record ([PhotoFrame.encode]). */
         private const val FRAME = "frame"
 
+        /** How the original was kept, in its record ([OriginalPhoto.Kept.key]). */
+        private const val KEPT = "kept"
+
+        /** The bytes read to tell a picture's format ([ImageFiles.detect] reads an ISO file's brands from its start). */
+        private const val HEAD_BYTES = 256
+
         /**
          * A sealed original's header copy: its longer side in px (the contact page's photo is at most 1.6 × 160 dp).
-         * Opening the whole original (up to 20 MB through the Keystore) for a 128 dp header took seconds.
+         * Opening the whole original (tens of MB through the Keystore) for a 128 dp header took seconds.
          */
         internal const val PREVIEW_PX = 1024
         private const val PREVIEW_SUFFIX = ".pre.bin"

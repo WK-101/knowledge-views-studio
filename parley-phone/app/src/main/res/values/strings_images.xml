@@ -9,7 +9,21 @@
     <string name="img_unreadable">Couldn\'t read this picture</string>
     <!-- Used as the file name when there is no name to give it. -->
     <string name="img_file_fallback">Photo</string>
-    <string name="img_note_original">The photo as you picked it, whole and in its own format. Details such as the camera and date stay in the file; its location was removed when Parley kept it.</string>
+    <!-- What Save and Share hand out for a kept original, said per picture. -->
+    <string name="img_note_original">The photo as you picked it, whole and in its own format.</string>
+    <string name="img_note_original_no_location">The photo as you picked it, whole and in its own format. Details such as the camera and date stay in the file; its location was removed when Parley kept it.</string>
+    <string name="img_note_original_location">The photo as you picked it, whole and in its own format, location included.</string>
+    <string name="img_note_original_jpeg">A full-size, high-quality JPEG of the photo you picked, without its location.</string>
+    <string name="img_note_original_older">The photo at full size, as Parley kept it.</string>
+    <!-- Asked once, when a photo is picked for a contact, before Parley keeps it whole. %1$s is the file's size ("52 MB"). -->
+    <string name="img_keep_large_title">Keep the whole file?</string>
+    <string name="img_keep_large_text">This photo is %1$s. Parley can keep the whole file as you picked it, or a full-size, high-quality JPEG that takes less space.</string>
+    <string name="img_keep_large_whole">Keep the whole file</string>
+    <string name="img_keep_large_jpeg">Save as JPEG</string>
+    <string name="img_keep_location_title">Keep where it was taken?</string>
+    <string name="img_keep_location_text">This photo records where it was taken, and Parley can\'t remove that from this kind of file without changing the picture. Keep the file as it is, location included, or save a high-quality JPEG without the location.</string>
+    <string name="img_keep_location_keep">Keep with location</string>
+    <string name="img_keep_location_jpeg">JPEG without location</string>
     <string name="img_note_android_copy">Parley doesn\'t have this photo\'s original, so you get the largest copy Android keeps.</string>
     <string name="img_note_private_copy">Parley doesn\'t have this photo\'s original, so you get the copy kept for caller ID.</string>
     <string name="img_note_call_picture">The picture as Parley keeps it for the call screen.</string>

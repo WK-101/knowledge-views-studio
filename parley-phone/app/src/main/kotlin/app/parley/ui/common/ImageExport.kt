@@ -7,10 +7,15 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.ContactsContract
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.content.FileProvider
 import app.parley.common.photo.ImageFiles
+import app.parley.common.photo.OriginalPhoto
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -27,6 +32,8 @@ class ExportableImage(
     val name: String,
     val kind: Kind,
     val private: Boolean,
+    /** For an [Kind.ORIGINAL]: how it was kept (in its own format with or without location, or as a JPEG). */
+    val kept: OriginalPhoto.Kept? = null,
     val read: suspend (Context) -> ByteArray?,
 ) {
     enum class Kind {
@@ -52,9 +59,10 @@ class ExportableImage(
  * "Save to" screen), so Parley needs no storage permission; Share hands a file of Parley's cache to the chosen app
  * through its FileProvider with a read grant for that one share.
  *
- * Parley's cache isn't sealed, so a shared copy is short-lived: a private contact's is deleted as soon as the share
- * screen returns and whenever Parley locks ([forgetPrivate]); copies whose time is up go before the next share, every
- * copy at the next start, and by the daily upkeep ([sweep]).
+ * Parley's cache isn't sealed, so a shared copy is short-lived. The app it went to may read it late (after a screen
+ * of its own, or from an upload in the background), so it isn't deleted when the share screen returns: a private
+ * contact's goes when Parley locks ([forgetPrivate]) or after [PRIVATE_STALE_MS] ([sweepPrivateLater]); copies whose
+ * time is up go before the next share, every copy at the next start, and by the daily upkeep ([sweep]).
  */
 object ImageExport {
     internal const val DIR = "image_share"
@@ -62,14 +70,14 @@ object ImageExport {
     /** A copy for any picture but a private contact's: the receiving app has this long to read it. */
     internal const val STALE_MS = 60 * 60 * 1000L
 
-    /** A private contact's decrypted copy: deleted when the share returns; this is only for a share that never did. */
+    /** A private contact's decrypted copy: the receiving app has this long, unless Parley locks first. */
     internal const val PRIVATE_STALE_MS = 10 * 60 * 1000L
 
     private const val PRIVATE_PREFIX = "p"
     private const val PLAIN_PREFIX = "s"
 
-    /** Largest picture read for handing out (Parley keeps originals up to 20 MB). */
-    private const val MAX_BYTES = 64L shl 20
+    /** Largest picture read for handing out (Parley keeps originals up to [OriginalPhoto.MAX_BYTES]). */
+    private const val MAX_BYTES = OriginalPhoto.MAX_BYTES + (1L shl 20)
 
     private const val TAG = "ImageExport"
 
@@ -82,7 +90,10 @@ object ImageExport {
     /** The file name for [image] in [format] ("Ana Lima.jpg"); [fallback] when the name is empty. */
     fun fileName(image: ExportableImage, format: ImageFiles.Format, fallback: String) = ImageFiles.fileName(image.name, format, fallback)
 
-    /** Writes [bytes] to [target] (a document the user just created through "Save to"). */
+    /**
+     * Writes [bytes] to [target] (a document the user just created through "Save to"). False when it couldn't: the
+     * caller then [discard]s the document, so no empty or partial file is left in the chosen place.
+     */
     suspend fun save(context: Context, target: Uri, bytes: ByteArray): Boolean = withContext(Dispatchers.IO) {
         try {
             // "wt": a document the provider already had (a name chosen again) is replaced, never partly overwritten.
@@ -98,6 +109,12 @@ object ImageExport {
             Log.w(TAG, "No access to the chosen place", e)
             false
         }
+    }
+
+    /** Deletes [target], a document "Save to" created that couldn't be written (never left there empty). */
+    suspend fun discard(context: Context, target: Uri) = withContext(Dispatchers.IO) {
+        runCatching { DocumentsContract.deleteDocument(context.contentResolver, target) }.onFailure { Log.w(TAG, "Couldn't remove the empty file", it) }
+        Unit
     }
 
     /**
@@ -124,7 +141,18 @@ object ImageExport {
         return Intent.createChooser(send, title).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-    /** Deletes the shared copy behind [uri] and its folder (anything that isn't one is left alone). */
+    /** Runs [sweep] once a private contact's copy just shared is past its time (Parley may stay open and unlocked). */
+    fun sweepPrivateLater(context: Context, scope: CoroutineScope) {
+        val app = context.applicationContext
+        scope.launch(Dispatchers.IO) {
+            delay(PRIVATE_STALE_MS + SWEEP_SLACK_MS)
+            sweep(app)
+        }
+    }
+
+    private const val SWEEP_SLACK_MS = 5_000L
+
+    /** Deletes the shared copy behind [uri] and its folder (anything that isn't one is left alone). Call it off the main thread. */
     fun forget(context: Context, uri: Uri?) {
         if (uri == null || uri.authority != authority(context) || uri.pathSegments.firstOrNull() != DIR) return
         val segments = uri.pathSegments

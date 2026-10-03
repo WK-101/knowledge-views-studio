@@ -112,12 +112,13 @@ class ContactFiltersTest {
         assertEquals("months in calendar order", listOf("5", "11"), c.getValue(Facet.BIRTHDAY_MONTH).map { it.key })
     }
 
-    @Test fun a_value_no_one_offers_any_more_is_dropped() {
-        val choices = FacetChoices.from(listOf(ana.facets))
-        val filter = f(Facet.COUNTRY to "spain", Facet.COUNTRY to "portugal", Facet.HAS to ContactFacets.HAS_PHOTO)
-        assertEquals(f(Facet.COUNTRY to "portugal", Facet.HAS to ContactFacets.HAS_PHOTO), filter.retain(choices))
-        val same = f(Facet.COUNTRY to "portugal")
-        assertTrue(same.retain(choices) === same)
+    @Test fun a_chosen_value_keeps_how_it_read() {
+        val on = FieldFilter().toggle(Facet.COUNTRY, "portugal", "Portugal")
+        assertEquals("Portugal", on.shownAs(Facet.COUNTRY, "portugal"))
+        assertEquals(null, on.shownAs(Facet.PLACE, "portugal"))
+        val off = on.toggle(Facet.COUNTRY, "portugal")
+        assertTrue(off.isEmpty)
+        assertEquals(null, off.shownAs(Facet.COUNTRY, "portugal"))
     }
 
     @Test fun countries_fold_to_one_name() {
@@ -128,6 +129,11 @@ class ContactFiltersTest {
         assertEquals("United Kingdom", Countries.canonical("uk"))
         assertEquals("Germany", Countries.canonical("de"))
         assertEquals("Narnia", Countries.canonical("Narnia"))
+        // A country's name in its own language, and in the phone's, is the same country.
+        assertEquals("Germany", Countries.canonical("Deutschland"))
+        assertEquals("Spain", Countries.canonical("España"))
+        val japanese = Countries.build(java.util.Locale.JAPANESE)
+        assertEquals("Germany", Countries.canonical("ドイツ", japanese))
         assertEquals("", Countries.canonical("  "))
     }
 
