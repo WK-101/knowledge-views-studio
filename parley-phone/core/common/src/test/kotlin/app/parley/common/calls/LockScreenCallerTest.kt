@@ -31,4 +31,16 @@ class LockScreenCallerTest {
         assertTrue(LockScreenCaller.NONE.masks(saved = false))
         assertNull(LockScreenCaller.NONE.shownName("Ada Lovelace"))
     }
+
+    @Test fun name_and_notes_shows_everything_and_name_holds_the_notes_back() {
+        assertTrue(LockScreenCaller.NAME_AND_NOTES.showsNotes)
+        assertFalse(LockScreenCaller.NAME.showsNotes)
+        assertTrue(LockScreenCaller.NAME.showsName)
+        assertTrue(LockScreenCaller.NAME_AND_NOTES.showsName)
+        assertFalse(LockScreenCaller.INITIALS.showsName)
+        assertFalse(LockScreenCaller.NAME_AND_NOTES.masks(saved = true))
+        assertEquals("Ada Lovelace", LockScreenCaller.NAME_AND_NOTES.shownName("Ada Lovelace"))
+        // The default holds the notes back.
+        assertEquals(LockScreenCaller.NAME, app.parley.common.AppSettings().lockScreenCaller)
+    }
 }

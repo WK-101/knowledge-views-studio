@@ -151,7 +151,8 @@ data class CallUi(
 }
 
 /**
- * This call as the lock screen shows it under [mode] (Settings › Privacy & security › Caller on the lock screen): the
+ * This call as the lock screen shows it under [mode] (Settings › Privacy & security › Caller on the lock screen). Under
+ * Name, the name without the notes ([withoutNotes]); under Name and notes, everything. Otherwise: the
  * name cut to its initials or replaced by [placeholder] ("Incoming call"), and nothing else that tells who it is: no
  * number, label, photo, pronouns, notes, subject, rule or label names ("Rang through: in Family", "Allowed by
  * 'Plumber'") or why it rings quietly. A screening warning stays: it's about safety, not about who it is. Only what is
@@ -160,7 +161,8 @@ data class CallUi(
  * mode have already taken out what they hide, so this never shows more than they allow.
  */
 fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
-    if (lockMasked || isEmergency || mode == LockScreenCaller.NAME) return this
+    if (lockMasked || isEmergency || mode.showsNotes) return this
+    if (mode == LockScreenCaller.NAME) return withoutNotes()
     val kids = children.map { it.forLockScreen(mode, placeholder) }
     if (!mode.masks(savedCaller)) return if (kids == children) this else copy(children = kids)
     return copy(
@@ -184,6 +186,16 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         children = kids,
         lockMasked = true,
     )
+}
+
+/**
+ * Under [LockScreenCaller.NAME]: the name stays, the things a stranger ringing the locked phone shouldn't read go (the
+ * pinned note, "Who is this?", the last call), also for each conference participant. Unchanged when there are none.
+ */
+private fun CallUi.withoutNotes(): CallUi {
+    val kids = children.map { it.withoutNotes() }
+    if (listOf(note, context, lastCall).all { it == null } && kids == children) return this
+    return copy(note = null, context = null, lastCall = null, children = kids)
 }
 
 /** The call's time as the screen and notification show it: a masked call doesn't name its limit ("Limit for Ana"). */

@@ -28,9 +28,23 @@ class LockScreenCallerUiTest {
         savedCaller = saved, rangThrough = "Rang through: in Family", verdict = "Allowed by 'Plumber'", silenceReason = "Drive profile on",
     )
 
-    @Test fun name_leaves_the_call_as_it_was() {
+    @Test fun name_and_notes_leaves_the_call_as_it_was() {
         val c = call()
-        assertSame(c, c.forLockScreen(LockScreenCaller.NAME, "Incoming call"))
+        assertSame(c, c.forLockScreen(LockScreenCaller.NAME_AND_NOTES, "Incoming call"))
+    }
+
+    @Test fun name_keeps_the_name_but_holds_the_notes_back() {
+        val c = call().copy(context = "Who is this: the plumber").forLockScreen(LockScreenCaller.NAME, "Incoming call")
+        assertEquals("Ada Lovelace", c.title)
+        assertFalse(c.lockMasked)
+        assertNull(c.note)
+        assertNull(c.context)
+        assertNull(c.lastCall)
+        // The rest that names them stays, as it did.
+        assertEquals("Mobile", c.label)
+        // A call with nothing to hold back is returned as it is.
+        val plain = call().copy(note = null, lastCall = null)
+        assertSame(plain, plain.forLockScreen(LockScreenCaller.NAME, "Incoming call"))
     }
 
     @Test fun initials_hide_everything_else_about_the_caller() {

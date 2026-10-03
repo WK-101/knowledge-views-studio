@@ -40,6 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.os.BundleCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
@@ -162,11 +163,16 @@ class FavoritesWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val c = ctx.container
             val favourites = runCatching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull().orEmpty()
-            val locked = c.settings.current().appLock && ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
+            // With the app lock on, names show only while both the phone and Parley are unlocked.
+            val s = c.settings.current()
+            val deviceLocked = ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
+            val locked = s.appLock && (deviceLocked || AppLock.lockedFor(s))
             val manager = AppWidgetManager.getInstance(ctx)
             // Photos are decoded once per refresh, whichever widgets show them.
             val photos = HashMap<Long, Bitmap>()
-            ids.forEach { id -> runCatching { manager.updateAppWidget(id, views(ctx, id, manager, favourites, locked, photos)) } }
+            ids.forEach { id ->
+                runCatching { manager.updateAppWidget(id, views(ctx, id, manager, favourites, locked, photos, unlockInParley = !deviceLocked)) }
+            }
             shownLocked = locked
         }
 
@@ -193,6 +199,7 @@ class FavoritesWidget : AppWidgetProvider() {
         @Suppress("LongParameterList")
         private fun views(
             ctx: Context, id: Int, manager: AppWidgetManager, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
+            unlockInParley: Boolean,
         ): RemoteViews {
             val options = manager.getAppWidgetOptions(id)
             fun dp(key: String) = options?.getInt(key, 0) ?: 0
@@ -201,7 +208,8 @@ class FavoritesWidget : AppWidgetProvider() {
                 dp(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH), dp(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT),
                 listedSizes(options),
             )
-            fun at(size: FavoritesWidgetPlan.Size) = sized(ctx, id, FavoritesWidgetPlan.grid(size.widthDp, size.heightDp), favourites, locked, photos)
+            fun at(size: FavoritesWidgetPlan.Size) =
+                sized(ctx, id, FavoritesWidgetPlan.grid(size.widthDp, size.heightDp), favourites, locked, photos, unlockInParley)
             return when (layouts) {
                 is FavoritesWidgetPlan.Layouts.Listed -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     RemoteViews(layouts.sizes.associate { SizeF(it.widthDp.toFloat(), it.heightDp.toFloat()) to at(it) })
@@ -221,10 +229,11 @@ class FavoritesWidget : AppWidgetProvider() {
             return sizes.map { FavoritesWidgetPlan.Size(it.width.toInt(), it.height.toInt()) }
         }
 
-        /** One drawing of widget [id] with [grid]. */
+        /** One drawing of widget [id] with [grid]. [unlockInParley]: only Parley is locked, so a tap opens it to unlock. */
         @Suppress("LongParameterList")
         private fun sized(
             ctx: Context, id: Int, grid: FavoritesWidgetPlan.Grid, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
+            unlockInParley: Boolean,
         ): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_favorites)
             v.removeAllViews(R.id.fav_grid)
@@ -232,14 +241,14 @@ class FavoritesWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.fav_title, openApp(ctx, id))
             when (val shown = FavoritesWidgetPlan.shown(favourites, grid, locked)) {
                 is FavoritesWidgetPlan.Shown.Locked -> {
-                    // App lock on and the phone locked: a count only, never names or photos.
+                    // App lock on and the phone or Parley locked: a count only, never names or photos.
                     val res = ctx.resources
                     v.setTextViewText(
                         R.id.fav_message,
                         res.getQuantityString(R.plurals.fav_widget_count, shown.count, shown.count) + "\n" + res.getString(R.string.circle_widget_tap_reveal),
                     )
                     v.setViewVisibility(R.id.fav_message, View.VISIBLE)
-                    val reveal = WidgetTaps.broadcast(
+                    val reveal = if (unlockInParley) openApp(ctx, id) else WidgetTaps.broadcast(
                         ctx, WidgetTaps.Kind.FAVOURITES_REVEAL, id, Intent(ctx, FavoritesWidget::class.java).setAction(ACTION_REVEAL),
                     )
                     v.setOnClickPendingIntent(R.id.fav_root, reveal)
@@ -292,7 +301,7 @@ class FavoritesWidget : AppWidgetProvider() {
             val intent = if (tap == FavoritesWidgetPlan.Tap.CALL && t.number != null) {
                 Shortcuts.intent(ctx, Shortcuts.Kind.CALL, t.number, t.contactId, t.name)
             } else {
-                Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER)
+                IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CALLER)
                     .putExtra(MainActivity.EXTRA_CONTACT_ID, t.contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             return WidgetTaps.activity(ctx, WidgetTaps.Kind.FAVOURITE, id, index, intent)
@@ -325,7 +334,7 @@ class FavoritesWidget : AppWidgetProvider() {
                                 val calls = if (p.favoriteSort == FavoriteSort.MOST_CALLED) c.history.calls.map { it?.size } else flowOf(null)
                                 calls.map { listOf(p.favoriteSort, p.favoriteOrder, it) }
                             },
-                            c.settings.settings.map { it.appLock },
+                            combine(c.settings.settings.map { it.appLock }, AppLock.locked) { on, engaged -> on to engaged },
                         ) { a, b, lock -> listOf(a, b, lock) }
                             .drop(1)
                             .debounce(2_000)

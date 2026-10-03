@@ -13,8 +13,10 @@ import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
+import app.parley.security.AppLock
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
 import app.parley.common.circle.CircleDigest
@@ -46,9 +48,10 @@ import java.time.LocalDate
  * The Circle widget. Plain RemoteViews (no Glance): upcoming dates in the next 14 days and up to three people
  * from the Circle digest, each with a Call button (through the shortcut trampoline, so the pocket guard applies).
  *
- * - With the app lock on, it shows only counts, never names, while the device is locked; names come back once the
- *   phone is unlocked: USER_PRESENT while Parley runs, when Parley is opened ([refreshIfShownLocked]), or with a tap
- *   on the counts (a broadcast to this provider, which works after the process has died too).
+ * - With the app lock on, it shows only counts, never names, while the device or Parley is locked; names come back once
+ *   both are unlocked: USER_PRESENT while Parley runs, when Parley unlocks ([AppLock.locked]), or with a tap on the
+ *   counts (a broadcast to this provider, which works after the process has died too; it opens Parley when only Parley
+ *   is locked).
  * - Private (vault) contacts are never in it: only system contacts are read.
  * - The app refreshes it when the Circle, interactions, the call history or the lock setting change, and daily from
  *   the reminders worker. Resizable: smaller sizes show fewer rows.
@@ -119,9 +122,12 @@ class CircleWidget : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val c = ctx.container
             val content = runCatching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull() ?: Content(emptyList(), emptyList())
-            val locked = c.settings.current().appLock && ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
+            // With the app lock on, names show only while both the phone and Parley are unlocked.
+            val s = c.settings.current()
+            val deviceLocked = ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
+            val locked = s.appLock && (deviceLocked || AppLock.lockedFor(s))
             val manager = AppWidgetManager.getInstance(ctx)
-            ids.forEach { id -> runCatching { manager.updateAppWidget(id, views(ctx, id, manager, content, locked)) } }
+            ids.forEach { id -> runCatching { manager.updateAppWidget(id, views(ctx, id, manager, content, locked, unlockInParley = !deviceLocked)) } }
             shownLocked = locked
         }
 
@@ -175,11 +181,13 @@ class CircleWidget : AppWidgetProvider() {
         )
         private val dateIds = intArrayOf(R.id.circle_date_0, R.id.circle_date_1, R.id.circle_date_2)
 
-        private fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, locked: Boolean): RemoteViews {
+        /** [unlockInParley]: only Parley is locked (the phone isn't), so a tap opens Parley to unlock it. */
+        @Suppress("LongParameterList")
+        private fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, locked: Boolean, unlockInParley: Boolean): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_circle)
             val open = WidgetTaps.activity(
                 ctx, WidgetTaps.Kind.CIRCLE_APP, id, 0,
-                Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             v.setOnClickPendingIntent(R.id.circle_root, open)
             // Smaller widgets show fewer rows: about 44 dp per person, 20 dp per date, after the title.
@@ -190,7 +198,7 @@ class CircleWidget : AppWidgetProvider() {
             v.setViewVisibility(R.id.circle_dates_title, View.GONE)
             v.setViewVisibility(R.id.circle_message, View.GONE)
             if (locked) {
-                // App lock on and the phone locked: counts only, never names.
+                // App lock on and the phone or Parley locked: counts only, never names.
                 val res = ctx.resources
                 val text = listOf(
                     res.getQuantityString(R.plurals.circle_widget_count_people, content.people.size, content.people.size),
@@ -198,8 +206,10 @@ class CircleWidget : AppWidgetProvider() {
                 ).joinToString("\n")
                 v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.circle_widget_tap_reveal))
                 v.setViewVisibility(R.id.circle_message, View.VISIBLE)
-                // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too.
-                val reveal = WidgetTaps.broadcast(ctx, WidgetTaps.Kind.CIRCLE_REVEAL, id, Intent(ctx, CircleWidget::class.java).setAction(ACTION_REVEAL))
+                // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too, and is
+                // what a tap does when only Parley is locked.
+                val reveal = if (unlockInParley) open
+                else WidgetTaps.broadcast(ctx, WidgetTaps.Kind.CIRCLE_REVEAL, id, Intent(ctx, CircleWidget::class.java).setAction(ACTION_REVEAL))
                 v.setOnClickPendingIntent(R.id.circle_root, reveal)
                 v.setOnClickPendingIntent(R.id.circle_message, reveal)
                 return v
@@ -243,7 +253,8 @@ class CircleWidget : AppWidgetProvider() {
 
         private fun contactIntent(ctx: Context, contactId: Long, kind: WidgetTaps.Kind, id: Int, place: Int): PendingIntent = WidgetTaps.activity(
             ctx, kind, id, place,
-            Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
 
         /**
@@ -268,7 +279,7 @@ class CircleWidget : AppWidgetProvider() {
                             c.circle.interactions.changes,
                             c.history.index,
                             c.contacts.contacts,
-                            c.settings.settings.map { it.appLock },
+                            combine(c.settings.settings.map { it.appLock }, AppLock.locked) { on, engaged -> on to engaged },
                         ) { a, b, idx, contacts, lock -> listOf(a, b, idx?.calls?.size, contacts?.size, lock) }
                             .drop(1)
                             .debounce(3_000)
