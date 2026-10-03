@@ -5,14 +5,20 @@
          The rows come from CapabilityCatalog. -->
     <string name="discover_title">Tools</string>
     <string name="discover_summary">Everything Parley does, by what you want done</string>
-    <string name="discover_kw">what Parley can do, features, help, discover, what\'s new, tour, guide, how to, can it, everything, hub, lock now, scan qr, import, export</string>
+    <string name="discover_kw">what Parley can do, features, help, discover, what\'s new, tour, guide, how to, can it, everything, hub, lock now, scan qr, import, export, who\'s in, trip, travel, city</string>
     <plurals name="discover_more">
         <item quantity="one">%1$d more</item>
         <item quantity="other">%1$d more</item>
     </plurals>
     <string name="discover_fewer">Show fewer</string>
+    <!-- What a tap on "n more" does, read by TalkBack with the job's name. -->
+    <plurals name="discover_more_in">
+        <item quantity="one">Show %1$d more in %2$s</item>
+        <item quantity="other">Show %1$d more in %2$s</item>
+    </plurals>
+    <string name="discover_fewer_in">Show fewer in %1$s</string>
     <string name="discover_whats_new_open">See what\'s new</string>
-    <string name="discover_search">Search what Parley can do</string>
+    <string name="discover_search">Search Tools</string>
     <string name="discover_no_match">Nothing here matches “%1$s”</string>
     <string name="discover_new_in">New in %1$s</string>
     <string name="discover_job_stop_spam">Stop spam</string>
@@ -65,6 +71,8 @@
     <string name="discover_to_call_summary">Calls you said you\'d make, and missed calls you haven\'t returned</string>
     <string name="discover_remember_title">Anything to remember?</string>
     <string name="discover_remember_summary">A note and a follow-up after calls with your contacts</string>
+    <string name="discover_whos_in_title">Who\'s in…</string>
+    <string name="discover_whos_in_summary">People linked to a city you\'re visiting, by address, notes or number</string>
     <string name="discover_insights_title">Call insights</string>
     <string name="discover_insights_summary">Talk time, top people and calls you didn\'t return</string>
     <string name="discover_labels_title">Labels with their own ringtone</string>

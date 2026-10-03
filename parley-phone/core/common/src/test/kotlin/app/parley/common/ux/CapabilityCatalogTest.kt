@@ -46,6 +46,15 @@ class CapabilityCatalogTest {
         assertEquals(CapabilityTarget.Setting("reminders"), rows.single { it.key == "reminders" }.target)
     }
 
+    @Test fun whos_in_has_a_way_in_besides_the_contacts_chip() {
+        // The Contacts tab can be hidden: Tools and Settings search still lead to Who's in….
+        val row = rows.single { it.target == CapabilityTarget.Screen(AppScreen.TRIP) }
+        assertEquals(Job.STAY_IN_TOUCH, row.job)
+        listOf("trip", "travel").forEach { q -> assertEquals(q, listOf(row.key), CapabilitySearch.search(q, rows).map { it.key }) }
+        assertTrue(row.key in CapabilitySearch.search("who's in", rows).map { it.key })
+        assertTrue("what_parley_can_do" in app.parley.common.SettingsSearch.search("who's in").map { it.key })
+    }
+
     @Test fun search_matches_word_starts_in_any_field() {
         fun keys(q: String) = CapabilitySearch.search(q, rows).map { it.key }
         assertTrue("message_number" in keys("whatsapp"))

@@ -56,6 +56,11 @@ data class SettingEntry(
     val categoryTitles: List<String> = listOf(category.title),
     /** Where the setting lives when it isn't on its category's page (a screen of its own); null: the page. */
     val place: SettingPlace? = null,
+    /**
+     * A way to a page or a list (Reminders, To call), found by search like a setting but holding no value of its own.
+     * The settings budget doesn't count it.
+     */
+    val link: Boolean = false,
 ) {
     /**
      * This entry with localised texts, for search. The English title, keywords and category name stay
@@ -95,6 +100,10 @@ object SettingsCatalog {
     private val U = SettingsCategory.BACKUP
     private val N = SettingsCategory.NOTIFICATIONS
     private val O = SettingsCategory.ABOUT
+
+    /** A way to a page or list on [place] ([SettingEntry.link]): searchable, not a setting. */
+    private fun link(place: SettingPlace, key: String, title: String, summary: String, category: SettingsCategory, vararg keywords: String) =
+        SettingEntry(key, title, summary, category, keywords.toList(), place = place, link = true)
 
     /** Settings › Reminders. */
     private val REM = SettingPlace.REMINDERS
@@ -279,7 +288,7 @@ object SettingsCatalog {
         // The one hub (it was "What Parley can do" and, separately, Tools): the key stays for old links.
         at(SettingPlace.TOOLS, "what_parley_can_do", "Tools", "Everything Parley does, by what you want done", O,
             "what parley can do", "features", "help", "discover", "what's new", "tour", "guide", "how to", "everything", "hub",
-            "lock now", "scan qr", "import", "export"),
+            "lock now", "scan qr", "import", "export", "who's in", "trip", "travel", "city"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
         e("export_csv", "Export all to .csv file", "For spreadsheets", P, "spreadsheet", "excel", "export"),
@@ -376,12 +385,12 @@ object SettingsCatalog {
 
         // Notifications & device
         // The one page for every reminder; its rows are searchable by their own words too.
-        at(
+        link(
             REM, "reminders", "Reminders",
             "Missed calls, To call, keep in touch, birthdays, backups and temporary contacts, in one place", N,
             "remind", "reminder", "reminders", "notification", "nag", "alert", "follow up", "follow-up", "digest", "due",
         ),
-        at(REM, "to_call", "To call", "Calls you said you'd make and follow-ups after calls, each at the time you chose", H,
+        link(REM, "to_call", "To call", "Calls you said you'd make and follow-ups after calls, each at the time you chose", H,
             "remind me", "remind me later", "call back", "callback", "follow up", "follow-up", "later", "promise"),
         e("notification_settings", "Notification settings", "Sounds and importance of Parley's notifications (system)", N, "sound", "missed call", "notification", "alerts"),
         e("full_screen", "Allow full-screen incoming calls", "Show incoming calls over the lock screen", N, "lock screen", "full screen", "incoming", "heads up"),
@@ -443,6 +452,9 @@ object SettingsCatalog {
     operator fun get(key: String): SettingEntry = byKey[key] ?: error("Unknown setting $key")
 
     fun inCategory(category: SettingsCategory): List<SettingEntry> = entries.filter { it.category == category }
+
+    /** The settings themselves: every entry but the links to pages and lists. What the settings budget counts. */
+    val settings: List<SettingEntry> get() = entries.filterNot { it.link }
 }
 
 /** Search over [SettingsCatalog]: accent- and case-insensitive, every word must match, best matches first. */

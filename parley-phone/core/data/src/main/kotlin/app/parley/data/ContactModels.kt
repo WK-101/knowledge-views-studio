@@ -163,6 +163,8 @@ data class CallerInfo(
     val work: Boolean = false,
     /** A favourite (the address book's star, or Parley's own for a private contact): the drive profile may answer it. */
     val starred: Boolean = false,
+    /** The "Family, Given" form, when known without another read (a private contact's caller-ID copy). */
+    val alternativeName: String? = null,
 )
 
 /** A birthday / anniversary / other date of a contact, for the timeline and reminders. */

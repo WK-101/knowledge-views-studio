@@ -393,6 +393,7 @@
 
     <!-- Background work notifications -->
     <string name="work_channel_backups">Backups</string>
+    <string name="work_channel_backup_reminder">Backup reminders</string>
     <string name="work_backup_title">Parley backup</string>
     <string name="work_channel_plan">Plan minutes</string>
     <string name="work_plan_used_up">%1$s: plan minutes used up</string>

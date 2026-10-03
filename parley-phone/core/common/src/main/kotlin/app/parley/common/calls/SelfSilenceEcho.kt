@@ -29,6 +29,9 @@ class SelfSilenceEcho(private val windowMs: Long = WINDOW_MS) {
         return true
     }
 
+    /** Forgets every pending request (tests start each case from none; the clock may start again). */
+    fun forget() = pending.clear()
+
     private fun drop(now: Long) {
         while (pending.isNotEmpty() && (now - pending.first() > windowMs || now < pending.first())) pending.removeFirst()
     }

@@ -8,7 +8,7 @@
     <string name="set_to_call_summary">Calls you said you\'d make and follow-ups after calls, each at the time you chose</string>
     <string name="set_to_call_kw">remind me, remind me later, call back, callback, follow up, follow-up, later, promise</string>
 
-    <string name="rem_intro">Everything Parley can remind you of. Each kind has its own switch here, and they share one group, Reminders, in Android\'s notification settings.</string>
+    <string name="rem_intro">Everything Parley can remind you of, in one place. In Android\'s notification settings most of them share the group Reminders. Missed calls, backup problems and temporary contacts keep their own channels, so turning reminders off never hides them.</string>
     <string name="rem_group_missed">Missed calls</string>
     <string name="rem_group_to_call">To call and follow-ups</string>
     <string name="rem_group_keep_in_touch">Keep in touch</string>
@@ -19,5 +19,5 @@
     <string name="rem_notifications_title">Reminder notifications</string>
     <string name="rem_notifications_summary">Sound and importance, in Android\'s settings</string>
     <!-- The link row on Contacts, Recents & history, Calls and Backup & sync. -->
-    <string name="rem_link_summary">Every reminder in one place, each with its own switch</string>
+    <string name="rem_link_summary">Every reminder in one place</string>
 </resources>

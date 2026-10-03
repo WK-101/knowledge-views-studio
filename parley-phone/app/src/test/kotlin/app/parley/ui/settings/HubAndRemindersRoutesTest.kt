@@ -15,6 +15,7 @@ import app.parley.ui.Destination
 import app.parley.ui.Routes
 import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.parleyGraph
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -67,8 +68,52 @@ class HubAndRemindersRoutesTest {
             assertEquals(RemindersRoutes.Page(e.key), route)
             opens(route)
         }
-        // Circle ⋮ › Circle settings and other old links to the Contacts page still land (the page hands over to Reminders).
+        // Old links to a reminder on its former category page hand over to Reminders, on that row.
+        assertEquals(SettingsPageTarget.Reminders("circle_delivery"), settingsPageTarget(SettingsCategory.CONTACTS.name, "circle_delivery"))
+        assertEquals(SettingsPageTarget.Reminders("missed_realert"), settingsPageTarget(SettingsCategory.CALLS.name, "missed_realert"))
         opens(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery"))
+        // Circle ⋮ › Circle settings opens Contacts at the Circle's own setting (which links to Reminders).
+        assertEquals(
+            SettingsPageTarget.Category(SettingsCategory.CONTACTS, "log_prompts"),
+            settingsPageTarget(SettingsCategory.CONTACTS.name, "log_prompts"),
+        )
+    }
+
+    @Test fun old_calls_links_hand_over_to_the_page_holding_the_row() {
+        SettingsCatalog.entries.forEach { e ->
+            val page = e.place?.let { CallsSubPage.at(it) } ?: return@forEach
+            assertEquals(e.key, SettingsPageTarget.Calls(page, e.key), settingsPageTarget(SettingsCategory.CALLS.name, e.key))
+        }
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.DURING, "proximity_sensor"), settingsPageTarget("CALLS", "proximity_sensor"))
+        // Rows still on Calls itself, a page without focus, and another page with a row of the same key stay put.
+        assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, "default_dialer"), settingsPageTarget("CALLS", "default_dialer"))
+        assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, null), settingsPageTarget("CALLS", null))
+        assertEquals(SettingsPageTarget.Category(SettingsCategory.CALL_TIME, "sims"), settingsPageTarget("CALL_TIME", "sims"))
+        // An unknown page name (an old link) opens Appearance.
+        assertEquals(SettingsPageTarget.Category(SettingsCategory.APPEARANCE, null), settingsPageTarget("GONE", null))
+    }
+
+    /**
+     * Search scrolls to a row by its key, so each setting that lives on Reminders or one of Calls' pages must be a row
+     * keyed so on that page. Checked in the sources that build each page: a renamed row key fails here.
+     */
+    @Test fun every_moved_setting_is_a_keyed_row_on_its_page() {
+        val dir = listOf("src/main/kotlin/app/parley/ui/settings", "app/src/main/kotlin/app/parley/ui/settings").map(::File).first { it.isDirectory }
+        fun sources(vararg names: String) = names.joinToString("\n") { File(dir, it).readText() }
+        val pages = mapOf(
+            SettingPlace.REMINDERS to sources("RemindersScreen.kt", "CircleSettings.kt"),
+            SettingPlace.CALLS_ANSWERING to sources("CallsPages.kt", "AutoAnswerSettings.kt", "RttSettings.kt"),
+            SettingPlace.CALLS_DURING to sources("CallsPages.kt", "CallExtrasSettings.kt", "CircleSettings.kt"),
+            SettingPlace.CALLS_SIMS to sources("CallsPages.kt"),
+        )
+        pages.forEach { (place, source) ->
+            val keys = SettingsCatalog.entries.filter { it.place == place }.map { it.key }
+            assertTrue("$place has settings", keys.isNotEmpty())
+            keys.forEach { k ->
+                val row = Regex("""\b(item|blended|switchRow|linkRow|menuRow|choiceRow)\(\s*"$k"""")
+                assertTrue("$k is a row on $place", row.containsMatchIn(source))
+            }
+        }
     }
 
     @Test fun the_privacy_dashboard_lives_under_privacy() {

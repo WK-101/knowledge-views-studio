@@ -31,8 +31,12 @@ class NotificationRegistryTest {
         assertFalse(NotificationChannels.REMINDERS_GROUP == NotificationChannels.SCREENING_GROUP)
         // Calls keep their own channel: a muted Reminders group must never hide a missed call.
         assertFalse(NotificationChannels.MISSED_CALLS in NotificationChannels.reminderChannels)
-        // The ids people may have customised are the ones they had before the group existed.
-        assertEquals(listOf("reminders_v1", "to_call_v1", "backup_v1"), NotificationChannels.reminderChannels)
+        // Failed backups keep their own channel too: muting reminders must never hide one.
+        assertFalse(NotificationChannels.BACKUPS in NotificationChannels.reminderChannels)
+        // The ids people may have customised are the ones they had before the group existed; only the backup
+        // reminder, split off from backup results, is new.
+        assertEquals("backup_v1", NotificationChannels.BACKUPS)
+        assertEquals(listOf("reminders_v1", "to_call_v1", "backup_reminder_v1"), NotificationChannels.reminderChannels)
     }
 
     @Test fun computed_ids_stay_inside_their_range() {

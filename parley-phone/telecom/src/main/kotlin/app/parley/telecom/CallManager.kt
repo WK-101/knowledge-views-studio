@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.text.format.DateUtils
 import android.telecom.Call
+import androidx.annotation.VisibleForTesting
 import app.parley.common.BlockReason
 import android.telecom.Connection
 import android.telecom.DisconnectCause
@@ -1468,8 +1469,20 @@ object CallManager {
         service?.setMuted(muted)
     }
 
+    private val serviceRoutes: (AudioRoute) -> Unit = { service?.requestRoute(it) }
+
     /** Where a route request goes: the in-call service, which asks Telecom (tests listen here instead). */
-    internal var routeRequests: (AudioRoute) -> Unit = { service?.requestRoute(it) }
+    internal var routeRequests: (AudioRoute) -> Unit = serviceRoutes
+
+    /**
+     * Puts back what outlives a test's calls in this object: pending silence echoes (the test clock starts again, so
+     * an earlier test's request would read as a fresh echo) and the route listener a test installed.
+     */
+    @VisibleForTesting
+    internal fun resetForTest() {
+        selfSilence.forget()
+        routeRequests = serviceRoutes
+    }
 
     fun setRoute(route: AudioRoute) {
         routeRequests(route)

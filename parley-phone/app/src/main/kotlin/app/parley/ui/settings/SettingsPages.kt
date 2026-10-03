@@ -57,6 +57,7 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneLocked
 import androidx.compose.material.icons.rounded.PrivacyTip
@@ -455,6 +456,13 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
         logPromptsRow(vm, circleCfg)
+        // How keep-in-touch reminders arrive lives on Reminders; Circle ⋮ › Circle settings lands here.
+        item {
+            LinkRow(
+                stringResource(R.string.set_circle_reminders_title), stringResource(R.string.set_circle_reminders_summary),
+                Icons.Rounded.NotificationsActive,
+            ) { open(RemindersRoutes.Page("circle_delivery")) }
+        }
     }
     AdvancedGroup(setOf("import_sim", "export_account")) {
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SimImport) }

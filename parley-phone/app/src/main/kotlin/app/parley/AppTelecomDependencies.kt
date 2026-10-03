@@ -153,7 +153,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // Its vibration, auto-answer and labels are in the same caller-ID copy (readable while the phone is locked).
             val choices = callerChoices(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
             CallerDisplay(
-                info.name, card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
+                // "Show names as" last name first, as for the address book's contacts above.
+                NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),
+                card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
                 pronouns = card?.pronouns, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
                 favourite = info.starred,

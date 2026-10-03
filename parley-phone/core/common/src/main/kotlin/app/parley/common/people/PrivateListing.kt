@@ -10,10 +10,15 @@ import app.parley.common.PhoneEntry
  * same contact page and per-contact data (Circle, logged moments) is found under the same key as on that page.
  */
 object PrivateListing {
-    /** A private contact as a list row. [photoUri] is the in-app photo; [phones] its numbers. */
-    fun row(vaultId: Long, name: String, numbers: List<String>, starred: Boolean, photoUri: String?): ContactSummary =
+    /**
+     * A private contact as a list row. [photoUri] is the in-app photo; [phones] its numbers; [nameAlt] the
+     * "Family, Given" form (see [NameOrder.alternative]). Rows are in first-name form: pass them through
+     * [NameOrder.apply] with the device contacts' settings before [merge], so both settings apply to them too.
+     */
+    fun row(vaultId: Long, name: String, numbers: List<String>, starred: Boolean, photoUri: String?, nameAlt: String = name): ContactSummary =
         ContactSummary(
-            id = ContactRef.Private(vaultId).navId, lookupKey = ContactRef.privateKey(vaultId), displayName = name, photoUri = photoUri,
+            id = ContactRef.Private(vaultId).navId, lookupKey = ContactRef.privateKey(vaultId), displayName = name, displayNameAlt = nameAlt,
+            photoUri = photoUri,
             starred = starred, phones = numbers.mapIndexed { i, n -> PhoneEntry(n, MOBILE, null, isPrimary = i == 0 && numbers.size > 1) },
         )
 

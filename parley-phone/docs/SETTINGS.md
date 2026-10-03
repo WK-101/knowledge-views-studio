@@ -93,7 +93,7 @@ Screens of their own for particular calls; search opens each screen directly.
 | Organise | Save new contacts to `default_account` · Labels `labels` · Add relations to both contacts `mirror_relations` (on by default) · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` · Find & merge duplicates `duplicates` · Contact health check `health` · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) |
 | Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` |
 | Birthdays and reminders | Birthdays & dates `birthdays` · Reminders `reminders` ↗ (birthday and keep-in-touch reminders are there) |
-| Circle: keeping in touch | Log messages you start `log_prompts` |
+| Circle: keeping in touch | Log messages you start `log_prompts` · Keep-in-touch reminders ↗ (Reminders) |
 | Advanced | Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
 | In Tools ↗ | Scan QR code `scan_qr` (also the Contacts header) · Coming from another phone? `coming_from` (also onboarding's last step) |
 
@@ -152,7 +152,7 @@ Screens of their own for particular calls; search opens each screen directly.
 | — | Notification health card · Notification settings `notification_settings` · Allow full-screen incoming calls `full_screen` · Battery optimisation `battery` · Xiaomi: lock screen & pop-up permissions `xiaomi` (Xiaomi, Redmi, POCO only) |
 
 ## Reminders ↗
-Every reminder Parley sends, on one page (`SettingPlace.REMINDERS`), each with its switch and time. The settings are stored where they always were; only the page is new. Search opens it scrolled to the row, and an old link to one of these rows on its category page (Circle ⋮ › Circle settings) opens it too. Their notification channels share one channel group, **Reminders**, with the same channel ids as before, so sound and importance choices stay.
+Every reminder Parley sends, on one page (`SettingPlace.REMINDERS`), each with its switch and time. The settings are stored where they always were; only the page is new. Search opens it scrolled to the row, and an old link to one of these rows on its category page (a restored back stack) opens it too. Most of their notification channels share one channel group, **Reminders**, with the same channel ids as before, so sound and importance choices stay. Circle ⋮ › Circle settings opens Contacts › Circle: its own setting, and a link here.
 
 | Group | Settings |
 |---|---|
@@ -164,7 +164,7 @@ Every reminder Parley sends, on one page (`SettingPlace.REMINDERS`), each with i
 | Temporary contacts | Ask before deleting temporary contacts `temp_ask_first` (also on the Temporary contacts screen) |
 | Notifications | Reminder notifications (Android's notification settings for Parley) |
 
-Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v1`), To call (`to_call_v1`) and Backups (`backup_v1`). Missed calls stay in their own channel with the calls, and due temporary contacts in Contacts housekeeping, because those channels also carry notices that aren't reminders.
+Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v1`), To call (`to_call_v1`) and Backup reminders (`backup_reminder_v1`). Three kinds stay outside it, because their channels also carry notices that aren't reminders and turning the group off must never hide those: missed calls (their own channel, with the calls), due temporary contacts (Contacts housekeeping) and backup results (`backup_v1`, Backups: a scheduled backup that failed, or rotation paused). The backup reminder used to share `backup_v1`; its own channel starts no louder than Backups was set, so someone who had turned Backups off doesn't start getting reminders.
 
 ## About
 | Group | Settings |
@@ -174,14 +174,11 @@ Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v
 
 ## Changes in 5.1
 
-- **One hub.** Tools and "What Parley can do" are one page, **Tools**: every feature grouped by the job you want done, the most used rows of each job shown first and the rest under "n more", with search. Lock now, Expecting a call (a switch), Import & export contacts and the other former Tools rows are in it. The Settings list has one **Tools** row (it had Tools and What Parley can do). The Privacy dashboard lives under Settings › Privacy & security › Your data and stays in the hub's "Keep it private" job. Old links to the Tools page open the hub.
+- **One hub.** Tools and "What Parley can do" are one page, **Tools**: every feature grouped by the job you want done, the most used rows of each job shown first and the rest under "n more", with search. Lock now, Expecting a call (a switch), Import & export contacts and the other former Tools rows are in it. The Settings list has one **Tools** row (it had Tools and What Parley can do). The Privacy dashboard lives under Settings › Privacy & security › Your data and stays in the hub's "Keep it private" job. Old links to the Tools page open the hub. **Who's in…** left the ⋮ menus: it is the Contacts search's city chip and a row in "Stay in touch", and Settings search finds Tools by "who's in", "trip" or "travel".
 - **One Reminders page.** Remind me of missed calls (from Calls), Birthday reminders, Reminder time, Remind me before dates, Keep-in-touch nudges, How keep-in-touch reminders arrive and At most per week (from Contacts) and Remind me to back up (from Backup & sync) moved to **Reminders**, which also lists To call, the after-call prompt and Ask before deleting temporary contacts. Contacts, Recents & history, Calls and Backup & sync link to it. Nothing stored changed, and search finds each by its old words.
-
-## Changes in 5.1
-
 - **Calls has pages of its own.** Its 31 entries were the most of any page. The Calls page now shows the default phone app, four pages (Answering, During calls, SIMs & carrier, Situations), missed calls and voicemail, and Before you call. Family safety's helpers, the drive profile, phone menus and call time are together on Situations. No stored setting changed; search finds every setting by its old words and opens the page it is on now.
-- **Sort by and Show names as are two settings**, as in Android's own Contacts. "Sort and show names by" did both: it is now **Sort by** (`sort_names`, the list order, letter headers and the A–Z index) and **Show names as** (`name_order`, how names read in lists, search, Recents and on the call screen). A phone that never saved Show names as keeps showing names the way it sorts them. Search finds both by "sort and show names by".
-- **No silent growth.** `SettingsSearchTest` records a ceiling for the number of settings and a limit of 22 searchable rows per page. A new setting replaces one or folds into one; one moved onto a screen of its own still counts.
+- **Sort by and Show names as are two settings**, as in Android's own Contacts. "Sort and show names by" did both: it is now **Sort by** (`sort_names`, the list order, letter headers and the A–Z index) and **Show names as** (`name_order`, how names read in lists, search, Recents and on the call screen). A phone that never chose Show names as keeps showing names the way it sorts them: the setting is stored only once it differs from what Sort by gives, and restoring a backup made before it existed (Sort by only) shows names the way that backup sorted them. Private contacts follow both settings too, by their family name (from the name's parts; for one saved before those were kept, the last word of the name). Search finds both by "sort and show names by".
+- **Settings budget.** `SettingsSearchTest` records a ceiling for the number of settings and a limit of 22 searchable rows per page. A new setting replaces one or folds into one; one moved onto a screen of its own still counts. Links to a page or list that hold no value of their own (Reminders `reminders`, To call `to_call`, marked `link` in `SettingsCatalog`) are searchable but not counted. 5.1 grew by one setting, from 161 to 162: **Show names as** (`name_order`), which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does. Nothing else was added; the ceiling is 162.
 
 ## Changes in 4.1
 
