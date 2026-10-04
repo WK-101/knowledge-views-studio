@@ -89,7 +89,6 @@
     <string name="main_yesterday">Yesterday</string>
     <string name="main_no_app">No app available for this action</string>
     <string name="main_share_contact">Share contact</string>
-    <string name="main_copied">Copied</string>
     <!-- "Ana (+1 555 0100)" -->
     <string name="call_who_with_number">%1$s (%2$s)</string>
     <string name="call_who_with">Call %1$s with</string>

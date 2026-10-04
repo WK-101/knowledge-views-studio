@@ -73,6 +73,7 @@ import app.parley.ui.contact.CallerTunes
 import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.family.SafeWordSection
+import app.parley.ui.startOrSay
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.sync.shared.SharedLabelSection
 import app.parley.ui.home.ContactRow
@@ -399,8 +400,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
             val emails = members.filter { it.id > 0 }.mapNotNull { it.emails.firstOrNull() } + privateEmails
             if (emails.isEmpty()) vm.toast(res.getString(R.string.lbl_no_emails))
-            else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") }))) }
-                .onFailure { vm.toast(res.getString(R.string.lbl_no_email_app)) }
+            else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") })))) vm.toast(res.getString(R.string.lbl_no_email_app))
         }
     }
     var menu by remember { mutableStateOf(false) }
@@ -446,8 +446,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                         (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number
                     }
                     if (numbers.isEmpty()) vm.toast(res.getString(R.string.lbl_no_numbers))
-                    else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) }))) }
-                        .onFailure { vm.toast(res.getString(R.string.lbl_no_sms_app)) }
+                    else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) })))) vm.toast(res.getString(R.string.lbl_no_sms_app))
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }

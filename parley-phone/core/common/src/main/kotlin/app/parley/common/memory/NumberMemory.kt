@@ -1,10 +1,10 @@
 package app.parley.common.memory
 
+import app.parley.common.Codecs
 import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** Where a remembered fact about a number comes from, best first (see [NumberMemory.rank]). */
 @Serializable
@@ -73,7 +73,7 @@ object NumberMemory {
     /** Where the line is shown; each place leaves out what it already shows. */
     enum class Place { CALL, POST_CALL, KEYPAD, HISTORY }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; coerceInputValues = true }
+    private val json = Codecs.tolerant
 
     fun encode(hint: MemoryHint): String = json.encodeToString(MemoryHint.serializer(), hint)
 

@@ -29,6 +29,7 @@ import app.parley.R
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import app.parley.ui.ParleyDialog
+import app.parley.ui.startOrSay
 
 /**
  * After a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
@@ -67,7 +68,7 @@ fun CrashReportHost(vm: AppViewModel) {
                     Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject),
                 ).putExtra(Intent.EXTRA_TEXT, text)
                 val chooser = Intent.createChooser(any, res.getString(R.string.ppl_crash_send_chooser)).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
-                runCatching { context.startActivity(chooser) }
+                context.startOrSay(chooser)
                 done()
             }) { Text(stringResource(R.string.ppl_crash_send)) }
         },

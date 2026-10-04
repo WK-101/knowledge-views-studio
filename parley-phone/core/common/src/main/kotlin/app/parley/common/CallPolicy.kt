@@ -6,7 +6,6 @@ import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.ExpectedWindow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
@@ -176,7 +175,7 @@ data class ScreeningSettings(
     fun encode(): String = CODEC.encodeToString(serializer(), this)
 
     companion object {
-        private val CODEC = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val CODEC = Codecs.stored
 
         /** Reads settings stored by [encode]; unknown or broken input gives the defaults. */
         fun decode(json: String?): ScreeningSettings =

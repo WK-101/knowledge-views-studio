@@ -2,6 +2,7 @@ package app.parley.ui.contact
 
 import app.parley.common.calls.CallReason
 import app.parley.jobs.UserErrorText
+import app.parley.ui.Clipboard
 import app.parley.ui.menus.CallReasonFlow
 import app.parley.ui.menus.MenuShortcutsBlock
 import app.parley.ui.menus.ReasonTarget
@@ -720,7 +721,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     // Tap edits it; press and hold copies it, like the page's other facts.
                     modifier = Modifier.combinedClickable(
                         onClick = { editNote = true },
-                        onLongClick = note?.let { n -> { Intents.copy(context, n) } },
+                        onLongClick = note?.let { n -> { Clipboard.copy(context, n) } },
                         onLongClickLabel = note?.let { stringResource(R.string.main_copy) },
                     ),
                     leading = {

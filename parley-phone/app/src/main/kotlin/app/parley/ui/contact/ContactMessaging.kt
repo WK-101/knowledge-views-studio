@@ -1,6 +1,5 @@
 package app.parley.ui.contact
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -24,13 +23,13 @@ import app.parley.common.people.MessageRoutes
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.circle.InteractionChannel
 import app.parley.messaging.MessagingText
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 import app.parley.container
 import app.parley.data.MessengerAction
 import app.parley.data.PhoneEnv
 import app.parley.messaging.MessengerLauncher
 import app.parley.ui.ConfirmDialog
-import app.parley.ui.showMessage
 
 /**
  * How to reach one person by message: their numbers, the messenger rows apps added for them (none for
@@ -114,14 +113,8 @@ object ContactMessaging {
         }
     }
 
-    fun start(context: Context, intent: Intent, appName: String): String? = try {
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        null
-    } catch (_: ActivityNotFoundException) {
-        context.getString(R.string.msg_app_unavailable, appName)
-    } catch (_: SecurityException) {
-        context.getString(R.string.msg_app_unavailable, appName)
-    }
+    fun start(context: Context, intent: Intent, appName: String): String? =
+        if (context.startOrSay(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))) null else context.getString(R.string.msg_app_unavailable, appName)
 
     /**
      * Opens a handle link. An app that handles it directly is used with its package; otherwise the system
@@ -133,15 +126,11 @@ object ContactMessaging {
         val pm = context.packageManager
         for (pkg in link.packages) {
             val i = Intent(Intent.ACTION_VIEW, uri).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (i.resolveActivity(pm) != null && runCatching { context.startActivity(i) }.isSuccess) return true
+            if (i.resolveActivity(pm) != null && context.startOrSay(i)) return true
         }
         if (link.isWeb && !confirmedWeb) return false
         val chooser = Intent.createChooser(Intent(Intent.ACTION_VIEW, uri), null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(chooser)
-        } catch (_: ActivityNotFoundException) {
-            showMessage(context, context.getString(R.string.msg_no_app_opens))
-        }
+        context.startOrSay(chooser, context.getString(R.string.msg_no_app_opens))
         return true
     }
 }

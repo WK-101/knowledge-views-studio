@@ -1,10 +1,10 @@
 package app.parley.common.spam
 
 import app.parley.common.BlockAction
+import app.parley.common.Codecs
 import app.parley.common.ListMode
 import app.parley.common.NotifyLevel
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** UPDATER: copied from the optional "Parley Lists" companion app. */
 enum class PackOrigin { FILE, FOLDER, BUILTIN, UPDATER }
@@ -67,7 +67,7 @@ data class ListsState(
     fun encode(): String = CODEC.encodeToString(serializer(), this)
 
     companion object {
-        private val CODEC = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val CODEC = Codecs.stored
         fun decode(s: String?): ListsState = if (s.isNullOrBlank()) ListsState() else runCatching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(ListsState())
     }
 }

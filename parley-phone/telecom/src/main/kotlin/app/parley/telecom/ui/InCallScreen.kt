@@ -1,12 +1,7 @@
 package app.parley.telecom.ui
 
 import android.annotation.SuppressLint
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Context
-import android.os.Build
-import android.os.PersistableBundle
 import android.content.res.Resources
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
@@ -121,6 +116,7 @@ import app.parley.telecom.shownFor
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
+import app.parley.ui.Clipboard
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ForceLtr
 import app.parley.ui.ParleyListItem
@@ -131,7 +127,6 @@ import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import app.parley.ui.keypadKey
 import app.parley.ui.rowColors
-import app.parley.ui.systemMessage
 
 /** Which of the screen's sheets and dialogs is open. */
 private class InCallSheets {
@@ -990,18 +985,6 @@ private fun SimpleHelper(call: CallUi, s: ScreenState, sheets: InCallSheets) {
     SimpleHelperButton(helpers) { addHelper(context, call, s, sheets.family)?.invoke() }
 }
 
-/**
- * Copies the caller's number, marked sensitive so it stays out of the Android 13+ clipboard preview and keyboard
- * history. Android 13+ confirms the copy itself; before that, a short message does.
- */
-private fun copyNumber(context: Context, number: String) {
-    val clip = ClipData.newPlainText("number", number)
-    val key = if (Build.VERSION.SDK_INT >= 33) ClipDescription.EXTRA_IS_SENSITIVE else "android.content.extra.IS_SENSITIVE"
-    clip.description.extras = PersistableBundle().apply { putBoolean(key, true) }
-    runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
-    if (Build.VERSION.SDK_INT < 33) systemMessage(context, context.getString(R.string.incall_copied))
-}
-
 @Composable
 private fun NoteDialog(callId: String, onDone: () -> Unit) {
     var text by remember { mutableStateOf("") }
@@ -1077,3 +1060,6 @@ private fun ConferenceSheet(conference: CallUi, onDismiss: () -> Unit) {
         Spacer(Modifier.height(Spacing.xl))
     }
 }
+
+/** The caller's number, sensitive like every copy in Parley. */
+private fun copyNumber(context: Context, number: String) = Clipboard.copy(context, number, confirm = context.getString(R.string.incall_copied))

@@ -1,7 +1,5 @@
 package app.parley.ui.contact
 
-import android.content.ActivityNotFoundException
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -54,9 +52,10 @@ import app.parley.common.people.MapLinks
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.PostalItem
+import app.parley.ui.Clipboard
 import app.parley.ui.ParleyDialog
 import app.parley.ui.common.Intents
-import app.parley.ui.showMessage
+import app.parley.ui.startOrSay
 
 /**
  * An address's map link. Android's contacts store has no place for coordinates next to an address (StructuredPostal
@@ -121,13 +120,7 @@ object AddressMapLinks {
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(l)).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 
-    private fun launch(context: Context, intent: Intent) {
-        try {
-            context.startActivity(intent)
-        } catch (_: ActivityNotFoundException) {
-            showMessage(context, context.getString(R.string.main_no_app))
-        }
-    }
+    private fun launch(context: Context, intent: Intent) = context.startOrSay(intent, context.getString(R.string.main_no_app))
 }
 
 /**
@@ -184,7 +177,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 )
                 // The clipboard is read only when this is tapped.
                 AssistChip(
-                    onClick = { clipText(context)?.let { text = it.take(2000) } },
+                    onClick = { Clipboard.readText(context, 2000)?.let { text = it } },
                     label = { Text(stringResource(R.string.map_link_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp)) },
                 )
@@ -217,10 +210,6 @@ private fun describe(p: MapLinks.Place?): String {
         else -> stringResource(R.string.map_link_unknown)
     }
 }
-
-private fun clipText(context: Context): String? = runCatching {
-    context.getSystemService(ClipboardManager::class.java)?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-}.getOrNull()?.takeIf { it.isNotBlank() }
 
 /**
  * Contact page › an address. With a saved map link that holds a position, a tap opens that exact spot (the person

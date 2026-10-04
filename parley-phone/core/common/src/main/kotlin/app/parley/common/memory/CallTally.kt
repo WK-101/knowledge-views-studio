@@ -1,9 +1,9 @@
 package app.parley.common.memory
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Number memory's summary of the call archive, per line: how many calls, since when, the newest call and the newest
@@ -64,7 +64,7 @@ data class CallTally(
     fun encode(): ByteArray = json.encodeToString(serializer(), this).toByteArray(Charsets.UTF_8)
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = Codecs.stored
 
         fun empty(region: String?) = CallTally(region = region)
 

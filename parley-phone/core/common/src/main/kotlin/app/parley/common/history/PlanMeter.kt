@@ -2,9 +2,9 @@ package app.parley.common.history
 
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -61,7 +61,7 @@ data class PlanConfig(
     }
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = Codecs.stored
         private val list = ListSerializer(serializer())
         fun encodeList(l: List<PlanConfig>): String = json.encodeToString(list, l)
         fun decodeList(s: String?): List<PlanConfig> = if (s.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(list, s) }.getOrDefault(emptyList())

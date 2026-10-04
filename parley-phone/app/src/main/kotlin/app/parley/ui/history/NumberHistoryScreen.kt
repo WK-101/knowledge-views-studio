@@ -1,6 +1,7 @@
 package app.parley.ui.history
 
 import app.parley.calls.ExpectedCallHints
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -173,7 +174,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                             description = messageOnLabel,
                         ) { messageOn = true }
                         ActionTile(Icons.Rounded.ContentCopy, stringResource(R.string.hist_action_copy), true, fillHeight = true) {
-                            Intents.copy(context, number)
+                            Clipboard.copy(context, number)
                         }
                     }
                     Row(

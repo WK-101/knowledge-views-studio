@@ -1,9 +1,9 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** I4: a label's private question and the answer only family knows ("What's our word?" · "Blue heron"). */
 @Serializable
@@ -32,7 +32,7 @@ data class FamilySafetyState(
     fun undecided(source: ExpectedSource): Boolean = source !in consents
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val json = Codecs.stored
 
         fun encode(s: FamilySafetyState): String = json.encodeToString(serializer(), s)
 

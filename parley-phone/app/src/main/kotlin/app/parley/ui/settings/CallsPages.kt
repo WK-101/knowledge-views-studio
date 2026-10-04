@@ -46,6 +46,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.history.HistoryRoutes
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -166,9 +167,9 @@ private fun SimsCarrierPage(open: (Destination) -> Unit) {
     val context = LocalContext.current
     SegmentedGroup {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
-        linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
+        linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startOrSay(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
         linkRow("carrier_settings", Icons.AutoMirrored.Rounded.PhoneForwarded, external = true) {
-            context.startSafely(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
+            context.startOrSay(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
         }
     }
 }

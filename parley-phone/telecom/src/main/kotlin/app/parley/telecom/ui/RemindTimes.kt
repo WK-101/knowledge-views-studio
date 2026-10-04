@@ -36,6 +36,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.R
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.Spacing
+import app.parley.ui.startOrSay
 import app.parley.ui.systemMessage
 import java.time.ZoneId
 
@@ -107,7 +108,7 @@ internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
             CallManager.ignore(call.id)
             val open = {
                 CallManager.reject(call.id)
-                runCatching { context.startActivity(messageOnIntent(context, number, call.accountId)) }
+                context.startOrSay(messageOnIntent(context, number, call.accountId))
             }
             val km = context.getSystemService(KeyguardManager::class.java)
             if (activity != null && km.isKeyguardLocked) {

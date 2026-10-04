@@ -1,24 +1,20 @@
 package app.parley.ui.qr
 
-import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
-import android.os.PersistableBundle
 import android.provider.CalendarContract
 import android.provider.Settings
 import app.parley.R
 import app.parley.common.qr.QrApp
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.WifiSecurity
+import app.parley.ui.Clipboard
+import app.parley.ui.startOrSay
 import java.time.ZoneId
-import app.parley.ui.showMessage
 
 /**
  * What the result sheet's buttons do. Every one runs only on the user's tap. Intents name their target app
@@ -26,33 +22,13 @@ import app.parley.ui.showMessage
  * network: a browser or another app does, after the user chose to leave Parley.
  */
 object QrActions {
-    /** Copies [text]; [sensitive] (a Wi-Fi password) keeps it out of clipboard previews on Android 13+. */
-    fun copy(context: Context, text: String, sensitive: Boolean = false) {
-        val clip = ClipData.newPlainText(context.getString(R.string.qs_clip_label), text)
-        if (sensitive && Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
-        }
-        runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
-        // Android 13+ confirms copies itself.
-        if (Build.VERSION.SDK_INT < 33) showMessage(context, context.getString(R.string.qs_copied))
-    }
-
     fun share(context: Context, text: String) {
         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
         start(context, Intent.createChooser(send, context.getString(R.string.qs_share_chooser)))
     }
 
     /** Starts [intent]; false (with a message) when no app takes it. */
-    fun start(context: Context, intent: Intent, missing: Int = R.string.qs_no_app): Boolean = try {
-        context.startActivity(intent)
-        true
-    } catch (_: ActivityNotFoundException) {
-        showMessage(context, context.getString(missing))
-        false
-    } catch (_: SecurityException) {
-        showMessage(context, context.getString(missing))
-        false
-    }
+    fun start(context: Context, intent: Intent, missing: Int = R.string.qs_no_app): Boolean = context.startOrSay(intent, context.getString(missing))
 
     /** The first installed package of [app], or null. */
     fun installedPackage(context: Context, app: QrApp): String? = app.packages.firstOrNull { pkg ->
@@ -72,33 +48,27 @@ object QrActions {
         if (m.app.pasteOnly) {
             // No link opens Session or Briar with the payload: copy it and open the app for pasting.
             val pkg = installedPackage(context, m.app) ?: return false
-            copy(context, m.handle ?: m.uri)
+            Clipboard.copy(context, m.handle ?: m.uri)
             val launch = context.packageManager.getLaunchIntentForPackage(pkg) ?: return false
-            return runCatching { context.startActivity(launch) }.isSuccess
+            return context.startOrSay(launch)
         }
         val uri = Uri.parse(m.uri)
         val pm = context.packageManager
         for (pkg in m.app.packages) {
             val i = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE).setPackage(pkg)
-            if (i.resolveActivity(pm) != null && runCatching { context.startActivity(i) }.isSuccess) return true
+            if (i.resolveActivity(pm) != null && context.startOrSay(i)) return true
         }
         if (Build.VERSION.SDK_INT >= 30) {
             val i = Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
                 .addFlags(Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER)
-            try {
-                context.startActivity(i)
-                return true
-            } catch (_: ActivityNotFoundException) {
-                // Not installed.
-            } catch (_: SecurityException) {
-                // Not exported to us.
-            }
+            // Not installed, or not exported to us: try the next way.
+            if (context.startOrSay(i)) return true
         }
         // WeChat and KakaoTalk profile codes are meant for their in-app scanner: opening the app is the next best thing.
         if (m.app.scanInside) {
             val pkg = installedPackage(context, m.app) ?: return false
             val launch = pm.getLaunchIntentForPackage(pkg) ?: return false
-            return runCatching { context.startActivity(launch) }.isSuccess
+            return context.startOrSay(launch)
         }
         return false
     }

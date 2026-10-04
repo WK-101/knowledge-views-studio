@@ -1,8 +1,8 @@
 package app.parley.common.sync.shared
 
+import app.parley.common.Codecs
 import app.parley.common.backup.RecordJson
 import app.parley.common.spam.Ed25519
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -108,7 +108,7 @@ object SharedLabelFiles {
     const val MAX_NAME = 80
     const val MAX_FILE_BYTES = 1L shl 20
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Codecs.stored
     private val b64 = Base64.getEncoder()
     private val unb64 = Base64.getDecoder()
     private val SID = Regex("[0-9a-f]{32}")

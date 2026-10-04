@@ -59,6 +59,7 @@ import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.SwitchRow
 import app.parley.ui.rowColors
+import app.parley.ui.startOrSay
 
 /**
  * Settings › Calls › Drive profile (I11): mark the car's Bluetooth, then choose what happens while it is connected.
@@ -105,7 +106,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
                 LinkRow(
                     stringResource(R.string.drive_open_bluetooth), stringResource(R.string.drive_open_bluetooth_sub), Icons.Rounded.Bluetooth, external = true,
                 ) {
-                    runCatching { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+                    context.startOrSay(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
                 }
             }
         }

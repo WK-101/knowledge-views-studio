@@ -164,6 +164,7 @@ import app.parley.ui.people.SecondLineRow
 import app.parley.ui.people.SwipeSettings
 import app.parley.ui.people.accountLabel
 import app.parley.ui.people.hasSeveralAccounts
+import app.parley.ui.startOrSay
 import app.parley.ui.temporary.rememberTemporaryItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -180,10 +181,6 @@ import androidx.compose.material.icons.automirrored.rounded.MergeType
 internal fun rememberSettingsSetter(vm: AppViewModel): ((AppSettings) -> AppSettings) -> Unit {
     val scope = rememberCoroutineScope()
     return remember(vm) { { f -> scope.launch { vm.c.settings.update(f) } } }
-}
-
-internal fun Context.startSafely(intent: Intent) {
-    runCatching { startActivity(intent) }
 }
 
 // ---------------------------------------------------------------- Appearance
@@ -674,7 +671,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     AdvancedGroup(setOf("private_directory", "app_permissions", "delete_all_data")) {
         linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PrivateNames) }
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
-            context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
+            context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
         }
         linkRow("delete_all_data", Icons.Rounded.DeleteForever) { wipe = true }
     }
@@ -716,7 +713,7 @@ internal fun NotificationsPage(vm: AppViewModel) {
     val batterySub = stringResource(R.string.set_battery_sub)
     SegmentedGroup {
         linkRow("notification_settings", Icons.Rounded.Notifications, external = true) {
-            context.startSafely(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            context.startOrSay(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }
         val nm = context.getSystemService(NotificationManager::class.java)
         val fullScreenOff = Build.VERSION.SDK_INT >= 34 && !nm.canUseFullScreenIntent()
@@ -726,19 +723,19 @@ internal fun NotificationsPage(vm: AppViewModel) {
             external = true,
         ) {
             if (Build.VERSION.SDK_INT >= 34) {
-                context.startSafely(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + context.packageName)))
+                context.startOrSay(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + context.packageName)))
             } else {
-                context.startSafely(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                context.startOrSay(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
         }
         linkRow("battery", Icons.Rounded.BatteryAlert, sub = batterySub, external = true) {
-            context.startSafely(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            context.startOrSay(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
         if (Build.MANUFACTURER.equals("Xiaomi", true) || Build.MANUFACTURER.equals("Redmi", true) || Build.MANUFACTURER.equals("POCO", true)) {
             linkRow("xiaomi", Icons.Rounded.PhoneAndroid, external = true) {
                 val miui = Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", context.packageName)
                 runCatching { context.startActivity(miui) }.onFailure {
-                    context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
+                    context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
                 }
             }
         }

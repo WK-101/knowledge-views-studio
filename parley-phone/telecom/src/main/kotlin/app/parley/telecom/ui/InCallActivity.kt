@@ -41,6 +41,7 @@ import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ParleyTheme
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
@@ -170,7 +171,7 @@ class InCallActivity : ComponentActivity() {
     private fun startOwnScreen(intent: Intent) {
         leavingForApp = true
         updatePip()
-        runCatching { startActivity(intent) }
+        startOrSay(intent)
     }
 
     /** Retry on the failure banner: the same number, on the same SIM. */

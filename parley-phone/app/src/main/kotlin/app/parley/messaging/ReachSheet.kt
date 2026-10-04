@@ -1,10 +1,6 @@
 package app.parley.messaging
 
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.os.Build
-import android.os.PersistableBundle
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -70,6 +66,7 @@ import app.parley.common.Messenger
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.cards.ShareMethod
+import app.parley.ui.Clipboard
 import app.parley.ui.people.cards.CardSharing
 import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
@@ -493,13 +490,10 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     fun launch(app: MessengerApp) {
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return
         if (draft.isNotBlank() && !app.takesText) {
-            val clip = ClipData.newPlainText("message", draft)
-            // Keep the draft out of clipboard previews and keyboard suggestions (Android 13+).
-            if (Build.VERSION.SDK_INT >= 33) {
-                clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
-            }
-            context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-            toast(res.getString(R.string.msg_copied_paste))
+            // "Paste it in the app" says more than Android 13's own "Copied", so it shows on every version.
+            val hint = res.getString(R.string.msg_copied_paste)
+            Clipboard.copy(context, draft, confirm = hint)
+            if (Build.VERSION.SDK_INT >= 33) toast(hint)
         }
         val error = MessengerLauncher.open(context, link, app)
         if (error != null) return toast(error)

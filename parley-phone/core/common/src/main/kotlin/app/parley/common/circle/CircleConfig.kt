@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** How keep-in-touch reminders arrive. */
 enum class ReminderDelivery {
@@ -49,7 +49,7 @@ data class CircleConfig(
         val CAP_CHOICES = listOf(1, 2, 3, 5, 7)
         val LEAD_CHOICES = listOf(0, 1, 3, 7)
 
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val json = Codecs.full
 
         fun decode(text: String?): CircleConfig = if (text.isNullOrBlank()) {
             CircleConfig()

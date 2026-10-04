@@ -1,8 +1,8 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import java.util.Locale
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** A Bluetooth device the user marked as their car: its hardware address and the name it had when marked. */
 @Serializable
@@ -30,7 +30,7 @@ data class DriveProfileConfig(
     val enabled: Boolean get() = cars.isNotEmpty()
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val json = Codecs.full
 
         fun decode(text: String?): DriveProfileConfig = if (text.isNullOrBlank()) {
             DriveProfileConfig()

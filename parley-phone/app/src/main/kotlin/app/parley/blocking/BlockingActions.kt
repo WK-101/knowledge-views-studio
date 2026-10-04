@@ -1,6 +1,5 @@
 package app.parley.blocking
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -12,8 +11,8 @@ import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
-import app.parley.ui.common.Intents
-import app.parley.ui.showMessage
+import app.parley.ui.Clipboard
+import app.parley.ui.startOrSay
 
 /** Blocking actions shared by the Blocking screen, Recents, number history, notifications and the QS tile. */
 object BlockingActions {
@@ -71,13 +70,8 @@ object BlockingActions {
 
     // ---------- Hand-offs (no permission, the user finishes in another app) ----------
 
-    private fun launch(context: Context, intent: Intent): Boolean = try {
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        true
-    } catch (_: ActivityNotFoundException) {
-        showMessage(context, context.getString(R.string.blk_no_app))
-        false
-    }
+    private fun launch(context: Context, intent: Intent): Boolean =
+        context.startOrSay(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), context.getString(R.string.blk_no_app))
 
     /** Opens the browser with the number as a search. Always behind a confirmation (it leaves the phone). */
     fun searchWeb(context: Context, number: String, baseUrl: String) {
@@ -112,7 +106,7 @@ object BlockingActions {
     }
 
     fun openRegulator(context: Context, r: Regulator, number: String) {
-        Intents.copy(context, number)
+        Clipboard.copy(context, number)
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(r.url)).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 

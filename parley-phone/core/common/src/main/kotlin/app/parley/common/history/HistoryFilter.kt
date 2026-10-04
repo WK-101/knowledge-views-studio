@@ -2,9 +2,9 @@ package app.parley.common.history
 
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -87,7 +87,7 @@ data class HistoryFilter(
     fun matches(e: CallEntry, now: Long, zone: ZoneId): Boolean = matcher(now, zone)(e)
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val json = Codecs.stored
         private val listSerializer = ListSerializer(serializer())
 
         fun encodeList(list: List<HistoryFilter>): String = json.encodeToString(listSerializer, list)

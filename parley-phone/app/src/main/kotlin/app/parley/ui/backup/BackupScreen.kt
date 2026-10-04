@@ -57,9 +57,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.data.backup.BackupFileInfo
 import app.parley.data.backup.BackupSchedule
+import app.parley.ui.Clipboard
 import app.parley.ui.common.Format
-import app.parley.ui.common.Intents
 import app.parley.ui.contact.Section
+import app.parley.ui.startOrSay
 import app.parley.work.BackupWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -129,7 +130,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 val share = Intent(Intent.ACTION_SEND).setType(
                     "application/octet-stream",
                 ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                runCatching { context.startActivity(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser))) }
+                context.startOrSay(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser)))
             } else {
                 vm.toast(out.message)
             }
@@ -365,7 +366,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = { TextButton({ recovery = null }) { Text(stringResource(R.string.bkp_recovery_saved)) } },
-            dismissButton = { TextButton({ Intents.copy(context, key) }) { Text(stringResource(R.string.bkp_copy)) } },
+            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.bkp_copy)) } },
         )
     }
     restoreUri?.let { uri -> RestoreFlow(vm, uri) { restoreUri = null; refresh++ } }

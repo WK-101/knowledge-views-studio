@@ -36,8 +36,8 @@ import app.parley.R
 import app.parley.blocking.DialText
 import app.parley.calltime.UssdState
 import app.parley.data.PlaceResult
+import app.parley.ui.Clipboard
 import app.parley.ui.common.Format
-import app.parley.ui.common.Intents
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
@@ -101,7 +101,7 @@ fun UssdDialog(vm: AppViewModel) {
             confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.ct_close)) } },
             dismissButton = {
                 if (s.ok) {
-                    TextButton({ Intents.copy(context, s.text) }) { Text(stringResource(R.string.ct_copy)) }
+                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.ct_copy)) }
                 } else {
                     TextButton({
                         vm.ussd.dismiss()

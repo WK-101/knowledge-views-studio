@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.calls.RoleRescue
 import app.parley.ui.ParleyDialog
+import app.parley.ui.startOrSay
 
 /**
  * Asks Android to make Parley the default phone app. Some phones answer "no" at once without showing the question
@@ -105,7 +106,7 @@ fun DialerRoleGuide(onDismiss: () -> Unit) {
 
 /** Some phones have no "Default apps" screen of their own: App info is always there. */
 private fun open(context: Context, intent: Intent) {
-    val ok = runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+    val ok = context.startOrSay(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     if (!ok) {
         runCatching {
             context.startActivity(

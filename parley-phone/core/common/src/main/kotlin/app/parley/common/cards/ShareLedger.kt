@@ -1,9 +1,9 @@
 package app.parley.common.cards
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 /** How My card reached someone. */
 @Serializable
@@ -54,7 +54,7 @@ object ShareLedger {
     /** Enough for years of swaps; the oldest go first. */
     const val MAX = 500
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val json = Codecs.stored
     private val serializer = ListSerializer(ShareReceipt.serializer())
 
     fun encode(list: List<ShareReceipt>): String = json.encodeToString(serializer, list)

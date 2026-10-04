@@ -1,9 +1,9 @@
 package app.parley.messaging
 
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import app.parley.common.catching
 import app.parley.jobs.UserErrorText
-import android.content.ClipboardManager
 import android.content.res.Resources
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
@@ -281,9 +281,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                             AssistChip(
                                 onClick = {
                                     // Read only on this tap.
-                                    val clip = runCatching {
-                                        context.getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-                                    }.getOrNull()
+                                    val clip = Clipboard.readText(context)
                                     if (!clip.isNullOrBlank()) text = (if (text.isBlank()) clip else text + "\n" + clip).take(MAX_TEXT)
                                 },
                                 label = { Text(stringResource(R.string.keypad_paste)) },

@@ -3,7 +3,6 @@ package app.parley.messaging
 import app.parley.security.LockedActivity
 import android.Manifest
 import androidx.annotation.VisibleForTesting
-import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -77,6 +76,7 @@ import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.people.MapLinks
 import app.parley.common.people.PasteParser
 import app.parley.IntentRoutes
+import app.parley.ui.Clipboard
 import app.parley.ui.contact.PasteInbox
 import androidx.compose.material.icons.rounded.ContactPage
 import app.parley.container
@@ -493,9 +493,7 @@ class NumberActionActivity : LockedActivity() {
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
         fun paste() {
-            val clip = runCatching {
-                getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
-            }.getOrNull()?.take(MAX_TEXT)
+            val clip = Clipboard.readText(this, MAX_TEXT)
             if (clip.isNullOrBlank()) {
                 showMessage(this, getString(R.string.num_nothing_to_paste))
                 return

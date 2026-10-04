@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Call-path switches added in v3.1 (Settings › Calls). Kept in their own small store so the call path reads them
@@ -34,7 +34,7 @@ data class CallExtrasConfig(
 ) {
     companion object {
         // A choice this version doesn't know (written by a newer one) reads as its default, not as a broken document.
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; coerceInputValues = true }
+        private val json = Codecs.fullTolerant
 
         fun decode(text: String?): CallExtrasConfig = if (text.isNullOrBlank()) {
             CallExtrasConfig()

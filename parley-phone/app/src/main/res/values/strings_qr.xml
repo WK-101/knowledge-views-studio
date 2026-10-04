@@ -171,7 +171,6 @@
     <string name="qs_share">Share</string>
     <string name="qs_share_chooser">Share what the code holds</string>
     <string name="qs_clip_label">QR code</string>
-    <string name="qs_copied">Copied</string>
     <string name="qs_text_long">This is long; the rest is included when you copy or share it.</string>
     <string name="qs_no_app">No app on this phone can open this.</string>
     <string name="qs_no_browser">No browser is installed.</string>

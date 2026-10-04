@@ -65,6 +65,7 @@ import app.parley.common.people.LookupOutcome
 import app.parley.ui.settings.settingTitle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.startOrSay
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -110,8 +111,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp),
                         )
                         TextButton({
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes"))) }
-                                .onFailure { vm.toast(res.getString(R.string.who_no_browser)) }
+                            if (!context.startOrSay(Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes")))) vm.toast(res.getString(R.string.who_no_browser))
                         }) { Text(stringResource(R.string.who_scopes_link)) }
                     }
                 }

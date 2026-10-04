@@ -58,8 +58,8 @@ import app.parley.common.people.HandleLink
 import app.parley.common.people.Handles
 import app.parley.common.people.RelationshipStatus
 import app.parley.data.HandleItem
+import app.parley.ui.Clipboard
 import app.parley.ui.SegmentedGroupScope
-import app.parley.ui.common.Intents
 import app.parley.ui.people.HandleText
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
@@ -120,10 +120,10 @@ fun HeaderName(name: String, modifier: Modifier = Modifier) {
             .pointerInput(name) {
                 detectTapGestures(onLongPress = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    Intents.copy(context, name)
+                    Clipboard.copy(context, name)
                 })
             }
-            .semantics { onLongClick(label = copyLabel) { Intents.copy(context, name); true } },
+            .semantics { onLongClick(label = copyLabel) { Clipboard.copy(context, name); true } },
     )
 }
 
@@ -151,8 +151,8 @@ fun HeaderFacts(parts: List<String>, separator: String, links: List<HeaderLink> 
                 part.text, color = color, textAlign = TextAlign.Center,
                 modifier = Modifier.combinedClickable(
                     onClickLabel = if (opens) openLabel else copyLabel,
-                    onClick = { if (opens) part.open() else Intents.copy(context, part.text) },
-                    onLongClickLabel = copyLabel, onLongClick = { Intents.copy(context, part.text) },
+                    onClick = { if (opens) part.open() else Clipboard.copy(context, part.text) },
+                    onLongClickLabel = copyLabel, onLongClick = { Clipboard.copy(context, part.text) },
                 ),
             )
             if (i < shown.lastIndex) Text(separator, color = color, modifier = Modifier.clearAndSetSemantics { })
@@ -192,8 +192,8 @@ fun GroupDataRow(
         InfoRow(
             modifier = Modifier.combinedClickable(
                 onClickLabel = if (onClick == null) stringResource(R.string.main_copy) else null,
-                onClick = onClick ?: { Intents.copy(context, text) },
-                onLongClick = { if (menu != null) open = true else Intents.copy(context, text) },
+                onClick = onClick ?: { Clipboard.copy(context, text) },
+                onLongClick = { if (menu != null) open = true else Clipboard.copy(context, text) },
                 onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.main_copy),
             ),
             leading = { if (showIcon) Icon(icon, null) },
@@ -203,7 +203,7 @@ fun GroupDataRow(
         )
         if (menu != null) {
             DropdownMenu(open, { open = false }) {
-                DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Intents.copy(context, text) })
+                DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })
                 menu { open = false }
             }
         }
@@ -267,7 +267,7 @@ fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector,
             GroupDataRow(
                 icon, showIcon = firstHasIcon && i == 0, text = h.value, label = HandleText.label(LocalResources.current, h.handle),
                 onClick = {
-                    if (link == null) Intents.copy(context, h.value)
+                    if (link == null) Clipboard.copy(context, h.value)
                     else if (!ContactMessaging.openHandle(context, link)) onWeb(link)
                 },
                 trailing = if (link != null) ({ Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.detail_open_in_app), tint = MaterialTheme.colorScheme.onSurfaceVariant) }) else null,

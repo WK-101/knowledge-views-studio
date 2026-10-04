@@ -1,9 +1,9 @@
 package app.parley.common.backup
 
+import app.parley.common.Codecs
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.RawRecord
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -25,7 +25,7 @@ import java.security.MessageDigest
  * (in `photos/<sha256>.bin` in an archive, or as a blob in a snapshot store).
  */
 object RecordJson {
-    internal val json = Json { encodeDefaults = true; ignoreUnknownKeys = true; explicitNulls = true }
+    internal val json = Codecs.full
 
     fun sha256Hex(bytes: ByteArray): String = hex(MessageDigest.getInstance("SHA-256").digest(bytes))
 

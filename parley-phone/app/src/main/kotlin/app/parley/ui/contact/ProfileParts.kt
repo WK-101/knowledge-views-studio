@@ -46,6 +46,7 @@ import app.parley.common.people.ProfileProblem
 import app.parley.common.people.ProfileService
 import app.parley.common.people.SocialProfiles
 import app.parley.data.DataItem
+import app.parley.ui.Clipboard
 import app.parley.ui.FormRow
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
@@ -87,7 +88,7 @@ fun SegmentedGroupScope.profileRows(profiles: List<Profile>) {
             Box {
                 InfoRow(
                     modifier = Modifier.combinedClickable(
-                        onClick = { if (url.isNotEmpty()) Intents.web(context, url) else Intents.copy(context, p.display, sensitive = false) },
+                        onClick = { if (url.isNotEmpty()) Intents.web(context, url) else Clipboard.copy(context, p.display, sensitive = false) },
                         onClickLabel = stringResource(R.string.detail_open_profile, p.service.label),
                         onLongClick = { menu = true },
                         onLongClickLabel = stringResource(R.string.main_more_actions),
@@ -109,12 +110,12 @@ fun SegmentedGroupScope.profileRows(profiles: List<Profile>) {
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
                         { Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
-                        onClick = { menu = false; Intents.copy(context, p.display, sensitive = false) },
+                        onClick = { menu = false; Clipboard.copy(context, p.display, sensitive = false) },
                     )
                     if (url.isNotEmpty()) {
                         DropdownMenuItem(
                             { Text(stringResource(R.string.detail_copy_link)) }, leadingIcon = { Icon(Icons.Rounded.Link, null) },
-                            onClick = { menu = false; Intents.copy(context, url, sensitive = false) },
+                            onClick = { menu = false; Clipboard.copy(context, url, sensitive = false) },
                         )
                     }
                 }

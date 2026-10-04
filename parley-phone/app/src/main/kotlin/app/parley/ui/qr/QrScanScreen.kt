@@ -1,9 +1,9 @@
 package app.parley.ui.qr
 
 import app.parley.calls.ExpectedCallHints
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import android.content.ActivityNotFoundException
-import android.content.ClipboardManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -157,8 +157,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     }
 
     fun paste() {
-        val clip = runCatching { context.getSystemService(ClipboardManager::class.java).primaryClip }.getOrNull()
-        val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+        val text = Clipboard.readText(context)
         if (text.isNullOrBlank()) {
             vm.toast(res.getString(R.string.qs_clipboard_empty))
         } else {

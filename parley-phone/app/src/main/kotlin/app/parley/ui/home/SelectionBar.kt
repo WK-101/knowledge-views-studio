@@ -26,6 +26,7 @@ import app.parley.common.people.BulkAction
 import app.parley.common.people.BulkActions
 import app.parley.data.AccountRef
 import app.parley.security.launchVault
+import app.parley.ui.startOrSay
 import app.parley.ui.vault.ExpiryDialog
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreVert
@@ -147,7 +148,7 @@ fun SelectionBar(vm: AppViewModel) {
                     val uri = vm.c.contacts.multiVcardUri(shared.map { it.lookupKey }.filter { it.isNotEmpty() })
                     val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    runCatching { context.startActivity(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, shared.size, shared.size))) }
+                    context.startOrSay(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, shared.size, shared.size)))
                 }
                 noteSkipped(BulkAction.SHARE)
             }) { Icon(Icons.Rounded.Share, stringResource(R.string.main_share)) }
@@ -166,7 +167,7 @@ fun SelectionBar(vm: AppViewModel) {
                         menu = false
                         val numbers = chosen.mapNotNull { c -> (c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
                         if (numbers.isEmpty()) vm.toast(res.getString(R.string.sel_no_numbers))
-                        else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";")))) }
+                        else context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";"))))
                     })
                     DropdownMenuItem({ Text(stringResource(R.string.sel_introduce)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
                         menu = false

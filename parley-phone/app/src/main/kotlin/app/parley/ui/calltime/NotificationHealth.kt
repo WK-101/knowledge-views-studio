@@ -47,6 +47,7 @@ import app.parley.R
 import app.parley.data.Permissions
 import app.parley.telecom.CallNotifier
 import app.parley.ui.CallColors
+import app.parley.ui.startOrSay
 
 /** One thing that decides whether calls reliably show up. */
 data class HealthCheck(
@@ -114,7 +115,7 @@ private fun rememberFixer(vm: AppViewModel, onDone: () -> Unit = {}): (HealthChe
     return { check ->
         NotificationHealth.fixIntent(context, check)?.let { intent ->
             runCatching { launcher.launch(intent) }.onFailure {
-                runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:" + context.packageName).toUri())) }
+                context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:" + context.packageName).toUri()))
             }
         }
     }

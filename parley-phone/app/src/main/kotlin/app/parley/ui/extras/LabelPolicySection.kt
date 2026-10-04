@@ -46,6 +46,7 @@ import app.parley.ui.contact.AutoAnswerRow
 import app.parley.ui.contact.Section
 import app.parley.ui.contact.VibrationPatternDialog
 import app.parley.ui.contact.VibrationRow
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
@@ -252,7 +253,7 @@ private fun turnOffDnd(vm: AppViewModel, title: String, done: (Int) -> Unit) {
 fun openDndSettings(context: Context) {
     val tries = listOf(Intent(ACTION_ZEN_PRIORITY), Intent(ACTION_ZEN), Intent(Settings.ACTION_SOUND_SETTINGS))
     for (i in tries) {
-        if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
+        if (context.startOrSay(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))) return
     }
 }
 
