@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.blocking.ScreeningPreset
@@ -52,7 +53,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ColumnScope.BasicsStep(vm: AppViewModel, done: (BasicsChoice) -> Unit) {
     val scope = rememberCoroutineScope()
-    val start = Basics.current(vm.settings.value)
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val start = Basics.current(settings)
     var preset by rememberSaveable { mutableStateOf(start.screening?.name) }
     var someoneElse by rememberSaveable { mutableStateOf(false) }
     var layout by rememberSaveable { mutableStateOf(start.layout?.name ?: BasicLayout.TABS.name) }

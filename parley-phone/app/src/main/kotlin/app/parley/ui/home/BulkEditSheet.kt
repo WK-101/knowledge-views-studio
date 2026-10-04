@@ -37,6 +37,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
@@ -80,8 +81,8 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) { vm.c.sims.accounts() to vm.c.contacts.accounts() }.let { (s, a) -> sims = s; accounts = a }
     }
-    val index = vm.people.index.value
-    val removable = remember(ids) { BulkEdits.removableLabels(ids) { index.extras[it]?.labels.orEmpty() } }
+    val index by vm.people.index.collectAsStateWithLifecycle()
+    val removable = remember(ids, index) { BulkEdits.removableLabels(ids) { index.extras[it]?.labels.orEmpty() } }
     val movePlan = BulkEdits.plan(BulkEdit.MOVE_ACCOUNT, ids)
 
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
