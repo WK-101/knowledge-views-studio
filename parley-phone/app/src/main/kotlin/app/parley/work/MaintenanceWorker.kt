@@ -1,8 +1,10 @@
 package app.parley.work
 
+import app.parley.common.catching
 import android.content.Context
 import android.content.Intent
 import android.provider.CallLog
+import app.parley.common.history.RetentionDefaults
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -176,13 +178,18 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             step("archive retention") { c.history.applyRetention(settings.callLogRetentionDays) }
             // Private calls are never pruned by "Keep call history": they go only when deleted, with their contact, or
             // when a temporary contact expires (an older private history is often the reason a contact is private).
-            if (settings.callLogRetentionDays > 0) {
-                val before = now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())
-                runCatching {
+            // The phone's own call log is trimmed only by a limit the user chose: a default (five years on a new
+            // install) applies to Parley's archive alone, since a restored or transferred call log isn't Parley's.
+            val systemLogDays = RetentionDefaults.systemLogDays(settings.callLogRetentionDays, settings.callLogRetentionChosen)
+            if (systemLogDays > 0) {
+                val before = now - TimeUnit.DAYS.toMillis(systemLogDays.toLong())
+                catching {
                     c.appContext.contentResolver.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls.DATE} < ?", arrayOf(before.toString()))
                 }
-                // The "last messaged" record follows the same retention.
-                runCatching { c.messaging.pruneOlderThan(before) }
+            }
+            if (settings.callLogRetentionDays > 0) {
+                // The "last messaged" record is Parley's own and follows the retention.
+                catching { c.messaging.pruneOlderThan(now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())) }
             }
             // "Forget messaged numbers after" (the stricter of it and the retention above wins).
             runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }

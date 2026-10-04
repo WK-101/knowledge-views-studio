@@ -329,4 +329,29 @@ class VCardImportTest {
         assertFalse(list[1].starred)
         assertNull(list[1].customRingtone)
     }
+
+    /**
+     * TYPE= and VALUE= values ez-vcard doesn't know are made through its reflective case classes (kept by the app's
+     * R8 rules): a card full of them still imports every field.
+     */
+    @Test fun unusual_type_and_value_parameters_import() {
+        val (list, report) = import(
+            """
+            BEGIN:VCARD
+            VERSION:4.0
+            FN:Odd Params
+            TEL;TYPE=x-satellite,PAGER;VALUE=uri:tel:+1-555-010-0199
+            TEL;TYPE="work,x-desk":+1 555 010 0198
+            EMAIL;TYPE=x-alias:odd@example.com
+            URL;VALUE=x-link:https://odd.example
+            BDAY;VALUE=text:circa 1900
+            END:VCARD
+            """,
+        )
+        assertFalse(report.summary(), report.summary().contains("failed"))
+        val c = list.single()
+        assertEquals(2, c.rows(Mime.PHONE).size)
+        assertEquals("odd@example.com", c.rows(Mime.EMAIL).single()[Col.D1])
+        assertEquals("Odd Params", c.rows(Mime.NAME).single()[Col.D1])
+    }
 }

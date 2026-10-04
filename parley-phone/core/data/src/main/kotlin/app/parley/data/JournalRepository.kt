@@ -1,6 +1,8 @@
 package app.parley.data
 
 import android.util.Base64
+import app.parley.common.catching
+import app.parley.common.backup.PhotoRefs
 import app.parley.common.backup.RecordJson
 import app.parley.common.memory.NumberMemory
 import app.parley.common.record.Mime
@@ -60,8 +62,8 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
         recent().first().filter { it.action == "DELETE" && !it.restored }.mapNotNull { row ->
             val e = runCatching { dao.journalEntry(row.id) }.getOrNull() ?: return@mapNotNull null
             val json = runCatching { JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() })) }.getOrNull() ?: return@mapNotNull null
-            // Photos aren't needed for the numbers: blobs stay unread.
-            val record = runCatching { RecordJson.decode(json.getString("record")) { null } }.getOrNull() ?: return@mapNotNull null
+            // Photos aren't needed for the numbers: they stay hashes, so a contact with a photo is read too.
+            val record = catching { RecordJson.decodeLight(json.getString("record")) }.getOrNull() ?: return@mapNotNull null
             val numbers = record.raws.flatMap { r -> r.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }
             NumberMemory.Deleted(row.id, row.contactKey, row.displayName, numbers, row.time)
         }
@@ -93,9 +95,11 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
         val json = JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() }))
         // A copy written before photos were kept apart holds them itself.
         val blobs = json.optJSONObject("blobs") ?: JSONObject()
-        val kept = e.photoHashes?.split(',').orEmpty().mapNotNull { h -> dao.journalPhoto(h)?.let { h to it.blob } }.toMap()
-        val record = RecordJson.decode(json.getString("record")) { hash ->
-            blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } ?: kept[hash]
+        // A kept photo that is gone or can't be opened leaves the contact without it: the rest still comes back.
+        val kept = e.photoHashes?.split(',').orEmpty().mapNotNull { h -> catching { dao.journalPhoto(h) }.getOrNull()?.let { h to it.blob } }.toMap()
+        val record = PhotoRefs.filled(RecordJson.decodeLight(json.getString("record"))) { hash ->
+            val bytes = blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { catching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() } ?: kept[hash]
+            bytes?.takeIf { RecordJson.sha256Hex(it) == hash }
         }
         val id = records.insert(record, target = null)
         if (id != null) dao.markRestored(entryId)

@@ -21,6 +21,12 @@ class NumberInfoTest {
         assertEquals("Australien", NumberInfo.location("+61212345678", "AU", Locale.GERMAN))
     }
 
+    @Test fun aForeignLandlineIsNamedByItsCountry() {
+        // A Berlin number seen from the US, a Sydney one from Germany (its area file isn't in the APK either way).
+        assertEquals("Germany", NumberInfo.location("+49301234567", "US", Locale.ENGLISH))
+        assertEquals("Australien", NumberInfo.location("+61212345678", "DE", Locale.GERMAN))
+    }
+
     @Test fun invalidNumbersStillHaveNoPlace() {
         assertNull(NumberInfo.location("+8612", "CN", Locale.ENGLISH))
         assertNull(NumberInfo.location("", "AU", Locale.ENGLISH))

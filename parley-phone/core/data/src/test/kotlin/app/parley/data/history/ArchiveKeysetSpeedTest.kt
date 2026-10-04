@@ -14,7 +14,8 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Reading the whole archive a page at a time: keyset pages start where the last one ended, OFFSET pages walk every
- * row before them again. Measured on 100,000 rows (the audit's scale), printed for docs/PERFORMANCE_BENCHMARKS.md.
+ * row before them again. Measured on 100,000 rows (the audit's scale), printed for docs/PERFORMANCE_BENCHMARKS.md; the
+ * test asserts what doesn't depend on the machine: every row once, and a plan that searches the date index.
  */
 @RunWith(RobolectricTestRunner::class)
 class ArchiveKeysetSpeedTest {
@@ -40,7 +41,7 @@ class ArchiveKeysetSpeedTest {
 
     @After fun tearDown() = db.close()
 
-    @Test fun keysetReadsEveryRowOnceAndFasterThanOffset() = runBlocking {
+    @Test fun keysetReadsEveryRowOnceThroughTheDateIndex() = runBlocking {
         val dao = db.dao()
         var t = System.nanoTime()
         val seen = HashSet<Long>(ROWS * 2)
@@ -72,8 +73,15 @@ class ArchiveKeysetSpeedTest {
         val personMs = (System.nanoTime() - t) / 1_000_000
         assertEquals(ROWS / 500, one.size)
         println("Archive of $ROWS rows read in pages of $PAGE: keyset $keysetMs ms, OFFSET $offsetMs ms; one person's ${one.size} rows by index $personMs ms")
-        // Only a plainly wrong plan fails here (a busy machine is slow either way).
-        assertTrue("keyset $keysetMs ms vs OFFSET $offsetMs ms", keysetMs <= offsetMs * 2 + 500)
+        // The times above are a benchmark (a busy machine is slow either way). What makes keyset pages cheap is the
+        // plan: each page is a search in the date index, starting where the last one ended, with no sort of its own.
+        val plan = sql.query(
+            "EXPLAIN QUERY PLAN SELECT * FROM archived_calls WHERE date <= ? AND (date < ? OR id < ?) ORDER BY date DESC, id DESC LIMIT ?",
+            arrayOf<Any>(1L, 1L, 1L, PAGE),
+        ).use { c -> buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("detail"))) } }.joinToString(" | ")
+        println("Keyset page plan: $plan")
+        assertTrue(plan, plan.contains("SEARCH") && plan.contains("index_archived_calls_date"))
+        assertTrue(plan, !plan.contains("TEMP B-TREE"))
     }
 
     private companion object {

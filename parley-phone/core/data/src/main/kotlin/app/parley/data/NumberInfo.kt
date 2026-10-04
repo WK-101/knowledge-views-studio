@@ -33,7 +33,9 @@ object NumberInfo {
                     // Its area file isn't in the APK, and the geocoder would fail reading it: the country alone.
                     countryName(countryIso, lang)
                 } else {
-                    geocoder.getDescriptionForNumber(parsed, lang, if (sameCountry) countryIso.uppercase(Locale.ROOT) else null).ifBlank { null }
+                    // With the phone's own country: a number from there gets its area, a foreign one its country (a
+                    // null region would make the geocoder fail, and a foreign area file may not be in the APK).
+                    geocoder.getDescriptionForNumber(parsed, lang, countryIso.uppercase(Locale.ROOT)).ifBlank { null }
                 }
             }
         } catch (_: Exception) {

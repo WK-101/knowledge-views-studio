@@ -78,7 +78,8 @@ class Diagnostics(private val context: Context) {
         appendLine("appLock=${settings.appLock} lockAfter=${settings.lockAfterMinutes} secureScreen=${settings.secureScreen}")
         appendLine("hideVault=$hideVault privateHistory=$privateHistory")
         appendLine("unknownRingtone=${if (settings.unknownRingtone != null) "set" else "default"} repeatCaller=${settings.repeatCallerRingsThrough}")
-        appendLine("birthdays=${settings.birthdayReminders}@${settings.birthdayReminderHour} nudges=${settings.reachOutNudges} retentionDays=${settings.callLogRetentionDays}")
+        appendLine("birthdays=${settings.birthdayReminders}@${settings.birthdayReminderHour} nudges=${settings.reachOutNudges}")
+        appendLine("retentionDays=${settings.callLogRetentionDays} chosen=${settings.callLogRetentionChosen}")
         appendLine("secondLine=${people.secondLine} preferNickname=${people.preferNickname} favourites=${people.favoriteSort}/${people.favoriteColumns} privateByDefault=${people.privateByDefault} labelRingtones=${people.labelRingtones.size}")
         extra.forEach { (k, v) -> appendLine("$k=${m(v)}") }
         appendLine()

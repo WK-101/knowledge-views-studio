@@ -536,7 +536,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_call_history)) {
         item("archive") { KeepFullHistoryRow(vm, Icons.Rounded.ManageHistory) }
         menuRow("retention", retentionLabels, retention.indexOf(s.callLogRetentionDays).coerceAtLeast(0), Icons.Rounded.AutoDelete) { i ->
-            set { it.copy(callLogRetentionDays = retention[i]) }
+            set { it.copy(callLogRetentionDays = retention[i], callLogRetentionChosen = true) }
         }
         if (archiveOn) keptForeverRow(vm)
         // Clear everything, unknown numbers or missed calls, with an export first.

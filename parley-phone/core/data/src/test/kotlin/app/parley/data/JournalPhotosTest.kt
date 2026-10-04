@@ -89,4 +89,25 @@ class JournalPhotosTest {
         assertEquals(0, c.meta.journalPhotoHashes().size)
         assertEquals(0L, c.undoStorage.usage().contactBytes)
     }
+
+    @Test fun undoBringsTheContactBackWhenItsPhotoIsGone() = runBlocking {
+        val id = c.records.insert(person("Di"), null)!!
+        val copy = c.journal.snapshot(listOf(id), "DELETE").single()
+        // The kept photo was removed (by hand, or by a bug): undo restores everything else.
+        c.db.metaDao().deleteJournalPhotos(c.meta.journalPhotoHashes())
+        val restored = c.journal.restore(copy)
+        assertNotNull(restored)
+        assertEquals(null, photoOf(restored!!))
+        assertEquals("Di", c.records.read(restored, fullPhoto = false)!!.displayName)
+    }
+
+    @Test fun numberMemoryKeepsDeletedContactsWithAPhoto() = runBlocking {
+        val record = person("Ed").let { p ->
+            p.copy(raws = p.raws.map { r -> r.copy(rows = r.rows + DataRow(Mime.PHONE, mapOf(Col.D1 to "+44 20 7946 0999"))) })
+        }
+        val id = c.records.insert(record, null)!!
+        c.journal.snapshot(listOf(id), "DELETE")
+        val deleted = c.journal.deletedForMemory().single()
+        assertEquals(listOf("+44 20 7946 0999"), deleted.numbers)
+    }
 }

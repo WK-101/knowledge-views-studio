@@ -229,23 +229,35 @@ val forbiddenPermissions = listOf(
 // rather than an accident. CI runs it.
 val apkBudgetBytes = 8L * 1024 * 1024
 
+// Resources the platform keeps by name across updates, so collapsing names must leave them as they are: icons of
+// launcher shortcuts made in code (app/src/main/kotlin/app/parley/shortcuts/Shortcuts.kt).
+val keptResourceNames = listOf("drawable/ic_shortcut_add")
+
 androidComponents {
     onVariants { variant ->
         val cap = variant.name.replaceFirstChar { it.uppercase() }
         if (variant.buildType == "release") {
             // Collapsed resource names: every key in resources.arsc (5,500 names such as "set_amoled_title") becomes
-            // one shared placeholder, about 150 KB less of a file Android requires to be stored uncompressed. Safe
-            // because nothing looks a resource of Parley's up by name (no getIdentifier or getResourceName; the only
-            // library lookups are Android's own dimens). AGP 8.13 runs aapt2 optimize but keeps this switch off, so
-            // the task's output is optimised once more in place.
+            // one shared placeholder, about 150 KB less of a file Android requires to be stored uncompressed. Parley's
+            // code never looks a resource up by name (no getIdentifier or getResourceName; the only library lookups
+            // are Android's own dimens), but the platform does once: the launcher shortcuts' service saves a resource
+            // icon by name and finds it again by that name after each update. Those icons keep their names
+            // (keptResourceNames). AGP 8.13 runs aapt2 optimize but keeps this switch off, so the task's output is
+            // optimised once more in place.
             val aapt2 = androidComponents.sdkComponents.sdkDirectory.map { it.dir("build-tools/${android.buildToolsVersion}").file("aapt2").asFile }
+            val keptNames = layout.buildDirectory.file("intermediates/collapse_resource_names/$cap/resources.cfg")
             tasks.matching { it.name == "optimize${cap}Resources" }.configureEach {
                 inputs.property("collapseResourceNames", true)
+                inputs.property("keptResourceNames", keptResourceNames)
                 doLast {
                     val tool = aapt2.get()
+                    val cfg = keptNames.get().asFile.apply { parentFile.mkdirs() }
+                    cfg.writeText(keptResourceNames.joinToString("\n", postfix = "\n") { "$it#no_collapse" })
                     outputs.files.asFileTree.matching { include("**/*.ap_") }.files.forEach { ap ->
                         val collapsed = File(ap.parentFile, "${ap.name}.collapsed")
-                        val proc = ProcessBuilder(tool.path, "optimize", "--collapse-resource-names", "-o", collapsed.path, ap.path)
+                        val proc = ProcessBuilder(
+                            tool.path, "optimize", "--collapse-resource-names", "--resources-config-path", cfg.path, "-o", collapsed.path, ap.path,
+                        )
                             .redirectErrorStream(true).start()
                         val log = proc.inputStream.bufferedReader().readText()
                         if (proc.waitFor() != 0) throw GradleException("aapt2 optimize --collapse-resource-names failed for ${ap.name}: $log")
