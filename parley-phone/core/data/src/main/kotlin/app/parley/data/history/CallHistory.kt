@@ -3,6 +3,7 @@ package app.parley.data.history
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
+import app.parley.data.tidyDatabase
 import app.parley.common.security.LimitExceededException
 import android.Manifest
 import app.parley.common.ContactSummary
@@ -96,7 +97,6 @@ class CallHistory(
     private val crypto = HistoryCrypto(context)
     private val cr = context.contentResolver
     private val mutex = Mutex()
-    private var knownKeys: HashSet<String>? = null
 
     /**
      * Decrypted rows of the newest [ARCHIVE_UI_WINDOW] by id, so a sync only decrypts the rows it added (guarded by
@@ -278,13 +278,17 @@ class CallHistory(
         crypto.reset(suffix)
         decrypted.clear()
         undecryptable.clear()
-        knownKeys = null
         _kept.value = emptyMap()
         _archive.value = emptyList()
         runCatching { prefs.setArchiveReset(System.currentTimeMillis()) }
     }
 
-    private suspend fun keys(): HashSet<String> = knownKeys ?: HashSet(dao.dedupeKeys()).also { knownKeys = it }
+    /**
+     * Archives [rows] and returns how many were new. The dedupe key is unique and inserts ignore a conflict, so a call
+     * already archived is turned away by the database: no set of every key is held in memory for it.
+     */
+    private suspend fun insertNew(rows: List<ArchivedCallEntity>): Int =
+        rows.chunked(500).sumOf { chunk -> dao.insert(chunk).count { it != -1L } }
 
     /**
      * Mirrors new call-log rows into the archive. [full] scans the whole log (daily catch-up); otherwise only
@@ -300,22 +304,24 @@ class CallHistory(
             val since = if (full) null else dao.newest()?.minus(TimeUnit.DAYS.toMillis(3))
             // Read from the database, not the listing: in a worker's process the listing hasn't started.
             val vk = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
-            val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
             val fresh = ArrayList<ArchivedCallEntity>()
+            val seen = HashSet<String>()
             for (rec in readProvider(since)) {
                 val num = rec.number
                 if (!num.isNullOrBlank() && num in vk) continue
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
-                if (!known.add(key)) continue
+                if (!seen.add(key)) continue
                 fresh += entity(rec, key, iso, now)
             }
-            fresh.chunked(500).forEach { dao.insert(it) }
+            val added = insertNew(fresh)
             val purged = purgeVault(vk)
             if (full) prefs.setLastFullSync(now)
-            if (fresh.isNotEmpty() || purged) reload()
-            fresh.size
+            // In a process started for a worker nothing shows the archive: the rows are in the database, and the window
+            // is decrypted when the full graph starts (see init).
+            if ((added > 0 || purged) && (gate.isOpen || _archive.subscriptionCount.value > 0)) reload()
+            added
         }
     }
 
@@ -377,7 +383,6 @@ class CallHistory(
         }
         if (ids.isEmpty()) return false
         ids.chunked(500).forEach { dao.deleteIds(it) }
-        knownKeys = null
         return true
     }
 
@@ -407,13 +412,24 @@ class CallHistory(
     }
 
     private suspend fun scanPages(visit: (ArchivedCall) -> Unit) {
-        var offset = 0
-        do {
-            val page = dao.page(SCAN_PAGE, offset)
+        var page = dao.firstPage(SCAN_PAGE)
+        while (page.isNotEmpty()) {
             for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
-            offset += page.size
-        } while (page.size == SCAN_PAGE)
+            if (page.size < SCAN_PAGE) break
+            val last = page.last()
+            page = dao.pageBefore(last.date, last.id, SCAN_PAGE)
+        }
     }
+
+    /**
+     * The archived calls filed under [number]'s line, newest first: read through the person index and decrypted alone,
+     * so one person's calls never cost a pass over the whole archive. [personMacs] covers every form the line was
+     * filed under; the exact match then keeps another line that shares a form out.
+     */
+    private suspend fun personRows(number: String, iso: String): List<ArchivedCall> =
+        dao.byPersons(personMacs(number, iso)).mapNotNull { r ->
+            openRow(r)?.takeIf { !it.number.isNullOrBlank() && PhoneIdentity.sameExact(it.number, number, iso) }?.let { ArchivedCall(r.id, it) }
+        }
 
     /** A row's call, or null when it can't be read (key problems are passed on, as by [openOrNull]). */
     private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
@@ -517,7 +533,6 @@ class CallHistory(
         } else {
             mutex.withLock {
                 dao.clear()
-                knownKeys = null
                 reload()
             }
         }
@@ -535,10 +550,7 @@ class CallHistory(
             // after 5.4 may use another form than the kept-forever entry made before).
             val kept = dao.keepForever().flatMap { k -> listOf(k.personKey) + openOrNull(k.blob)?.let { personMacs(it) }.orEmpty() }.distinct()
             val n = dao.deleteOlderThan(now - days * DAY, kept)
-            if (n > 0) {
-                knownKeys = null
-                reload()
-            }
+            if (n > 0) reload()
         }
     }
 
@@ -595,7 +607,6 @@ class CallHistory(
             }
             val keys = list.map { crypto.mac(HistoryMerge.key(it)) }
             keys.chunked(500).forEach { dao.deleteKeys(it) }
-            knownKeys?.removeAll(keys.toSet())
             reload()
             // Ring facts of deleted calls go with them.
             list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
@@ -616,10 +627,11 @@ class CallHistory(
         if (!prefs.current().archiveEnabled) return@withContext system
         val seen = system.map { HistoryMerge.key(it) }.toHashSet()
         val archived = ArrayList<CallEntry>()
-        scanArchive { a ->
-            val e = a.toEntry()
-            val matches = e.date >= since && !e.presentationHidden && PhoneIdentity.sameExact(e.number, number, iso)
-            if (matches && seen.add(HistoryMerge.key(e))) archived += e
+        guardKey {
+            for (a in personRows(number, iso)) {
+                val e = a.toEntry()
+                if (e.date >= since && !e.presentationHidden && seen.add(HistoryMerge.key(e))) archived += e
+            }
         }
         (system + archived).sortedByDescending { it.date }
     }
@@ -645,13 +657,12 @@ class CallHistory(
         mutex.withLock {
             runCatching {
                 val person = personMac(number, iso)
-                // Also rows filed under another form of the number.
-                val other = ArrayList<Long>()
-                scanArchive { if (!it.record.number.isNullOrBlank() && PhoneIdentity.sameExact(it.record.number, number, iso)) other += it.rowId }
-                n += dao.deleteByPerson(person)
-                other.chunked(500).forEach { dao.deleteIds(it) }
+                // Rows filed under every form of the number, found through the person index (no whole-archive pass).
+                val rows = ArrayList<Long>()
+                guardKey { personRows(number, iso).mapTo(rows) { it.rowId } }
+                rows.chunked(500).forEach { dao.deleteIds(it) }
+                n += rows.size + dao.deleteByPerson(person)
                 dao.removeKeepForever(listOf(person))
-                knownKeys = null
                 reload()
             }
         }
@@ -667,10 +678,7 @@ class CallHistory(
         // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
         if (since == Long.MIN_VALUE && prefs.current().archiveEnabled) mutex.withLock {
             runCatching {
-                if (dao.deleteByPerson(personMac(number)) > 0) {
-                    knownKeys = null
-                    reload()
-                }
+                if (dao.deleteByPerson(personMac(number)) > 0) reload()
             }
         }
         batch
@@ -693,6 +701,9 @@ class CallHistory(
         }
     }
 
+    /** Daily upkeep: the archive's free pages after retention and trash pruning go back to the phone. */
+    internal suspend fun tidy() = withContext(Dispatchers.IO) { mutex.withLock { tidyDatabase(db.openHelper) } }
+
     /** Puts a deleted batch back into the system call log (and the archive). Returns calls restored. */
     suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) { undoLock.withLock { undoDeleteLocked(batchId) } }
 
@@ -709,16 +720,14 @@ class CallHistory(
         val values = rows.map { it.toValues() }.toTypedArray()
         val n = if (values.isEmpty()) 0 else runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
         if (prefs.current().archiveEnabled) mutex.withLock {
-            val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
             val vk = privateLines()
             val fresh = trashed.mapNotNull { rec ->
                 if (isPrivate(rec, vk)) return@mapNotNull null
-                val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
-                if (known.add(key)) entity(rec, key, iso, now) else null
+                entity(rec, crypto.mac(HistoryMerge.key(rec.toEntry(0))), iso, now)
             }
-            fresh.chunked(500).forEach { dao.insert(it) }
+            insertNew(fresh)
             reload()
         }
         dao.deleteBatch(batchId)
@@ -827,18 +836,16 @@ class CallHistory(
             return@withContext values.chunked(200).sumOf { chunk -> runCatching { cr.bulkInsert(Calls.CONTENT_URI, chunk.toTypedArray()) }.getOrDefault(0) }
         }
         mutex.withLock {
-            val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
             val vk = privateLines()
             val fresh = calls.mapNotNull { rec ->
                 if (isPrivate(rec, vk)) return@mapNotNull null
-                val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
-                if (known.add(key)) entity(rec, key, iso, now) else null
+                entity(rec, crypto.mac(HistoryMerge.key(rec.toEntry(0))), iso, now)
             }
-            fresh.chunked(500).forEach { dao.insert(it) }
-            if (fresh.isNotEmpty()) reload()
-            fresh.size
+            val added = insertNew(fresh)
+            if (added > 0) reload()
+            added
         }
     }
 

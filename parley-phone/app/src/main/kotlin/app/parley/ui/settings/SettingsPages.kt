@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.common.history.RetentionDefaults
 import app.parley.common.vcard.CsvFormat
 import app.parley.ui.Destination
 import android.app.NotificationManager
@@ -524,13 +525,15 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val archiveOn = vm.c.history.prefs.state.collectAsStateWithLifecycle().value.archiveEnabled
-    val retention = listOf(0, 30, 90, 180, 365)
+    val retention = RetentionDefaults.CHOICES
     val retentionLabels = listOf(
         stringResource(R.string.set_forever),
         pluralStringResource(R.plurals.set_days, 30, 30),
         pluralStringResource(R.plurals.set_days, 90, 90),
         pluralStringResource(R.plurals.set_months, 6, 6),
         pluralStringResource(R.plurals.set_years, 1, 1),
+        pluralStringResource(R.plurals.set_years, 3, 3),
+        pluralStringResource(R.plurals.set_years, 5, 5),
     )
     // The former "Call history" sub-screen lives here now: the archive, what's kept forever and the CSV option.
     SegmentedGroup(stringResource(R.string.set_group_call_history)) {
