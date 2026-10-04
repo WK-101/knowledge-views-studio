@@ -96,6 +96,8 @@ internal class CallUiMapper(
             numberMemory = s.numberMemory,
             driving = drivingNow(state),
             handOff = handOffFacts(call),
+            // Only set for an organisation the lookup found; an emergency call never shows it.
+            neverCallsYou = s.neverCallsYou && found != null && !hidden && !emergency.isCall(call, number),
         ).withRangThrough(s)
     }
 

@@ -124,6 +124,13 @@ interface CallerInfoSource {
      */
     suspend fun numberMemory(number: String, accountId: String?): NumberMemoryLine? = null
 
+    /**
+     * "This number never calls you" ([app.parley.common.calls.NeverCallsYou]): [number] is saved only for organisations
+     * and your calls show you have only ever called it. Asked off the main thread while the call rings, within a short
+     * time; a failure or a timeout shows nothing. Offline: the contacts and the call history only.
+     */
+    suspend fun neverCallsYou(number: String, accountId: String?): Boolean = false
+
     /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number
 

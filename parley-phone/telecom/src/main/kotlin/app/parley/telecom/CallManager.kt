@@ -307,6 +307,7 @@ object CallManager {
                 if (found != null) {
                     s.info = found
                     if (incoming) {
+                        checkNeverCallsYou(call, s, number, accountId)
                         // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
                         applyCallerVibration(call, s)
                         considerAutoAnswer(call)
@@ -404,6 +405,22 @@ object CallManager {
         autoAnswer.cancel(s)
         publish()
         return true
+    }
+
+    /**
+     * "This number never calls you" for a saved caller: read off the main thread while it rings, within
+     * [NEVER_CALLS_TIMEOUT_MS] (the contacts and one line's history); late, failing or an emergency call shows nothing.
+     */
+    private fun checkNeverCallsYou(call: Call, s: CallSession, number: String, accountId: String?) {
+        if (emergency.isCall(call, number)) return
+        scope.launch {
+            val shows = withTimeoutOrNull(NEVER_CALLS_TIMEOUT_MS) {
+                withContext(Dispatchers.IO) { runCatching { deps.neverCallsYou(number, accountId) }.getOrDefault(false) }
+            } == true
+            if (!shows || !calls.contains(call)) return@launch
+            s.neverCallsYou = true
+            publish()
+        }
     }
 
     /** I1: looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
@@ -1042,6 +1059,9 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** How long "This number never calls you" may take once the caller is known, before it is left out. */
+    private const val NEVER_CALLS_TIMEOUT_MS = 1500L
 
     /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
     private const val SCREEN_GRACE_MS = 500L

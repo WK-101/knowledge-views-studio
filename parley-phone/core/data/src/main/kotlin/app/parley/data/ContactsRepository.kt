@@ -393,6 +393,23 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         return lookupIn(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)), number, strict = false)
     }
 
+    /**
+     * Every personal contact [number] is saved for, once each, with the type it is saved as there ([Phone.TYPE_MOBILE]…):
+     * the same indexed lookup as [lookup], all rows rather than the first. Empty when none or they can't be read.
+     */
+    fun lookupAll(number: String): List<SavedNumberOwner> {
+        if (number.isBlank() || !Permissions.has(context, Manifest.permission.READ_CONTACTS)) return emptyList()
+        val uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
+        return cr.safeQuery(uri, arrayOf(PhoneLookup._ID, PhoneLookup.DISPLAY_NAME, PhoneLookup.TYPE))?.use { c ->
+            val out = LinkedHashMap<Long, SavedNumberOwner>()
+            while (c.moveToNext()) {
+                val id = c.getLong(0)
+                out.getOrPut(id) { SavedNumberOwner(id, c.getString(1) ?: number, c.getInt(2)) }
+            }
+            out.values.toList()
+        }.orEmpty()
+    }
+
     private fun lookupIn(uri: Uri, number: String, strict: Boolean): CallerInfo? {
         val projection = arrayOf(
             PhoneLookup._ID, PhoneLookup.LOOKUP_KEY, PhoneLookup.DISPLAY_NAME, PhoneLookup.PHOTO_URI,

@@ -110,6 +110,11 @@ data class CallUi(
     val lockMasked: Boolean = false,
     /** What the network lets this call do: send it on to another number while it rings ([CallHandOff]). */
     val handOff: CallHandOff.Facts? = null,
+    /**
+     * "This number never calls you": a saved organisation whose number you have only ever called. It names nobody, so
+     * like a screening warning it stays on the lock screen; what it offers asks for the unlock where it lists numbers.
+     */
+    val neverCallsYou: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -141,9 +146,19 @@ data class CallUi(
     /** "Send to another number" on a ringing call the network can deflect. */
     val canDeflect: Boolean get() = handOff?.let(CallHandOff::deflectOffered) == true
 
-    /** "Is this a scam?" under More: a live call from a number that isn't saved (a hidden one too), never an emergency call. */
+    /**
+     * "Is this a scam?" under More: a live call from a number that isn't saved (a hidden one too), or a saved
+     * organisation that never calls you; never an emergency call.
+     */
     val scamCheckOffered: Boolean
-        get() = ScamCheck.offered(isLive, savedCaller, lookedUp = noContact, hidden = hidden, emergency = isEmergency, conference = isConference)
+        get() = ScamCheck.offered(
+            isLive, savedCaller, lookedUp = noContact, hidden = hidden, emergency = isEmergency, conference = isConference,
+            neverCallsYou = neverCallsYou,
+        )
+
+    /** The "This number never calls you" notice: a live, non-emergency call while the flag holds. */
+    val neverCallsYouNotice: Boolean
+        get() = neverCallsYou && isLive && !isEmergency && !isConference && !hidden
 
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean

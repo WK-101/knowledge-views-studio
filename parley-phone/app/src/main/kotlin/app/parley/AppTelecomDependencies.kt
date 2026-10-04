@@ -40,6 +40,7 @@ import app.parley.telecom.HelperUi
 import app.parley.telecom.SafeWordPrompt
 import app.parley.common.calls.SafeWords
 import app.parley.calls.ExpectedCallHints
+import app.parley.calls.NeverCallsYouFacts
 import app.parley.telecom.TelecomDependencies
 import app.parley.telecom.MenuMemoryHooks
 import app.parley.calls.MenuMemoryBridge
@@ -587,6 +588,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val hint = c.numberMemory.best(number, NumberMemory.Place.CALL, PhoneEnv.countryIso(app, accountId)) ?: return@withContext null
         NumberMemoryLine(NumberMemoryText.line(app, hint))
     }
+
+    /** "This number never calls you": a saved organisation whose line you have only ever called. */
+    override suspend fun neverCallsYou(number: String, accountId: String?): Boolean = NeverCallsYouFacts.shows(c, number, accountId)
 
     override fun suggestedName(number: String): String {
         val iso = PhoneEnv.countryIso(app)

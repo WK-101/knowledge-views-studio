@@ -115,6 +115,8 @@
 
     <!-- Call insights (contact detail, number history) -->
     <string name="hist_calls_section">Calls</string>
+    <!-- A saved organisation's first call to you, after you had only ever called them. -->
+    <string name="hist_first_call_from_them">First call from them to you</string>
     <string name="hist_last_call">Last call %1$s</string>
     <plurals name="hist_insight_totals">
         <item quantity="one">%1$d call · talk %2$s (%3$s out, %4$s in) · about %5$s a month</item>
