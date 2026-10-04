@@ -115,6 +115,8 @@ data class CallUi(
      * like a screening warning it stays on the lock screen; what it offers asks for the unlock where it lists numbers.
      */
     val neverCallsYou: Boolean = false,
+    /** After a dropped call: "Calls to Ana drop less on SIM 2", offered once per suggestion (set on the ended call only). */
+    val simTip: SimTip? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -199,9 +201,16 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         verdict = verdict.takeIf { verdictWarn },
         silenceReason = null,
         children = kids,
+        simTip = null,
         lockMasked = true,
     )
 }
+
+/**
+ * A SIM that has gone better for this person than the one the call dropped on. [numbers] and [keys] are the app's, to
+ * hand back with the answer.
+ */
+data class SimTip(val simId: String, val simLabel: String, val name: String, val numbers: List<String>, val keys: List<String>)
 
 /**
  * Under [LockScreenCaller.NAME]: the name stays, the things a stranger ringing the locked phone shouldn't read go (the

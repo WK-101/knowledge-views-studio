@@ -189,6 +189,8 @@ fun InCallScreen(
     background: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
     /** A connected call dropped: "Call again" (true) or dismissing the card (false). */
     onDrop: (CallUi, Boolean) -> Unit = { _, _ -> },
+    /** The SIM suggestion on the "Call dropped" card: use that SIM for the person (true) or no thanks (false). */
+    onSimTip: (CallUi, Boolean) -> Unit = { _, _ -> },
     /** Runs the block once the phone is unlocked (saved numbers never show on the lock screen). */
     onUnlock: (() -> Unit) -> Unit = { it() },
 ) {
@@ -227,6 +229,7 @@ fun InCallScreen(
             onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
             onPostCall = withVerify(onPostCall, shown, sheets, onUnlock),
             onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock, onDrop = onDrop, onUnlock = onUnlock,
+            onSimTip = onSimTip,
         )
         if (slots.waiting && slots.current != null && primary != null) {
             CallWaitingLayout(primary, slots.current!!, slots.held, twoPane, confirmDecline, insets) { sheets.replyFor = primary.id }
@@ -336,6 +339,7 @@ private class ScreenActions(
     val onUndoBlock: () -> Unit,
     val onDrop: (CallUi, Boolean) -> Unit,
     val onUnlock: (() -> Unit) -> Unit = { it() },
+    val onSimTip: (CallUi, Boolean) -> Unit = { _, _ -> },
 )
 
 /** A ringing call while another call is going: the current call(s) at the top, the waiting call as a sheet. */
@@ -455,7 +459,10 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
             s.failed != null -> FailureBanner(s.failed, { a.onRetry(s.failed) }, { a.onDismissFailure(s.failed) }, Modifier.padding(bottom = Spacing.xl))
             // A connected call the network dropped: why, and a big Call again.
             ended != null && ended.drop != null ->
-                DropCard(ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl))
+                DropCard(
+                    ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl),
+                    onSimTip = { accept -> a.onSimTip(ended, accept) },
+                )
             // "Blocked and declined", with Undo.
             s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })
             // Block, save, message or report an unknown number right after the call.

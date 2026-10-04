@@ -135,10 +135,7 @@ class InCallActivity : ComponentActivity() {
                     onPostCall = ::onPostCall,
                     failed = failed?.let(::shown),
                     onRetry = ::retry,
-                    onDismissFailure = { c ->
-                        CallManager.dismissFailure(c.id)
-                        if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
-                    },
+                    onDismissFailure = ::dismissFailure,
                     declineBlock = blockedHere?.let { masked(it, calls + listOfNotNull(ended), locked, look.lockScreenCaller) },
                     onUndoBlock = {
                         keepEnded = true
@@ -150,6 +147,7 @@ class InCallActivity : ComponentActivity() {
                     onAskDeclineDone = { askDeclineFor = null },
                     background = look.callBackground,
                     onDrop = ::onDrop,
+                    onSimTip = ::onSimTip,
                     onUnlock = ::unlockKeepingEnded,
                 )
             }
@@ -172,6 +170,12 @@ class InCallActivity : ComponentActivity() {
         leavingForApp = true
         updatePip()
         startOrSay(intent)
+    }
+
+    /** The failure banner dismissed: the screen closes when no call is left. */
+    private fun dismissFailure(c: CallUi) {
+        CallManager.dismissFailure(c.id)
+        if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
     }
 
     /** Retry on the failure banner: the same number, on the same SIM. */
@@ -212,6 +216,11 @@ class InCallActivity : ComponentActivity() {
             CallManager.dismissDrop(c.id)
             if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
         }
+    }
+
+    /** The SIM suggestion on the "Call dropped" card: remembering a SIM for someone waits for the unlock. */
+    private fun onSimTip(c: CallUi, accept: Boolean) {
+        if (accept) unlockKeepingEnded { CallManager.answerSimTip(c.id, true) } else CallManager.answerSimTip(c.id, false)
     }
 
     /** "Call again" after a drop: the same number, on the same SIM. */

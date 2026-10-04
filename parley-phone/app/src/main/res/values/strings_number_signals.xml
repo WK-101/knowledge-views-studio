@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Numbers that seem out of service: the Contact health check and the hint beside the number on a contact's page. -->
+    <string name="number_seems_out_of_service">May be out of service</string>
+    <string name="health_out_of_service">Numbers that seem out of service</string>
+    <string name="health_out_of_service_text">Calls to these numbers didn\'t go through on more than one day, and none has since. Nothing changes unless you choose.</string>
+    <!-- %1$s: the number; %2$s: why it seems out of service. -->
+    <string name="health_out_of_service_line">%1$s · %2$s</string>
+    <plurals name="health_out_of_service_network">
+        <item quantity="one">the network said it\'s not in service</item>
+        <item quantity="other">the network said it\'s not in service, %1$d times</item>
+    </plurals>
+    <plurals name="health_out_of_service_at_once">
+        <item quantity="one">a call ended straight away</item>
+        <item quantity="other">%1$d calls ended straight away</item>
+    </plurals>
+    <!-- TalkBack: the row's menu. %1$s: the contact; %2$s: the number. -->
+    <string name="health_out_of_service_more">More for %1$s, %2$s</string>
+    <string name="health_out_of_service_try">Try again</string>
+    <string name="health_out_of_service_edit">Edit number</string>
+    <string name="health_out_of_service_to_note">Move to note</string>
+    <string name="health_out_of_service_dismiss">Dismiss</string>
+    <!-- Added to the contact's note. %1$s: the number; %2$s: month and year of the first failed call. -->
+    <string name="health_out_of_service_note">Old number: %1$s (out of service since %2$s)</string>
+    <!-- %1$s: the contact. -->
+    <string name="health_out_of_service_moved">Moved to %1$s\'s note</string>
+    <string name="health_out_of_service_not_moved">This number can only be changed in the editor</string>
+    <string name="health_out_of_service_dismissed">Dismissed until a call fails again</string>
+
+    <!-- A SIM that works better for someone, on their page. %1$s: the person; %2$s: the SIM's name. -->
+    <string name="sim_advice_text">Calls to %1$s drop less on %2$s</string>
+    <!-- %1$s: the SIM's name. -->
+    <string name="sim_advice_use">Use %1$s</string>
+    <!-- %1$s: the SIM's name; %2$s: the person. -->
+    <string name="sim_advice_done">%2$s will be called on %1$s</string>
+    <string name="sim_advice_dismiss">No thanks</string>
+</resources>

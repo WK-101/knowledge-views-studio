@@ -42,6 +42,10 @@ import app.parley.common.calls.SafeWords
 import app.parley.calls.ExpectedCallHints
 import app.parley.calls.NeverCallsYouFacts
 import app.parley.telecom.TelecomDependencies
+import app.parley.telecom.SimTip
+import app.parley.common.catching
+import app.parley.data.security.Concealment
+import app.parley.calls.NumberSignals
 import app.parley.telecom.MenuMemoryHooks
 import app.parley.calls.MenuMemoryBridge
 import app.parley.ui.common.Format
@@ -462,6 +466,30 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 if (number != null && c.settings.current().privateVaultHistory && c.vault.lookup(number) != null) return@runCatching
                 c.callQuality.add(number, facts)
             }
+        }
+    }
+
+    // ---- "Calls to Ana drop less on SIM 2" ----
+
+    override suspend fun simTipAfterDrop(number: String, facts: CallQualityFacts?): SimTip? = withContext(Dispatchers.IO) {
+        // Names a person: not while Parley is locked, and never a private contact that's hidden.
+        if (appLocked()) return@withContext null
+        val contact = c.contacts.lookup(number)?.takeIf { !it.work }
+        val (name, numbers) = if (contact != null) {
+            contact.name to c.contacts.numbersOf(contact.contactId)
+        } else {
+            if (c.settings.current().hideVault || Concealment.hiding) return@withContext null
+            val (vaultId, info) = c.vault.lookup(number) ?: return@withContext null
+            info.name to (c.vault.summary(vaultId)?.numbers ?: listOf(number))
+        }
+        val tip = NumberSignals.simTip(c, numbers.ifEmpty { listOf(number) }, c.sims.accounts(), facts) ?: return@withContext null
+        if (!NumberSignals.offerAfterCall(c, tip)) return@withContext null
+        SimTip(tip.simId, tip.simLabel, name, numbers, tip.lineKeys)
+    }
+
+    override fun answerSimTip(tip: SimTip, accept: Boolean) {
+        c.scope.launch(Dispatchers.IO) {
+            catching { NumberSignals.answerSim(c, tip.numbers, NumberSignals.SimTip(tip.simId, tip.simLabel, tip.keys), accept) }
         }
     }
 

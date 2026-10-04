@@ -30,6 +30,9 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.calls.NumberSignals
+import app.parley.common.ContactSummary
+import app.parley.common.suspendRunCatching
 import app.parley.common.ux.BackupNudge
 import app.parley.data.HealthIssue
 import app.parley.data.HealthKind
@@ -72,6 +75,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     var issues by remember { mutableStateOf<List<HealthIssue>?>(null) }
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(contacts, round) { issues = scanner.scan(contacts.orEmpty(), calls.orEmpty(), vm.countryIso) }
+    val dead = rememberDeadNumbers(vm, contacts)
     var confirmStale by remember { mutableStateOf<List<Triple<HealthIssue, String, String>>?>(null) }
     confirmStale?.let { list ->
         ConfirmDialog(
@@ -114,7 +118,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             CircularProgressIndicator(Modifier.padding(p).padding(32.dp))
             return@ParleyScaffold
         }
-        if (list.isEmpty()) {
+        if (nothingFound(list, dead)) {
             Column(Modifier.padding(p).verticalScroll(rememberScrollState())) {
                 SyncWatchdogCards(vm, open)
                 AccountDiagnosticsSection(vm)
@@ -129,6 +133,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             // Contacts that went missing come first: the cards wait here until answered.
             item { SyncWatchdogCards(vm, open) }
             item { AccountDiagnosticsSection(vm) }
+            deadNumbersSection(vm, dead, open)
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
@@ -176,3 +181,15 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         }
     }
 }
+
+/** Numbers that seem out of service: from the calls' own facts, read again when a call or an answer changes them. */
+@Composable
+private fun rememberDeadNumbers(vm: AppViewModel, contacts: List<ContactSummary>?): List<NumberSignals.DeadNumber> {
+    val quality by vm.c.callQuality.version.collectAsStateWithLifecycle()
+    val answers by vm.c.numberAdvice.version.collectAsStateWithLifecycle()
+    var dead by remember { mutableStateOf<List<NumberSignals.DeadNumber>>(emptyList()) }
+    LaunchedEffect(contacts, quality, answers) { dead = suspendRunCatching { NumberSignals.deadNumbers(vm.c, contacts.orEmpty()) }.getOrDefault(emptyList()) }
+    return dead
+}
+
+private fun nothingFound(issues: List<HealthIssue>, dead: List<NumberSignals.DeadNumber>) = issues.isEmpty() && dead.isEmpty()

@@ -83,6 +83,7 @@ private fun PhoneSection(sections: PageSections, ctx: ContactPageContext, reachG
     val resources = LocalResources.current
     val context = LocalContext.current
     val sims by vm.sims.collectAsStateWithLifecycle()
+    val advice by ctx.page.numberAdvice.collectAsStateWithLifecycle()
     val sep = stringResource(R.string.main_separator)
     val prefs = ctx.prefs
     val summary = if (d.phones.size == 1) {
@@ -100,6 +101,8 @@ private fun PhoneSection(sections: PageSections, ctx: ContactPageContext, reachG
                     resources.getString(R.string.contact_page_default).takeIf { p.isPrimary && d.phones.size > 1 },
                     pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } },
                     apps.takeIf { it.isNotEmpty() }?.joinToString(resources.getString(R.string.contact_page_list_separator)),
+                    // A quiet word only: what to do about it is in the Contact health check.
+                    resources.getString(R.string.number_seems_out_of_service).takeIf { p.value in advice.dead },
                 ).joinToString(sep)
                 PhoneRow(
                     vm, p, first = i == 0, label = label,

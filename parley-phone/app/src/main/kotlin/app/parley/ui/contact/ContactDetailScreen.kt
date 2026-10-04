@@ -353,6 +353,8 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
     if (ui.access == PrivateAccess.OPEN && d.lookupKey.isNotEmpty()) item(key = "card_update") { CardUpdateBanner(vm, ctx.contactId, d.lookupKey, d) }
     // I6: menu shortcuts saved for this person's numbers (from the call screen's keypad).
     if (!locked && d.phones.isNotEmpty()) item(key = "menu_shortcuts") { MenuShortcutsBlock(vm, d.phones.map { it.value }, d.displayName, d.photoUri) }
+    // "Calls to Ana drop less on SIM 2": on a dual-SIM phone, until answered either way.
+    if (!locked && d.phones.isNotEmpty()) item(key = "sim_advice") { SimAdviceBanner(ctx) }
     // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.
     if (ui.access != PrivateAccess.OPEN && ui.access != PrivateAccess.OPENING) {
         item(key = "access") { PrivateAccessRow(ui.access, onUnlock = unlock, onRetry = ctx.page::reload, onKeep = ctx.page::keepWhatIsLeft) }
