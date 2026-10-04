@@ -4,6 +4,7 @@ import android.database.SQLException
 import android.util.Log
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import app.parley.common.backup.SnapshotKeep
+import app.parley.common.storage.VacuumPolicy
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.MetaDao
@@ -40,7 +41,7 @@ class UndoStorage(
         val (calls, callBytes) = history.trashUsage()
         Usage(
             contactChanges = meta.journalCount(),
-            contactBytes = meta.journalBytes(),
+            contactBytes = meta.journalBytes() + meta.journalPhotoBytes(),
             deletedCalls = calls,
             callBytes = callBytes,
             snapshotTimes = timeMachine.snapshotTimes(),
@@ -50,12 +51,15 @@ class UndoStorage(
 
     /** Forgets every undo copy of a contact change; returns how many. */
     suspend fun clearContactChanges(): Int = withContext(Dispatchers.IO + NonCancellable) {
-        meta.clearJournal().also { if (it > 0) compactDatabase(db.openHelper) }
+        meta.clearJournal().also {
+            dropUnusedJournalPhotos(meta)
+            if (it > 0) compactDatabase(db.openHelper)
+        }
     }
 
     /** Forgets one contact change (one row of the Contacts tab). */
     suspend fun forgetContactChange(entryId: Long): Boolean = withContext(Dispatchers.IO + NonCancellable) {
-        meta.deleteJournalEntry(entryId) > 0
+        (meta.deleteJournalEntry(entryId) > 0).also { if (it) dropUnusedJournalPhotos(meta) }
     }
 
     /** Forgets the undo copies of deleted calls; the call log is untouched. Returns how many calls. */
@@ -63,6 +67,12 @@ class UndoStorage(
 
     /** Forgets one delete of calls (one row of the Calls tab). */
     suspend fun forgetDeletedCalls(batchId: Long): Int = history.forgetDeleted(batchId)
+
+    /** Daily upkeep: gives free pages of Parley's database and the call archive back to the phone ([VacuumPolicy]). */
+    suspend fun tidy(): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        tidyDatabase(db.openHelper)
+        history.tidy()
+    }
 
     /** Deletes the daily snapshots [keep] doesn't keep; returns how many went. */
     suspend fun clearSnapshots(keep: SnapshotKeep): Int = timeMachine.clear(keep)
@@ -80,5 +90,25 @@ internal fun compactDatabase(helper: SupportSQLiteOpenHelper) {
         }
     } catch (e: SQLException) {
         Log.w("UndoStorage", "Compacting ${helper.databaseName} failed", e)
+    }
+}
+
+/** Returns free pages to the phone when they are more than a fifth of the file (see [VacuumPolicy]). Best effort. */
+internal fun tidyDatabase(helper: SupportSQLiteOpenHelper) {
+    try {
+        val db = helper.writableDatabase
+        fun pragma(name: String): Long = db.query("PRAGMA $name").use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
+        when (VacuumPolicy.decide(pragma("auto_vacuum").toInt(), pragma("freelist_count"), pragma("page_count"))) {
+            VacuumPolicy.Step.NONE -> return
+            VacuumPolicy.Step.INCREMENTAL -> db.query("PRAGMA incremental_vacuum").use { c -> while (c.moveToNext()) Unit }
+            VacuumPolicy.Step.SWITCH_AND_VACUUM -> {
+                // The mode takes effect with the next VACUUM, which rewrites the file once.
+                db.query("PRAGMA auto_vacuum = ${VacuumPolicy.INCREMENTAL_MODE}").close()
+                db.execSQL("VACUUM")
+            }
+        }
+        db.query("PRAGMA wal_checkpoint(TRUNCATE)").close()
+    } catch (e: SQLException) {
+        Log.w("UndoStorage", "Tidying ${helper.databaseName} failed", e)
     }
 }

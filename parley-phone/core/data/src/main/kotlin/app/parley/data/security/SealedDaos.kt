@@ -5,6 +5,7 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.JournalEntity
+import app.parley.data.db.JournalPhotoEntity
 import app.parley.data.db.MetaDao
 import app.parley.common.security.Concealed
 import kotlinx.coroutines.flow.Flow
@@ -99,6 +100,10 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     override suspend fun addJournal(e: JournalEntity): Long = dao.addJournal(e.copy(payload = crypto.sealBytes(e.payload)))
 
     override suspend fun journalEntry(id: Long): JournalEntity? = dao.journalEntry(id)?.let { it.copy(payload = crypto.openBytes(it.payload)) }
+
+    override suspend fun addJournalPhoto(p: JournalPhotoEntity) = dao.addJournalPhoto(p.copy(blob = crypto.sealBytes(p.blob)))
+
+    override suspend fun journalPhoto(hash: String): JournalPhotoEntity? = dao.journalPhoto(hash)?.let { it.copy(blob = crypto.openBytes(it.blob)) }
 
     override suspend fun meta(key: String): ContactMetaEntity? = dao.meta(key)?.opened()
 

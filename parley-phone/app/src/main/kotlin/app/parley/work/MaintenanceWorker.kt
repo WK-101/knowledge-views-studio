@@ -204,7 +204,9 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             // "Forget messaged numbers after" (the stricter of it and the retention above wins).
             runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
-            step("journal") { c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30)) }
+            step("journal") { c.journal.prune(now - TimeUnit.DAYS.toMillis(30)) }
+            // Pruning leaves free pages behind; give them back when they add up.
+            step("database tidy") { c.undoStorage.tidy() }
             // 6. Daily time-machine snapshot (incremental)
             step("time machine") { c.timeMachine.snapshotIfDue() }
             return notices

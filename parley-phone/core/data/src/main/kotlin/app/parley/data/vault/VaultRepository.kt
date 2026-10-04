@@ -390,7 +390,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * sealed record is kept in a file beside the database (a later Keystore recovery could still open it).
      */
     suspend fun keepWhatIsLeft(id: Long): Boolean = withContext(Dispatchers.IO) {
-        val e = dao.get(id) ?: return@withContext false
+        val e = dao.callerRow(id) ?: return@withContext false
         if (!detailsLost(id)) return@withContext false
         save(id, CallerIdCopy.rebuilt(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))))
         true
@@ -435,7 +435,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /** Detail key generations still needed: the entries', and sealed copies kept by "Recently deleted". */
     private suspend fun generationsInUse(): Set<Int> =
-        dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet() + runCatching { keptGenerations() }.getOrDefault(emptySet())
+        // One entry's details at a time, never every entry's at once.
+        dao.callerRowsNow().mapNotNull { r -> dao.detailBlob(r.id)?.let(VaultCrypto::generationOf) }.toSet() +
+            runCatching { keptGenerations() }.getOrDefault(emptySet())
 
     /** Generations of detail blobs kept outside the table (set by the container: [PrivateTrash]). */
     @Volatile var keptGenerations: () -> Set<Int> = { emptySet() }
@@ -660,9 +662,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun updateCallerChoices(id: Long, change: (VaultSummary) -> VaultSummary): Boolean = withContext(Dispatchers.IO) {
         // An entry not seeded yet would have its old star, tone and labels replaced by the defaults: seed it first when
         // its details can be opened (a locked vault keeps the change to what the caller-ID copy has).
-        if (dao.get(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
+        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
         keysLock.withLock {
-            val e = dao.get(id) ?: return@withLock false
+            val e = dao.callerRow(id) ?: return@withLock false
             val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
             val before = summarize(e) ?: return@withLock false
             val after = change(before)
@@ -727,7 +729,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         if (prefs.getBoolean(K_CHOICES_SEEDED, false)) return@withContext 0
         var seeded = 0
         var pending = false
-        for (e in dao.all()) {
+        for (e in dao.callerRowsNow()) {
             if (summarize(e)?.choicesKnown != false) continue
             try {
                 if (seedCallerChoices(e.id)) seeded++ else pending = true
@@ -783,12 +785,12 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         if (prefs.getInt(K_KEYS_VERSION, 1) >= KEYS_VERSION) return@withContext
         val fallbackRegion = region()
         var failed = false
-        for (id in dao.all().map { it.id }) {
+        for (id in dao.callerRowsNow().map { it.id }) {
             // Under the same lock as save and re-read inside the transaction, so a save that ran meanwhile is
             // never overwritten with the numbers it replaced.
             val ok = keysLock.withLock {
                 db.withTransaction {
-                    val e = dao.get(id) ?: return@withTransaction true
+                    val e = dao.callerRow(id) ?: return@withTransaction true
                     val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withTransaction false
                     val s = summarize(e) ?: return@withTransaction false
                     val region = o.optString(C_REGION).ifEmpty { fallbackRegion }
@@ -835,7 +837,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         keysLock.withLock {
             dao.setExpiry(id, expiresAt)
             if (purgeHistory == null) return@withLock
-            val e = dao.get(id) ?: return@withLock
+            val e = dao.callerRow(id) ?: return@withLock
             val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock
             if (o.optBoolean("purge", false) == purgeHistory) return@withLock
             if (purgeHistory) o.put("purge", true) else o.remove("purge")
@@ -873,7 +875,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val ids = dao.idsByHmac(listOf(VaultCrypto.hmac(input)))
             if (ids.isEmpty()) continue
             val candidates = ids.mapNotNull { id ->
-                val e = dao.get(id) ?: return@mapNotNull null
+                // The caller row only: the sealed details stay in the database while the phone rings.
+                val e = dao.callerRow(id) ?: return@mapNotNull null
                 val s = summarize(e) ?: return@mapNotNull null
                 s to VaultNumberKeys.Candidate(id, s.updatedAt, e.createdAt, e.expiresAt)
             }
@@ -890,7 +893,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /** The caller card of entry [id] (no unlock needed), or null. */
     suspend fun callerCard(id: Long): VaultCallerCard? = withContext(Dispatchers.IO) {
-        val e = dao.get(id) ?: return@withContext null
+        val e = dao.callerRow(id) ?: return@withContext null
         runCatching {
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
             VaultCallerCard(

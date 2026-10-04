@@ -107,9 +107,27 @@ data class JournalEntity(
     /** DELETE, EDIT, MERGE, SEPARATE, IMPORT, RESTORE */
     val action: String,
     val time: Long,
-    /** Serialized ContactRecord (JSON, gzip). */
-    val payload: ByteArray,
     val restored: Boolean = false,
+    /**
+     * The photos this copy needs, as comma-separated hashes into [JournalPhotoEntity]; null for a copy that holds its
+     * photos itself (written before photos were kept apart).
+     */
+    val photoHashes: String? = null,
+    /**
+     * Serialized ContactRecord (JSON, gzip). The last column on purpose: a listing reads the columns before it without
+     * walking the payload's overflow pages.
+     */
+    val payload: ByteArray,
+)
+
+/**
+ * A photo kept for the journal, once however many copies need it (a bulk edit of 5,000 contacts no longer stores
+ * 5,000 photos): its SHA-256 and its bytes, sealed like the payloads. Dropped once no copy names it.
+ */
+@Entity(tableName = "journal_photos")
+data class JournalPhotoEntity(
+    @PrimaryKey val hash: String,
+    val blob: ByteArray,
 )
 
 data class JournalRow(val id: Long, val contactKey: String, val displayName: String, val action: String, val time: Long, val restored: Boolean)
@@ -200,10 +218,13 @@ data class VaultContactEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     /** Name + number labels, readable with the "caller ID" key even while the phone is locked. */
     val callerIdBlob: ByteArray,
-    /** Everything else (full ContactRecord), needs the strong key (biometric/device credential). */
-    val detailBlob: ByteArray,
     val expiresAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * Everything else (full ContactRecord), needs the strong key (biometric/device credential). Up to hundreds of kB
+     * with a photo, so it is the last column: listings ([VaultCallerRow]) stop before it.
+     */
+    val detailBlob: ByteArray,
 )
 
 /**
@@ -315,6 +336,32 @@ interface MetaDao {
 
     @Query("DELETE FROM journal WHERE time < :before")
     suspend fun pruneJournal(before: Long)
+
+    /** Keeps a journal photo; one already kept under its hash stays as it is. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addJournalPhoto(p: JournalPhotoEntity)
+
+    @Query("SELECT * FROM journal_photos WHERE hash = :hash")
+    suspend fun journalPhoto(hash: String): JournalPhotoEntity?
+
+    @Query("SELECT COUNT(*) FROM journal_photos WHERE hash = :hash")
+    suspend fun journalPhotoKept(hash: String): Int
+
+    @Query("SELECT hash FROM journal_photos")
+    suspend fun journalPhotoHashes(): List<String>
+
+    /** The photo lists of every copy (short strings, read without the payloads). */
+    @Query("SELECT photoHashes FROM journal WHERE photoHashes IS NOT NULL")
+    suspend fun journalPhotoRefs(): List<String>
+
+    @Query("DELETE FROM journal_photos WHERE hash IN (:hashes)")
+    suspend fun deleteJournalPhotos(hashes: List<String>)
+
+    @Query("DELETE FROM journal_photos")
+    suspend fun clearJournalPhotos()
+
+    @Query("SELECT COALESCE(SUM(LENGTH(blob)), 0) FROM journal_photos")
+    suspend fun journalPhotoBytes(): Long
 
     @Query("SELECT COUNT(*) FROM journal")
     suspend fun journalCount(): Int
@@ -597,8 +644,12 @@ interface VaultDao {
     @Query("UPDATE private_calls SET blob = :sealed WHERE id = :id AND blob = :was")
     suspend fun resealPrivateCall(id: Long, was: ByteArray, sealed: ByteArray): Int
 
-    @Query("SELECT * FROM vault_contacts WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
-    suspend fun expired(now: Long): List<VaultContactEntity>
+    @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
+    suspend fun expired(now: Long): List<VaultCallerRow>
+
+    /** Every entry's sealed details, one at a time by id (the details are the only column read). */
+    @Query("SELECT detailBlob FROM vault_contacts WHERE id = :id")
+    suspend fun detailBlob(id: Long): ByteArray?
 }
 
 @Dao
@@ -730,11 +781,11 @@ interface PrefsDao {
 @Database(
     entities = [
         BlockRuleEntity::class, BlockedCallEntity::class, SpeedDialEntity::class, NumberSimEntity::class,
-        JournalEntity::class, TemporaryContactEntity::class, ContactMetaEntity::class,
+        JournalEntity::class, JournalPhotoEntity::class, TemporaryContactEntity::class, ContactMetaEntity::class,
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -749,6 +800,8 @@ interface PrefsDao {
     // v9: a nullable contact_meta column for relations kept in Parley only. Additive.
     // v10: indexes for the queries that scanned whole tables: private calls by entry and date (backups, the sweep's
     //     duplicate check, retention), the journal by time and contact, call rings by time. Additive.
+    // v11 (manual, [Migrations.V10_TO_11]): the journal and vault_contacts are rebuilt with their large blob as the last
+    //     column, so listings stop reading every payload; the journal keeps photos once by hash in journal_photos.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8), AutoMigration(from = 8, to = 9),
@@ -765,6 +818,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").build()
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(*Migrations.ALL).build()
     }
 }
