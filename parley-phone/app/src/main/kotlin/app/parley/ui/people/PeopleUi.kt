@@ -57,7 +57,8 @@ class PeopleUi(
 
     /**
      * The address book's per-contact index with private contacts' labels added under their list ids, so label pages,
-     * the label filters ("any", "all", "Unlabelled") and label counts treat them like everyone else.
+     * the label filters ("any", "all", "Unlabelled") and label counts treat them like everyone else. Followed only
+     * while a screen shows it, so the index can stop with the app in the background.
      */
     val index: StateFlow<PeopleIndexData> = combine(c.people.index.data, c.privateLabels.titles, includePrivate) { idx, private, include ->
         if (!include || private.isEmpty()) return@combine idx
@@ -66,7 +67,7 @@ class PeopleUi(
         val counts = HashMap(idx.labelCounts)
         PrivateLabels.counts(private).forEach { (t, n) -> counts[t] = (counts[t] ?: 0) + n }
         idx.copy(extras = extras, labelCounts = counts)
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, c.people.index.data.value)
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), c.people.index.data.value)
 
     /** Label/account filter of the Contacts tab (AND/OR comes from the saved preference). */
     val filter = MutableStateFlow(LabelFilter())
@@ -96,7 +97,7 @@ class PeopleUi(
     ) { idx, priv, include, appLocked ->
         val searchable = SearchDocs.privateDetailsSearchable(vaultOpen = priv.isNotEmpty(), discreet = !include, appLocked = appLocked)
         SearchDocs.combine(idx.search, priv, searchable, discreet = !include)
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** List ids of temporary contacts (the "Temporary" filter). */
     private val temporaryIds: StateFlow<Set<Long>> = combine(contacts, c.temporaries.all, c.vault.contacts) { list, temps, vault ->

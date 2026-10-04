@@ -127,6 +127,10 @@ class PeopleIndexSearchTest {
         val doc = index.data.value.search[added]
         assertEquals(ContactSearch.Field.ADDRESS, doc?.let { ContactSearch.match("lyon", it) })
         assertEquals(ContactSearch.Field.NAME, ContactSearch.match("zelie", doc!!))
+        // Only the changed contact was read again; everyone else kept their entry.
+        assertTrue("${index.lastUpdate} ${repo.lastLoad}", index.lastUpdate.incremental && index.lastUpdate.read in 1..5)
+        assertEquals(COUNT + 1, index.data.value.search.size)
+        assertEquals(ContactSearch.Field.ADDRESS, ContactSearch.match("lisboa", index.data.value.search.getValue(4)))
     }
 
     private companion object {
