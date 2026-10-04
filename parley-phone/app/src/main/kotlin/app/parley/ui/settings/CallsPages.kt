@@ -137,28 +137,34 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
                     .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
             )
         }
-        // The caller's colour at the top of the call screen, none, or a contact's picture as a poster; a contact's own
-        // picture shows with every choice.
-        choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
-            set { it.copy(callBackground = CallScreenBackground.entries[i]) }
-        }
         switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
-        item("flip_to_silence") { FlipToSilenceRow(vm) }
     }
-    // Auto-answer and the haptic caller ID.
-    CallerRingGroup(vm, open)
-    // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
-    RttSettingsGroup(vm)
+    AdvancedSection {
+        SegmentedGroup {
+            // The caller's colour at the top of the call screen, none, or a contact's picture as a poster; a contact's own
+            // picture shows with every choice.
+            choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
+                set { it.copy(callBackground = CallScreenBackground.entries[i]) }
+            }
+            item("flip_to_silence") { FlipToSilenceRow(vm) }
+        }
+        // Auto-answer and the haptic caller ID.
+        CallerRingGroup(vm, open)
+        // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
+        RttSettingsGroup(vm)
+    }
 }
 
 /** Calls › During calls: vibration, the screen at your ear, the power button, and notes before and after calls. */
 @Composable
 private fun DuringCallsPage(vm: AppViewModel) {
-    // "Start calls on speaker".
+    // "Start calls on speaker" and the screen at your ear.
     CallSpeakerGroup(vm)
-    CallFeedbackGroup(vm)
-    // The memory prompt, notes on the lock screen and the pre-call peek.
-    MemorySettingsGroup(vm)
+    AdvancedSection {
+        CallFeedbackGroup(vm)
+        // The memory prompt, notes on the lock screen and the pre-call peek.
+        MemorySettingsGroup(vm)
+    }
 }
 
 /** Calls › SIMs & carrier: each SIM's plan minutes and options, Android's calling accounts and the carrier's settings. */

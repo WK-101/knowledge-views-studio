@@ -82,6 +82,20 @@ class SettingsSearchTest {
         assertEquals(null, SettingsCatalog["row_actions"].place)
     }
 
+    @Test fun advanced_settings_are_real_settings_and_each_page_keeps_its_basics_open() {
+        SettingsCatalog.ADVANCED.forEach { k ->
+            val e = SettingsCatalog.entries.firstOrNull { it.key == k }
+            assertTrue("$k is in ADVANCED but not a setting", e != null && !e.link && e.advanced)
+        }
+        assertTrue(SettingsCatalog.isAdvanced("amoled"))
+        assertTrue(!SettingsCatalog.isAdvanced("theme") && !SettingsCatalog.isAdvanced(null) && !SettingsCatalog.isAdvanced("no_such_key"))
+        // Every page still opens on something to set, and a basic user sees a short page.
+        SettingsCategory.entries.forEach { c ->
+            val basics = SettingsCatalog.inCategory(c).count { it.place == null && !it.advanced }
+            assertTrue("${c.name} shows $basics basic rows", basics in 1..BASIC_LIMIT)
+        }
+    }
+
     /** The scorer itself, on made-up words (the real ones are the app's, tested there). */
     private val sample = listOf(
         SettingEntry("theme", SettingsCategory.APPEARANCE).withTexts("Theme", "System, light or dark", listOf("dark mode"), "Appearance"),
@@ -113,6 +127,9 @@ class SettingsSearchTest {
     private companion object {
         /** Searchable rows a category page may hold itself. */
         const val PAGE_LIMIT = 22
+
+        /** Rows a category page shows before its "Advanced" group. */
+        const val BASIC_LIMIT = 12
 
         /**
          * Every setting, wherever it lives (links not counted). 161 before 5.1; 5.1 added "Show names as" (name_order),

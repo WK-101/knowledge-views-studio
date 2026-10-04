@@ -196,18 +196,11 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
     val nameOrders = listOf(stringResource(R.string.set_name_order_first), stringResource(R.string.set_name_order_last))
     SegmentedGroup(stringResource(R.string.set_group_theme)) {
         choiceRow("theme", themes, s.themeMode.ordinal, Icons.Rounded.DarkMode) { i -> set { it.copy(themeMode = ThemeMode.entries[i]) } }
-        switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
         if (Build.VERSION.SDK_INT >= 31) switchRow("dynamic_color", s.dynamicColor, Icons.Rounded.Wallpaper) { v -> set { it.copy(dynamicColor = v) } }
-    }
-    SegmentedGroup(stringResource(R.string.set_group_lists)) {
-        choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
-        item("avatar_style") { AvatarStyleSetting(vm) }
     }
     SegmentedGroup(stringResource(R.string.set_group_names)) {
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
         menuRow("name_order", nameOrders, if (s.showNamesLastFirst) 1 else 0, Icons.Rounded.SwapHoriz) { i -> set { it.copy(showNamesLastFirst = i == 1) } }
-        item("second_line") { SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
-        item("prefer_nickname") { PreferNicknameRow(vm, Icons.Rounded.Badge) }
     }
     // Every one-time tip shows again.
     val tipsReset = stringResource(R.string.ux_tips_reset_done)
@@ -216,6 +209,13 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
             vm.c.ux.resetTips()
             vm.toast(tipsReset)
         }
+    }
+    AdvancedGroup {
+        switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
+        choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
+        item("avatar_style") { AvatarStyleSetting(vm) }
+        item("second_line") { SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
+        item("prefer_nickname") { PreferNicknameRow(vm, Icons.Rounded.Badge) }
     }
 }
 
@@ -246,14 +246,16 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
             set { it.copy(startTab = visible[i]) }
         }
     }
-    // Combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
-    LayoutSettingsGroup(vm)
-    SegmentedGroup(stringResource(R.string.set_group_gestures)) {
-        item("swipe_actions") { SwipeSettings(vm) }
-    }
     // Simple mode, set up here (for someone else, or for yourself).
     SegmentedGroup {
         linkRow("simple_mode", Icons.Rounded.Accessibility) { open(ExtrasRoutes.SimpleSetup) }
+    }
+    AdvancedSection {
+        // Combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
+        LayoutSettingsGroup(vm)
+        SegmentedGroup(stringResource(R.string.set_group_gestures)) {
+            item("swipe_actions") { SwipeSettings(vm) }
+        }
     }
 }
 
@@ -306,7 +308,7 @@ internal fun KeypadPage(vm: AppViewModel, open: (Destination) -> Unit) {
         switchRow("keypad_tones", s.dialpadTones, Icons.Rounded.MusicNote) { v -> set { it.copy(dialpadTones = v) } }
         switchRow("keypad_vibration", s.dialpadHaptics, Icons.Rounded.Vibration) { v -> set { it.copy(dialpadHaptics = v) } }
     }
-    SegmentedGroup(stringResource(R.string.set_group_keys)) {
+    AdvancedGroup {
         item("keypad_letters") { KeypadLettersRow(vm, Icons.Rounded.Translate) }
         linkRow("speed_dial", Icons.Rounded.Speed) { open(Routes.SpeedDial) }
         item("ussd") { UssdRow(vm, Icons.Rounded.Tag) }
@@ -336,6 +338,22 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup {
         linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
         switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
+        switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
+            if (v) BlockingDialogs.show(BlockingDialog.Snooze)
+            else scope.launch { BlockingActions.snooze(vm.c, 0) }
+        }
+    }
+    AdvancedSection {
+        BlockingAdvanced(vm, open)
+    }
+}
+
+/** Blocking & spam's Advanced group: learning from your calls, hints from notes, the lists and the rules. */
+@Composable
+private fun BlockingAdvanced(vm: AppViewModel, open: (Destination) -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val set = rememberSettingsSetter(vm)
+    SegmentedGroup {
         // I2: tags from your own calls (on), and the optional silence rule (off, only while learning is on).
         switchRow("learn_from_calls", s.screening.learnFromCalls, Icons.Rounded.Storefront) { v ->
             // Learns at once (or forgets everything), in the app's scope so leaving the page doesn't stop it.
@@ -346,10 +364,6 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
         switchRow("silence_sales_lines", s.screening.silenceSalesLines, Icons.AutoMirrored.Rounded.VolumeOff, enabled = s.screening.learnFromCalls) { v ->
             set { it.copy(screening = it.screening.copy(silenceSalesLines = v)) }
-        }
-        switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
-            if (v) BlockingDialogs.show(BlockingDialog.Snooze)
-            else scope.launch { BlockingActions.snooze(vm.c, 0) }
         }
         // I7: notes, To call items and delivery QR codes turning "Expecting a call" on (off until accepted).
         item("expected_hints") { ExpectedHintsRow(vm) }
@@ -431,14 +445,12 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             }
         }
         item("labels") { LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
-        switchRow("mirror_relations", s.mirrorRelations, Icons.Rounded.SyncAlt) { v -> set { it.copy(mirrorRelations = v) } }
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) {
             open(Routes.Temporary)
         }
         linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BulkAdd) }
         linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.Duplicates) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.Health) }
-        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.Sections) }
     }
     val severalAccounts = hasSeveralAccounts(vm)
     SegmentedGroup(stringResource(R.string.set_group_import_export)) {
@@ -461,7 +473,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         remindersLinkRow(open)
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
-        logPromptsRow(vm, circleCfg)
         // How keep-in-touch reminders arrive lives on Reminders; Circle ⋮ › Circle settings lands here.
         item {
             LinkRow(
@@ -470,7 +481,10 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             ) { open(RemindersRoutes.Page("circle_delivery")) }
         }
     }
-    AdvancedGroup(setOf("import_sim", "export_account")) {
+    AdvancedGroup {
+        switchRow("mirror_relations", s.mirrorRelations, Icons.Rounded.SyncAlt) { v -> set { it.copy(mirrorRelations = v) } }
+        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.Sections) }
+        logPromptsRow(vm, circleCfg)
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SimImport) }
         if (severalAccounts) item("export_account") { ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
     }
@@ -538,7 +552,6 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         menuRow("retention", retentionLabels, retention.indexOf(s.callLogRetentionDays).coerceAtLeast(0), Icons.Rounded.AutoDelete) { i ->
             set { it.copy(callLogRetentionDays = retention[i], callLogRetentionChosen = true) }
         }
-        if (archiveOn) keptForeverRow(vm)
         // Clear everything, unknown numbers or missed calls, with an export first.
         item("clear_history") { ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
         // Deleted calls are restored where everything else is: History & undo › Calls.
@@ -564,11 +577,10 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         // The People card in Call insights.
         peopleCardRows(vm, circleCfg)
     }
-    SegmentedGroup(stringResource(R.string.hist_export_import)) {
+    AdvancedGroup {
+        if (archiveOn) keptForeverRow(vm)
         linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.Import) }
         csvBomRow(vm)
-    }
-    AdvancedGroup(setOf("sim_labels")) {
         switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
     }
     CallHistoryNotes(vm)
@@ -596,6 +608,8 @@ internal fun MessagingPage(vm: AppViewModel, open: (Destination) -> Unit) {
         linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat, sub = messagedSub) {
             open(MessagingRoutes.Messaged)
         }
+    }
+    AdvancedGroup {
         val choices = MessagedRecord.EXPIRY_CHOICES
         menuRow("messaged_expiry", choices.map { expiryLabel(context, it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
             scope.launch { vm.c.messaging.setExpiryDays(choices[i]) }
@@ -643,7 +657,6 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
             // I21: the Parley PIN and the duress PIN, on a page of their own.
             linkRow("app_lock_method", Icons.Rounded.Dialpad, sub = unlockWith) { open(AppLockRoutes.UnlockWith) }
         }
-        switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
     }
     // How much about a caller call notifications and the call screen show while the phone is locked (in enum order).
     val lockCallerLabels = listOf(
@@ -662,16 +675,17 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_private_contacts)) {
         // After a duress unlock these show the switches as they were left, not what Parley enforces (I21).
         switchRow("hide_vault", s.duress?.hideVault ?: s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
-        switchRow("private_history", s.duress?.privateVaultHistory ?: s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v ->
-            set { it.copy(privateVaultHistory = v) }
-        }
     }
     SegmentedGroup(stringResource(R.string.set_group_your_data)) {
         linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.Privacy) }
+    }
+    AdvancedGroup {
+        switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
+        switchRow("private_history", s.duress?.privateVaultHistory ?: s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v ->
+            set { it.copy(privateVaultHistory = v) }
+        }
         linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WhoCanSee) }
         linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) on else off) { open(PeopleRoutes.PrivateNames) }
-    }
-    AdvancedGroup(setOf("private_directory", "app_permissions", "delete_all_data")) {
         linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PrivateNames) }
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
@@ -696,11 +710,13 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
             sub = lastBackup,
         ) { open(Routes.Backup) }
         remindersLinkRow(open)
-        linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
-        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SyncMarkdown) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
+    }
+    AdvancedGroup {
+        linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
+        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SyncMarkdown) }
         linkRow("time_machine", Icons.Rounded.ManageHistory) { open(Routes.journal(HistoryTab.SNAPSHOTS)) }
     }
 }

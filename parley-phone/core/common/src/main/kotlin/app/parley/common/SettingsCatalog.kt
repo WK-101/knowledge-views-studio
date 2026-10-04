@@ -38,6 +38,11 @@ data class SettingEntry(
      * The settings budget doesn't count it.
      */
     val link: Boolean = false,
+    /**
+     * Rarely changed: folded under its page's "Advanced" group, which opens by itself when search points here
+     * ([SettingsCatalog.ADVANCED]).
+     */
+    val advanced: Boolean = false,
     val title: String = "",
     val summary: String = "",
     val keywords: List<String> = emptyList(),
@@ -82,6 +87,35 @@ object SettingsCatalog {
 
     /** Settings › Reminders. */
     private val REM = SettingPlace.REMINDERS
+
+    /**
+     * Settings folded under "Advanced" on their page: rarely changed once set, or only for particular phones and needs.
+     * Each page keeps its everyday rows open; the reasons per page are in docs/SETTINGS.md ("Basic and Advanced").
+     * Kept apart from the list below so a page's split can change without moving its entries.
+     */
+    val ADVANCED: Set<String> = setOf(
+        // Appearance
+        "amoled", "density", "avatar_style", "second_line", "prefer_nickname",
+        // Layout & gestures
+        "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions",
+        // Calls › Answering and During calls
+        "call_background", "flip_to_silence", "auto_answer", "caller_vibration", "answer_rtt",
+        "call_haptics", "connect_haptic", "power_button_ends_call", "memory_prompt", "memory_lock_screen", "pre_call_peek",
+        // Keypad
+        "keypad_letters", "speed_dial", "ussd",
+        // Blocking & spam
+        "learn_from_calls", "silence_sales_lines", "expected_hints", "spam_lists", "templates", "dry_run", "transfer",
+        // Contacts
+        "mirror_relations", "contact_page", "log_prompts", "import_sim", "export_account",
+        // Recents & history
+        "kept_forever", "import_calls", "csv_bom", "sim_labels",
+        // Messaging
+        "messaged_expiry",
+        // Privacy & security
+        "secure_screen", "private_history", "who_can_see", "private_names", "private_directory", "app_permissions", "delete_all_data",
+        // Backup & sync
+        "sync", "markdown_export", "time_machine",
+    )
 
     val entries: List<SettingEntry> = listOf(
         // Appearance
@@ -287,13 +321,16 @@ object SettingsCatalog {
         at(SettingPlace.SHARED_LABELS, "shared_labels_join", U),
         at(SettingPlace.CONTACT_PAGE, "section_chips", P),
         at(SettingPlace.SIMS, "sim_billing", C),
-    )
+    ).map { if (it.key in ADVANCED) it.copy(advanced = true) else it }
 
     private val byKey = entries.associateBy { it.key }
 
     operator fun get(key: String): SettingEntry = byKey[key] ?: error("Unknown setting $key")
 
     fun inCategory(category: SettingsCategory): List<SettingEntry> = entries.filter { it.category == category }
+
+    /** Whether [key] is folded under its page's "Advanced" group (false for keys that aren't settings). */
+    fun isAdvanced(key: String?): Boolean = key != null && byKey[key]?.advanced == true
 
     /** The settings themselves: every entry but the links to pages and lists. What the settings budget counts. */
     val settings: List<SettingEntry> get() = entries.filterNot { it.link }
