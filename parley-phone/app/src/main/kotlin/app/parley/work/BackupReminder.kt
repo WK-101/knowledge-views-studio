@@ -1,15 +1,13 @@
 package app.parley.work
 
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.ux.BackupNudge
 import app.parley.data.DataContainer
 
@@ -29,34 +27,13 @@ object BackupReminder {
         if (!BackupNudge.mayNotify(since, now, ux.backupReminderDays, ux.backupNotifiedAt)) return
         // Notifications off: nothing is recorded, and the banners in Settings and Backup still show.
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
-        ReminderChannels.ensure(context, CHANNEL)
-        val open = PendingIntent.getActivity(
-            context, 78, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-        val title = context.getString(R.string.ux_backup_notify_title)
         val text = context.getString(if (state.lastBackupAt > 0) R.string.ux_backup_notify_text else R.string.ux_backup_notify_text_never)
-        val public = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(context.getString(R.string.work_backup_title))
-            .build()
-        val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-        try {
-            NotificationManagerCompat.from(context).notify(TAG, NotificationIds.BACKUP_ID, n)
-            c.ux.setBackupNotified(now)
-        } catch (_: SecurityException) {
-            // Notifications not allowed: the banners in Settings and Backup still show.
-        }
+        val b = PrivateNotice.builder(
+            context, CHANNEL, app.parley.ui.R.drawable.ic_stat_block, context.getString(R.string.ux_backup_notify_title),
+            context.getString(R.string.work_backup_title), text,
+            PrivateNotice.route(context, NotificationRequests.BACKUP_REMINDER, MainActivity.ACTION_OPEN_BACKUP),
+        ).setPriority(NotificationCompat.PRIORITY_LOW)
+        // Notifications not allowed: the banners in Settings and Backup still show.
+        if (PrivateNotice.post(context, TAG, NotificationIds.BACKUP_ID, b)) c.ux.setBackupNotified(now)
     }
 }

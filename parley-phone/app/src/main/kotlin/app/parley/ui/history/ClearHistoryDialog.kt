@@ -11,7 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.jobs.UserErrorText
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.CancellationException
 import app.parley.common.CallEntry
 import app.parley.common.calls.ClearHistory
@@ -132,7 +132,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
                     ClearStep.EXPORT -> {
                         Text(stringResource(R.string.clear_history_export_body), style = MaterialTheme.typography.bodyMedium)
                         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 12.dp))
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(stringResource(R.string.hist_export_csv)) },
                             supportingContent = { Text(stringResource(R.string.clear_history_export_csv_sub)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -154,7 +154,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
                                 }
                             },
                         )
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(stringResource(R.string.clear_history_export_backup)) },
                             supportingContent = { Text(stringResource(R.string.clear_history_export_backup_sub)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),

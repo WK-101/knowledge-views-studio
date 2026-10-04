@@ -9,30 +9,41 @@ import app.parley.R
 import app.parley.common.NotificationChannels
 
 /**
- * The "Reminders" channel group and its channels (birthdays and keep in touch, To call, the backup reminder), created
- * in one place so each one always lands in the group. Ids never change: Android keys a person's sound and importance
- * choices to them. A channel made before the group existed joins it the next time it is created here.
+ * The channels of Parley's notices (everything but calls and screening), created in one place. The "Reminders" ones
+ * (birthdays and keep in touch, To call, the backup reminder) always land in their group. Ids never change: Android
+ * keys a person's sound and importance choices to them. A channel made before the group existed joins it the next
+ * time it is created here.
  *
  * Backup results (a failed scheduled backup) stay in their own channel outside the group; see [BackupWorker.notify].
  */
-object ReminderChannels {
-    private class Spec(@StringRes val name: Int, val importance: Int, val badge: Boolean = true)
+object NoticeChannels {
+    private class Spec(@StringRes val name: Int, val importance: Int, val badge: Boolean = true, @StringRes val description: Int = 0)
 
     private val specs: Map<String, Spec> = mapOf(
         NotificationChannels.REMINDERS to Spec(R.string.work_channel_reminders, NotificationManager.IMPORTANCE_DEFAULT),
         // To call: never a badge on the app icon.
         NotificationChannels.TO_CALL to Spec(R.string.to_call_channel, NotificationManager.IMPORTANCE_DEFAULT, badge = false),
         NotificationChannels.BACKUP_REMINDER to Spec(R.string.work_channel_backup_reminder, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.BACKUPS to Spec(R.string.work_channel_backups, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.HOUSEKEEPING to Spec(R.string.work_channel_housekeeping, NotificationManager.IMPORTANCE_LOW),
+        NotificationChannels.PLAN to Spec(R.string.work_channel_plan, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.CONTACTS_SAFETY to Spec(R.string.watch_channel, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.PRIVATE_NAMES to Spec(R.string.privnames_channel, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.JOBS to Spec(R.string.job_channel, NotificationManager.IMPORTANCE_LOW, description = R.string.job_channel_desc),
     )
 
-    /** Creates (or updates) the group and the channel [id], which must be one of [NotificationChannels.reminderChannels]. */
+    /** Creates (or updates) the channel [id] (and its group for a reminder channel). */
     fun ensure(context: Context, id: String) {
-        val spec = specs[id] ?: error("$id isn't a reminder channel")
+        val spec = specs[id] ?: error("$id isn't a notice channel")
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.createNotificationChannelGroup(NotificationChannelGroup(NotificationChannels.REMINDERS_GROUP, context.getString(R.string.notif_group_reminders)))
+        val reminder = id in NotificationChannels.reminderChannels
+        if (reminder) {
+            nm.createNotificationChannelGroup(NotificationChannelGroup(NotificationChannels.REMINDERS_GROUP, context.getString(R.string.notif_group_reminders)))
+        }
         nm.createNotificationChannel(
             NotificationChannel(id, context.getString(spec.name), firstImportance(nm, id, spec.importance)).apply {
-                group = NotificationChannels.REMINDERS_GROUP
+                if (reminder) group = NotificationChannels.REMINDERS_GROUP
+                if (spec.description != 0) description = context.getString(spec.description)
                 setShowBadge(spec.badge)
             },
         )

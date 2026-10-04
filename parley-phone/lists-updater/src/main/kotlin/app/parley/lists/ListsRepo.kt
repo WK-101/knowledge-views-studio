@@ -3,12 +3,12 @@ package app.parley.lists
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
+import app.parley.common.Codecs
 import app.parley.common.spam.Ed25519
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.File
 
 /** A community pack the user subscribed to: any HTTPS link to a `.parleylist` file. */
@@ -123,7 +123,7 @@ class ListsRepo private constructor(context: Context) {
 
     companion object {
         val ID = Regex("[A-Za-z0-9._-]{1,80}")
-        private val CODEC = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val CODEC = Codecs.stored
 
         // Holds only the application context.
         @SuppressLint("StaticFieldLeak")

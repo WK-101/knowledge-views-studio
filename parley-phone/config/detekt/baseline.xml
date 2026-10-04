@@ -1435,5 +1435,25 @@
     <ID>RunCatchingInSuspend:VoicemailRepository.kt$VoicemailRepository$runCatching { cr.delete(v.uri, null, null) &gt; 0 }</ID>
     <ID>RunCatchingInSuspend:VoicemailRepository.kt$VoicemailRepository$runCatching { cr.update(Voicemails.CONTENT_URI, ContentValues().apply { put(Voicemails.IS_READ, if (heard) 1 else 0) }, "${Voicemails._ID} IN (${ids.joinToString(",")})", null) }</ID>
     <ID>RunCatchingInSuspend:VoicemailRepository.kt$VoicemailRepository$runCatching { cr.update(v.uri, ContentValues().apply { put(Voicemails.DELETED, 1) }, null, null) &gt; 0 }</ID>
+    <ID>DesignSystemComponent:BlockingScreenParts.kt$Switch( r.enabled &amp;&amp; !expired, modifier = Modifier.semantics { contentDescription = title }, onCheckedChange = { v -&gt; scope.launch { vm.c.blocks.saveRule(r.copy(enabled = v, expiresAt = if (expired &amp;&amp; v) null else r.expiresAt)) } }, )</ID>
+    <ID>DesignSystemComponent:BulkAddScreen.kt$Switch(tempPrivate, onCheckedChange = null)</ID>
+    <ID>DesignSystemComponent:CallTimeScreen.kt$Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v -&gt; val act = context as? FragmentActivity ?: return@Switch if (v &amp;&amp; !AppLock.canAuthenticate(act)) { noLock = true return@Switch } AppLock.confirm( act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off), ) { ok -&gt; if (ok) set { it.copy(supervised = v) } } })</ID>
+    <ID>DesignSystemComponent:ContactDetailScreen.kt$Switch(d.sendToVoicemail, onCheckedChange = null, modifier = Modifier.padding(end = Spacing.m))</ID>
+    <ID>DesignSystemComponent:KeypadTab.kt$ListItem( modifier = modifier.clickable(onClick = onClick), leadingContent = { Spacer(Modifier.width(40.dp)) }, headlineContent = { Text(Bidi.ltr(Format.number(r.number, countryIso)), style = MaterialTheme.typography.bodyLarge) }, supportingContent = type?.let { { Text(it) } }, trailingContent = { Icon( Icons.Rounded.Call, stringResource(R.string.main_call_who, listOfNotNull(c?.displayName, type).joinToString(" ")), tint = MaterialTheme.colorScheme.primary, ) }, )</ID>
+    <ID>DesignSystemComponent:LabelPolicySection.kt$Switch(p.allowThroughDnd, onCheckedChange = null)</ID>
+    <ID>DesignSystemComponent:ListsUpdaterSection.kt$Switch(on, modifier = Modifier.semantics { contentDescription = pk.name }, onCheckedChange = { v -&gt; scope.launch { busy = pk.id if (v) report( pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id), ) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id) subs = ListsUpdaterClient.subscriptions(context) busy = null } }, enabled = busy == null)</ID>
+    <ID>DesignSystemComponent:NavTabsSetting.kt$Switch(shown, onCheckedChange = null, enabled = !shown || tabs.canHide(t), modifier = Modifier.padding(end = 8.dp))</ID>
+    <ID>DesignSystemComponent:OnboardingScreen.kt$Switch( checked = on, onCheckedChange = { if (on) appInfo(context) else ask(listOf(i)) }, modifier = Modifier.semantics { contentDescription = title }, )</ID>
+    <ID>DesignSystemComponent:RecentsTab.kt$ListItem( headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick), )</ID>
+    <ID>DesignSystemComponent:RestoreFlow.kt$Switch(useRecovery, onCheckedChange = null)</ID>
+    <ID>DesignSystemComponent:SpamListsScreen.kt$Switch( pk.enabled, modifier = Modifier.semantics { contentDescription = name }, onCheckedChange = { v -&gt; scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }, )</ID>
+    <ID>DesignSystemComponent:UpdaterScreen.kt$Switch(cfg.arcepEnabled, { v -&gt; setConfig { it.copy(arcepEnabled = v) } })</ID>
+    <ID>DesignSystemComponent:UpdaterScreen.kt$Switch(cfg.ftcEnabled, { v -&gt; setConfig { it.copy(ftcEnabled = v) } })</ID>
+    <ID>DesignSystemComponent:UpdaterScreen.kt$Switch(value, onChange)</ID>
+    <ID>MaxLineLength:ContactDetailScreen.kt$ParleyListItem</ID>
+    <ID>MaxLineLength:ContactDetailScreen.kt$ParleyListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { page.setSimFor(number, null); simFor = null })</ID>
+    <ID>MaxLineLength:DetailParts.kt$DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })</ID>
+    <ID>MaxLineLength:PeopleSettings.kt$ParleyListItem</ID>
+    <ID>MaxLineLength:SpeedDialScreen.kt$ParleyListItem</ID>
   </CurrentIssues>
 </SmellBaseline>

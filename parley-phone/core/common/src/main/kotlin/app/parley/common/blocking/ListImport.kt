@@ -2,6 +2,7 @@ package app.parley.common.blocking
 
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import app.parley.common.crypto.Aead
 import javax.crypto.AEADBadTagException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -11,11 +12,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import java.nio.ByteBuffer
-import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 
 /** Small RFC 4180 reader: quotes, doubled quotes, CRLF or LF, and `,` `;` or tab as the separator. */
 object Csv {
@@ -225,9 +223,7 @@ object ListImport {
         val ct = ByteArray(buf.remaining()).also { buf.get(it) }
         val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec(password, salt, 100_000, 256)).encoded
         return try {
-            val c = Cipher.getInstance("AES/GCM/NoPadding")
-            c.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
-            c.doFinal(ct).decodeToString()
+            Aead.decrypt(key, iv, ct).decodeToString()
         } catch (e: AEADBadTagException) {
             throw IllegalArgumentException("Wrong password, or the file is damaged")
         } finally {

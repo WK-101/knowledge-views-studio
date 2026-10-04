@@ -3,6 +3,7 @@ package app.parley.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
@@ -206,6 +208,15 @@ fun ListSectionHeader(
     }
 }
 
+/** A part of a page (a contact's details, a settings screen's group): a quiet divider above its [ListSectionHeader]. */
+@Composable
+fun Section(title: String) {
+    Column {
+        HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ListSectionHeader(title, top = Spacing.m)
+    }
+}
+
 /**
  * Settings › Appearance › List density for rows of people and calls. Comfortable rows are Material's list rows;
  * compact ones lose [COMPACT_TRIM] above and below (the row's own padding shrinks from 8 to 4 dp; the text and
@@ -245,5 +256,31 @@ fun ParleyListItem(
         leadingContent = leadingContent,
         trailingContent = trailingContent,
         colors = colors,
+    )
+}
+
+/**
+ * A row for one person (a contact, a private contact, a caller, a helper): their avatar at the list density's size
+ * ([avatar] for a fixed one), the name on one line ([headline] when what's shown differs from the avatar's name), and
+ * the usual supporting and trailing slots. Clicks go in [modifier].
+ */
+@Composable
+fun PersonRow(
+    name: String,
+    photoUri: String?,
+    modifier: Modifier = Modifier,
+    headline: String = name,
+    avatar: Dp? = null,
+    colors: ListItemColors = ListItemDefaults.colors(),
+    supportingContent: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
+    ParleyListItem(
+        modifier = modifier,
+        colors = colors,
+        leadingContent = { Avatar(name, photoUri, avatar ?: avatarSize()) },
+        headlineContent = { Text(headline, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = supportingContent,
+        trailingContent = trailingContent,
     )
 }

@@ -1,17 +1,13 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.StoredStatus
 import app.parley.data.sync.SyncStatus
 
@@ -40,35 +36,13 @@ object FolderSyncNotice {
         }
         val count = status.pendingDeletions
         if (!post || prefs.getInt(KEY_POSTED, 0) == count || !nm.areNotificationsEnabled()) return
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW))
-        val open = PendingIntent.getActivity(
-            context, 79, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_SYNC).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
         val text = context.resources.getQuantityString(R.plurals.sync_paused_notify_text, count, count)
-        val public = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(context.getString(R.string.sync_paused_notify_public))
-            .build()
-        val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(context.getString(R.string.sync_paused_notify_title))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-        try {
-            nm.notify(TAG, NotificationIds.FOLDER_SYNC_ID, n)
-            prefs.edit().putInt(KEY_POSTED, count).apply()
-        } catch (_: SecurityException) {
-            // Notifications not allowed: the Sync screen still shows the pause.
-        }
+        val b = PrivateNotice.builder(
+            context, CHANNEL, app.parley.ui.R.drawable.ic_stat_block, context.getString(R.string.sync_paused_notify_title),
+            context.getString(R.string.sync_paused_notify_public), text,
+            PrivateNotice.route(context, NotificationRequests.FOLDER_SYNC, MainActivity.ACTION_OPEN_SYNC),
+        ).setOnlyAlertOnce(true).setPriority(NotificationCompat.PRIORITY_LOW)
+        // Notifications not allowed: the Sync screen still shows the pause.
+        if (PrivateNotice.post(context, TAG, NotificationIds.FOLDER_SYNC_ID, b)) prefs.edit().putInt(KEY_POSTED, count).apply()
     }
 }

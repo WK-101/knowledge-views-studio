@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.ParleyListItem
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.Destination
 import android.content.Context
@@ -46,7 +47,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -205,7 +205,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             // Tools, the one hub (everything Parley does, by what you want done), as in every tab's ⋮ menu.
             SegmentedGroup {
                 item("tools") {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(DiscoverRoutes.Capabilities) },
                         leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
                         headlineContent = { Text(stringResource(R.string.discover_title)) },
@@ -218,7 +218,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 SegmentedGroup {
                     group.forEach { c ->
                         item(c.name) {
-                            ListItem(
+                            ParleyListItem(
                                 modifier = Modifier.clickable { open(Routes.settingsPage(c)) },
                                 leadingContent = { TonalIcon(c.icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) },
                                 headlineContent = { Text(c.localTitle()) },
@@ -290,7 +290,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
             ) {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { onPick(e) },
                     leadingContent = { Icon(e.category.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     overlineContent = { Text(e.category.localTitle()) },

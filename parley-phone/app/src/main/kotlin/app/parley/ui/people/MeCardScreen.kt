@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -79,7 +80,6 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyListItem
-import app.parley.ui.common.Intents
 import app.parley.ui.contact.ActionTile
 import app.parley.ui.contact.GroupDataRow
 import app.parley.ui.contact.InfoRow
@@ -271,22 +271,22 @@ private fun MeContactInfo(card: MeCard) {
     SegmentedGroup(stringResource(R.string.contact_page_info)) {
         card.phones.forEachIndexed { i, n ->
             item {
-                val copy = { Intents.copy(context, n, sensitive = false) }
+                val copy = { Clipboard.copy(context, n, sensitive = false) }
                 GroupDataRow(Icons.Rounded.Call, i == 0, n, null, onClick = copy, headline = { Text(DataL10n.ltr(n)) })
             }
         }
         card.emails.forEachIndexed { i, e ->
-            item { GroupDataRow(Icons.Rounded.Email, i == 0, e, null, onClick = { Intents.copy(context, e, sensitive = false) }) }
+            item { GroupDataRow(Icons.Rounded.Email, i == 0, e, null, onClick = { Clipboard.copy(context, e, sensitive = false) }) }
         }
         val job = listOf(card.title, card.company).filter { it.isNotBlank() }.joinToString(" · ")
-        if (job.isNotEmpty()) item { GroupDataRow(Icons.Rounded.Business, true, job, null, onClick = { Intents.copy(context, job, sensitive = false) }) }
+        if (job.isNotEmpty()) item { GroupDataRow(Icons.Rounded.Business, true, job, null, onClick = { Clipboard.copy(context, job, sensitive = false) }) }
         card.websites.forEachIndexed { i, w ->
-            item { GroupDataRow(Icons.Rounded.Language, i == 0, w, null, onClick = { Intents.copy(context, w, sensitive = false) }) }
+            item { GroupDataRow(Icons.Rounded.Language, i == 0, w, null, onClick = { Clipboard.copy(context, w, sensitive = false) }) }
         }
         // Profiles open like on a contact's page (in their app or the browser); long-press copies.
         profileRows(card.profiles)
         if (card.address.isNotBlank()) {
-            item { GroupDataRow(Icons.Rounded.Place, true, card.address, null, onClick = { Intents.copy(context, card.address, sensitive = false) }) }
+            item { GroupDataRow(Icons.Rounded.Place, true, card.address, null, onClick = { Clipboard.copy(context, card.address, sensitive = false) }) }
         }
     }
 }

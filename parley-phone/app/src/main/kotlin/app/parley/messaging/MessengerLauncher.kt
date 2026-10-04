@@ -1,15 +1,9 @@
 package app.parley.messaging
 
-import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.os.Build
-import android.os.PersistableBundle
 import androidx.core.net.toUri
 import android.provider.Telephony
 import app.parley.R
@@ -19,6 +13,8 @@ import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
+import app.parley.ui.Clipboard
+import app.parley.ui.startOrSay
 
 /** Starts messenger links. Every link goes to its app directly; nothing is ever handed to a browser. */
 object MessengerLauncher {
@@ -51,31 +47,15 @@ object MessengerLauncher {
     fun openChat(context: Context, app: MessengerApp, e164: String, draft: String?): String? {
         val link = MessengerLinks.build(app, e164, draft)
             ?: return MessagingText.unavailable(context.resources, e164) ?: context.getString(R.string.msg_cant_open_number)
-        if (!draft.isNullOrBlank() && !app.takesText) copySensitive(context, draft)
+        if (!draft.isNullOrBlank() && !app.takesText) Clipboard.copy(context, draft)
         return open(context, link, app)
-    }
-
-    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+. */
-    fun copySensitive(context: Context, text: String) {
-        val clip = ClipData.newPlainText("message", text)
-        if (Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
-        }
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
     }
 
     fun open(context: Context, link: MessengerLink, app: MessengerApp?): String? {
         val i = intent(link)
         val cantOpen = { app?.let { MessagingText.installOrEnable(context.resources, it) } ?: context.getString(R.string.msg_no_sms_app) }
         if (i.resolveActivity(context.packageManager) == null) return cantOpen()
-        return try {
-            context.startActivity(i)
-            null
-        } catch (_: ActivityNotFoundException) {
-            cantOpen()
-        } catch (_: SecurityException) {
-            cantOpen()
-        }
+        return if (context.startOrSay(i)) null else cantOpen()
     }
 }
 

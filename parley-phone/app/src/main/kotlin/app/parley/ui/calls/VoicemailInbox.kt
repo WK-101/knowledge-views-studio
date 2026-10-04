@@ -81,6 +81,7 @@ import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
@@ -145,7 +146,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
                         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
                         val send = Intent(Intent.ACTION_SEND).setType(v.mimeType ?: "audio/*").putExtra(Intent.EXTRA_STREAM, uri)
                             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        runCatching { context.startActivity(Intent.createChooser(send, res.getString(R.string.vmi_share_title))) }
+                        context.startOrSay(Intent.createChooser(send, res.getString(R.string.vmi_share_title)))
                     }
                 },
                 onDelete = { confirmDelete = v },

@@ -29,7 +29,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -57,9 +56,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.data.backup.BackupFileInfo
 import app.parley.data.backup.BackupSchedule
+import app.parley.ui.Clipboard
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.common.Intents
-import app.parley.ui.contact.Section
+import app.parley.ui.startOrSay
 import app.parley.work.BackupWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -129,7 +130,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 val share = Intent(Intent.ACTION_SEND).setType(
                     "application/octet-stream",
                 ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                runCatching { context.startActivity(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser))) }
+                context.startOrSay(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser)))
             } else {
                 vm.toast(out.message)
             }
@@ -198,7 +199,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             }
             item { Section(stringResource(R.string.bkp_set_up)) }
             item {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { if (state.hasKeys) changePass = true else setPass = true },
                     leadingContent = { Icon(Icons.Rounded.Key, null) },
                     headlineContent = { Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass) else stringResource(R.string.bkp_set_pass)) },
@@ -208,14 +209,14 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 // Keys made before backups were signed: one passphrase entry lets the key vouch for this phone.
                 if (state.hasKeys && !state.signedAsYours) {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { confirmPhone = true },
                         leadingContent = { Icon(Icons.Rounded.VerifiedUser, null) },
                         headlineContent = { Text(stringResource(R.string.bkp_confirm_phone)) },
                         supportingContent = { Text(stringResource(R.string.bkp_confirm_phone_summary)) },
                     )
                 }
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { folderPicker.launch(null) },
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
                     headlineContent = { Text(stringResource(R.string.bkp_folder)) },
@@ -225,7 +226,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                         Text(state.folderName?.let { name -> place?.let { "$name · $it" } ?: name } ?: stringResource(R.string.bkp_folder_none))
                     },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.bkp_automatic)) },
                     supportingContent = {
                         SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
@@ -248,7 +249,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                         }
                     },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.bkp_keep)) },
                     supportingContent = {
                         val opts = listOf(0 to stringResource(R.string.bkp_keep_smart), 5 to "%d".format(5), 10 to "%d".format(10), 30 to "%d".format(30))
@@ -268,7 +269,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 // When to remind about an overdue backup (14 or 30 days; at most one notification a month).
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.set_backup_reminder_title)) },
                     supportingContent = {
                         Column {
@@ -280,20 +281,20 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             }
             item { Section(stringResource(R.string.bkp_restore)) }
             item {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { filePicker.launch(arrayOf("*/*")) },
                     leadingContent = { Icon(Icons.Rounded.Restore, null) },
                     headlineContent = { Text(stringResource(R.string.bkp_restore_file)) },
                     supportingContent = { Text(stringResource(R.string.bkp_restore_file_summary)) },
                 )
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(enabled = state.hasKeys && busy == null) { transfer() },
                     leadingContent = { Icon(Icons.Rounded.PhoneAndroid, null) },
                     headlineContent = { Text(stringResource(R.string.bkp_move_phone)) },
                     supportingContent = { Text(stringResource(R.string.bkp_move_phone_summary)) },
                 )
                 if (state.lastRestoreIds.isNotEmpty()) {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable {
                             scope.launch { val n = repo.undoLastRestore(); vm.toast(res.getQuantityString(R.plurals.bkp_undo_done, n, n)) }
                         },
@@ -307,7 +308,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             if (files.isNotEmpty()) {
                 item { Section(stringResource(R.string.bkp_in_folder)) }
                 items(files, key = { it.uri.toString() }) { f ->
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { restoreUri = f.uri },
                         headlineContent = { Text(Format.fullDate(context, f.time)) },
                         supportingContent = { Text(Formatter.formatShortFileSize(context, f.size)) },
@@ -365,7 +366,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = { TextButton({ recovery = null }) { Text(stringResource(R.string.bkp_recovery_saved)) } },
-            dismissButton = { TextButton({ Intents.copy(context, key) }) { Text(stringResource(R.string.bkp_copy)) } },
+            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.bkp_copy)) } },
         )
     }
     restoreUri?.let { uri -> RestoreFlow(vm, uri) { restoreUri = null; refresh++ } }

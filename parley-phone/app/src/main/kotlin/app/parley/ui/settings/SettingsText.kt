@@ -12,9 +12,9 @@ import app.parley.common.SettingsCatalog
 import app.parley.common.SettingsCategory
 
 /**
- * Localised texts for [SettingsCatalog]: core:common keeps stable keys (and English reference texts that search
- * keeps matching), the app maps each key to string resources. Keywords are one comma-separated string per
- * setting, so translators can add their own synonyms.
+ * The words of [SettingsCatalog], the one copy: core:common keeps stable keys and where each setting lives, the app
+ * maps each key to its string resources, which the pages show and search matches. Keywords are one comma-separated
+ * string per setting.
  */
 object SettingsText {
     private val entries: Map<String, Triple<Int, Int, Int>> = mapOf(
@@ -228,14 +228,13 @@ object SettingsText {
         SettingsCategory.ABOUT -> R.string.set_cat_about_summary
     }
 
-    /** The catalog in the current language, for Settings search; English words keep matching. */
+    /** The catalog with its words, for Settings search. */
     fun localizedCatalog(context: Context): List<SettingEntry> = SettingsCatalog.entries.map { e ->
         val (t, s, k) = res(e.key)
-        e.localized(
+        e.withTexts(
             title = context.getString(t),
             summary = context.getString(s),
-            // Latin and Arabic commas.
-            keywords = context.getString(k).split(',', '\u060C'),
+            keywords = context.getString(k).split(','),
             categoryTitle = context.getString(title(e.category)),
         )
     }

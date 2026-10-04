@@ -27,7 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -42,12 +41,11 @@ import app.parley.common.calls.QualityPattern
 import app.parley.common.calls.QualityReport
 import app.parley.common.history.CallLogIndex
 import app.parley.data.vault.PrivateCall
-import app.parley.ui.Avatar
 import app.parley.ui.Destination
 import app.parley.ui.ParleyListItem
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
-import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -145,10 +143,9 @@ private fun RecentDrop(vm: AppViewModel, call: DiaryCall, who: DiaryPerson, open
     val details = listOfNotNull(Format.shortWhen(context, f.startedAt), Format.duration(f.durationSec).ifBlank { null }, f.sim)
         .joinToString(stringResource(R.string.main_separator))
     val again = stringResource(R.string.quality_call_again_desc, who.title)
-    ParleyListItem(
+    PersonRow(
+        who.title, null,
         modifier = Modifier.clickable { open(who.contactNav?.let { Routes.contact(it) } ?: Routes.history(who.number)) },
-        leadingContent = { Avatar(who.title, null, avatarSize()) },
-        headlineContent = { Text(who.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(details) },
         trailingContent = {
             FilledTonalButton(

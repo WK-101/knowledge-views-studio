@@ -1,5 +1,6 @@
 package app.parley.telecom.ui
 
+import app.parley.common.NotificationRequests
 import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
@@ -40,6 +41,7 @@ import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ParleyTheme
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
@@ -169,7 +171,7 @@ class InCallActivity : ComponentActivity() {
     private fun startOwnScreen(intent: Intent) {
         leavingForApp = true
         updatePip()
-        runCatching { startActivity(intent) }
+        startOrSay(intent)
     }
 
     /** Retry on the failure banner: the same number, on the same SIM. */
@@ -280,12 +282,12 @@ class InCallActivity : ComponentActivity() {
         val mute = action(
             if (muted) R.drawable.ic_pip_mic_off else R.drawable.ic_pip_mic,
             getString(if (muted) R.string.incall_unmute else R.string.incall_mute),
-            CallActionReceiver.ACTION_MUTE, PIP_MUTE_REQUEST,
+            CallActionReceiver.ACTION_MUTE, NotificationRequests.PIP_MUTE,
         ).apply { isEnabled = call.canMute }
-        val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, PIP_HANGUP_REQUEST)
+        val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, NotificationRequests.PIP_HANG_UP)
         // I10: in hold mode the window offers the way out ("They're back") first.
         val holdEnd = if (call.holdModeSince > 0) {
-            action(R.drawable.ic_pip_hold_end, getString(R.string.holdmode_end), CallActionReceiver.ACTION_HOLD_MODE_END, PIP_HOLD_END_REQUEST)
+            action(R.drawable.ic_pip_hold_end, getString(R.string.holdmode_end), CallActionReceiver.ACTION_HOLD_MODE_END, NotificationRequests.PIP_HOLD_END)
         } else {
             null
         }
@@ -408,12 +410,9 @@ class InCallActivity : ComponentActivity() {
         private const val POST_CALL_CARD_MS = 8000L
         private const val DROPPED_MS = 10_000L
         private const val HOLD_BRIGHTNESS = 0.05f
-        private const val PIP_HOLD_END_REQUEST = 42
         private const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
         private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivity"
         private const val EXTRA_DIALPAD = "dialpad"
-        private const val PIP_MUTE_REQUEST = 40
-        private const val PIP_HANGUP_REQUEST = 41
         fun intent(context: Context, dialpad: Boolean): Intent =
             Intent(context, InCallActivity::class.java).putExtra(EXTRA_DIALPAD, dialpad)
     }

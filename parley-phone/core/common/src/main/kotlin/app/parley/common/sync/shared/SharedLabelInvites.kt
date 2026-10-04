@@ -1,5 +1,6 @@
 package app.parley.common.sync.shared
 
+import app.parley.common.Codecs
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.KdfParams
 import app.parley.common.backup.KdfPolicy
@@ -7,7 +8,6 @@ import app.parley.common.backup.Recipient
 import app.parley.common.backup.Unlock
 import app.parley.common.security.Bounded
 import app.parley.common.spam.Ed25519
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -67,7 +67,7 @@ object SharedLabelInvites {
     private const val MAX_TITLE = 80
     private const val MAX_HINT = 200
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Codecs.stored
     private val b64 = Base64.getEncoder()
     private val unb64 = Base64.getDecoder()
 

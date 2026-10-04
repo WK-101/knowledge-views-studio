@@ -11,6 +11,7 @@ import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.ReasonFacts
 import app.parley.data.DataContainer
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -80,5 +81,5 @@ object CallReasons {
 
     /** Opens the messaging app with [text] for [number]; the user sends it. False when no app took it. */
     fun textFirst(context: Context, number: String, text: String): Boolean =
-        runCatching { context.startActivity(smsIntent(number, text)) }.isSuccess
+        context.startOrSay(smsIntent(number, text))
 }

@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,8 +26,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -57,7 +57,7 @@ fun RingFactsHistorySection(vm: AppViewModel, number: String) {
         facts.take(MAX_SHOWN).forEach { f ->
             var open by remember(f.startedAt) { mutableStateOf(false) }
             val why = RingText.whyNoRing(res, f)
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable(onClickLabel = stringResource(if (open) R.string.ring_hide_details else R.string.ring_show_details)) { open = !open },
                 leadingContent = { Icon(if (f.audible) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, null) },
                 headlineContent = { Text(why ?: RingText.outcomeText(res, f)) },

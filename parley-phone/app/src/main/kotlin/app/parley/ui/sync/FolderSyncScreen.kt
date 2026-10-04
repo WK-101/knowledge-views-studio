@@ -15,10 +15,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +25,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
+import app.parley.ui.ParleyListItem
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,23 +129,19 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
                 }
             }
             item {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { picker.launch(null) },
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
                     headlineContent = { Text(stringResource(R.string.sync_folder)) },
                     supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
                 )
-                ListItem(
-                    modifier = Modifier.toggleable(
-                        st.auto,
-                        role = Role.Switch,
-                        onValueChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) },
-                    ),
-                    headlineContent = { Text(stringResource(R.string.sync_auto)) },
-                    supportingContent = { Text(stringResource(R.string.sync_auto_summary)) },
-                    trailingContent = { Switch(st.auto, onCheckedChange = null) },
+                SwitchRow(
+                    stringResource(R.string.sync_auto),
+                    stringResource(R.string.sync_auto_summary),
+                    st.auto,
+                    onChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },
                     supportingContent = st.resultText(LocalResources.current)?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
@@ -261,20 +257,20 @@ private fun SyncModeRows(mode: SyncMode, plainLeft: Int, onEncrypted: () -> Unit
                 stringResource(R.string.sync_mode_title), style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable(onClick = onEncrypted),
                 leadingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary) },
                 headlineContent = { Text(stringResource(R.string.sync_mode_encrypted)) },
                 supportingContent = { Text(stringResource(R.string.sync_mode_encrypted_summary)) },
             )
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable(onClick = onPlain),
                 leadingContent = { Icon(Icons.Rounded.Description, null) },
                 headlineContent = { Text(stringResource(R.string.sync_mode_plain)) },
                 supportingContent = { Text(stringResource(R.string.sync_mode_plain_summary)) },
             )
         }
-        SyncMode.ENCRYPTED -> ListItem(
+        SyncMode.ENCRYPTED -> ParleyListItem(
             leadingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary) },
             headlineContent = { Text(stringResource(R.string.sync_mode_is_encrypted)) },
             supportingContent = if (plainLeft > 0) {
@@ -283,7 +279,7 @@ private fun SyncModeRows(mode: SyncMode, plainLeft: Int, onEncrypted: () -> Unit
                 null
             },
         )
-        SyncMode.PLAIN -> ListItem(
+        SyncMode.PLAIN -> ParleyListItem(
             modifier = Modifier.clickable(onClick = onEncrypted),
             leadingContent = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) },
             headlineContent = { Text(stringResource(R.string.sync_mode_is_plain)) },

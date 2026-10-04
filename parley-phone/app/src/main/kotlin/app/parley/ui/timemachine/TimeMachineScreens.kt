@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,12 +37,13 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 import app.parley.data.backup.TimeMachine
-import app.parley.ui.Avatar
 import app.parley.ui.DataL10n
 import app.parley.ui.EmptyState
+import app.parley.ui.ParleyListItem
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,7 +54,6 @@ import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
-import app.parley.ui.ParleyListItem
 
 /** Human-readable one-liner for a stored data row. */
 fun describe(res: Resources, row: DataRow): String? {
@@ -118,7 +117,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                         val newer = list.getOrNull(i - 1)?.record
                         val rec = v.record
                         val change = if (rec != null && newer != null) Snapshots.diffRecords(rec, newer) else null
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable(enabled = rec != null && i > 0) { chosen = v },
                             headlineContent = { Text(if (i == 0) stringResource(R.string.tm_now) else Format.fullDate(context, v.timestamp)) },
                             supportingContent = {
@@ -209,9 +208,8 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
                 item { Section(stringResource(R.string.tm_removed, d.removed.size)) }
                 d.removed.forEach { r ->
                     item {
-                        ParleyListItem(
-                            leadingContent = { Avatar(r.displayName, null) },
-                            headlineContent = { Text(r.displayName) },
+                        PersonRow(
+                            r.displayName, null,
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },
                             trailingContent = {
                                 TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
@@ -224,7 +222,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
                 item { Section(stringResource(R.string.tm_changed, d.changed.size)) }
                 d.changed.forEach { ch ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable {
                                 scope.launch {
                                     val id = withContext(Dispatchers.IO) { vm.c.contacts.contacts.value.orEmpty().firstOrNull { it.lookupKey == ch.after.key }?.id }
@@ -245,7 +243,9 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
             }
             if (d.added.isNotEmpty()) {
                 item { Section(stringResource(R.string.tm_added, d.added.size)) }
-                d.added.forEach { r -> item { ListItem(headlineContent = { Text(r.displayName) }, supportingContent = { Text(lines(res, r).take(1).joinToString()) }) } }
+                d.added.forEach { r ->
+                    item { ParleyListItem(headlineContent = { Text(r.displayName) }, supportingContent = { Text(lines(res, r).take(1).joinToString()) }) }
+                }
             }
         }
     }

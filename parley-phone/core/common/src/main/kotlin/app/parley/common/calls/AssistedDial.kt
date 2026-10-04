@@ -1,5 +1,6 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
@@ -9,7 +10,6 @@ import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber.CountryCodeSource
 import com.google.i18n.phonenumbers.ShortNumberInfo
 import java.util.Locale
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Assisted dialling abroad (L6), offline with libphonenumber. While a SIM is abroad (its network's country isn't the
@@ -173,7 +173,7 @@ data class AssistedDialConfig(
     val localSimHint: Boolean = true,
 ) {
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        private val json = Codecs.full
 
         fun decode(text: String?): AssistedDialConfig =
             if (text.isNullOrBlank()) AssistedDialConfig() else runCatching { json.decodeFromString(serializer(), text) }.getOrDefault(AssistedDialConfig())

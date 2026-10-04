@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -519,7 +520,7 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
         row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = g.number)) }
         }
-        row(R.string.recents_copy_number, Icons.Rounded.ContentCopy, hasNumber) { act { Intents.copy(context, g.number) } }
+        row(R.string.recents_copy_number, Icons.Rounded.ContentCopy, hasNumber) { act { Clipboard.copy(context, g.number) } }
         row(
             R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
         ) { act { open(Routes.edit(phone = g.number)) } }

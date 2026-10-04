@@ -1,14 +1,9 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.provider.CallLog
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -19,6 +14,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.calls.ReputationLearner
@@ -80,25 +76,12 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     /** "X expired; the details you merged were kept". */
     private fun notify(ctx: Context, i: Int, n: TemporaryContactStore.Notice) {
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW))
-        val open = PendingIntent.getActivity(
-            ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
         val name = n.name ?: ctx.getString(R.string.work_temp_someone)
         val text = ctx.getString(if (n.keptDetails) R.string.work_temp_expired_kept else R.string.work_temp_expired_merged, name)
-        val b = NotificationCompat.Builder(ctx, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(R.string.work_temp_expired_title))
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-        try {
-            NotificationManagerCompat.from(ctx).notify(NotificationIds.TAG_TEMPORARY, i, b.build())
-        } catch (_: SecurityException) {
-        }
+        val title = ctx.getString(R.string.work_temp_expired_title)
+        val open = PrivateNotice.open(ctx, NotificationRequests.TEMPORARY_EXPIRED, Intent(ctx, MainActivity::class.java))
+        // It names someone: only the title on the lock screen.
+        PrivateNotice.post(ctx, NotificationIds.TAG_TEMPORARY, i, PrivateNotice.builder(ctx, CHANNEL, R.drawable.ic_stat_cake, title, title, text, open))
     }
 
     companion object {

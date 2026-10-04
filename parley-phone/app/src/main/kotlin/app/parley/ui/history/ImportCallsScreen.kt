@@ -19,10 +19,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,8 +40,10 @@ import app.parley.common.history.ColumnMapping
 import app.parley.common.history.ImportPlan
 import app.parley.common.history.ImportSource
 import app.parley.common.history.ProviderColumns
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
+import app.parley.ui.SwitchRow
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -52,8 +52,6 @@ import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
 import app.parley.ui.common.JobProgress
 import kotlinx.coroutines.CancellationException
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.ui.semantics.Role
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
@@ -152,13 +150,11 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     item { Section(stringResource(R.string.hist_import_columns)) }
                     item { MappingEditor(pl.header, pl.mapping) { replan(it) } }
                     item {
-                        ListItem(
-                            modifier = Modifier.toggleable(dayFirst, role = Role.Switch, onValueChange = { dayFirst = it; replan(pl.mapping) }),
-                            headlineContent = { Text(stringResource(R.string.hist_import_day_first)) },
-                            supportingContent = {
-                                Text(if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off))
-                            },
-                            trailingContent = { Switch(dayFirst, onCheckedChange = null) },
+                        SwitchRow(
+                            stringResource(R.string.hist_import_day_first),
+                            if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off),
+                            dayFirst,
+                            onChange = { dayFirst = it; replan(pl.mapping) },
                         )
                     }
                 }
@@ -166,7 +162,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     item { Section(stringResource(R.string.hist_import_first_calls)) }
                     pl.toInsert.take(5).forEach { c ->
                         item {
-                            ListItem(
+                            ParleyListItem(
                                 headlineContent = {
                                     Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.hist_private_number) })
                                 },
@@ -268,7 +264,7 @@ private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange
     Column {
         fields.forEach { (label, current, set) ->
             var open by remember { mutableStateOf(false) }
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { open = true },
                 headlineContent = { Text(label) },
                 supportingContent = { Text(current?.let { header.getOrNull(it) } ?: stringResource(R.string.hist_col_missing)) },

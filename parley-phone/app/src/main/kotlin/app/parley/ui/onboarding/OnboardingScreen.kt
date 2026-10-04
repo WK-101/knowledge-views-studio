@@ -44,7 +44,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -79,6 +78,7 @@ import app.parley.R
 import app.parley.NavEvent
 import app.parley.common.ux.ComingFrom
 import app.parley.common.ux.InstallSource
+import app.parley.ui.ParleyListItem
 import app.parley.ui.discover.ComingFromGroups
 import app.parley.ui.discover.importerRoute
 import app.parley.ui.calls.rememberDialerRoleRequest
@@ -284,7 +284,7 @@ private fun ColumnScope.PermissionsStep(vm: AppViewModel, done: () -> Unit) {
             if (i > 0) HorizontalDivider()
             val on = states[i]
             val title = stringResource(r.title)
-            ListItem(
+            ParleyListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 leadingContent = { Icon(r.icon, null, tint = MaterialTheme.colorScheme.primary) },
                 headlineContent = { Text(title) },

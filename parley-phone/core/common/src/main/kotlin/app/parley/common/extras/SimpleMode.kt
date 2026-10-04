@@ -1,9 +1,9 @@
 package app.parley.common.extras
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * One tile of the simple home. The tile always dials [number]; a contact of this phone lends its photo only when it
@@ -30,7 +30,7 @@ data class SimpleConfig(
 }
 
 object SimpleSetup {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Codecs.full
 
     /** Format tag inside exported setups, so a later version can tell them apart. */
     const val FORMAT = 1

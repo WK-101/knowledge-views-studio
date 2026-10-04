@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.NotificationPrivacy
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.LockScreenCaller
@@ -294,7 +295,9 @@ class CallNotifier internal constructor(
     }
 
     private fun contentIntent(): PendingIntent =
-        PendingIntent.getActivity(context, 1, InCallActivity.intent(context, false), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        PendingIntent.getActivity(
+            context, NotificationRequests.CALL, InCallActivity.intent(context, false), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     private fun action(action: String, id: String, req: Int): PendingIntent =
         PendingIntent.getBroadcast(
@@ -306,7 +309,7 @@ class CallNotifier internal constructor(
     /** Delete intent: re-posts the notification if the user swipes it away while the call is live. */
     private fun dismissIntent(notificationId: Int, callId: String): PendingIntent =
         PendingIntent.getBroadcast(
-            context, 20 + notificationId % 100,
+            context, NotificationRequests.CALL_DISMISS + notificationId % 100,
             Intent(context, CallActionReceiver::class.java).setAction(CallActionReceiver.ACTION_DISMISSED)
                 .putExtra(CallActionReceiver.EXTRA_ID, callId)
                 .putExtra(CallActionReceiver.EXTRA_NOTIFICATION_ID, notificationId),
@@ -336,14 +339,14 @@ class CallNotifier internal constructor(
             action(CallActionReceiver.ACTION_DECLINE, id, req)
         } else {
             PendingIntent.getActivity(
-                context, 30 + req,
+                context, NotificationRequests.CALL_ASK_DECLINE + req,
                 InCallActivity.intent(context, false).setAction(InCallActivity.ACTION_ASK_DECLINE).putExtra(CallActionReceiver.EXTRA_ID, id),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         }
 
     private fun answerIntent(call: CallUi): PendingIntent = PendingIntent.getActivity(
-        context, 2,
+        context, NotificationRequests.CALL_ANSWER,
         InCallActivity.intent(context, false).setAction(InCallActivity.ACTION_ANSWER).putExtra(CallActionReceiver.EXTRA_ID, call.id),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )

@@ -1,6 +1,8 @@
 package app.parley.data.history
 
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import app.parley.common.crypto.Aead
+import app.parley.data.security.KeystoreSeal
 import java.security.UnrecoverableKeyException
 import android.content.Context
 import app.parley.common.Hex
@@ -10,11 +12,9 @@ import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.AEADBadTagException
-import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -85,17 +85,13 @@ internal class HistoryCrypto(
     }
 
     fun seal(plain: ByteArray): ByteArray {
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        val iv = ByteArray(12).also { random.nextBytes(it) }
-        c.init(Cipher.ENCRYPT_MODE, keys().first, GCMParameterSpec(128, iv))
-        return byteArrayOf(VERSION) + iv + c.doFinal(plain)
+        val iv = ByteArray(Aead.NONCE).also { random.nextBytes(it) }
+        return byteArrayOf(VERSION) + iv + Aead.encrypt(keys().first, iv, plain)
     }
 
     fun open(blob: ByteArray): ByteArray {
         require(blob.size > 13 && blob[0] == VERSION) { "Unknown archive row format" }
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.DECRYPT_MODE, keys().first, GCMParameterSpec(128, blob, 1, 12))
-        return c.doFinal(blob, 13, blob.size - 13)
+        return Aead.decrypt(keys().first, blob, 1, Aead.NONCE, blob, 13, blob.size - 13)
     }
 
     /** Keyed fingerprint (hex, 128 bits) so rows can be matched and deduplicated without decrypting. */
@@ -125,22 +121,14 @@ internal class HistoryCrypto(
         return gen.generateKey()
     }
 
-    private fun wrap(raw: ByteArray): ByteArray {
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.ENCRYPT_MODE, wrappingKey())
-        val iv = c.iv
-        return byteArrayOf(iv.size.toByte()) + iv + c.doFinal(raw)
-    }
+    private fun wrap(raw: ByteArray): ByteArray = KeystoreSeal.seal(wrappingKey(), raw)
 
     private fun unwrap(blob: ByteArray): ByteArray {
-        val ivLen = blob[0].toInt()
         val ks = keyStore()
         val key = ks.getKey(alias, null) as? SecretKey
             // Provably missing only if the Keystore loaded and says the alias isn't there.
             ?: throw if (!ks.containsAlias(alias)) KeyLostException(null) else KeyUnavailableException(null)
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, blob, 1, ivLen))
-        return c.doFinal(blob, 1 + ivLen, blob.size - 1 - ivLen)
+        return KeystoreSeal.open(key, blob)
     }
 
     private companion object {

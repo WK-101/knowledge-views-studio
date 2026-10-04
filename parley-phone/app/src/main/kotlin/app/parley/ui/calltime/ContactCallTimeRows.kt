@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,6 +24,7 @@ import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
 import app.parley.ui.MenuRow
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SwitchRow
 
 /**
@@ -57,7 +57,7 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
         }
         val rule = config.rule(LimitScope.CONTACT, lookupKey)
         val exempt = lookupKey in config.neverLimit
-        ListItem(
+        ParleyListItem(
             leadingContent = { Icon(Icons.Rounded.HourglassBottom, null) },
             headlineContent = { Text(stringResource(R.string.ct_call_time_limit)) },
             supportingContent = {

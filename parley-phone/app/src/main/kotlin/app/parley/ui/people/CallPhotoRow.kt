@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +23,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.data.ContactDetails
 import androidx.lifecycle.viewModelScope
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -46,7 +46,7 @@ fun CallPhotoRow(vm: AppViewModel, d: ContactDetails) {
         false -> stringResource(R.string.callphoto_hide)
     }
     Box {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable(onClickLabel = stringResource(R.string.callphoto_change)) { open = true },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             leadingContent = { Icon(Icons.Rounded.AccountCircle, null) },

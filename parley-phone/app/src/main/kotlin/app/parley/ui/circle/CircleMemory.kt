@@ -23,7 +23,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -52,6 +51,7 @@ import app.parley.common.circle.Promises
 import app.parley.data.NumberInfo
 import app.parley.data.circle.CircleRepository.NoteSource
 import app.parley.data.circle.CircleRepository.PersonNote
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.common.Format
 import java.time.Instant
@@ -129,7 +129,7 @@ fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
     SegmentedGroup(stringResource(R.string.circle_promises)) {
         promises.forEach { (note, p) ->
             item {
-                ListItem(
+                ParleyListItem(
                     colors = clearRow,
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
@@ -187,10 +187,10 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
             )
             goodTime?.let {
-                ListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })
+                ParleyListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })
             }
             memory.lastNote?.let { n ->
-                ListItem(
+                ParleyListItem(
                     colors = clearRow,
                     leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
                     headlineContent = { Text(Promises.preview(n.text), maxLines = 4, overflow = TextOverflow.Ellipsis) },
@@ -198,7 +198,7 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                 )
             }
             memory.promises.forEach { (note, p) ->
-                ListItem(
+                ParleyListItem(
                     colors = clearRow,
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },

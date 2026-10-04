@@ -25,6 +25,7 @@ import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.DndState
@@ -105,7 +106,7 @@ object MissedCallNotifier {
                 .setNumber(caller.count)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setPublicVersion(publicVersion(context, if (grouped) total else caller.count))
-                .setDeleteIntent(broadcast(context, if (grouped) MissedCallActionReceiver.ACTION_DISMISSED_ONE else MissedCallActionReceiver.ACTION_CLEAR, null, 20 + i))
+                .setDeleteIntent(broadcast(context, if (grouped) MissedCallActionReceiver.ACTION_DISMISSED_ONE else MissedCallActionReceiver.ACTION_CLEAR, null, NotificationRequests.MISSED_DISMISS + i))
             d.photo?.let { b.setLargeIcon(it) }
             // Job or "who is this" (private version only; never for private contacts in discreet mode).
             if (!caller.hidden && caller.number.isNotBlank()) CallerCards.missedCallLine(c, caller.number, hideVault)?.let { b.setSubText(it) }
@@ -121,7 +122,7 @@ object MissedCallNotifier {
                     b.addAction(
                         0, context.getString(R.string.missed_call_back),
                         PendingIntent.getActivity(
-                            context, 30 + i, NumberActionActivity.callBackIntent(context, caller.number),
+                            context, NotificationRequests.MISSED_CALL_BACK + i, NumberActionActivity.callBackIntent(context, caller.number),
                             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                         ),
                     )
@@ -133,7 +134,7 @@ object MissedCallNotifier {
                     b.addAction(
                         0, context.getString(R.string.reach_message_or_call),
                         PendingIntent.getActivity(
-                            context, 40 + i, MessageOn.intent(context, caller.number, caller.accountId),
+                            context, NotificationRequests.MISSED_MESSAGE + i, MessageOn.intent(context, caller.number, caller.accountId),
                             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                         ),
                     )
@@ -142,12 +143,12 @@ object MissedCallNotifier {
                     b.addAction(
                         0, context.getString(app.parley.telecom.R.string.remind_me),
                         PendingIntent.getActivity(
-                            context, 80 + i, RemindMeActivity.intent(context, caller.number, caller.accountId, id),
+                            context, NotificationRequests.MISSED_REMIND + i, RemindMeActivity.intent(context, caller.number, caller.accountId, id),
                             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                         ),
                     )
                 }
-                if (!d.isContact) b.addAction(blockAction(context, caller.number, 50 + i, id))
+                if (!d.isContact) b.addAction(blockAction(context, caller.number, NotificationRequests.MISSED_BLOCK + i, id))
             }
             try {
                 nmc.notify(id, b.build())
@@ -175,7 +176,7 @@ object MissedCallNotifier {
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setPublicVersion(publicVersion(context, total))
-                .setDeleteIntent(broadcast(context, MissedCallActionReceiver.ACTION_CLEAR, null, 13))
+                .setDeleteIntent(broadcast(context, MissedCallActionReceiver.ACTION_CLEAR, null, NotificationRequests.MISSED_CLEAR))
             try {
                 nmc.notify(ID, summary.build())
             } catch (_: SecurityException) {
@@ -235,7 +236,7 @@ object MissedCallNotifier {
         .build()
 
     private fun openRecents(context: Context) = PendingIntent.getActivity(
-        context, 10,
+        context, NotificationRequests.MISSED_OPEN,
         IntentRoutes.own(context).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
@@ -354,7 +355,7 @@ object MissedCallNotifier {
     }
 
     private fun alarmIntent(context: Context) = PendingIntent.getBroadcast(
-        context, 60, Intent(context, MissedReAlertReceiver::class.java).setAction(ACTION_REALERT),
+        context, NotificationRequests.MISSED_REALERT, Intent(context, MissedReAlertReceiver::class.java).setAction(ACTION_REALERT),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 

@@ -12,7 +12,6 @@ import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,9 +36,10 @@ import app.parley.data.HealthKind
 import app.parley.data.HealthScanner
 import androidx.compose.foundation.layout.heightIn
 import app.parley.ui.EmptyState
+import app.parley.ui.ParleyListItem
 import app.parley.ui.Routes
+import app.parley.ui.Section
 import app.parley.ui.backup.rememberBackupFirst
-import app.parley.ui.contact.Section
 import app.parley.ui.people.AccountDiagnosticsSection
 import app.parley.ui.timemachine.SyncWatchdogCards
 import kotlinx.coroutines.Dispatchers
@@ -94,7 +94,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                     LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
                         items(list.size) { k ->
                             val (_, name, where) = list[k]
-                            ListItem(headlineContent = { Text(name) }, supportingContent = { Text(where) })
+                            ParleyListItem(headlineContent = { Text(name) }, supportingContent = { Text(where) })
                         }
                     }
                 }
@@ -163,7 +163,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 }
                 group.take(200).forEach { i ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable {
                                 open(if (i.kind == HealthKind.NUMBER_AS_NAME) Routes.edit(id = i.contactId) else Routes.contact(i.contactId))
                             },

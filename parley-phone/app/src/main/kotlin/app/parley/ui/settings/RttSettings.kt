@@ -24,6 +24,7 @@ import app.parley.R
 import app.parley.ui.LinkRow
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.Spacing
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,7 +50,7 @@ internal fun RttSettingsGroup(vm: AppViewModel) {
         }
         item("rtt_system") {
             LinkRow(systemTitle, systemSub, Icons.Rounded.Hearing, external = true) {
-                runCatching { context.startActivity(Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS)) }
+                context.startOrSay(Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS))
             }
         }
         item("rtt_about") {

@@ -1,9 +1,9 @@
 package app.parley.common.spam
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.ZoneId
 
@@ -297,7 +297,7 @@ object CallReputation {
 
     // ---- Storage form (the store seals it; keys are already keyed fingerprints there)
 
-    private val CODEC = Json { ignoreUnknownKeys = true }
+    private val CODEC = Codecs.stored
     private val MAP = MapSerializer(String.serializer(), Reputation.serializer())
 
     fun encode(entries: Map<String, Reputation>): String = CODEC.encodeToString(MAP, entries)

@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.ui.Clipboard
 import app.parley.ui.sync.shared.SharedLabelInbox
 import app.parley.jobs.UserErrorText
 import app.parley.ui.sync.shared.SharedLabelRoutes
@@ -210,7 +211,7 @@ fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, o
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // A Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
-                TextButton({ QrActions.copy(context, payload.raw, sensitive = payload is QrPayload.Wifi && !payload.password.isNullOrEmpty()) }) {
+                TextButton({ Clipboard.copy(context, payload.raw) }) {
                     Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
                     Text("  " + stringResource(R.string.qs_copy_text))
                 }
@@ -571,7 +572,7 @@ private fun ColumnScope.GeoResult(p: QrPayload.Geo) {
     Field(stringResource(R.string.qs_field_coordinates), coords, ltr = true, mono = true)
     p.query?.let { Field(stringResource(R.string.qs_field_place), it) }
     Action(stringResource(R.string.qs_open_maps), Icons.Rounded.Place, primary = true) { QrActions.map(context, p) }
-    Action(stringResource(R.string.qs_copy_coordinates), Icons.Rounded.ContentCopy) { QrActions.copy(context, coords) }
+    Action(stringResource(R.string.qs_copy_coordinates), Icons.Rounded.ContentCopy) { Clipboard.copy(context, coords) }
 }
 
 @Composable
@@ -610,7 +611,7 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
     Note(stringResource(if (canAdd) R.string.qs_wifi_note_add else R.string.qs_wifi_note_settings))
     if (canAdd) Action(stringResource(R.string.qs_wifi_add), Icons.Rounded.Wifi, primary = true) { QrActions.addWifi(context, p) }
     p.password?.let { pw ->
-        Action(stringResource(R.string.qs_copy_password), Icons.Rounded.ContentCopy, primary = !canAdd) { QrActions.copy(context, pw, sensitive = true) }
+        Action(stringResource(R.string.qs_copy_password), Icons.Rounded.ContentCopy, primary = !canAdd) { Clipboard.copy(context, pw) }
     }
     Action(stringResource(R.string.qs_wifi_settings), Icons.Rounded.Settings) { QrActions.wifiSettings(context) }
 }
@@ -654,7 +655,7 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
     }
     if (missing) {
         Note(stringResource(R.string.qs_not_installed, app.label), Icons.Rounded.Info)
-        Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { QrActions.copy(context, p.uri) }
+        Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.uri) }
         if (p.hasWebPage) {
             Action(stringResource(R.string.qs_open_browser), Icons.Rounded.OpenInBrowser) { QrActions.openInBrowser(context, p.uri) }
             Text(stringResource(R.string.qs_browser_leaves), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -728,7 +729,7 @@ private fun ColumnScope.UrlResult(p: QrPayload.Url) {
     }
     Action(stringResource(R.string.qs_open_browser), Icons.Rounded.OpenInBrowser, primary = !info.isRisky) { QrActions.openInBrowser(context, p.url) }
     Text(stringResource(R.string.qs_browser_leaves), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { QrActions.copy(context, p.url) }
+    Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.url) }
 }
 
 @Composable

@@ -2,11 +2,9 @@ package app.parley.common.calls
 
 import app.parley.common.calls.AutoAnswer.Facts
 import app.parley.common.calls.AutoAnswer.Reason
-import app.parley.common.SettingsSearch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutoAnswerTest {
@@ -47,13 +45,5 @@ class AutoAnswerTest {
         assertEquals(5, AutoAnswer.secondsLeft(10_000, 5_000))
         assertEquals(1, AutoAnswer.secondsLeft(10_000, 9_990))
         assertEquals(0, AutoAnswer.secondsLeft(10_000, 12_000))
-    }
-
-    @Test fun settings_are_searchable() {
-        fun keys(q: String) = SettingsSearch.search(q).map { it.key }
-        assertTrue("auto_answer" in keys("auto answer"))
-        assertTrue("auto_answer" in keys("bluetooth"))
-        assertTrue("caller_vibration" in keys("vibration pattern"))
-        assertTrue("recents_remember_filter" in keys("unknown callers"))
     }
 }

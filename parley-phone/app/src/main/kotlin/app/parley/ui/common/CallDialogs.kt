@@ -9,7 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +28,7 @@ import app.parley.PendingCall
 import app.parley.R
 import app.parley.common.SimAccount
 import app.parley.ui.Bidi
+import app.parley.ui.ParleyListItem
 import app.parley.ui.history.simPlanSummary
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
@@ -89,7 +89,7 @@ fun CallQuestions(
                 Column {
                     sims.forEach { sim ->
                         val plan = planSummary(sim.id)
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(sim.label) },
                             supportingContent = listOfNotNull(sim.subtitle, plan).joinToString("\n").ifEmpty { null }?.let { { Text(it) } },
                             leadingContent = { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) },

@@ -18,9 +18,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +43,9 @@ import app.parley.common.vcard.ImportReport
 import app.parley.data.VCardIO
 import app.parley.messaging.MessagingInbox
 import app.parley.ui.EmptyState
-import app.parley.ui.contact.Section
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.ImportReportDialog
 import kotlinx.coroutines.launch
 import android.content.res.Resources
@@ -57,8 +57,6 @@ import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
 import app.parley.ui.settings.importSummaryText
 import kotlinx.coroutines.CancellationException
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 
@@ -145,11 +143,11 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 )
             }
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.csv_header)) },
-                    supportingContent = { Text(if (hasHeader) stringResource(R.string.csv_header_on) else stringResource(R.string.csv_header_off)) },
-                    trailingContent = { Switch(hasHeader, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(hasHeader, role = Role.Switch, onValueChange = { hasHeader = it; remap(p, it) }),
+                SwitchRow(
+                    stringResource(R.string.csv_header),
+                    if (hasHeader) stringResource(R.string.csv_header_on) else stringResource(R.string.csv_header_off),
+                    hasHeader,
+                    onChange = { hasHeader = it; remap(p, it) },
                 )
             }
             item { Section(stringResource(R.string.csv_columns)) }
@@ -233,7 +231,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
 private fun ColumnRow(name: String, samples: String, target: ColumnTarget, onPick: (ColumnTarget) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val res = LocalResources.current
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {

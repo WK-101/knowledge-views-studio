@@ -24,7 +24,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -50,6 +49,7 @@ import app.parley.R
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
 import app.parley.ui.OnGroupSurface
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
 
 /**
@@ -61,7 +61,7 @@ fun CollapsibleSection(title: String, help: String, summary: List<String>, expan
     val state = stringResource(if (expanded) R.string.blk_expanded else R.string.blk_collapsed)
     // Each section is one inset card (M3 Expressive grouped surfaces).
     BlockingCard {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier
                 .clickable(onClick = onToggle)
                 // A section header: TalkBack's heading navigation jumps between the sections.

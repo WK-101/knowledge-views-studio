@@ -1,9 +1,9 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import kotlin.math.abs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 /** Do Not Disturb as Android reported it when the call started ringing (NotificationManager interruption filter). */
 enum class DndState { OFF, PRIORITY, ALARMS, TOTAL_SILENCE, UNKNOWN }
@@ -85,7 +85,7 @@ data class RingFacts(
 
 /** Compact JSON for [RingFacts] lists; unknown fields are ignored so older rows keep reading. */
 object RingFactsCodec {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
+    private val json = Codecs.compact
     private val list = ListSerializer(RingFacts.serializer())
 
     fun encode(items: List<RingFacts>): String = json.encodeToString(list, items)

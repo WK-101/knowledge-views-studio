@@ -1,10 +1,5 @@
 package app.parley.ui.people
 
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
-import android.os.Build
-import android.os.PersistableBundle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.DropdownMenuItem
@@ -15,10 +10,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import app.parley.common.ContactSummary
 import app.parley.common.people.Reports
+import app.parley.ui.Clipboard
 import app.parley.ui.common.Format
 import androidx.compose.ui.res.stringResource
 import app.parley.R
-import app.parley.ui.showMessage
 
 /**
  * "Copy as text" for selected contacts: names, numbers (with their type) and e-mail addresses as plain text.
@@ -35,14 +30,6 @@ fun CopyAsTextMenuItem(chosen: List<ContactSummary>, close: () -> Unit) {
                 Reports.TextContact(c.displayName, c.phones.map { it.number to Format.phoneType(context.resources, it.type, it.label) }, c.emails)
             },
         )
-        val clip = ClipData.newPlainText("contacts", text)
-        if (Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
-        } else {
-            // The same flag under its literal name, which some keyboards and clipboard tools also honour before Android 13.
-            clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
-        }
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-        showMessage(context, res.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size))
+        Clipboard.copy(context, text, confirm = res.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size))
     })
 }

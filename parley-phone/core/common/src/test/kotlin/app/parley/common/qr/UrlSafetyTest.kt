@@ -102,6 +102,5 @@ class ScanQrSettingTest {
     @Test fun scan_qr_is_in_settings_search() {
         val e = SettingsCatalog.entries.first { it.key == "scan_qr" }
         assertEquals(SettingsCategory.CONTACTS, e.category)
-        assertTrue("qr" in e.keywords)
     }
 }

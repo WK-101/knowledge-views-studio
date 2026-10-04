@@ -30,7 +30,6 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -64,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.PersonRow
 import app.parley.ui.common.CodeImageActions
 import app.parley.ui.common.generatedImage
 import app.parley.ui.common.rememberImageActions
@@ -88,7 +88,6 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyListItem
-import app.parley.ui.avatarSize
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -137,10 +136,9 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
             resolved.forEachIndexed { i, r ->
                 item("p$i") {
-                    ParleyListItem(
+                    PersonRow(
+                        r.person.name, r.contact?.photoUri,
                         colors = clearRow,
-                        leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
-                        headlineContent = { Text(r.person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
                             IconButton({ store.updateSimple { c -> c.copy(people = c.people.filterIndexed { j, _ -> j != i }) } }) {
@@ -151,7 +149,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                 }
             }
             if (cfg.people.size < SimpleConfig.MAX_PEOPLE) item("add") {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { picking = true },
                     colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null, tint = MaterialTheme.colorScheme.primary) },
@@ -189,7 +187,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         }
         SegmentedGroup(stringResource(R.string.simple_share)) {
             item("file") {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(enabled = cfg.people.isNotEmpty()) { askFilePass = true }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.FileDownload, null) },
                     headlineContent = { Text(stringResource(R.string.simple_save_file)) },
@@ -197,7 +195,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                 )
             }
             item("qr") {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(enabled = cfg.people.isNotEmpty()) { showQr = true }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.QrCode2, null) },
                     headlineContent = { Text(stringResource(R.string.simple_show_qr)) },
@@ -205,7 +203,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                 )
             }
             item("import") {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { loader.launch(arrayOf("*/*")) }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.FileUpload, null) },
                     headlineContent = { Text(stringResource(R.string.simple_import_file)) },
@@ -282,7 +280,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
             text = {
                 Column {
                     c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct().forEach { n ->
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable { numbersOf = null; onPick(c, n) }, colors = clearRow,
                             headlineContent = { Text(Bidi.ltr(n)) },
                             trailingContent = { if (SimpleSetup.dialable(n) in taken) Icon(Icons.Rounded.CheckCircle, null) },
@@ -409,10 +407,9 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
                 resolved.forEachIndexed { i, r ->
                     item("r$i") {
-                        ParleyListItem(
+                        PersonRow(
+                            r.person.name, r.contact?.photoUri,
                             colors = clearRow,
-                            leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
-                            headlineContent = { Text(r.person.name) },
                             // The number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {
                                 Column {

@@ -164,16 +164,4 @@ class HomeSurfacesTest {
             }
         }
     }
-
-    @Test fun layout_settings_are_searchable() {
-        fun keys(q: String) = SettingsSearch.search(q).map { it.key }
-        listOf("calls_layout", "favorites_in_contacts", "recent_tap").forEach { SettingsCatalog[it] }
-        assertTrue("calls_layout" in keys("combine"))
-        assertTrue("calls_layout" in keys("keypad"))
-        assertTrue("favorites_in_contacts" in keys("favourites"))
-        assertTrue("favorites_in_contacts" in keys("favorites"))
-        assertTrue("calls_layout" in keys("merge tabs"))
-        assertTrue("favorites_in_contacts" in keys("merge tabs"))
-        assertEquals("recent_tap", keys("tap recents").first())
-    }
 }

@@ -1,10 +1,10 @@
 package app.parley.common.calls
 
 import app.parley.common.CallEntry
+import app.parley.common.Codecs
 import app.parley.common.ux.CallClass
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -122,7 +122,7 @@ object ToCall {
     /** Items kept at most; the oldest go first (a list nobody works through shouldn't grow forever). */
     const val MAX_ITEMS = 200
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; coerceInputValues = true }
+    private val json = Codecs.tolerant
 
     fun encode(state: ToCallState): String = json.encodeToString(ToCallState.serializer(), state)
 

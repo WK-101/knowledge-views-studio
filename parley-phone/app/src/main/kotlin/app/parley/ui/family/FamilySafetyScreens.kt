@@ -33,7 +33,6 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -79,11 +78,11 @@ import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
+import app.parley.ui.PersonRow
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.SwitchRow
-import app.parley.ui.avatarSize
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.rowColors
 import kotlinx.coroutines.launch
@@ -119,7 +118,7 @@ fun SafeWordSection(vm: AppViewModel, title: String) {
     val set = summary.safeWordLabels.any { it.trim() == title.trim() }
     var editing by remember { mutableStateOf<SafeWord?>(null) }
     var open by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable {
             confirmItsYou(context) {
                 scope.launch {
@@ -267,10 +266,9 @@ fun HelpersScreen(vm: AppViewModel, back: () -> Unit) {
         SegmentedGroup {
             helpers.forEachIndexed { i, h ->
                 item("h$i") {
-                    ParleyListItem(
+                    PersonRow(
+                        h.name, null,
                         colors = rowColors(),
-                        leadingContent = { Avatar(h.name, null, avatarSize()) },
-                        headlineContent = { Text(h.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = {
                             val sep = stringResource(R.string.main_separator)
                             Text(if (h.private) Bidi.ltr(h.number) + sep + stringResource(R.string.helpers_private) else Bidi.ltr(h.number))
@@ -287,7 +285,7 @@ fun HelpersScreen(vm: AppViewModel, back: () -> Unit) {
                 if (helpers.size < Helpers.MAX) {
                     LinkRow(stringResource(R.string.helpers_add), null, Icons.Rounded.PersonAdd) { picking = true }
                 } else {
-                    ListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.helpers_full)) })
+                    ParleyListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.helpers_full)) })
                 }
             }
         }
@@ -343,7 +341,7 @@ private fun HelperPicker(contacts: List<ContactSummary>, onDismiss: () -> Unit, 
             text = {
                 Column {
                     c.phones.map { it.number }.filter { n -> n.any { it.isDigit() } }.distinct().forEach { n ->
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable { numbersOf = null; onPick(c, n) }, colors = rowColors(),
                             headlineContent = { Text(Bidi.ltr(n)) },
                         )
@@ -427,7 +425,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                         modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs),
                     )
                     upcoming.forEach { w ->
-                        ListItem(
+                        ParleyListItem(
                             colors = rowColors(),
                             leadingContent = { Icon(Icons.Rounded.HourglassTop, null) },
                             headlineContent = { Text(windowText(context, w)) },

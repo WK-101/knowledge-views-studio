@@ -1,5 +1,6 @@
 package app.parley.common.templates
 
+import app.parley.common.Codecs
 import app.parley.common.security.Bounded
 import app.parley.common.security.LimitExceededException
 import app.parley.common.BlockAction
@@ -15,7 +16,6 @@ import app.parley.common.spam.Ed25519
 import app.parley.common.spam.PackBuilder
 import app.parley.common.spam.PackManifest
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 import java.util.zip.GZIPOutputStream
@@ -144,7 +144,7 @@ data class TemplateGalleryState(
     fun encode(): String = CODEC.encodeToString(serializer(), this)
 
     companion object {
-        private val CODEC = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val CODEC = Codecs.stored
         fun decode(s: String?): TemplateGalleryState =
             if (s.isNullOrBlank()) TemplateGalleryState() else runCatching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(TemplateGalleryState())
     }
@@ -160,8 +160,8 @@ object RuleTemplates {
     private const val MAX_RANGES = 500
     private val ID = Regex("[a-z0-9][a-z0-9._-]{0,59}")
 
-    val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; prettyPrint = false }
-    private val pretty = Json { ignoreUnknownKeys = true; encodeDefaults = false; prettyPrint = true }
+    val json = Codecs.stored
+    private val pretty = Codecs.pretty
 
     /** Parses and validates a template. Throws [TemplateException] with a readable reason. */
     fun parse(text: String): RuleTemplate {

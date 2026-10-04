@@ -20,7 +20,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -42,6 +41,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.R
+import app.parley.ui.ParleyListItem
 import app.parley.ui.people.rememberCardForSending
 import app.parley.common.ContactSummary
 import app.parley.common.NumberText
@@ -150,7 +150,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Card(Modifier.fillMaxWidth()) {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(draft ?: stringResource(R.string.intro_no_details)) },
                     supportingContent = { Text(stringResource(R.string.intro_the_message)) },
                     leadingContent = { Icon(Icons.Rounded.Badge, null) },
@@ -162,7 +162,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                     Text(stringResource(R.string.intro_open_in), style = MaterialTheme.typography.titleMedium)
                     if (installed.isEmpty()) Text(stringResource(R.string.intro_no_apps))
                     installed.forEach { a ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(a.label) },
                             supportingContent = { Text(stringResource(if (a.takesText) R.string.intro_filled_in else R.string.intro_copied_for_pasting)) },
                             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },

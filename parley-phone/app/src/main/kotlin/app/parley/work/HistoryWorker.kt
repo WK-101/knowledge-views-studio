@@ -1,12 +1,7 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -58,8 +53,6 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             val due = c.history.plansToWarn()
             if (due.isEmpty()) return
             val sims = c.sims.accounts().associate { it.id to it.label }
-            val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_plan), NotificationManager.IMPORTANCE_DEFAULT))
             for (u in due) {
                 notify(context, u, sims[u.config.simId] ?: context.getString(R.string.hist_filter_sim))
                 c.history.markWarned(u)
@@ -68,23 +61,12 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
 
         private fun notify(context: Context, u: PlanUsage, simLabel: String) {
             val id = NotificationIds.plan(u.config.simId)
-            val open = PendingIntent.getActivity(
-                context, id,
-                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+            val open = PrivateNotice.open(context, id, Intent(context, MainActivity::class.java), update = true)
             val title = if (u.isOver) context.getString(R.string.work_plan_used_up, simLabel)
             else context.getString(R.string.work_plan_used_percent, simLabel, (u.fraction * 100).toInt())
-            val b = NotificationCompat.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_stat_timer)
-                .setContentTitle(title)
+            val b = PrivateNotice.builder(context, CHANNEL, R.drawable.ic_stat_timer, title, context.getString(R.string.work_channel_plan), open = open)
                 .setContentText(HistoryText.planSummary(context.resources, u))
-                .setContentIntent(open)
-                .setAutoCancel(true)
-            try {
-                NotificationManagerCompat.from(context).notify(NotificationIds.TAG_PLAN, id, b.build())
-            } catch (_: SecurityException) {
-            }
+            PrivateNotice.post(context, NotificationIds.TAG_PLAN, id, b)
         }
     }
 }

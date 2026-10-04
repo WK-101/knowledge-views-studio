@@ -1,10 +1,10 @@
 package app.parley.common.circle
 
+import app.parley.common.Codecs
 import app.parley.common.Messenger
 import app.parley.common.MessengerApp
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 /**
  * A contact that isn't a phone call (the call log is the only source of calls): a meeting, a message, a video
@@ -78,7 +78,7 @@ object Interactions {
     /** Unique key of a "Mark as wished" entry: one per occasion. */
     fun wishedKey(occurrence: String): String = "w:$occurrence"
 
-    private val carriedJson = Json { ignoreUnknownKeys = true }
+    private val carriedJson = Codecs.stored
 
     /** Interactions carried into the vault (see [CarriedInteraction]); null when there are none. */
     fun encodeCarried(list: List<CarriedInteraction>): String? =

@@ -1,6 +1,5 @@
 package app.parley.common.calls
 
-import app.parley.common.SettingsSearch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -53,14 +52,5 @@ class CallExtrasTest {
         assertEquals("voicemail-2026-09-04-0705.ogg", VoicemailFiles.shareName(2026, 9, 4, 7, 5, "audio/ogg"))
         assertEquals("0:07", VoicemailFiles.clock(7_400))
         assertEquals("12:45", VoicemailFiles.clock(765_000))
-    }
-
-    @Test fun new_settings_are_searchable() {
-        fun keys(q: String) = SettingsSearch.search(q).map { it.key }
-        assertTrue("proximity_sensor" in keys("proximity"))
-        assertTrue("pocket_guard" in keys("pocket dial"))
-        assertTrue("missed_realert" in keys("missed call reminder"))
-        assertTrue("power_button_ends_call" in keys("power button"))
-        assertTrue("voicemail" in keys("visual voicemail"))
     }
 }

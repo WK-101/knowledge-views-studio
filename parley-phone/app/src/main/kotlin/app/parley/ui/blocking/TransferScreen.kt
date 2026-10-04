@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +42,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ExplainedFailure
 import app.parley.jobs.UserErrorText
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.CancellationException
 import app.parley.common.BlockRule
 import app.parley.common.RuleKind
@@ -172,7 +172,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
             }
             Text(preset.localHelp(), style = MaterialTheme.typography.bodySmall)
             OutlinedButton({ pickList.launch(arrayOf("text/*", "application/*")) }) { Text(stringResource(R.string.blk_choose_file)) }
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { pickCallBlocker.launch(arrayOf("*/*")) },
                 headlineContent = { Text(stringResource(R.string.blk_transfer_call_blocker)) },
                 supportingContent = { Text(stringResource(R.string.blk_transfer_call_blocker_help)) },

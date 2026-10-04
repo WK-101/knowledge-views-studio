@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -43,7 +43,7 @@ data class KeepRhythm(
     fun encode(): String? = if (this == KeepRhythm()) null else json.encodeToString(serializer(), this)
 
     companion object {
-        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val json = Codecs.stored
 
         fun decode(text: String?): KeepRhythm = if (text.isNullOrBlank()) KeepRhythm() else runCatching { json.decodeFromString(serializer(), text) }.getOrDefault(KeepRhythm())
 

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,7 +43,8 @@ import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
 import app.parley.data.GroupInfo
 import app.parley.security.AppLock
-import app.parley.ui.contact.Section
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -130,7 +130,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             }
             item {
                 if (groups.isNotEmpty()) {
-                    ListItem(
+                    ParleyListItem(
                         leadingContent = { Icon(Icons.Rounded.Add, null) },
                         headlineContent = { Text(stringResource(R.string.ct_add_label_limit)) },
                         modifier = Modifier.clickable { gate(unlockReason) { pickLabel = true } },
@@ -156,7 +156,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             item { Section(stringResource(R.string.ct_supervised)) }
             item {
                 Help(stringResource(R.string.ct_supervised_help))
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(stringResource(R.string.ct_supervised)) },
                     supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
@@ -200,7 +200,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 Column {
                     // One entry per label title: the limit covers that label in every account.
                     groups.groupBy { LabelRefs.key(it.title) }.forEach { (title, gs) ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(title) },
                             supportingContent = { Text(gs.map { it.account.displayLabel }.distinct().joinToString(", ")) },
                             modifier = Modifier.clickable {
@@ -229,7 +229,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
 
 @Composable
 private fun RuleRow(icon: ImageVector, title: String, rule: LimitRule, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         leadingContent = { Icon(icon, null) },
         headlineContent = { Text(title) },
         supportingContent = { Text(if (rule.isEmpty) stringResource(R.string.ct_no_limit) else CallTimePlanner.allowanceText(LocalContext.current, rule)) },

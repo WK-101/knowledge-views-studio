@@ -1,8 +1,8 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 /**
  * Quality facts of one call as Telecom reported them (L2): which SIM, Wi-Fi calling, HD voice, how and why it ended,
@@ -34,7 +34,7 @@ data class CallQualityFacts(
 
 /** Compact JSON for [CallQualityFacts] lists; unknown fields are ignored so older rows keep reading. */
 object CallQualityCodec {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
+    private val json = Codecs.compact
     private val list = ListSerializer(CallQualityFacts.serializer())
 
     fun encode(items: List<CallQualityFacts>): String = json.encodeToString(list, items)

@@ -1,8 +1,8 @@
 package app.parley.common.calls
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlin.math.roundToLong
 
 /** One key the user pressed during a call: [tone] (0–9, * or #) and when, counted from the moment the call connected. */
@@ -287,7 +287,7 @@ object MenuMemory {
         return MenuState(paths, shortcuts, optOut)
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val json = Codecs.stored
 
     fun encode(state: MenuState): String = json.encodeToString(MenuState.serializer(), state)
 

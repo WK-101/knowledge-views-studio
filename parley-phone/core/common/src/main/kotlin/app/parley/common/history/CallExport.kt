@@ -1,10 +1,10 @@
 package app.parley.common.history
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import java.util.Locale
 import app.parley.common.CallEntry
 import app.parley.common.CallType
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -121,7 +121,7 @@ object CallExport {
 
     // ------------------------------------------------------------------ JSON
 
-    private val prettyJson = Json { prettyPrint = true }
+    private val prettyJson = Codecs.pretty
 
     fun json(rows: List<ExportRow>, zone: ZoneId): String {
         val iso = DateTimeFormatter.ISO_OFFSET_DATE_TIME

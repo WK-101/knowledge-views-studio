@@ -1,8 +1,8 @@
 package app.parley.ui.contact
 
 import app.parley.common.cards.SignedCards
+import app.parley.ui.Clipboard
 import app.parley.ui.people.cards.CardArrivalNotes
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Resources
 import android.view.textclassifier.TextClassificationManager
@@ -214,7 +214,7 @@ internal fun PasteDetailsEntry(
     Column {
         val busy = stringResource(R.string.paste_reading)
         AssistChip(
-            onClick = { read(clipboardText(context)) },
+            onClick = { read(Clipboard.readText(context, PasteParser.MAX_TEXT)) },
             label = { Text(stringResource(R.string.paste_details)) },
             leadingIcon = {
                 if (paste.reading) {
@@ -230,11 +230,6 @@ internal fun PasteDetailsEntry(
     }
     if (paste.card != null) PastePreview(vm, paste, onFill, onAddTo)
 }
-
-/** The clipboard's text, read only on the user's tap (Android shows that Parley read it). */
-private fun clipboardText(context: Context): String? = runCatching {
-    context.getSystemService(ClipboardManager::class.java)?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-}.getOrNull()?.take(PasteParser.MAX_TEXT)
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable

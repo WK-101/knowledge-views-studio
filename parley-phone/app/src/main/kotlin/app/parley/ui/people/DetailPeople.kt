@@ -21,7 +21,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,6 +48,7 @@ import app.parley.data.ContactDetails
 import app.parley.data.EventItem
 import app.parley.data.RawContactRef
 import app.parley.data.people.ContactMover
+import app.parley.ui.ParleyListItem
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.contact.describeEvent
@@ -126,7 +126,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -> Uni
                         style = MaterialTheme.typography.bodySmall,
                     )
                     accounts.forEach { a ->
-                        ListItem(headlineContent = { Text(vm.accountLabel(a)) }, modifier = Modifier.clickable {
+                        ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, modifier = Modifier.clickable {
                             moving = null
                             scope.launch {
                                 when (val r = vm.c.people.mover.move(d.id, raw.id, a)) {
@@ -171,7 +171,7 @@ fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (De
         value = vm.c.people.provenance.verdict(contactId)
     }
     val v = verdict ?: return
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.ppl_version_history)) { open(Routes.versions(contactId)) },
         leadingContent = { Icon(Icons.Rounded.History, null) },
         headlineContent = { Text(provenanceText(res, v) { Format.fullDate(context, it) }) },

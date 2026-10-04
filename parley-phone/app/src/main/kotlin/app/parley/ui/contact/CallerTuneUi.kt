@@ -26,7 +26,6 @@ import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,6 +56,7 @@ import app.parley.common.calls.CallerTune
 import app.parley.common.ux.Tips
 import app.parley.data.DataContainer
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.Spacing
 import app.parley.ui.common.CoachMark
 import kotlinx.coroutines.Dispatchers
@@ -198,7 +198,7 @@ internal fun CallerTuneRow(name: String, summary: String, onUse: (Uri) -> Unit) 
 
 @Composable
 private fun CallerTuneListItem(name: String, summary: String, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.Rounded.Audiotrack, null) },

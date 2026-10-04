@@ -1,6 +1,5 @@
 package app.parley.ui.people
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -9,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.MedicalInformation
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,7 +26,9 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,7 +46,7 @@ internal fun EmergencyInfoGroup(vm: AppViewModel) {
     var noEmergencyApp by rememberSaveable { mutableStateOf(false) }
     SegmentedGroup(stringResource(R.string.me_emergency)) {
         item {
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { if (!openEmergencyInfo(context)) noEmergencyApp = true },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 leadingContent = { Icon(Icons.Rounded.MedicalInformation, null) },
@@ -55,7 +55,7 @@ internal fun EmergencyInfoGroup(vm: AppViewModel) {
             )
         }
         item {
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable {
                     scope.launch {
                         // The label if it exists, else made in the default account (as the labels screen would suggest).
@@ -78,7 +78,7 @@ internal fun EmergencyInfoGroup(vm: AppViewModel) {
             confirmButton = {
                 TextButton({
                     noEmergencyApp = false
-                    runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    context.startOrSay(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }) { Text(stringResource(R.string.me_emergency_open_settings)) }
             },
             dismissButton = { TextButton({ noEmergencyApp = false }) { Text(stringResource(R.string.dc_cancel)) } },
@@ -93,14 +93,7 @@ private const val ICE_LABEL = "ICE"
  * Opens Android's emergency information editor (the Emergency information app, or the phone maker's Safety app that
  * answers the same action). False when this phone has none: the caller then says where to look instead.
  */
-private fun openEmergencyInfo(context: Context): Boolean = try {
-    context.startActivity(Intent(ACTION_EDIT_EMERGENCY_INFO).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    true
-} catch (_: ActivityNotFoundException) {
-    false
-} catch (_: SecurityException) {
-    false
-}
+private fun openEmergencyInfo(context: Context): Boolean = context.startOrSay(Intent(ACTION_EDIT_EMERGENCY_INFO).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
 /** Settings' action for editing emergency information (not in the public SDK constants, but answered by the system). */
 private const val ACTION_EDIT_EMERGENCY_INFO = "android.settings.EDIT_EMERGENCY_INFO"

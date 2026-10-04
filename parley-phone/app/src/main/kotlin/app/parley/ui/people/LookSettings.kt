@@ -9,7 +9,6 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
 import androidx.compose.material.icons.rounded.Swipe
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +28,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.MenuRow
+import app.parley.ui.PersonRow
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -60,9 +60,8 @@ fun SwipeSettings(vm: AppViewModel) {
             ) {
                 OnGroupSurface {
                     val example = stringResource(R.string.swipe_example_name)
-                    ListItem(
-                        leadingContent = { Avatar(example, null, 40.dp) },
-                        headlineContent = { Text(example) },
+                    PersonRow(
+                        example, null, avatar = 40.dp,
                         supportingContent = { Text(tried ?: stringResource(R.string.swipe_try_hint)) },
                     )
                 }

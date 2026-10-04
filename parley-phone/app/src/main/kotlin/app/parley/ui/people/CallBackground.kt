@@ -19,9 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.viewModelScope
 import app.parley.data.people.CallBackgrounds
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -137,7 +137,7 @@ fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails) {
         val export = ExportableImage(name, ExportableImage.Kind.CALL_PICTURE, ContactRef.isPrivateKey(key)) { ctx -> ImageExport.readUri(ctx, current) }
         PhotoViewer(vm, current, export, description) { viewing = false }
     }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(enabled = key.isNotEmpty(), onClickLabel = choose) {
             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         },

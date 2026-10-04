@@ -1,6 +1,7 @@
 package app.parley.ui.history
 
 import app.parley.ui.Destination
+import app.parley.ui.ParleyListItem
 import app.parley.ui.activityViewModel
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +12,6 @@ import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -114,7 +114,7 @@ private fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 
 @Composable
 internal fun ChoiceItem(title: String, sub: String?, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(title) },
         supportingContent = sub?.let { { Text(it) } },
         leadingContent = { RadioButton(selected, onClick = null, enabled = enabled) },

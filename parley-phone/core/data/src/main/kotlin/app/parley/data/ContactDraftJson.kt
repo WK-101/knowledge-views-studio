@@ -43,7 +43,7 @@ object ContactDraftJson {
         })
         put("groupIds", longs(d.groupIds))
         put("raws", JSONArray().apply { d.rawContacts.forEach { r -> put(JSONObject().put("id", r.id).putOpt("type", r.account.type).putOpt("name", r.account.name)) } })
-        putOpt("editRawId", d.editRawId)
+        putOpt("editRawId", d.editRawId); putOpt("editRawVersion", d.editRawVersion)
         put("writable", longs(d.writableRawIds))
         put("readOnly", longs(d.readOnlyDataIds))
         put("handles", JSONArray().apply { d.handles.forEach { h -> put(JSONObject().putOpt("id", h.id).put("service", h.service.key).put("value", h.value).putOpt("custom", h.customProtocol)) } })
@@ -81,7 +81,7 @@ object ContactDraftJson {
             },
             groupIds = readLongs(o.optJSONArray("groupIds")).toSet(),
             rawContacts = o.optJSONArray("raws").objects().map { r -> RawContactRef(r.optLong("id"), AccountRef(r.str("type"), r.str("name"))) },
-            editRawId = o.long("editRawId"),
+            editRawId = o.long("editRawId"), editRawVersion = o.long("editRawVersion"),
             writableRawIds = readLongs(o.optJSONArray("writable")),
             readOnlyDataIds = readLongs(o.optJSONArray("readOnly")).toSet(),
             handles = o.optJSONArray("handles").objects().map { h ->

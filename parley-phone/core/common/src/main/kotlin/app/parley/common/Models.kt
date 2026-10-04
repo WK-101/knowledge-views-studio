@@ -23,7 +23,11 @@ data class ContactSummary(
     val phoneticName: String? = null,
     /** The name the list is sorted, sectioned and indexed by ("Sort by"), which may differ from the shown one. */
     val sortName: String = displayName,
-)
+) {
+    /** The number to call: the one marked as default, else the first. */
+    val primaryPhone: PhoneEntry? get() = phones.firstOrNull { it.isPrimary } ?: phones.firstOrNull()
+    val primaryNumber: String? get() = primaryPhone?.number
+}
 
 enum class CallType { INCOMING, OUTGOING, MISSED, REJECTED, BLOCKED, VOICEMAIL, ANSWERED_EXTERNALLY, UNKNOWN }
 

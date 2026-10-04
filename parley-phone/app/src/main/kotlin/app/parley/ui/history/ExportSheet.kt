@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +31,7 @@ import app.parley.R
 import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -79,7 +79,7 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
         if (busy) LinearProgressIndicator(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         @Composable
         fun row(label: String, sub: String, icon: ImageVector, onClick: () -> Unit) {
-            ListItem(
+            ParleyListItem(
                 headlineContent = { Text(label) }, supportingContent = { Text(sub) }, leadingContent = { Icon(icon, null) },
                 modifier = Modifier.clickable(enabled = !busy && calls.isNotEmpty(), onClick = onClick),
             )

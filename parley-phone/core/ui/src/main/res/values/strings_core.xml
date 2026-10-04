@@ -9,4 +9,5 @@
     <string name="ui_cancel">Cancel</string>
     <string name="ui_change">Change</string>
     <string name="ui_close">Close</string>
+    <string name="ui_copied">Copied</string>
 </resources>

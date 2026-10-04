@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.R
 import app.parley.container
+import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 
 /** Quick Settings tile: hide/show private contacts instantly (discreet mode). */
@@ -83,7 +84,7 @@ class DiscreetRevealActivity : ComponentActivity() {
             // Parley is locked, it opens on its own lock screen instead, and discreet mode stays on until the user
             // turns it off from there.
             if (!c.appPin.load().deviceUnlocks && AppLock.locked.value) {
-                packageManager.getLaunchIntentForPackage(packageName)?.let { runCatching { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                packageManager.getLaunchIntentForPackage(packageName)?.let { startOrSay(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 finish()
                 return@launch
             }

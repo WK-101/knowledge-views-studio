@@ -1,5 +1,7 @@
 package app.parley.common.backup
 
+import app.parley.common.crypto.Aead
+import app.parley.common.crypto.Hkdf
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -20,9 +22,7 @@ import java.security.spec.MGF1ParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAKeyGenParameterSpec
 import javax.crypto.Cipher
-import javax.crypto.Mac
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.OAEPParameterSpec
 import javax.crypto.spec.PSource
 import javax.crypto.spec.SecretKeySpec
@@ -59,6 +59,11 @@ import javax.crypto.spec.SecretKeySpec
 
 /** Malformed, truncated or tampered backup data. */
 open class BackupIntegrityException(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+/** Throws [BackupIntegrityException] with [problem] unless [ok]: the header checks of every sealed format. */
+internal fun ensureIntact(ok: Boolean, problem: String) {
+    if (!ok) throw BackupIntegrityException(problem)
+}
 
 /** Throws [BackupIntegrityException] with [message] unless [ok]: one line per check of untrusted input. */
 internal inline fun intact(ok: Boolean, message: () -> String) {
@@ -183,11 +188,11 @@ object BackupCrypto {
                 when (r) {
                     is Recipient.Passphrase -> {
                         val kek = Kdf.derive(r.passphrase, salt, kdf)
-                        KeyWrap(WrapType.PASSPHRASE, gcmSeal(kek, dek, wrapAad(WrapType.PASSPHRASE), random))
+                        KeyWrap(WrapType.PASSPHRASE, Aead.seal(kek, dek, wrapAad(WrapType.PASSPHRASE), random))
                     }
                     is Recipient.Recovery -> {
-                        val kek = hkdf(r.key.bytes(), salt, "parley/v1/archive-recovery")
-                        KeyWrap(WrapType.RECOVERY, gcmSeal(kek, dek, wrapAad(WrapType.RECOVERY), random))
+                        val kek = Hkdf.sha256(r.key.bytes(), salt, "parley/v1/archive-recovery")
+                        KeyWrap(WrapType.RECOVERY, Aead.seal(kek, dek, wrapAad(WrapType.RECOVERY), random))
                     }
                     is Recipient.PublicKey -> {
                         val ct = rsaOaep().run {
@@ -302,9 +307,9 @@ object BackupCrypto {
             is Unlock.Passphrase -> openPassphraseWrap(header, unlock.passphrase)
                 ?: viaBundles(bundleUnlocker(unlock.passphrase, policy))
             is Unlock.Recovery -> {
-                val kek = hkdf(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")
+                val kek = Hkdf.sha256(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")
                 header.wraps.filter { it.type == WrapType.RECOVERY }.firstNotNullOfOrNull {
-                    gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.RECOVERY))
+                    Aead.openOrNull(kek, it.payload, wrapAad(WrapType.RECOVERY))
                 } ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.key) } catch (_: WrongKeyException) { null } }
             }
             // The caller's own key: no bundle vouches for anything here.
@@ -332,7 +337,7 @@ object BackupCrypto {
         val wraps = header.wraps.filter { it.type == WrapType.PASSPHRASE }
         if (wraps.isEmpty()) return null
         val kek = Kdf.derive(passphrase, header.salt, header.kdf)
-        return wraps.firstNotNullOfOrNull { gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE)) }
+        return wraps.firstNotNullOfOrNull { Aead.openOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE)) }
     }
 
     /** Reads the header from [input], unwraps the data key and returns the plaintext stream. */
@@ -377,12 +382,12 @@ object BackupCrypto {
 
     fun unlockPrivateKey(bundle: KeyBundle, passphrase: CharArray): PrivateKey {
         val kek = Kdf.derive(passphrase, bundle.salt, bundle.kdf)
-        return bundlePrivate(bundle, gcmOpenOrNull(kek, bundle.passphraseWrap, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE)))
+        return bundlePrivate(bundle, Aead.openOrNull(kek, bundle.passphraseWrap, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE)))
     }
 
     fun unlockPrivateKey(bundle: KeyBundle, recoveryKey: RecoveryKey): PrivateKey {
-        val kek = hkdf(recoveryKey.bytes(), bundle.recoverySalt, "parley/v1/bundle-recovery")
-        return bundlePrivate(bundle, gcmOpenOrNull(kek, bundle.recoveryWrap, bundleAad(bundle.publicKeyBytes, WrapType.RECOVERY)))
+        val kek = Hkdf.sha256(recoveryKey.bytes(), bundle.recoverySalt, "parley/v1/bundle-recovery")
+        return bundlePrivate(bundle, Aead.openOrNull(kek, bundle.recoveryWrap, bundleAad(bundle.publicKeyBytes, WrapType.RECOVERY)))
     }
 
     /**
@@ -403,7 +408,7 @@ object BackupCrypto {
             // The recovery wrap has its own salt (recoverySalt), so it is kept byte-for-byte.
             val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
             val passKek = Kdf.derive(newPassphrase, salt, kdf)
-            val passWrap = gcmSeal(passKek, pkcs8, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE), random)
+            val passWrap = Aead.seal(passKek, pkcs8, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE), random)
             return KeyBundle(bundle.publicKeyBytes, kdf, salt, passWrap, bundle.recoveryWrap, bundle.recoverySalt)
         } finally {
             pkcs8.fill(0)
@@ -415,9 +420,9 @@ object BackupCrypto {
     ): KeyBundle {
         val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
         val recSalt = ByteArray(SALT_SIZE).also(random::nextBytes)
-        val passWrap = gcmSeal(Kdf.derive(passphrase, salt, kdf), pkcs8, bundleAad(pub, WrapType.PASSPHRASE), random)
-        val recKek = hkdf(recoveryKey.bytes(), recSalt, "parley/v1/bundle-recovery")
-        val recWrap = gcmSeal(recKek, pkcs8, bundleAad(pub, WrapType.RECOVERY), random)
+        val passWrap = Aead.seal(Kdf.derive(passphrase, salt, kdf), pkcs8, bundleAad(pub, WrapType.PASSPHRASE), random)
+        val recKek = Hkdf.sha256(recoveryKey.bytes(), recSalt, "parley/v1/bundle-recovery")
+        val recWrap = Aead.seal(recKek, pkcs8, bundleAad(pub, WrapType.RECOVERY), random)
         return KeyBundle(pub, kdf, salt, passWrap, recWrap, recSalt)
     }
 
@@ -481,36 +486,6 @@ object BackupCrypto {
     }
 
     private fun wrapAad(type: WrapType): ByteArray = MAGIC_BYTES + VERSION.toByte() + type.id.toByte()
-
-    /** HKDF-SHA256 (RFC 5869), 32-byte output. */
-    internal fun hkdf(ikm: ByteArray, salt: ByteArray, info: String): ByteArray {
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(salt, "HmacSHA256"))
-        val prk = mac.doFinal(ikm)
-        mac.init(SecretKeySpec(prk, "HmacSHA256"))
-        mac.update(info.toByteArray(Charsets.UTF_8)); mac.update(1)
-        return mac.doFinal().also { prk.fill(0) }
-    }
-
-    private fun gcmSeal(key: ByteArray, plaintext: ByteArray, aad: ByteArray, random: SecureRandom): ByteArray {
-        val nonce = ByteArray(GCM_NONCE).also(random::nextBytes)
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_SIZE * 8, nonce))
-        c.updateAAD(aad)
-        return nonce + c.doFinal(plaintext)
-    }
-
-    private fun gcmOpenOrNull(key: ByteArray, sealed: ByteArray, aad: ByteArray): ByteArray? {
-        if (sealed.size < GCM_NONCE + TAG_SIZE) return null
-        return try {
-            val c = Cipher.getInstance("AES/GCM/NoPadding")
-            c.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_SIZE * 8, sealed, 0, GCM_NONCE))
-            c.updateAAD(aad)
-            c.doFinal(sealed, GCM_NONCE, sealed.size - GCM_NONCE)
-        } catch (_: GeneralSecurityException) {
-            null
-        }
-    }
 
     internal fun segmentNonce(prefix: ByteArray, counter: Long, last: Boolean): ByteArray =
         ByteBuffer.allocate(GCM_NONCE).put(prefix).putInt(counter.toInt()).put(if (last) 1 else 0).array()

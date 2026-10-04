@@ -1,9 +1,9 @@
 package app.parley.ui.qr
 
 import app.parley.calls.ExpectedCallHints
+import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import android.content.ActivityNotFoundException
-import android.content.ClipboardManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -27,7 +27,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,6 +55,7 @@ import app.parley.R
 import app.parley.common.qr.QrParser
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import kotlinx.coroutines.CancellationException
@@ -157,8 +157,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     }
 
     fun paste() {
-        val clip = runCatching { context.getSystemService(ClipboardManager::class.java).primaryClip }.getOrNull()
-        val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+        val text = Clipboard.readText(context)
         if (text.isNullOrBlank()) {
             vm.toast(res.getString(R.string.qs_clipboard_empty))
         } else {
@@ -208,7 +207,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 s.texts.forEach { t ->
                     item {
                         val p = remember(t) { QrParser.parse(t) }
-                        ListItem(
+                        ParleyListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             leadingContent = { Icon(QrLabels.icon(p), null) },
                             headlineContent = { Text(QrLabels.kind(res, p)) },

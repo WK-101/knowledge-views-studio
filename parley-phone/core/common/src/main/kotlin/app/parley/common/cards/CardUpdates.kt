@@ -1,5 +1,6 @@
 package app.parley.common.cards
 
+import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import app.parley.common.people.MeCards
 import kotlinx.serialization.Serializable
@@ -319,7 +320,7 @@ data class CardLinkBook(val links: Map<String, CardLink> = emptyMap(), val held:
         /** A card waits this long for its contact's page to be opened. */
         const val HOLD_MS = 90L * 24 * 60 * 60 * 1000
         const val MAX_HELD = 50
-        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val json = Codecs.stored
 
         fun encode(b: CardLinkBook): String = json.encodeToString(serializer(), b)
 

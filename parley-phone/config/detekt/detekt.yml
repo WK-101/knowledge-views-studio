@@ -83,7 +83,7 @@ formatting:
 
 # Parley's own rules (tools/detekt-rules).
 parley:
-  # Raw TopAppBar, AlertDialog, ModalBottomSheet and RoundedCornerShape outside core/ui, which wraps them.
+  # Raw TopAppBar, AlertDialog, ModalBottomSheet, RoundedCornerShape, ListItem and Switch outside core/ui, which wraps them.
   DesignSystemComponent:
     active: true
     excludes: ['**/core/ui/**', '**/tools/**']

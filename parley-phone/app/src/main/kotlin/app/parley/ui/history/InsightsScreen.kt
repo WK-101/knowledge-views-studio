@@ -28,7 +28,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,8 +58,8 @@ import app.parley.common.ux.CallHue
 import app.parley.ui.Avatar
 import app.parley.ui.CallTypeColors
 import app.parley.ui.Routes
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -195,7 +194,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 val max = perSim.values.maxOf { it.total }.coerceAtLeast(1)
                 perSim.entries.sortedByDescending { it.value.total }.forEach { (id, t) ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) stringResource(R.string.hist_no_sim) else stringResource(R.string.hist_other_sim)) },
                             supportingContent = {
                                 Column {

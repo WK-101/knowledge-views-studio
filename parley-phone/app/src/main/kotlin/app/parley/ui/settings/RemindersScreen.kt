@@ -31,6 +31,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.AppSettings
 import app.parley.common.calls.MissedReAlert
+import app.parley.common.catching
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.ReminderDelivery
 import app.parley.common.ux.BackupNudge
@@ -42,7 +43,7 @@ import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.calls.ToCallRoutes
-import app.parley.work.ReminderChannels
+import app.parley.work.NoticeChannels
 import app.parley.work.RemindersWorker
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -67,7 +68,7 @@ fun RemindersScreen(vm: AppViewModel, focus: String?, back: () -> Unit, open: (D
     val set: ((AppSettings) -> AppSettings) -> Unit = { f -> scope.launch { vm.c.settings.update(f) } }
     val controller = controllerOf(focus, s, circle)
     // Channels an older version made join the group as soon as the page is seen.
-    LaunchedEffect(Unit) { runCatching { ReminderChannels.regroupExisting(context) } }
+    LaunchedEffect(Unit) { catching { NoticeChannels.regroupExisting(context) } }
 
     CompositionLocalProvider(LocalHighlightKey provides (controller ?: focus)) {
         SettingsScaffold(stringResource(R.string.set_reminders_title), back) {
@@ -167,7 +168,7 @@ private fun NotificationsGroup() {
                 stringResource(R.string.rem_notifications_title), stringResource(R.string.rem_notifications_summary), Icons.Rounded.Notifications,
                 external = true,
             ) {
-                runCatching { ReminderChannels.regroupExisting(context) }
+                runCatching { NoticeChannels.regroupExisting(context) }
                 runCatching {
                     context.startActivity(
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

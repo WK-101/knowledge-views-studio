@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,8 +35,9 @@ import app.parley.R
 import app.parley.blocking.DialText
 import app.parley.calltime.UssdState
 import app.parley.data.PlaceResult
+import app.parley.ui.Clipboard
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
-import app.parley.ui.common.Intents
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
@@ -58,7 +58,7 @@ fun UssdDialog(vm: AppViewModel) {
             text = {
                 Column {
                     s.sims.forEach { sim ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(sim.label) },
                             leadingContent = { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -101,7 +101,7 @@ fun UssdDialog(vm: AppViewModel) {
             confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.ct_close)) } },
             dismissButton = {
                 if (s.ok) {
-                    TextButton({ Intents.copy(context, s.text) }) { Text(stringResource(R.string.ct_copy)) }
+                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.ct_copy)) }
                 } else {
                     TextButton({
                         vm.ussd.dismiss()
@@ -128,7 +128,7 @@ fun UssdHistoryDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             } else {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
                     items(history, key = { it.at.toString() + it.code }) { e ->
-                        ListItem(
+                        ParleyListItem(
                             overlineContent = { Text(listOfNotNull(bidiLtr(e.code), e.simLabel, Format.shortWhen(context, e.at)).joinToString(" · ")) },
                             headlineContent = { Text(e.reply, style = MaterialTheme.typography.bodyMedium) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),

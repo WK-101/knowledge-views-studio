@@ -19,6 +19,7 @@ import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.NotifyLevel
 import app.parley.common.VerdictKind
 import app.parley.container
@@ -120,7 +121,7 @@ object BlockingNotifier {
             else -> context.getString(R.string.blk_n_blocked_title, who)
         }
         val open = PendingIntent.getActivity(
-            context, 30,
+            context, NotificationRequests.SCREEN_OPEN,
             IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BLOCKING).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -135,10 +136,13 @@ object BlockingNotifier {
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setTimeoutAfter(if (blocked) 0 else 10 * 60_000L)
         if (blocked && number != null) {
-            b.addAction(action(context, context.getString(R.string.blk_not_spam), BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, 31))
+            val notSpam = context.getString(R.string.blk_not_spam)
+            val pack = e.result.listHit?.packId
+            b.addAction(action(context, notSpam, BlockingActionReceiver.ACTION_NOT_SPAM, number, pack, NotificationRequests.SCREEN_NOT_SPAM))
         }
         if (blocked && !s.snoozeActive(System.currentTimeMillis())) {
-            b.addAction(action(context, context.getString(R.string.blk_n_expecting_1h), BlockingActionReceiver.ACTION_SNOOZE, null, null, 32))
+            val snooze = context.getString(R.string.blk_n_expecting_1h)
+            b.addAction(action(context, snooze, BlockingActionReceiver.ACTION_SNOOZE, null, null, NotificationRequests.SCREEN_SNOOZE))
         }
         notify(nm, id, b)
     }

@@ -32,7 +32,7 @@ class ParleyRuleSetProvider : RuleSetProvider {
 }
 
 /**
- * Screens use the shared components of core/ui instead of raw Material ones, so top bars, dialogs, sheets and
+ * Screens use the shared components of core/ui instead of raw Material ones, so top bars, dialogs, sheets, rows and
  * corner radii look and behave the same everywhere (heading semantics, Back label, destructive colours, the
  * theme's shape scale). core/ui itself is excluded in the configuration: it is where the raw ones are wrapped.
  */
@@ -64,6 +64,9 @@ class DesignSystemComponent(config: Config = Config.empty) : Rule(config) {
             "BasicAlertDialog" to "ParleyDialog",
             "ModalBottomSheet" to "ParleySheet",
             "RoundedCornerShape" to "ParleyShapes (or animatedCorners for a radius computed at run time)",
+            // Rows follow the list density and the kit's colours; a switch row is one TalkBack stop.
+            "ListItem" to "ParleyListItem, PersonRow, SwitchRow, LinkRow or InfoRow",
+            "Switch" to "SwitchRow",
         )
     }
 }

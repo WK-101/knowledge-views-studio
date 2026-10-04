@@ -1,7 +1,9 @@
 package app.parley.data.calls
 
 import android.content.Context
+import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
+import app.parley.common.calls.CallQualityCodec
 import app.parley.common.calls.CallQualityFacts
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -17,7 +19,7 @@ class CallQualityStoreTest {
     private val prefs by lazy { context.getSharedPreferences("parley_call_quality", Context.MODE_PRIVATE) }
 
     /** A stand-in for the archive key: "sealed" is the bytes behind a marker; [broken] makes opening fail. */
-    private class Keys : CallQualityStore.Keys {
+    private class Keys : SealedLineStore.Keys {
         var broken = false
         override fun lineMac(number: String) = "mac-$number"
         override fun seal(plain: ByteArray) = byteArrayOf(7) + plain
@@ -63,6 +65,15 @@ class CallQualityStoreTest {
         store.forget("+12025550100")
         keys.broken = false
         assertTrue(store.forNumber("+12025550100").isEmpty())
+    }
+
+    /** The stored format, line by line: "<line key>\t<sealed facts JSON, Base64>" (what earlier versions read). */
+    @Test fun rows_are_stored_one_sealed_line_each() {
+        val now = System.currentTimeMillis()
+        val f = facts(now - 1_000)
+        CallQualityStore(context, Keys()).add("+12025550100", f, now)
+        val sealed = byteArrayOf(7) + CallQualityCodec.encode(listOf(f)).toByteArray()
+        assertEquals("m:mac-+12025550100\t" + Base64.encodeToString(sealed, Base64.NO_WRAP), prefs.getString("rows_v1", null))
     }
 
     @Test fun the_diary_reads_every_row_by_line_key_never_by_number() {

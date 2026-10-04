@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -24,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.ui.ParleyListItem
 import app.parley.ui.people.rememberMyCard
 import app.parley.AppViewModel
 import app.parley.common.KeypadLayout
@@ -106,7 +106,7 @@ internal fun KeypadLayout.localLabel(): String = stringResource(
 
 @Composable
 private fun LayoutRow(title: String, sub: String?, selected: Boolean, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(title) },
         supportingContent = sub?.let { { Text(it) } },
         leadingContent = { RadioButton(selected, onClick = null) },

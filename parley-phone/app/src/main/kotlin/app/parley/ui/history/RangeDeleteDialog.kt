@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -25,6 +24,7 @@ import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.common.CallEntry
 import app.parley.common.history.DeleteRange
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -89,7 +89,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                     val label = if (r == DeleteRange.SINCE_DATE && picked != null) {
                         stringResource(R.string.hist_range_since, picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
                     } else stringResource(HistoryText.deleteRange(r))
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = { Text(label) },
                         supportingContent = n?.let { { Text(pluralStringResource(R.plurals.hist_n_calls, it, it)) } },
                         leadingContent = { RadioButton(range == r, null) },

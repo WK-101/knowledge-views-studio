@@ -24,9 +24,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.ui.Avatar
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.EmptyState
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
@@ -84,9 +84,8 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
     LazyColumn(modifier) {
         if (privateCount > 0) privateTrashItems(trash)
         items(entries, key = { it.id }) { e ->
-            ParleyListItem(
-                leadingContent = { Avatar(e.displayName, null) },
-                headlineContent = { Text(e.displayName) },
+            PersonRow(
+                e.displayName, null,
                 supportingContent = {
                     val line = "${actionText(e.action)?.let { stringResource(it) } ?: e.action.lowercase()} · ${Format.fullDate(context, e.time)}"
                     Text(if (e.restored) stringResource(R.string.jr_restored_suffix, line) else line)
@@ -212,9 +211,8 @@ private fun LazyListScope.privateTrashItems(ui: PrivateTrashUi) {
     items(ui.kept.orEmpty(), key = { "p:" + it.file }) { k ->
         val context = LocalContext.current
         val res = LocalResources.current
-        ParleyListItem(
-            leadingContent = { Avatar(k.name, null) },
-            headlineContent = { Text(k.name) },
+        PersonRow(
+            k.name, null,
             supportingContent = { Text("${stringResource(R.string.jr_deleted)} · ${Format.fullDate(context, k.deletedAt)}") },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {

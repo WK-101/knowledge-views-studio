@@ -1,8 +1,8 @@
 package app.parley.common.calltime
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.Json
 
 /** What a limit rule applies to. The most specific matching scope wins: contact › label › SIM › all calls. */
 @Serializable
@@ -141,7 +141,7 @@ data class UssdEntry(
 )
 
 object CallingJson {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; coerceInputValues = true }
+    private val json = Codecs.tolerant
 
     fun encode(config: CallingConfig): String = json.encodeToString(CallingConfig.serializer(), config)
 

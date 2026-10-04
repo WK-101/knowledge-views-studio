@@ -16,6 +16,8 @@ import app.parley.IntentRoutes
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
+import app.parley.work.PrivateNotice
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.SettlingCall
@@ -31,7 +33,6 @@ import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
-import app.parley.work.ReminderChannels
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -152,35 +153,24 @@ object ToCallReminders {
     }
 
     private suspend fun post(context: Context, c: DataContainer, due: List<ToCallItem>) {
-        ReminderChannels.ensure(context, NotificationChannels.TO_CALL)
         val hideVault = c.settings.current().hideVault
         val names = due.map { nameOf(c, it.number, hideVault) }
-        val public = NotificationCompat.Builder(context, NotificationChannels.TO_CALL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(context.getString(R.string.to_call_notif_public))
-            .build()
         val keys = due.map { it.key }.toTypedArray()
-        val open = PendingIntent.getActivity(
-            context, 70,
-            IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        val open = PrivateNotice.open(
+            context, NotificationRequests.TO_CALL_OPEN, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL), update = true,
         )
         val notNow = PendingIntent.getBroadcast(
-            context, 71,
+            context, NotificationRequests.TO_CALL_NOT_NOW,
             Intent(context, ToCallActionReceiver::class.java).setAction(ACTION_NOT_NOW).putExtra(EXTRA_KEYS, keys),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val one = due.singleOrNull()
-        val b = NotificationCompat.Builder(context, NotificationChannels.TO_CALL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
+        val b = PrivateNotice.builder(
+            context, NotificationChannels.TO_CALL, app.parley.ui.R.drawable.ic_stat_call, "", context.getString(R.string.to_call_notif_public), open = open,
+        )
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setOnlyAlertOnce(true)
-            .setAutoCancel(true)
             .setNumber(0)
-            .setContentIntent(open)
         if (one != null) {
             b.setContentTitle(context.getString(R.string.to_call_notif_one, names[0]))
                 .setContentText(
@@ -189,7 +179,7 @@ object ToCallReminders {
                 .addAction(
                     0, context.getString(R.string.to_call_call),
                     PendingIntent.getActivity(
-                        context, 72, Shortcuts.intent(context, Shortcuts.Kind.CALL, one.number, null, names[0]),
+                        context, NotificationRequests.TO_CALL_CALL, Shortcuts.intent(context, Shortcuts.Kind.CALL, one.number, null, names[0]),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
@@ -200,10 +190,7 @@ object ToCallReminders {
             b.setContentTitle(title).setContentText(names.joinToString(", ")).setStyle(inbox)
         }
         b.addAction(0, context.getString(R.string.to_call_not_now), notNow)
-        try {
-            NotificationManagerCompat.from(context).notify(NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID, b.build())
-        } catch (_: SecurityException) {
-        }
+        PrivateNotice.post(context, NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID, b)
     }
 
     /** A contact's name, a private contact's (never in discreet mode), or the number. */

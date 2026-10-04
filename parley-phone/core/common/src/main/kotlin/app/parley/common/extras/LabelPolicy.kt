@@ -1,10 +1,10 @@
 package app.parley.common.extras
 
+import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 
 /**
  * What a label (by title) carries besides its ringtone. [simId]: the SIM its members are called on when they
@@ -40,7 +40,7 @@ data class CallerChoice(
 
 /** Device contacts' [CallerChoice]s, by lookup key. */
 object CallerChoices {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), CallerChoice.serializer())
 
     fun decode(text: String?): Map<String, CallerChoice> = if (text.isNullOrBlank()) {
@@ -74,7 +74,7 @@ object CallerChoices {
 object LabelPolicies {
     val RHYTHM_CHOICES = listOf(7, 14, 30, 90, 180)
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), LabelPolicy.serializer())
 
     fun decode(text: String?): Map<String, LabelPolicy> = if (text.isNullOrBlank()) {
@@ -116,7 +116,7 @@ object LabelPolicies {
  * through asks for it any more; a star the user set is never recorded, so never taken away.
  */
 object DndStars {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), SetSerializer(String.serializer()))
 
     /** A new ledger and the contacts no label asks for any more (to unstar). */

@@ -31,6 +31,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SwitchRow
 import app.parley.ui.activityViewModel
 import app.parley.ui.home.RecentsViewModel
+import app.parley.ui.startOrSay
 
 /**
  * Settings › Calls: the way to Reminders (missed-call re-alert) and voicemail. The pocket-dial guard is
@@ -108,7 +109,7 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
         linkRow(
             "power_button_ends_call", Icons.Rounded.Accessibility, external = true,
             sub = powerSub,
-        ) { runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } }
+        ) { context.startOrSay(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
     }
 }
 

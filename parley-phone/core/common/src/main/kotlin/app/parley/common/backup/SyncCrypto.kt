@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import app.parley.common.crypto.Aead
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -8,9 +9,6 @@ import java.io.EOFException
 import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Encrypted folder sync, with the backup's KDF and AES-GCM.
@@ -54,7 +52,7 @@ object SyncCrypto {
             writeByte(kdf.alg); writeInt(kdf.param); writeByte(salt.size); write(salt)
             val nonce = ByteArray(NONCE).also(random::nextBytes)
             write(nonce)
-            write(gcm(Cipher.ENCRYPT_MODE, key, nonce, ByteArray(0), checkAad()))
+            write(Aead.encrypt(key, nonce, ByteArray(0), checkAad()))
         }
         return bo.toByteArray() to key
     }
@@ -64,21 +62,21 @@ object SyncCrypto {
      * header that isn't one, or whose KDF cost is outside [KdfPolicy.BACKUP].
      */
     fun unlock(header: ByteArray, passphrase: CharArray): ByteArray? {
-        ensure(header.size <= MAX_HEADER, "Sync header too large")
+        ensureIntact(header.size <= MAX_HEADER, "Sync header too large")
         val d = DataInputStream(ByteArrayInputStream(header))
         try {
             val magic = ByteArray(8).also(d::readFully)
-            ensure(magic.contentEquals(HEADER_MAGIC.toByteArray(Charsets.US_ASCII)), "Not a Parley sync folder")
+            ensureIntact(magic.contentEquals(HEADER_MAGIC.toByteArray(Charsets.US_ASCII)), "Not a Parley sync folder")
             val kdf = KdfParams.of(d.readUnsignedByte(), d.readInt())
-            ensure(KdfPolicy.BACKUP.accepts(kdf), "KDF parameters out of range")
+            ensureIntact(KdfPolicy.BACKUP.accepts(kdf), "KDF parameters out of range")
             val saltLen = d.readUnsignedByte()
-            ensure(saltLen == BackupCrypto.SALT_SIZE, "Bad salt length")
+            ensureIntact(saltLen == BackupCrypto.SALT_SIZE, "Bad salt length")
             val salt = ByteArray(saltLen).also(d::readFully)
             val check = d.readBytes()
-            ensure(check.size == NONCE + TAG_BITS / 8, "Bad sync header")
+            ensureIntact(check.size == NONCE + TAG_BITS / 8, "Bad sync header")
             val key = Kdf.derive(passphrase, salt, kdf)
             return try {
-                gcm(Cipher.DECRYPT_MODE, key, check.copyOf(NONCE), check.copyOfRange(NONCE, check.size), checkAad())
+                Aead.decrypt(key, check.copyOf(NONCE), check.copyOfRange(NONCE, check.size), checkAad())
                 key
             } catch (_: GeneralSecurityException) {
                 key.fill(0)
@@ -96,7 +94,7 @@ object SyncCrypto {
         require(version >= 0) { "Negative version" }
         val nonce = ByteArray(NONCE).also(random::nextBytes)
         val body = ByteBuffer.allocate(VERSION_BYTES + plain.size).putLong(version).put(plain).array()
-        return FILE_MAGIC.toByteArray(Charsets.US_ASCII) + nonce + gcm(Cipher.ENCRYPT_MODE, key, nonce, body, fileAad(FILE_MAGIC, fileName))
+        return FILE_MAGIC.toByteArray(Charsets.US_ASCII) + nonce + Aead.encrypt(key, nonce, body, fileAad(FILE_MAGIC, fileName))
     }
 
     /** The plain file, or null when it isn't sealed with [key] under [fileName] (another key, renamed, or altered). */
@@ -109,7 +107,7 @@ object SyncCrypto {
         val magic = String(sealed.copyOf(m), Charsets.US_ASCII)
         if (magic != FILE_MAGIC && magic != FILE_MAGIC_V1) return null
         val plain = try {
-            gcm(Cipher.DECRYPT_MODE, key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(magic, fileName))
+            Aead.decrypt(key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(magic, fileName))
         } catch (_: GeneralSecurityException) {
             return null
         }
@@ -120,18 +118,7 @@ object SyncCrypto {
         return Opened(plain.copyOfRange(VERSION_BYTES, plain.size), version)
     }
 
-    private fun ensure(ok: Boolean, problem: String) {
-        if (!ok) throw BackupIntegrityException(problem)
-    }
-
     private fun checkAad() = "$HEADER_MAGIC|check".toByteArray(Charsets.US_ASCII)
 
     private fun fileAad(magic: String, name: String) = "$magic|$name".toByteArray(Charsets.UTF_8)
-
-    private fun gcm(mode: Int, key: ByteArray, nonce: ByteArray, data: ByteArray, aad: ByteArray): ByteArray {
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(mode, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, nonce))
-        c.updateAAD(aad)
-        return c.doFinal(data)
-    }
 }

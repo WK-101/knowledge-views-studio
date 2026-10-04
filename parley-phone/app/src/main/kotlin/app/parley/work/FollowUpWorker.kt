@@ -5,9 +5,7 @@ import app.parley.data.PhoneEnv
 import app.parley.common.PhoneIdentity
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -46,7 +44,6 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 all.firstOrNull { it.lookupKey == now }
             }
             ?: return Result.success()
-        ReminderChannels.ensure(ctx, RemindersWorker.CHANNEL)
         // The open promises give the reminder its context ("☐ send the photos").
         val promises = runCatching {
             c.circle.notesFor(
@@ -55,41 +52,22 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }.getOrDefault(emptyList())
         val tag = NotificationIds.followUp(contact.id)
         val code = tag.hashCode()
-        val public = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(R.string.circle_notif_public))
-            .build()
-        val open = PendingIntent.getActivity(
-            ctx, code,
-            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        val open = PrivateNotice.open(
+            ctx, code, IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id), update = true,
         )
-        val b = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(R.string.circle_followup_title, contact.displayName))
+        val text = if (promises.isEmpty()) ctx.getString(R.string.circle_followup_body)
+        else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) }
+        val b = PrivateNotice.builder(
+            ctx, RemindersWorker.CHANNEL, R.drawable.ic_stat_cake, ctx.getString(R.string.circle_followup_title, contact.displayName),
+            ctx.getString(R.string.circle_notif_public), text, open,
+        )
             .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.circle_promise_line, it) } ?: ctx.getString(R.string.circle_followup_body))
-            .setStyle(
-                NotificationCompat.BigTextStyle().bigText(
-                    if (promises.isEmpty()) ctx.getString(
-                        R.string.circle_followup_body,
-                    ) else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) },
-                ),
-            )
-            .setAutoCancel(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setContentIntent(open)
-        (contact.phones.firstOrNull { it.isPrimary } ?: contact.phones.firstOrNull())?.number?.let { phone ->
+        contact.primaryNumber?.let { phone ->
             val call = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id, contact.displayName)
             b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
         }
-        try {
-            NotificationManagerCompat.from(ctx).notify(tag, 0, b.build())
-        } catch (_: SecurityException) {
-        }
+        PrivateNotice.post(ctx, tag, 0, b)
         return Result.success()
     }
 

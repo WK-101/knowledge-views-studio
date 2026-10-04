@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,6 +21,7 @@ import app.parley.R
 import app.parley.common.spam.Reputation
 import app.parley.telecom.ReputationText
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.parley.telecom.R as TR
@@ -47,7 +47,7 @@ fun rememberReputation(vm: AppViewModel, number: String, isContact: Boolean): Re
 fun ReputationHistoryLine(vm: AppViewModel, number: String, isContact: Boolean) {
     if (rememberReputation(vm, number, isContact) == null) return
     // The reasons open in the same dialog as from Recents.
-    ListItem(
+    ParleyListItem(
         leadingContent = { Icon(Icons.Rounded.Storefront, null) },
         headlineContent = { Text(stringResource(TR.string.rep_tag)) },
         supportingContent = { Text(stringResource(TR.string.rep_why_footer)) },

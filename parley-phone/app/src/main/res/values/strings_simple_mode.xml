@@ -3,7 +3,7 @@
 <resources>
     <string name="set_simple_title">Simple mode</string>
     <string name="set_simple_summary">Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else</string>
-    <string name="set_simple_kw">elderly, senior, assisted, easy, large, big buttons, grandparent, accessibility, speak name</string>
+    <string name="set_simple_kw">elderly, senior, assisted, easy, large, big buttons, grandparent, accessibility, speak name, launcher, text to speech</string>
     <string name="simple_intro">A calm home for someone who wants only the essentials: big photo buttons for the people who matter, a larger keypad, and a question before a call is declined. Set it up here, or on your phone and send it over.</string>
     <string name="simple_remove">Remove %1$s</string>
     <string name="simple_add">Add a person</string>

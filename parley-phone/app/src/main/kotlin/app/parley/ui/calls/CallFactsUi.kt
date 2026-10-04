@@ -25,8 +25,8 @@ import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.NumberQuality
 import app.parley.common.calls.DropKind
 import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
