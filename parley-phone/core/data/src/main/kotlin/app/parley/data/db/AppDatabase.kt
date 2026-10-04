@@ -818,6 +818,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(*Migrations.ALL).build()
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(Migrations.V10_TO_11).build()
     }
 }

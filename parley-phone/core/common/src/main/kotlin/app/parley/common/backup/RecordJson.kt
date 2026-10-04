@@ -98,19 +98,13 @@ object RecordJson {
     }
 
     /** Decodes a line produced by [encode] with photos left as their hashes ([PhotoRefs.light]); no bytes are read. */
-    fun decodeLight(line: String): ContactRecord {
-        val o = try {
-            json.parseToJsonElement(line).jsonObject
-        } catch (e: IllegalArgumentException) {
-            throw BackupIntegrityException("Malformed contact record", e)
-        }
-        return try {
-            fromJson(o, blob = { null }, light = true)
-        } catch (e: BackupIntegrityException) {
-            throw e
-        } catch (e: RuntimeException) {
-            throw BackupIntegrityException("Malformed contact record", e)
-        }
+    fun decodeLight(line: String): ContactRecord = try {
+        fromJson(json.parseToJsonElement(line).jsonObject, blob = { null }, light = true)
+    } catch (e: BackupIntegrityException) {
+        throw e
+    } catch (e: RuntimeException) {
+        // Malformed JSON (IllegalArgumentException) or a field of the wrong shape.
+        throw BackupIntegrityException("Malformed contact record", e)
     }
 
     private fun fromJson(o: JsonObject, blob: (String) -> ByteArray?, light: Boolean = false): ContactRecord = ContactRecord(
@@ -126,7 +120,7 @@ object RecordJson {
                 accountName = ro.str("accountName"),
                 dataSet = ro.str("dataSet"),
                 sourceId = ro.str("sourceId"),
-                rows = (ro["rows"] as? JsonArray).orEmpty().map { rowFrom(it.jsonObject, blob, light) },
+                rows = (ro["rows"] as? JsonArray).orEmpty().map { if (light) lightRow(it.jsonObject) else rowFrom(it.jsonObject, blob) },
             )
         },
     )
@@ -141,17 +135,8 @@ object RecordJson {
         throw BackupIntegrityException("Malformed contact record", e)
     }
 
-    private fun rowFrom(o: JsonObject, blob: (String) -> ByteArray?, light: Boolean = false): DataRow {
+    private fun rowFrom(o: JsonObject, blob: (String) -> ByteArray?): DataRow {
         val h = o.str("blobSha256")
-        if (light) {
-            val values = (o["values"] as? JsonObject).orEmpty().mapValues { (_, v) -> (v as? JsonPrimitive)?.contentOrNull }
-            return DataRow(
-                mimeType = o.str("mimeType") ?: throw BackupIntegrityException("Data row without mimetype"),
-                values = if (h != null) values + (PhotoRefs.HASH to h) else values,
-                isPrimary = o.bool("isPrimary"),
-                isSuperPrimary = o.bool("isSuperPrimary"),
-            )
-        }
         val bytes = h?.let { hash ->
             val b = blob(hash) ?: throw BackupIntegrityException("Missing photo $hash")
             if (sha256Hex(b) != hash) throw BackupIntegrityException("Photo $hash does not match its hash")
@@ -162,6 +147,18 @@ object RecordJson {
             mimeType = o.str("mimeType") ?: throw BackupIntegrityException("Data row without mimetype"),
             values = values,
             blob = bytes,
+            isPrimary = o.bool("isPrimary"),
+            isSuperPrimary = o.bool("isSuperPrimary"),
+        )
+    }
+
+    /** A row with its photo left as its hash ([PhotoRefs]). */
+    private fun lightRow(o: JsonObject): DataRow {
+        val hash = o.str("blobSha256")
+        val values = (o["values"] as? JsonObject).orEmpty().mapValues { (_, v) -> (v as? JsonPrimitive)?.contentOrNull }
+        return DataRow(
+            mimeType = o.str("mimeType") ?: throw BackupIntegrityException("Data row without mimetype"),
+            values = if (hash != null) values + (PhotoRefs.HASH to hash) else values,
             isPrimary = o.bool("isPrimary"),
             isSuperPrimary = o.bool("isSuperPrimary"),
         )

@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.database.SQLException
 import android.util.Log
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import app.parley.common.backup.SnapshotKeep
 import app.parley.common.storage.VacuumPolicy
@@ -97,18 +98,19 @@ internal fun compactDatabase(helper: SupportSQLiteOpenHelper) {
 internal fun tidyDatabase(helper: SupportSQLiteOpenHelper) {
     try {
         val db = helper.writableDatabase
-        fun pragma(name: String): Long = db.query("PRAGMA $name").use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }
-        when (VacuumPolicy.decide(pragma("auto_vacuum").toInt(), pragma("freelist_count"), pragma("page_count"))) {
-            VacuumPolicy.Step.NONE -> return
-            VacuumPolicy.Step.INCREMENTAL -> db.query("PRAGMA incremental_vacuum").use { c -> while (c.moveToNext()) Unit }
-            VacuumPolicy.Step.SWITCH_AND_VACUUM -> {
-                // The mode takes effect with the next VACUUM, which rewrites the file once.
-                db.query("PRAGMA auto_vacuum = ${VacuumPolicy.INCREMENTAL_MODE}").close()
-                db.execSQL("VACUUM")
-            }
+        val step = VacuumPolicy.decide(db.pragma("auto_vacuum").toInt(), db.pragma("freelist_count"), db.pragma("page_count"))
+        if (step == VacuumPolicy.Step.NONE) return
+        if (step == VacuumPolicy.Step.INCREMENTAL) {
+            db.query("PRAGMA incremental_vacuum").use { c -> c.count }
+        } else {
+            // The mode takes effect with the next VACUUM, which rewrites the file once.
+            db.query("PRAGMA auto_vacuum = ${VacuumPolicy.INCREMENTAL_MODE}").close()
+            db.execSQL("VACUUM")
         }
         db.query("PRAGMA wal_checkpoint(TRUNCATE)").close()
     } catch (e: SQLException) {
         Log.w("UndoStorage", "Tidying ${helper.databaseName} failed", e)
     }
 }
+
+private fun SupportSQLiteDatabase.pragma(name: String): Long = query("PRAGMA $name").use { c -> if (c.moveToFirst()) c.getLong(0) else 0L }

@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.catching
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
@@ -89,7 +90,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         // Pin the layout schema once, before any new default could apply: an existing user keeps
         // separate tabs exactly as they were (see SurfaceLayout.migrate).
         scope.launch {
-            runCatching {
+            catching {
                 store.edit { prefs ->
                     val existing = prefs.asMap().keys.any { it.name != K.surfaces.name }
                     SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }

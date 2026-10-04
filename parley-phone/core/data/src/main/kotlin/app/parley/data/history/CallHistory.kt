@@ -1,5 +1,6 @@
 package app.parley.data.history
 
+import app.parley.common.catching
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
@@ -320,7 +321,8 @@ class CallHistory(
             if (full) prefs.setLastFullSync(now)
             // In a process started for a worker nothing shows the archive: the rows are in the database, and the window
             // is decrypted when the full graph starts (see init).
-            if ((added > 0 || purged) && (gate.isOpen || _archive.subscriptionCount.value > 0)) reload()
+            val shown = gate.isOpen || _archive.subscriptionCount.value > 0
+            if (shown && (added > 0 || purged)) reload()
             added
         }
     }
@@ -655,7 +657,7 @@ class CallHistory(
             n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
         }
         mutex.withLock {
-            runCatching {
+            catching {
                 val person = personMac(number, iso)
                 // Rows filed under every form of the number, found through the person index (no whole-archive pass).
                 val rows = ArrayList<Long>()
@@ -677,7 +679,7 @@ class CallHistory(
         val batch = delete(callsFor(number, since))
         // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
         if (since == Long.MIN_VALUE && prefs.current().archiveEnabled) mutex.withLock {
-            runCatching {
+            catching {
                 if (dao.deleteByPerson(personMac(number)) > 0) reload()
             }
         }

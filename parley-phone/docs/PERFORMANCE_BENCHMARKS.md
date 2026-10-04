@@ -153,6 +153,51 @@ and look for the sections on Parley's process tracks.
 The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
 fails above it, and CI runs it.
 
+### 5.5: lighter and faster
+
+What changed for storage and speed, measured with unit tests on the build machine (JVM and Robolectric, not a phone;
+compare the numbers with each other, a phone is several times slower):
+
+**Call archive** (`ArchiveKeysetSpeedTest`, `ArchivePagingTest`, core:data). 100,000 archived rows, ten calls sharing
+each date, read in pages of 500: keyset paging (`date, id` from the date index) 478 ms, the OFFSET query used before
+448 ms. On an in-memory database with small rows the two are close; keyset's cost stays the same per page while
+OFFSET's grows with the page number on a file with real blobs, and every row is read exactly once even when a page ends
+inside a run of equal dates. The larger gain is one person's calls: 200 rows through the person index in 4 ms,
+where "Delete calls with this number", an expiring temporary contact and the per-number list each decrypted the whole
+archive before (100,000 AES-GCM opens and JSON decodes). Syncing no longer loads every dedupe key into a set (about
+15 MB at 100,000 calls); the unique index turns a known call away. New installs keep 5 years of history.
+
+**Undo journal and private contacts** (`AppDatabaseMigrationTest`, `JournalPhotosTest`, core:data). Database v11 puts
+the journal's payload and a private contact's sealed details last in their rows, so History & undo and private-contact
+listings stop at the columns before them instead of walking each blob's overflow pages. Journal copies keep photos
+once by hash: four copies of two contacts sharing a 40 KB photo store one photo, and each copy is under a quarter of
+the photo's size (before: one photo per copy, about 1 GB for a bulk edit of 5,000 contacts with photos, kept 30 days).
+Android creates SQLite files with auto_vacuum FULL, so pruned pages already go back at each commit (`UndoStorageTest`);
+daily upkeep now also handles a file in another mode once its free pages pass 20% (`VacuumPolicy`).
+
+**Restore planning** (`PhotoRefsTest`, core:common). 20,000 contacts on each side, a third with photos: planned in
+827 ms with no photo bytes held (each record is read light, photos as their SHA-256). Planning with full records held
+every photo of both books: 48 MiB at the test's 4 KiB a photo, hundreds of MB with real photos (100–300 KB). Archived
+calls are restored 2,000 at a time instead of as one list.
+
+**Background work** (`PeopleIndexSearchTest`, core:data). With 5,000 contacts, adding one reads 1 contact's rows for the
+people index instead of all 5,000 again; the index stops five minutes after no screen uses it. The call log is read
+once per burst of changes (500 ms quiet), not once per notification. Folder sync waits while the battery is low, and
+runs every 4 hours without shared labels (hourly before).
+
+**Lists** (`ListSectionsTest`, `CollationTest`, core:common). Contacts registers one `items` block per letter (26 for
+20,000 contacts) instead of one `item` per contact; rows read their own selection, second line and company state, so
+ticking a contact recomposes that row only. Sorting by last name, "Prefer nicknames" and favourites make one collation
+key per name instead of about 300,000 collator comparisons for 20,000 names. A cold start shows the first 60 rows kept
+from last time (sealed, address-book contacts only) instead of a spinner until the whole book loads.
+
+**Coverage.** `./gradlew -Pcoverage koverHtmlReport koverXmlReport` reports line coverage over core:common, core:data,
+core:ui, telecom and app (it never fails the build). core:common: 96.5% of lines at 5.5.
+
+**Baseline profile.** Generating the measured profile needs a phone or an emulator (the journeys run on a device and
+read its ART profile); the build machine has neither, so `app/src/release/generated/baselineProfiles/` is still not
+committed. Generate it as in "Regenerating the profile on a device" above and commit both files.
+
 ### 5.4: data at scale
 
 The 5.3 audit (docs/audit/round2/PERFORMANCE.md) estimated what grows with the address book and the years. What

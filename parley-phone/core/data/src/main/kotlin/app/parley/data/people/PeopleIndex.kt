@@ -55,9 +55,8 @@ data class PeopleIndexData(
  * date of death) and every field the Contacts search and filters look at, recomputed off the main thread whenever the
  * address book changes (the contact list follows Android's change notifications).
  *
- * After the first build only the contacts the list changed are read again: the contact list keeps the same summary
- * object for a contact that didn't change, so a sync touching three contacts reads three contacts' rows, not every
- * row of the address book. A renamed label, a new region or a large change builds everything again.
+ * After the first build only the contacts whose summary changed are read again, so a sync touching three contacts
+ * reads three contacts' rows, not every row of the address book. A renamed label, a new region or a large change builds everything again.
  */
 class PeopleIndex(
     private val context: Context,
@@ -101,6 +100,20 @@ class PeopleIndex(
         val labels = HashSet<String>()
         var deceased = false
         val search = ContactSearch.Builder(id, region)
+
+        /** One data row of the contact: what the lists show from it, and everything the search looks at. */
+        fun row(mime: String, get: (String) -> String?, titles: Map<Long, String>) {
+            when (mime) {
+                Organization.CONTENT_ITEM_TYPE -> if (company.isEmpty() && title.isEmpty()) {
+                    company = get(Data.DATA1).orEmpty().trim()
+                    title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
+                }
+                Nickname.CONTENT_ITEM_TYPE -> if (nickname.isEmpty()) nickname = get(Data.DATA1).orEmpty().trim()
+                GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { labels += it }
+                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) deceased = true
+            }
+            search.row(mime, get)
+        }
     }
 
     private fun update(list: List<ContactSummary>): PeopleIndexData {
@@ -113,27 +126,35 @@ class PeopleIndex(
         val prev = built?.takeIf { it.region == region && it.titles == titles }
         if (prev != null) {
             if (prev.list === list) return prev.data
-            val before = HashMap<Long, ContactSummary>(prev.list.size * 2)
-            prev.list.forEach { before[it.id] = it }
-            val ids = HashSet<Long>(list.size * 2)
-            val changed = ArrayList<Long>()
-            for (c in list) {
-                ids += c.id
-                if (before[c.id] !== c) changed += c.id
-            }
-            val removed = prev.entries.keys.count { it !in ids }
-            if (changed.size <= INCREMENTAL_MAX) {
-                val entries = HashMap(prev.entries)
-                entries.keys.retainAll(ids)
-                changed.forEach { entries.remove(it) }
-                if (changed.isNotEmpty()) changed.chunked(IN_CHUNK).forEach { chunk -> entries.putAll(read(chunk, region, titles)) }
-                lastUpdate = UpdateStats(incremental = true, read = changed.size)
-                return publish(list, region, titles, entries, unchanged = changed.isEmpty() && removed == 0, prev)
-            }
+            patch(prev, list, region, titles)?.let { return it }
         }
         val entries = read(null, region, titles)
         lastUpdate = UpdateStats(incremental = false, read = entries.size)
         return publish(list, region, titles, entries, unchanged = false, prev = null)
+    }
+
+    /**
+     * [prev] with the contacts [list] changed read again and those it no longer has dropped; null when too many
+     * changed (then everything is read).
+     */
+    private fun patch(prev: Built, list: List<ContactSummary>, region: String?, titles: Map<Long, String>): PeopleIndexData? {
+        val before = HashMap<Long, ContactSummary>(prev.list.size * 2)
+        prev.list.forEach { before[it.id] = it }
+        val ids = HashSet<Long>(list.size * 2)
+        val changed = ArrayList<Long>()
+        for (c in list) {
+            ids += c.id
+            // Same object when the list patched itself, an equal one after a full reload: neither is read again.
+            if (before[c.id] != c) changed += c.id
+        }
+        if (changed.size > INCREMENTAL_MAX) return null
+        val removed = prev.entries.keys.count { it !in ids }
+        val entries = HashMap(prev.entries)
+        entries.keys.retainAll(ids)
+        changed.forEach { entries.remove(it) }
+        changed.chunked(IN_CHUNK).forEach { chunk -> entries.putAll(read(chunk, region, titles)) }
+        lastUpdate = UpdateStats(incremental = true, read = changed.size)
+        return publish(list, region, titles, entries, unchanged = changed.isEmpty() && removed == 0, prev)
     }
 
     private fun publish(
@@ -175,7 +196,8 @@ class PeopleIndex(
         fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region) }
         val only = ids?.let { " AND ${RawContacts.CONTACT_ID} IN (${it.joinToString(",")})" }.orEmpty()
 
-        query(RawContacts.CONTENT_URI, arrayOf(RawContacts.CONTACT_ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0$only") { c ->
+        val rawProjection = arrayOf(RawContacts.CONTACT_ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME)
+        query(RawContacts.CONTENT_URI, rawProjection, "${RawContacts.DELETED}=0$only") { c ->
             val id = c.getLong(0)
             val type = c.getString(1)
             if (Messengers.isMessengerAccount(type)) return@query
@@ -193,20 +215,9 @@ class PeopleIndex(
             "${Data.MIMETYPE} IN (${kinds.joinToString(",") { "?" }})$onlyData",
             kinds.toTypedArray(),
         ) { c ->
-            val a = acc(c.getLong(0))
             val mime = c.getString(1) ?: return@query
             // Data columns from the third on: data1 is index 2.
-            val get: (String) -> String? = { col -> COLUMNS.indexOf(col).takeIf { it >= 0 }?.let { c.getString(it + 2) } }
-            when (mime) {
-                Organization.CONTENT_ITEM_TYPE -> if (a.company.isEmpty() && a.title.isEmpty()) {
-                    a.company = get(Data.DATA1).orEmpty().trim()
-                    a.title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
-                }
-                Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = get(Data.DATA1).orEmpty().trim()
-                GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
-                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) a.deceased = true
-            }
-            a.search.row(mime, get)
+            acc(c.getLong(0)).row(mime, { col -> COLUMNS.indexOf(col).takeIf { it >= 0 }?.let { c.getString(it + 2) } }, titles)
         }
 
         return byId.mapValues { (_, a) ->

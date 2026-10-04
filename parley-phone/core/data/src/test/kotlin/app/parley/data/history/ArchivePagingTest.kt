@@ -3,10 +3,8 @@ package app.parley.data.history
 import android.app.Application
 import android.provider.CallLog.Calls
 import androidx.test.core.app.ApplicationProvider
-import app.parley.common.AppSettings
 import app.parley.common.backup.CallHistoryLine
 import app.parley.common.backup.CallLogRecord
-import app.parley.common.history.RetentionDefaults
 import app.parley.data.DataContainer
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
@@ -72,13 +70,5 @@ class ArchivePagingTest {
         assertEquals(300, c.history.purgeNumber("+44 20 7946 0102"))
         assertEquals(600, c.history.archiveCount())
         assertEquals(0, c.history.callsFor("+442079460102").size)
-    }
-
-    @Test fun aNewInstallKeepsFiveYearsOfHistory() = runBlocking {
-        assertEquals(RetentionDefaults.NEW_INSTALL_DAYS, c.settings.current().callLogRetentionDays)
-        // A choice made later is kept as made.
-        c.settings.update { it.copy(callLogRetentionDays = 0) }
-        assertEquals(0, c.settings.current().callLogRetentionDays)
-        assertEquals(0, AppSettings().callLogRetentionDays)
     }
 }

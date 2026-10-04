@@ -657,15 +657,7 @@ class BackupRepository(
         if (o.callLog) part(context.getString(R.string.data_rst_part_calls)) {
             r = r.copy(calls = restoreCallLog(opened))
             val h = callHistory
-            // Streamed in chunks: a 100k-call archive is never one list.
-            if (h != null) {
-                // The reader's section is only readable inside its block, which isn't suspending: each chunk is
-                // written from it on this (IO) thread.
-                val restored = opened.reader.callHistory { seq ->
-                    seq.chunked(RESTORE_LINES_CHUNK).sumOf { chunk -> runBlocking { h.restoreLines(chunk) } }
-                } ?: 0
-                r = r.copy(calls = r.calls + restored)
-            }
+            if (h != null) r = r.copy(calls = r.calls + restoreArchive(opened, h))
         }
         // Feature parts ride on the choice they belong to; they match people against the contacts restored above.
         val featureValues = if (o.contacts || o.blocking || o.settings) runCatching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()
@@ -722,6 +714,14 @@ class BackupRepository(
         contacts.refresh()
         ids.size
     }
+
+    /**
+     * The backup's archived calls, streamed in chunks: a 100k-call archive is never one list. The reader's section is
+     * only readable inside its block, which isn't suspending: each chunk is written from it on this (IO) thread.
+     */
+    private fun restoreArchive(opened: OpenedBackup, h: CallHistoryBackup): Int = opened.reader.callHistory { seq ->
+        seq.chunked(RESTORE_LINES_CHUNK).sumOf { chunk -> runBlocking { h.restoreLines(chunk) } }
+    } ?: 0
 
     private companion object {
         /** Archived calls restored per write. */

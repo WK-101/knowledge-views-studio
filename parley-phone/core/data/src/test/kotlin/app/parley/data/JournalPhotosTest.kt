@@ -55,7 +55,8 @@ class JournalPhotosTest {
         ),
     )
 
-    private fun photoOf(id: Long) = c.records.read(id, fullPhoto = true)?.raws?.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }
+    private fun photoOf(id: Long) =
+        c.records.read(id, fullPhoto = true)?.raws?.firstNotNullOfOrNull { r -> r.rows.firstOrNull { it.mimeType == Mime.PHOTO }?.blob }
 
     @Test fun aPhotoIsKeptOnceAndComesBackOnRestore() = runBlocking {
         val ids = listOf(c.records.insert(person("Ada"), null)!!, c.records.insert(person("Bo"), null)!!)

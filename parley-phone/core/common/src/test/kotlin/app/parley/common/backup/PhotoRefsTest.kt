@@ -67,8 +67,13 @@ class PhotoRefsTest {
             }
             RecordJson.encode(person(i, seed)) { h, b -> photos[h] = b }
         }
+        val t = System.nanoTime()
         val backup = lines.asSequence().map(RecordJson::decodeLight).toList()
         val plan = MergePlanner.plan(existing, backup)
+        val ms = (System.nanoTime() - t) / 1_000_000
+        // What planning with full records held: every photo of both books (here 4 KiB each; on a phone 10-300 KiB).
+        val heldBefore = (existing.size + backup.size) / 3 * 4_096L
+        println("Restore plan, $n contacts a side: $ms ms; photo bytes held while planning: 0 (before: ${heldBefore shr 20} MiB at 4 KiB a photo)")
 
         assertTrue(plan.actions.all { it.backup.blobs().isEmpty() })
         val news = plan.actions.filterIsInstance<MergeAction.New>()
