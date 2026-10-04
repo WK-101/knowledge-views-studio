@@ -357,8 +357,19 @@ W0–W4 are built, tested (detekt + unit tests green), and the core's merged man
    larger/non-image attachments return metadata with an "open on phone" affordance. The fixed spine stays
    fixed and the dispatcher stays pure. Full-size binary streaming via an FD side-channel remains a clean
    future option if it's ever needed.
-2. **TLS / local-CA deferred (revises part of W4).** The per-device key carried out-of-band in the QR is the
-   trust anchor: a request only decrypts with a live client's key, so confidentiality + authentication +
-   MITM-resistance hold **even over plain HTTP**. A TLS/local-CA option would add only a browser padlock, no
-   security property the app-layer E2E doesn't already provide — so it's deferred rather than shipped. The
-   "per-client management" and "share-a-view read-only links" parts of W4 shipped in full.
+2. **HTTPS is required, not optional (corrects the initial W4 call).** W4 first shipped plain HTTP on the
+   assumption that the app-layer E2E made TLS mere padlock polish. On-device testing proved that wrong:
+   browsers expose WebCrypto's `crypto.subtle` **only in a secure context**, and `http://<lan-ip>:port` is
+   not one — so the app-layer AES-GCM (which the whole model depends on) could not even run in the browser
+   over plain HTTP, and pairing failed with a misleading "malformed key". Fix: the server now serves
+   **self-signed HTTPS** (engine switched from CIO, which has no server TLS, to **Netty**; cert via
+   `ktor-network-tls-certificates`, persisted by `WebTls`). The browser shows a one-time self-signed-cert
+   warning (standard for self-hosted LAN tools; the control screen explains it), after which the origin is a
+   secure context and the crypto works. The per-device QR key remains the authorization/MITM trust anchor;
+   TLS now sits under it as transport encryption. A name-constrained **local-CA** option (to remove the
+   warning entirely) remains the only deferred sub-item. "Per-client management" and "share-a-view read-only
+   links" shipped in full.
+
+   A **copy-link** button on each device dialog and a **core-matching visual theme** (indigo brand, white
+   cards on soft grey, rounded shapes — mirroring `app/.../ui/theme`) shipped alongside these fixes so the
+   web companion reads as the same product as the core app.

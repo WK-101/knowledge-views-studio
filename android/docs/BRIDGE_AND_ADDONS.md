@@ -430,10 +430,12 @@ peer can't borrow another's token. `RepositoryDataSource` (`:app`) is the only p
 `AppRepository`; it projects entities to transport-stable DTOs and never exposes more than the DTO fields.
 
 ### 11.3 Server & E2E crypto (`:web-bridge`)
-Ktor CIO `embeddedServer` on `0.0.0.0`, hosted by a `dataSync` foreground service. Every `/api` body is
-app-layer **AES-256-GCM over HKDF-SHA256** (`CryptoBox`, WebCrypto-native — no WASM/JS crypto lib): a request
-only decrypts under a live client's key, so a valid blob **is** proof of authorization and traffic is
-confidential + authenticated **even over plain HTTP**. Plus Host-header + Origin allow-listing
+Ktor **Netty** `embeddedServer` on `0.0.0.0` over **self-signed HTTPS** (`WebTls`), hosted by a `dataSync`
+foreground service. HTTPS is required, not cosmetic: browsers expose WebCrypto's `crypto.subtle` only in a
+*secure context*, and `http://<lan-ip>` is not one — so the app-layer crypto can't run over plain HTTP (CIO
+has no server TLS, hence Netty). On top of TLS, every `/api` body is app-layer **AES-256-GCM over
+HKDF-SHA256** (`CryptoBox`, WebCrypto-native — no WASM/JS crypto lib): a request only decrypts under a live
+client's key, so a valid blob **is** proof of authorization. Plus Host-header + Origin allow-listing
 (DNS-rebinding/CSRF) and a timestamp+nonce replay guard. The SPA is vanilla JS served **same-origin** from
 the addon's `resources/web/` (no CORS, no build toolchain). Live refresh is a **version-based long-poll**
 (`ChangeHub`) over the same encrypted channel — not a separate socket — fed by one core `changes` stream the
@@ -444,8 +446,9 @@ Each paired browser is a `WebClient` with its **own** 256-bit key (`ClientStore`
 shows a QR for, and revokes each independently. A **read-only share link** is just a client flagged
 `readOnly` with an expiry. The server matches each request against the *live* client set, so a revoke or
 expiry locks that browser out instantly. The key travels only in the URL fragment (`#k=…`), which browsers
-never send to the server — so the QR hands it over out-of-band and is the MITM-resistant trust anchor (no TLS
-required for the security property; TLS/local-CA is deferred as padlock-only polish).
+never send to the server — so the QR hands it over out-of-band and is the authorization + MITM-resistant
+trust anchor, with the self-signed TLS of §11.3 underneath it. (A name-constrained local-CA, to drop the
+one-time cert warning, is the only deferred trust sub-item.)
 
 ### 11.5 Binary stays off the spine
 Attachments do **not** grow the AIDL spine: small note images are inlined as Base64 over `invoke` under a
