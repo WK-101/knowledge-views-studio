@@ -136,6 +136,7 @@ class DataContainer(context: Context) {
     val dialGuard by lazy {
         DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) { n -> callLog.pastCalls(n, System.currentTimeMillis(), limit = 10) }
     }
+
     // A label's SIM for people without a remembered SIM of their own, then the SIM of the Situation on now.
     val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) ?: situations.activeSim() } } }
     val records by lazy { ContactRecordStore(appContext) }

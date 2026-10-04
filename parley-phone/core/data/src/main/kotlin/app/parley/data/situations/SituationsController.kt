@@ -3,6 +3,7 @@ package app.parley.data.situations
 import android.content.Context
 import android.util.Log
 import app.parley.common.PolicyClock
+import app.parley.common.catching
 import app.parley.common.situations.Behaviour
 import app.parley.common.situations.Situation
 import app.parley.common.situations.SituationCause
@@ -98,7 +99,7 @@ class SituationsController(
         if (!watching() && _state.value.held.isEmpty()) return false
         return changed {
             val st = _state.value
-            val sig = runCatching { liveSignals() }.getOrNull() ?: SituationSignals(PolicyClock.of(System.currentTimeMillis()))
+            val sig = catching { liveSignals() }.getOrNull() ?: SituationSignals(PolicyClock.of(System.currentTimeMillis()))
             val plan = Situations.plan(st, _list.value, sig)
             val now = System.currentTimeMillis()
             when (val step = plan.step) {
@@ -164,7 +165,7 @@ class SituationsController(
      */
     private suspend fun changed(block: suspend () -> Boolean): Boolean {
         val did = withContext(NonCancellable + Dispatchers.IO) { mutex.withLock { block() } }
-        if (did) runCatching { onChange?.invoke() }.onFailure { Log.w(TAG, "Situation change listener failed", it) }
+        if (did) catching { onChange?.invoke() }.onFailure { Log.w(TAG, "Situation change listener failed", it) }
         return did
     }
 
@@ -172,7 +173,7 @@ class SituationsController(
      * Keeps [sw]'s state and writes its behaviours. Switching on keeps the snapshot first (a death in between restores
      * what was there); switching off writes what comes back first (a death in between finds it already back).
      */
-    private suspend fun switch(sw: Situations.Switch) {
+    private suspend fun switch(sw: Situations.Outcome) {
         if (sw.state.activeId != null) {
             saveState(sw.state)
             write(sw.behaviour)

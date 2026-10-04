@@ -60,7 +60,9 @@ class SettingsSearchTest {
         assertTrue(SettingsCatalog.entries.filter { it.place == SettingPlace.TOOLS }.all { it.link })
         // Folded into one choice each, or gone with the private-name lookup provider.
         // The drive profile's entry became Situations (the car is set from there).
-        listOf("silence_sales_lines", "connect_haptic", "private_names", "drive_profile").forEach { k -> assertTrue(k, SettingsCatalog.entries.none { it.key == k }) }
+        listOf("silence_sales_lines", "connect_haptic", "private_names", "drive_profile").forEach { k ->
+            assertTrue(k, SettingsCatalog.entries.none { it.key == k })
+        }
     }
 
     @Test fun sort_order_and_name_order_are_two_settings() {

@@ -40,14 +40,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.composable
-import androidx.navigation.toRoute
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.LabelRefs
 import app.parley.common.SimAccount
+import app.parley.common.catching
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.situations.DeviceTrigger
 import app.parley.common.situations.Situation
@@ -61,7 +58,6 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
-import app.parley.ui.appVm
 import app.parley.ui.blocking.ScheduleField
 import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.drive.driveSummary
@@ -70,18 +66,6 @@ import app.parley.situations.SituationTriggers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-
-/** A Situation's own page (Settings › Calls › Situations › one of them). */
-object SituationRoutes {
-    @Serializable data class Edit(val id: String) : Destination
-}
-
-fun NavGraphBuilder.situationGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { nav.navigate(it) }
-    composable<SituationRoutes.Edit> { SituationEditScreen(appVm(), it.toRoute<SituationRoutes.Edit>().id, back, open) }
-}
 
 /**
  * What a Situation sets while it is on, and when it switches on by itself. Every behaviour starts "As it is" (left
@@ -168,12 +152,21 @@ private fun TriRow(title: String, value: Boolean?, icon: ImageVector, sub: Strin
     MenuRow(title, triOptions(), triIndex(value), icon, sub) { onPick(triValue(it)) }
 }
 
+/** Where [s]'s "Who may ring" is in its menu: As it is, Everyone, Contacts, Favourites, then [labels]. */
+private fun ringIndex(s: Situation, labels: List<String>): Int = when (s.ring) {
+    null -> 0
+    SituationRing.EVERYONE -> 1
+    SituationRing.CONTACTS -> 2
+    SituationRing.FAVOURITES -> 3
+    SituationRing.LABEL -> 4 + labels.indexOfFirst { LabelRefs.key(it) == s.ringLabel?.let(LabelRefs::key) }.coerceAtLeast(0)
+}
+
 /** Who may ring, the reply, the speaker and auto-answer. */
 @Composable
 private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situation) -> Unit) {
     val labels by produceState(emptyList<String>()) {
         value = withContext(Dispatchers.IO) {
-            runCatching { vm.c.contacts.groups().map { LabelRefs.key(it.title) }.distinct() }.getOrDefault(emptyList())
+            catching { vm.c.contacts.groups().map { LabelRefs.key(it.title) }.distinct() }.getOrDefault(emptyList())
         }
     }
     // A label chosen earlier is offered even while the labels are read (or if it went).
@@ -182,13 +175,7 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
         stringResource(R.string.sit_as_is), stringResource(R.string.sit_ring_everyone), stringResource(R.string.sit_ring_contacts),
         stringResource(R.string.sit_ring_favourites),
     ) + labelChoices
-    val ringIndex = when (s.ring) {
-        null -> 0
-        SituationRing.EVERYONE -> 1
-        SituationRing.CONTACTS -> 2
-        SituationRing.FAVOURITES -> 3
-        SituationRing.LABEL -> 4 + labelChoices.indexOfFirst { LabelRefs.key(it) == s.ringLabel?.let(LabelRefs::key) }.coerceAtLeast(0)
-    }
+    val ringIndex = ringIndex(s, labelChoices)
     val speakerOptions = listOf(
         stringResource(R.string.sit_as_is), stringResource(R.string.set_speaker_never), stringResource(R.string.set_speaker_always),
         stringResource(R.string.set_speaker_unknown),
@@ -226,10 +213,14 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
             }
         }
         item("sit_auto_headset") {
-            TriRow(stringResource(R.string.sit_auto_headset), s.autoAnswerHeadset, Icons.Rounded.Headset, answerSub) { v -> edit { it.copy(autoAnswerHeadset = v) } }
+            TriRow(stringResource(R.string.sit_auto_headset), s.autoAnswerHeadset, Icons.Rounded.Headset, answerSub) { v ->
+                edit { it.copy(autoAnswerHeadset = v) }
+            }
         }
         item("sit_auto_chosen") {
-            TriRow(stringResource(R.string.sit_auto_chosen), s.autoAnswerChosen, Icons.Rounded.PhoneInTalk, answerSub) { v -> edit { it.copy(autoAnswerChosen = v) } }
+            TriRow(stringResource(R.string.sit_auto_chosen), s.autoAnswerChosen, Icons.Rounded.PhoneInTalk, answerSub) { v ->
+                edit { it.copy(autoAnswerChosen = v) }
+            }
         }
     }
     if (replying) ReplyDialog(s.reply.orEmpty(), onDismiss = { replying = false }) { text ->
@@ -261,7 +252,9 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
     val sub = stringResource(R.string.sit_drive_sub)
     SegmentedGroup(stringResource(R.string.sit_group_car)) {
         item("sit_drive_announce") {
-            TriRow(stringResource(R.string.sit_drive_announce), s.driveAnnounce, Icons.Rounded.RecordVoiceOver, sub) { v -> edit { it.copy(driveAnnounce = v) } }
+            TriRow(stringResource(R.string.sit_drive_announce), s.driveAnnounce, Icons.Rounded.RecordVoiceOver, sub) { v ->
+                edit { it.copy(driveAnnounce = v) }
+            }
         }
         item("sit_drive_favourites") {
             TriRow(stringResource(R.string.sit_drive_favourites), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
@@ -284,7 +277,7 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
 @Composable
 private fun AbroadAndSims(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situation) -> Unit) {
     val sims by produceState(emptyList<SimAccount>()) {
-        value = withContext(Dispatchers.IO) { runCatching { vm.c.sims.accounts() }.getOrDefault(emptyList()) }
+        value = withContext(Dispatchers.IO) { catching { vm.c.sims.accounts() }.getOrDefault(emptyList()) }
     }
     val missing = s.simId?.takeIf { id -> sims.none { it.id == id } }
     val simOptions = listOf(stringResource(R.string.sit_as_is)) + sims.map { it.label } +

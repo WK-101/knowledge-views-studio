@@ -30,7 +30,9 @@ class SituationsTest {
     private fun s(id: String) = defaults.first { it.id == id }
 
     private val mine = Behaviour(
-        offHours = OffHours(enabled = true, schedule = Schedule(Schedule.WEEKDAYS, 23 * 60, 6 * 60), allow = OffHoursAllow.CONTACTS, action = BlockAction.REJECT),
+        offHours = OffHours(
+            enabled = true, schedule = Schedule(Schedule.WEEKDAYS, 23 * 60, 6 * 60), allow = OffHoursAllow.CONTACTS, action = BlockAction.REJECT,
+        ),
         driveAnnounce = false,
         autoAnswerHeadset = true,
         speaker = SpeakerDefault.UNKNOWN_NUMBERS,

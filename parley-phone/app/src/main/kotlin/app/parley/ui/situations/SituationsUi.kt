@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,10 +54,9 @@ import app.parley.situations.SituationTriggers
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
-import app.parley.ui.ParleyListItem
+import app.parley.ui.SplitSwitchRow
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
-import app.parley.ui.rowColors
 import app.parley.ui.settings.CallsRoutes
 import app.parley.ui.settings.CallsSubPage
 import kotlinx.coroutines.launch
@@ -73,25 +71,26 @@ internal fun situationIcon(kind: SituationKind): ImageVector = when (kind) {
 }
 
 /** "On until 07:00", "Turns on when your car connects", "Off until next time"… */
-internal fun situationStatus(context: Context, s: Situation, state: SituationState): String {
-    if (state.activeId == s.id) {
-        return when (state.cause) {
-            SituationCause.MANUAL -> context.getString(R.string.sit_on_manual)
-            SituationCause.DEVICE -> context.getString(R.string.sit_on_device)
-            SituationCause.SCHEDULE -> s.schedule?.takeIf { it.startMinute != it.endMinute }
-                ?.let { context.getString(R.string.sit_on_until, Schedule.hm(it.endMinute)) } ?: context.getString(R.string.sit_on_manual)
-        }
-    }
-    if (!s.changesSomething) return context.getString(R.string.sit_nothing_yet)
-    if (s.id in state.held) return context.getString(R.string.sit_off_held)
-    val device = when (s.device) {
-        DeviceTrigger.CAR -> context.getString(R.string.sit_auto_car)
-        DeviceTrigger.ANY_BLUETOOTH -> context.getString(R.string.sit_auto_any)
-        DeviceTrigger.NAMED -> s.deviceName?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.sit_auto_named, it) }
-        null -> null
-    }
-    val window = s.schedule?.let { context.getString(R.string.sit_auto_window, BlockingText.schedule(context, it)) }
-    return listOfNotNull(device, window).joinToString(context.getString(R.string.main_separator)).ifEmpty { context.getString(R.string.sit_off_manual) }
+internal fun situationStatus(context: Context, s: Situation, state: SituationState): String = when {
+    state.activeId == s.id -> onStatus(context, s, state.cause)
+    !s.changesSomething -> context.getString(R.string.sit_nothing_yet)
+    s.id in state.held -> context.getString(R.string.sit_off_held)
+    else -> listOfNotNull(deviceStatus(context, s), s.schedule?.let { context.getString(R.string.sit_auto_window, BlockingText.schedule(context, it)) })
+        .joinToString(context.getString(R.string.main_separator)).ifEmpty { context.getString(R.string.sit_off_manual) }
+}
+
+private fun onStatus(context: Context, s: Situation, cause: SituationCause): String = when (cause) {
+    SituationCause.MANUAL -> context.getString(R.string.sit_on_manual)
+    SituationCause.DEVICE -> context.getString(R.string.sit_on_device)
+    SituationCause.SCHEDULE -> s.schedule?.takeIf { it.startMinute != it.endMinute }
+        ?.let { context.getString(R.string.sit_on_until, Schedule.hm(it.endMinute)) } ?: context.getString(R.string.sit_on_manual)
+}
+
+private fun deviceStatus(context: Context, s: Situation): String? = when (s.device) {
+    DeviceTrigger.CAR -> context.getString(R.string.sit_auto_car)
+    DeviceTrigger.ANY_BLUETOOTH -> context.getString(R.string.sit_auto_any)
+    DeviceTrigger.NAMED -> s.deviceName?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.sit_auto_named, it) }
+    null -> null
 }
 
 /**
@@ -103,24 +102,18 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
     val context = LocalContext.current
     val name = SituationTriggers.name(context, s)
     val on = state.activeId == s.id
-    val switchCd = stringResource(R.string.sit_switch_cd, name)
-    ParleyListItem(
-        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.sit_edit_cd, name)) { open(SituationRoutes.Edit(s.id)) },
-        colors = rowColors(),
-        leadingContent = { Icon(situationIcon(s.kind), null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        headlineContent = { Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(situationStatus(context, s, state)) },
-        trailingContent = {
-            Switch(
-                checked = on,
-                onCheckedChange = { v ->
-                    val c = vm.c
-                    c.scope.launch { if (v) c.situations.turnOn(s.id) else c.situations.turnOff() }
-                },
-                modifier = Modifier.semantics { contentDescription = switchCd },
-            )
-        },
-    )
+    SplitSwitchRow(
+        title = name,
+        sub = situationStatus(context, s, state),
+        value = on,
+        switchLabel = stringResource(R.string.sit_switch_cd, name),
+        openLabel = stringResource(R.string.sit_edit_cd, name),
+        icon = situationIcon(s.kind),
+        onOpen = { open(SituationRoutes.Edit(s.id)) },
+    ) { v ->
+        val c = vm.c
+        c.scope.launch { if (v) c.situations.turnOn(s.id) else c.situations.turnOff() }
+    }
 }
 
 /** "Add a situation": asks for a name, then opens the new one to choose what it sets. */

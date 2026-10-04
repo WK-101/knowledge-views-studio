@@ -135,7 +135,11 @@ data class SituationState(
     companion object {
         /** Reads [encode]d state; unreadable input reads as nothing on (and nothing to restore). */
         fun decode(text: String?): SituationState =
-            if (text.isNullOrBlank()) SituationState() else runCatching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrDefault(SituationState())
+            if (text.isNullOrBlank()) {
+                SituationState()
+            } else {
+                runCatching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrDefault(SituationState())
+            }
     }
 }
 
@@ -213,16 +217,21 @@ object Situations {
         s.autoAnswerHeadset?.let { out = out.copy(autoAnswerHeadset = it) }
         s.autoAnswerChosen?.let { out = out.copy(autoAnswerChosen = it) }
         s.speaker?.let { out = out.copy(speaker = it) }
-        val reply = s.reply?.trim()?.takeIf { it.isNotEmpty() }
-        if (reply != null) out = out.copy(quickReplies = listOf(reply) + out.quickReplies.filter { it.trim() != reply })
-        when (s.replyToSilenced) {
-            true -> out = out.copy(busyReply = true, busyReplyText = reply ?: out.busyReplyText)
-            false -> out = out.copy(busyReply = false)
-            null -> Unit
-        }
+        out = withReply(out, s)
         s.assistedDialling?.let { out = out.copy(assistedDialling = it) }
         s.localSimHint?.let { out = out.copy(localSimHint = it) }
         return out
+    }
+
+    /** The reply offered first, and whether it is offered to people silenced. */
+    private fun withReply(b: Behaviour, s: Situation): Behaviour {
+        val reply = s.reply?.trim()?.takeIf { it.isNotEmpty() }
+        val out = if (reply == null) b else b.copy(quickReplies = listOf(reply) + b.quickReplies.filter { it.trim() != reply })
+        return when (s.replyToSilenced) {
+            true -> out.copy(busyReply = true, busyReplyText = reply ?: out.busyReplyText)
+            false -> out.copy(busyReply = false)
+            null -> out
+        }
     }
 
     /**
@@ -264,7 +273,7 @@ object Situations {
     }
 
     /** The outcome of switching: the state to keep and the behaviours to write. */
-    data class Switch(val state: SituationState, val behaviour: Behaviour)
+    data class Outcome(val state: SituationState, val behaviour: Behaviour)
 
     /** What was there before any Situation: [current] with the one on now taken back out. */
     fun base(state: SituationState, current: Behaviour): Behaviour {
@@ -277,21 +286,21 @@ object Situations {
      * Switches [s] on. Another one on now is taken out first, so the snapshot is always what was set before any
      * Situation, and turning this one off puts that back.
      */
-    fun turnOn(state: SituationState, current: Behaviour, s: Situation, cause: SituationCause, now: Long): Switch {
+    fun turnOn(state: SituationState, current: Behaviour, s: Situation, cause: SituationCause, now: Long): Outcome {
         val before = base(state, current)
         val applied = apply(before, s)
         val held = if (cause == SituationCause.MANUAL) state.held - s.id else state.held
-        return Switch(SituationState(s.id, cause, now, before, applied, held), applied)
+        return Outcome(SituationState(s.id, cause, now, before, applied, held), applied)
     }
 
     /**
      * Switches off the one on now and puts back what was there. [byHand] holds it off while its window or device still
      * holds (so it doesn't switch itself straight back on); [plan] lets go once that stops.
      */
-    fun turnOff(state: SituationState, current: Behaviour, byHand: Boolean): Switch {
-        val id = state.activeId ?: return Switch(state, current)
+    fun turnOff(state: SituationState, current: Behaviour, byHand: Boolean): Outcome {
+        val id = state.activeId ?: return Outcome(state, current)
         val held = if (byHand) (state.held + id).distinct() else state.held
-        return Switch(SituationState(held = held), base(state, current))
+        return Outcome(SituationState(held = held), base(state, current))
     }
 
     // ------------------------------------------------------------------ triggers
@@ -307,7 +316,8 @@ object Situations {
         null -> false
         DeviceTrigger.CAR -> sig.car
         DeviceTrigger.ANY_BLUETOOTH -> sig.car || sig.bluetoothAudio
-        DeviceTrigger.NAMED -> s.deviceName?.trim()?.takeIf { it.isNotEmpty() }?.let { n -> sig.audioNames.any { it.trim().equals(n, ignoreCase = true) } } == true
+        DeviceTrigger.NAMED -> s.deviceName?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { n -> sig.audioNames.any { it.trim().equals(n, ignoreCase = true) } } == true
     }
 
     /** Minutes since [s]'s window began, while it is in it (0 at its start); null outside it or without one. */
@@ -335,7 +345,8 @@ object Situations {
         val device = candidates.firstOrNull { it.second == SituationCause.DEVICE }
         if (device != null) return device.first to device.second
         return candidates.minWithOrNull(
-            compareBy<Triple<Situation, SituationCause, Int>> { c -> c.first.schedule?.let { minutesIntoWindow(it, sig.clock) } ?: Int.MAX_VALUE }.thenBy { it.third },
+            compareBy<Triple<Situation, SituationCause, Int>> { c -> c.first.schedule?.let { minutesIntoWindow(it, sig.clock) } ?: Int.MAX_VALUE }
+                .thenBy { it.third },
         )?.let { it.first to it.second }
     }
 
@@ -378,17 +389,11 @@ object Situations {
         val windows = list.mapNotNull { it.schedule }
         if (windows.isEmpty()) return null
         val today = Instant.ofEpochMilli(now).atZone(zone).truncatedTo(ChronoUnit.DAYS)
-        var best: Long? = null
-        for (d in 0..LOOK_AHEAD_DAYS) {
-            val day = today.plusDays(d.toLong())
-            for (w in windows) {
-                for (m in listOf(w.startMinute, w.endMinute)) {
-                    val t = day.plusMinutes(m.coerceIn(0, MINUTES_A_DAY).toLong()).toInstant().toEpochMilli()
-                    if (t > now && (best == null || t < best)) best = t
-                }
-            }
-        }
-        return best
+        val minutes = windows.flatMap { listOf(it.startMinute, it.endMinute) }.map { it.coerceIn(0, MINUTES_A_DAY).toLong() }.distinct()
+        return (0..LOOK_AHEAD_DAYS).asSequence()
+            .flatMap { d -> minutes.asSequence().map { m -> today.plusDays(d.toLong()).plusMinutes(m).toInstant().toEpochMilli() } }
+            .filter { it > now }
+            .minOrNull()
     }
 
     private const val LOOK_AHEAD_DAYS = 8

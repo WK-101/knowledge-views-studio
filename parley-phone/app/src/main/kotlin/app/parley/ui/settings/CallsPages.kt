@@ -201,7 +201,9 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val situations by vm.c.situations.list.collectAsStateWithLifecycle()
     val now by vm.c.situations.state.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.sit_group)) {
-        situations.forEachIndexed { i, s -> item(if (i == 0) "situations" else "situation_${s.id}") { SituationRow(vm, s, now, open) } }
+        // Search for Situations lands on the first one.
+        situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }
+        situations.drop(1).forEach { s -> item("situation_${s.id}") { SituationRow(vm, s, now, open) } }
         if (canAdd(situations)) item("situation_add") { AddSituationRow(vm, open) }
     }
     // Helpers to bring into a call.
