@@ -39,6 +39,7 @@ import app.parley.data.DialWarning
 import app.parley.telecom.CallManager
 import app.parley.ui.Bidi
 import app.parley.ui.people.PeopleUi
+import app.parley.ui.recall.RecallUi
 import kotlinx.coroutines.Dispatchers
 import app.parley.common.people.Collation
 import app.parley.common.people.NameOrder
@@ -262,6 +263,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         privateOnly = combine(showVault, settings) { on, s -> on && !s.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, false),
         includePrivate = settings.map { !it.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, !settings.value.hideVault),
     )
+
+    /** Recall: the Contacts search's "Search everything" mode. */
+    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex, settings)
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, everyone)

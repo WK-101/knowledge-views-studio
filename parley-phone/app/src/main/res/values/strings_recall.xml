@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Recall: the Contacts search's "Search everything" mode. One search over everything Parley remembers on this phone:
+  calls, notes, promises, call notes, chats, deleted contacts, snapshots and number memory.
+-->
+<resources>
+    <!-- The search's chip that widens it from contacts to everything Parley remembers. -->
+    <string name="recall_chip">Search everything</string>
+    <!-- Heading over the results when the chip is on. -->
+    <string name="recall_header">Everything Parley remembers</string>
+    <!-- Heading when the contacts gave nothing and Recall searched the rest by itself. -->
+    <string name="recall_fallback_header">Not in your contacts, but Parley remembers</string>
+    <!-- %1$s: what the search understood, "Missed calls · March 2026" -->
+    <string name="recall_understood">Looking for %1$s</string>
+    <!-- %1$s: the words typed. -->
+    <string name="recall_nothing">Parley doesn’t remember anything for “%1$s”</string>
+    <string name="recall_searching">Searching…</string>
+    <string name="recall_private_locked">Calls and notes of private contacts are left out until you unlock</string>
+
+    <!-- Group headings. -->
+    <string name="recall_group_contacts">Contacts</string>
+    <string name="recall_group_calls">Calls</string>
+    <string name="recall_group_promises">Promises</string>
+    <string name="recall_group_notes">Notes</string>
+    <string name="recall_group_call_notes">Notes after calls</string>
+    <string name="recall_group_messaged">Chats opened from Parley</string>
+    <string name="recall_group_deleted">Deleted contacts</string>
+    <string name="recall_group_deleted_private">Deleted private contacts</string>
+    <string name="recall_group_snapshots">Only in snapshots</string>
+    <string name="recall_group_remembered">Remembered about this number</string>
+    <!-- %1$s: a group heading; %2$d: how many were found. -->
+    <string name="recall_group_count">%1$s (%2$d)</string>
+
+    <!-- %1$d: rows not shown yet in a group. -->
+    <plurals name="recall_show_more">
+        <item quantity="one">Show %1$d more</item>
+        <item quantity="other">Show %1$d more</item>
+    </plurals>
+    <!-- %1$d: rows shown of more found. -->
+    <plurals name="recall_more_found">
+        <item quantity="one">Showing the best %1$d. Add a name or a date to narrow it down.</item>
+        <item quantity="other">Showing the best %1$d. Add a name or a date to narrow it down.</item>
+    </plurals>
+
+    <!-- What the search understood, said back. -->
+    <string name="recall_kind_calls">Calls</string>
+    <string name="recall_span_today">Today</string>
+    <string name="recall_span_yesterday">Yesterday</string>
+    <string name="recall_span_week_so_far">This week</string>
+    <string name="recall_span_since_last_week">Since last week</string>
+    <string name="recall_span_since_last_month">Since last month</string>
+    <string name="recall_span_since_last_year">Since last year</string>
+    <!-- %1$s: the words left to search, in quotes in the line. -->
+    <string name="recall_words">“%1$s”</string>
+
+    <!-- Row lines. %1$s: a date, "12 March". -->
+    <string name="recall_deleted_on">Deleted %1$s</string>
+    <!-- %1$s: a date, "12 March". -->
+    <string name="recall_snapshot_until">In snapshots until %1$s</string>
+    <!-- %1$s: the chat app; %2$s: when, "12 Mar". -->
+    <string name="recall_messaged_on">%1$s · %2$s</string>
+    <string name="recall_private_number">Private number</string>
+    <string name="recall_open_hint">Open</string>
+</resources>

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
@@ -138,20 +139,33 @@ private class MemoryActions(
         }
     }
 
-    /** Restores, says so, and opens the contact ([block] returns its navigation id). */
-    private fun restore(block: suspend () -> Long?) {
-        val res = context.resources
-        scope.launch {
-            val id = runCatching { block() }.getOrNull() ?: return@launch vm.toast(res.getString(R.string.jr_restore_failed))
-            vm.toast(res.getString(R.string.jr_restored_name, s.hint.name.orEmpty()))
-            changed()
-            open(Routes.contact(id))
-        }
+    private fun restore(block: suspend () -> Long?) = restoreAndOpen(vm, context, scope, s.hint.name.orEmpty(), open, changed, block)
+}
+
+/**
+ * Restores a deleted contact ([block] returns its navigation id), says so, and opens it; [changed] runs once it is
+ * back (the line or the search that offered it reads again).
+ */
+internal fun restoreAndOpen(
+    vm: AppViewModel,
+    context: Context,
+    scope: CoroutineScope,
+    name: String,
+    open: (Destination) -> Unit,
+    changed: () -> Unit,
+    block: suspend () -> Long?,
+) {
+    val res = context.resources
+    scope.launch {
+        val id = catching { block() }.getOrNull() ?: return@launch vm.toast(res.getString(R.string.jr_restore_failed))
+        vm.toast(res.getString(R.string.jr_restored_name, name))
+        changed()
+        open(Routes.contact(id))
     }
 }
 
 /** The page a note is on: a private contact by its key, a device contact by its lookup key; null when gone. */
-private fun noteTarget(vm: AppViewModel, key: String): Destination? {
+internal fun noteTarget(vm: AppViewModel, key: String): Destination? {
     ContactRef.vaultIdOf(key)?.let { return Routes.contact(ContactRef.Private(it).navId) }
     return vm.c.contacts.contacts.value?.firstOrNull { it.lookupKey == key }?.let { Routes.contact(it.id) }
 }

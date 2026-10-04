@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.ManageSearch
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,7 +40,7 @@ import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 
 /**
- * Contacts-tab filter row: All · Filters (while searching or filtering) · Private · Unlabelled · labels (multi-select,
+ * Contacts-tab filter row: All · Search everything (while searching) · Filters (while searching or filtering) · Private · Unlabelled · labels (multi-select,
  * AND/OR) · account, plus shortcuts
  * to the selected label's page, to label management and to the city scope ("Who's in…").
  */
@@ -58,6 +59,8 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
+        // Recall: the search widened to everything Parley remembers (calls, notes, deleted contacts…).
+        if (query.isNotBlank()) SearchEverythingChip(vm)
         // The order, while it isn't by name.
         ContactSortChip(vm)
         // Filters (country, company, birthday…) and the ones in use, next to the search.
@@ -123,6 +126,17 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             )
         }
     }
+}
+
+/** The "Search everything" chip (Recall), while something is searched. */
+@Composable
+private fun SearchEverythingChip(vm: AppViewModel) {
+    val everything by vm.recall.everything.collectAsStateWithLifecycle()
+    FilterChip(
+        everything, { vm.recall.everything.value = !everything },
+        label = { Text(stringResource(R.string.recall_chip)) },
+        leadingIcon = { Icon(Icons.Rounded.ManageSearch, null, Modifier.size(16.dp)) },
+    )
 }
 
 /**

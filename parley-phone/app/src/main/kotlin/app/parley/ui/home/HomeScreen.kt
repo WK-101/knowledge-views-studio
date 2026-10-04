@@ -142,6 +142,7 @@ fun HomeScreen(
     fun closeSearch() {
         searching = false
         vm.contactQuery.value = ""
+        vm.recall.everything.value = false
         recents.query.value = ""
         favoriteQuery = ""
         keypadQuery = ""

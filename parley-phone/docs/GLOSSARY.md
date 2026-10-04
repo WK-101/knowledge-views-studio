@@ -78,6 +78,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 | **Long-press** | Selects, in every list that has a selection (Contacts, Recents); the selection bar's ⋮ then has the row's actions. A list without a selection gives each row a trailing ⋮. On buttons and tiles that act at once, a long-press offers the alternative (Call → Call with a reason, Message → Message or call on…, a Favourites tile → its page, keypad 2–9 → speed dial). |
 | **Explainers** | One-line tips at a concept's first appearance (Private, Temporary, Circle, Labels, Favourites with Frequent, History & undo, To call), in the words of this glossary; each shows once. Each says what sets its concept apart from its neighbours (Circle: "doesn't star anyone"; Favourites: Frequent is under them). |
 | **Contact health check** | The screen that finds numbers without a country code, and empty or stale contacts. Not "Tidy up". |
+| **Search everything** | The Contacts search's chip that widens it to everything Parley remembers (Recall): calls with their dates, notes, promises, notes after calls, chats opened from Parley, deleted contacts, snapshots and number memory. It understands plain date and call words ("plumber march", "who called yesterday"), and runs by itself when the contacts give nothing. Not a tab or a screen of its own. |
 
 ## Words to avoid
 
