@@ -17,6 +17,7 @@ import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.situations.SituationRoutes
 import app.parley.ui.sync.shared.SharedLabelRoutes
 
 /**
@@ -75,7 +76,7 @@ object IntentRoutes {
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
-            ACTION_EXPORT_CONTACTS,
+            ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL,
         )
     }
 
@@ -113,6 +114,15 @@ object IntentRoutes {
 
     /** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
     const val ACTION_SCAN_QR = "app.parley.action.SCAN_QR"
+
+    /** Opens Rescue call's screen (launcher shortcut). */
+    const val ACTION_RESCUE_CALL = "app.parley.action.RESCUE_CALL"
+
+    /** Android's long press on a Quick Settings tile ([android.service.quicksettings.TileService.ACTION_QS_TILE_PREFERENCES]). */
+    const val QS_TILE_PREFERENCES = "android.service.quicksettings.action.QS_TILE_PREFERENCES"
+
+    /** The Situation tile, whose long press opens Rescue call. */
+    private const val SITUATION_TILE = "app.parley.situations.SituationTileService"
     const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
 
     /** Folder sync paused and waits for the user (its notification). */
@@ -153,6 +163,12 @@ object IntentRoutes {
     private fun isVcard(type: String?) = type != null && (type.contains("vcard") || type == "text/directory")
 
     private fun go(e: NavEvent) = IntentTarget(e)
+
+    /** The tile a long press came from (its class name), from the extra Android adds. */
+    private fun tileComponent(intent: Intent): String? = runCatching {
+        @Suppress("DEPRECATION")
+        intent.getParcelableExtra<ComponentName>(Intent.EXTRA_COMPONENT_NAME)?.className
+    }.getOrNull()
 
     /** An encrypted vCard ([SealedVCard]), known by its name: its type is octet-stream, like any unknown file's. */
     private fun isSealedVcard(uri: Uri) = uri.lastPathSegment.orEmpty().endsWith(SealedVCard.EXTENSION, ignoreCase = true)
@@ -232,6 +248,9 @@ object IntentRoutes {
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
             ACTION_PASTE_CONTACT -> intent.getStringExtra(EXTRA_PASTE_ID)?.takeIf { it.isNotEmpty() }?.let { go(NavEvent.Route(Routes.edit(paste = it))) }
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
+            ACTION_RESCUE_CALL -> go(NavEvent.Route(SituationRoutes.RescueCall))
+            // Only opens a screen (ringing needs a tap there), so any sender may: the other tiles just open Parley.
+            QS_TILE_PREFERENCES -> tileComponent(intent)?.takeIf { it == SITUATION_TILE }?.let { go(NavEvent.Route(SituationRoutes.RescueCall)) }
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))

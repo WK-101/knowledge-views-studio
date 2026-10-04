@@ -25,4 +25,16 @@
             android:targetClass="app.parley.InternalEntry"
             android:targetPackage="app.parley.phone" />
     </shortcut>
+    <!-- "Rescue call" opens its screen (who calls and when), one long press away rather than on the home screen. -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_rescue"
+        android:shortcutId="rescue_call"
+        android:shortcutLongLabel="@string/shortcut_rescue_long"
+        android:shortcutShortLabel="@string/shortcut_rescue_short">
+        <intent
+            android:action="app.parley.action.RESCUE_CALL"
+            android:targetClass="app.parley.InternalEntry"
+            android:targetPackage="app.parley.phone" />
+    </shortcut>
 </shortcuts>

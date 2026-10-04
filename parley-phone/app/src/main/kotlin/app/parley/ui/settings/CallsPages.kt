@@ -50,6 +50,7 @@ import app.parley.ui.Spacing
 import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.situations.AddSituationRow
 import app.parley.ui.situations.SituationRow
+import app.parley.ui.situations.SituationRoutes
 import app.parley.ui.situations.canAdd
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
@@ -205,6 +206,14 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }
         situations.drop(1).forEach { s -> item("situation_${s.id}") { SituationRow(vm, s, now, open) } }
         if (canAdd(situations)) item("situation_add") { AddSituationRow(vm, open) }
+    }
+    // Rescue call: a believable call to leave a moment, here beside the moments themselves.
+    SegmentedGroup {
+        item("rescue_call") {
+            LinkRow(stringResource(R.string.rescue_title), stringResource(R.string.rescue_row_sub), Icons.Rounded.PhoneInTalk) {
+                open(SituationRoutes.RescueCall)
+            }
+        }
     }
     // Helpers to bring into a call.
     FamilySafetyCallsGroup(vm, open)

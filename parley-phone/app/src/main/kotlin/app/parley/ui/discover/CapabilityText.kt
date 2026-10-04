@@ -54,6 +54,7 @@ object CapabilityText {
         "auto_answer" to (R.string.discover_auto_answer_title to R.string.discover_auto_answer_summary),
         "helpers" to (R.string.discover_helpers_title to R.string.discover_helpers_summary),
         "call_time" to (R.string.discover_call_time_title to R.string.discover_call_time_summary),
+        "rescue_call" to (R.string.rescue_title to R.string.rescue_row_sub),
         "sims" to (R.string.discover_sims_title to R.string.discover_sims_summary),
         "pocket_guard" to (R.string.discover_pocket_guard_title to R.string.discover_pocket_guard_summary),
         "missed_realert" to (R.string.discover_missed_realert_title to R.string.discover_missed_realert_summary),

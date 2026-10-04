@@ -37,6 +37,7 @@ import app.parley.telecom.DeclineBlock
 import app.parley.telecom.forLockScreen
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.R
+import app.parley.telecom.RescueCall
 import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
@@ -74,10 +75,17 @@ class InCallActivity : ComponentActivity() {
         val deps = TelecomGraph.dependencies
         setContent {
             val look by deps.appearance.collectAsStateWithLifecycle()
-            val calls by CallManager.state.collectAsStateWithLifecycle()
-            val audio by CallManager.audio.collectAsStateWithLifecycle()
-            val ended by CallManager.lastEnded.collectAsStateWithLifecycle()
-            val declineBlock by CallManager.declineBlock.collectAsStateWithLifecycle()
+            val realCalls by CallManager.state.collectAsStateWithLifecycle()
+            val realAudio by CallManager.audio.collectAsStateWithLifecycle()
+            val realEnded by CallManager.lastEnded.collectAsStateWithLifecycle()
+            val realBlock by CallManager.declineBlock.collectAsStateWithLifecycle()
+            val rescueState by RescueCall.state.collectAsStateWithLifecycle()
+            // A rescue call shows on this same screen while no real call is up; a real call makes it give way at once.
+            val rescue = rescueState?.takeIf { realCalls.isEmpty() }
+            val calls = rescue?.let { listOfNotNull(it.call) } ?: realCalls
+            val audio = rescue?.audio ?: realAudio
+            val ended = if (rescue != null) rescue.ended else realEnded
+            val declineBlock = realBlock.takeIf { rescue == null }
             var keypad by remember { mutableStateOf(showDialpad) }
             // "Hide screen content" covers the call screen too.
             LaunchedEffect(look.secureScreen, look.loaded) { applySecure(look) }
@@ -86,7 +94,7 @@ class InCallActivity : ComponentActivity() {
             // An outgoing call that didn't go through keeps the screen (reason and Retry) until dismissed. CallManager
             // drops the failure once it's dismissed or a newer call starts, so it's never stale.
             val failed = ended?.takeIf { e -> e.failure != null && calls.none { it.id == e.id && it.isLive } }
-            LaunchedEffect(failed?.id) { if (failed != null && CallManager.state.value.none { it.isLive }) keepEnded = true }
+            LaunchedEffect(failed?.id) { if (failed != null && liveCalls().none { it.isLive }) keepEnded = true }
             // On the call-ended screen for that call, or above a call that goes on (call waiting, a second call).
             val blockedHere = declineBlock?.takeIf { b ->
                 calls.none { it.id == b.callId && it.isLive } && (b.callId == ended?.id || calls.any { it.isLive })
@@ -101,12 +109,12 @@ class InCallActivity : ComponentActivity() {
             LaunchedEffect(calls.isEmpty(), keepEnded) {
                 if (calls.isEmpty() && !keepEnded) {
                     // The post-call card for an unknown number stays a little longer, and for good once touched.
-                    val last = CallManager.lastEnded.value
+                    val last = lastEnded()
                     // So does the "Blocked · Undo" card after Block & decline.
                     val lingers = last?.postCallCard == true || last?.memoryCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
                     // A dropped call keeps "Call again" at hand for a few seconds.
                     delay(if (last?.drop != null) DROPPED_MS else if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
-                    if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
+                    if (liveCalls().isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
             }
             // The caller's name, spoken while it rings (simple mode, when chosen). Never for a call waiting during
@@ -130,7 +138,8 @@ class InCallActivity : ComponentActivity() {
                     quickReplies = look.quickReplies,
                     keypadOpen = keypad || showDialpad,
                     onKeypad = { keypad = it; showDialpad = false },
-                    onAddCall = { unlockThen { startOwnScreen(deps.mainIntent(this, dialpad = true)) } },
+                    // A rescue call isn't a call to add to.
+                    onAddCall = { if (rescue == null) unlockThen { startOwnScreen(deps.mainIntent(this, dialpad = true)) } },
                     onOpenContact = { c -> unlockThen { startOwnScreen(deps.contactIntent(this, c.contactId, c.number)) } },
                     onPostCall = ::onPostCall,
                     failed = failed?.let(::shown),
@@ -153,6 +162,13 @@ class InCallActivity : ComponentActivity() {
             }
         }
     }
+
+    /** The calls this screen shows: Telecom's, else a rescue call's. */
+    private fun liveCalls(): List<CallUi> = CallManager.state.value.ifEmpty { listOfNotNull(RescueCall.state.value?.call) }
+
+    /** The call that just ended, of the kind this screen shows. */
+    private fun lastEnded(): CallUi? =
+        if (CallManager.state.value.isEmpty() && RescueCall.state.value != null) RescueCall.state.value?.ended else CallManager.lastEnded.value
 
     /** The ringing contact's name to speak: none while the call is masked on the lock screen. */
     private fun spokenName(ringing: CallUi?, shown: List<CallUi>): String? =

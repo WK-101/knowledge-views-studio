@@ -139,23 +139,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
      */
     private fun startVibration(context: Context, am: AudioManager, pattern: LongArray? = null) {
         if (!ringVibrates(context, am)) return
-        val v = if (Build.VERSION.SDK_INT >= 31) {
-            context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Vibrator::class.java)
-        } ?: return
-        if (!v.hasVibrator()) return
-        val effect = VibrationEffect.createWaveform(pattern?.takeIf { it.size >= 2 } ?: RING_VIBRATION, 0)
-        runCatching {
-            if (Build.VERSION.SDK_INT >= 33) {
-                v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_RINGTONE))
-            } else {
-                @Suppress("DEPRECATION")
-                v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
-            }
-            vibrator = v
-        }
+        vibrate(context, pattern)?.let { vibrator = it }
     }
 
     private fun release() {
@@ -202,6 +186,30 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
             // Android 13+ also has a ring vibration intensity; 0 means off.
             val intensityOff = runCatching { Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
             return vibrateWhenRinging && !intensityOff
+        }
+
+        /**
+         * Vibrates like a ringing call, repeating [pattern] (a caller's haptic caller ID) or the platform's 1 s on / 1 s
+         * off; the vibrator to cancel, or null when there is none. The caller decides whether the ring vibrates now.
+         */
+        fun vibrate(context: Context, pattern: LongArray?): Vibrator? {
+            val v = if (Build.VERSION.SDK_INT >= 31) {
+                context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Vibrator::class.java)
+            } ?: return null
+            if (!v.hasVibrator()) return null
+            val effect = VibrationEffect.createWaveform(pattern?.takeIf { it.size >= 2 } ?: RING_VIBRATION, 0)
+            return runCatching {
+                if (Build.VERSION.SDK_INT >= 33) {
+                    v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_RINGTONE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
+                }
+                v
+            }.getOrNull()
         }
 
         /** After silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */

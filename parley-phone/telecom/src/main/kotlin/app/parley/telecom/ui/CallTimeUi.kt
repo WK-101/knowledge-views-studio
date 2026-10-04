@@ -205,7 +205,8 @@ internal fun CallMoreSheet(
     timing: CallTiming?,
     controls: List<ControlSpec>,
     onDismiss: () -> Unit,
-    onNote: () -> Unit,
+    /** "Add note" (not for a rescue call, which keeps nothing). */
+    onNote: (() -> Unit)?,
     onOpenContact: (() -> Unit)?,
     /** Copy the number (not for a hidden number). */
     onCopyNumber: (() -> Unit)? = null,
@@ -232,13 +233,15 @@ internal fun CallMoreSheet(
                 modifier = Modifier.clickable(enabled = c.enabled) { onDismiss(); c.onClick() },
             )
         }
-        ParleyListItem(
-            headlineContent = { Text(stringResource(R.string.incall_add_note)) },
-            supportingContent = { Text(stringResource(R.string.calltime_note_saved)) },
-            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-            colors = rowColors(),
-            modifier = Modifier.clickable { onDismiss(); onNote() },
-        )
+        if (onNote != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.incall_add_note)) },
+                supportingContent = { Text(stringResource(R.string.calltime_note_saved)) },
+                leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onNote() },
+            )
+        }
         if (onOpenContact != null) {
             ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.incall_open_contact)) },
@@ -268,7 +271,8 @@ internal fun CallMoreSheet(
             )
         }
         SafetyRows(onDismiss, onScamCheck, onVerify, onAddHelper, onClaimsFamily)
-        CallTimeSection(call, timing, onDismiss)
+        // A rescue call has no call time to limit.
+        if (!call.simulated) CallTimeSection(call, timing, onDismiss)
         Spacer(Modifier.height(Spacing.xl))
     }
 }

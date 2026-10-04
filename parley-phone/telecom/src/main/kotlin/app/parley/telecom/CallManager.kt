@@ -243,6 +243,8 @@ object CallManager {
 
     internal fun add(context: Context, call: Call) {
         appContext = context.applicationContext
+        // A real call always wins: a rescue call ringing or answered goes before this one is shown.
+        RescueCall.yieldToRealCall()
         val id = idOf(call)
         val s = session(id)
         // A new call starts: an earlier call's failure banner (and its Retry) or "Blocked · Undo" card is stale.
@@ -653,6 +655,7 @@ object CallManager {
     // ---- Actions ----
 
     fun answer(id: String) {
+        if (RescueCall.owns(id)) return RescueCall.answer()
         if (sessions[id]?.blockingDecline == true) return
         val call = find(id) ?: return
         // Always audio-only: video needs the camera, which Parley doesn't ask for. A video call says so on screen.
@@ -698,6 +701,10 @@ object CallManager {
     /** Ends the call a "hang up" shortcut should end: the active one, else one being dialled, else a held one. */
     fun hangupForeground(): Boolean {
         val top = calls.filter { it.parent == null }
+        if (top.isEmpty() && RescueCall.live) {
+            RescueCall.end()
+            return true
+        }
         val pick = top.firstOrNull { mapState(it.stateCompat()) == CallState.ACTIVE }
             ?: top.firstOrNull { mapState(it.stateCompat()) in DIALLING_STATES }
             ?: top.firstOrNull { mapState(it.stateCompat()) == CallState.HOLDING }
@@ -732,6 +739,8 @@ object CallManager {
      * supports "respond via text"; otherwise the SMS app is opened with the text pre-filled.
      */
     fun reject(id: String, message: String? = null) {
+        // A rescue call is declined like any other, but a reply is never sent and the messaging app never opens.
+        if (RescueCall.owns(id)) return RescueCall.end()
         val call = find(id) ?: return
         session(id).userEnded = true
         // Declining has its own buzz, different from answering.
@@ -851,6 +860,7 @@ object CallManager {
 
     /** Stop ringing but leave the call waiting (the caller hears it ring until they give up). */
     fun ignore(id: String) {
+        if (RescueCall.owns(id)) return RescueCall.silence()
         val s = session(id)
         s.silenced = true
         s.ignoredByUser = true
@@ -901,6 +911,8 @@ object CallManager {
      * call ends. [onProblem] hears why the new call couldn't be placed.
      */
     fun hangUpAndCall(id: String, number: String, accountId: String?, onProblem: (String) -> Unit) {
+        // Never a real call from a rescue call: it only ends.
+        if (RescueCall.owns(id)) return RescueCall.end()
         find(id)?.let { call ->
             session(id).userEnded = true
             if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
@@ -926,11 +938,13 @@ object CallManager {
     } ?: false
 
     fun saveNote(id: String, text: String) {
+        if (RescueCall.owns(id)) return
         val call = find(id) ?: return
         runCatching { deps.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
     }
 
     fun hangup(id: String) {
+        if (RescueCall.owns(id)) return RescueCall.end()
         val call = find(id) ?: return
         session(id).userEnded = true
         if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
@@ -1003,6 +1017,7 @@ object CallManager {
     }
 
     fun setMuted(muted: Boolean) {
+        if (rescueOnly()) return RescueCall.setMuted(muted)
         service?.setMuted(muted)
     }
 
@@ -1023,13 +1038,18 @@ object CallManager {
 
     /** The user picked a route: from now on the audio is theirs, so "Start calls on speaker" never moves it. */
     fun setRoute(route: AudioRoute) {
+        if (rescueOnly()) return RescueCall.setRoute(route)
         sessions.values.forEach { it.speakerDecided = true }
         routeRequests(route)
     }
 
     fun toggleSpeaker() {
+        if (rescueOnly()) return RescueCall.toggleSpeaker()
         _audio.value.speakerToggleTarget()?.let { setRoute(it) }
     }
+
+    /** Only a rescue call is up: the mute and audio buttons are its own (a real call would have made it give way). */
+    private fun rescueOnly(): Boolean = calls.isEmpty() && RescueCall.live
 
     internal fun updateAudio(audio: AudioUi) {
         _audio.value = audio

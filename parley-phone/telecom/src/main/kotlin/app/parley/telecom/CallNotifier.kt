@@ -73,23 +73,7 @@ class CallNotifier internal constructor(
         instance = this
         val lockChanges = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_USER_PRESENT) }
         runCatching { ContextCompat.registerReceiver(context, lockWatcher, lockChanges, ContextCompat.RECEIVER_NOT_EXPORTED) }
-        nm.createNotificationChannel(
-            NotificationChannel(CH_INCOMING, context.getString(R.string.channel_incoming_calls), NotificationManager.IMPORTANCE_HIGH).apply {
-                // Telecom plays the ringtone and vibration; the channel itself stays silent.
-                setSound(null, null)
-                enableVibration(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            },
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_ONGOING, context.getString(R.string.channel_ongoing_calls), NotificationManager.IMPORTANCE_DEFAULT).apply {
-                setSound(null, null)
-                enableVibration(false)
-            },
-        )
-        nm.createNotificationChannel(
-            NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
-        )
+        createChannels(context)
     }
 
     fun canUseFullScreen(): Boolean =
@@ -473,6 +457,28 @@ class CallNotifier internal constructor(
             val ch = context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CH_INCOMING)
             ch == null || ch.importance >= NotificationManager.IMPORTANCE_HIGH
         }.getOrDefault(true)
+
+        /** The call channels (also used by a rescue call, which can ring before any real call made them). */
+        internal fun createChannels(context: Context) {
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return
+            nm.createNotificationChannel(
+                NotificationChannel(CH_INCOMING, context.getString(R.string.channel_incoming_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                    // Telecom plays the ringtone and vibration; the channel itself stays silent.
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                },
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(CH_ONGOING, context.getString(R.string.channel_ongoing_calls), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    setSound(null, null)
+                    enableVibration(false)
+                },
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
+            )
+        }
 
         /** The live notifier while the in-call service runs, for the dismiss intent (main thread only). */
         internal var instance: CallNotifier? = null

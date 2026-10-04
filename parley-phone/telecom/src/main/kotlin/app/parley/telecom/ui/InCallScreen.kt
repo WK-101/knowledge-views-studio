@@ -406,7 +406,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     // I11: "Drive profile on" while the marked car is connected.
     DriveStatusLine(primary, keypadOpen = s.keypadOpen)
     // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
-    if (primary != null && primary.state != CallState.RINGING) {
+    if (primary != null && primary.state != CallState.RINGING && !primary.simulated) {
         FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
         // L3: an RTT request to answer, or the way back into the RTT conversation.
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
@@ -491,7 +491,7 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
             call.holdModeSince > 0 -> HoldModePanel(call, onKeypad = { a.onKeypad(true) })
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // Simple mode: "Add my helper" as one big button (I5).
-                if (s.incoming.simple) SimpleHelper(call, s, sheets)
+                if (s.incoming.simple && !call.simulated) SimpleHelper(call, s, sheets)
                 AudioRoutesTip(call, s.audio)
                 ControlGrid(
                     call = call,
@@ -899,7 +899,8 @@ private fun MoreSheet(
         timing = timings[primary.id]?.shownFor(primary),
         controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
         onDismiss = { sheets.more = false },
-        onNote = { sheets.noteFor = primary.id },
+        // A rescue call keeps nothing: no note, helper, safe word or RTT, which would write or call for real.
+        onNote = if (primary.simulated) null else ({ sheets.noteFor = primary.id }),
         onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
         // A call masked on the lock screen copies its number only once the phone is unlocked.
         onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n ->
@@ -907,9 +908,9 @@ private fun MoreSheet(
         },
         onHoldMode = if (primary.canHoldMode) ({ CallManager.startHoldMode(primary.id) }) else null,
         onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
-        onClaimsFamily = claimsFamily(primary, sheets.family),
-        onAddHelper = addHelper(context, primary, s, sheets.family),
-        onRtt = rttAction(primary, rtt, sheets),
+        onClaimsFamily = if (primary.simulated) null else claimsFamily(primary, sheets.family),
+        onAddHelper = if (primary.simulated) null else addHelper(context, primary, s, sheets.family),
+        onRtt = if (primary.simulated) null else rttAction(primary, rtt, sheets),
         rttActive = rtt.active,
         onScamCheck = if (primary.scamCheckOffered) ({ sheets.scamFor = primary }) else null,
     )
