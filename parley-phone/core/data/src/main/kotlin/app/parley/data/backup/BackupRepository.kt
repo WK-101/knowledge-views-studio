@@ -222,6 +222,9 @@ class BackupRepository(
     /** Parley's call-history archive, backed up in its own optional section (set by the container). */
     var callHistory: CallHistoryBackup? = null
 
+    /** Ringtones made from a name, carried as files of their own (set by the container). */
+    var tuneFiles: CallerTuneFiles? = null
+
     // ------------------------------------------------------------------ keys
 
     /** First-time setup: returns the recovery key to show the user once. */
@@ -333,6 +336,7 @@ class BackupRepository(
                     writer.writeVault(mapOf("vault.json" to v))
                     vaultIncluded = true
                 }
+                tuneFiles?.let { t -> writer.writeFiles(CallerTuneFiles.FOLDER, t.forBackup()) }
                 val m = writer.finish()
                 enc.finish()
                 m
@@ -702,6 +706,7 @@ class BackupRepository(
             }
             features(RestorePart.SETTINGS)
         }
+        if (o.contacts || o.settings) part(context.getString(R.string.data_rst_part_tunes)) { restoreTunes(opened) }
         if (o.vault) try {
             r = r.copy(vault = restoreVault(opened))
         } catch (e: VaultCrypto.LockedException) {
@@ -743,8 +748,8 @@ class BackupRepository(
         /** Archived calls restored per write. */
         const val RESTORE_LINES_CHUNK = 2_000
 
-        /** Sections the backup writes itself (contacts, calls, blocking, speed dial, settings, private contacts). */
-        val BUILT_IN_SECTIONS = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT) }
+        /** Sections the backup writes itself (contacts, calls, blocking, speed dial, settings, private contacts, tunes). */
+        val BUILT_IN_SECTIONS = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT, TUNES) }
     }
 
     private fun idForKey(key: String): Long? = runCatching {
@@ -826,6 +831,12 @@ class BackupRepository(
             }
         }
         return n to logged
+    }
+
+    /** Ringtones made from a name: files the restored contacts and labels name by URI. Only missing ones are written. */
+    private fun restoreTunes(opened: OpenedBackup) {
+        val t = tuneFiles ?: return
+        opened.reader.files(CallerTuneFiles.FOLDER) { name, bytes -> t.restore(name, bytes) }
     }
 
     private suspend fun restoreVault(opened: OpenedBackup): Int {

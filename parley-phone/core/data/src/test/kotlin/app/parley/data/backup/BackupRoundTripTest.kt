@@ -174,7 +174,7 @@ class BackupRoundTripTest {
         c.backup.extras = { emptyList() }
         val out = c.backup.backupNow(scheduled = false, target = Uri.fromFile(file))
         assertTrue(out.ok)
-        val builtIn = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT) }
+        val builtIn = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT, TUNES) }
         assertEquals(PersistentStores.requiredSections - builtIn, out.failedSections.toSet())
         assertNotEquals(emptyList<String>(), out.failedSections)
     }

@@ -45,7 +45,10 @@ import app.parley.common.backup.WrongKeyException
 import app.parley.data.backup.OpenedBackup
 import app.parley.data.backup.RestoreOptions
 import app.parley.ui.common.Format
+import app.parley.common.catching
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -180,6 +183,8 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                     step = Step.Working(res.getString(R.string.rst_restoring))
                     scope.launch {
                         val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
+                        // Restored ringtones made from a name get their read grants now, not only at the next start.
+                        withContext(Dispatchers.IO) { catching { app.parley.ui.contact.CallerTunes.regrant(context) } }
                         // Circle entries whose person isn't on this phone are skipped; say how many.
                         val unmatched = if (report.unmatched > 0) res.getString(
                             R.string.main_separator,

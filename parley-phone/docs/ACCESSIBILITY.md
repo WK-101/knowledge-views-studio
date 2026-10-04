@@ -49,7 +49,7 @@ The chosen tune is written once as a 16-bit mono WAV at 22.05 kHz (about 200 KB)
 - **Device contacts**: `Contacts.CUSTOM_RINGTONE` gets the content URI. Telecom plays it; Telecom runs as the system user, which may open any provider. If Telecom's own player fails, Android hands the tone to System UI's ringtone player, which gets a read grant (renewed when Parley starts, since grants end with a reboot). If a phone still can't open it, it falls back to the default ringtone (TESTING §28.3 step 2 checks this).
 - **Private contacts** (the caller-ID copy's `rt`) and **labels**: Parley's own ringer plays it from its own files.
 
-No new permission; nothing leaves the phone. Left out: OGG output (WAV needs no encoder and every ringer reads it), and recreating tune files after a restore on a new phone (Parley's backup carries the contact's ringtone URI but not the file; the contact then rings with the default tone until a tune is made again).
+No new permission; nothing leaves the phone except inside Parley's encrypted backup, which carries the tune files themselves (since 5.7): a restore on a new phone puts them back under the same URI, so contacts and labels ring with their tune again, and grants them to the ringers at once. Left out: OGG output (WAV needs no encoder and every ringer reads it).
 
 ## Left for later
 

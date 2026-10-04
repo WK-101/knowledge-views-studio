@@ -31,6 +31,22 @@ data class FamilySafetyState(
     /** The source was never asked about: the first hint from it asks before doing anything. */
     fun undecided(source: ExpectedSource): Boolean = source !in consents
 
+    /**
+     * This phone's family safety with a backup's put in (a restore): wherever both have something, this phone's own
+     * wins (a safe word for the same label, a helper on the same line, an answer about the same source, a window
+     * from the same note or item). Helpers stay within [Helpers.MAX]; windows that have ended are left out.
+     */
+    fun restoredFrom(backup: FamilySafetyState, now: Long, region: String?): FamilySafetyState {
+        val labels = safeWords.keys.map(LabelRefs::key).toSet()
+        val words = safeWords + backup.safeWords.filterKeys { LabelRefs.key(it) !in labels }
+        val people = backup.helpers.fold(helpers) { list, h -> Helpers.add(list, h, region) }
+        val mine = windows.map { it.source to it.key }.toSet()
+        val times = backup.windows.filter { (it.source to it.key) !in mine }.fold(ExpectedCalls.prune(windows, now)) { list, w ->
+            if (w.end > now) ExpectedCalls.put(list, w, now) else list
+        }
+        return FamilySafetyState(words, people, backup.consents + consents, times)
+    }
+
     companion object {
         private val json = Codecs.stored
 
