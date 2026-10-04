@@ -146,7 +146,8 @@ class CallScreener(
      * caller's label ringtone (contact's own tone, then label, then default), from the same lookup.
      */
     suspend fun screenCall(req: ScreenRequest): ScreeningResult {
-        // Never longer than a moment: the call is screened with what is set if the look takes longer.
+        // Never longer than a moment: the call is screened with what is set if the look takes longer (the look only
+        // waits; a switch it started finishes in the background).
         beforeScreen?.let { look -> suspendRunCatching { withTimeoutOrNull(SITUATION_LOOK_MS) { look() } } }
         val s = currentSettings()
         val now = System.currentTimeMillis()
@@ -512,10 +513,13 @@ class CallScreener(
         if (entry.notified.add(signature)) onScreened?.invoke(ScreenedCall(req, result, g.facts.isContact, g.contactName, logId, s))
     }
 
-    private companion object {
-        const val RESCREEN_WINDOW_MS = 30_000L
+    companion object {
+        private const val RESCREEN_WINDOW_MS = 30_000L
 
-        /** How long the look at the Situations' triggers may hold up screening. */
+        /**
+         * How long the look at the Situations' triggers may hold up screening (or an outgoing call's SIM): the switch
+         * itself goes on in the background after it.
+         */
         const val SITUATION_LOOK_MS = 400L
     }
 }

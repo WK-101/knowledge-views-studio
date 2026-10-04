@@ -8,11 +8,19 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+private const val DAY = 86_400_000L
+
 class NeverCallsYouTest {
     private val bank = NeverCallsYou.SavedAs("Northshire Bank", company = "Northshire Bank")
     private val ana = NeverCallsYou.SavedAs("Ana Lopez")
     private val number = "020 7946 0018"
     private val line = PhoneIdentity.e164(number, "GB")
+
+    /** Parley's copy of calls holds everything from this time on (earlier than every call below). */
+    private val kept = 1_000L
+
+    /** Calls with the line, a day apart, the first at [kept] + 1 day. */
+    private fun past(types: List<CallType>) = types.mapIndexed { i, t -> NeverCallsYou.PastCall(t, kept + (i + 1) * DAY) }
 
     private fun shows(
         past: List<CallType>,
@@ -22,7 +30,8 @@ class NeverCallsYouTest {
         emergency: Boolean = false,
         hidden: Boolean = false,
         conference: Boolean = false,
-    ) = NeverCallsYou.shows(n, l, savedAs, past, emergency, hidden, conference)
+        keptSince: Long? = kept,
+    ) = NeverCallsYou.shows(n, l, savedAs, past(past), keptSince, emergency, hidden, conference)
 
     @Test fun shows_when_you_only_ever_called_a_saved_organisation() {
         assertTrue(shows(listOf(CallType.OUTGOING)))
@@ -88,7 +97,7 @@ class NeverCallsYouTest {
         assertTrue(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Ana Lopez", companyLine = true)))
         // A label for organisations, singular or plural, any case.
         assertTrue(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Northshire", labels = setOf("Banks"))))
-        assertTrue(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Dr Patel", labels = setOf("Kids' school"))))
+        assertTrue(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Riverside", labels = setOf("Clinics"))))
         assertTrue(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Gas", labels = setOf("Utilities"))))
         assertFalse(NeverCallsYou.organisation(NeverCallsYou.SavedAs("Ana", labels = setOf("Family", "Book club"))))
         // A name that says so, but never a surname that only looks like one.
@@ -99,14 +108,42 @@ class NeverCallsYouTest {
     }
 
     @Test fun only_you_called() {
-        assertFalse(NeverCallsYou.onlyYouCalled(emptyList()))
-        assertTrue(NeverCallsYou.onlyYouCalled(listOf(CallType.OUTGOING)))
-        assertFalse(NeverCallsYou.onlyYouCalled(listOf(CallType.INCOMING)))
+        assertFalse(NeverCallsYou.onlyYouCalled(emptyList(), kept))
+        assertTrue(NeverCallsYou.onlyYouCalled(past(listOf(CallType.OUTGOING)), kept))
+        assertFalse(NeverCallsYou.onlyYouCalled(past(listOf(CallType.INCOMING)), kept))
+    }
+
+    @Test fun colleagues_and_people_in_everyday_labels_are_people() {
+        // Colleagues, other parents and teachers, friends who run a shop: labels people keep for persons.
+        listOf("Office", "Work", "Business", "Company", "School", "Kids' school", "Support", "Service", "Shop", "Store", "Doctor").forEach { l ->
+            assertFalse(l, NeverCallsYou.organisation(NeverCallsYou.SavedAs("Ana Lopez", labels = setOf(l))))
+            assertFalse(l, NeverCallsYou.organisation(NeverCallsYou.SavedAs("Ana Lopez", company = "Acme", labels = setOf(l))))
+        }
+        // A colleague you've only ever called rings for the first time: no card.
+        val colleague = NeverCallsYou.SavedAs("Sam Patel", company = "Northshire Bank", labels = setOf("Office", "Colleagues"))
+        assertFalse(shows(listOf(CallType.OUTGOING, CallType.OUTGOING), savedAs = listOf(colleague)))
+        // Institutions still are.
+        listOf("Banks", "Clinics", "Hospital", "Pharmacy", "Insurance", "Utilities", "Government", "Tax").forEach { l ->
+            assertTrue(l, NeverCallsYou.organisation(NeverCallsYou.SavedAs("Northshire", labels = setOf(l))))
+        }
+    }
+
+    @Test fun nothing_is_said_without_a_history_that_reaches_back_past_your_first_call() {
+        // Parley's copy is off (or can't be read now): Android's log alone may have lost an older call from them.
+        assertFalse(shows(listOf(CallType.OUTGOING), keptSince = null))
+        // The copy begins after (or with) your first call to them: a call from them before it may be gone.
+        assertFalse(shows(listOf(CallType.OUTGOING), keptSince = kept + DAY))
+        assertFalse(shows(listOf(CallType.OUTGOING), keptSince = kept + 2 * DAY))
+        assertTrue(shows(listOf(CallType.OUTGOING), keptSince = kept + DAY - 1))
+        // The same for "First call from them to you".
+        assertNull(first(Row(10, CallType.OUTGOING), Row(30, CallType.MISSED), keptSince = null))
+        assertNull(first(Row(10, CallType.OUTGOING), Row(30, CallType.MISSED), keptSince = 10))
+        assertEquals(Row(30, CallType.MISSED), first(Row(10, CallType.OUTGOING), Row(30, CallType.MISSED), keptSince = 9))
     }
 
     private data class Row(val date: Long, val type: CallType)
 
-    private fun first(vararg rows: Row) = NeverCallsYou.firstFromThem(rows.toList(), Row::date, Row::type)
+    private fun first(vararg rows: Row, keptSince: Long? = 0) = NeverCallsYou.firstFromThem(rows.toList(), keptSince, Row::date, Row::type)
 
     @Test fun first_call_from_them_after_only_yours() {
         val theirs = Row(30, CallType.MISSED)

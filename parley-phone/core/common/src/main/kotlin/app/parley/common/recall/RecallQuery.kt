@@ -19,7 +19,9 @@ import java.util.Locale
  * came in during March; "bank last week" is the bank, last week.
  *
  * A word is read as a date or a call word only where it is one of those words; anything else stays a search word. A
- * query made only of small words keeps them ("the who" finds The Who).
+ * query made only of small words keeps them ("the who" finds The Who). Month names that are also first names ("May",
+ * "June", "April") are dates only with a day or a year beside them or a word before them that makes them one ("in
+ * may", "last may"); a year alone is a number fragment unless other words come with it ("bank 2024", "in 2024").
  */
 data class RecallQuery(
     /** The query as typed. */
@@ -149,23 +151,30 @@ private class Parser(private val raw: String, private val today: LocalDate, priv
         }
     }
 
-    /** A month name with an optional day ("12 march", "march 12") and year ("march 2024"), or a year alone. */
+    /**
+     * A month name with an optional day ("12 march", "march 12") and year ("march 2024"), or "last"/"this" before it;
+     * or a year with other words ("bank 2024", "in 2024").
+     */
     private fun monthsAndYears() {
-        val i = folded.indices.firstOrNull { at(it)?.let(::monthOf) != null }
+        val i = folded.indices.firstOrNull { at(it)?.let(::monthOf) != null && monthIsDate(it) }
         if (i != null) return setDates(monthSpan(i, monthOf(folded[i])!!))
-        val y = folded.indices.firstOrNull { yearAt(it) != null } ?: return
+        val y = folded.indices.firstOrNull { yearAt(it) != null && (typed.size > 1 || folded.getOrNull(it - 1) in DATE_BEFORE) } ?: return
         val first = LocalDate.of(yearAt(y)!!, 1, 1)
         take(y)
         setDates(RecallQuery.DateSpan(first, first.plusYears(1), RecallQuery.DateSpan.Kind.YEAR))
     }
 
-    /** The month named at [i], with the day and year beside it (taken with it). */
+    /** Whether the month name at [i] is meant as one: always, unless it's also a first name and nothing beside it says so. */
+    private fun monthIsDate(i: Int): Boolean = folded[i] !in NAME_MONTHS ||
+        dayAt(i - 1) != null || dayAt(i + 1) != null || yearAt(i + 1) != null || folded.getOrNull(i - 1) in DATE_BEFORE
+
+    /** The month named at [i], with the day and year beside it (taken with it), and "last"/"this" before it. */
     private fun monthSpan(i: Int, month: Month): RecallQuery.DateSpan {
         take(i)
+        val which = at(i - 1)?.takeIf { it in LAST_THIS }?.also { take(i - 1) }
         val year = yearAt(i + 1)?.also { take(i + 1) } ?: yearAt(i + 2)?.takeIf { dayAt(i + 1) != null }?.also { take(i + 2) }
         val day = dayAt(i - 1)?.also { take(i - 1) } ?: dayAt(i + 1)?.also { take(i + 1) }
-        // A month without a year is the last one that has begun: "march" in February is last year's.
-        val y = year ?: if (month.value <= today.monthValue) today.year else today.year - 1
+        val y = year ?: yearOf(month, which)
         val first = LocalDate.of(y, month, 1)
         if (day == null || day > first.lengthOfMonth()) return RecallQuery.DateSpan(first, first.plusMonths(1), RecallQuery.DateSpan.Kind.MONTH)
         val d = first.withDayOfMonth(day)
@@ -174,12 +183,22 @@ private class Parser(private val raw: String, private val today: LocalDate, priv
         return RecallQuery.DateSpan(shown, shown.plusDays(1), RecallQuery.DateSpan.Kind.DAY)
     }
 
-    /** "monday": the last Monday, today included. */
+    /** The year of [month] said without one, after [which] ("last", "this" or nothing). */
+    private fun yearOf(month: Month, which: String?): Int = when (which) {
+        "this" -> today.year
+        // "last march": the last one before this month.
+        "last", "past" -> if (month.value < today.monthValue) today.year else today.year - 1
+        // A month without a year is the last one that has begun: "march" in February is last year's.
+        else -> if (month.value <= today.monthValue) today.year else today.year - 1
+    }
+
+    /** "monday": the last Monday, today included; "last monday" the one before today; "this monday" as "monday". */
     private fun weekdays() {
         for (i in folded.indices) {
             val day = at(i)?.let(::weekdayOf) ?: continue
             take(i)
-            val d = today.with(TemporalAdjusters.previousOrSame(day))
+            val which = at(i - 1)?.takeIf { it in LAST_THIS }?.also { take(i - 1) }
+            val d = if (which == "last" || which == "past") today.with(TemporalAdjusters.previous(day)) else today.with(TemporalAdjusters.previousOrSame(day))
             setDates(RecallQuery.DateSpan(d, d.plusDays(1), RecallQuery.DateSpan.Kind.DAY))
             return
         }
@@ -283,6 +302,15 @@ private class Parser(private val raw: String, private val today: LocalDate, priv
             "who", "whom", "what", "when", "which", "was", "were", "is", "did", "the", "a", "an", "in", "on", "at", "from", "during",
             "of", "with", "me", "my", "i", "that", "about", "to", "by", "for", "and",
         )
+
+        /** "last march", "this friday". */
+        val LAST_THIS = setOf("last", "past", "this")
+
+        /** Words before a month name or a year that make it a date ("in may", "last may", "during 2024"). */
+        val DATE_BEFORE = LAST_THIS + setOf("in", "during")
+
+        /** Month names that are also first names (in English and some common languages): dates only when said so. */
+        val NAME_MONTHS = setOf("may", "june", "april", "august", "mai", "avril", "abril", "julio")
 
         /** English abbreviations that aren't also everyday names or words ("jan", "jun", "mar" and "may" are). */
         val ABBREVIATIONS = mapOf(

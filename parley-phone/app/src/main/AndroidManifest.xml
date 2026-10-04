@@ -492,6 +492,15 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <!-- Situations' time windows: the clock was set or the time zone changed (no permission needed). -->
+        <receiver
+            android:name=".situations.SituationClockReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <receiver
             android:name=".blocking.BlockingActionReceiver"
             android:exported="false" />

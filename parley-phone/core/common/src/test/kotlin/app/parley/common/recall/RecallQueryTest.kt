@@ -133,4 +133,50 @@ class RecallQueryTest {
         assertFalse(q.inDates(outside, zone))
         assertTrue(parse("bank").inDates(outside, zone))
     }
+
+    @Test fun lastAndThisBeforeAWeekdayOrAMonth() {
+        val q = parse("who called last friday")
+        assertEquals("", q.words)
+        assertEquals(LocalDate.of(2026, 10, 2) to LocalDate.of(2026, 10, 3), span(q))
+        assertEquals(setOf(CallType.INCOMING, CallType.MISSED), q.callTypes)
+        // "last sunday" on a Sunday is a week ago; "this sunday" is today.
+        assertEquals(LocalDate.of(2026, 9, 27), parse("last sunday").dates!!.start)
+        assertEquals(LocalDate.of(2026, 9, 28), parse("past monday").dates!!.start)
+        assertEquals(today, parse("this sunday").dates!!.start)
+        // "last march" in October is this year's; "last october" in October is last year's.
+        val m = parse("plumber last march")
+        assertEquals("plumber", m.words)
+        assertEquals(LocalDate.of(2026, 3, 1) to LocalDate.of(2026, 4, 1), span(m))
+        assertEquals(LocalDate.of(2025, 10, 1), parse("last october").dates!!.start)
+        assertEquals(LocalDate.of(2026, 10, 1), parse("this october").dates!!.start)
+        assertEquals("", parse("last march").words)
+    }
+
+    @Test fun monthsThatAreNamesAreNamesUnlessSaidOtherwise() {
+        val may = parse("may smith")
+        assertNull(may.dates)
+        assertEquals("may smith", may.words)
+        assertNull(parse("may").dates)
+        assertEquals("may", parse("may").words)
+        assertNull(parse("june").dates)
+        assertNull(parse("Mai", Locale.GERMANY).dates)
+        // With a day, a year or a word that makes it a date.
+        assertEquals(LocalDate.of(2026, 5, 1), parse("in may").dates!!.start)
+        assertEquals(LocalDate.of(2026, 5, 1), parse("last may").dates!!.start)
+        assertEquals(LocalDate.of(2024, 6, 1), parse("june 2024").dates!!.start)
+        assertEquals(LocalDate.of(2026, 5, 12), parse("may 12").dates!!.start)
+        val withName = parse("may smith in april")
+        assertEquals("may smith", withName.words)
+        assertEquals(LocalDate.of(2026, 4, 1), withName.dates!!.start)
+        // Months that aren't names stay dates alone.
+        assertEquals(LocalDate.of(2026, 3, 1), parse("march").dates!!.start)
+    }
+
+    @Test fun aYearAloneIsANumberFragment() {
+        val q = parse("2015")
+        assertNull(q.dates)
+        assertEquals("2015", q.words)
+        assertEquals(LocalDate.of(2015, 1, 1), parse("in 2015").dates!!.start)
+        assertEquals(LocalDate.of(2015, 1, 1), parse("calls 2015").dates!!.start)
+    }
 }

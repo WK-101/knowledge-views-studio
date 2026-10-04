@@ -27,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -48,6 +49,7 @@ import app.parley.common.situations.DeviceTrigger
 import app.parley.common.situations.Situation
 import app.parley.common.situations.SituationCause
 import app.parley.common.situations.SituationKind
+import app.parley.common.situations.SituationRing
 import app.parley.common.situations.SituationState
 import app.parley.common.situations.Situations
 import app.parley.situations.SituationTriggers
@@ -59,7 +61,9 @@ import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
 import app.parley.ui.settings.CallsRoutes
 import app.parley.ui.settings.CallsSubPage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** A Situation's icon. */
 internal fun situationIcon(kind: SituationKind): ImageVector = when (kind) {
@@ -70,14 +74,21 @@ internal fun situationIcon(kind: SituationKind): ImageVector = when (kind) {
     SituationKind.CUSTOM -> Icons.Rounded.Tune
 }
 
-/** "On until 07:00", "Turns on when your car connects", "Off until next time"… */
-internal fun situationStatus(context: Context, s: Situation, state: SituationState): String = when {
-    state.activeId == s.id -> onStatus(context, s, state.cause)
-    !s.changesSomething -> context.getString(R.string.sit_nothing_yet)
-    s.id in state.held -> context.getString(R.string.sit_off_held)
-    else -> listOfNotNull(deviceStatus(context, s), s.schedule?.let { context.getString(R.string.sit_auto_window, BlockingText.schedule(context, it)) })
-        .joinToString(context.getString(R.string.main_separator)).ifEmpty { context.getString(R.string.sit_off_manual) }
+/** "On until 07:00", "Turns on when your car connects", "Off until next time"… and when its label is gone, that first. */
+internal fun situationStatus(context: Context, s: Situation, state: SituationState): String {
+    val status = when {
+        state.activeId == s.id -> onStatus(context, s, state.cause)
+        !s.changesSomething -> context.getString(R.string.sit_nothing_yet)
+        s.id in state.held -> context.getString(R.string.sit_off_held)
+        else -> listOfNotNull(deviceStatus(context, s), s.schedule?.let { context.getString(R.string.sit_auto_window, BlockingText.schedule(context, it)) })
+            .joinToString(context.getString(R.string.main_separator)).ifEmpty { context.getString(R.string.sit_off_manual) }
+    }
+    return labelGone(context, s)?.let { it + context.getString(R.string.main_separator) + status } ?: status
 }
+
+/** "“Family” is gone, so Favourites ring instead", or null. */
+internal fun labelGone(context: Context, s: Situation): String? =
+    s.ringLabel?.takeIf { s.ring == SituationRing.LABEL && s.ringLabelGone && it.isNotBlank() }?.let { context.getString(R.string.sit_label_gone, it.trim()) }
 
 private fun onStatus(context: Context, s: Situation, cause: SituationCause): String = when (cause) {
     SituationCause.MANUAL -> context.getString(R.string.sit_on_manual)
@@ -165,8 +176,10 @@ private const val MAX_NAME = 40
 @Composable
 fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
     val c = vm.c
-    val state by c.situations.state.collectAsStateWithLifecycle()
-    val list by c.situations.list.collectAsStateWithLifecycle()
+    // Situations are read from disk when first used: off the main thread, and nothing is shown until then.
+    val sit = produceState(c.situationsIfReady()) { if (value == null) value = withContext(Dispatchers.IO) { c.situations } }.value ?: return
+    val state by sit.state.collectAsStateWithLifecycle()
+    val list by sit.list.collectAsStateWithLifecycle()
     val active = state.activeId?.let { id -> list.firstOrNull { it.id == id } }
     AnimatedVisibility(active != null, modifier = modifier, enter = expandVertically(), exit = shrinkVertically()) {
         val s = active ?: return@AnimatedVisibility
@@ -195,7 +208,7 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
                     )
                 }
                 TextButton(
-                    onClick = { c.scope.launch { c.situations.turnOff() } },
+                    onClick = { c.scope.launch { sit.turnOff() } },
                     modifier = Modifier.padding(end = Spacing.xs).semantics { contentDescription = offCd },
                 ) { Text(stringResource(R.string.sit_chip_off)) }
             }

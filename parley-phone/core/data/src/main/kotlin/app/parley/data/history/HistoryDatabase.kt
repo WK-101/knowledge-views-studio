@@ -94,6 +94,9 @@ interface HistoryDao {
     @Query("SELECT MAX(date) FROM archived_calls")
     suspend fun newest(): Long?
 
+    @Query("SELECT MIN(date) FROM archived_calls")
+    suspend fun oldest(): Long?
+
     @Query("SELECT COUNT(*) FROM archived_calls")
     suspend fun count(): Int
 

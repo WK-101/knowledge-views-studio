@@ -7,6 +7,7 @@ import app.parley.common.catching
 import app.parley.common.calls.CallerTune
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.FamilySafetyState
+import app.parley.common.situations.Behaviour
 import app.parley.common.situations.Situations
 import app.parley.common.storage.PersistentStores.Sections
 import app.parley.data.calls.DriveProfileRepository
@@ -65,22 +66,37 @@ class CallSwitchesBackup(private val drive: () -> DriveProfileRepository, privat
 
 /**
  * Situations: what each one sets and when it switches on, the built-ins as changed and the ones made. Which one is on
- * now, and what it would put back, stay on this phone (a moment, not a preference). On restore, one only in the backup
- * is added and this phone's own wins where both have one, unless this phone's is a built-in as it came.
+ * now stays on this phone (a moment, not a preference). On restore, one only in the backup is added and this phone's
+ * own wins where both have one, unless this phone's is a built-in as it came.
+ *
+ * A backup made while one was on: the settings, call-time and drive sections hold that Situation's values (all-day off
+ * hours, its switches and speaker). What was set before it goes along too ([K_BEFORE]) and is put in their place on
+ * restore, so a new phone never keeps a moment of the old one with nothing to turn it off. This part is restored after
+ * those sections (it is last in the container's list).
  */
-class SituationsBackup(private val situations: () -> SituationsController) : BackupExtras {
+class SituationsBackup(
+    private val situations: () -> SituationsController,
+    /** The labels on this phone by title, or null when they can't be read. */
+    private val labelTitles: () -> Set<String>? = { null },
+) : BackupExtras {
     override val section = "situations"
     override val sections = setOf(Sections.SITUATIONS)
 
-    override suspend fun export(): Map<String, String> = mapOf(K to Situations.encodeList(situations().forBackup()))
+    override suspend fun export(): Map<String, String> {
+        val before = situations().behaviourForBackup()
+        return mapOf(K to Situations.encodeList(situations().forBackup())) +
+            listOfNotNull(before?.let { K_BEFORE to it.encode() })
+    }
 
     override suspend fun import(values: Map<String, String>) {
-        val backup = Situations.decodeList(values[K]) ?: return
-        situations().restore(backup)
+        Situations.decodeList(values[K])?.let { situations().restore(it) }
+        val before = Behaviour.decode(values[K_BEFORE]) ?: return
+        situations().restoreBehaviour(before, labelTitles())
     }
 
     private companion object {
         const val K = "${BackupExtras.PREFIX}situations"
+        const val K_BEFORE = "${BackupExtras.PREFIX}situations.before"
     }
 }
 

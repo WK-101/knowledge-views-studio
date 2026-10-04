@@ -2,6 +2,7 @@ package app.parley.common.situations
 
 import app.parley.common.BlockAction
 import app.parley.common.Codecs
+import app.parley.common.LabelRefs
 import app.parley.common.OffHours
 import app.parley.common.OffHoursAllow
 import app.parley.common.PolicyClock
@@ -9,8 +10,8 @@ import app.parley.common.Schedule
 import app.parley.common.calls.SpeakerDefault
 import kotlinx.serialization.Serializable
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 /** The four Situations Parley starts with, and [CUSTOM] for the ones people make. */
 enum class SituationKind { DRIVING, MEETING, NIGHT, TRAVELLING, CUSTOM }
@@ -58,6 +59,13 @@ data class Situation(
     val ring: SituationRing? = null,
     /** The label that may ring with [SituationRing.LABEL] (its title, as off hours keeps it). */
     val ringLabel: String? = null,
+    /**
+     * The label's group row on this phone, so a rename made anywhere is followed ([Situations.followLabel]). Row ids
+     * are this phone's own: left out of backups, where the title is matched instead.
+     */
+    val ringLabelId: Long? = null,
+    /** The label it names was deleted: Favourites ring instead until a label is chosen again (the summary says so). */
+    val ringLabelGone: Boolean = false,
     /** The drive profile's switches (they act only while the car is connected, as always). */
     val driveAnnounce: Boolean? = null,
     val driveAnswerFavourites: Boolean? = null,
@@ -113,7 +121,15 @@ data class Behaviour(
     val busyReplyText: String = "",
     val assistedDialling: Boolean = true,
     val localSimHint: Boolean = true,
-)
+) {
+    fun encode(): String = Codecs.full.encodeToString(serializer(), this)
+
+    companion object {
+        /** Reads [encode]d behaviours; null when unreadable. */
+        fun decode(text: String?): Behaviour? =
+            if (text.isNullOrBlank()) null else runCatching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrNull()
+    }
+}
 
 /**
  * The Situation on now, how it came on, and what to put back: [before] is what was set before it, [applied] what it
@@ -129,6 +145,11 @@ data class SituationState(
     val before: Behaviour? = null,
     val applied: Behaviour? = null,
     val held: List<String> = emptyList(),
+    /**
+     * Set while [applied] is being written: a process death in between leaves the stores half switched (or with the
+     * Situation before's values), so the next look writes [applied] again before anything else.
+     */
+    val pending: Boolean = false,
 ) {
     fun encode(): String = Codecs.full.encodeToString(serializer(), this)
 
@@ -210,7 +231,7 @@ object Situations {
     /** [b] with [s]'s values in it. */
     fun apply(b: Behaviour, s: Situation): Behaviour {
         var out = b
-        s.ring?.let { out = out.copy(offHours = ringOffHours(b.offHours, it, s.ringLabel)) }
+        s.ring?.let { out = out.copy(offHours = ringOffHours(b.offHours, it, s.ringLabel.takeUnless { s.ringLabelGone })) }
         s.driveAnnounce?.let { out = out.copy(driveAnnounce = it) }
         s.driveAnswerFavourites?.let { out = out.copy(driveAnswerFavourites = it) }
         s.driveSilenceUnknown?.let { out = out.copy(driveSilenceUnknown = it) }
@@ -252,12 +273,13 @@ object Situations {
 
     /**
      * What to put back: each behaviour as it was [before], unless it was changed by hand since the Situation set it
-     * ([current] no longer what was [applied]), when the change is kept.
+     * ([current] no longer what was [applied]), when the change is kept. Off hours is compared field by field, so a
+     * change to one of its fields (by hand, or a label rename Parley followed) keeps that field only and the rest
+     * still comes back.
      */
     fun restore(before: Behaviour, applied: Behaviour, current: Behaviour): Behaviour {
-        fun <T> back(now: T, set: T, was: T): T = if (now == set) was else now
         return Behaviour(
-            offHours = back(current.offHours, applied.offHours, before.offHours),
+            offHours = restoreOffHours(before.offHours, applied.offHours, current.offHours),
             driveAnnounce = back(current.driveAnnounce, applied.driveAnnounce, before.driveAnnounce),
             driveAnswerFavourites = back(current.driveAnswerFavourites, applied.driveAnswerFavourites, before.driveAnswerFavourites),
             driveSilenceUnknown = back(current.driveSilenceUnknown, applied.driveSilenceUnknown, before.driveSilenceUnknown),
@@ -272,6 +294,21 @@ object Situations {
         )
     }
 
+    private fun <T> back(now: T, set: T, was: T): T = if (now == set) was else now
+
+    private fun restoreOffHours(before: OffHours, applied: OffHours, current: OffHours): OffHours {
+        val out = OffHours(
+            enabled = back(current.enabled, applied.enabled, before.enabled),
+            schedule = back(current.schedule, applied.schedule, before.schedule),
+            allow = back(current.allow, applied.allow, before.allow),
+            labelId = back(current.labelId, applied.labelId, before.labelId),
+            labelTitle = back(current.labelTitle, applied.labelTitle, before.labelTitle),
+            action = back(current.action, applied.action, before.action),
+        )
+        // "Only this label" with no label would silence everyone: off hours switches itself off, as when a label goes.
+        return if (out.allow == OffHoursAllow.LABEL && out.labelTitle.isNullOrBlank()) LabelRefs.labelGone(out) else out
+    }
+
     /** The outcome of switching: the state to keep and the behaviours to write. */
     data class Outcome(val state: SituationState, val behaviour: Behaviour)
 
@@ -284,12 +321,18 @@ object Situations {
 
     /**
      * Switches [s] on. Another one on now is taken out first, so the snapshot is always what was set before any
-     * Situation, and turning this one off puts that back.
+     * Situation, and turning this one off puts that back. Switched on by hand over another one, that other one is held
+     * off ([SituationState.held]) like one switched off by hand: moving away from it (the tile's next Situation, then
+     * Off) must not let its window or device switch it straight back on. [plan] lets go once its trigger stops.
      */
     fun turnOn(state: SituationState, current: Behaviour, s: Situation, cause: SituationCause, now: Long): Outcome {
         val before = base(state, current)
         val applied = apply(before, s)
-        val held = if (cause == SituationCause.MANUAL) state.held - s.id else state.held
+        val held = if (cause == SituationCause.MANUAL) {
+            (state.held - s.id + listOfNotNull(state.activeId?.takeIf { it != s.id })).distinct()
+        } else {
+            state.held
+        }
         return Outcome(SituationState(s.id, cause, now, before, applied, held), applied)
     }
 
@@ -383,15 +426,24 @@ object Situations {
 
     /**
      * The next time a window starts or ends after [now] (within the next eight days), so the triggers are looked at
-     * again then; null when no Situation has a window.
+     * again then; null when no Situation has a window. Each edge is a wall-clock time in [zone] on its own day, so a
+     * day of 23 or 25 hours (a clock change) still has its 22:00 at 22:00; an edge in the hour a clock skips is at the
+     * first minute after it.
      */
     fun nextChange(list: List<Situation>, now: Long, zone: ZoneId): Long? {
         val windows = list.mapNotNull { it.schedule }
         if (windows.isEmpty()) return null
-        val today = Instant.ofEpochMilli(now).atZone(zone).truncatedTo(ChronoUnit.DAYS)
-        val minutes = windows.flatMap { listOf(it.startMinute, it.endMinute) }.map { it.coerceIn(0, MINUTES_A_DAY).toLong() }.distinct()
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val minutes = windows.flatMap { listOf(it.startMinute, it.endMinute) }.map { it.coerceIn(0, MINUTES_A_DAY) }.distinct()
         return (0..LOOK_AHEAD_DAYS).asSequence()
-            .flatMap { d -> minutes.asSequence().map { m -> today.plusDays(d.toLong()).plusMinutes(m).toInstant().toEpochMilli() } }
+            .flatMap { d ->
+                val day = today.plusDays(d.toLong())
+                minutes.asSequence().map { m ->
+                    // 24:00 is the next day's midnight.
+                    val edge = if (m >= MINUTES_A_DAY) day.plusDays(1).atStartOfDay(zone) else day.atTime(LocalTime.of(m / 60, m % 60)).atZone(zone)
+                    edge.toInstant().toEpochMilli()
+                }
+            }
             .filter { it > now }
             .minOrNull()
     }
@@ -404,13 +456,63 @@ object Situations {
 
     /**
      * A restored backup's Situations merged with this phone's: one that is only in the backup is added; where both
-     * have one, this phone's wins unless it is still a built-in as it came ([defaults]).
+     * have one, this phone's wins unless it is still a built-in as it came ([defaults]). The backup's label rows mean
+     * nothing here: its labels are matched by title.
      */
     fun merge(here: List<Situation>, backup: List<Situation>, defaults: List<Situation>): List<Situation> {
         val fresh = defaults.associateBy { it.id }
-        val theirs = backup.associateBy { it.id }
+        val theirs = backup.map { it.copy(ringLabelId = null) }.associateBy { it.id }
         val kept = here.map { h -> if (fresh[h.id] == h) theirs[h.id] ?: h else h }
-        val added = backup.filter { b -> here.none { it.id == b.id } }
+        val added = theirs.values.filter { b -> here.none { it.id == b.id } }
         return normalise(kept + added, defaults)
+    }
+
+    // ------------------------------------------------------------------ labels
+
+    /**
+     * [s] with its "who may ring" label checked against the labels on this phone ([labels]: group row → title; null
+     * when they can't be read, which changes nothing): its row's current title (a rename made in any app), else the
+     * row of a label with its title (a backup, a label made again), else gone, when Favourites ring instead.
+     */
+    fun followLabel(s: Situation, labels: Map<Long, String>?): Situation {
+        if (s.ring != SituationRing.LABEL || labels == null) return s
+        val title = s.ringLabel?.let(LabelRefs::key)?.takeIf { it.isNotEmpty() } ?: return s
+        s.ringLabelId?.let { labels[it] }?.let(LabelRefs::key)?.takeIf { it.isNotEmpty() }?.let { return s.copy(ringLabel = it, ringLabelGone = false) }
+        val match = labels.entries.firstOrNull { LabelRefs.key(it.value) == title }
+        return if (match != null) {
+            s.copy(ringLabel = title, ringLabelId = match.key, ringLabelGone = false)
+        } else {
+            s.copy(ringLabelId = null, ringLabelGone = true)
+        }
+    }
+
+    /** Labels renamed or merged in Parley ([renames]: old title → new title): the Situations naming them follow. */
+    fun labelsRenamed(list: List<Situation>, renames: Map<String, String>): List<Situation> {
+        val m = renames.mapKeys { LabelRefs.key(it.key) }.mapValues { LabelRefs.key(it.value) }
+        return list.map { s -> s.ringLabel?.let { m[LabelRefs.key(it)] }?.let { to -> s.copy(ringLabel = to, ringLabelGone = false) } ?: s }
+    }
+
+    /** Labels deleted in Parley: a Situation letting one of them ring lets Favourites ring instead, and says so. */
+    fun labelsDeleted(list: List<Situation>, titles: Set<String>): List<Situation> = list.map { s ->
+        if (s.ring == SituationRing.LABEL && LabelRefs.refersTo(s.ringLabel, titles)) s.copy(ringLabelId = null, ringLabelGone = true) else s
+    }
+
+    /**
+     * The snapshot after Parley followed a label rename in off hours: [SituationState.before] and
+     * [SituationState.applied] are renamed the same way, so the rename counts neither as a change made by hand nor as
+     * one to undo.
+     */
+    fun stateLabelsRenamed(state: SituationState, renames: Map<String, String>): SituationState = state.copy(
+        before = state.before?.let { it.copy(offHours = LabelRefs.renameOffHours(it.offHours, renames)) },
+        applied = state.applied?.let { it.copy(offHours = LabelRefs.renameOffHours(it.offHours, renames)) },
+    )
+
+    /** The snapshot after a label was deleted: what off hours had for it goes the way off hours itself went. */
+    fun stateLabelsDeleted(state: SituationState, titles: Set<String>): SituationState {
+        fun gone(o: OffHours) = if (o.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(o.labelTitle, titles)) LabelRefs.labelGone(o) else o
+        return state.copy(
+            before = state.before?.let { it.copy(offHours = gone(it.offHours)) },
+            applied = state.applied?.let { it.copy(offHours = gone(it.offHours)) },
+        )
     }
 }

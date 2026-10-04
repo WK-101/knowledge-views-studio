@@ -1,6 +1,8 @@
 package app.parley.data
 
 import app.parley.common.calls.ExpectedWindow
+import app.parley.common.catching
+import app.parley.common.LabelRefs
 import app.parley.data.security.AppPinStore
 import app.parley.data.security.Concealment
 import app.parley.data.security.RecordSealing
@@ -108,7 +110,7 @@ class DataContainer(context: Context) {
             // Situations: a window or a car may switch one on or off before this call is screened.
             .also { s ->
                 s.situationsWatching = { situations.watching() }
-                s.beforeScreen = { situations.reconcile() }
+                s.beforeScreen = { situations.lookBriefly(CallScreener.SITUATION_LOOK_MS) }
             }
             // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->
@@ -137,8 +139,18 @@ class DataContainer(context: Context) {
         DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) { n -> callLog.pastCalls(n, System.currentTimeMillis(), limit = 10) }
     }
 
-    // A label's SIM for people without a remembered SIM of their own, then the SIM of the Situation on now.
-    val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) ?: situations.activeSim() } } }
+    // A label's SIM for people without a remembered SIM of their own, then the SIM of the Situation on now (its
+    // window may have just begun: looked at briefly first, as before an incoming call is screened).
+    val placer by lazy {
+        CallPlacer(appContext, sims, prefs).also { p ->
+            p.fallbackSim = { n ->
+                extras.labelSimFor(n) ?: situations.let { s ->
+                    s.lookBriefly(CallScreener.SITUATION_LOOK_MS)
+                    s.activeSim()
+                }
+            }
+        }
+    }
     val records by lazy { ContactRecordStore(appContext) }
     val calling by lazy { CallingRepository(appContext) }
     /** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */
@@ -174,7 +186,24 @@ class DataContainer(context: Context) {
     val roaming by lazy { RoamingRepository(appContext, sims) }
 
     /** Situations ("Driving", "Night"…): one tap sets a moment, and turning it off puts back what was set. */
-    val situations by lazy { SituationsController(appContext, settings, { driveProfile }, { callExtras }, { roaming }) { situationSignals?.invoke() } }
+    private val situationsLazy = lazy {
+        SituationsController(appContext, settings, { driveProfile }, { callExtras }, { roaming }, scope, labels = ::labelRows) { situationSignals?.invoke() }
+    }
+    val situations by situationsLazy
+
+    /**
+     * [situations] if it was built already, else null: building it reads two preference files, which the main thread
+     * (the Quick Settings tile, the home screen's line) must not wait for. [warmStores] builds it at start-up.
+     */
+    fun situationsIfReady(): SituationsController? = if (situationsLazy.isInitialized()) situationsLazy.value else null
+
+    /** The labels on this phone by group row, for Situations' "who may ring"; null when contacts can't be read. */
+    private fun labelRows(): Map<Long, String>? =
+        if (!Permissions.has(appContext, android.Manifest.permission.READ_CONTACTS)) {
+            null
+        } else {
+            catching { contacts.groups().associate { it.id to it.title } }.getOrNull()
+        }
 
     /** What Situations' triggers see on this phone (audio devices, car mode), set by the app at start. */
     @Volatile
@@ -253,7 +282,8 @@ class DataContainer(context: Context) {
             menus.backupExtras,
             FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
             CallSwitchesBackup({ driveProfile }, { roaming }),
-            SituationsBackup { situations },
+            // Last: what a Situation on at backup time had replaced is put back over the sections restored before it.
+            SituationsBackup({ situations }) { labelRows()?.values?.map(LabelRefs::key)?.toSet() },
         )
     }
 

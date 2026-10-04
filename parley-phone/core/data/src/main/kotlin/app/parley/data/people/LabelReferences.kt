@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
  * at a label that exists, by title (see [LabelRefs]):
  * - [migrate] rewrites references saved by older versions (group row ids) and moves label ringtones that were
  *   kept on allow rules to the label page's store;
- * - [renamed] and [deleted] follow a rename, merge or delete made on the labels screen.
+ * - [renamed] and [deleted] follow a rename, merge or delete made on the labels screen (Situations too).
  */
 class LabelReferences(private val c: DataContainer, private val prefs: PeoplePrefs) {
 
@@ -51,6 +51,8 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         val moved = LabelRefs.renameRules(rules, renames)
         rules.zip(moved).filter { (a, b) -> a != b }.forEach { (_, b) -> c.blocks.saveRule(b) }
         c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.renameOffHours(s.screening.offHours, renames))) }
+        // Situations letting a label ring follow it, and so does what the one on now puts back.
+        c.situations.labelsRenamed(renames)
         c.calling.update { LabelRefs.renameConfig(it, renames) }
         prefs.update { it.copy(labelRingtones = LabelRefs.renameRingtones(it.labelRingtones, renames)) }
         // The label's SIM, rhythm and Do Not Disturb choice follow it.
@@ -71,12 +73,14 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.extras.labelsDeleted(titles)
         c.familySafety.labelsDeleted(titles)
         val oh = c.settings.current().screening.offHours
-        if (oh.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(oh.labelTitle, titles)) {
-            c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.labelGone(s.screening.offHours))) }
-            if (oh.enabled) c.appContext.getString(R.string.data_label_offhours_off, oh.labelTitle?.trim().toString()) else null
-        } else {
-            null
-        }
+        // While a Situation is on, off hours holds its values: what it puts back is the user's own (said below).
+        val situationOn = c.situations.state.value.activeId != null
+        val gone = oh.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(oh.labelTitle, titles)
+        if (gone) c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.labelGone(s.screening.offHours))) }
+        // Situations letting the label ring let Favourites ring instead; the one on now takes that at once.
+        val own = c.situations.labelsDeleted(titles)
+        val offFor = if (situationOn) own else oh.labelTitle?.trim()?.takeIf { gone && oh.enabled }
+        offFor?.let { c.appContext.getString(R.string.data_label_offhours_off, it) }
     }
 
     /** What [deleted] takes away for some labels, kept so an Undo can put it back ([restore]). */

@@ -26,6 +26,8 @@
     <string name="sit_auto_named">Turns on when %1$s connects</string>
     <string name="sit_auto_any">Turns on with any car or Bluetooth audio</string>
     <string name="sit_nothing_yet">Changes nothing yet · tap to choose</string>
+    <!-- A Situation's "who may ring" label was deleted. %1$s the label's name. -->
+    <string name="sit_label_gone">“%1$s” is gone, so Favourites ring instead</string>
     <!-- TalkBack, on a Situation's switch. %1$s its name. -->
     <string name="sit_switch_cd">%1$s situation</string>
     <string name="sit_edit_cd">Change %1$s</string>
