@@ -23,6 +23,12 @@ object SharedLabelRules {
 
         /** Can't be opened, isn't signed by a member: left alone this run. */
         UNREADABLE,
+
+        /**
+         * Another member's edit made from a version this phone held before its synced one (see [concurrent]):
+         * neither saw the other's change, so the two are merged against that version, whichever is newer.
+         */
+        CONCURRENT,
     }
 
     enum class Action {
@@ -57,7 +63,22 @@ object SharedLabelRules {
         // An edit here wins over the deletion: it is written again with a higher version.
         Remote.TOMBSTONE -> pick(local, Action.DELETE_LOCAL, Action.PUBLISH, Action.FORGET)
         Remote.MISSING -> pick(local, Action.PUBLISH, Action.PUBLISH, Action.PUBLISH_TOMBSTONE)
+        Remote.CONCURRENT -> pick(local, Action.MERGE, Action.MERGE, Action.IMPORT_AGAIN)
     }
+
+    /**
+     * Whether a member's file at [fileVersion], written from [fileParent], was made alongside this phone's copy: it
+     * was written from one of the versions this phone held before [lastVersion] ([prior]), so neither side saw the
+     * other's change. It is merged against that version instead of replacing this phone's (or, older, being ignored as
+     * a copy put back). A version this phone held itself is never concurrent: that is a copy put back. Folder files
+     * rarely meet this; update files, which travel slowly, often do.
+     */
+    fun concurrent(fileVersion: Long, fileParent: Long?, lastVersion: Long?, prior: Collection<Long>): Boolean =
+        fileParent != null && lastVersion != null && fileParent != lastVersion && fileParent in prior &&
+            fileVersion != lastVersion && fileVersion !in prior
+
+    /** How many versions before the synced one a phone remembers per contact, for [concurrent]. */
+    const val PRIOR_VERSIONS = 3
 
     private fun pick(local: Local, unchanged: Action, changed: Action, gone: Action) = when (local) {
         Local.UNCHANGED -> unchanged
@@ -67,11 +88,23 @@ object SharedLabelRules {
 
     /**
      * What a contact file is compared with the last synced state: [lastVersion] is the version this phone synced
-     * (null: never), [seenVersion] the highest it ever saw of this sid, deletions included.
+     * (null: never), [seenVersion] the highest it ever saw of this sid, deletions included. [parent] and [prior]: the
+     * version the file was written from and the ones this phone held before (see [concurrent]); a deletion made
+     * alongside this phone's copy loses to it, like any deletion that meets an edit.
      */
-    fun remote(fileVersion: Long?, deleted: Boolean, readable: Boolean, lastVersion: Long?, seenVersion: Long?): Remote = when {
+    @Suppress("LongParameterList") // The file's version, kind and parent against what this phone synced.
+    fun remote(
+        fileVersion: Long?,
+        deleted: Boolean,
+        readable: Boolean,
+        lastVersion: Long?,
+        seenVersion: Long?,
+        parent: Long? = null,
+        prior: Collection<Long> = emptyList(),
+    ): Remote = when {
         fileVersion == null -> Remote.MISSING
         !readable -> Remote.UNREADABLE
+        concurrent(fileVersion, parent, lastVersion, prior) -> if (deleted) Remote.MISSING else Remote.CONCURRENT
         fileVersion < maxOf(lastVersion ?: 0L, seenVersion ?: 0L) -> Remote.MISSING
         lastVersion != null && fileVersion == lastVersion -> Remote.UNCHANGED
         deleted -> Remote.TOMBSTONE

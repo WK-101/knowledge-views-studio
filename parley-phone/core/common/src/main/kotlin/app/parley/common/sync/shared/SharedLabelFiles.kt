@@ -32,6 +32,8 @@ enum class ChangeKind { ADDED, EDITED, REMOVED }
  * One contact file of a shared label (`c-<sid>.plabel`): the contact's shared fields ([card], a [SharedCards]
  * encoding; null for a deletion), its [version], when and by whom ([author]) it was written. The signature covers the
  * file's exact [body] with the label id and file name, so a signed file can't be moved to another name or label.
+ * [parent]: the version its writer had synced when it wrote this one (null in files from before it was recorded), so
+ * two edits made from the same version, which update files often carry, merge instead of one replacing the other.
  */
 class CardFile(
     val sid: String,
@@ -42,6 +44,7 @@ class CardFile(
     val card: String?,
     internal val body: String,
     internal val signature: ByteArray,
+    val parent: Long? = null,
 ) {
     val authorHex: String get() = SharedLabelFiles.keyHex(author)
 
@@ -85,6 +88,8 @@ class Journal(
     val entries: List<JournalEntry>,
     internal val body: String = "",
     internal val signature: ByteArray = ByteArray(0),
+    /** When its member wrote it (0 in journals from before it was recorded): the newer of two copies wins. */
+    val at: Long = 0,
 ) {
     val memberHex: String get() = SharedLabelFiles.keyHex(member)
 }
@@ -151,8 +156,12 @@ object SharedLabelFiles {
 
     // ---------------------------------------------------------------- contact files
 
-    /** A signed contact file's bytes (before sealing), or null when the signer can't sign right now. */
-    fun writeCard(signer: MemberSigner, labelId: String, sid: String, version: Long, at: Long, card: String?): ByteArray? {
+    /**
+     * A signed contact file's bytes (before sealing), or null when the signer can't sign right now. [parent]: the
+     * version this phone had synced (see [CardFile.parent]); readers that predate it ignore it.
+     */
+    @Suppress("LongParameterList") // The signed fields of a contact file.
+    fun writeCard(signer: MemberSigner, labelId: String, sid: String, version: Long, at: Long, card: String?, parent: Long? = null): ByteArray? {
         require(isId(sid)) { "Bad sid" }
         val body = json.encodeToString(
             JsonElement.serializer(),
@@ -160,6 +169,7 @@ object SharedLabelFiles {
                 put("sid", sid); put("v", version); put("at", at); put("by", b64.encodeToString(signer.publicKey))
                 put("del", card == null)
                 if (card != null) put("card", card)
+                if (parent != null && parent > 0) put("p", parent)
             },
         )
         val sig = signer.sign(payload(CARD_HEADER, labelId, cardName(sid), body)) ?: return null
@@ -181,9 +191,11 @@ object SharedLabelFiles {
             val by = unb64.decode(o.str("by") ?: return null)
             val del = o.bool("del") ?: return null
             val card = o.str("card")
+            val parent = o.long("p")
             if (by.size != 32 || v < 0 || del != (card == null)) return null
             if (card != null && card.length > MAX_CARD_CHARS) return null
-            CardFile(sid, v, at, by, del, card, body, sig)
+            if (parent != null && (parent <= 0 || parent >= v)) return null
+            CardFile(sid, v, at, by, del, card, body, sig, parent)
         }.getOrNull() ?: return null
         if (sidOf(fileName) != f.sid) return null
         if (!Ed25519.verify(f.author, payload(CARD_HEADER, labelId, fileName, body), sig)) return null
@@ -242,6 +254,7 @@ object SharedLabelFiles {
             JsonElement.serializer(),
             buildJsonObject {
                 put("member", b64.encodeToString(j.member)); put("name", j.name.take(MAX_NAME)); put("epoch", j.epoch); put("left", j.left)
+                if (j.at > 0) put("at", j.at)
                 j.ticket?.let { t ->
                     put(
                         "ticket",
@@ -308,7 +321,8 @@ object SharedLabelFiles {
                     at = x.long("at") ?: return@mapNotNull null,
                 )
             }
-            Journal(member, o.str("name").orEmpty().take(MAX_NAME), o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig)
+            val name = o.str("name").orEmpty().take(MAX_NAME)
+            Journal(member, name, o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig, o.long("at")?.coerceAtLeast(0) ?: 0)
         }.getOrNull() ?: return null
         if (journalName(j.member) != fileName) return null
         if (!Ed25519.verify(j.member, payload(JOURNAL_HEADER, labelId, fileName, body), sig)) return null
