@@ -67,7 +67,6 @@
     <ID>CyclomaticComplexMethod:CallLogIndex.kt$CallLogIndex$fun unreturned(period: Period = Period.ALL): List&lt;UnreturnedCall&gt;</ID>
     <ID>CyclomaticComplexMethod:CallLogIndex.kt$CallLogIndex.Companion$fun build(calls: List&lt;CallEntry&gt;, contacts: List&lt;IndexContact&gt;?, countryIso: String?, zone: ZoneId = ZoneId.systemDefault()): CallLogIndex</ID>
     <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$internal fun add(context: Context, call: Call)</ID>
-    <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$internal fun remove(call: Call)</ID>
     <ID>CyclomaticComplexMethod:CallPolicy.kt$CallPolicy.Evaluation$fun run(): ScreeningResult</ID>
     <ID>CyclomaticComplexMethod:CallScreener.kt$CallScreener$fun isActive(): Boolean</ID>
     <ID>CyclomaticComplexMethod:CallScreener.kt$CallScreener$private suspend fun gather( req: ScreenRequest, s: ScreeningSettings, at: Long, replayHistory: List&lt;CallEntry&gt;?, knownContact: Boolean? = null, rules: List&lt;BlockRule&gt;, tones: Map&lt;String, String&gt; = emptyMap(), ): Gathered</ID>
@@ -96,7 +95,6 @@
     <ID>CyclomaticComplexMethod:ContactsChips.kt$@Composable fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
-    <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$suspend fun save( original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean, announceRedirect: Boolean = true, ): SaveResult?</ID>
     <ID>CyclomaticComplexMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:ContentDiff.kt$ContentDiff$fun plan(current: List&lt;Existing&gt;, desired: List&lt;DataRow&gt;, userGroupIds: Set&lt;Long&gt;): Plan</ID>
     <ID>CyclomaticComplexMethod:CsvColumnMapping.kt$CsvColumnMapping$fun guess(header: List&lt;String&gt;?, sample: List&lt;List&lt;String&gt;&gt;): List&lt;ColumnTarget&gt;</ID>
@@ -273,7 +271,6 @@
     <ID>LongMethod:ContactPageSettings.kt$@Composable private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayout) -&gt; Unit)</ID>
     <ID>LongMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
     <ID>LongMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
-    <ID>LongMethod:ContactsRepository.kt$ContactsRepository$suspend fun save( original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean, announceRedirect: Boolean = true, ): SaveResult?</ID>
     <ID>LongMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>LongMethod:CsvMappingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CsvMappingScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:DetailPeople.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -&gt; Unit, onChanged: (Long?) -&gt; Unit)</ID>
@@ -428,7 +425,6 @@
     <ID>MaxLineLength:CallInsightsSection.kt$headlineContent = { Text(stringResource(R.string.hist_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) }</ID>
     <ID>MaxLineLength:CallInsightsSection.kt$supportingContent = { Text(if (r.daysSinceLast == 0) stringResource(R.string.hist_last_talked_today) else pluralStringResource(R.plurals.hist_last_talked_days, r.daysSinceLast, r.daysSinceLast)) }</ID>
     <ID>MaxLineLength:CallLimitsTest.kt$CallLimitsTest$private</ID>
-    <ID>MaxLineLength:CallManager.kt$CallManager$private</ID>
     <ID>MaxLineLength:CallManager.kt$CallManager$val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }</ID>
     <ID>MaxLineLength:CallModels.kt$CallUi$get() = accountLabel?.let { l -&gt; listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$.</ID>
@@ -521,16 +517,12 @@
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.isEmpty &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.unlabelled &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.ppl_chip_unlabelled)) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$label = { Text(filter.account?.let { a -&gt; stringResource(R.string.ppl_account_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.ppl_chip_account)) }</ID>
-    <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$(edited.groupIds - origGroups).forEach { g -&gt; insert(GroupMembership.CONTENT_ITEM_TYPE, ContentValues().apply { put(GroupMembership.GROUP_ROW_ID, g) }) }</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$(if (group.account.type == null) "${RawContacts.ACCOUNT_TYPE} IS NULL" else "${RawContacts.ACCOUNT_TYPE}=? AND ${RawContacts.ACCOUNT_NAME}=?")</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$)</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES)</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$c.getString(2)?.takeIf { it.isNotBlank() } ?: listOfNotNull(c.getString(3), c.getString(4)).filter { it.isNotBlank() }.joinToString(", ")</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$cr.query(Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count &gt; 0 }</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), arrayOf(Contacts.LOOKUP_KEY))?.use { c -&gt; if (c.moveToFirst()) c.getString(0) else null }</ID>
-    <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$original?.nicknameId</ID>
-    <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$single(original?.noteId, Note.CONTENT_ITEM_TYPE, edited.note.isBlank(), ContentValues().apply { put(Note.NOTE, edited.note.trim()) }, o != null &amp;&amp; t(o.note) == t(edited.note))</ID>
-    <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$val key = contactId?.let { id -&gt; cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -&gt; if (c.moveToFirst()) c.getString(0) else null } }</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$val uri = if (contactId != null &amp;&amp; contactId &gt; 0) Contacts.getLookupUri(contactId, lookupKey) else Uri.withAppendedPath(Contacts.CONTENT_LOOKUP_URI, lookupKey)</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$while (c.moveToNext()) if (ContentDiff.isUserGroup(c.getString(1), c.getString(2), c.getInt(3) != 0, c.getInt(4) != 0, c.getInt(5) != 0)) out += c.getLong(0)</ID>
     <ID>MaxLineLength:ContactsTab.kt$isCompany = index.extras[c.id]?.let { e -&gt; e.company.isNotBlank() &amp;&amp; e.company.trim().equals(c.displayName.trim(), ignoreCase = true) } == true</ID>
@@ -1042,7 +1034,6 @@
     <ID>RunCatchingInSuspend:CallManager.kt$CallManager$runCatching { deps.preferredAccountId(number) }</ID>
     <ID>RunCatchingInSuspend:CallManager.kt$CallManager$runCatching { deps.redial(number, accountId) }</ID>
     <ID>RunCatchingInSuspend:CallManager.kt$CallManager$runCatching { deps.undoBlockForDecline(rule) }</ID>
-    <ID>RunCatchingInSuspend:CallManager.kt$CallManager$runCatching { it.stopDtmfTone() }</ID>
     <ID>RunCatchingInSuspend:CallPlacer.kt$CallPlacer$runCatching { fallbackSim?.invoke(number) }</ID>
     <ID>RunCatchingInSuspend:CallReasonFlow.kt$runCatching { CallReasons.facts(context, vm.c, target.number, target.simId) }</ID>
     <ID>RunCatchingInSuspend:CallReasons.kt$CallReasons$runCatching { c.sims.defaultOutgoing() }</ID>
@@ -1161,7 +1152,6 @@
     <ID>RunCatchingInSuspend:ContactsRepository.kt$ContactsRepository$runCatching { Contacts.lookupContact(cr, Contacts.getLookupUri(contactId, lookupKey))?.let(ContentUris::parseId) }</ID>
     <ID>RunCatchingInSuspend:ContactsRepository.kt$ContactsRepository$runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }</ID>
     <ID>RunCatchingInSuspend:ContactsRepository.kt$ContactsRepository$runCatching { setDefault(it) }</ID>
-    <ID>RunCatchingInSuspend:ContactsRepository.kt$ContactsRepository$runCatching { val key = contactId?.let { id -&gt; cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -&gt; if (c.moveToFirst()) c.getString(0) else null } } writeLog.version(cr, finalRawId)?.let { v -&gt; writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) } }</ID>
     <ID>RunCatchingInSuspend:DataWipe.kt$DataWipe$runCatching { c.db.close() }</ID>
     <ID>RunCatchingInSuspend:DataWipe.kt$DataWipe$runCatching { c.history.closeForWipe() }</ID>
     <ID>RunCatchingInSuspend:DeleteAllData.kt$WipeJob$runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }</ID>
@@ -1353,8 +1343,6 @@
     <ID>RunCatchingInSuspend:SettingsRepository.kt$SettingsRepository$runCatching { withTimeoutOrNull(timeoutMs) { current().hideVault } }</ID>
     <ID>RunCatchingInSuspend:SettingsScreen.kt$runCatching { focus.requestFocus() }</ID>
     <ID>RunCatchingInSuspend:SharedLabelScreens.kt$runCatching { if (link != null) { SharedLabelInvites.fromLink(link, code) } else { val bytes = context.contentResolver.openInputStream(file!!)!! .use { Bounded.readBytes(it, Bounded.Caps.SETUP_FILE, "invitation") } SharedLabelInvites.fromFile(bytes, code.toCharArray()) } }</ID>
-    <ID>RunCatchingInSuspend:SharedLabels.kt$SharedLabels$runCatching { engine(s.folderUri, signer).leave(s) }</ID>
-    <ID>RunCatchingInSuspend:SharedLabels.kt$SharedLabels$runCatching { engine(s.folderUri, signer).run(s) }</ID>
     <ID>RunCatchingInSuspend:SharedLabels.kt$SharedLabels$runCatching { write(SharedLabelInvites.file(i, passphrase)) }</ID>
     <ID>RunCatchingInSuspend:SharedWithScreen.kt$runCatching { vm.c.people.cardIdentity.fingerprint() }</ID>
     <ID>RunCatchingInSuspend:SimScreens.kt$runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }</ID>
