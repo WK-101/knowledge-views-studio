@@ -62,6 +62,20 @@ object PhoneIdentity {
     fun sameExact(a: String?, b: String?, region: String?): Boolean = PhoneNumbers.sameExact(a, b, region)
 
     /**
+     * [sameExact] whatever region the phone was in when either number was written down: also true when one number is
+     * in international form and the other, read as a national number of that same country, is that line ("030 1234567"
+     * saved in Germany and "+49 30 1234567"). [region] alone follows the SIM or the network, so it changes when
+     * roaming or after a SIM swap. For deleting everything with a number, where a call left behind is a privacy
+     * failure; two national forms are compared as they are written, never by their last digits.
+     */
+    fun sameLineAnyRegion(a: String?, b: String?, region: String?): Boolean {
+        if (a.isNullOrBlank() || b.isNullOrBlank()) return false
+        if (sameExact(a, b, region)) return true
+        fun country(n: String) = n.trim().takeIf { it.startsWith("+") || it.startsWith("00") }?.let { e164(it, region) }?.let(NumberText::regionOf)
+        return listOfNotNull(country(a), country(b)).distinct().filter { it != region }.any { sameExact(a, b, it) }
+    }
+
+    /**
      * Grouping key with [sameExact]'s rules: E.164, or `#` plus every digit (service codes keep their `*` and `#`).
      * Null for a blank number.
      */

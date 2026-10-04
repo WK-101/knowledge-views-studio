@@ -133,6 +133,11 @@ class AppDatabaseMigrationTest {
                 arrayOf<Any?>(3, byteArrayOf(7, 7), bigDetail, 9000L, 1000L),
             )
             db.execSQL("INSERT INTO vault_numbers (vaultId, hmac) VALUES (3, 'h')")
+            // The newest of each was deleted before the upgrade: its id must not be handed out again.
+            db.execSQL("INSERT INTO journal (id, contactKey, displayName, action, time, payload, restored) VALUES (12, 'dy', 'Dy', 'EDIT', 5500, x'00', 0)")
+            db.execSQL("DELETE FROM journal WHERE id = 12")
+            db.execSQL("INSERT INTO vault_contacts (id, callerIdBlob, detailBlob, createdAt) VALUES (8, x'01', x'02', 1)")
+            db.execSQL("DELETE FROM vault_contacts WHERE id = 8")
         }
         helper.runMigrationsAndValidate(NAME, 11, true, *Migrations.ALL).use { db ->
             db.query("SELECT id, contactKey, displayName, action, time, restored, photoHashes, payload FROM journal ORDER BY id").use { c ->
@@ -164,9 +169,11 @@ class AppDatabaseMigrationTest {
                 assertEquals(table.second, columns.last())
             }
             db.query("SELECT COUNT(*) FROM journal_photos").use { c -> c.moveToFirst(); assertEquals(0, c.getInt(0)) }
-            // New rows continue after the copied ids.
+            // New rows continue after every id ever handed out, deleted ones included.
             db.execSQL("INSERT INTO journal (contactKey, displayName, action, time, restored, payload) VALUES ('cy', 'Cy', 'EDIT', 6000, 0, x'00')")
-            db.query("SELECT MAX(id) FROM journal").use { c -> c.moveToFirst(); assertEquals(10L, c.getLong(0)) }
+            db.query("SELECT MAX(id) FROM journal").use { c -> c.moveToFirst(); assertEquals(13L, c.getLong(0)) }
+            db.execSQL("INSERT INTO vault_contacts (callerIdBlob, detailBlob, createdAt) VALUES (x'01', x'02', 2)")
+            db.query("SELECT MAX(id) FROM vault_contacts").use { c -> c.moveToFirst(); assertEquals(9L, c.getLong(0)) }
         }
     }
 

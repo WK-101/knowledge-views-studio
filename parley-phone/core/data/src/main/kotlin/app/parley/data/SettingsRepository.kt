@@ -37,18 +37,19 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 private const val PRIVATE_NAMES_TIMEOUT_MS = 1_500L
 
-class SettingsRepository(context: Context, scope: CoroutineScope) {
-    private val store = context.applicationContext.dataStore
+class SettingsRepository internal constructor(
+    private val store: DataStore<Preferences>,
+    scope: CoroutineScope,
+    isFreshInstall: () -> Boolean,
+) {
+    constructor(context: Context, scope: CoroutineScope) : this(context.applicationContext.dataStore, scope, { neverUpdated(context) })
 
     /**
      * This install was never updated: the first run of a new install (an update changes the last-update time). Stored
-     * settings can't tell, since start-up writes some before anyone chose anything.
+     * settings can't tell, since start-up writes some before anyone chose anything. A phone restored or transferred
+     * from another one counts as new too, which is why no default made from this may touch the system call log.
      */
-    private val freshInstall: Boolean by lazy {
-        runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).let { it.firstInstallTime == it.lastUpdateTime }
-        }.getOrDefault(false)
-    }
+    private val freshInstall: Boolean by lazy(isFreshInstall)
 
     private val _loaded = MutableStateFlow(false)
 
@@ -94,7 +95,10 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
                 store.edit { prefs ->
                     val existing = prefs.asMap().keys.any { it.name != K.surfaces.name }
                     SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }
-                    // Likewise the call-history retention: five years on a new install, unchanged for everyone else.
+                    // Likewise the call-history retention: five years of Parley's archive on a new install, unchanged
+                    // for everyone else. Whether it was the user's choice (and so trims the system call log too) is
+                    // marked once, from what was stored before the mark existed.
+                    if (prefs[K.retentionChosen] == null) prefs[K.retentionChosen] = RetentionDefaults.chosen(prefs[K.retention], null)
                     if (prefs[K.retention] == null) prefs[K.retention] = RetentionDefaults.resolve(null, existingUser = !freshInstall)
                 }
             }
@@ -137,6 +141,10 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
                     "l" -> body.toLongOrNull()?.let { prefs[longPreferencesKey(k)] = it }
                     "s" -> prefs[stringPreferencesKey(k)] = body
                 }
+            }
+            // A backup from before the mark: its stored retention was a choice the way that version meant it.
+            if (K.retention.name in map && K.retentionChosen.name !in map) {
+                prefs[K.retentionChosen] = RetentionDefaults.chosen(prefs[K.retention], null)
             }
             if (duressSession || Concealment.hiding) keepSafetySwitches(prefs, before, map.keys)
         }
@@ -229,6 +237,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
             // Also before the pin in init is written: an existing user is never read as a new install's five years.
             callLogRetentionDays = RetentionDefaults.resolve(this[K.retention], existingUser = !freshInstall),
+            callLogRetentionChosen = RetentionDefaults.chosen(this[K.retention], this[K.retentionChosen]),
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
             mirrorRelations = this[K.mirrorRelations] ?: d.mirrorRelations,
             askBeforeDeletingTemporary = this[K.askTempDelete] ?: d.askBeforeDeletingTemporary,
@@ -282,6 +291,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.birthdayHour] = s.birthdayReminderHour
         this[K.nudges] = s.reachOutNudges
         this[K.retention] = s.callLogRetentionDays
+        this[K.retentionChosen] = s.callLogRetentionChosen
         this[K.rowActions] = s.contactRowActions
         this[K.mirrorRelations] = s.mirrorRelations
         this[K.askTempDelete] = s.askBeforeDeletingTemporary
@@ -335,6 +345,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val birthdayHour = intPreferencesKey("birthday_hour")
         val nudges = booleanPreferencesKey("reach_out_nudges")
         val retention = intPreferencesKey("call_log_retention_days")
+        val retentionChosen = booleanPreferencesKey("call_log_retention_chosen")
         val rowActions = booleanPreferencesKey("contact_row_actions")
         val mirrorRelations = booleanPreferencesKey("mirror_relations")
         val askTempDelete = booleanPreferencesKey("ask_before_deleting_temporary")
@@ -358,6 +369,13 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
          * history, what the lock screen shows about a caller). A backup never changes them on its own: a restore keeps
          * them waiting until the user confirms it's them (the Parley PIN when one is set).
          */
+        /** The stored call-history retention, for restoring a backup made before it had a default. */
+        val RETENTION_KEY: String = K.retention.name
+
+        private fun neverUpdated(context: Context): Boolean = runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).let { it.firstInstallTime == it.lastUpdateTime }
+        }.getOrDefault(false)
+
         val SECURITY_KEYS: Set<String> = setOf(
             K.appLock.name, K.lockAfter.name, K.secure.name, K.hideVault.name, K.privateHistory.name, K.lockScreenCaller.name,
         )

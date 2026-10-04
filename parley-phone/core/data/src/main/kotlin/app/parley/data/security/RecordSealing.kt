@@ -8,7 +8,7 @@ import app.parley.data.db.AppDatabase
 
 /**
  * Seals the small records that older versions stored plain: pinned notes, call notes, screened callers' names, journal
- * payloads, time-machine snapshots, and the [stores] that seal their own values (the To call list). Runs in the
+ * payloads and photos, time-machine snapshots, and the [stores] that seal their own values (the To call list). Runs in the
  * background until everything is sealed (then it remembers that and stops, until a value has to be stored plain again
  * because the key couldn't be used: [markPending]); values stay readable throughout, since readers accept both forms.
  * Each write applies only if the value is still the plain one it read, so an edit made meanwhile is never lost.
@@ -47,6 +47,19 @@ class RecordSealing(
             val name = b.callerName
             if (!name.isNullOrEmpty()) sealText(name, t) { blocks.resealCallerName(b.id, name, it) }
         }
+        sealJournal(t)
+        suspendRunCatching { t.sealed += timeMachine().resealOld() }.onFailure { t.left++ }
+        t.left += resealStores()
+        if (t.left == 0) prefs.edit().putBoolean(DONE, true).apply() else Log.w(TAG, "${t.left} records stay plain until the next run")
+        return t.sealed
+    }
+
+    /**
+     * Journal payloads and photos. A photo kept plain stays the one every later copy of that photo points at, so it
+     * is sealed in place rather than waiting for a new copy.
+     */
+    private suspend fun sealJournal(t: Tally) {
+        val meta = db.metaDao()
         for (id in meta.journalIds()) {
             val e = meta.journalEntry(id)
             if (e != null && !crypto.isSealed(e.payload)) {
@@ -54,10 +67,13 @@ class RecordSealing(
                 if (crypto.isSealed(sealed)) { meta.resealJournalPayload(id, e.payload, sealed); t.sealed++ } else t.left++
             }
         }
-        suspendRunCatching { t.sealed += timeMachine().resealOld() }.onFailure { t.left++ }
-        t.left += resealStores()
-        if (t.left == 0) prefs.edit().putBoolean(DONE, true).apply() else Log.w(TAG, "${t.left} records stay plain until the next run")
-        return t.sealed
+        for (hash in meta.journalPhotoHashes()) {
+            val p = meta.journalPhoto(hash)
+            if (p != null && !crypto.isSealed(p.blob)) {
+                val sealed = crypto.sealBytes(p.blob)
+                if (crypto.isSealed(sealed)) { meta.resealJournalPhoto(hash, p.blob, sealed); t.sealed++ } else t.left++
+            }
+        }
     }
 
     /** The stores that seal their own values; returns how many still hold something plain or unwritten. */

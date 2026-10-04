@@ -1,10 +1,17 @@
-# ez-vcard (used from :core:common's VCardMapper) reads two things of its property classes reflectively: the copy
-# constructor (VCardProperty.copy() looks it up by the class) and the @SupportedVersions annotation (which properties a
-# vCard 2.1 or 3.0 file may hold). Both survive; names, unused methods and fields may go. Its scribes are created
-# with `new` in ScribeIndex and use no reflection, so R8 treats them like any other code. (The default rules keep
-# runtime annotations on kept classes.)
+# ez-vcard (used from :core:common's VCardMapper) reads these reflectively, so they are kept:
+# - each property class's copy constructor (VCardProperty.copy() looks it up by the class);
+# - the @SupportedVersions annotation (which properties and parameter values a vCard 2.1 or 3.0 file may hold), read
+#   from classes and from the constants' fields;
+# - the public constants of the parameter classes and VCardDataType: CaseClasses lists them with getFields() to turn
+#   a TYPE= or VALUE= text into a known value, and creates a value it doesn't know through the String constructor.
+# Its scribes are created with `new` in ScribeIndex and use no reflection, so R8 treats them like any other code.
+# (The default rules keep runtime annotations on kept classes and members.)
 -keep,allowobfuscation @interface ezvcard.SupportedVersions
 -keep,allowobfuscation class ezvcard.property.** { <init>(...); }
+-keepclassmembers class ezvcard.parameter.**, ezvcard.VCardDataType {
+    public static final *;
+    <init>(java.lang.String);
+}
 -dontwarn ezvcard.**
 -dontwarn com.fasterxml.jackson.**
 -dontwarn freemarker.**

@@ -493,6 +493,9 @@ interface MetaDao {
     @Query("UPDATE journal SET payload = :payload WHERE id = :id AND payload = :old")
     suspend fun resealJournalPayload(id: Long, old: ByteArray, payload: ByteArray)
 
+    @Query("UPDATE journal_photos SET blob = :blob WHERE hash = :hash AND blob = :old")
+    suspend fun resealJournalPhoto(hash: String, old: ByteArray, blob: ByteArray)
+
     @Query("UPDATE contact_meta SET pinnedNote = :note WHERE lookupKey = :key AND pinnedNote = :old")
     suspend fun resealPinnedNote(key: String, old: String, note: String)
 

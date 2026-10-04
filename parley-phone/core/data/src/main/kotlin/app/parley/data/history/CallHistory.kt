@@ -401,9 +401,9 @@ class CallHistory(
      * Every archived call, newest first, decrypted a page at a time so the whole archive is never held in memory.
      * Unreadable rows are skipped. False when the key can't be used (nothing was visited then, or not everything).
      */
-    private suspend fun scanArchive(visit: (ArchivedCall) -> Unit): Boolean {
+    private suspend fun scanArchive(since: Long = Long.MIN_VALUE, visit: (ArchivedCall) -> Unit): Boolean {
         try {
-            scanPages(visit)
+            scanPages(since, visit)
             return true
         } catch (e: HistoryCrypto.KeyUnavailableException) {
             Log.w(TAG, "Archive key unavailable for now", e)
@@ -413,13 +413,14 @@ class CallHistory(
         return false
     }
 
-    private suspend fun scanPages(visit: (ArchivedCall) -> Unit) {
+    /** Newest first, so a pass from [since] stops at the first page older than it. */
+    private suspend fun scanPages(since: Long = Long.MIN_VALUE, visit: (ArchivedCall) -> Unit) {
         var page = dao.firstPage(SCAN_PAGE)
         while (page.isNotEmpty()) {
-            for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
-            if (page.size < SCAN_PAGE) break
+            for (r in page) if (r.date >= since) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
             val last = page.last()
-            page = dao.pageBefore(last.date, last.id, SCAN_PAGE)
+            // A short page was the last one; a page reaching past [since] holds everything after it.
+            page = if (page.size < SCAN_PAGE || last.date < since) emptyList() else dao.pageBefore(last.date, last.id, SCAN_PAGE)
         }
     }
 
@@ -432,6 +433,19 @@ class CallHistory(
         dao.byPersons(personMacs(number, iso)).mapNotNull { r ->
             openRow(r)?.takeIf { !it.number.isNullOrBlank() && PhoneIdentity.sameExact(it.number, number, iso) }?.let { ArchivedCall(r.id, it) }
         }
+
+    /**
+     * [personRows] for a delete: also the rows filed under another region's key. A row is filed under its number as
+     * read in the region of the day it was archived, which follows the SIM or the network, so after roaming or a SIM
+     * swap the index alone misses some of one person's calls. A delete can't leave those behind: the archive (from
+     * [since]) is read once more and matched with [PhoneIdentity.sameLineAnyRegion].
+     */
+    private suspend fun personRowsEverywhere(number: String, iso: String, since: Long): List<ArchivedCall> {
+        val found = LinkedHashMap<Long, ArchivedCall>()
+        guardKey { personRows(number, iso).forEach { found[it.rowId] = it } }
+        scanArchive(since) { a -> if (a.rowId !in found && PhoneIdentity.sameLineAnyRegion(a.record.number, number, iso)) found[a.rowId] = a }
+        return found.values.sortedByDescending { it.record.date }
+    }
 
     /** A row's call, or null when it can't be read (key problems are passed on, as by [openOrNull]). */
     private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
@@ -623,14 +637,18 @@ class CallHistory(
      * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneIdentity.sameExact]):
      * the list is deleted from, and a loose match (last digits) would reach other people's calls.
      */
-    suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = withContext(Dispatchers.IO) {
+    suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = callsFor(number, since, forDelete = false)
+
+    /** [callsFor]; [forDelete] also finds archived calls filed under another region ([personRowsEverywhere]). */
+    private suspend fun callsFor(number: String, since: Long, forDelete: Boolean): List<CallEntry> = withContext(Dispatchers.IO) {
         val iso = countryIso
         val system = callLog.queryForNumber(number, since)
         if (!prefs.current().archiveEnabled) return@withContext system
         val seen = system.map { HistoryMerge.key(it) }.toHashSet()
         val archived = ArrayList<CallEntry>()
         guardKey {
-            for (a in personRows(number, iso)) {
+            val rows = if (forDelete) personRowsEverywhere(number, iso, since) else personRows(number, iso)
+            for (a in rows) {
                 val e = a.toEntry()
                 if (e.date >= since && !e.presentationHidden && seen.add(HistoryMerge.key(e))) archived += e
             }
@@ -661,7 +679,7 @@ class CallHistory(
                 val person = personMac(number, iso)
                 // Rows filed under every form of the number, found through the person index (no whole-archive pass).
                 val rows = ArrayList<Long>()
-                guardKey { personRows(number, iso).mapTo(rows) { it.rowId } }
+                personRowsEverywhere(number, iso, Long.MIN_VALUE).mapTo(rows) { it.rowId }
                 rows.chunked(500).forEach { dao.deleteIds(it) }
                 n += rows.size + dao.deleteByPerson(person)
                 dao.removeKeepForever(listOf(person))
@@ -676,7 +694,7 @@ class CallHistory(
 
     suspend fun deleteRange(number: String, range: DeleteRange, picked: LocalDate? = null): Long? = withContext(Dispatchers.IO + NonCancellable) {
         val since = range.since(System.currentTimeMillis(), zone, picked)
-        val batch = delete(callsFor(number, since))
+        val batch = delete(callsFor(number, since, forDelete = true))
         // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
         if (since == Long.MIN_VALUE && prefs.current().archiveEnabled) mutex.withLock {
             catching {
@@ -827,28 +845,53 @@ class CallHistory(
     }
 
     /** Restores archived calls into the archive (or, with the archive off, into the system log). */
-    override suspend fun restoreLines(lines: List<CallHistoryLine>): Int = withContext(Dispatchers.IO + NonCancellable) {
-        val calls = lines.mapNotNull { it.call }
+    override suspend fun beginRestore(): CallHistoryBackup.Restore = withContext(Dispatchers.IO) {
+        if (prefs.current().archiveEnabled) ArchiveRestore(privateLines(), countryIso) else ProviderRestore()
+    }
+
+    /** Restores into the system call log (the archive is off), skipping calls it already has. */
+    private inner class ProviderRestore : CallHistoryBackup.Restore {
+        private var have: HashSet<String>? = null
+
+        override suspend fun add(lines: List<CallHistoryLine>): Int = withContext(Dispatchers.IO + NonCancellable) {
+            keepForever(lines)
+            val calls = lines.mapNotNull { it.call }
+            if (calls.isEmpty()) return@withContext 0
+            // The whole log is read once per restore, not once per chunk.
+            val known = have ?: readProvider(null).mapTo(HashSet()) { HistoryMerge.key(it.toEntry(0)) }.also { have = it }
+            val values = calls.filter { known.add(HistoryMerge.key(it.toEntry(0))) }.map { it.toValues() }
+            values.chunked(200).sumOf { chunk -> catching { cr.bulkInsert(Calls.CONTENT_URI, chunk.toTypedArray()) }.getOrDefault(0) }
+        }
+
+        override suspend fun finish() = Unit
+    }
+
+    /** Restores into the archive; the private numbers are read once, and the shown window reloaded once at the end. */
+    private inner class ArchiveRestore(private val vk: PhoneIdentity.LineSet, private val iso: String) : CallHistoryBackup.Restore {
+        private var added = 0
+
+        override suspend fun add(lines: List<CallHistoryLine>): Int = withContext(Dispatchers.IO + NonCancellable) {
+            keepForever(lines)
+            val calls = lines.mapNotNull { it.call }
+            if (calls.isEmpty()) return@withContext 0
+            mutex.withLock {
+                val now = System.currentTimeMillis()
+                val fresh = calls.mapNotNull { rec ->
+                    if (isPrivate(rec, vk)) return@mapNotNull null
+                    entity(rec, crypto.mac(HistoryMerge.key(rec.toEntry(0))), iso, now)
+                }
+                insertNew(fresh).also { added += it }
+            }
+        }
+
+        override suspend fun finish() = withContext(Dispatchers.IO + NonCancellable) {
+            if (added > 0) mutex.withLock { reload() }
+        }
+    }
+
+    private suspend fun keepForever(lines: List<CallHistoryLine>) {
         val kept = lines.mapNotNull { it.keepForever }
         if (kept.isNotEmpty()) setKeepForever(kept, true)
-        if (calls.isEmpty()) return@withContext 0
-        if (!prefs.current().archiveEnabled) {
-            val have = readProvider(null).map { HistoryMerge.key(it.toEntry(0)) }.toHashSet()
-            val values = calls.filter { HistoryMerge.key(it.toEntry(0)) !in have }.map { it.toValues() }
-            return@withContext values.chunked(200).sumOf { chunk -> runCatching { cr.bulkInsert(Calls.CONTENT_URI, chunk.toTypedArray()) }.getOrDefault(0) }
-        }
-        mutex.withLock {
-            val iso = countryIso
-            val now = System.currentTimeMillis()
-            val vk = privateLines()
-            val fresh = calls.mapNotNull { rec ->
-                if (isPrivate(rec, vk)) return@mapNotNull null
-                entity(rec, crypto.mac(HistoryMerge.key(rec.toEntry(0))), iso, now)
-            }
-            val added = insertNew(fresh)
-            if (added > 0) reload()
-            added
-        }
     }
 
     // ------------------------------------------------------------------ mapping

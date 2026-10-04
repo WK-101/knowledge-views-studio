@@ -66,6 +66,10 @@
         <item quantity="one">%1$d failed</item>
         <item quantity="other">%1$d failed</item>
     </plurals>
+    <plurals name="data_rst_photos_missing">
+        <item quantity="one">%1$d photo wasn\'t in the backup, so its contact came back without it</item>
+        <item quantity="other">%1$d photos weren\'t in the backup, so their contacts came back without them</item>
+    </plurals>
     <string name="data_rst_not_restored">not restored: %1$s</string>
 
     <!-- Folder sync reports (core/data) -->

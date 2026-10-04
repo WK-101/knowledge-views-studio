@@ -58,8 +58,10 @@ data class AppSettings(
     val birthdayReminderHour: Int = 9,
     val reachOutNudges: Boolean = true,
     // Call log
-    /** Delete system call-log entries older than N days (0 = keep). */
+    /** Delete call history older than N days (0 = keep): Parley's archive, and the system call log when [callLogRetentionChosen]. */
     val callLogRetentionDays: Int = 0,
+    /** The user picked [callLogRetentionDays] themselves (a default never trims the system call log). */
+    val callLogRetentionChosen: Boolean = false,
     /** Show message and call buttons on contact rows. */
     val contactRowActions: Boolean = false,
     /** A relation with another saved contact is added to that contact too, with the opposite type. */

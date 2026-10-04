@@ -494,6 +494,9 @@ class BackupArchiveReader private constructor(
 
     fun photo(sha256: String): ByteArray? = kept[BackupArchive.PHOTO_PREFIX + sha256 + ".bin"]?.copyOf()
 
+    /** Whether the archive holds this photo, without copying it out. */
+    fun hasPhoto(sha256: String): Boolean = (BackupArchive.PHOTO_PREFIX + sha256 + ".bin") in kept
+
     private inline fun <T> parse(f: () -> T): T = try {
         f()
     } catch (e: SerializationException) {

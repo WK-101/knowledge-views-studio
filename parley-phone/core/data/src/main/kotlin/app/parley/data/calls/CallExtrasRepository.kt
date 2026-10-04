@@ -52,7 +52,11 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
     /** Bumped on every write, so screens re-read. */
     val version: StateFlow<Int> get() = store.version
 
-    /** Rows from before they were keyed and sealed (plaintext line keys): re-keyed when they were E.164, else dropped. */
+    /**
+     * Rows from before they were keyed and sealed (plaintext line keys): re-keyed when they were E.164, else dropped.
+     * Serialised: the call path and a screen can both be first, and two merges would add every old row twice.
+     */
+    @Synchronized
     private fun migrate() {
         if (migrated) return
         migrated = true

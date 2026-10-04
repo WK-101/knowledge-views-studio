@@ -14,6 +14,10 @@ object Migrations {
      */
     val V10_TO_11 = object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
+            // The AUTOINCREMENT high-water marks go with the old tables: kept, so a deleted row's id is never reused
+            // (per-person data is keyed by a private contact's id, and a leftover must not attach to a new contact).
+            val journalSeq = sequence(db, "journal")
+            val vaultSeq = sequence(db, "vault_contacts")
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS `journal_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `contactKey` TEXT NOT NULL, " +
                     "`displayName` TEXT NOT NULL, `action` TEXT NOT NULL, `time` INTEGER NOT NULL, `restored` INTEGER NOT NULL, " +
@@ -39,7 +43,23 @@ object Migrations {
             )
             db.execSQL("DROP TABLE `vault_contacts`")
             db.execSQL("ALTER TABLE `vault_contacts_new` RENAME TO `vault_contacts`")
+            restoreSequence(db, "journal", journalSeq)
+            restoreSequence(db, "vault_contacts", vaultSeq)
         }
+    }
+
+    /** [table]'s AUTOINCREMENT high-water mark, or null when it never had a row. */
+    private fun sequence(db: SupportSQLiteDatabase, table: String): Long? =
+        db.query("SELECT seq FROM sqlite_sequence WHERE name = ?", arrayOf(table)).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+
+    /** Sets [table]'s mark back to at least [seq] (the rebuilt table's own mark is its largest surviving id). */
+    private fun restoreSequence(db: SupportSQLiteDatabase, table: String, seq: Long?) {
+        if (seq == null) return
+        db.execSQL("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = ?", arrayOf<Any>(seq, table))
+        db.execSQL(
+            "INSERT INTO sqlite_sequence (name, seq) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = ?)",
+            arrayOf<Any>(table, seq, table),
+        )
     }
 
     val ALL: Array<Migration> = arrayOf(V10_TO_11)

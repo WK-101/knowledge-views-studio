@@ -188,6 +188,21 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     @Volatile private var loaded: Loaded? = null
 
+    /**
+     * Contact [id]'s last-updated time as of the last load, or null when it isn't known. Android moves it on any change
+     * to the contact's rows (labels, company, notes, addresses…), not only on what the summaries hold, so it tells
+     * other indexes which contacts to read again.
+     */
+    fun lastUpdated(id: Long): Long? = loaded?.byId?.get(id)?.first
+
+    private val _rowsChanged = MutableStateFlow(0)
+
+    /**
+     * Bumped by every load that found a contact changed ([lastUpdated] moved). [contacts] alone doesn't say so when
+     * only rows outside the summaries changed (a label, a company): the list is then equal and isn't sent again.
+     */
+    val rowsChanged: StateFlow<Int> = _rowsChanged
+
     /** How the last load went, for tests: whether it patched the previous list, and how many contacts it read. */
     internal data class LoadStats(val incremental: Boolean, val read: Int)
 
@@ -232,12 +247,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 }
                 loaded = Loaded(region, byId)
                 lastLoad = LoadStats(incremental = true, read = fresh.size)
+                _rowsChanged.value += minOf(fresh.size, 1)
                 return out
             }
         }
         val all = summaries(null)
         loaded = Loaded(region, all.associateBy { it.second.id })
         lastLoad = LoadStats(incremental = false, read = all.size)
+        _rowsChanged.value++
         return all.map { it.second }
     }
 

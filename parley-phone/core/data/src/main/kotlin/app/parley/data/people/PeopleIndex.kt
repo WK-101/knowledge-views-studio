@@ -24,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -55,19 +56,22 @@ data class PeopleIndexData(
  * date of death) and every field the Contacts search and filters look at, recomputed off the main thread whenever the
  * address book changes (the contact list follows Android's change notifications).
  *
- * After the first build only the contacts whose summary changed are read again, so a sync touching three contacts
- * reads three contacts' rows, not every row of the address book. A renamed label, a new region or a large change builds everything again.
+ * After the first build only the contacts that changed are read again, so a sync touching three contacts reads three
+ * contacts' rows, not every row of the address book. "Changed" is Android's last-updated time of the contact, which
+ * any row moves (a label, company, nickname, note, address…), as well as its summary. A renamed label, a new region
+ * or a large change builds everything again.
  */
 class PeopleIndex(
     private val context: Context,
-    contacts: ContactsRepository,
+    private val contacts: ContactsRepository,
     scope: CoroutineScope,
     /** When the index follows the contact list; the container stops it a while after no screen needs it. */
     started: SharingStarted = SharingStarted.Eagerly,
 ) {
     private val cr = context.contentResolver
 
-    val data: StateFlow<PeopleIndexData> = contacts.contacts
+    // The list, and the loads that found changed rows without changing the list (it isn't sent again then).
+    val data: StateFlow<PeopleIndexData> = combine(contacts.contacts, contacts.rowsChanged) { list, _ -> list }
         .map { if (it == null) PeopleIndexData() else update(it) }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, started, PeopleIndexData())
@@ -79,6 +83,8 @@ class PeopleIndex(
         val titles: Map<Long, String>,
         val entries: Map<Long, Entry>,
         val data: PeopleIndexData,
+        /** Each contact's last-updated time when it was read (null: unknown, so read again next time). */
+        val stamps: Map<Long, Long?>,
     )
 
     private class Entry(val extra: PersonExtra, val accounts: Set<AccountRef>, val doc: ContactSearch.Doc)
@@ -123,29 +129,39 @@ class PeopleIndex(
         }
         val region = PhoneEnv.countryIso(context)
         val titles = groupTitles()
+        // Taken before the rows are read: a change landing in between moves the time again and is read next time.
+        val stamps = HashMap<Long, Long?>(list.size * 2)
+        list.forEach { stamps[it.id] = contacts.lastUpdated(it.id) }
         val prev = built?.takeIf { it.region == region && it.titles == titles }
         if (prev != null) {
-            if (prev.list === list) return prev.data
-            patch(prev, list, region, titles)?.let { return it }
+            if (prev.list === list && prev.stamps == stamps) return prev.data
+            patch(prev, list, region, titles, stamps)?.let { return it }
         }
         val entries = read(null, region, titles)
         lastUpdate = UpdateStats(incremental = false, read = entries.size)
-        return publish(list, region, titles, entries, unchanged = false, prev = null)
+        return publish(list, region, titles, entries, unchanged = false, prev = null, stamps = stamps)
     }
 
     /**
      * [prev] with the contacts [list] changed read again and those it no longer has dropped; null when too many
      * changed (then everything is read).
      */
-    private fun patch(prev: Built, list: List<ContactSummary>, region: String?, titles: Map<Long, String>): PeopleIndexData? {
+    private fun patch(
+        prev: Built,
+        list: List<ContactSummary>,
+        region: String?,
+        titles: Map<Long, String>,
+        stamps: Map<Long, Long?>,
+    ): PeopleIndexData? {
         val before = HashMap<Long, ContactSummary>(prev.list.size * 2)
         prev.list.forEach { before[it.id] = it }
         val ids = HashSet<Long>(list.size * 2)
         val changed = ArrayList<Long>()
         for (c in list) {
             ids += c.id
-            // Same object when the list patched itself, an equal one after a full reload: neither is read again.
-            if (before[c.id] != c) changed += c.id
+            // An equal summary isn't enough: labels, company, notes, addresses… aren't in it, but move the time.
+            val stamp = stamps[c.id]
+            if (before[c.id] != c || stamp == null || prev.stamps[c.id] != stamp) changed += c.id
         }
         if (changed.size > INCREMENTAL_MAX) return null
         val removed = prev.entries.keys.count { it !in ids }
@@ -154,7 +170,7 @@ class PeopleIndex(
         changed.forEach { entries.remove(it) }
         changed.chunked(IN_CHUNK).forEach { chunk -> entries.putAll(read(chunk, region, titles)) }
         lastUpdate = UpdateStats(incremental = true, read = changed.size)
-        return publish(list, region, titles, entries, unchanged = changed.isEmpty() && removed == 0, prev)
+        return publish(list, region, titles, entries, unchanged = changed.isEmpty() && removed == 0, prev, stamps)
     }
 
     private fun publish(
@@ -164,6 +180,7 @@ class PeopleIndex(
         entries: Map<Long, Entry>,
         unchanged: Boolean,
         prev: Built?,
+        stamps: Map<Long, Long?>,
     ): PeopleIndexData {
         val data = if (unchanged && prev != null) prev.data else {
             val labelCounts = HashMap<String, Int>()
@@ -177,7 +194,7 @@ class PeopleIndex(
                 entries.mapValues { it.value.extra }, accountCounts, labelCounts, loaded = true, search = entries.mapValues { it.value.doc },
             )
         }
-        built = Built(list, region, titles, entries, data)
+        built = Built(list, region, titles, entries, data, stamps)
         return data
     }
 

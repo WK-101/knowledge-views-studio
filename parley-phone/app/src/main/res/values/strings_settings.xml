@@ -233,7 +233,7 @@
     <string name="set_history_details_summary">Restore calls deleted in the last 30 days, in History &amp; undo</string>
     <string name="set_history_details_kw">undo, restore, recently deleted, trash, bin</string>
     <string name="set_retention_title">Keep call history</string>
-    <string name="set_retention_summary">Delete calls from the system call log after a while</string>
+    <string name="set_retention_summary">Delete older calls from Parley\'s archive, and from the phone\'s call log once you choose a limit</string>
     <string name="set_retention_kw">retention, delete old calls, auto delete, call log</string>
     <string name="set_sim_labels_title">Show SIM in call history</string>
     <string name="set_sim_labels_summary">Only when two SIMs are active</string>

@@ -126,4 +126,16 @@ class PhoneIdentityTest {
         assertFalse("+33699999999" in known)
         assertFalse("112" in known)
     }
+
+    @Test fun sameLineAnyRegionReadsANationalNumberInTheOtherOnesCountry() {
+        // Saved in Germany, compared while roaming in France.
+        assertTrue(PhoneIdentity.sameLineAnyRegion("030 1234567", "+49 30 1234567", "FR"))
+        assertTrue(PhoneIdentity.sameLineAnyRegion("+49 30 1234567", "030 1234567", "FR"))
+        assertTrue(PhoneIdentity.sameLineAnyRegion("030 1234567", "030-123 4567", "FR"))
+        // Another line, a national number of another country, or nothing at all: never the same.
+        assertFalse(PhoneIdentity.sameLineAnyRegion("030 1234568", "+49 30 1234567", "FR"))
+        assertFalse(PhoneIdentity.sameLineAnyRegion("01 23 45 67 89", "+49 30 1234567", "FR"))
+        assertFalse(PhoneIdentity.sameLineAnyRegion("", "+49 30 1234567", "DE"))
+        assertFalse(PhoneIdentity.sameLineAnyRegion(null, null, "DE"))
+    }
 }

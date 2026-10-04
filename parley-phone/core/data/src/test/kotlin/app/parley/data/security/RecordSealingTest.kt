@@ -9,6 +9,7 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.JournalEntity
+import app.parley.data.db.JournalPhotoEntity
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -87,6 +88,8 @@ class RecordSealingTest {
         raw.addCallNote(CallNoteEntity(numberKey = "n2", callDate = 7, text = "Plain call note"))
         db.blockDao().logScreened(BlockedCallEntity(number = "+15550101", reason = "rule", action = "REJECT", time = 2, callerName = "Plain Name"))
         raw.addJournal(JournalEntity(contactKey = "k2", displayName = "Bo", action = "EDIT", time = 2, payload = byteArrayOf(1, 2, 3, 4, 5)))
+        // A journal photo kept plain during a Keystore hiccup (later copies of the same photo point at it).
+        raw.addJournalPhoto(JournalPhotoEntity("cafe", byteArrayOf(9, 8, 7, 6, 5, 4)))
         val meta = SealedMetaDao(raw, crypto)
         assertEquals("Plain from before", meta.meta("k2")!!.pinnedNote)
 
@@ -97,7 +100,7 @@ class RecordSealingTest {
         context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
         val sealing = RecordSealing(context, db, { app.parley.data.backup.TimeMachine(context, app.parley.data.records.ContactRecordStore(context)) })
         val n = sealing.runIfNeeded()
-        assertEquals(5, n)
+        assertEquals(6, n)
         assertTrue(sealing.done)
 
         assertTrue(crypto.isSealed(raw.meta("k2")!!.pinnedNote))
@@ -107,9 +110,25 @@ class RecordSealingTest {
         assertEquals("Plain from before", meta.meta("k2")!!.pinnedNote)
         assertEquals("Plain call note", meta.allCallNotesNow().single().text)
         assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5), meta.journalEntry(raw.journalIds().single())!!.payload)
+        assertTrue(crypto.isSealed(raw.journalPhoto("cafe")!!.blob))
+        assertArrayEquals(byteArrayOf(9, 8, 7, 6, 5, 4), meta.journalPhoto("cafe")!!.blob)
         // The snapshot blob is sealed on disk and still reads back through a sealing store.
         val sealedStore = FileBlobStore(blobs, crypto)
         assertArrayEquals("old snapshot".toByteArray(), sealedStore.get("ab12"))
         assertTrue(crypto.isSealed(sealedStore.all().single().readBytes()))
+    }
+
+    @Test fun a_contact_list_head_kept_plain_is_sealed_later() = runBlocking {
+        val head = app.parley.data.people.ContactListHead(context, crypto)
+        val file = File(context.noBackupFilesDir, "contact_list_head")
+        val list = listOf(
+            app.parley.common.ContactSummary(id = 1, lookupKey = "k1", displayName = "Ada", photoUri = null, starred = false, phones = emptyList()),
+        )
+        // As the fallback writes it while the key can't be used: the encoded rows, plain.
+        file.writeBytes(app.parley.common.people.ListHead.encode(list).toByteArray())
+        assertEquals("Ada", head.load()!!.single().displayName)
+        assertTrue(head.resealPlain())
+        assertTrue(crypto.isSealed(file.readBytes()))
+        assertEquals("Ada", head.load()!!.single().displayName)
     }
 }

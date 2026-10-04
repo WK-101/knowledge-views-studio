@@ -248,7 +248,7 @@ class DataContainer(context: Context) {
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     /** Seals small records older versions stored plain (runs once in the background). */
     val recordSealing by lazy {
-        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus) }
+        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, people.listHead) }
     }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 

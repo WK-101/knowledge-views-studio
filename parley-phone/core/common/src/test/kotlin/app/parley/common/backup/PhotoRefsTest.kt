@@ -46,9 +46,37 @@ class PhotoRefsTest {
         assertEquals(1, asked)
     }
 
-    @Test(expected = BackupIntegrityException::class)
-    fun aMissingPhotoIsAnIntegrityError() {
-        PhotoRefs.filled(PhotoRefs.light(person(4, photoSeed = 4))) { null }
+    @Test fun aMissingPhotoIsDroppedAndTheContactKept() {
+        val light = PhotoRefs.light(person(4, photoSeed = 4))
+        // Planning finds it first and says how many went.
+        val (planned, dropped) = PhotoRefs.resolvable(light) { false }
+        assertEquals(1, dropped)
+        assertTrue(planned.raws.single().rows.none { it.mimeType == Mime.PHOTO })
+        assertEquals(1, planned.raws.single().rows.count { it.mimeType == Mime.PHONE })
+        // Writing never stops on one either: the contact goes without its photo.
+        val written = PhotoRefs.filled(light) { null }
+        assertTrue(written.raws.single().rows.none { it.mimeType == Mime.PHOTO })
+        // A resolvable photo is kept as it is.
+        val (kept, none) = PhotoRefs.resolvable(light) { true }
+        assertEquals(0, none)
+        assertTrue(kept === light)
+    }
+
+    /**
+     * A Replace restore whose archive lacks one contact's photo: planning finds it before anything is deleted, and
+     * every contact is still written (that one without its photo), instead of the restore stopping part-way.
+     */
+    @Test fun aReplacePlanKnowsAboutAMissingPhotoBeforeDeletingAnything() {
+        val backup = (1..3).map { i -> PhotoRefs.light(person(i, photoSeed = i)) }
+        val held = listOf(1, 3).associate { RecordJson.sha256Hex(bytes(it)) to bytes(it) }
+        var missing = 0
+        val planned = backup.map { r -> PhotoRefs.resolvable(r, held::containsKey).let { (kept, n) -> missing += n; kept } }
+        val plan = MergePlanner.plan(listOf(person(9, photoSeed = null)), planned, RestoreMode.REPLACE).copy(missingPhotos = missing)
+        assertEquals(1, plan.missingPhotos)
+        assertEquals(1, plan.toDelete.size)
+        val written = plan.actions.filterIsInstance<MergeAction.New>().map { PhotoRefs.filled(it.backup, held::get) }
+        assertEquals(3, written.size)
+        assertEquals(listOf(1, 0, 1), written.map { r -> r.blobs().size })
     }
 
     /**

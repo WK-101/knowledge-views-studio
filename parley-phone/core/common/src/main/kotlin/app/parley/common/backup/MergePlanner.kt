@@ -63,6 +63,8 @@ data class MergePlan(
     val actions: List<MergeAction>,
     /** Existing contacts a REPLACE restore removes (empty for other modes). */
     val toDelete: List<ContactRecord>,
+    /** Photos the backup's contacts name but the archive doesn't hold: those contacts are restored without them. */
+    val missingPhotos: Int = 0,
 ) {
     val summary: MergeSummary
         get() = MergeSummary(

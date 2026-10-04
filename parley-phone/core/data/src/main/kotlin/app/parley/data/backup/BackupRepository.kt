@@ -59,6 +59,7 @@ import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactsRepository
 import app.parley.data.PrefsRepository
 import app.parley.data.SettingsRepository
+import app.parley.common.history.RetentionDefaults
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.NumberSimEntity
@@ -133,6 +134,8 @@ data class RestoreReport(
     val needsConfirmation: Boolean = false,
     /** Blocked-call log entries brought back. */
     val blockedLog: Int = 0,
+    /** Photos the backup named but didn't hold: their contacts came back without them. */
+    val missingPhotos: Int = 0,
 ) {
     fun summary(res: Resources) = error ?: buildList {
         add(res.getQuantityString(R.plurals.data_rst_added, added, added))
@@ -142,6 +145,7 @@ data class RestoreReport(
         if (rules > 0) add(res.getQuantityString(R.plurals.data_rst_rules, rules, rules))
         if (vault > 0) add(res.getQuantityString(R.plurals.data_rst_vault, vault, vault))
         if (failed > 0) add(res.getQuantityString(R.plurals.data_rst_failed, failed, failed))
+        if (missingPhotos > 0) add(res.getQuantityString(R.plurals.data_rst_photos_missing, missingPhotos, missingPhotos))
         skipped.forEach { add(res.getString(R.string.data_rst_not_restored, it)) }
     }.joinToString(" · ")
 }
@@ -600,8 +604,13 @@ class BackupRepository(
      */
     suspend fun plan(opened: OpenedBackup, mode: RestoreMode): MergePlan = withContext(Dispatchers.IO) {
         val existing = records.readAll(fullPhoto = false).map(PhotoRefs::light).toList()
-        val backup = opened.reader.contactsLight { it.toList() }
-        MergePlanner.plan(existing, backup, mode)
+        // Every photo the backup names is checked here, before anything is deleted or written: one the archive doesn't
+        // hold is dropped from its contact (which is restored without it) and counted for the report.
+        var missing = 0
+        val backup = opened.reader.contactsLight { seq ->
+            seq.map { r -> PhotoRefs.resolvable(r, opened.reader::hasPhoto).let { (kept, n) -> missing += n; kept } }.toList()
+        }
+        MergePlanner.plan(existing, backup, mode).copy(missingPhotos = missing)
     }
 
     /**
@@ -610,7 +619,7 @@ class BackupRepository(
      * doesn't start if that fails.
      */
     suspend fun restore(opened: OpenedBackup, plan: MergePlan, o: RestoreOptions): RestoreReport = withContext(Dispatchers.IO + NonCancellable) {
-        var r = RestoreReport()
+        var r = RestoreReport(missingPhotos = if (o.contacts) plan.missingPhotos else 0)
         val skipped = ArrayList<String>()
         if (o.contacts && plan.mode == RestoreMode.REPLACE && plan.toDelete.isNotEmpty()) {
             val safety = backupNow(scheduled = false, safety = true)
@@ -643,7 +652,8 @@ class BackupRepository(
                     is MergeAction.Conflict -> if (o.applyConflicts) a.existing to a.missingRows else continue
                     else -> continue
                 }
-                val n = addRows(existing, PhotoRefs.filled(rows, opened.reader::photo))
+                // Photos aren't added to an existing contact (single-valued, see addRows): none is read for one.
+                val n = addRows(existing, rows.filter { it.mimeType != Mime.PHOTO })
                 if (n > 0) r = r.copy(enriched = r.enriched + 1, rowsAdded = r.rowsAdded + n)
             }
         } catch (e: Exception) {
@@ -682,7 +692,8 @@ class BackupRepository(
                 val plain = all.filterKeys { !it.startsWith(BackupExtras.PREFIX) }
                 // App lock, discreet mode and hiding the screen wait for the user's confirmation; everything else applies.
                 val (security, rest) = plain.entries.partition { it.key in SettingsRepository.SECURITY_KEYS }
-                settings.importMap(rest.associate { it.key to it.value })
+                // A backup without a retention kept calls forever: it doesn't take this phone's new-install default.
+                settings.importMap(RetentionDefaults.restored(rest.associate { it.key to it.value }, SettingsRepository.RETENTION_KEY))
                 val here = settings.exportMap()
                 pendingSecurity = security.associate { it.key to it.value }.filter { (k, v) -> here[k] != v }
                 // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
@@ -719,9 +730,14 @@ class BackupRepository(
      * The backup's archived calls, streamed in chunks: a 100k-call archive is never one list. The reader's section is
      * only readable inside its block, which isn't suspending: each chunk is written from it on this (IO) thread.
      */
-    private fun restoreArchive(opened: OpenedBackup, h: CallHistoryBackup): Int = opened.reader.callHistory { seq ->
-        seq.chunked(RESTORE_LINES_CHUNK).sumOf { chunk -> runBlocking { h.restoreLines(chunk) } }
-    } ?: 0
+    private suspend fun restoreArchive(opened: OpenedBackup, h: CallHistoryBackup): Int {
+        val restore = h.beginRestore()
+        try {
+            return opened.reader.callHistory { seq -> seq.chunked(RESTORE_LINES_CHUNK).sumOf { chunk -> runBlocking { restore.add(chunk) } } } ?: 0
+        } finally {
+            restore.finish()
+        }
+    }
 
     private companion object {
         /** Archived calls restored per write. */
