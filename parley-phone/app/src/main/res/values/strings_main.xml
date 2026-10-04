@@ -12,7 +12,6 @@
     <string name="main_delete">Delete</string>
     <string name="main_done">Done</string>
     <string name="main_close">Close</string>
-    <string name="main_back">Back</string>
     <string name="main_copy">Copy</string>
     <string name="main_share">Share</string>
     <string name="main_edit">Edit</string>
@@ -254,7 +253,6 @@
 
     <!-- Contacts list -->
     <string name="contacts_no_private">No private contacts</string>
-    <string name="contacts_no_private_body">Private contacts are encrypted and only visible in Parley — other apps (messengers, keyboards) can\'t read them. Calls from them still show their name.</string>
     <string name="contacts_no_matches">No matches for “%1$s”</string>
     <string name="contacts_no_filter_match">No contacts match this filter</string>
     <string name="contacts_none">No contacts</string>
@@ -411,7 +409,6 @@
     <string name="detail_phone">Phone</string>
     <!-- "Always Work": the SIM always used for this number. -->
     <string name="detail_always_sim">Always %1$s</string>
-    <string name="detail_default_email">Default email</string>
     <string name="detail_address">Address</string>
     <string name="detail_usual">Usual</string>
     <!-- "About Ana" -->
@@ -451,9 +448,6 @@
     <string name="detail_default_removed">Default removed</string>
     <string name="detail_remove_default">Remove default</string>
     <string name="detail_set_default">Set as default</string>
-    <string name="detail_default_number">Default number</string>
-    <string name="detail_choose_sim_number">Choose SIM for this number</string>
-    <string name="detail_message_number">Message this number</string>
     <string name="detail_edit_before_call">Edit before calling</string>
     <string name="detail_choose_sim">Choose SIM</string>
 
@@ -473,12 +467,10 @@
     <string name="edit_title_copy">Edit this copy</string>
     <string name="edit_title_edit">Edit contact</string>
     <string name="edit_private_note">Private contact: stored encrypted inside Parley only. Other apps can\'t see it; calls from it still show its name.</string>
-    <string name="edit_choose_photo">Choose a photo</string>
     <string name="edit_remove_photo">Remove photo</string>
     <string name="edit_private_photo">The photo is encrypted and only shown inside Parley, including on the call screen.</string>
     <string name="edit_private_only">Private (only in Parley)</string>
     <string name="edit_save_to">Save to</string>
-    <string name="edit_phone_only">Phone only</string>
     <string name="edit_saved_in">Saved in %1$s</string>
     <string name="edit_name">Name</string>
     <string name="edit_first_name">First name</string>
@@ -489,7 +481,6 @@
     <string name="edit_phonetic_first">Phonetic first name</string>
     <string name="edit_phonetic_last">Phonetic last name</string>
     <string name="edit_nickname">Nickname</string>
-    <string name="edit_more_name">Prefix, middle name, nickname…</string>
     <string name="edit_company">Company</string>
     <!-- Job title (not the title of a screen). -->
     <string name="edit_job_title">Title</string>
@@ -531,13 +522,11 @@
     <string name="edit_city">City</string>
     <string name="edit_region">Region</string>
     <string name="edit_country">Country</string>
-    <string name="edit_add_address">Add address</string>
     <string name="edit_important_dates">Important dates</string>
     <string name="edit_event_death">Death</string>
     <string name="edit_custom">Custom</string>
     <string name="edit_custom_more">Custom…</string>
     <string name="edit_remove_date">Remove date</string>
-    <string name="edit_add_date">Add date</string>
     <string name="edit_web_homepage">Homepage</string>
     <string name="edit_web_work">Work</string>
     <string name="edit_web_other">Other</string>
@@ -558,7 +547,6 @@
     <string name="edit_remove_handle">Remove handle</string>
     <string name="edit_service_name">Service name</string>
     <string name="edit_service_placeholder">e.g. Jami, Briar</string>
-    <string name="edit_add_handle">Add handle</string>
     <string name="edit_relations">Relations</string>
     <!-- The contact was changed by another app or a sync while the editor was open. -->
     <string name="edit_changed_title">Changed elsewhere</string>
@@ -588,7 +576,6 @@
     <string name="edit_field_labels">Labels</string>
     <string name="edit_choose_contact">Choose a contact</string>
     <string name="edit_remove_relation">Remove relation</string>
-    <string name="edit_add_relation">Add relation</string>
     <string name="edit_custom_label">Custom label</string>
     <string name="edit_custom_placeholder">e.g. Boat, Name day</string>
 
@@ -917,8 +904,6 @@
         <item quantity="other">Delete %d calls?</item>
     </plurals>
     <string name="clear_history_confirm_body">They\'re removed from your phone\'s call history. History &amp; undo keeps them for 30 days, so you can still undo this.</string>
-    <string name="clear_history_delete">Delete</string>
-    <string name="clear_history_cancel">Cancel</string>
     <string name="clear_history_close">Close</string>
     <string name="clear_history_unknown_needs_contacts">Needs access to your contacts, to tell which numbers are unknown</string>
     <!-- Birthday slots -->

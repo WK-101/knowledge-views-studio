@@ -27,8 +27,6 @@
     <!-- Save to: Temporary (a new contact that deletes itself, like the keypad's "Save temporary contact"). -->
     <string name="editor_temporary">Temporary</string>
     <string name="editor_temporary_sub">Deletes itself after a time you choose</string>
-    <string name="editor_temporary_private">Temporary · private</string>
-    <string name="editor_temporary_visible">Temporary · visible to other apps</string>
     <plurals name="editor_temp_after">
         <item quantity="one">After %1$d day</item>
         <item quantity="other">After %1$d days</item>

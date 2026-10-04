@@ -68,8 +68,6 @@
     <string name="tile_end_call_none">End call, no call in progress</string>
 
     <!-- Incoming call controls -->
-    <string name="incall_reply_with_message">Reply with message</string>
-    <string name="incall_ignore_stop_ringing">Ignore — stop ringing</string>
     <!-- The incoming screen's quiet pill that stops the ringer (the call keeps ringing silently). -->
     <string name="incall_silence">Silence</string>
     <string name="incall_end_and_answer">End current call and answer</string>
@@ -78,8 +76,6 @@
     <!-- "Answer on Work": which SIM the call came in on. -->
     <string name="incall_answer_on">Answer on %1$s</string>
     <string name="incall_decline">Decline</string>
-    <string name="incall_slide_to_answer">Slide to answer</string>
-    <string name="incall_on_sim">on %1$s</string>
     <string name="incall_slider_description">Incoming call. Slide right to answer, left to decline.</string>
     <string name="incall_slider_description_sim">Incoming call on %1$s. Slide right to answer, left to decline.</string>
     <string name="incall_stop_ringing">Stop ringing</string>
@@ -94,7 +90,6 @@
     <string name="incall_hold_answer_short">Hold &amp;\nanswer</string>
     <string name="incall_end_answer_short">End &amp;\nanswer</string>
     <string name="incall_reply">Reply</string>
-    <string name="incall_ignore_waiting_tone">Ignore — stop the waiting tone</string>
 
     <!-- In-call screen -->
     <string name="incall_call_ended">Call ended</string>
@@ -142,7 +137,6 @@
     <string name="incall_add_call">Add call</string>
     <string name="incall_manage">Manage</string>
     <string name="incall_manage_conference">Manage conference</string>
-    <string name="incall_contacts">Contacts</string>
     <string name="incall_end_call">End call</string>
     <string name="incall_call_with">Call with</string>
     <string name="incall_hide_keypad">Hide keypad</string>

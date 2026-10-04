@@ -2,7 +2,6 @@
 <resources>
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">Cancel</string>
-    <string name="dc_back">Back</string>
     <string name="dc_ok">OK</string>
     <string name="dc_got_it">Got it</string>
     <string name="dc_restore">Restore</string>
@@ -466,23 +465,8 @@
     <string name="temp_save_privately">Save privately</string>
 
     <!-- Private contact (vault) page -->
-    <string name="vault_unlock_to_remember">Unlock to remember this choice</string>
-    <string name="vault_title">Private contact</string>
-    <string name="dc_edit">Edit</string>
     <string name="dc_more">More</string>
-    <string name="vault_move_out">Move to phone contacts</string>
     <string name="vault_move_failed">Couldn\'t move: %1$s</string>
-    <string name="vault_moved_out">Moved to phone contacts</string>
-    <string name="vault_share_qr">Share privately (QR)</string>
-    <string name="vault_expires">Expires…</string>
-    <string name="vault_only_in_parley">Only visible in Parley · encrypted</string>
-    <string name="vault_deletes_on">Deletes itself on %1$s</string>
-    <string name="vault_call">Call</string>
-    <string name="vault_sms">SMS</string>
-    <string name="vault_message">Message</string>
-    <string name="vault_choose_message">Choose how to message</string>
-    <string name="vault_email">Email</string>
-    <string name="vault_shown_when_call">Shown when they call</string>
     <string name="vault_unlock_all">Unlock to see all details</string>
     <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
     <string name="vault_details_lost">Some details can\'t be opened any more</string>
@@ -491,14 +475,6 @@
     <string name="vault_details_kept">Saved with the name, numbers and note for calls</string>
     <string name="vault_details_unavailable">Private details can\'t be opened right now</string>
     <string name="vault_details_unavailable_summary">Nothing has changed. Tap to try again.</string>
-    <string name="vault_phone">Phone</string>
-    <string name="vault_message_number">Message this number</string>
-    <string name="vault_messengers">Message or call on…</string>
-    <string name="vault_about">About</string>
-    <string name="vault_address">Address</string>
-    <string name="vault_website">Website</string>
-    <string name="vault_note">Note</string>
-    <string name="vault_call_history">Private call history</string>
     <string name="vault_delete_title">Delete this private contact?</string>
     <string name="vault_delete_text">This also deletes its private call history. A sealed copy stays in History &amp; undo for 30 days, shown only after you unlock.</string>
     <string name="vault_delete_no_copy_title">Delete without a copy?</string>
@@ -1004,7 +980,6 @@
     <string name="ppl_bg_desc">Call screen background</string>
     <string name="ppl_bg_custom">Custom call screen picture</string>
     <string name="ppl_bg_default">Default call screen</string>
-    <string name="ppl_bg_info">Call screen background · change it in Edit</string>
     <string name="ppl_bg_info_none">Choose a picture to show when they call</string>
     <string name="ppl_bg_info_set">Shown when they call. Tap to change it.</string>
     <string name="ppl_bg_set">Call screen picture set</string>
@@ -1253,25 +1228,19 @@
     <string name="me_share">Share</string>
     <string name="me_profile_title">Also shows your phone\'s profile</string>
     <string name="me_profile_text">Details from Android\'s “Me” contact fill in what\'s empty here. Parley doesn\'t change that profile: anything in it can be read by every app with contacts access, so your card stays in Parley.</string>
-    <string name="me_you">You</string>
     <string name="me_name">Name</string>
     <string name="me_company">Company</string>
     <string name="me_job_title">Job title</string>
     <string name="me_numbers">Numbers</string>
     <string name="me_number">Number</string>
     <string name="me_email">Email</string>
-    <string name="me_email_address">Email address</string>
     <string name="me_websites">Websites</string>
     <string name="me_website">Website</string>
-    <string name="me_more">More</string>
     <string name="me_address">Address</string>
     <string name="me_private_note">Private note</string>
     <string name="me_private_note_hint">Only for you: never shared</string>
     <string name="me_footer">Your card is stored on this phone only, inside Parley. “Send my details” uses its name and first number.</string>
     <string name="me_remove">Remove</string>
-    <string name="me_add_number">Add number</string>
-    <string name="me_add_email">Add email address</string>
-    <string name="me_add_website">Add website</string>
     <string name="me_share_chooser">Share my card</string>
     <string name="me_share_failed">Couldn\'t share the card</string>
     <string name="me_qr_desc">QR code of my card</string>
@@ -1706,11 +1675,9 @@
         <item quantity="one">%1$d number added back.</item>
         <item quantity="other">%1$d numbers added back.</item>
     </plurals>
-    <string name="watch_undo">Undo</string>
     <string name="watch_undone">Undone. The snapshots still have them.</string>
     <string name="watch_nothing_title">Nothing to restore</string>
     <string name="watch_nothing_body">They\'re back already, or the snapshots no longer have them. History &amp; undo › Snapshots shows every change.</string>
-    <string name="watch_restoring">Restoring…</string>
 
     <!-- Backup setup checker: where the backup folder lives (from its location only, no file is read) and how fresh the last backup is. -->
     <string name="bkp_place_phone">On this phone only</string>

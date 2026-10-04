@@ -178,10 +178,10 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
                 ClearStep.CONFIRM -> TextButton({
                     vm.deleteCallsWithUndo(chosen, keepPrivate = true)
                     onDismiss()
-                }, enabled = count > 0) { Text(stringResource(R.string.clear_history_delete), color = MaterialTheme.colorScheme.error) }
+                }, enabled = count > 0) { Text(stringResource(R.string.main_delete), color = MaterialTheme.colorScheme.error) }
             }
         },
-        dismissButton = { TextButton({ onDismiss() }, enabled = !busy) { Text(stringResource(R.string.clear_history_cancel)) } },
+        dismissButton = { TextButton({ onDismiss() }, enabled = !busy) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 
