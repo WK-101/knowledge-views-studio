@@ -42,4 +42,24 @@ class BulkEditTest {
         )
         assertEquals(emptyList<Pair<String, Int>>(), BulkEdits.removableLabels(listOf(bob)) { emptySet() })
     }
+
+    @Test fun a_move_takes_only_writable_copies_outside_the_target() {
+        fun copy(id: Long, writable: Boolean = true, inTarget: Boolean = false, messenger: Boolean = false) =
+            BulkEdits.MoveCopy(id, writable, inTarget, messenger)
+        // Phone copy plus a SIM copy and a WhatsApp copy: only the phone copy moves, the SIM one is reported as kept.
+        assertEquals(
+            BulkEdits.MoveSplit.Move(moving = listOf(1L), staying = listOf(2L, 3L), keptReadOnly = 1),
+            BulkEdits.moveSplit(listOf(copy(1), copy(2, writable = false), copy(3, writable = false, messenger = true))),
+        )
+        // A Google copy in the target plus a SIM copy: nothing writable outside the target, so nothing is re-created.
+        assertEquals(BulkEdits.MoveSplit.AlreadyThere, BulkEdits.moveSplit(listOf(copy(1, inTarget = true), copy(2, writable = false))))
+        // SIM only: nothing can move (and nothing is copied).
+        assertEquals(BulkEdits.MoveSplit.NoWritableCopy, BulkEdits.moveSplit(listOf(copy(2, writable = false))))
+        assertEquals(BulkEdits.MoveSplit.NoWritableCopy, BulkEdits.moveSplit(emptyList()))
+        // A copy already in the target stays and is kept linked to the moved one.
+        assertEquals(
+            BulkEdits.MoveSplit.Move(moving = listOf(1L), staying = listOf(4L), keptReadOnly = 0),
+            BulkEdits.moveSplit(listOf(copy(1), copy(4, inTarget = true), copy(1))),
+        )
+    }
 }

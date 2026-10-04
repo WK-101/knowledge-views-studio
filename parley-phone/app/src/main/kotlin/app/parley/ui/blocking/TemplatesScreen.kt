@@ -300,7 +300,8 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 val removed = res.getString(R.string.blk_tpl_removed, name)
                 if (installed) {
-                    val uninstall = { scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; offerReinstall(vm, gallery, t, removed) } }
+                    // Undo puts back the group as it was: the same rules (on or off, with their hits), the list's choices.
+                    val uninstall = { scope.launch { busy = true; val u = gallery.uninstallWithUndo(vm.c, t.id); busy = false; vm.offerUndo(removed, u) } }
                     OutlinedButton({ uninstall() }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
                 } else {
                     OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_install)) }
@@ -380,6 +381,3 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
-
-/** Undo of an uninstall installs the template again, as one group. */
-private fun offerReinstall(vm: AppViewModel, gallery: TemplateGallery, t: RuleTemplate, text: String) = vm.offerUndo(text) { gallery.install(vm.c, t) }

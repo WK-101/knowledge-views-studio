@@ -166,6 +166,7 @@ import app.parley.ui.calls.DefaultAppNote
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.rememberEmergency
 import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
@@ -396,6 +397,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     }
 
     val numbersBlocked = rememberBlocked(vm, remember(d?.phones) { d?.phones?.map { it.value }.orEmpty() })
+    val onlyEmergency = rememberEmergency(vm, remember(d?.phones) { d?.phones?.map { it.value }.orEmpty() })
     ParleyScaffold(
         topBar = {
             ParleyTopBar(
@@ -435,6 +437,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 // "Log a chat or visit" is the FAB for Circle contacts.
                                 inCircle = meta?.reachOutDays != null,
                                 blocked = numbersBlocked,
+                                onlyEmergency = onlyEmergency,
                             ),
                         )
                         fun runMenu(a: ContactMenu.Action) {
@@ -1044,7 +1047,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 onDismiss = { peekNumber = null },
             )
         }
-        if (remindToCall) d.phones.primary()?.let { p -> RemindToCallSheet(vm, p.value, d.displayName, onDismiss = { remindToCall = false }) }
+        if (remindToCall) d.phones.primary()?.let { p ->
+            // Several numbers: the sheet asks which one, the default chosen first.
+            val numbers = d.phones.distinctBy { it.value }.map { it.value to Format.phoneType(resources, it.type, it.label) }
+            RemindToCallSheet(vm, p.value, d.displayName, numbers = numbers, onDismiss = { remindToCall = false })
+        }
         if (logDialog || editEntry != null) {
             val initial = editEntry
             LogInteractionDialog(d.given.ifBlank { d.displayName }, initial, onDismiss = { logDialog = false; editEntry = null }) { type, note, time ->

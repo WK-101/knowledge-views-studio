@@ -61,4 +61,5 @@
     <!-- Recents' long-press, the contact page and number history: put someone on To call by hand -->
     <string name="to_call_remind_me_to_call">Remind me to call</string>
     <string name="to_call_remind_me_to_call_name">Remind me to call %1$s</string>
+    <string name="to_call_which_number">Which number</string>
 </resources>

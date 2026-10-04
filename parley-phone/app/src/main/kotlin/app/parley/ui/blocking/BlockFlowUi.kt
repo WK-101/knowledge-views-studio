@@ -26,6 +26,7 @@ import app.parley.common.suspendRunCatching
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyDialog
 import app.parley.ui.calls.DefaultAppNote
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,11 +46,18 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null,
     val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
         val done = suspendRunCatching { BlockFlow.block(vm.c, numbers, note) }.getOrNull()
+        // What else happened, said with the result: emergency numbers left open, "Always allow" rules taken away.
+        val notes = listOfNotNull(
+            done?.emergency?.size?.takeIf { it > 0 && done.numbers.isNotEmpty() }?.let { res.getQuantityString(R.plurals.blockflow_emergency_left, it, it) },
+            res.getString(R.string.blockflow_allow_removed).takeIf { (done?.liftedAllows ?: 0) > 0 },
+        )
+        fun said(text: String) = (listOf(text) + notes).joinToString(". ")
         when {
             done == null -> vm.toast(res.getString(R.string.vm_couldnt_block))
+            done.numbers.isEmpty() && done.emergency.isNotEmpty() -> vm.toast(res.getString(R.string.blockflow_emergency_text))
             done.numbers.isEmpty() -> vm.toast(res.getString(R.string.contacts_swipe_already_blocked))
-            done.numbers.size == 1 -> vm.offerUndo(res.getString(R.string.vm_blocked, name ?: Bidi.ltr(done.numbers[0])), done.undo)
-            else -> vm.offerUndo(res.getQuantityString(R.plurals.blk_blocked_numbers, done.numbers.size, done.numbers.size), done.undo)
+            done.numbers.size == 1 -> vm.offerUndo(said(res.getString(R.string.vm_blocked, name ?: Bidi.ltr(done.numbers[0]))), done.undo)
+            else -> vm.offerUndo(said(res.getQuantityString(R.plurals.blk_blocked_numbers, done.numbers.size, done.numbers.size)), done.undo)
         }
     }
 }
@@ -81,6 +89,15 @@ fun allowWithUndo(vm: AppViewModel, number: String, hours: Int?, text: String) {
     }
 }
 
+/** Whether every one of [numbers] is an emergency number here: then nothing offers Block or Unblock for them. */
+@Composable
+fun rememberEmergency(vm: AppViewModel, numbers: List<String>): Boolean {
+    val emergency by produceState(false, numbers) {
+        value = withContext(Dispatchers.IO) { numbers.any { it.isNotBlank() } && numbers.filter { it.isNotBlank() }.all { BlockFlow.isEmergency(vm.c, it) } }
+    }
+    return emergency
+}
+
 /**
  * Whether any of [numbers] is blocked now (on Android's list or by its own exact rule), kept current as either
  * changes, so each place can offer Unblock instead of Block.
@@ -102,21 +119,15 @@ fun rememberBlocked(vm: AppViewModel, numbers: List<String>): Boolean {
 /** The question behind [askToBlock]: what blocking does here, and (for one number) the rule editor for more. */
 @Composable
 internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismiss: () -> Unit) {
-    val plans by produceState<List<BlockPlan.Block>?>(null, x) { value = suspendRunCatching { BlockFlow.plans(vm.c, x.numbers) }.getOrDefault(emptyList()) }
-    val p = plans ?: return
-    val who = x.name ?: x.numbers.singleOrNull()?.let { Bidi.ltr(it) }
-    if (p.isEmpty()) {
-        // Already blocked (a notification or the post-call card can't know): the way back instead.
-        ConfirmDialog(
-            title = stringResource(R.string.blockflow_already_title),
-            text = who?.let { stringResource(R.string.blockflow_already_text, it) },
-            confirmLabel = stringResource(R.string.blk_unblock),
-            onConfirm = { dismiss(); unblockWithUndo(vm, x.numbers, x.name) },
-            onDismiss = dismiss,
-            dismissLabel = stringResource(R.string.main_cancel),
-        )
-        return
+    // What blocking would change, and whether every number is an emergency number (read together, so the dialog
+    // never shows "Already blocked" for one first).
+    val loaded by produceState<Pair<List<BlockPlan.Block>, Boolean>?>(null, x) {
+        val plans = suspendRunCatching { BlockFlow.plans(vm.c, x.numbers) }.getOrDefault(emptyList())
+        value = plans to withContext(Dispatchers.IO) { x.numbers.isNotEmpty() && x.numbers.all { BlockFlow.isEmergency(vm.c, it) } }
     }
+    val (p, emergencyOnly) = loaded ?: return
+    val who = x.name ?: x.numbers.singleOrNull()?.let { Bidi.ltr(it) }
+    if (p.isEmpty()) return NothingToBlockDialog(vm, x, who, emergencyOnly, dismiss)
     val count = p.size
     ConfirmDialog(
         title = if (count == 1 && who != null) {
@@ -145,5 +156,30 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
                 }
             }
         },
+    )
+}
+
+/**
+ * Nothing of [x] can be blocked: emergency numbers, which never are (said calmly, nothing to choose), or numbers blocked
+ * already (a notification or the post-call card can't know), with the way back instead.
+ */
+@Composable
+private fun NothingToBlockDialog(vm: AppViewModel, x: BlockingDialog.Block, who: String?, emergency: Boolean, dismiss: () -> Unit) {
+    if (emergency) {
+        ParleyDialog(
+            onDismissRequest = dismiss,
+            title = { Text(stringResource(R.string.blockflow_emergency_title)) },
+            text = { Text(stringResource(R.string.blockflow_emergency_text)) },
+            confirmButton = { TextButton(dismiss) { Text(stringResource(R.string.main_ok)) } },
+        )
+        return
+    }
+    ConfirmDialog(
+        title = stringResource(R.string.blockflow_already_title),
+        text = who?.let { stringResource(R.string.blockflow_already_text, it) },
+        confirmLabel = stringResource(R.string.blk_unblock),
+        onConfirm = { dismiss(); unblockWithUndo(vm, x.numbers, x.name) },
+        onDismiss = dismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
     )
 }

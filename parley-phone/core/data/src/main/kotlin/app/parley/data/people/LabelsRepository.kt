@@ -116,12 +116,19 @@ class LabelsRepository(
         delete(title) to Deleted(l.title, groups, private, snapshot)
     }
 
-    /** Undo of [deleteForUndo]: the label again in each account, with its members, then everything that named it. */
+    /**
+     * Undo of [deleteForUndo]: the label again in each account, with its members, then everything that named it. A label
+     * of that title made (or synced back) in an account since is used as it is, its own members kept and the old ones
+     * added, so Undo never leaves two groups of the same title (a second Undo adds nothing).
+     */
     suspend fun restore(d: Deleted) = withContext(Dispatchers.IO) {
+        val existing = catching { contacts.groups() }.getOrDefault(emptyList()).filter { it.title == d.title }
         val made = d.groups.mapNotNull { (account, raws) ->
-            val id = contacts.createGroup(d.title, account) ?: return@mapNotNull null
+            val there = existing.firstOrNull { it.account == account }?.id
+            val id = there ?: contacts.createGroup(d.title, account) ?: return@mapNotNull null
+            val already = if (there != null) rawMembers(id) else emptySet()
             cr.applyInBatches(
-                raws.map { raw ->
+                (raws - already).map { raw ->
                     ContentProviderOperation.newInsert(Data.CONTENT_URI)
                         .withValue(Data.RAW_CONTACT_ID, raw)
                         .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
@@ -193,8 +200,9 @@ class LabelsRepository(
         try {
             cr.query(
                 Data.CONTENT_URI, arrayOf(Data.RAW_CONTACT_ID),
-                "${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=?",
-                arrayOf(GroupMembership.CONTENT_ITEM_TYPE, groupId.toString()), null,
+                // The id inline, as a number: compared as text it misses rows whose column holds an integer.
+                "${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=$groupId",
+                arrayOf(GroupMembership.CONTENT_ITEM_TYPE), null,
             )?.use { c -> while (c.moveToNext()) out += c.getLong(0) }
         } catch (_: Exception) {
         }

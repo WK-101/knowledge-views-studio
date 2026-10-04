@@ -92,4 +92,22 @@ class PrivateCallsTest {
         gate.open()
         assertEquals(1, vault.privateCalls.first { it.isNotEmpty() }.size)
     }
+
+    @Test fun deletedPrivateCallsComeBackWithUndoStillSealed() = runBlocking {
+        vault.storePrivateCall(4, "+44 7700 900001", "Ana", 1000, 5, CallLog.Calls.INCOMING_TYPE)
+        vault.storePrivateCall(4, "+44 7700 900001", "Ana", 2000, 9, CallLog.Calls.OUTGOING_TYPE)
+        vault.storePrivateCall(5, "+44 7700 900002", "Bo", 3000, 1, CallLog.Calls.MISSED_TYPE)
+        val before = vault.privateCallsNow().sortedBy { it.date }
+        val sealed = db.vaultDao().allPrivateCalls().associate { it.id to it.blob.toList() }
+
+        val kept = vault.deletePrivateCallsForUndo(before.filter { it.vaultId == 4L }.map { it.id })
+        assertEquals(2, kept.size)
+        assertEquals(listOf(5L), vault.privateCallsNow().map { it.vaultId })
+
+        vault.restorePrivateCalls(kept)
+        // Undo tapped twice (or a retry) never doubles a call.
+        vault.restorePrivateCalls(kept)
+        assertEquals(before, vault.privateCallsNow().sortedBy { it.date })
+        assertEquals(sealed, db.vaultDao().allPrivateCalls().associate { it.id to it.blob.toList() })
+    }
 }

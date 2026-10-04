@@ -109,6 +109,16 @@ class MenusTest {
         assertEquals(listOf(MenuEntry.Action(RecentMenu.Action.DELETE_FROM_HISTORY)), RecentMenu.build(RecentMenu.Facts(hasNumber = false)))
     }
 
+    @Test fun an_emergency_number_offers_neither_block_nor_unblock() {
+        for (blocked in listOf(false, true)) {
+            val recent = actions(RecentMenu.build(RecentMenu.Facts(hasNumber = true, blocked = blocked, emergency = true)))
+            assertTrue(recent.none { it == RecentMenu.Action.BLOCK || it == RecentMenu.Action.UNBLOCK || it == RecentMenu.Action.REPORT })
+            val contact = actions(ContactMenu.build(ContactMenu.Facts(blocked = blocked, onlyEmergency = true)))
+            assertTrue(contact.none { it == ContactMenu.Action.BLOCK_NUMBERS || it == ContactMenu.Action.UNBLOCK_NUMBERS })
+        }
+        assertTrue(RecentMenu.Action.REMIND_TO_CALL in actions(RecentMenu.build(RecentMenu.Facts(hasNumber = true, emergency = true))))
+    }
+
     @Test fun a_group_of_one_is_the_action_itself() {
         // A private-only selection has nothing to share: no empty "Share…".
         val top = SelectionMenu.build(SelectionMenu.Facts(hasDevice = false, hasPrivate = true))

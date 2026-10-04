@@ -48,8 +48,7 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         if (!contacts.isWritableAccount(target)) return@withContext Result.Failed(context.getString(R.string.data_move_not_writable))
         val oldKey = contacts.lookupKeyOf(contactId)
 
-        contacts.recordChange(listOf(contactId), "MOVE")
-        if (contacts.lastJournalIds.isEmpty()) return@withContext Result.Failed(context.getString(R.string.data_move_no_undo))
+        if (contacts.recordChange(listOf(contactId), "MOVE").isEmpty()) return@withContext Result.Failed(context.getString(R.string.data_move_no_undo))
 
         val single = ContactRecord(record.key, record.displayName, record.starred, record.customRingtone, record.sendToVoicemail, listOf(raw))
         val inserted = records.insertAll(listOf(single), target).single()

@@ -116,6 +116,16 @@ class TemporaryContactStore(private val c: DataContainer) {
 
     suspend fun clear(lookupKey: String) = mutex.withLock { c.meta.clearTemporary(lookupKey) }
 
+    /**
+     * A temporary contact whose copies [removed] were replaced by [added] (moved to another account): the entry now
+     * records the new copies, so it still deletes itself on its date. Does nothing when [lookupKey] isn't temporary.
+     */
+    suspend fun replaceRaws(lookupKey: String, removed: Collection<Long>, added: Collection<Long>, contactId: Long? = null) = mutex.withLock {
+        val t = c.meta.temporary(lookupKey) ?: return@withLock
+        val ids = TemporaryExpiry.decodeIds(t.rawIds).orEmpty() - removed.toSet() + added
+        c.meta.setTemporary(t.copy(rawIds = TemporaryExpiry.encodeIds(ids), contactId = contactId ?: t.contactId))
+    }
+
     suspend fun forKey(lookupKey: String): TemporaryContactEntity? = c.meta.temporary(lookupKey)
 
     /** True once per temporary contact: after its first real edit, ask "Keep this contact?". */

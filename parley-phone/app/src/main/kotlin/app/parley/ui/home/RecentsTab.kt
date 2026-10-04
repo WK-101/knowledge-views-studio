@@ -99,6 +99,7 @@ import app.parley.ui.blocking.RecentsSelectionBar
 import app.parley.ui.blocking.askToBlock
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.rememberEmergency
 import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.blocking.rememberRecentBadges
 import app.parley.ui.calls.ToCallStrip
@@ -537,6 +538,8 @@ private fun RecentActionsSheet(
         salesLine = hasNumber && rememberReputation(vm, g.number, isContact = g.contact != null) != null,
         // The same Block as everywhere (a question, then Undo), and Unblock once it is blocked.
         blocked = hasNumber && rememberBlocked(vm, listOf(g.number)),
+        // A call with 112 or a local emergency service: never blocked.
+        emergency = hasNumber && rememberEmergency(vm, listOf(g.number)),
     )
     fun runAction(a: RecentMenu.Action) {
         if (a == RecentMenu.Action.REMIND_TO_CALL) {
@@ -562,7 +565,7 @@ private fun RecentActionsSheet(
         }
     }
     if (remind) {
-        RemindToCallSheet(vm, g.number, g.contact?.displayName, g.latest.accountId, onDismiss)
+        RemindToCallSheet(vm, g.number, g.contact?.displayName, g.latest.accountId, onDismiss = onDismiss)
         return
     }
     // Dismissing More… goes back to this sheet; its actions close everything themselves (or open Remind me to call).

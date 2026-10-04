@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import app.parley.common.catching
 import app.parley.telecom.CallUi
 import app.parley.telecom.TelecomGraph
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
 
@@ -95,6 +97,10 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
     val number = call.number ?: return
     var saving by remember { mutableStateOf(false) }
     val blocked by produceState(false, number) { value = catching { TelecomGraph.dependencies.isBlocked(number) }.getOrDefault(false) }
+    // A call with an emergency service is never blocked or reported: neither is offered.
+    val emergency by produceState(false, number) {
+        value = withContext(Dispatchers.IO) { catching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrDefault(false) }
+    }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = ParleyShapes.sheet,
@@ -125,12 +131,14 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 // L1: call them back later, from the To call list (saved without unlocking, like a note).
                 RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
                 Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
-                if (blocked) {
-                    Action(Icons.Rounded.RemoveModerator, stringResource(R.string.postcall_unblock)) { onChoice(PostCallChoice.Unblock(number)) }
-                } else {
-                    Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
+                if (!emergency) {
+                    if (blocked) {
+                        Action(Icons.Rounded.RemoveModerator, stringResource(R.string.postcall_unblock)) { onChoice(PostCallChoice.Unblock(number)) }
+                    } else {
+                        Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
+                    }
+                    Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
                 }
-                Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
                 Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
                 // "Text me your name", for the user to send from the messaging app.
                 nameReplyFor(call)?.let { text ->

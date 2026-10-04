@@ -1504,7 +1504,7 @@
     <string name="handle_problem_signal">Signal usernames end with a dot and digits, like name.01</string>
     <string name="life_date_of_death">Date of death</string>
     <string name="privnames_dir_request_title">%1$s wants private names from the directory</string>
-    <string name="privnames_dir_request_text">%1$s looked a caller up in Parley\'s contacts directory. If you allow it, %1$s can show a private contact\'s name when they call, one number at a time; it never gets a list. This is separate from “Let apps show private names”.</string>
+    <string name="privnames_dir_request_text">%1$s looked a caller up in Parley\'s contacts directory. If you allow it, %1$s can show a private contact\'s name when they call, one number at a time; it never gets a list.</string>
     <string name="pn_directory_apps">Phone apps using the directory</string>
     <string name="import_csv_column">CSV column “%1$s”</string>
     <!-- Back up first, backup reminder -->

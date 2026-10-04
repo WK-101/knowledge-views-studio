@@ -1,5 +1,6 @@
 package app.parley.data.extras
 
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStores
 import android.content.Context
 import android.provider.ContactsContract
@@ -206,6 +207,32 @@ class ExtrasStore(private val c: DataContainer) {
             if (runCatching { c.contacts.setStarred(id, false) }.isSuccess) n++
         }
         updateDndStars { settled.ledger }
+        c.contacts.refresh()
+        n
+    }
+
+    /**
+     * Undo of a label delete: the contacts Parley had starred for the labels in [entries] (key → labels) are starred
+     * again and recorded as before. One the user starred meanwhile keeps their own star (not recorded, so never taken
+     * away by Parley); one that is gone is skipped. Returns how many were starred.
+     */
+    suspend fun restoreDndStars(entries: Map<String, Set<String>>): Int = withContext(Dispatchers.IO) {
+        val ledger = _dndStars.value
+        var n = 0
+        val recorded = LinkedHashMap<String, Set<String>>()
+        for ((k, labels) in entries.filterValues { it.isNotEmpty() }) {
+            val found = catching { c.contacts.currentOf(k, null) }.getOrNull()
+            val starred = found?.let { (id, _) -> catching { c.contacts.details(id)?.starred }.getOrNull() }
+            when {
+                found == null || starred == null -> Unit
+                !starred -> if (catching { c.contacts.setStarred(found.first, true) }.isSuccess) {
+                    n++
+                    recorded[found.second] = labels
+                }
+                found.second in ledger -> recorded[found.second] = labels
+            }
+        }
+        if (recorded.isNotEmpty()) updateDndStars { m -> DndStars.merge(m, recorded) }
         c.contacts.refresh()
         n
     }

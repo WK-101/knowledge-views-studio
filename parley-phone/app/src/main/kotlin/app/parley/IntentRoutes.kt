@@ -76,6 +76,13 @@ object IntentRoutes {
     const val ACTION_APPROVE_PRIVATE_NAME = "app.parley.APPROVE_PRIVATE_NAME"
     const val EXTRA_PACKAGE = "package"
 
+    /** Set to false on the requests the removed lookup provider posted (true or absent: a Directory request). */
+    private const val LEGACY_EXTRA_DIRECTORY = "directory"
+
+    /** A request notification of the removed lookup provider, posted before the upgrade: it must answer nothing. */
+    fun isLegacyLookupRequest(intent: Intent): Boolean =
+        intent.hasExtra(LEGACY_EXTRA_DIRECTORY) && !intent.getBooleanExtra(LEGACY_EXTRA_DIRECTORY, true)
+
     const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
 
     /**
@@ -225,7 +232,8 @@ object IntentRoutes {
             }
             Intent.ACTION_EDIT -> data?.let { contactLink(it, readable) }?.let { IntentTarget(editContact = it) }
             // The sheet itself checks the app again and asks before anything is allowed.
-            ACTION_APPROVE_PRIVATE_NAME -> intent.getStringExtra(EXTRA_PACKAGE)?.takeIf { it.isNotBlank() }?.let {
+            // A request left by the removed lookup provider (it said directory=false) answers nothing.
+            ACTION_APPROVE_PRIVATE_NAME -> intent.getStringExtra(EXTRA_PACKAGE)?.takeIf { it.isNotBlank() && !isLegacyLookupRequest(intent) }?.let {
                 IntentTarget(approvePrivateName = it)
             }
             Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent)))

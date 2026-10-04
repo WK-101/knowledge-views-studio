@@ -22,6 +22,7 @@ import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.R
+import app.parley.blocking.BlockFlow
 import app.parley.blocking.BlockingText
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
@@ -33,6 +34,7 @@ import app.parley.common.calls.MissedCall
 import app.parley.common.calls.MissedCaller
 import app.parley.common.calls.MissedCalls
 import app.parley.common.calls.MissedReAlert
+import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
@@ -148,7 +150,14 @@ object MissedCallNotifier {
                         ),
                     )
                 }
-                if (!d.isContact) b.addAction(blockAction(context, caller.number, NotificationRequests.MISSED_BLOCK + i, id))
+                if (!d.isContact) {
+                    // Never Block for an emergency number; and a number on the Always allow list gets the app's question
+                    // (which says the allowance goes, with Undo) rather than losing it unseen.
+                    val now = suspendRunCatching { BlockFlow.now(c, caller.number) }.getOrNull()
+                    if (now?.emergency != true) {
+                        b.addAction(blockAction(context, caller.number, NotificationRequests.MISSED_BLOCK + i, id, ask = now?.allowRules?.isNotEmpty() == true))
+                    }
+                }
             }
             try {
                 nmc.notify(id, b.build())
@@ -248,11 +257,12 @@ object MissedCallNotifier {
     )
 
     /**
-     * "Block" needs the phone unlocked: on Android 12+ the system asks before sending the broadcast; before that it opens
-     * the rule editor (an activity, which the lock screen only starts after unlocking).
+     * "Block" needs the phone unlocked: on Android 12+ the system asks before sending the broadcast; before that, or
+     * when the block needs the app's question ([ask]), it opens the app's Block question (an activity, which the lock
+     * screen only starts after unlocking).
      */
-    private fun blockAction(context: Context, number: String, req: Int, notificationId: Int): NotificationCompat.Action {
-        if (Build.VERSION.SDK_INT >= 31) {
+    private fun blockAction(context: Context, number: String, req: Int, notificationId: Int, ask: Boolean = false): NotificationCompat.Action {
+        if (Build.VERSION.SDK_INT >= 31 && !ask) {
             return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
                 .setAuthenticationRequired(true).build()
         }

@@ -41,8 +41,12 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -235,7 +239,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             AnimatedVisibility(tab == StartTab.CONTACTS && selection.isEmpty() && !searching, enter = scaleIn(), exit = scaleOut()) {
-                AddContactFab(vm, open)
+                AddContactFab(vm, open, visible = tab == StartTab.CONTACTS && selection.isEmpty() && !searching)
             }
         },
     ) { padding ->
@@ -359,18 +363,28 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit) {
+private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    // Hidden for a selection or a search: it comes back closed.
+    LaunchedEffect(visible) { if (!visible) expanded = false }
     BackHandler(expanded) { expanded = false }
     fun go(d: Destination) { expanded = false; open(d) }
     val addLabel = stringResource(R.string.home_add_contact_menu)
+    val state = stringResource(if (expanded) R.string.home_add_menu_open else R.string.home_add_menu_closed)
+    val action = stringResource(if (expanded) R.string.home_add_menu_hide else R.string.home_add_menu_show)
     FloatingActionButtonMenu(
         expanded = expanded,
         button = {
-            CoachMarkAnchor(Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
+            CoachMarkAnchor(Tips.CONTACTS_ADD_MENU, stringResource(R.string.qs_tip_contacts)) {
                 ToggleFloatingActionButton(
                     checked = expanded, onCheckedChange = { expanded = it },
-                    modifier = Modifier.semantics { contentDescription = addLabel },
+                    // A button that opens a menu, not an on/off switch: TalkBack says "Add a contact, menu closed".
+                    modifier = Modifier.clearAndSetSemantics {
+                        contentDescription = addLabel
+                        stateDescription = state
+                        role = Role.Button
+                        onClick(label = action) { expanded = !expanded; true }
+                    },
                 ) {
                     Icon(if (checkedProgress > 0.5f) Icons.Rounded.Close else Icons.Rounded.PersonAdd, null)
                 }
