@@ -36,8 +36,11 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
      */
     val preview: StateFlow<List<CallEntry>?> = _preview
 
-    // A refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
+    // A refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live. One call's end
+    // sends a burst of notifications (the insert, the cached name, mark-read, Parley's own sweeps): the first load is
+    // immediate, later ones wait until the burst is quiet (and the state flow passes an unchanged log on to no one).
     val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI, retry = reload), reload) { _, _ -> }
+        .debounceAfterFirst(CHANGE_QUIET_MS)
         .map {
             // Two-stage load: a quick first page on the first load only, then everything.
             if (_preview.value == null && !fullLoaded) _preview.value = load(PREVIEW_ROWS)
@@ -215,6 +218,9 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
 
     companion object {
         const val PREVIEW_ROWS = 100
+
+        /** How long the call log must be quiet after a change before it is read again. */
+        private const val CHANGE_QUIET_MS = 500L
 
         /** Rows read for [lastCallWith] (the filter URI matches loosely, so a few candidates). */
         private const val LAST_CALL_ROWS = 10

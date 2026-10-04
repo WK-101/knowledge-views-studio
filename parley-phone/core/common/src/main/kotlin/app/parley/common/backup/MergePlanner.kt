@@ -91,6 +91,9 @@ data class MergePlan(
  * A row is "missing" when no existing row has the same [DataRow.canonicalKey]; additionally phones
  * compare by [PhoneIdentity.portableKey], e-mails case-insensitively and photos by blob content, so re-formatted copies
  * aren't added twice. Name and photo are single-valued: a differing one is a conflict, not an addition.
+ *
+ * Records may be [PhotoRefs.light] (photos as hashes): a restore plans from those, so neither address book's photos are
+ * held while planning, and only the records it writes get their photos back.
  */
 object MergePlanner {
     private val SINGLE_VALUED = setOf(Mime.NAME, Mime.PHOTO)
@@ -174,7 +177,7 @@ object MergePlanner {
     /** Keys under which a row counts as already present. */
     internal fun identities(row: DataRow): List<String> = buildList {
         if (row.mimeType == Mime.PHOTO) {
-            add("photo:" + (row.blob?.let(RecordJson::sha256Hex) ?: row.canonicalKey))
+            add("photo:" + (PhotoRefs.hashOf(row) ?: row.canonicalKey))
             return@buildList
         }
         add(row.canonicalKey)

@@ -9,6 +9,22 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.detekt)
+    alias(libs.plugins.kover) apply false
+}
+
+/*
+ * Test coverage (Kover), on request only, so everyday builds and test runs aren't instrumented:
+ *   ./gradlew -Pcoverage koverHtmlReport koverXmlReport
+ * writes one report over the modules below to build/reports/kover/ (html/index.html, report.xml). It reports and
+ * never fails the build: there are no thresholds yet. Per module: ./gradlew -Pcoverage :core:common:koverHtmlReport.
+ */
+val coveredModules = listOf(":core:common", ":core:data", ":core:ui", ":telecom", ":app")
+if (providers.gradleProperty("coverage").isPresent) {
+    apply(plugin = "org.jetbrains.kotlinx.kover")
+    subprojects {
+        if (path in coveredModules) apply(plugin = "org.jetbrains.kotlinx.kover")
+    }
+    dependencies { coveredModules.forEach { "kover"(project(it)) } }
 }
 
 /*

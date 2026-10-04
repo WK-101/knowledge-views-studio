@@ -11,6 +11,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import app.parley.common.sync.FolderSyncSchedule
+import app.parley.common.sync.FolderSyncSchedule.Trigger
 import app.parley.container
 import app.parley.ui.extras.MarkdownTexts
 import java.time.Duration
@@ -21,10 +23,20 @@ import java.util.concurrent.TimeUnit
  * (what the auto-sync switch's summary promises):
  * - shortly after Parley starts ([runSoon]);
  * - a minute after this phone's address book settles (a content-URI trigger, which works while Parley isn't running);
- * - every hour, for what no trigger can observe: the other phones' writes into the shared folders, and notes.
+ * - every hour while labels are shared (every four hours otherwise), for what no trigger can observe: the other
+ *   phones' writes into the shared folders, and notes.
+ * None runs on low battery, and a start-up or periodic run right after another one is skipped ([FolderSyncSchedule]).
  */
 class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        val trigger = when {
+            inputData.getBoolean(KEY_CHANGE, false) -> Trigger.CHANGE
+            inputData.getBoolean(KEY_START_UP, false) -> Trigger.START_UP
+            else -> Trigger.PERIODIC
+        }
+        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val last = prefs.getLong(K_LAST_RUN, 0L).takeIf { it > 0 }
+        if (!FolderSyncSchedule.shouldRun(trigger, last, System.currentTimeMillis())) return Result.success()
         val sync = applicationContext.container.folderSync
         if (sync.status.value.folderUri != null && sync.status.value.auto) {
             runCatching { sync.syncNow() }
@@ -38,7 +50,8 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         val md = applicationContext.container.markdown
         if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }
         // A content trigger fires once: watch for the next change, after this run.
-        if (inputData.getBoolean(KEY_CHANGE, false) && wanted(applicationContext, null)) watchChanges(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
+        if (trigger == Trigger.CHANGE && wanted(applicationContext, null)) watchChanges(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
+        prefs.edit().putLong(K_LAST_RUN, System.currentTimeMillis()).apply()
         return Result.success()
     }
 
@@ -47,6 +60,12 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         private const val ONCE = "parley-folder-sync-once"
         private const val ON_CHANGE = "parley-folder-sync-change"
         private const val KEY_CHANGE = "change"
+        private const val KEY_START_UP = "start_up"
+        private const val PREFS = "folder_sync_runs"
+        private const val K_LAST_RUN = "last_run"
+
+        /** Background runs wait while the battery is low; a change trigger keeps its own content constraints too. */
+        private fun batteryNotLow(): Constraints.Builder = Constraints.Builder().setRequiresBatteryNotLow(true)
 
         /** After the Markdown export's folder or switch changed (and at start-up). */
         fun reschedule(context: Context) {
@@ -59,7 +78,8 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             if (!wanted(context, null)) return
             WorkManager.getInstance(context).enqueueUniqueWork(
                 ONCE, ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<FolderSyncWorker>().setInitialDelay(30, TimeUnit.SECONDS).build(),
+                OneTimeWorkRequestBuilder<FolderSyncWorker>().setInitialDelay(30, TimeUnit.SECONDS)
+                    .setConstraints(batteryNotLow().build()).setInputData(workDataOf(KEY_START_UP to true)).build(),
             )
         }
 
@@ -80,14 +100,19 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 wm.cancelUniqueWork(ONCE)
                 return
             }
-            // Hourly: the other phone's changes arrive only through the folder. UPDATE brings back the hourly period on
-            // installs that had the briefly daily one.
-            wm.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<FolderSyncWorker>(1, TimeUnit.HOURS).build())
+            // Hourly while labels are shared: the other phones' changes arrive only through the folder. Otherwise this
+            // phone's own changes have the content trigger, so the catch-up can wait longer. UPDATE applies a changed
+            // period or constraint to an install that already has the work.
+            val hours = FolderSyncSchedule.periodHours(context.container.sharedLabels.wantsRuns())
+            wm.enqueueUniquePeriodicWork(
+                PERIODIC, ExistingPeriodicWorkPolicy.UPDATE,
+                PeriodicWorkRequestBuilder<FolderSyncWorker>(hours, TimeUnit.HOURS).setConstraints(batteryNotLow().build()).build(),
+            )
             watchChanges(context, ExistingWorkPolicy.KEEP)
         }
 
         private fun watchChanges(context: Context, policy: ExistingWorkPolicy) {
-            val constraints = Constraints.Builder()
+            val constraints = batteryNotLow()
                 .addContentUriTrigger(ContactsContract.Contacts.CONTENT_URI, true)
                 .setTriggerContentUpdateDelay(Duration.ofMinutes(1))
                 .setTriggerContentMaxDelay(Duration.ofMinutes(15))

@@ -380,12 +380,13 @@ fun RecentRow(
                 }
                 Spacer(Modifier.width(6.dp))
                 val location = rememberNumberLocation(g.number, countryIso, enabled = g.contact == null && g.vaultId == null && !g.hidden)
+                val shownNumber = remember(e.number, countryIso) { Bidi.ltr(Format.number(e.number, countryIso)) }
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p ->
                             Format.phoneType(context.resources, p.type, p.label)
-                        } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
+                        } else if (!g.hidden && g.contact == null && g.cachedName != null) shownNumber else null,
                     e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,

@@ -17,7 +17,7 @@
     <string name="md_export_only_circle">Only people in your Circle</string>
     <string name="md_export_only_circle_body">Off: everyone in your contacts</string>
     <string name="md_export_auto">Keep it up to date</string>
-    <string name="md_export_auto_body">Export again every hour, with folder sync</string>
+    <string name="md_export_auto_body">Export again with folder sync</string>
     <string name="md_export_last">Last export %1$s</string>
     <string name="md_export_never">Not exported yet</string>
     <string name="md_export_no_permission">Parley needs access to contacts to export</string>

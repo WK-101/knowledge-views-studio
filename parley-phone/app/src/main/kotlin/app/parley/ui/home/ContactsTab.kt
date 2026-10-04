@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.People
@@ -82,8 +83,11 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     // The rows with their letter headers, worked out once per list change (PeopleUi.listing).
     val listing by vm.people.listing.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
-    val selection by vm.selection.collectAsStateWithLifecycle()
-    val secondLines by vm.people.secondLines.collectAsStateWithLifecycle()
+    val selectionState = vm.selection.collectAsStateWithLifecycle()
+    // Only entering or leaving selection changes the screen above the rows; ticking another contact doesn't.
+    val selectingAny by remember { derivedStateOf { selectionState.value.isNotEmpty() } }
+    // Read inside each row (not by the list's builder), so a new second line or hint recomposes the rows, not the list.
+    val secondLinesState = vm.people.secondLines.collectAsStateWithLifecycle()
     val filter by vm.people.filter.collectAsStateWithLifecycle()
 
     val showVault by vm.showVault.collectAsStateWithLifecycle()
@@ -92,9 +96,9 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val privateOnly = showVault && !settings.hideVault
     val chips: @Composable () -> Unit = { ContactsFilterChips(vm, showVault, settings.hideVault, open) }
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
-    val hints by vm.people.searchHints.collectAsStateWithLifecycle()
+    val hintsState = vm.people.searchHints.collectAsStateWithLifecycle()
     val privateLocked = vm.people.privateSearch.locked.collectAsStateWithLifecycle().value && !settings.hideVault
-    val index by vm.people.index.collectAsStateWithLifecycle()
+    val indexState = vm.people.index.collectAsStateWithLifecycle()
     // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = rememberQuickMessenger(vm)
     // The work profile's matches, read-only, under the search results (not while filtering the list).
@@ -102,14 +106,16 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
 
     val rows = listing
     if (rows == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        // A cold start with a large address book: the rows shown last time, until the list has loaded.
+        val head by vm.people.listHead.collectAsStateWithLifecycle()
+        head?.let { ListHeadPreview(it, open) } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // Build (index of first item for each section) for the fast-scroll rail.
     // "My card" leads the list when nothing is being searched or filtered.
-    val showMe = query.isBlank() && filter.isEmpty && selection.isEmpty()
+    val showMe = query.isBlank() && filter.isEmpty && !selectingAny
     // The favourites (and the Circle, when it moved with them) under "My card", while not searching.
     val layout = settings.homeLayout
     val showFavorites = showMe && layout.favoritesInContacts
@@ -120,6 +126,10 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val count = remember(rows) { rows.count { it is ListSections.Row.Item } }
     // Private contacts listed among the others have negative ids.
     val privateShown = remember(rows) { rows.count { it is ListSections.Row.Item && it.item.id < 0 } }
+    // One items block per letter rather than one item per contact.
+    val runs = remember(rows) { ListSections.runs(rows) }
+    val rowActions = settings.contactRowActions
+    val swipe = peopleSettings.swipe
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
@@ -161,20 +171,27 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     )
                 }
             }
-            rows.forEach { row ->
-                if (row is ListSections.Row.Header) {
-                    val s = row.section
+            runs.forEach { run ->
+                run.section?.let { s ->
                     stickyHeader(key = "s$s", contentType = CONTENT_LETTER) {
                         ListSectionHeader(s, sticky = true, inset = Spacing.xl)
                     }
-                    return@forEach
                 }
-                val c = (row as ListSections.Row.Item).item
-                item(key = c.id, contentType = CONTENT_CONTACT) {
-                    val number = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
+                items(run.items, key = { it.id }, contentType = { CONTENT_CONTACT }) { c ->
+                    // Each row follows only its own part of the shared state: ticking one contact recomposes that row.
+                    val selected by remember(c.id) { derivedStateOf { c.id in selectionState.value } }
+                    val selecting by remember { derivedStateOf { selectionState.value.isNotEmpty() } }
+                    val secondLine by remember(c.id) { derivedStateOf { hintsState.value[c.id] ?: secondLinesState.value[c.id] } }
+                    val isCompany by remember(c) {
+                        derivedStateOf {
+                            val company = indexState.value.extras[c.id]?.company.orEmpty()
+                            company.isNotBlank() && company.trim().equals(c.displayName.trim(), ignoreCase = true)
+                        }
+                    }
+                    val number = remember(c) { (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number }
                     // Opt-in swipe actions (never while selecting).
                     SwipeActionRow(
-                        if (selection.isEmpty()) peopleSettings.swipe else peopleSettings.swipe.copy(enabled = false),
+                        if (!selecting) swipe else swipe.copy(enabled = false),
                         hasNumber = number != null, canDelete = true, listState = state,
                         onAction = { a ->
                             when (a) {
@@ -189,16 +206,16 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     ) {
                         ContactRow(
                             c,
-                            secondLine = hints[c.id] ?: secondLines[c.id],
-                            actions = settings.contactRowActions && selection.isEmpty(),
+                            secondLine = secondLine,
+                            actions = rowActions && !selecting,
                             onCall = { n -> vm.requestCall(n, c.displayName) },
-                            selected = c.id in selection,
-                            selectionMode = selection.isNotEmpty(),
+                            selected = selected,
+                            selectionMode = selecting,
                             // Private contacts are selected like any (SelectionBar leaves them out of what would copy them out).
                             onLongClick = { vm.toggleSelection(c.id) },
                             onMessage = { n -> quick.message(c, n) },
-                            isCompany = index.extras[c.id]?.let { e -> e.company.isNotBlank() && e.company.trim().equals(c.displayName.trim(), ignoreCase = true) } == true,
-                        ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                            isCompany = isCompany,
+                        ) { if (selectionState.value.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
                     }
                 }
             }
@@ -218,6 +235,19 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             }
         }
         quickHost()
+    }
+}
+
+/** The first screenful kept from last time ([app.parley.common.people.ListHead]): plain rows that open the contact. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ListHeadPreview(rows: List<ListSections.Row<String, ContactSummary>>, open: (Destination) -> Unit) {
+    val runs = remember(rows) { ListSections.runs(rows) }
+    LazyColumn(Modifier.fillMaxSize()) {
+        runs.forEach { run ->
+            run.section?.let { s -> stickyHeader(key = "s$s", contentType = CONTENT_LETTER) { ListSectionHeader(s, sticky = true, inset = Spacing.xl) } }
+            items(run.items, key = { it.id }, contentType = { CONTENT_CONTACT }) { c -> ContactRow(c) { open(Routes.contact(c.id)) } }
+        }
     }
 }
 

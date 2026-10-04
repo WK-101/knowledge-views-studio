@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.catching
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
@@ -15,6 +16,7 @@ import app.parley.common.BlockAction
 import app.parley.common.NavTabs
 import app.parley.common.ScreeningSettings
 import app.parley.common.SurfaceLayout
+import app.parley.common.history.RetentionDefaults
 import app.parley.common.people.NameOrder
 import app.parley.common.security.DuressPolicy
 import app.parley.common.security.SafetyOverlay
@@ -37,6 +39,16 @@ private const val PRIVATE_NAMES_TIMEOUT_MS = 1_500L
 
 class SettingsRepository(context: Context, scope: CoroutineScope) {
     private val store = context.applicationContext.dataStore
+
+    /**
+     * This install was never updated: the first run of a new install (an update changes the last-update time). Stored
+     * settings can't tell, since start-up writes some before anyone chose anything.
+     */
+    private val freshInstall: Boolean by lazy {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).let { it.firstInstallTime == it.lastUpdateTime }
+        }.getOrDefault(false)
+    }
 
     private val _loaded = MutableStateFlow(false)
 
@@ -78,10 +90,12 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         // Pin the layout schema once, before any new default could apply: an existing user keeps
         // separate tabs exactly as they were (see SurfaceLayout.migrate).
         scope.launch {
-            runCatching {
+            catching {
                 store.edit { prefs ->
                     val existing = prefs.asMap().keys.any { it.name != K.surfaces.name }
                     SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }
+                    // Likewise the call-history retention: five years on a new install, unchanged for everyone else.
+                    if (prefs[K.retention] == null) prefs[K.retention] = RetentionDefaults.resolve(null, existingUser = !freshInstall)
                 }
             }
         }
@@ -213,7 +227,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             birthdayReminders = this[K.birthdays] ?: d.birthdayReminders,
             birthdayReminderHour = this[K.birthdayHour] ?: d.birthdayReminderHour,
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
-            callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
+            // Also before the pin in init is written: an existing user is never read as a new install's five years.
+            callLogRetentionDays = RetentionDefaults.resolve(this[K.retention], existingUser = !freshInstall),
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
             mirrorRelations = this[K.mirrorRelations] ?: d.mirrorRelations,
             askBeforeDeletingTemporary = this[K.askTempDelete] ?: d.askBeforeDeletingTemporary,

@@ -34,6 +34,7 @@ import app.parley.common.backup.BlockingSnapshot
 import app.parley.common.backup.MergeAction
 import app.parley.common.backup.MergePlan
 import app.parley.common.backup.MergePlanner
+import app.parley.common.backup.PhotoRefs
 import app.parley.common.backup.NumberSimRecord
 import app.parley.common.backup.Recipient
 import app.parley.common.backup.RecordJson
@@ -69,6 +70,7 @@ import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -591,9 +593,14 @@ class BackupRepository(
         OpenedBackup(uri, reader, origin)
     }
 
+    /**
+     * Plans from both address books with photos as hashes ([PhotoRefs]): each record is made light as it is read, so
+     * neither book's photos are held while planning (20k contacts with photos would not fit). [restore] puts the
+     * photos back for the records it writes.
+     */
     suspend fun plan(opened: OpenedBackup, mode: RestoreMode): MergePlan = withContext(Dispatchers.IO) {
-        val existing = records.readAll(fullPhoto = false).toList()
-        val backup = opened.reader.contacts { it.toList() }
+        val existing = records.readAll(fullPhoto = false).map(PhotoRefs::light).toList()
+        val backup = opened.reader.contactsLight { it.toList() }
         MergePlanner.plan(existing, backup, mode)
     }
 
@@ -620,7 +627,9 @@ class BackupRepository(
             }
             val news = plan.actions.filterIsInstance<MergeAction.New>().map { it.backup }
             var added = 0
-            news.chunked(200).forEach { chunk ->
+            // Photos come back a chunk at a time, only for the contacts written.
+            news.chunked(200).forEach { light ->
+                val chunk = light.map { PhotoRefs.filled(it, opened.reader::photo) }
                 records.insertAll(chunk, target = null).forEach { res ->
                     insertedRaws += res.rawIds
                     if (res.contactId != null) added++ else r = r.copy(failed = r.failed + 1)
@@ -634,7 +643,7 @@ class BackupRepository(
                     is MergeAction.Conflict -> if (o.applyConflicts) a.existing to a.missingRows else continue
                     else -> continue
                 }
-                val n = addRows(existing, rows)
+                val n = addRows(existing, PhotoRefs.filled(rows, opened.reader::photo))
                 if (n > 0) r = r.copy(enriched = r.enriched + 1, rowsAdded = r.rowsAdded + n)
             }
         } catch (e: Exception) {
@@ -648,8 +657,7 @@ class BackupRepository(
         if (o.callLog) part(context.getString(R.string.data_rst_part_calls)) {
             r = r.copy(calls = restoreCallLog(opened))
             val h = callHistory
-            val archived = if (h != null) opened.reader.callHistory { it.toList() } else null
-            if (h != null && archived != null) r = r.copy(calls = r.calls + h.restoreLines(archived))
+            if (h != null) r = r.copy(calls = r.calls + restoreArchive(opened, h))
         }
         // Feature parts ride on the choice they belong to; they match people against the contacts restored above.
         val featureValues = if (o.contacts || o.blocking || o.settings) runCatching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()
@@ -707,7 +715,18 @@ class BackupRepository(
         ids.size
     }
 
+    /**
+     * The backup's archived calls, streamed in chunks: a 100k-call archive is never one list. The reader's section is
+     * only readable inside its block, which isn't suspending: each chunk is written from it on this (IO) thread.
+     */
+    private fun restoreArchive(opened: OpenedBackup, h: CallHistoryBackup): Int = opened.reader.callHistory { seq ->
+        seq.chunked(RESTORE_LINES_CHUNK).sumOf { chunk -> runBlocking { h.restoreLines(chunk) } }
+    } ?: 0
+
     private companion object {
+        /** Archived calls restored per write. */
+        const val RESTORE_LINES_CHUNK = 2_000
+
         /** Sections the backup writes itself (contacts, calls, blocking, speed dial, settings, private contacts). */
         val BUILT_IN_SECTIONS = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT) }
     }

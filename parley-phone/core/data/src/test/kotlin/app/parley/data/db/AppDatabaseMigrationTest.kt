@@ -26,7 +26,7 @@ class AppDatabaseMigrationTest {
 
     @Test fun everyStepValidatesAgainstTheExportedSchema() {
         helper.createDatabase(NAME, 1).close()
-        for (version in 2..LATEST) helper.runMigrationsAndValidate(NAME, version, true).close()
+        for (version in 2..LATEST) helper.runMigrationsAndValidate(NAME, version, true, *Migrations.ALL).close()
     }
 
     @Test fun rowsFromVersionOneSurviveToTheLatest() {
@@ -38,7 +38,7 @@ class AppDatabaseMigrationTest {
             db.execSQL("INSERT INTO speed_dial (`key`, number, label) VALUES (2, '+15550000002', 'Mum')")
             db.execSQL("INSERT INTO number_sim (matchKey, phoneAccountId) VALUES ('5550000002', 'sim-1')")
         }
-        helper.runMigrationsAndValidate(NAME, LATEST, true).use { db ->
+        helper.runMigrationsAndValidate(NAME, LATEST, true, *Migrations.ALL).use { db ->
             db.query("SELECT pattern, kind, notify, hitCount, label FROM block_rules WHERE id = 1").use { c ->
                 c.moveToFirst()
                 assertEquals("+1555*", c.getString(0))
@@ -103,7 +103,7 @@ class AppDatabaseMigrationTest {
             db.execSQL("INSERT INTO speed_dial (`key`, number, label) VALUES (3, '+15550000003', NULL)")
         }
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val room = Room.databaseBuilder(context, AppDatabase::class.java, NAME).allowMainThreadQueries().build()
+        val room = Room.databaseBuilder(context, AppDatabase::class.java, NAME).addMigrations(*Migrations.ALL).allowMainThreadQueries().build()
         try {
             assertEquals("+15550000003", room.prefsDao().speedDial(3)?.number)
             assertEquals(0, room.interactionDao().all().size)
@@ -112,9 +112,85 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * 10 → 11 rebuilds the journal and vault_contacts with the blob last: every row survives with every byte (a payload
+     * and a sealed detail larger than a page included), the indexes come back, and the new photo table is empty.
+     */
+    @Test fun tenToElevenKeepsEveryRowAndPhotoWithTheBlobsLast() {
+        val bigPayload = ByteArray(300_000) { (it % 251).toByte() }
+        val bigDetail = ByteArray(120_000) { (it % 13).toByte() }
+        helper.createDatabase(NAME, 10).use { db ->
+            db.execSQL(
+                "INSERT INTO journal (id, contactKey, displayName, action, time, payload, restored) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                arrayOf<Any>(5, "ana", "Ana", "DELETE", 4000, bigPayload, 0),
+            )
+            db.execSQL(
+                "INSERT INTO journal (id, contactKey, displayName, action, time, payload, restored) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                arrayOf<Any>(9, "bo", "Bo", "EDIT", 5000, byteArrayOf(1, 2), 1),
+            )
+            db.execSQL(
+                "INSERT INTO vault_contacts (id, callerIdBlob, detailBlob, expiresAt, createdAt) VALUES (?, ?, ?, ?, ?)",
+                arrayOf<Any?>(3, byteArrayOf(7, 7), bigDetail, 9000L, 1000L),
+            )
+            db.execSQL("INSERT INTO vault_numbers (vaultId, hmac) VALUES (3, 'h')")
+        }
+        helper.runMigrationsAndValidate(NAME, 11, true, *Migrations.ALL).use { db ->
+            db.query("SELECT id, contactKey, displayName, action, time, restored, photoHashes, payload FROM journal ORDER BY id").use { c ->
+                assertEquals(2, c.count)
+                c.moveToFirst()
+                assertEquals(5L, c.getLong(0))
+                assertEquals("Ana", c.getString(2))
+                assertEquals("DELETE", c.getString(3))
+                assertEquals(4000L, c.getLong(4))
+                assertEquals(0, c.getInt(5))
+                assertTrue(c.isNull(6))
+                assertTrue(bigPayload.contentEquals(c.getBlob(7)))
+                c.moveToNext()
+                assertEquals(9L, c.getLong(0))
+                assertEquals(1, c.getInt(5))
+            }
+            db.query("SELECT id, callerIdBlob, expiresAt, createdAt, detailBlob FROM vault_contacts").use { c ->
+                c.moveToFirst()
+                assertEquals(3L, c.getLong(0))
+                assertTrue(byteArrayOf(7, 7).contentEquals(c.getBlob(1)))
+                assertEquals(9000L, c.getLong(2))
+                assertEquals(1000L, c.getLong(3))
+                assertTrue(bigDetail.contentEquals(c.getBlob(4)))
+            }
+            db.query("SELECT vaultId FROM vault_numbers WHERE hmac = 'h'").use { c -> c.moveToFirst(); assertEquals(3L, c.getLong(0)) }
+            // The blob is the last column of both tables.
+            for (table in listOf("journal" to "payload", "vault_contacts" to "detailBlob")) {
+                val columns = buildList { db.query("PRAGMA table_info(${table.first})").use { c -> while (c.moveToNext()) add(c.getString(1)) } }
+                assertEquals(table.second, columns.last())
+            }
+            db.query("SELECT COUNT(*) FROM journal_photos").use { c -> c.moveToFirst(); assertEquals(0, c.getInt(0)) }
+            // New rows continue after the copied ids.
+            db.execSQL("INSERT INTO journal (contactKey, displayName, action, time, restored, payload) VALUES ('cy', 'Cy', 'EDIT', 6000, 0, x'00')")
+            db.query("SELECT MAX(id) FROM journal").use { c -> c.moveToFirst(); assertEquals(10L, c.getLong(0)) }
+        }
+    }
+
+    /** A new install creates both tables with the blob last too, and a listing reads no detail blob. */
+    @Test fun aNewDatabaseHasTheBlobsLast() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val room = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val db = room.openHelper.writableDatabase
+            for (table in listOf("journal" to "payload", "vault_contacts" to "detailBlob")) {
+                val columns = buildList { db.query("PRAGMA table_info(${table.first})").use { c -> while (c.moveToNext()) add(c.getString(1)) } }
+                assertEquals(table.second, columns.last())
+            }
+            val id = room.vaultDao().upsert(VaultContactEntity(callerIdBlob = byteArrayOf(1), expiresAt = 5L, detailBlob = ByteArray(200_000)))
+            assertEquals(listOf(id), room.vaultDao().expired(10L).map { it.id })
+            assertEquals(200_000, room.vaultDao().detailBlob(id)?.size)
+        } finally {
+            room.close()
+        }
+    }
+
     private companion object {
         const val NAME = "migration-test.db"
-        const val LATEST = 10
+        const val LATEST = 11
     }
 }
 

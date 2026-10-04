@@ -40,6 +40,7 @@ import app.parley.telecom.CallManager
 import app.parley.ui.Bidi
 import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
+import app.parley.common.people.Collation
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
 import kotlinx.coroutines.FlowPreview
@@ -227,6 +228,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The Contacts tab's "Private" filter: only private contacts are listed. */
     val showVault = MutableStateFlow(false)
 
+    /** Sorts and merges private contacts into [everyone] (one collator, used only by that flow). */
+    private val privateOrder = Collation.Order()
+
     /**
      * The contacts Parley's own lists show (Contacts, Favourites, the Circle): the address book's plus private contacts,
      * which carry a lock badge, unless discreet mode hides them. Only these screens use it; the list other apps can
@@ -236,8 +240,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         contacts, c.vault.contacts, settings.map { Triple(it.hideVault, it.sortByFirstName, it.showNamesLastFirst) }.distinctUntilChanged(),
     ) { list, vault, (hidden, byFirst, lastFirst) ->
         if (list == null || hidden || vault.isEmpty()) return@combine list
-        val names = java.text.Collator.getInstance().apply { strength = java.text.Collator.PRIMARY }
-        val compare = Comparator<String> { a, b -> names.compare(a, b) }
+        val compare = privateOrder
         // "Sort by" and "Show names as" apply to private contacts as to the address book's: same headers, same rail.
         val rows = NameOrder.apply(
             vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) },
@@ -282,6 +285,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val missedCount: StateFlow<Int> = c.history.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     /** Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */

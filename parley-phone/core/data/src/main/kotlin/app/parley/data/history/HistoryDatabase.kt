@@ -64,18 +64,32 @@ interface HistoryDao {
     @Query("SELECT id FROM archived_calls ORDER BY date DESC, id DESC LIMIT :limit")
     suspend fun newestIds(limit: Int): List<Long>
 
-    /** A page of rows, newest first, for reading the whole archive without holding it. */
-    @Query("SELECT * FROM archived_calls ORDER BY date DESC, id DESC LIMIT :limit OFFSET :offset")
-    suspend fun page(limit: Int, offset: Int): List<ArchivedCallEntity>
+    /** The newest [limit] rows: the first page of a whole-archive read. */
+    @Query("SELECT * FROM archived_calls ORDER BY date DESC, id DESC LIMIT :limit")
+    suspend fun firstPage(limit: Int): List<ArchivedCallEntity>
+
+    /**
+     * The [limit] rows after (older than) the row at ([date], [id]), newest first. Keyset paging: each page starts
+     * from the date index where the last one ended, so reading the whole archive costs one pass, not a pass per page
+     * as with OFFSET. The date index holds the row id too, so (date, id) is the order it is walked in.
+     */
+    @Query(
+        "SELECT * FROM archived_calls WHERE date <= :date AND (date < :date OR id < :id) ORDER BY date DESC, id DESC LIMIT :limit",
+    )
+    suspend fun pageBefore(date: Long, id: Long, limit: Int): List<ArchivedCallEntity>
+
+    /** Every row filed under one of these line fingerprints, newest first (one person's calls, through the index). */
+    @Query("SELECT * FROM archived_calls WHERE personKey IN (:personKeys) ORDER BY date DESC, id DESC")
+    suspend fun byPersons(personKeys: List<String>): List<ArchivedCallEntity>
+
+    @Query("DELETE FROM archived_calls WHERE personKey IN (:personKeys)")
+    suspend fun deleteByPersons(personKeys: List<String>): Int
 
     @Query("SELECT * FROM archived_calls WHERE id IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<ArchivedCallEntity>
 
     @Query("DELETE FROM archived_calls WHERE personKey = :personKey")
     suspend fun deleteByPerson(personKey: String): Int
-
-    @Query("SELECT dedupeKey FROM archived_calls")
-    suspend fun dedupeKeys(): List<String>
 
     @Query("SELECT MAX(date) FROM archived_calls")
     suspend fun newest(): Long?
@@ -93,6 +107,7 @@ interface HistoryDao {
     @Query("SELECT * FROM archived_calls WHERE id > :after ORDER BY id LIMIT :limit")
     suspend fun pageAfter(after: Long, limit: Int): List<ArchivedCallEntity>
 
+    /** Row ids, -1 for a call already archived (the unique dedupe key turns it away). */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(rows: List<ArchivedCallEntity>): List<Long>
 

@@ -54,6 +54,24 @@ class UndoStorageTest {
         assertEquals(0L, c.undoStorage.usage().contactBytes)
     }
 
+    /**
+     * Android's SQLite creates databases with auto_vacuum FULL, so pruned pages already go back at each commit; daily
+     * upkeep then finds nothing to do and leaves the file as it is. (Which step a file in another mode gets is
+     * [app.parley.common.storage.VacuumPolicy]'s, tested in core/common.)
+     */
+    @Test fun dailyUpkeepLeavesNoFreePages() = runBlocking {
+        val db = c.db.openHelper.writableDatabase
+        fun pragma(name: String) = db.query("PRAGMA $name").use { it.moveToFirst(); it.getLong(0) }
+        repeat(40) { i ->
+            c.meta.addJournal(JournalEntity(contactKey = "k$i", displayName = "P$i", action = "EDIT", time = 1, payload = ByteArray(40_000) { i.toByte() }))
+        }
+        val full = pragma("page_count")
+        c.meta.clearJournal()
+        c.undoStorage.tidy()
+        assertEquals(0L, pragma("freelist_count"))
+        assertTrue(pragma("page_count") < full / 2)
+    }
+
     @Test fun deletedCallsAreForgottenButNotTheCallLog() = runBlocking {
         fun call(id: Long) = CallEntry(id, "+15550100", null, CallType.INCOMING, 1_700_000_000_000L + id, 30, null, false, false)
         val batch = c.history.delete(listOf(call(1), call(2)))!!

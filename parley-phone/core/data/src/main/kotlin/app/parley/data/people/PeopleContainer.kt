@@ -8,11 +8,16 @@ import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.ConfirmedRestore
+import app.parley.data.security.RecordCrypto
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** How long the people index keeps following the address book after the last screen stopped collecting it. */
+private const val INDEX_IDLE_MS = 5 * 60_000L
 
 /**
  * Contacts and privacy features (labels, favourites order, account tools, SIM, provenance, call backgrounds,
@@ -26,13 +31,21 @@ import org.json.JSONObject
  */
 class PeopleContainer(private val c: DataContainer) {
     val prefs: PeoplePrefs = c.peoplePrefs
-    val index = PeopleIndex(c.appContext, c.contacts, c.scope, c.fullStart.sharing)
+
+    /**
+     * Only the Contacts tab's lists and search use it: it stops following the address book a while after no screen
+     * collects it (a background sync then reads nothing for it), and catches up with what changed when one does again.
+     */
+    val index = PeopleIndex(c.appContext, c.contacts, c.scope, SharingStarted.WhileSubscribed(INDEX_IDLE_MS))
     val labelRefs = LabelReferences(c, prefs)
     val labels = LabelsRepository(c.appContext, c.contacts, labelRefs) { c.privateLabels }
     val backgrounds = CallBackgrounds(c.appContext, c.contacts)
 
     /** Contact photos as picked (full size, uncropped), beside Android's reduced copy. */
     val originals by lazy { OriginalPhotos(c.appContext) }
+
+    /** The Contacts list's first screenful, for a cold start ([ContactListHead]). */
+    val listHead by lazy { ContactListHead(c.appContext, RecordCrypto.get(c.appContext)) }
 
     /** Two-way relations between saved contacts. */
     val relationMirrors by lazy { RelationMirrors(c.appContext, c.contacts, c.meta) }

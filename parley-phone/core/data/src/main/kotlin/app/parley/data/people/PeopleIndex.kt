@@ -11,6 +11,7 @@ import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
+import app.parley.common.ContactSummary
 import app.parley.common.people.ContactSearch
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PersonExtra
@@ -53,89 +54,186 @@ data class PeopleIndexData(
  * Per-contact fields the lists need beyond the contact summaries (company, title, nickname, accounts, labels,
  * date of death) and every field the Contacts search and filters look at, recomputed off the main thread whenever the
  * address book changes (the contact list follows Android's change notifications).
+ *
+ * After the first build only the contacts whose summary changed are read again, so a sync touching three contacts
+ * reads three contacts' rows, not every row of the address book. A renamed label, a new region or a large change builds everything again.
  */
 class PeopleIndex(
     private val context: Context,
     contacts: ContactsRepository,
     scope: CoroutineScope,
-    /** Deferred with the contact list itself (see [app.parley.data.StartGate]). */
+    /** When the index follows the contact list; the container stops it a while after no screen needs it. */
     started: SharingStarted = SharingStarted.Eagerly,
 ) {
     private val cr = context.contentResolver
 
     val data: StateFlow<PeopleIndexData> = contacts.contacts
-        .map { if (it == null) PeopleIndexData() else load() }
+        .map { if (it == null) PeopleIndexData() else update(it) }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, started, PeopleIndexData())
+
+    /** What the last build read, so the next one reads only what changed. */
+    private class Built(
+        val list: List<ContactSummary>,
+        val region: String?,
+        val titles: Map<Long, String>,
+        val entries: Map<Long, Entry>,
+        val data: PeopleIndexData,
+    )
+
+    private class Entry(val extra: PersonExtra, val accounts: Set<AccountRef>, val doc: ContactSearch.Doc)
+
+    @Volatile private var built: Built? = null
+
+    /** How the last update went, for tests: whether it patched the previous index, and how many contacts it read. */
+    internal data class UpdateStats(val incremental: Boolean, val read: Int)
+
+    @Volatile internal var lastUpdate = UpdateStats(false, 0)
+        private set
 
     private class Acc(id: Long, region: String?) {
         var company = ""
         var title = ""
         var nickname = ""
         val accounts = LinkedHashSet<String>()
+        val accountRefs = LinkedHashSet<AccountRef>()
         val labels = HashSet<String>()
         var deceased = false
         val search = ContactSearch.Builder(id, region)
+
+        /** One data row of the contact: what the lists show from it, and everything the search looks at. */
+        fun row(mime: String, get: (String) -> String?, titles: Map<Long, String>) {
+            when (mime) {
+                Organization.CONTENT_ITEM_TYPE -> if (company.isEmpty() && title.isEmpty()) {
+                    company = get(Data.DATA1).orEmpty().trim()
+                    title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
+                }
+                Nickname.CONTENT_ITEM_TYPE -> if (nickname.isEmpty()) nickname = get(Data.DATA1).orEmpty().trim()
+                GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { labels += it }
+                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) deceased = true
+            }
+            search.row(mime, get)
+        }
     }
 
-    private fun load(): PeopleIndexData {
-        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return PeopleIndexData(loaded = true)
+    private fun update(list: List<ContactSummary>): PeopleIndexData {
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) {
+            built = null
+            return PeopleIndexData(loaded = true)
+        }
         val region = PhoneEnv.countryIso(context)
-        val byId = HashMap<Long, Acc>()
-        fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region) }
+        val titles = groupTitles()
+        val prev = built?.takeIf { it.region == region && it.titles == titles }
+        if (prev != null) {
+            if (prev.list === list) return prev.data
+            patch(prev, list, region, titles)?.let { return it }
+        }
+        val entries = read(null, region, titles)
+        lastUpdate = UpdateStats(incremental = false, read = entries.size)
+        return publish(list, region, titles, entries, unchanged = false, prev = null)
+    }
 
+    /**
+     * [prev] with the contacts [list] changed read again and those it no longer has dropped; null when too many
+     * changed (then everything is read).
+     */
+    private fun patch(prev: Built, list: List<ContactSummary>, region: String?, titles: Map<Long, String>): PeopleIndexData? {
+        val before = HashMap<Long, ContactSummary>(prev.list.size * 2)
+        prev.list.forEach { before[it.id] = it }
+        val ids = HashSet<Long>(list.size * 2)
+        val changed = ArrayList<Long>()
+        for (c in list) {
+            ids += c.id
+            // Same object when the list patched itself, an equal one after a full reload: neither is read again.
+            if (before[c.id] != c) changed += c.id
+        }
+        if (changed.size > INCREMENTAL_MAX) return null
+        val removed = prev.entries.keys.count { it !in ids }
+        val entries = HashMap(prev.entries)
+        entries.keys.retainAll(ids)
+        changed.forEach { entries.remove(it) }
+        changed.chunked(IN_CHUNK).forEach { chunk -> entries.putAll(read(chunk, region, titles)) }
+        lastUpdate = UpdateStats(incremental = true, read = changed.size)
+        return publish(list, region, titles, entries, unchanged = changed.isEmpty() && removed == 0, prev)
+    }
+
+    private fun publish(
+        list: List<ContactSummary>,
+        region: String?,
+        titles: Map<Long, String>,
+        entries: Map<Long, Entry>,
+        unchanged: Boolean,
+        prev: Built?,
+    ): PeopleIndexData {
+        val data = if (unchanged && prev != null) prev.data else {
+            val labelCounts = HashMap<String, Int>()
+            val accountCounts = HashMap<AccountRef, Int>()
+            entries.values.forEach { e ->
+                e.extra.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 }
+                e.accounts.forEach { accountCounts[it] = (accountCounts[it] ?: 0) + 1 }
+            }
+            titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
+            PeopleIndexData(
+                entries.mapValues { it.value.extra }, accountCounts, labelCounts, loaded = true, search = entries.mapValues { it.value.doc },
+            )
+        }
+        built = Built(list, region, titles, entries, data)
+        return data
+    }
+
+    /** User label titles by group row id (a small table, read on every update to notice a renamed label). */
+    private fun groupTitles(): Map<Long, String> {
         val titles = HashMap<Long, String>()
         query(Groups.CONTENT_URI, arrayOf(Groups._ID, Groups.TITLE, Groups.SYSTEM_ID, Groups.AUTO_ADD), "${Groups.DELETED}=0") { c ->
             if (c.getString(2) == null && c.getInt(3) == 0) c.getString(1)?.takeIf { it.isNotBlank() }?.let { titles[c.getLong(0)] = it.trim() }
         }
+        return titles
+    }
 
-        val accountContacts = HashMap<AccountRef, MutableSet<Long>>()
-        query(RawContacts.CONTENT_URI, arrayOf(RawContacts.CONTACT_ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0") { c ->
+    /** The entries of contacts [ids] (everyone when null). */
+    private fun read(ids: List<Long>?, region: String?, titles: Map<Long, String>): Map<Long, Entry> {
+        val byId = HashMap<Long, Acc>()
+        fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region) }
+        val only = ids?.let { " AND ${RawContacts.CONTACT_ID} IN (${it.joinToString(",")})" }.orEmpty()
+
+        val rawProjection = arrayOf(RawContacts.CONTACT_ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME)
+        query(RawContacts.CONTENT_URI, rawProjection, "${RawContacts.DELETED}=0$only") { c ->
             val id = c.getLong(0)
             val type = c.getString(1)
             if (Messengers.isMessengerAccount(type)) return@query
             val a = AccountRef(type, c.getString(2))
-            accountContacts.getOrPut(a) { HashSet() } += id
             acc(id).accounts += a.displayLabel
+            acc(id).accountRefs += a
         }
 
         // Every field the Contacts search looks at, plus what the lists need (company, nickname, labels, a death date).
         val kinds = ContactSearch.ROW_KINDS + GroupMembership.CONTENT_ITEM_TYPE
+        val onlyData = ids?.let { " AND ${Data.CONTACT_ID} IN (${it.joinToString(",")})" }.orEmpty()
         query(
             Data.CONTENT_URI,
             arrayOf(Data.CONTACT_ID, Data.MIMETYPE) + COLUMNS,
-            "${Data.MIMETYPE} IN (${kinds.joinToString(",") { "?" }})",
+            "${Data.MIMETYPE} IN (${kinds.joinToString(",") { "?" }})$onlyData",
             kinds.toTypedArray(),
         ) { c ->
-            val a = acc(c.getLong(0))
             val mime = c.getString(1) ?: return@query
             // Data columns from the third on: data1 is index 2.
-            val get: (String) -> String? = { col -> COLUMNS.indexOf(col).takeIf { it >= 0 }?.let { c.getString(it + 2) } }
-            when (mime) {
-                Organization.CONTENT_ITEM_TYPE -> if (a.company.isEmpty() && a.title.isEmpty()) {
-                    a.company = get(Data.DATA1).orEmpty().trim()
-                    a.title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
-                }
-                Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = get(Data.DATA1).orEmpty().trim()
-                GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
-                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) a.deceased = true
-            }
-            a.search.row(mime, get)
+            acc(c.getLong(0)).row(mime, { col -> COLUMNS.indexOf(col).takeIf { it >= 0 }?.let { c.getString(it + 2) } }, titles)
         }
 
-        val extras = byId.mapValues { (_, a) -> PersonExtra(a.company, a.title, a.nickname, a.accounts.toList(), a.labels, a.deceased) }
-        val labelCounts = HashMap<String, Int>()
-        extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
-        titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
-        val search = byId.mapValues { (_, a) ->
+        return byId.mapValues { (_, a) ->
             a.labels.forEach { a.search.label(it) }
             a.accounts.forEach { a.search.account(it) }
-            a.search.build()
+            Entry(PersonExtra(a.company, a.title, a.nickname, a.accounts.toList(), a.labels, a.deceased), a.accountRefs, a.search.build())
         }
-        return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
     }
 
     private companion object {
+        /** More changed contacts than this (a first account sync, a restore) build the whole index again. */
+        const val INCREMENTAL_MAX = 500
+
+        /** Ids per `IN (…)` selection. */
+        const val IN_CHUNK = 500
+
         /** DATA1 to DATA10, and DATA11 for an address's RFC 9554 parts ([app.parley.common.people.AddressParts.COLUMN]). */
         val COLUMNS = arrayOf(
             Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6, Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.DATA11,

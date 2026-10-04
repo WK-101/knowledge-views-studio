@@ -34,7 +34,7 @@ object NameOrder {
                 sortName = if (sortByFirstName) c.displayName else c.displayNameAlt,
             )
         }
-        return if (sortByFirstName) shown else shown.sortedWith { a, b -> compare.compare(a.sortName, b.sortName) }
+        return if (sortByFirstName) shown else Collation.sortedBy(shown, compare) { it.sortName }
     }
 
     /** [primary] or [alternative] (the "Family, Given" form, when there is one), as "Show names as" says. */

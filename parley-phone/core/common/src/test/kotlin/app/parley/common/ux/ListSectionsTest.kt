@@ -24,6 +24,23 @@ class ListSectionsTest {
         assertEquals("Bob", (rows[2] as ListSections.Row.Header).first)
     }
 
+    @Test fun runs_group_each_sections_items_under_its_header() {
+        val rows = ListSections.interleave(listOf("Ada", "Al", "Bo", "Cy", "Cyd")) { it.first() }
+        val runs = ListSections.runs(rows)
+        assertEquals(listOf('A', 'B', 'C'), runs.map { it.section })
+        assertEquals(listOf(listOf("Ada", "Al"), listOf("Bo"), listOf("Cy", "Cyd")), runs.map { it.items })
+        // Same lazy-list indexes: one per header, one per item.
+        assertEquals(rows.size, runs.sumOf { 1 + it.items.size })
+        assertEquals(emptyList<ListSections.Run<Char, String>>(), ListSections.runs(emptyList<ListSections.Row<Char, String>>()))
+    }
+
+    @Test fun twenty_thousand_rows_are_about_thirty_runs() {
+        val names = (0 until 20_000).map { "${'A' + it % 26}name$it" }.sortedBy { it.first() }
+        val runs = ListSections.runs(ListSections.interleave(names) { it.first() })
+        assertEquals(26, runs.size)
+        assertEquals(20_000, runs.sumOf { it.items.size })
+    }
+
     @Test fun empty_list_has_no_rows() {
         assertEquals(emptyList<ListSections.Row<String, String>>(), ListSections.interleave(emptyList<String>()) { it })
     }

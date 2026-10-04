@@ -5,6 +5,7 @@ import app.parley.common.backup.RecordJson
 import app.parley.common.memory.NumberMemory
 import app.parley.common.record.Mime
 import app.parley.data.db.JournalEntity
+import app.parley.data.db.JournalPhotoEntity
 import app.parley.data.db.JournalRow
 import app.parley.data.db.MetaDao
 import app.parley.data.records.ContactRecordStore
@@ -34,13 +35,20 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
     suspend fun snapshot(contactIds: Collection<Long>, action: String): List<Long> = withContext(Dispatchers.IO) {
         contactIds.mapNotNull { id ->
             val record = records.read(id, fullPhoto = true) ?: return@mapNotNull null
-            val blobs = JSONObject()
-            val line = RecordJson.encode(record) { hash, bytes -> blobs.put(hash, Base64.encodeToString(bytes, Base64.NO_WRAP)) }
-            val payload = JSONObject().put("record", line).put("blobs", blobs).toString().toByteArray()
+            // Photos are kept once by hash beside the copies: the same photo in a thousand edits is stored once.
+            val photos = LinkedHashMap<String, ByteArray>()
+            val line = RecordJson.encode(record) { hash, bytes -> photos[hash] = bytes }
+            val payload = JSONObject().put("record", line).toString().toByteArray()
             val zipped = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(payload) } }.toByteArray()
-            dao.addJournal(
-                JournalEntity(contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(), payload = zipped),
-            )
+            journalPhotoLock.withLock {
+                for ((hash, bytes) in photos) if (dao.journalPhotoKept(hash) == 0) dao.addJournalPhoto(JournalPhotoEntity(hash, bytes))
+                dao.addJournal(
+                    JournalEntity(
+                        contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(),
+                        photoHashes = photos.keys.joinToString(",").ifEmpty { null }, payload = zipped,
+                    ),
+                )
+            }
         }
     }
 
@@ -60,7 +68,16 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
     }
 
     /** Forgets every journaled copy of a contact (it moved into the private vault). */
-    suspend fun forget(key: String) = dao.deleteJournalFor(key)
+    suspend fun forget(key: String) {
+        dao.deleteJournalFor(key)
+        dropUnusedJournalPhotos(dao)
+    }
+
+    /** Forgets copies older than [before] (daily upkeep) and the photos only they needed. */
+    suspend fun prune(before: Long) {
+        dao.pruneJournal(before)
+        dropUnusedJournalPhotos(dao)
+    }
 
     private val restoring = Mutex()
 
@@ -74,12 +91,23 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
         val e = dao.journalEntry(entryId) ?: return null
         if (e.restored) return null
         val json = JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() }))
+        // A copy written before photos were kept apart holds them itself.
         val blobs = json.optJSONObject("blobs") ?: JSONObject()
-        val record = RecordJson.decode(
-            json.getString("record"),
-        ) { hash -> blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } }
+        val kept = e.photoHashes?.split(',').orEmpty().mapNotNull { h -> dao.journalPhoto(h)?.let { h to it.blob } }.toMap()
+        val record = RecordJson.decode(json.getString("record")) { hash ->
+            blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } ?: kept[hash]
+        }
         val id = records.insert(record, target = null)
         if (id != null) dao.markRestored(entryId)
         return id
     }
+}
+
+/** Taken while journal photos are added with their copy, or dropped: a photo is never dropped between the two. */
+private val journalPhotoLock = Mutex()
+
+/** Drops the journal photos no copy names any more (after copies were pruned, cleared or forgotten). */
+internal suspend fun dropUnusedJournalPhotos(dao: MetaDao) = journalPhotoLock.withLock {
+    val used = dao.journalPhotoRefs().flatMapTo(HashSet()) { it.split(',') }
+    dao.journalPhotoHashes().filter { it !in used }.chunked(500).forEach { dao.deleteJournalPhotos(it) }
 }
