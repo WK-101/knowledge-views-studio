@@ -29,7 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDirection
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.common.catching
@@ -143,7 +143,7 @@ private fun confirmMessage(state: PinConfirmState): String? = when {
 @Composable
 private fun PinConfirmDialog(r: PinConfirm.Request) {
     SensitiveScreen()
-    val activity = LocalActivity.current as? FragmentActivity ?: return
+    val activity = LocalActivity.current as? ComponentActivity ?: return
     val c = activity.container
     val scope = rememberCoroutineScope()
     val state = remember(r) { PinConfirmState() }

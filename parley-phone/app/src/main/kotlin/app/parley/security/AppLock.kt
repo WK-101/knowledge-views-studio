@@ -65,7 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.common.AppSettings
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
@@ -109,7 +109,7 @@ object AppLock {
     }
 
     /** A biometric or the screen lock can confirm it's you. */
-    fun canAuthenticate(activity: FragmentActivity): Boolean =
+    fun canAuthenticate(activity: ComponentActivity): Boolean =
         promptStatus(activity) == BiometricManager.BIOMETRIC_SUCCESS ||
             (Build.VERSION.SDK_INT < 30 && activity.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true)
 
@@ -214,7 +214,7 @@ object AppLock {
      * or without a duress PIN (I21, M7: "use your fingerprint" would undo the duress PIN, and offering it only without
      * one would say which). [then] runs after the decision either way: the confirmation itself succeeded.
      */
-    private fun unlockedByDevice(activity: FragmentActivity, then: () -> Unit) {
+    private fun unlockedByDevice(activity: ComponentActivity, then: () -> Unit) {
         val pins = activity.container.appPin
         fun decide(summary: AppPinStore.Summary) {
             DuressMachine.otherUnlock(Concealment.state.value, pinRequired = !summary.deviceUnlocks)?.let { next ->
@@ -231,7 +231,7 @@ object AppLock {
      * I21: a PIN typed on the lock screen. The Parley PIN opens everything; the duress PIN opens a duress session, which
      * looks the same. [onResult] gets the attempt (a wrong PIN, or how long to wait) after Parley has opened.
      */
-    fun unlockWithPin(activity: FragmentActivity, pin: String, onResult: (AppPinStore.Attempt) -> Unit) {
+    fun unlockWithPin(activity: ComponentActivity, pin: String, onResult: (AppPinStore.Attempt) -> Unit) {
         val c = activity.container
         activity.lifecycleScope.launch {
             val attempt = c.appPin.check(pin)
@@ -246,7 +246,7 @@ object AppLock {
      * anyone). When the biometric stack reports anything else (hardware busy or unknown, an update required), the
      * screen lock is confirmed instead.
      */
-    fun authenticate(activity: FragmentActivity, title: String? = null, onResult: (Boolean) -> Unit = {}) {
+    fun authenticate(activity: ComponentActivity, title: String? = null, onResult: (Boolean) -> Unit = {}) {
         val status = promptStatus(activity)
         if (status != BiometricManager.BIOMETRIC_SUCCESS) {
             val km = activity.getSystemService(KeyguardManager::class.java)
@@ -289,7 +289,7 @@ object AppLock {
      * "Confirm it's you" for a sensitive change inside Parley: the Parley PIN when one is set ([PinConfirm]), else the
      * fingerprint or screen lock ([authenticate]). Never the phone's credential while a Parley PIN guards Parley.
      */
-    fun confirm(activity: FragmentActivity, title: String, onResult: (Boolean) -> Unit) {
+    fun confirm(activity: ComponentActivity, title: String, onResult: (Boolean) -> Unit) {
         val pins = activity.container.appPin
         fun go() {
             if (PinConfirm.asksPin(pins.shown.value, pins.summary.value)) PinConfirm.ask(title, onResult) else authenticate(activity, title, onResult)
@@ -302,7 +302,7 @@ object AppLock {
      * with the device credential, and weak biometrics don't unlock Keystore keys, so it confirms the screen lock
      * through the keyguard instead.
      */
-    fun authenticateForVault(activity: FragmentActivity, onResult: (Boolean) -> Unit) {
+    fun authenticateForVault(activity: ComponentActivity, onResult: (Boolean) -> Unit) {
         if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, activity.getString(R.string.lock_unlock_private), onResult)
         val km = activity.getSystemService(KeyguardManager::class.java)
         if (km?.isDeviceSecure != true) {
@@ -316,7 +316,7 @@ object AppLock {
     }
 
     /** The keyguard's own "confirm your PIN, pattern or password" screen. False when it can't be shown. */
-    private fun confirmCredential(activity: FragmentActivity, title: String, onResult: (Boolean) -> Unit) {
+    private fun confirmCredential(activity: ComponentActivity, title: String, onResult: (Boolean) -> Unit) {
         @Suppress("DEPRECATION")
         val intent = activity.getSystemService(KeyguardManager::class.java)?.createConfirmDeviceCredentialIntent(title, null)
         if (intent == null) {
@@ -354,7 +354,7 @@ object AppLock {
  * Runs a vault operation; if the vault key needs a fresh unlock, asks for it once and retries.
  * Other failures go to [onError].
  */
-fun CoroutineScope.launchVault(activity: FragmentActivity?, onError: (Exception) -> Unit, block: suspend () -> Unit) {
+fun CoroutineScope.launchVault(activity: ComponentActivity?, onError: (Exception) -> Unit, block: suspend () -> Unit) {
     launch {
         try {
             block()

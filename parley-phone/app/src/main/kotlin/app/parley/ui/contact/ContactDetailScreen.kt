@@ -13,7 +13,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.NavEvent
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
@@ -289,7 +289,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
 
     /** The vault's unlock, in this page; the details load again once it succeeds. */
     fun unlock() {
-        (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) page.reload() } }
+        (context as? ComponentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) page.reload() } }
     }
 
     val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
@@ -1132,7 +1132,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 onConfirm = {
                     confirmPrivate = false
                     scope.launchVault(
-                        context as? FragmentActivity,
+                        context as? ComponentActivity,
                         { e -> vm.toast(resources.getString(R.string.detail_move_failed, UserErrorText.of(context, e))) },
                     ) {
                         // The note for calls and the messaging choice go with them, sealed; the rest is re-keyed.
@@ -1155,7 +1155,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 onConfirm = {
                     confirmVisible = false
                     scope.launchVault(
-                        context as? FragmentActivity,
+                        context as? ComponentActivity,
                         { e -> vm.toast(resources.getString(R.string.vault_move_failed, UserErrorText.of(context, e))) },
                     ) {
                         val s = vm.settings.value

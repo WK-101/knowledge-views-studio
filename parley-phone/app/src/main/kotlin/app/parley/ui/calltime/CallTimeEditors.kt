@@ -27,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.R
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
@@ -41,7 +41,7 @@ import app.parley.ui.ParleyDialog
  */
 @Composable
 fun rememberSupervisedGate(config: CallingConfig): (String, () -> Unit) -> Unit {
-    val activity = LocalActivity.current as? FragmentActivity
+    val activity = LocalActivity.current as? ComponentActivity
     return { why, action ->
         if (!config.supervised || VaultSession.recentlyAuthenticated(SUPERVISED_WINDOW_MS)) {
             action()

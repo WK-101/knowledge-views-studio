@@ -67,7 +67,7 @@ import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Banner
 import app.parley.security.AppLock
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.material.icons.rounded.Lock
 
@@ -277,7 +277,7 @@ fun ContactRow(
 /** Private contacts' details are locked, so the search finds them by name and number only: one tap unlocks. */
 @Composable
 private fun PrivateSearchLocked(vm: AppViewModel) {
-    val activity = LocalActivity.current as? FragmentActivity
+    val activity = LocalActivity.current as? ComponentActivity
     Banner(
         stringResource(R.string.cs_private_locked),
         icon = Icons.Rounded.Lock,

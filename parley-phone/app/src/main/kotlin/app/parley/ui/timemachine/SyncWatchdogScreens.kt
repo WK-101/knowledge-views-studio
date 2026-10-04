@@ -309,7 +309,7 @@ private fun RestoreList(st: RestoreState, list: List<Pick>, undo: () -> Unit, mo
         st.done?.let { (n, _) ->
             item(key = "done") {
                 val text = res.getQuantityString(if (st.numbers) R.plurals.watch_numbers_restored else R.plurals.watch_restored, n, n)
-                Banner(text, action = stringResource(R.string.watch_undo).takeIf { !st.busy }, onAction = undo)
+                Banner(text, action = stringResource(R.string.dc_undo).takeIf { !st.busy }, onAction = undo)
             }
         }
         item(key = "intro") {

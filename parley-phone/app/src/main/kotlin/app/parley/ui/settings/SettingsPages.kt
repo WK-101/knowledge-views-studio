@@ -103,7 +103,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -632,7 +632,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val unlockWith = unlockWithSummary(vm)
     SegmentedGroup(stringResource(R.string.set_group_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
-            val act = context as? FragmentActivity
+            val act = context as? ComponentActivity
             val why = res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)
             if (act != null) AppLock.confirm(act, why) { ok -> if (ok) set { it.copy(appLock = v) } }
         }

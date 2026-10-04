@@ -1,3 +1,5 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Locale
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -90,6 +92,11 @@ android {
     }
 
     packaging {
+        // Compressed code: F-Droid and sideloaded installs download the APK byte for byte, and the dex is most of
+        // it (about 10 MB stored, under 5 MB compressed). The cost is paid once on the phone: the installer unpacks
+        // the code (a slightly slower install, and about 4 MiB more storage in all). Baseline profiles work the same.
+        // docs/PERFORMANCE_BENCHMARKS.md has the numbers.
+        dex.useLegacyPackaging = true
         resources.excludes += setOf("META-INF/*.version", "META-INF/**/LICENSE*", "kotlin/**", "DebugProbesKt.bin")
         // ez-vcard's hCard (HTML) writer template and its placeholder picture: Parley never writes HTML (that writer
         // needs FreeMarker, which isn't included).
@@ -103,6 +110,9 @@ android {
             "be", "bg", "bs", "el", "fa", "fi", "hr", "hu", "hy", "id", "it", "iw", "ja", "kk", "ko", "nl", "pl", "ro",
             "ru", "sq", "sr", "sv", "th", "tr", "uk", "vi", "zh", "zh_Hant",
         ).map { "com/google/i18n/phonenumbers/geocoding/data/*_$it" }
+        // Area names for China and Australia, the two largest files (about 580 KB of the APK): those numbers show
+        // the country only. NumberInfo never reads them (GeoLanguages.COUNTRIES_WITHOUT_AREAS; keep both in step).
+        resources.excludes += listOf("86", "61").map { "com/google/i18n/phonenumbers/geocoding/data/${it}_*" }
     }
 
     lint {
@@ -140,7 +150,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
-    implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
     // Installs the baseline profile (app/src/main/baseline-prof.txt plus the generated one) on sideloaded and F-Droid
     // installs, which get no cloud profiles.
@@ -214,21 +223,41 @@ val forbiddenPermissions = listOf(
     "com.google.android.gms.permission.AD_ID",
 )
 
-// APK-size budget, the ≤ 12 MiB target (13.3 MiB at 4.3.0, 11.7 MiB after trimming, 12.2 MiB with 4.5's features,
-// back under once Parley became English-only in 4.6; see docs/PERFORMANCE_BENCHMARKS.md): `./gradlew
-// :app:checkReleaseApkSize` builds the release APK and fails above the budget, so growth is a decision rather than an
-// accident. CI runs it.
-val apkBudgetBytes = 12L * 1024 * 1024
+// Download-size budget: the APK file as F-Droid and sideload users fetch it, compressed code included (about 6 MiB
+// at 5.5; 11.6 MiB before the code was compressed; see docs/PERFORMANCE_BENCHMARKS.md for the installed size).
+// `./gradlew :app:checkReleaseApkSize` builds the release APK and fails above the budget, so growth is a decision
+// rather than an accident. CI runs it.
+val apkBudgetBytes = 8L * 1024 * 1024
 
 androidComponents {
     onVariants { variant ->
         val cap = variant.name.replaceFirstChar { it.uppercase() }
         if (variant.buildType == "release") {
+            // Collapsed resource names: every key in resources.arsc (5,500 names such as "set_amoled_title") becomes
+            // one shared placeholder, about 150 KB less of a file Android requires to be stored uncompressed. Safe
+            // because nothing looks a resource of Parley's up by name (no getIdentifier or getResourceName; the only
+            // library lookups are Android's own dimens). AGP 8.13 runs aapt2 optimize but keeps this switch off, so
+            // the task's output is optimised once more in place.
+            val aapt2 = androidComponents.sdkComponents.sdkDirectory.map { it.dir("build-tools/${android.buildToolsVersion}").file("aapt2").asFile }
+            tasks.matching { it.name == "optimize${cap}Resources" }.configureEach {
+                inputs.property("collapseResourceNames", true)
+                doLast {
+                    val tool = aapt2.get()
+                    outputs.files.asFileTree.matching { include("**/*.ap_") }.files.forEach { ap ->
+                        val collapsed = File(ap.parentFile, "${ap.name}.collapsed")
+                        val proc = ProcessBuilder(tool.path, "optimize", "--collapse-resource-names", "-o", collapsed.path, ap.path)
+                            .redirectErrorStream(true).start()
+                        val log = proc.inputStream.bufferedReader().readText()
+                        if (proc.waitFor() != 0) throw GradleException("aapt2 optimize --collapse-resource-names failed for ${ap.name}: $log")
+                        Files.move(collapsed.toPath(), ap.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+            }
             val apkDir = variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.APK)
             val loader = variant.artifacts.getBuiltArtifactsLoader()
             tasks.register("check${cap}ApkSize") {
                 group = "verification"
-                description = "Fails when the ${variant.name} APK is larger than ${apkBudgetBytes / (1024 * 1024)} MiB."
+                description = "Fails when the ${variant.name} APK (the download) is larger than ${apkBudgetBytes / (1024 * 1024)} MiB."
                 inputs.dir(apkDir)
                 doLast {
                     val apks = loader.load(apkDir.get())?.elements.orEmpty().map { File(it.outputFile) }
@@ -238,7 +267,7 @@ androidComponents {
                         if (apk.length() > apkBudgetBytes) {
                             throw GradleException("${apk.name} is $mib MiB, over the ${apkBudgetBytes / (1024 * 1024)} MiB budget (app/build.gradle.kts)")
                         }
-                        logger.lifecycle("APK size: ${apk.name} is $mib MiB (budget ${apkBudgetBytes / (1024 * 1024)} MiB)")
+                        logger.lifecycle("Download size: ${apk.name} is $mib MiB (budget ${apkBudgetBytes / (1024 * 1024)} MiB)")
                     }
                 }
             }

@@ -1,6 +1,10 @@
-# ez-vcard (used from :core:common's VCardMapper): keep its property classes and scribes, used reflectively.
--keep class ezvcard.property.** { *; }
--keep class ezvcard.io.scribe.** { *; }
+# ez-vcard (used from :core:common's VCardMapper) reads two things of its property classes reflectively: the copy
+# constructor (VCardProperty.copy() looks it up by the class) and the @SupportedVersions annotation (which properties a
+# vCard 2.1 or 3.0 file may hold). Both survive; names, unused methods and fields may go. Its scribes are created
+# with `new` in ScribeIndex and use no reflection, so R8 treats them like any other code. (The default rules keep
+# runtime annotations on kept classes.)
+-keep,allowobfuscation @interface ezvcard.SupportedVersions
+-keep,allowobfuscation class ezvcard.property.** { <init>(...); }
 -dontwarn ezvcard.**
 -dontwarn com.fasterxml.jackson.**
 -dontwarn freemarker.**

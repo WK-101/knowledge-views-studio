@@ -70,8 +70,6 @@
     <string name="expected_from_note">A note</string>
     <string name="expected_from_to_call">To call list</string>
     <string name="expected_from_delivery">Delivery QR code</string>
-    <!-- %1$s: what turned it on, %2$s: when -->
-    <string name="expected_window_line">%1$s · %2$s</string>
     <string name="expected_remove">Remove</string>
 
     <!-- The one-time question -->

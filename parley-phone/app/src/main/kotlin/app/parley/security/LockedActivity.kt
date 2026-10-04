@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.LocalView
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.common.AppSettings
 import app.parley.container
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  *
  * Subclasses show [LockScreen] while [AppLock.locked] and the app lock is on.
  */
-abstract class LockedActivity : FragmentActivity() {
+abstract class LockedActivity : ComponentActivity() {
     /** Whether the whole window hides other apps' overlays (screens that act for another app). */
     protected open val hidesOverlays: Boolean = false
 

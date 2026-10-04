@@ -20,7 +20,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Timer
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.common.ContactSummary
 import app.parley.common.people.BulkAction
 import app.parley.common.people.BulkActions
@@ -239,7 +239,7 @@ fun SelectionBar(vm: AppViewModel) {
                 confirmVisible = false
                 val s = vm.settings.value
                 // Asks for the vault's unlock first when needed; nothing changes before it succeeds.
-                scope.launchVault(context as? FragmentActivity, { vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(context, it))) }) {
+                scope.launchVault(context as? ComponentActivity, { vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(context, it))) }) {
                     val made = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
                     vm.selection.value = emptySet()
                     vm.toast(madeVisibleText(res, made.made, made.redirectedTo))

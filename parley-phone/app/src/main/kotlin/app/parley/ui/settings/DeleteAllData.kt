@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
 import app.parley.AppViewModel
@@ -132,7 +132,7 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         )
         WipeStep.VaultLocked -> VaultLockedDialog(
             onUnlock = {
-                val act = context as? FragmentActivity
+                val act = context as? ComponentActivity
                 if (act != null) AppLock.authenticateForVault(act) { ok -> if (ok) proceed(withoutPrivate = false) }
             },
             onWithout = { proceed(withoutPrivate = true) },
@@ -165,7 +165,7 @@ private fun confirmWipe(
     context: Context, vm: AppViewModel, scope: CoroutineScope, backupFirst: Boolean,
     show: (WipeStep) -> Unit, proceed: (withoutPrivate: Boolean) -> Unit,
 ) {
-    val act = context as? FragmentActivity
+    val act = context as? ComponentActivity
     fun start() {
         if (inCall()) return show(WipeStep.Failed(context.getString(R.string.wipe_in_call)))
         // While a duress unlock hides things, private contacts don't exist as far as this screen can tell: no unlock is

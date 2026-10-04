@@ -29,7 +29,7 @@ import app.parley.R
 import app.parley.common.people.LookupApproval
 import app.parley.common.security.CertDigest
 import app.parley.data.people.PrivateNameAccess
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.security.AppLock
 import app.parley.security.SensitiveScreen
 import app.parley.ui.ParleyDialog
@@ -49,7 +49,7 @@ fun PrivateNameApprovalDialog(access: PrivateNameAccess, pkg: String, directory:
     var cert by remember(pkg) { mutableStateOf<String?>(null) }
     LaunchedEffect(pkg) { cert = withContext(Dispatchers.IO) { access.certificateOf(pkg).orEmpty() } }
     val installed = cert?.isNotEmpty() == true
-    val activity = LocalActivity.current as? FragmentActivity
+    val activity = LocalActivity.current as? ComponentActivity
     val confirmTitle = stringResource(if (directory) R.string.pn_approve_title_directory else R.string.pn_approve_title)
     fun answer(a: LookupApproval) {
         access.setApproval(pkg, a, directory)

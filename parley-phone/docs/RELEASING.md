@@ -167,7 +167,10 @@ For Parley `X.Y.Z` (and, when needed, Parley Lists `A.B.C`):
 5. `tools/repro-check.sh` must report both APKs as byte-identical (§4).
 6. Build the signed release: `./gradlew assembleRelease` with `keystore.properties` in place. Copy the outputs to
    `dist/Parley-X.Y.Z.apk` and `dist/ParleyLists-A.B.C.apk` (`dist/` is ignored by git), then check the certificate
-   with `apksigner` (§2).
+   with `apksigner` (§2). `./gradlew :app:checkReleaseApkSize` checks the download size, the APK file, against its
+   8 MiB budget. Since 5.5 the code inside is compressed, so the APK is about half the installed size: on a phone,
+   note Settings › Apps › Parley › Storage › App size next to the APK's size in docs/PERFORMANCE_BENCHMARKS.md
+   (about 15.5 MiB installed for a 6 MiB download at 5.5; the extra is the code Android unpacks at install).
 7. Compare the signed APK with an unsigned rebuild of the same commit:
    `tools/repro-check.sh --app phone --signed dist/Parley-X.Y.Z.apk`. This is the comparison F-Droid makes. With
    `pip install apksigcopier` installed it is exact.

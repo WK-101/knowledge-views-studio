@@ -36,7 +36,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -194,7 +194,7 @@ private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: S
     var busy by remember { mutableStateOf(false) }
     fun run(list: List<CardChange>) {
         busy = true
-        scope.launchVault(context as? FragmentActivity, { busy = false; vm.toast(res.getString(R.string.card_update_failed)) }) {
+        scope.launchVault(context as? ComponentActivity, { busy = false; vm.toast(res.getString(R.string.card_update_failed)) }) {
             val out = CardUpdateApply.save(vm.c, navId, key, list, vm.countryIso)
             busy = false
             when (out) {

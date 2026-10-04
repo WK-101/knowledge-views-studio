@@ -52,7 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -179,7 +179,7 @@ fun SimpleHome(vm: AppViewModel) {
         confirmLabel = stringResource(R.string.simple_leave),
         onConfirm = {
             askExit = false
-            val act = context as? FragmentActivity
+            val act = context as? ComponentActivity
             if (settings.appLock && act != null) {
                 AppLock.confirm(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
             } else {

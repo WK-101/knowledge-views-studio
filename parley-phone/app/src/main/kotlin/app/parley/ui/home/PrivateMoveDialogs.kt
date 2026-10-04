@@ -19,7 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -68,7 +68,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
 @Composable
 fun PrivateMoveProgress(vm: AppViewModel) {
     val state by vm.privateMoves.state.collectAsStateWithLifecycle()
-    val activity = LocalActivity.current as? FragmentActivity
+    val activity = LocalActivity.current as? ComponentActivity
     when (val s = state) {
         is PrivateMoves.State.Moving -> MovingDialog(s.done, s.total)
         is PrivateMoves.State.NeedsUnlock -> {
