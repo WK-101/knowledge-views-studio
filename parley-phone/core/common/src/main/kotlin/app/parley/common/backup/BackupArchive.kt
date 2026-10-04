@@ -452,6 +452,13 @@ class BackupArchiveReader private constructor(
     fun <R> contacts(block: (Sequence<ContactRecord>) -> R): R =
         lines(BackupArchive.CONTACTS) { seq -> block(seq.map { RecordJson.decode(it, ::photo) }) }
 
+    /**
+     * Streams contacts with photos as hashes ([PhotoRefs.light]): what restore planning reads, so no photo is copied
+     * out while two address books are compared. [photo] gives the bytes back for the records a restore writes.
+     */
+    fun <R> contactsLight(block: (Sequence<ContactRecord>) -> R): R =
+        lines(BackupArchive.CONTACTS) { seq -> block(seq.map { RecordJson.decodeLight(it) }) }
+
     fun <R> callLog(block: (Sequence<CallLogRecord>) -> R): R = lines(BackupArchive.CALLLOG) { seq ->
         block(seq.map { l -> parse { RecordJson.json.decodeFromString(CallLogRecord.serializer(), l) } })
     }

@@ -97,7 +97,23 @@ object RecordJson {
         }
     }
 
-    private fun fromJson(o: JsonObject, blob: (String) -> ByteArray?): ContactRecord = ContactRecord(
+    /** Decodes a line produced by [encode] with photos left as their hashes ([PhotoRefs.light]); no bytes are read. */
+    fun decodeLight(line: String): ContactRecord {
+        val o = try {
+            json.parseToJsonElement(line).jsonObject
+        } catch (e: IllegalArgumentException) {
+            throw BackupIntegrityException("Malformed contact record", e)
+        }
+        return try {
+            fromJson(o, blob = { null }, light = true)
+        } catch (e: BackupIntegrityException) {
+            throw e
+        } catch (e: RuntimeException) {
+            throw BackupIntegrityException("Malformed contact record", e)
+        }
+    }
+
+    private fun fromJson(o: JsonObject, blob: (String) -> ByteArray?, light: Boolean = false): ContactRecord = ContactRecord(
         key = o.str("key") ?: throw BackupIntegrityException("Contact without key"),
         displayName = o.str("displayName").orEmpty(),
         starred = o.bool("starred"),
@@ -110,7 +126,7 @@ object RecordJson {
                 accountName = ro.str("accountName"),
                 dataSet = ro.str("dataSet"),
                 sourceId = ro.str("sourceId"),
-                rows = (ro["rows"] as? JsonArray).orEmpty().map { rowFrom(it.jsonObject, blob) },
+                rows = (ro["rows"] as? JsonArray).orEmpty().map { rowFrom(it.jsonObject, blob, light) },
             )
         },
     )
@@ -125,8 +141,17 @@ object RecordJson {
         throw BackupIntegrityException("Malformed contact record", e)
     }
 
-    private fun rowFrom(o: JsonObject, blob: (String) -> ByteArray?): DataRow {
+    private fun rowFrom(o: JsonObject, blob: (String) -> ByteArray?, light: Boolean = false): DataRow {
         val h = o.str("blobSha256")
+        if (light) {
+            val values = (o["values"] as? JsonObject).orEmpty().mapValues { (_, v) -> (v as? JsonPrimitive)?.contentOrNull }
+            return DataRow(
+                mimeType = o.str("mimeType") ?: throw BackupIntegrityException("Data row without mimetype"),
+                values = if (h != null) values + (PhotoRefs.HASH to h) else values,
+                isPrimary = o.bool("isPrimary"),
+                isSuperPrimary = o.bool("isSuperPrimary"),
+            )
+        }
         val bytes = h?.let { hash ->
             val b = blob(hash) ?: throw BackupIntegrityException("Missing photo $hash")
             if (sha256Hex(b) != hash) throw BackupIntegrityException("Photo $hash does not match its hash")
