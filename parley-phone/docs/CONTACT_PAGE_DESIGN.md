@@ -169,3 +169,22 @@ count too. A tap opens that person the way the relation's row does (its link, th
 outside discreet mode); a long press copies the line. A former spouse ("Ex-spouse", a relation type since 5.3.1; rows
 other apps wrote as "Ex-wife", "Ex-husband" or "Former spouse" are read as it) is never in the header: its row under
 About says "Formerly married to" in place of the type. Girlfriend, boyfriend and fiancé(e) stay relations only.
+
+## Menus of seven (5.6)
+
+The contact page's ⋮, the Contacts selection's ⋮ and a Recents call's sheet are built in one place
+(`core/common/.../ux/Menus.kt`: `ContactMenu`, `SelectionMenu`, `RecentMenu`) and drawn by `ui/common/MenuSheets.kt`.
+Each shows at most seven entries; the rarer actions sit under Share…, Privacy…, More… or Why it rang…, each opening a
+sheet of its own, and a group with a single action shows as that action. `MenusTest` checks the limit for every
+combination of facts and that no action is lost. The most used come first:
+
+| Menu | Top level, in order | Sheets |
+|---|---|---|
+| Contact page ⋮ | Remind me to call (with a number) · Share… · Block numbers, or Unblock numbers once one is blocked (with a number) · Privacy… · More… · Delete | Share…: Share file (not for private contacts), Show QR code, Share privately. Privacy…: Make private (Make visible on a private contact), Delete automatically…. More…: Log a chat or visit (not in the Circle, where it is the page's button), Version history, Add to home screen, Set ringtone, Copy to SIM, Also allow this office's other lines, Separate (linked contacts) |
+| Contacts selection ⋮ | Edit… (bulk edit: Add to label, Remove from label, ringtone, SIM, account) · Message all · Share… · Merge (two or more device contacts) · Privacy… · Delete | Share…: Copy as text, Export .vcf file (device contacts). Privacy…: Delete automatically…, Make private (device contacts), Make visible to other apps (private contacts). Select all, Star and Share are buttons on the bar |
+| Recents call (hold a call, then ⋮ in the selection bar) | Buttons: Call · Message · Message or call on… · Copy. Rows: Create contact · Add to contact (unsaved numbers) · Block number, or Unblock number once blocked · Why it rang… · More… · Delete from history | Why it rang…: Why it rang, Test a call, the sales line, Always allow, Allow for 24 hours, Report, Search the web. More…: Edit before call, Remind me to call |
+
+Remind me to call is top level on the contact page, where it is the everyday reason to open ⋮; in Recents the call's
+own sheet already leads with Call and Message, so it waits under More… with Edit before call. Version history moved
+into More… to leave the contact ⋮ one place short of the limit. Contacts ⋮ (the tab's header menu) keeps Select all,
+Sort by…, Find & merge duplicates, Reorder favourites (when shown), Tools and Settings.

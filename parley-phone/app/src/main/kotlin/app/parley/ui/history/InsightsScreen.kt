@@ -1,5 +1,7 @@
 package app.parley.ui.history
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import app.parley.ui.Destination
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
@@ -92,7 +94,8 @@ private enum class InsightPeriod(@StringRes val label: Int) {
 /** Offline call insights, opened from the Recents top bar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
+fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit, quality: Boolean = false) {
+    val listState = rememberLazyListState()
     val index by vm.c.history.index.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
@@ -119,7 +122,9 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         val perSim = remember(idx, choice) { idx.perSim(period) }
         val unreturned = remember(idx, choice) { idx.unreturned(period) }
 
-        LazyColumn(Modifier.padding(p)) {
+        // Tools › Call quality lands on its card (after the period chips, the totals and the People card).
+        if (quality) LaunchedEffect(Unit) { listState.scrollToItem(QUALITY_ITEM) }
+        LazyColumn(Modifier.padding(p), state = listState) {
             item {
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -324,3 +329,6 @@ internal fun Legend(color: Color, label: String) {
     Spacer(Modifier.width(6.dp))
     Text(label, style = MaterialTheme.typography.labelSmall)
 }
+
+/** The Call quality card's place in the Insights list. */
+private const val QUALITY_ITEM = 3

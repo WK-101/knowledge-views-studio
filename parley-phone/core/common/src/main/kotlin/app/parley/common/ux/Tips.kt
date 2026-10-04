@@ -12,7 +12,7 @@ object Tips {
     /** "Leave" on the simple home needs a press and hold. */
     const val SIMPLE_LEAVE = "simple_leave"
 
-    /** The new "Scan QR code" icon in the Contacts header. */
+    /** Contacts' add button and its menu (New contact, Scan QR code, Add several numbers). */
     const val CONTACTS_SCAN_QR = "contacts_scan_qr"
 
     /** The keypad docked in Recents folds away with a swipe down or a scroll, and comes back with its button. */

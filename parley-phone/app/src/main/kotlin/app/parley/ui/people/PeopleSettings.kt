@@ -138,7 +138,7 @@ fun PrivacyLinks(vm: AppViewModel) {
         vm.navigate(NavEvent.Route(PeopleRoutes.WhoCanSee))
     }
     LinkRow(
-        stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off),
+        stringResource(R.string.pn_title), if (pn.directory) stringResource(R.string.dc_on) else stringResource(R.string.dc_off),
     ) { vm.navigate(NavEvent.Route(PeopleRoutes.PrivateNames)) }
 }
 

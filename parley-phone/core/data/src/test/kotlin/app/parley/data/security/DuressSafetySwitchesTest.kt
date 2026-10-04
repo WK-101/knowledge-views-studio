@@ -7,6 +7,7 @@ import app.parley.common.people.LookupApproval
 import app.parley.common.security.PinVerdict
 import app.parley.data.DataContainer
 import app.parley.data.SettingsRepository
+import app.parley.data.people.PrivateNameAccess
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
@@ -22,7 +23,7 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 /**
- * What a duress session can't make stick: the private-name switches and approvals, and settings brought back by a
+ * What a duress session can't make stick: the private-name Directory switch and approvals, and settings brought back by a
  * restore. The screens show the change; nothing is stored, and the next lock forgets it.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -59,46 +60,64 @@ class DuressSafetySwitchesTest {
     @Test fun private_name_switches_and_approvals_change_only_what_shows() = runBlocking<Unit> {
         val names = c.people.privateNames
         duressUnlock()
-        names.setEnabled(true)
         assertFalse(names.setDirectoryEnabled(true))
-        names.setApproval("com.example.watcher", LookupApproval.ALLOWED)
-        names.setApproval("com.example.watcher", LookupApproval.DENIED, directory = true)
+        names.setApproval("com.example.watcher", LookupApproval.DENIED)
         // The screens see the session's view...
-        assertTrue(names.state.value.enabled)
         assertTrue(names.state.value.directory)
-        assertEquals(LookupApproval.ALLOWED, names.state.value.approvals["com.example.watcher"])
-        // ...the providers and the stored file don't.
-        assertFalse(names.stored.enabled)
+        assertEquals(LookupApproval.DENIED, names.state.value.approvals["com.example.watcher"])
+        // ...the provider and the stored file don't.
         assertFalse(names.stored.directory)
         assertNull(names.approval("com.example.watcher"))
-        assertFalse(storedPrefs().getBoolean("enabled", false))
         assertFalse(storedPrefs().getBoolean("directory", false))
-        assertFalse(storedPrefs().getString("approvals", "{}")!!.contains("watcher"))
+        assertFalse(storedPrefs().getString("directory_approvals", "{}")!!.contains("watcher"))
         // A restore can't grant either.
-        names.importApprovals("""{"com.example.watcher":{"approval":"DENIED"}}""")
-        assertFalse(storedPrefs().getString("approvals", "{}")!!.contains("watcher"))
+        names.importApprovals("""{"directory:com.example.watcher":{"approval":"DENIED"}}""")
+        assertFalse(storedPrefs().getString("directory_approvals", "{}")!!.contains("watcher"))
         // The next lock forgets the session's view.
         LockTransitions.locked(c)
-        assertFalse(names.state.value.enabled)
+        assertFalse(names.state.value.directory)
         assertTrue(names.state.value.approvals.isEmpty())
     }
 
     @Test fun a_providers_pending_request_is_still_logged_while_hiding() = runBlocking<Unit> {
         val names = c.people.privateNames
         duressUnlock()
-        names.markPending("com.example.app", directory = false)
+        names.markPending("com.example.app")
         assertEquals(LookupApproval.PENDING, names.approval("com.example.app"))
-        assertTrue(storedPrefs().getString("approvals", "{}")!!.contains("com.example.app"))
+        assertTrue(storedPrefs().getString("directory_approvals", "{}")!!.contains("com.example.app"))
     }
 
     @Test fun outside_duress_the_switches_are_stored() = runBlocking<Unit> {
         val names = c.people.privateNames
-        names.setEnabled(true)
         assertTrue(names.setDirectoryEnabled(true))
         names.setApproval("com.example.app", LookupApproval.DENIED)
-        assertTrue(storedPrefs().getBoolean("enabled", false))
         assertTrue(names.stored.directory)
         assertEquals(LookupApproval.DENIED, names.approval("com.example.app"))
+    }
+
+    /** What the removed lookup provider kept goes the first time the store opens; the Directory's data stays. */
+    @Test fun the_lookup_providers_data_is_removed_and_the_directorys_kept() = runBlocking<Unit> {
+        storedPrefs().edit()
+            .putBoolean("enabled", true)
+            .putString("approvals", """{"com.example.lookup":"DENIED"}""")
+            .putString("approval_certs", "{}")
+            .putBoolean("directory", true)
+            .putString("directory_approvals", """{"com.example.phone":"DENIED"}""")
+            .putString("asked_at", """{"p:com.example.lookup":1,"d:com.example.phone":2}""")
+            .putString("log", """[{"p":"com.example.lookup","t":1,"o":"DENIED"},{"p":"com.example.phone","t":2,"o":"DENIED","d":true}]""")
+            .commit()
+        val names = PrivateNameAccess(context)
+        listOf("enabled", "approvals", "approval_certs").forEach { assertFalse(it, storedPrefs().contains(it)) }
+        assertFalse(storedPrefs().getString("asked_at", "")!!.contains("p:"))
+        assertTrue(storedPrefs().getString("asked_at", "")!!.contains("d:com.example.phone"))
+        assertTrue(names.stored.directory)
+        assertEquals(mapOf("com.example.phone" to LookupApproval.DENIED), names.stored.approvals)
+        assertEquals(listOf("com.example.phone"), names.stored.log.map { it.packageName })
+        // A backup made before still restores its Directory approvals, and skips the lookup provider's.
+        names.setApproval("com.example.phone", null)
+        names.importApprovals("""{"com.example.lookup":{"approval":"DENIED"},"directory:com.example.phone":{"approval":"DENIED"}}""")
+        assertEquals(mapOf("com.example.phone" to LookupApproval.DENIED), names.stored.approvals)
+        assertTrue(names.exportApprovals().contains("directory:com.example.phone"))
     }
 
     @Test fun a_restore_in_a_duress_session_leaves_the_stored_safety_switches_alone() = runBlocking<Unit> {

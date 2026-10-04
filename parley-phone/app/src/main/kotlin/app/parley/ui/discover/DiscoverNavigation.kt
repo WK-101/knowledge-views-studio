@@ -26,6 +26,9 @@ import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.settings.settingRoute
+import app.parley.ui.settings.CallsRoutes
+import app.parley.ui.drive.DriveRoutes
+import app.parley.ui.sync.shared.SharedLabelRoutes
 import kotlinx.serialization.Serializable
 
 /** "What Parley can do" and "Coming from another phone?". */
@@ -70,7 +73,8 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.COMING_FROM -> DiscoverRoutes.ComingFrom
     AppScreen.BIRTHDAYS -> Routes.Birthdays
     AppScreen.TO_CALL -> ToCallRoutes.List
-    AppScreen.CALL_INSIGHTS -> HistoryRoutes.Insights
+    AppScreen.CALL_INSIGHTS -> HistoryRoutes.Insights()
+    AppScreen.CALL_QUALITY -> HistoryRoutes.Insights(quality = true)
     AppScreen.TRIP -> ExtrasRoutes.Trip
     AppScreen.LABELS -> PeopleRoutes.Labels
     AppScreen.SCAN_QR -> QrRoutes.Scan
@@ -83,8 +87,14 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.BULK_ADD -> MessagingRoutes.BulkAdd
     AppScreen.NEW_CONTACT -> Routes.edit()
     AppScreen.CALL_TIME -> Routes.CallTime
-    AppScreen.SIMS -> HistoryRoutes.Sims
+    AppScreen.SIMS -> HistoryRoutes.Sims(plans = true)
     AppScreen.SIMPLE_MODE -> ExtrasRoutes.SimpleSetup
+    AppScreen.INTRODUCE -> MessagingRoutes.Introduce
+    AppScreen.DRIVE_PROFILE -> DriveRoutes.Profile
+    AppScreen.PHONE_MENUS -> CallsRoutes.PhoneMenus
+    AppScreen.SPEED_DIAL -> Routes.SpeedDial
+    AppScreen.SHARED_LABELS -> SharedLabelRoutes.All
+    AppScreen.PRIVATE_NAMES -> PeopleRoutes.PrivateNames
     // Tabs, handled by capabilityEvent; Home is where they live.
     AppScreen.CIRCLE, AppScreen.KEYPAD -> Routes.Home
 }

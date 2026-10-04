@@ -66,10 +66,14 @@ internal sealed interface SettingsPageTarget {
 /**
  * Where a link to [categoryName]'s page with [focus] lands. A setting that moved off its category page hands over to
  * where it lives now, scrolled to and highlighting its row: a reminder to Reminders, and a Calls setting to the Calls
- * page that holds it. Old links (a restored back stack, a menu, a notification) then still find the row. Another
- * page that keeps a row with the same key (Call time's "SIMs & plan minutes") keeps it.
+ * page that holds it. Old links (a restored back stack, a menu, a notification) then still find the row, also those
+ * to the Call time category, which went.
  */
 internal fun settingsPageTarget(categoryName: String, focus: String?): SettingsPageTarget {
+    // The Call time category dissolved into Calls › Situations (its SIMs row is on Calls › SIMs & carrier).
+    if (categoryName == OLD_CALL_TIME) {
+        return if (focus == "sims") SettingsPageTarget.Calls(CallsSubPage.SIMS, "sims") else SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time")
+    }
     val category = SettingsCategory.entries.firstOrNull { it.name == categoryName } ?: SettingsCategory.APPEARANCE
     val place = focus?.let { f -> SettingsCatalog.entries.firstOrNull { it.key == f }?.place }
     if (focus == null || place == null) return SettingsPageTarget.Category(category, focus)
@@ -77,3 +81,6 @@ internal fun settingsPageTarget(categoryName: String, focus: String?): SettingsP
     val calls = CallsSubPage.at(place)?.takeIf { category == SettingsCategory.CALLS }
     return if (calls != null) SettingsPageTarget.Calls(calls, focus) else SettingsPageTarget.Category(category, focus)
 }
+
+/** The name of the former Call time category, in links saved before it went. */
+private const val OLD_CALL_TIME = "CALL_TIME"

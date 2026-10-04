@@ -35,7 +35,6 @@
     <ID>ComplexCondition:ParleyRoot.kt$!settings.onboardingDone &amp;&amp; !skippedOnboarding &amp;&amp; (onboardingStarted || !(isDefault &amp;&amp; hasContacts))</ID>
     <ID>ComplexCondition:PickerActivity.kt$PickerActivity$ask &amp;&amp; single != null &amp;&amp; PickKind.from(intent) == PickKind.CONTACT &amp;&amp; intent.action != ACTION_JOIN_CONTACT &amp;&amp; container.people.prefs.settings.value.pickerOneField</ID>
     <ID>ComplexCondition:PlanMeter.kt$PlanMeter$e.accountId != config.simId || e.date &lt; from || e.date &gt;= until || e.durationSec &lt;= 0</ID>
-    <ID>ComplexCondition:PrivateNameProvider.kt$PrivateNameProvider$segments.size == 2 &amp;&amp; segments[0] == PATH &amp;&amp; selection.isNullOrEmpty() &amp;&amp; selectionArgs.isNullOrEmpty()</ID>
     <ID>ComplexCondition:QrParser.kt$QrParser$password != null &amp;&amp; password.length &gt;= 2 &amp;&amp; password.startsWith('"') &amp;&amp; password.endsWith('"') &amp;&amp; security != WifiSecurity.OPEN</ID>
     <ID>ComplexCondition:QrText.kt$QrText$c == '%' &amp;&amp; i + 2 &lt; s.length &amp;&amp; hex(s[i + 1]) &gt;= 0 &amp;&amp; hex(s[i + 2]) &gt;= 0</ID>
     <ID>ComplexCondition:RuleEditorScreen.kt$!allow &amp;&amp; checked.error == null &amp;&amp; (r.pattern.isNotBlank() || r.type == RuleType.NOT_MY_REGION)</ID>
@@ -131,7 +130,7 @@
     <ID>CyclomaticComplexMethod:ImportCallsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ImportCallsScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:InCallActivity.kt$InCallActivity$override fun onCreate(savedInstanceState: Bundle?)</ID>
     <ID>CyclomaticComplexMethod:InsertPrefill.kt$InsertPrefill$fun from(intent: Intent): ContactDetails</ID>
-    <ID>CyclomaticComplexMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit, quality: Boolean = false)</ID>
     <ID>CyclomaticComplexMethod:IntroduceScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun IntroduceScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:KeypadKey.kt$@Composable fun Modifier.keypadKey( onPress: () -&gt; Unit, onToneStop: (afterMs: Long) -&gt; Unit, onLongPress: ((typedThisTouch: Boolean) -&gt; Unit)? = null, longPressLabel: String? = null, deferPress: Boolean = false, indication: Indication? = null, pressOrder: PressOrder? = null, foldDownOnly: Boolean = false, ): Modifier</ID>
     <ID>CyclomaticComplexMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (Destination) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
@@ -168,7 +167,6 @@
     <ID>CyclomaticComplexMethod:PickerScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun PickerScreen( kind: PickKind, multiple: Boolean, title: String?, excludeContactId: Long?, onCancel: () -&gt; Unit, onPicked: (List&lt;Pick&gt;) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:PickerScreen.kt$private fun loadPicks(context: Context, kind: PickKind, res: Resources): List&lt;Pick&gt;</ID>
     <ID>CyclomaticComplexMethod:PrivateDirectoryProvider.kt$PrivateDirectoryProvider$private fun phoneLookup(ctx: Context, uri: Uri, projection: Array&lt;out String&gt;?): Cursor</ID>
-    <ID>CyclomaticComplexMethod:PrivateNameProvider.kt$PrivateNameProvider$override fun query(uri: Uri, projection: Array&lt;out String&gt;?, selection: String?, selectionArgs: Array&lt;out String&gt;?, sortOrder: String?): Cursor</ID>
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$fun parse(input: String): QrPayload</ID>
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$private fun event(raw: String, t: String): QrPayload.Event?</ID>
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$private fun mecard(raw: String, t: String): QrPayload.Contact?</ID>
@@ -284,7 +282,7 @@
     <ID>LongMethod:HealthScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HealthScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (Destination) -&gt; Unit, )</ID>
     <ID>LongMethod:ImportCallsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ImportCallsScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit, quality: Boolean = false)</ID>
     <ID>LongMethod:IntroduceScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun IntroduceScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (Destination) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
     <ID>LongMethod:LabelPolicySection.kt$@Composable fun LabelPolicySection(vm: AppViewModel, title: String, members: List&lt;ContactSummary&gt;)</ID>
@@ -644,8 +642,6 @@
     <ID>MaxLineLength:PrivacyScreen.kt$leadingContent = { Icon(if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (granted) CallColors.Accept else MaterialTheme.colorScheme.outline) }</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$supportingContent = { Text(stringResource(if (s.secureScreen) R.string.set_privacy_screenshots_hidden else R.string.set_privacy_screenshots_allowed)) }</ID>
     <ID>MaxLineLength:PrivacyScreens.kt$Text((if (e.viaDirectory) stringResource(R.string.pn_directory_suffix, outcome) else outcome) + " · " + Format.shortWhen(context, e.time))</ID>
-    <ID>MaxLineLength:PrivateNameProvider.kt$PrivateNameProvider$val number = if (segments.size == 2 &amp;&amp; segments[0] == PATH &amp;&amp; selection.isNullOrEmpty() &amp;&amp; selectionArgs.isNullOrEmpty()) LookupPolicy.parseNumber(segments[1]) else null</ID>
-    <ID>MaxLineLength:PrivateNameProvider.kt$PrivateNameProvider.Companion$fun cancel(ctx: Context, pkg: String, directory: Boolean = false)</ID>
     <ID>MaxLineLength:QrDialog.kt$Row</ID>
     <ID>MaxLineLength:QrParser.kt$QrParser$val numbers = QrText.percentDecode(numbersPart).split(',').map { n -&gt; QrText.clean(n, false).filter { it.isDigit() || it in "+*#" } }.filter { it.isNotEmpty() }</ID>
     <ID>MaxLineLength:QuickMessage.kt$defaultNumber = default</ID>

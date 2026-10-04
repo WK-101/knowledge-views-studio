@@ -260,7 +260,8 @@ class NavigationRoutesTest {
             Routes.SpeedDial, Routes.Birthdays, Routes.Health, Routes.journal(HistoryTab.CALLS), Routes.Tools, Routes.Backup, Routes.Sync, Routes.SyncMarkdown,
             Routes.CallTime, Routes.versions(3),
             ContactPageRoutes.timeline(4), ContactPageRoutes.Sections,
-            HistoryRoutes.Insights, HistoryRoutes.Settings, HistoryRoutes.Import, HistoryRoutes.Sims, HistoryRoutes.sim("sim/1"),
+            HistoryRoutes.Insights(), HistoryRoutes.Insights(quality = true), HistoryRoutes.Settings, HistoryRoutes.Import,
+            HistoryRoutes.Sims(), HistoryRoutes.Sims(plans = true), HistoryRoutes.sim("sim/1"),
             BlockingRoutes.Lists, BlockingRoutes.Transfer, BlockingRoutes.DryRun, BlockingRoutes.Templates, BlockingRoutes.rule(5),
             PeopleRoutes.Labels, PeopleRoutes.label("Work"), PeopleRoutes.editRaw(6, 7), PeopleRoutes.SimImport, PeopleRoutes.WhoCanSee,
             PeopleRoutes.PrivateNames, PeopleRoutes.Diagnostics, PeopleRoutes.Me, PeopleRoutes.MeEdit,
@@ -309,9 +310,8 @@ class NavigationRoutesTest {
     @Test fun a_private_name_approval_names_its_app() {
         val t = resolve(IntentRoutes.ACTION_APPROVE_PRIVATE_NAME) {
             putExtra(IntentRoutes.EXTRA_PACKAGE, "com.example.callerid")
-            putExtra(IntentRoutes.EXTRA_DIRECTORY, true)
         }
-        assertEquals("com.example.callerid" to true, t?.approvePrivateName)
+        assertEquals("com.example.callerid", t?.approvePrivateName)
         assertNull(resolve(IntentRoutes.ACTION_APPROVE_PRIVATE_NAME))
     }
 }

@@ -24,7 +24,7 @@
     <!-- Call history settings -->
     <string name="hist_archive_on_summary">On: Parley keeps its own encrypted copy, because Android may drop old calls</string>
     <string name="hist_archive_off_summary">Off: only what Android keeps</string>
-    <string name="hist_archive_off_title">Turn off the call-history archive?</string>
+    <string name="hist_archive_off_title">Stop keeping Parley\'s copy of calls?</string>
     <string name="hist_archive_off_text">Parley deletes its encrypted copy of your calls. Your phone\'s own call history is not changed, but calls Android already dropped are gone for good.</string>
     <string name="hist_archive_off_confirm">Turn off and delete</string>
     <string name="hist_settings_title">Call history</string>
@@ -40,7 +40,7 @@
     <string name="hist_retention_forever">Your setting keeps call history forever.</string>
     <string name="hist_kept_forever_empty">Open a contact or a number\'s history and turn on “Keep this call history forever” to keep it whatever the retention setting.</string>
     <string name="hist_stop_keeping">Stop keeping forever</string>
-    <string name="hist_recently_deleted">Recently deleted calls</string>
+    <string name="hist_recently_deleted">No deleted calls</string>
     <string name="hist_recently_deleted_empty">Nothing deleted in the last 30 days.</string>
     <plurals name="hist_calls_deleted">
         <item quantity="one">%1$d call deleted</item>
@@ -925,12 +925,9 @@
     <!-- Private names for other apps -->
     <string name="privnames_directory">Parley private contacts</string>
     <string name="privnames_channel">Private name requests</string>
-    <string name="privnames_request_title">%1$s wants to show private names</string>
-    <string name="privnames_request_text">%1$s asked Parley for the name of a phone number that may belong to one of your private contacts. If you allow it, %1$s can ask for one number\'s name at a time; it never gets a list.</string>
     <string name="privnames_allow">Allow</string>
     <string name="privnames_deny">Don\'t allow</string>
     <string name="privnames_allow_ask">Allow…</string>
-    <string name="pn_approve_title">Let this app show private names?</string>
     <string name="pn_approve_title_directory">Let this phone app use the private directory?</string>
     <string name="pn_approve_package">App (package name)</string>
     <string name="pn_approve_cert">Signed with (SHA-256 of its certificate)</string>
@@ -1274,7 +1271,6 @@
     <string name="privacy_section">Your contacts and other apps</string>
     <string name="privacy_who_can_see">Who can see your contacts</string>
     <string name="privacy_who_can_see_summary">Which apps can read your contacts, and what Parley can do about it</string>
-    <string name="privacy_private_names">Let apps show private names</string>
 
     <!-- People: who can see your contacts -->
     <string name="who_header">Android doesn\'t let any contacts app decide what other apps see. Any app you\'ve allowed “Contacts” can read every contact on this phone, from every account. Here is what Parley can do.</string>
@@ -1300,8 +1296,8 @@
     <string name="who_save_private_summary">New contacts go to your private contacts instead of an account</string>
     <string name="who_what_stops">What stops showing their names:\n• your car and smartwatch (over Bluetooth they read the phone\'s contacts)\n• other apps: messengers, keyboards, another phone app\n• Android\'s call log, which other apps can read (they see only the number)\nPrivate contacts don\'t sync to Google or CardDAV; they\'re in Parley\'s encrypted backups.</string>
     <string name="who_move_private">Move contacts to private</string>
-    <string name="who_move_private_summary">Select contacts in the Contacts tab, then More › Move to private</string>
-    <string name="who_move_private_hint">Long-press contacts to select them, then choose More › Move to private</string>
+    <string name="who_move_private_summary">Select contacts in the Contacts tab, then More › Privacy… › Make private</string>
+    <string name="who_move_private_hint">Hold contacts to select them, then choose More › Privacy… › Make private</string>
     <string name="who_share_one">Share just one contact</string>
     <string name="who_picker_text">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it.</string>
     <string name="who_picker_text_37">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it. On this Android version, apps can also use Android\'s own contact picker, which shares only what you choose in the same way.</string>
@@ -1314,13 +1310,9 @@
     </plurals>
 
     <!-- People: private names for other apps -->
-    <string name="pn_title">Private names in other apps</string>
-    <string name="pn_off_default">Off by default</string>
-    <string name="pn_intro">Apps you approve can ask Parley for the name of one phone number at a time, for example to show who is calling. They get only that name, never a list, and only after you allow each app. Parley asks you with a notification the first time an app tries, and every request is listed below.</string>
-    <string name="pn_directory_section">Phone apps (contacts directory)</string>
-    <string name="pn_directory_summary">Off by default. Apps are allowed separately; same limit and log as above</string>
+    <string name="pn_title">Private names in other phone apps</string>
+    <string name="pn_directory_summary">Off by default. Each phone app is allowed separately, and every request is logged</string>
     <string name="pn_directory_text">When this is on, Android lists Parley as a contacts directory. A phone app that looks callers up in directories (for example Google Phone, also when it runs in your car) can then ask for the name of one number, and only after you allow that app. It never gets a list, a photo or a contact to open, and nothing is answered in discreet mode. Not every phone app asks directories: Google Phone does, others may only look in your contacts.</string>
-    <string name="pn_apps">Apps</string>
     <string name="pn_no_app">No app has asked yet</string>
     <string name="pn_allowed">Allowed</string>
     <string name="pn_not_allowed">Not allowed</string>
@@ -1328,9 +1320,7 @@
     <string name="pn_forget">Forget (ask again)</string>
     <string name="pn_log">Access log</string>
     <string name="pn_no_requests">No requests yet</string>
-    <string name="pn_directory_suffix">%1$s (directory)</string>
     <string name="pn_clear_log">Clear log</string>
-    <string name="pn_developers">For app developers: query content://%1$s/lookup/&lt;number&gt; while holding the permission %2$s. The result has one row (display_name, photo_uri) or none.</string>
     <string name="pn_out_answered">Showed a private name</string>
     <string name="pn_out_not_found">Asked; no private contact has that number</string>
     <string name="pn_out_denied">Blocked: you said no</string>
@@ -1572,7 +1562,7 @@
         <item quantity="one">%1$d blocked call in the log</item>
         <item quantity="other">%1$d blocked calls in the log</item>
     </plurals>
-    <string name="rst_safety_waiting">Safety settings in the backup (app lock, discreet mode, supervised call time or apps allowed to show private names) weren\'t changed. Apply them only if you made this backup yourself.</string>
+    <string name="rst_safety_waiting">Safety settings in the backup (app lock, Hide private contacts, supervised call time or phone apps allowed to show private names) weren\'t changed. Apply them only if you made this backup yourself.</string>
     <string name="rst_safety_apply">Apply the backup\'s safety settings</string>
     <string name="rst_safety_confirm">Apply safety settings from a backup</string>
     <string name="rst_safety_applied">Safety settings restored</string>

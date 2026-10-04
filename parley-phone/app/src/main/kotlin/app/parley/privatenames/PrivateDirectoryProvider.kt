@@ -32,7 +32,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * forwards the query here, again as itself, adding the app's package as `callerPackage`
  * (Directory.CALLER_PACKAGE_PARAM_KEY). That parameter is trusted only when the Contacts Provider is the caller.
  *
- * Rules (the same as "Let apps show private names", C15): off by default (the component itself is disabled until
+ * Rules (C15): off by default (the component itself is disabled until
  * you turn it on, so no directory exists), one exact number per query (E.164 by keyed hash, never the last digits),
  * only for apps you approved (a notification asks the first time), 60 lookups per app per hour, every request
  * logged without the number, nothing in discreet mode, and no other query is ever answered: no lists, no filters,
@@ -83,13 +83,12 @@ class PrivateDirectoryProvider : ContentProvider() {
         val access = c.people.privateNames
         val number = LookupPolicy.parseNumber(uri.pathSegments.getOrNull(1))
         val now = System.currentTimeMillis()
-        // The Directory has its own approvals: allowing an app to use the lookup provider doesn't allow this.
-        val approval = access.approval(caller, directory = true)
+        val approval = access.approval(caller)
         var outcome = LookupPolicy.decide(access.stored.directory, approval, number != null, access.recentQueries(caller, now), now)
         when (outcome) {
-            LookupOutcome.ASKED -> if (access.takePrompt(caller, directory = true, now = now)) {
-                if (approval == null) access.markPending(caller, directory = true)
-                PrivateNameProvider.askUser(ctx, caller, directory = true)
+            LookupOutcome.ASKED -> if (access.takePrompt(caller, now = now)) {
+                if (approval == null) access.markPending(caller)
+                PrivateNameRequests.askUser(ctx, caller)
             }
             LookupOutcome.ANSWERED -> {
                 // M8: read from storage, not the settings flow (its first value in a cold process is the defaults); fails closed.
@@ -116,7 +115,7 @@ class PrivateDirectoryProvider : ContentProvider() {
             }
             else -> Unit
         }
-        access.log(caller, outcome, now, viaDirectory = true)
+        access.log(caller, outcome, now)
         return result
     }
 

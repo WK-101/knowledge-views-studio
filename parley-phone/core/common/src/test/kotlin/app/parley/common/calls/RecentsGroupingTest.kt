@@ -31,6 +31,6 @@ class RecentsGroupingTest {
     }
 
     @Test fun recents_layout_is_a_searchable_setting() {
-        listOf("recents_layout", "clear_history", "connect_haptic", "default_dialer_help").forEach { SettingsCatalog[it] }
+        listOf("recents_layout", "clear_history", "call_haptics", "default_dialer_help").forEach { SettingsCatalog[it] }
     }
 }

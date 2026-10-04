@@ -19,12 +19,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -329,13 +327,9 @@ private fun LegendRow(entry: RecentsLegend.Entry) {
 
 private val legendRequested = MutableStateFlow(false)
 
-/** Recents ⋮ › "What do the colours mean?". */
-@Composable
-fun RecentsLegendMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem({ Text(stringResource(R.string.recents_legend_menu)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) }, onClick = {
-        closeMenu()
-        legendRequested.value = true
-    })
+/** Shows the legend (from Recents ⋮ › Recents view…). */
+fun showRecentsLegend() {
+    legendRequested.value = true
 }
 
 /** Shows the legend when asked from the Recents ⋮ menu. */

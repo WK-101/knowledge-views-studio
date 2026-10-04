@@ -88,7 +88,10 @@ class HubAndRemindersRoutesTest {
         // Rows still on Calls itself, a page without focus, and another page with a row of the same key stay put.
         assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, "default_dialer"), settingsPageTarget("CALLS", "default_dialer"))
         assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, null), settingsPageTarget("CALLS", null))
-        assertEquals(SettingsPageTarget.Category(SettingsCategory.CALL_TIME, "sims"), settingsPageTarget("CALL_TIME", "sims"))
+        // The Call time category went: its old links open Calls › Situations, and its SIMs row the SIMs page.
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time"), settingsPageTarget("CALL_TIME", "call_time"))
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time"), settingsPageTarget("CALL_TIME", null))
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.SIMS, "sims"), settingsPageTarget("CALL_TIME", "sims"))
         // An unknown page name (an old link) opens Appearance.
         assertEquals(SettingsPageTarget.Category(SettingsCategory.APPEARANCE, null), settingsPageTarget("GONE", null))
     }
@@ -105,6 +108,7 @@ class HubAndRemindersRoutesTest {
             SettingPlace.CALLS_ANSWERING to sources("CallsPages.kt", "AutoAnswerSettings.kt", "RttSettings.kt"),
             SettingPlace.CALLS_DURING to sources("CallsPages.kt", "CallExtrasSettings.kt", "CircleSettings.kt"),
             SettingPlace.CALLS_SIMS to sources("CallsPages.kt"),
+            SettingPlace.CALLS_SITUATIONS to sources("CallsPages.kt"),
         )
         pages.forEach { (place, source) ->
             val keys = SettingsCatalog.entries.filter { it.place == place }.map { it.key }
@@ -113,6 +117,17 @@ class HubAndRemindersRoutesTest {
                 val row = Regex("""\b(item|blended|switchRow|linkRow|menuRow|choiceRow)\(\s*"$k"""")
                 assertTrue("$k is a row on $place", row.containsMatchIn(source))
             }
+        }
+    }
+
+    /** Settings holds no launcher rows: a tool found by Settings search opens the tool itself, which is in the graph. */
+    @Test fun every_tool_found_by_settings_search_opens_its_screen() {
+        val tools = SettingsCatalog.entries.filter { it.place == SettingPlace.TOOLS }
+        assertEquals(tools.map { it.key }.toSet(), toolRoutes.keys)
+        tools.forEach { e ->
+            val route = settingRoute(e)
+            assertEquals(e.key, toolRoutes.getValue(e.key), route)
+            opens(route)
         }
     }
 

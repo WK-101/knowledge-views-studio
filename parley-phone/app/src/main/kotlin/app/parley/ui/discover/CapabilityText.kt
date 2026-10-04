@@ -49,7 +49,7 @@ object CapabilityText {
         "bulk_add" to (R.string.discover_bulk_add_title to R.string.discover_bulk_add_summary),
         "my_card" to (R.string.discover_my_card_title to R.string.discover_my_card_summary),
         "paste_details" to (R.string.discover_paste_details_title to R.string.discover_paste_details_summary),
-        "card_updates" to (R.string.discover_card_updates_title to R.string.discover_card_updates_summary),
+        "introduce" to (R.string.discover_introduce_title to R.string.discover_introduce_summary),
         "quick_replies" to (R.string.discover_quick_replies_title to R.string.discover_quick_replies_summary),
         "auto_answer" to (R.string.discover_auto_answer_title to R.string.discover_auto_answer_summary),
         "helpers" to (R.string.discover_helpers_title to R.string.discover_helpers_summary),
@@ -58,6 +58,17 @@ object CapabilityText {
         "pocket_guard" to (R.string.discover_pocket_guard_title to R.string.discover_pocket_guard_summary),
         "missed_realert" to (R.string.discover_missed_realert_title to R.string.discover_missed_realert_summary),
         "simple_mode" to (R.string.discover_simple_mode_title to R.string.discover_simple_mode_summary),
+        "scam_check" to (R.string.discover_scam_check_title to R.string.discover_scam_check_summary),
+        "shared_labels" to (R.string.discover_shared_labels_title to R.string.discover_shared_labels_summary),
+        "parley_pin" to (R.string.discover_parley_pin_title to R.string.discover_parley_pin_summary),
+        "private_names" to (R.string.discover_private_names_title to R.string.discover_private_names_summary),
+        "drive_profile" to (R.string.discover_drive_profile_title to R.string.discover_drive_profile_summary),
+        "calling_abroad" to (R.string.discover_calling_abroad_title to R.string.discover_calling_abroad_summary),
+        "phone_menus" to (R.string.discover_phone_menus_title to R.string.discover_phone_menus_summary),
+        "call_quality" to (R.string.discover_call_quality_title to R.string.discover_call_quality_summary),
+        "rtt" to (R.string.discover_rtt_title to R.string.discover_rtt_summary),
+        "voicemail" to (R.string.discover_voicemail_title to R.string.discover_voicemail_summary),
+        "speed_dial" to (R.string.discover_speed_dial_title to R.string.discover_speed_dial_summary),
     )
 
     /** Title and summary of [c]; a row without texts fails loudly in the catalog test, never silently on screen. */

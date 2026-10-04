@@ -44,7 +44,7 @@
     <string name="circle_rhythm_natural">Natural rhythm</string>
     <string name="circle_rhythm_natural_body">Learns how often you two usually talk and reminds you only when a gap is unusual for you. Relearned every month.</string>
     <string name="circle_remove">Remove from your Circle</string>
-    <string name="circle_log_interaction">Log interaction</string>
+    <string name="circle_log_interaction">Log a chat or visit</string>
     <string name="circle_log_with">Log time with %1$s</string>
     <string name="circle_edit_entry">Edit entry</string>
     <string name="circle_note">Note (optional)</string>

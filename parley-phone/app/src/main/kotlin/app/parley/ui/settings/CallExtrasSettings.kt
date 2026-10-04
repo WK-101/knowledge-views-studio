@@ -70,8 +70,8 @@ internal fun PhoneMenusRow(vm: AppViewModel, open: (Destination) -> Unit) {
 }
 
 /**
- * Calls › During calls › Advanced: the buzz on call events and when a call connects, and Android's "Power button ends
- * call".
+ * Calls › During calls › Advanced: Vibrate during calls (call events and when a call connects) and Android's "Power
+ * button ends call".
  */
 @Composable
 internal fun CallFeedbackGroup(vm: AppViewModel) {
@@ -87,8 +87,7 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
         stringResource(R.string.set_power_button_sub),
     ).joinToString(". ")
     SegmentedGroup(stringResource(R.string.set_group_call_feedback)) {
-        item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
-        item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
+        item("call_haptics") { CallVibrationRow(vm, Icons.Rounded.Vibration) }
         linkRow(
             "power_button_ends_call", Icons.Rounded.Accessibility, external = true,
             sub = powerSub,

@@ -102,11 +102,9 @@
     <string name="discover_bulk_add_title">Add several numbers</string>
     <string name="discover_bulk_add_summary">Paste a list and save it at once, privately or for a few days</string>
     <string name="discover_my_card_title">Send my details</string>
-    <string name="discover_my_card_summary">Your card as a QR code or vCard</string>
+    <string name="discover_my_card_summary">Your card as a QR code or vCard, kept current for people you shared it with</string>
     <string name="discover_paste_details_title">Make a contact from pasted text</string>
     <string name="discover_paste_details_summary">Paste a signature or profile, tick what to keep</string>
-    <string name="discover_card_updates_title">A card that stays current</string>
-    <string name="discover_card_updates_summary">Contacts see your new number when you change it</string>
     <string name="discover_quick_replies_title">Reply when you can\'t answer</string>
     <string name="discover_quick_replies_summary">A short message when you decline a call</string>
     <string name="discover_auto_answer_title">Answer automatically</string>
@@ -159,4 +157,29 @@
     <string name="tip_concept_labels">Labels are groups you make yourself, like Family or Work: filter by them, message everyone in one, or give one a ringtone.</string>
     <string name="tip_concept_favourites">Favourites are your starred contacts, one tap away; other apps see the star too. Frequent, under them, is who you call most, picked from your calls.</string>
     <string name="tip_concept_history_undo">History &amp; undo is where to get things back: contacts and calls deleted or changed in Parley for 30 days, and daily snapshots.</string>
+    <!-- Rows added when the hub caught up with everything since 4.7. -->
+    <string name="discover_introduce_title">Introduce myself…</string>
+    <string name="discover_introduce_summary">Send your details to several people, one chat at a time</string>
+    <string name="discover_scam_check_title">Is this a scam?</string>
+    <string name="discover_scam_check_summary">The warning signs and safe ways to check, as during a call</string>
+    <string name="discover_shared_labels_title">Shared labels</string>
+    <string name="discover_shared_labels_summary">Share a label like Family with its people, through your own folder</string>
+    <string name="discover_parley_pin_title">Parley PIN and duress PIN</string>
+    <string name="discover_parley_pin_summary">Open Parley with its own PIN; a second one keeps private things hidden</string>
+    <string name="discover_private_names_title">Private names in other phone apps</string>
+    <string name="discover_private_names_summary">A phone app you approve can show who\'s calling</string>
+    <string name="discover_drive_profile_title">Drive profile</string>
+    <string name="discover_drive_profile_summary">Say who\'s calling and answer chosen people while your car is connected</string>
+    <string name="discover_calling_abroad_title">Calling abroad</string>
+    <string name="discover_calling_abroad_summary">Numbers in your home format dialled right, and a local SIM suggested</string>
+    <string name="discover_phone_menus_title">Phone menus</string>
+    <string name="discover_phone_menus_summary">The keys you pressed in a phone menu, offered again next time</string>
+    <string name="discover_call_quality_title">Call quality</string>
+    <string name="discover_call_quality_summary">Dropped calls by SIM and network, and when to call again</string>
+    <string name="discover_rtt_title">RTT (real-time text)</string>
+    <string name="discover_rtt_summary">Type during calls, where your carrier supports it</string>
+    <string name="discover_voicemail_title">Voicemail</string>
+    <string name="discover_voicemail_summary">Listen in Recents while Parley is your phone app; hold 1 to call it</string>
+    <string name="discover_speed_dial_title">Speed dial</string>
+    <string name="discover_speed_dial_summary">Hold 2 to 9 on the keypad to call someone</string>
 </resources>

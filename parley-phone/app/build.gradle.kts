@@ -37,8 +37,6 @@ android {
         versionName = "5.5.0"
         // The instrumented smoke tests in src/androidTest (a device or emulator: docs/PERFORMANCE_BENCHMARKS.md).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
-        manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.
         manifestPlaceholders["listsPackage"] = "app.parley.lists"
         manifestPlaceholders["listsPermission"] = "app.parley.permission.READ_LISTS"
@@ -68,7 +66,6 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
-            manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME_DEBUG"
             manifestPlaceholders["listsPackage"] = "app.parley.lists.debug"
             manifestPlaceholders["listsPermission"] = "app.parley.permission.READ_LISTS_DEBUG"
         }

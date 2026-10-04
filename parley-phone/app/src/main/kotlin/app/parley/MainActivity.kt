@@ -91,8 +91,8 @@ class MainActivity : LockedActivity() {
                     ParleyRoot(vm)
                     PinConfirmHost()
                     // A private-name request's "Allow…": only once Parley shows unlocked.
-                    approvePrivateName?.let { (pkg, dir) ->
-                        PrivateNameApprovalDialog(vm.c.people.privateNames, pkg, dir) { approvePrivateName = null }
+                    approvePrivateName?.let { pkg ->
+                        PrivateNameApprovalDialog(vm.c.people.privateNames, pkg) { approvePrivateName = null }
                     }
                 }
             }
@@ -117,7 +117,7 @@ class MainActivity : LockedActivity() {
     }
 
     /** A private-name request's "Allow…" waiting for the approval sheet: the package and whether it is the Directory. */
-    private var approvePrivateName by mutableStateOf<Pair<String, Boolean>?>(null)
+    private var approvePrivateName by mutableStateOf<String?>(null)
 
     /** An emergency number handed over while Parley may be locked: the lock screen offers the call with it at once. */
     private var lockEmergencyNumber by mutableStateOf<String?>(null)

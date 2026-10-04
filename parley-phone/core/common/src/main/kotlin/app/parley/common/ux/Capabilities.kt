@@ -26,15 +26,17 @@ enum class AppScreen {
     CIRCLE, BIRTHDAYS, TO_CALL, CALL_INSIGHTS, TRIP,
     LABELS, SCAN_QR, MY_CARD, HELPERS,
     PRIVACY_DASHBOARD, WHO_CAN_SEE, TEMPORARY,
-    KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT,
-    CALL_TIME, SIMS, SIMPLE_MODE,
+    KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT, INTRODUCE,
+    CALL_TIME, SIMS, SIMPLE_MODE, DRIVE_PROFILE, PHONE_MENUS, SPEED_DIAL, CALL_QUALITY,
+    SHARED_LABELS, PRIVATE_NAMES,
 }
 
 /**
- * A row the hub runs in place instead of opening something: Lock now (only while the app lock is on) and the
- * Expecting a call switch. The row's [Capability.target] is still where it leads elsewhere (search, tests).
+ * A row the hub runs in place instead of opening something: Lock now (only while the app lock is on, when it takes
+ * the App lock row's place), the Expecting a call switch, the "Is this a scam?" checklist and the Voicemail inbox (a
+ * Recents filter). The row's [Capability.target] is still where it leads elsewhere (search, tests).
  */
-enum class CapabilityAction { LOCK_NOW, EXPECTING_CALL }
+enum class CapabilityAction { LOCK_NOW, EXPECTING_CALL, SCAM_CHECK, VOICEMAIL }
 
 /** Where a row leads: a screen, or a setting (opened exactly where Settings search would open it). */
 sealed interface CapabilityTarget {
@@ -133,6 +135,8 @@ object CapabilityCatalog {
             "who's in", "whos in", "trip", "travel", "city", "visiting", "abroad"),
         screen("insights", TOUCH, "Call insights", "Talk time, top people and calls you didn't return", AppScreen.CALL_INSIGHTS,
             "statistics", "stats", "talk time"),
+        screen("shared_labels", TOUCH, "Shared labels", "Share a label like Family with its people, through your own folder", AppScreen.SHARED_LABELS,
+            "family phonebook", "share", "syncthing", "nextcloud", "group", since = "5.0"),
 
         // Know who's calling
         screen("labels", WHO, "Labels with their own ringtone", "Family, Work or any label, with a ringtone and a vibration", AppScreen.LABELS,
@@ -145,6 +149,9 @@ object CapabilityCatalog {
             "qr", "scan", "business card").top(),
         setting("safe_word", WHO, "Family safe word", "A question only your family can answer, for calls that say they're family", "family_safe_word",
             "scam", "impostor", "voice clone", since = "4.5"),
+        // The checklist from the call screen's More, to read before a call; its target is where spam is stopped.
+        screen("scam_check", WHO, "Is this a scam?", "The warning signs and safe ways to check, as during a call", AppScreen.BLOCKING,
+            "scam", "fraud", "bank", "impostor", "checklist", since = "5.3").copy(action = CapabilityAction.SCAM_CHECK),
 
         // Keep it private
         setting("lock_now", PRIVATE, "Lock Parley now", "Without waiting for the app lock's timeout", "app_lock",
@@ -157,8 +164,13 @@ object CapabilityCatalog {
             "temporary", "expire", "self-destruct").top(),
         screen("who_can_see", PRIVATE, "Who can see your contacts", "Which apps can read your address book", AppScreen.WHO_CAN_SEE,
             "apps", "access", "contact scopes"),
+        // Shown while the app lock is off; Lock now takes its place while it's on.
         setting("app_lock", PRIVATE, "App lock", "Your fingerprint, face or screen lock to open Parley", "app_lock",
             "lock", "fingerprint", "biometric", "pin"),
+        setting("parley_pin", PRIVATE, "Parley PIN and duress PIN", "Open Parley with its own PIN; a second one keeps private things hidden",
+            "parley_pin", "pin", "duress", "coercion", "decoy", since = "5.0"),
+        screen("private_names", PRIVATE, "Private names in other phone apps", "A phone app you approve can show who's calling", AppScreen.PRIVATE_NAMES,
+            "directory", "android auto", "car", "caller id", "google phone"),
 
         // Message without saving
         screen("message_number", MSG, "Message a number without saving it", "Type it on the keypad, then Message or call on…", AppScreen.KEYPAD,
@@ -167,24 +179,40 @@ object CapabilityCatalog {
             "record", "history", "whatsapp").top(),
         screen("bulk_add", MSG, "Add several numbers", "Paste a list and save it at once, privately or for a few days", AppScreen.BULK_ADD,
             "bulk", "paste", "list"),
-        screen("my_card", MSG, "Send my details", "Your card as a QR code or vCard", AppScreen.MY_CARD,
-            "my card", "share", "vcard", "qr"),
+        // One row for My card: sending it, and the signed card that stays current ("A card that stays current" was a second row).
+        screen("my_card", MSG, "Send my details", "Your card as a QR code or vCard, kept current for people you shared it with", AppScreen.MY_CARD,
+            "my card", "share", "vcard", "qr", "signed", "update", "new number", "changed my number", "shared with", "a card that stays current"),
+        // Hidden from the selection menu: one chat at a time, which few people need.
+        screen("introduce", MSG, "Introduce myself…", "Send your details to several people, one chat at a time", AppScreen.INTRODUCE,
+            "introduce", "new number", "announce", "whatsapp", "signal"),
         screen("paste_details", MSG, "Make a contact from pasted text", "Paste a signature or profile, tick what to keep", AppScreen.NEW_CONTACT,
             "paste", "signature", "business card", "copy", "clipboard", since = "4.6"),
-        screen("card_updates", MSG, "A card that stays current", "Contacts see your new number when you change it", AppScreen.MY_CARD,
-            "signed", "update", "new number", "changed my number", "shared with", since = "4.6"),
         setting("quick_replies", MSG, "Reply when you can't answer", "A short message when you decline a call", "quick_replies",
             "sms", "decline", "busy"),
 
         // Calls that work better
         setting("auto_answer", CALLS, "Answer automatically", "With a headset, in the car or for people you choose", "auto_answer",
             "headset", "bluetooth", "car", "hands-free").top(),
+        screen("drive_profile", CALLS, "Drive profile", "Say who's calling and answer chosen people while your car is connected", AppScreen.DRIVE_PROFILE,
+            "car", "driving", "bluetooth", "android auto", "announce", since = "4.7").top(),
         screen("helpers", CALLS, "Add a helper to a call", "Someone you trust, joined in with one tap", AppScreen.HELPERS,
             "helper", "family", "conference", since = "4.5"),
         screen("call_time", CALLS, "Talk-time reminders and limits", "A quiet beep, or a call that ends on time", AppScreen.CALL_TIME,
             "timer", "limit", "beep"),
         screen("sims", CALLS, "Plan minutes per SIM", "Billing increments and a warning at 80 %", AppScreen.SIMS,
             "dual sim", "minutes", "plan"),
+        setting("calling_abroad", CALLS, "Calling abroad", "Numbers in your home format dialled right, and a local SIM suggested", "assisted_dialling",
+            "roaming", "abroad", "international", "local sim", since = "4.7"),
+        screen("phone_menus", CALLS, "Phone menus", "The keys you pressed in a phone menu, offered again next time", AppScreen.PHONE_MENUS,
+            "ivr", "menu", "dtmf", "touch tones", "shortcuts", since = "4.7"),
+        screen("call_quality", CALLS, "Call quality", "Dropped calls by SIM and network, and when to call again", AppScreen.CALL_QUALITY,
+            "dropped", "signal", "network", "quality", since = "4.7"),
+        setting("rtt", CALLS, "RTT (real-time text)", "Type during calls, where your carrier supports it", "answer_rtt",
+            "rtt", "tty", "text", "deaf", "hard of hearing", "accessibility", since = "4.7"),
+        setting("voicemail", CALLS, "Voicemail", "Listen in Recents while Parley is your phone app; hold 1 to call it", "voicemail",
+            "voicemail", "visual voicemail", "messages").copy(action = CapabilityAction.VOICEMAIL),
+        screen("speed_dial", CALLS, "Speed dial", "Hold 2 to 9 on the keypad to call someone", AppScreen.SPEED_DIAL,
+            "speed dial", "shortcut", "one touch", "keypad"),
         setting("pocket_guard", CALLS, "No more pocket calls", "Favourites and widgets ask first while the phone is covered", "pocket_guard",
             "pocket", "accidental", "butt dial"),
         setting("missed_realert", CALLS, "Remind me of missed calls", "Alert again every few minutes until you've seen them", "missed_realert",

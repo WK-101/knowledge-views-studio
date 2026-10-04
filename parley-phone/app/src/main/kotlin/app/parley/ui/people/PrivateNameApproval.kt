@@ -37,22 +37,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Allowing an app to read private names, from its request notification or from Privacy › Private names. It only ever
+ * Allowing a phone app to read private names through the contacts Directory, from its request notification or from
+ * Privacy › Private names in other phone apps. It only ever
  * shows inside Parley, behind its lock, never from the lock screen or the notification shade, and "Allow" asks for the
  * Parley PIN (or, without one, the phone's unlock) once more. The app is named by its package and the SHA-256 of its signing certificate, which Android
  * vouches for; never by its label, which the app chooses itself (any app can call itself "Phone").
  */
 @Composable
-fun PrivateNameApprovalDialog(access: PrivateNameAccess, pkg: String, directory: Boolean, onDone: () -> Unit) {
+fun PrivateNameApprovalDialog(access: PrivateNameAccess, pkg: String, onDone: () -> Unit) {
     SensitiveScreen()
     // Null while it is read; "" when the app isn't installed (then there's nothing to allow).
     var cert by remember(pkg) { mutableStateOf<String?>(null) }
     LaunchedEffect(pkg) { cert = withContext(Dispatchers.IO) { access.certificateOf(pkg).orEmpty() } }
     val installed = cert?.isNotEmpty() == true
     val activity = LocalActivity.current as? ComponentActivity
-    val confirmTitle = stringResource(if (directory) R.string.pn_approve_title_directory else R.string.pn_approve_title)
+    val confirmTitle = stringResource(R.string.pn_approve_title_directory)
     fun answer(a: LookupApproval) {
-        access.setApproval(pkg, a, directory)
+        access.setApproval(pkg, a)
         onDone()
     }
 

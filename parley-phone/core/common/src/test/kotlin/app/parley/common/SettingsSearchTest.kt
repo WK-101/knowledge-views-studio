@@ -38,7 +38,28 @@ class SettingsSearchTest {
             "power_button_ends_call" to SettingPlace.CALLS_DURING, "memory_prompt" to SettingPlace.CALLS_DURING,
             "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
             "call_helpers" to SettingPlace.HELPERS, "drive_profile" to SettingPlace.DRIVE_PROFILE, "phone_menus" to SettingPlace.PHONE_MENUS,
+            "call_time" to SettingPlace.CALLS_SITUATIONS,
         ).forEach { (key, place) -> assertEquals(key, place, SettingsCatalog[key].place) }
+        // The Call time category dissolved into Calls › Situations; its settings are Calls' now.
+        listOf("call_time", "ct_reminders", "ct_limits", "ct_supervised").forEach { assertEquals(it, SettingsCategory.CALLS, SettingsCatalog[it].category) }
+    }
+
+    /**
+     * Settings holds preferences: a tool is launched from Tools, and its Settings entry is only a way there (a link),
+     * so search finds it without a launcher row on a Settings page.
+     */
+    @Test fun tools_are_links_to_tools_not_settings() {
+        val tools = listOf(
+            "dry_run", "labels", "temporary_contacts", "duplicates", "health", "bulk_add", "birthdays", "insights", "messaged_numbers",
+            "history_details", "time_machine", "scan_qr", "coming_from", "what_parley_can_do",
+        )
+        tools.forEach { k ->
+            assertEquals(k, SettingPlace.TOOLS, SettingsCatalog[k].place)
+            assertTrue(k, SettingsCatalog[k].link)
+        }
+        assertTrue(SettingsCatalog.entries.filter { it.place == SettingPlace.TOOLS }.all { it.link })
+        // Folded into one choice each, or gone with the private-name lookup provider.
+        listOf("silence_sales_lines", "connect_haptic", "private_names").forEach { k -> assertTrue(k, SettingsCatalog.entries.none { it.key == k }) }
     }
 
     @Test fun sort_order_and_name_order_are_two_settings() {
@@ -61,8 +82,10 @@ class SettingsSearchTest {
         )
     }
 
-    @Test fun links_are_ways_to_pages_not_settings() {
-        assertEquals(listOf("reminders", "to_call"), SettingsCatalog.entries.filter { it.link }.map { it.key })
+    @Test fun links_are_ways_to_pages_and_tools_not_settings() {
+        val links = SettingsCatalog.entries.filter { it.link }
+        assertEquals(listOf("reminders", "to_call"), links.filter { it.place == SettingPlace.REMINDERS }.map { it.key })
+        assertTrue(links.all { it.place == SettingPlace.REMINDERS || it.place == SettingPlace.TOOLS })
     }
 
     @Test fun every_reminder_is_on_reminders() {
@@ -135,8 +158,11 @@ class SettingsSearchTest {
          * Every setting, wherever it lives (links not counted). 161 before 5.1; 5.1 added "Show names as" (name_order),
          * which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does. 5.3 added
          * "Start calls on speaker" (speaker_default) and "Flip to silence" (flip_to_silence), which the owner approved
-         * with the plan; "proximity only after answering" folded into the proximity setting instead.
+         * with the plan; "proximity only after answering" folded into the proximity setting instead. 5.6 lowered it to 147:
+         * Settings holds preferences only, so 11 tool launchers became links to Tools (with Scan QR, Coming from another
+         * phone? and Tools itself), Sales lines and Vibrate during calls each became one choice, and "Let apps show
+         * private names" went with the lookup provider.
          */
-        const val SETTINGS_CEILING = 164
+        const val SETTINGS_CEILING = 147
     }
 }

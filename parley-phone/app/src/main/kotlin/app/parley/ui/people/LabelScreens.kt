@@ -520,15 +520,18 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
             items(members, key = { it.id }) { c ->
                 var rowMenu by remember { mutableStateOf(false) }
-                Box {
-                    ContactRow(c, onLongClick = { rowMenu = true }) { open(Routes.contact(c.id)) }
-                    DropdownMenu(rowMenu, { rowMenu = false }) {
-                        DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
-                            rowMenu = false
-                            scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
-                        })
+                // No selection here: the row's actions are its trailing ⋮, never a long-press.
+                ContactRow(c, menu = {
+                    Box {
+                        IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
+                        DropdownMenu(rowMenu, { rowMenu = false }) {
+                            DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
+                                rowMenu = false
+                                scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
+                            })
+                        }
                     }
-                }
+                }) { open(Routes.contact(c.id)) }
             }
         }
     }

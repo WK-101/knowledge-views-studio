@@ -31,6 +31,18 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.RecentsLayout
 import app.parley.ui.home.RecentsViewModel
+import app.parley.ui.home.recentsStyleLabels
+import app.parley.ui.home.showRecentsLegend
+import app.parley.common.AppSettings
+import app.parley.common.RecentTap
+import app.parley.common.ux.RecentsStyle
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -49,12 +61,14 @@ fun recentsLayoutLabels(): List<String> = listOf(
 private val layoutRequested = MutableStateFlow(false)
 private val clearRequested = MutableStateFlow(false)
 
-/** Recents ⋮ › "Call list layout" (the quick toggle; the same setting is in Settings › Recents & history). */
+/**
+ * Recents ⋮ › "Recents view…": how Recents looks, in one place (layout, style, what a tap does) with the colours'
+ * legend. The same settings are on Settings › Recents & history and Layout & gestures.
+ */
 @Composable
-fun RecentsLayoutMenuItem(vm: AppViewModel, closeMenu: () -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
+fun RecentsLayoutMenuItem(closeMenu: () -> Unit) {
     DropdownMenuItem(
-        { Text(stringResource(R.string.recents_layout_menu, recentsLayoutLabels()[s.recentsLayout.ordinal])) },
+        { Text(stringResource(R.string.recents_view_menu)) },
         leadingIcon = { Icon(Icons.AutoMirrored.Rounded.ViewList, null) },
         onClick = {
             closeMenu()
@@ -94,21 +108,46 @@ private fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         stringResource(R.string.recents_layout_chronological_hint),
         stringResource(R.string.recents_layout_by_day_hint),
     )
+    val styles = recentsStyleLabels()
+    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.home_tap_call))
     val scope = rememberCoroutineScope()
+    fun set(f: (AppSettings) -> AppSettings) = scope.launch { vm.c.settings.update(f) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(settingTitle("recents_layout")) },
+        title = { Text(stringResource(R.string.recents_view_title)) },
         text = {
-            Column(Modifier.selectableGroup()) {
-                RecentsLayout.entries.forEachIndexed { i, l ->
-                    ChoiceItem(labels[i], hints[i], s.recentsLayout == l) {
-                        scope.launch { vm.c.settings.update { it.copy(recentsLayout = l) } }
-                        onDismiss()
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                ViewSection(settingTitle("recents_layout"))
+                Column(Modifier.selectableGroup()) {
+                    RecentsLayout.entries.forEachIndexed { i, l ->
+                        ChoiceItem(labels[i], hints[i], s.recentsLayout == l) { set { it.copy(recentsLayout = l) } }
                     }
                 }
+                ViewSection(settingTitle("recents_style"))
+                Column(Modifier.selectableGroup()) {
+                    RecentsStyle.entries.forEachIndexed { i, st ->
+                        ChoiceItem(styles[i], null, s.recentsStyle == st) { set { it.copy(recentsStyle = st) } }
+                    }
+                }
+                ViewSection(settingTitle("recent_tap"))
+                Column(Modifier.selectableGroup()) {
+                    RecentTap.entries.forEachIndexed { i, t ->
+                        ChoiceItem(taps[i], null, s.surfaces.recentTap == t) { set { it.copy(surfaces = it.surfaces.copy(recentTap = t)) } }
+                    }
+                }
+                // What the shapes and colours of each style mean (it was its own ⋮ item).
+                TextButton({ onDismiss(); showRecentsLegend() }) { Text(stringResource(R.string.recents_legend_menu)) }
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.clear_history_close)) } },
+    )
+}
+
+@Composable
+private fun ViewSection(title: String) {
+    Text(
+        title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp).semantics { heading() },
     )
 }
 

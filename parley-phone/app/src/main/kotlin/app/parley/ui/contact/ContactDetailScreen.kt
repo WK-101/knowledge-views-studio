@@ -161,13 +161,20 @@ import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.Routes
-import app.parley.ui.blocking.ContactPrefixAllowMenuItem
 import app.parley.ui.blocking.askToBlock
 import app.parley.ui.calls.DefaultAppNote
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.blocking.rememberBlocked
 import app.parley.ui.blocking.unblockWithUndo
+import app.parley.ui.blocking.BlockingDialog
+import app.parley.ui.blocking.BlockingDialogs
+import app.parley.common.ux.ContactMenu
+import app.parley.common.ux.MenuEntry
+import app.parley.ui.common.MenuGroupSheet
+import app.parley.ui.common.MenuItems
+import app.parley.ui.common.MenuLabel
+import androidx.compose.material.icons.rounded.Business
 import app.parley.ui.calltime.ContactCallTimeRows
 import app.parley.ui.circle.ContactTimeline
 import app.parley.ui.circle.LogInteractionDialog
@@ -244,6 +251,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val details = ui.details
     val loaded = ui.loaded
     var menu by remember { mutableStateOf(false) }
+    // A ⋮ group's own sheet (Share…, Privacy…, More…), open.
+    var menuGroup by remember { mutableStateOf<MenuEntry.Group<ContactMenu.Action>?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     // The sealed copy of a private contact couldn't be kept: ask before deleting it without one.
     var confirmDeleteNoCopy by remember { mutableStateOf(false) }
@@ -412,74 +421,58 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit))
                         }
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
-                        DropdownMenu(menu, { menu = false }) {
-                            // "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
-                            if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
+                        // At most seven items: the rarer ones under Share…, Privacy… and More… (ContactMenu).
+                        val menuEntries = ContactMenu.build(
+                            ContactMenu.Facts(
+                                isPrivate = isPrivate,
+                                canShareFile = can(ContactCapability.SHARE_VCARD_FILE),
+                                canSeeVersions = can(ContactCapability.VERSION_HISTORY),
+                                canAddToHomeScreen = can(ContactCapability.HOME_SCREEN_SHORTCUT),
+                                hasNumbers = d.phones.isNotEmpty(),
+                                canCopyToSim = can(ContactCapability.COPY_TO_SIM),
+                                canSetRingtone = can(ContactCapability.RINGTONE),
+                                linked = d.rawContacts.size > 1,
+                                // "Log a chat or visit" is the FAB for Circle contacts.
+                                inCircle = meta?.reachOutDays != null,
+                                blocked = numbersBlocked,
+                            ),
+                        )
+                        fun runMenu(a: ContactMenu.Action) {
+                          when (a) {
                             // To call by hand (the same fixed times as Remind me after a call).
-                            if (d.phones.isNotEmpty()) {
-                                DropdownMenuItem(
-                                    { Text(stringResource(R.string.to_call_remind_me_to_call)) }, leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
-                                    onClick = { menu = false; remindToCall = true },
-                                )
-                            }
-                            if (can(ContactCapability.SHARE_VCARD_FILE)) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
-                                    menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
-                                })
-                            }
+                            ContactMenu.Action.REMIND_TO_CALL -> remindToCall = true
+                            ContactMenu.Action.SHARE_FILE -> Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
                             // A private contact's plain code is shown after saying what the scanner gets.
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_show_qr)) }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = {
-                                menu = false; if (isPrivate) confirmPrivateQr = true else showQr = true
-                            })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_share_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
-                            if (can(ContactCapability.VERSION_HISTORY)) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_versions)) }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
-                            }
-                            if (can(ContactCapability.HOME_SCREEN_SHORTCUT)) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_add_home)) }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
-                            }
-                            if (d.phones.isNotEmpty() && can(ContactCapability.COPY_TO_SIM)) {
-                                DropdownMenuItem(
-                                    { Text(stringResource(R.string.detail_copy_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) },
-                                    onClick = { menu = false; copyToSim = true },
-                                )
-                            }
-                            if (can(ContactCapability.RINGTONE)) DropdownMenuItem({ Text(stringResource(R.string.detail_set_ringtone)) }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
-                                menu = false
-                                ringtonePicker.launch(
-                                    Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
-                                        .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
-                                        .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                        .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, d.customRingtone?.let(Uri::parse)),
-                                )
-                            })
-                            if (d.phones.isNotEmpty()) {
-                                // The one Block (a question, then Undo); Unblock once any of the numbers is blocked.
-                                if (numbersBlocked) {
-                                    DropdownMenuItem({ Text(stringResource(R.string.detail_unblock_numbers)) }, leadingIcon = { Icon(Icons.Rounded.RemoveModerator, null) }, onClick = {
-                                        menu = false; unblockWithUndo(vm, d.phones.map { it.value }, d.displayName)
-                                    })
-                                } else {
-                                    DropdownMenuItem({ Text(stringResource(R.string.detail_block_numbers)) }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
-                                        menu = false; askToBlock(d.phones.map { it.value }, d.displayName)
-                                    })
-                                }
-                            }
-                            ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
-                            if (d.rawContacts.size > 1) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.Rounded.LinkOff, null) }, onClick = {
-                                    menu = false; page.separate(back)
-                                })
-                            }
+                            ContactMenu.Action.SHOW_QR -> if (isPrivate) confirmPrivateQr = true else showQr = true
+                            ContactMenu.Action.SHARE_ENCRYPTED_QR -> secureQr = true
+                            ContactMenu.Action.VERSION_HISTORY -> open(Routes.versions(contactId))
+                            // The one Block (a question, then Undo); Unblock once any of the numbers is blocked.
+                            ContactMenu.Action.BLOCK_NUMBERS -> askToBlock(d.phones.map { it.value }, d.displayName)
+                            ContactMenu.Action.UNBLOCK_NUMBERS -> unblockWithUndo(vm, d.phones.map { it.value }, d.displayName)
                             // Make private ⇄ Make visible: the same contact, kept somewhere else (asks first).
-                            DropdownMenuItem(
-                                { Text(stringResource(if (isPrivate) R.string.contact_make_visible else R.string.detail_move_vault)) },
-                                leadingIcon = { Icon(if (isPrivate) Icons.Rounded.LockOpen else Icons.Rounded.Lock, null) },
-                                onClick = { menu = false; if (isPrivate) confirmVisible = true else confirmPrivate = true },
+                            ContactMenu.Action.MAKE_PRIVATE -> confirmPrivate = true
+                            ContactMenu.Action.MAKE_VISIBLE -> confirmVisible = true
+                            ContactMenu.Action.DELETE_AUTOMATICALLY -> askExpiry = true
+                            ContactMenu.Action.LOG_CHAT_OR_VISIT -> logDialog = true
+                            ContactMenu.Action.ADD_TO_HOME_SCREEN -> pinDialog = true
+                            ContactMenu.Action.COPY_TO_SIM -> copyToSim = true
+                            ContactMenu.Action.SET_RINGTONE -> ringtonePicker.launch(
+                                Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                                    .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
+                                    .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, d.customRingtone?.let(Uri::parse)),
                             )
-                            DropdownMenuItem({ Text(stringResource(if (temp != null) R.string.detail_change_expiry else R.string.detail_delete_after)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; askExpiry = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                            ContactMenu.Action.ALLOW_SIMILAR_NUMBERS ->
+                                BlockingDialogs.show(BlockingDialog.PrefixAllow(d.composedName.ifBlank { null }, d.phones.map { it.value }))
+                            ContactMenu.Action.SEPARATE -> page.separate(back)
+                            ContactMenu.Action.DELETE -> confirmDelete = true
+                          }
                         }
+                        val menuLabel: @Composable (ContactMenu.Action) -> MenuLabel = { contactMenuLabel(it, temp != null) }
+                        DropdownMenu(menu, { menu = false }) {
+                            MenuItems(menuEntries, menuLabel, close = { menu = false }, onGroup = { menuGroup = it }, onAction = ::runMenu)
+                        }
+                        menuGroup?.let { g -> MenuGroupSheet(g, menuLabel, onDismiss = { menuGroup = null }, onAction = ::runMenu) }
                     }
                 },
             )
@@ -1329,4 +1322,28 @@ private fun UsualAppIcon(app: MessengerApp, description: String) {
         runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(72, 72).asImageBitmap() }.getOrNull()
     }
     if (bmp != null) Image(bmp, description, Modifier.size(24.dp)) else Icon(Icons.AutoMirrored.Rounded.Chat, description)
+}
+
+/** The words and icon of a contact page ⋮ action ([temporary]: it already deletes itself, so its time can change). */
+@Composable
+@Suppress("CyclomaticComplexMethod") // One label per action.
+private fun contactMenuLabel(a: ContactMenu.Action, temporary: Boolean): MenuLabel = when (a) {
+    ContactMenu.Action.SHARE_FILE -> MenuLabel(stringResource(R.string.detail_share_file), Icons.Rounded.Share)
+    ContactMenu.Action.SHOW_QR -> MenuLabel(stringResource(R.string.detail_show_qr), Icons.Rounded.QrCode2)
+    ContactMenu.Action.SHARE_ENCRYPTED_QR -> MenuLabel(stringResource(R.string.detail_share_private), Icons.Rounded.Lock)
+    ContactMenu.Action.VERSION_HISTORY -> MenuLabel(stringResource(R.string.detail_versions), Icons.Rounded.History)
+    ContactMenu.Action.REMIND_TO_CALL -> MenuLabel(stringResource(R.string.to_call_remind_me_to_call), Icons.Rounded.AlarmAdd)
+    ContactMenu.Action.BLOCK_NUMBERS -> MenuLabel(stringResource(R.string.detail_block_numbers), Icons.Rounded.Block)
+    ContactMenu.Action.UNBLOCK_NUMBERS -> MenuLabel(stringResource(R.string.detail_unblock_numbers), Icons.Rounded.RemoveModerator)
+    ContactMenu.Action.MAKE_PRIVATE -> MenuLabel(stringResource(R.string.detail_move_vault), Icons.Rounded.Lock)
+    ContactMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
+    ContactMenu.Action.DELETE_AUTOMATICALLY ->
+        MenuLabel(stringResource(if (temporary) R.string.detail_change_expiry else R.string.contact_make_temporary), Icons.Rounded.Timer)
+    ContactMenu.Action.LOG_CHAT_OR_VISIT -> MenuLabel(stringResource(R.string.circle_log_interaction), Icons.Rounded.Handshake)
+    ContactMenu.Action.ADD_TO_HOME_SCREEN -> MenuLabel(stringResource(R.string.detail_add_home), Icons.Rounded.AddToHomeScreen)
+    ContactMenu.Action.COPY_TO_SIM -> MenuLabel(stringResource(R.string.detail_copy_sim), Icons.Rounded.SimCard)
+    ContactMenu.Action.SET_RINGTONE -> MenuLabel(stringResource(R.string.detail_set_ringtone), Icons.Rounded.MusicNote)
+    ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> MenuLabel(stringResource(R.string.blk_prefix_title), Icons.Rounded.Business)
+    ContactMenu.Action.SEPARATE -> MenuLabel(stringResource(R.string.detail_separate), Icons.Rounded.LinkOff)
+    ContactMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
 }
