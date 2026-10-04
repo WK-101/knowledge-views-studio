@@ -15,9 +15,11 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
-import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
+import io.ktor.server.netty.Netty
 import io.ktor.server.request.host
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondBytes
@@ -50,7 +52,20 @@ class WebServer(
 
     fun start() {
         if (engine != null) return
-        engine = embeddedServer(CIO, port = port, host = "0.0.0.0") { module() }.start(wait = false)
+        val keyStore = WebTls.keyStore(appContext)
+        val env = applicationEngineEnvironment {
+            sslConnector(
+                keyStore = keyStore,
+                keyAlias = WebTls.ALIAS,
+                keyStorePassword = { WebTls.PASSWORD.toCharArray() },
+                privateKeyPassword = { WebTls.PASSWORD.toCharArray() },
+            ) {
+                host = "0.0.0.0"
+                this.port = this@WebServer.port
+            }
+            module { configureRouting() }
+        }
+        engine = embeddedServer(Netty, env).start(wait = false)
     }
 
     fun stop() {
@@ -58,7 +73,7 @@ class WebServer(
         engine = null
     }
 
-    private fun Application.module() {
+    private fun Application.configureRouting() {
         routing {
             get("/health") { call.respondText(appContext.packageName) }
             post("/api") { call.handleApi() }

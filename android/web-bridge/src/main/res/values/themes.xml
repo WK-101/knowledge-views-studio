@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A light Material theme tinted to the Hexis indigo brand so the control screen matches the core app. -->
+    <style name="HexisWebTheme" parent="@android:style/Theme.Material.Light">
+        <item name="android:colorPrimary">@color/hexis_indigo</item>
+        <item name="android:colorPrimaryDark">@color/hexis_indigo_dark</item>
+        <item name="android:colorAccent">@color/hexis_indigo</item>
+        <item name="android:windowBackground">@color/hexis_ground</item>
+        <item name="android:statusBarColor">@color/hexis_indigo_dark</item>
+    </style>
+</resources>

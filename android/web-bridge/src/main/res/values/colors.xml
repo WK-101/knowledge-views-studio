@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the Hexis core brand (ui/theme Brand = #5B57D9). -->
+    <color name="hexis_indigo">#5B57D9</color>
+    <color name="hexis_indigo_dark">#4844B8</color>
+    <color name="hexis_ground">#F4F5F8</color>
+    <color name="hexis_on_accent">#FFFFFF</color>
+</resources>

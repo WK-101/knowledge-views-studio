@@ -132,7 +132,7 @@ class WebServerService : Service() {
 
         fun urlFor(port: Int): String {
             val ip = LanAddress.ipv4() ?: "127.0.0.1"
-            return "http://$ip:$port/"
+            return "https://$ip:$port/"
         }
 
         /** The live base URL while running, else null. */

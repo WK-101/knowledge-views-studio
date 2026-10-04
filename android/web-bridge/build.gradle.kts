@@ -76,6 +76,11 @@ android {
             "META-INF/INDEX.LIST",
             "META-INF/io.netty.versions.properties",
             "META-INF/*.kotlin_module",
+            "META-INF/DEPENDENCIES",
+            "META-INF/LICENSE*",
+            "META-INF/NOTICE*",
+            "META-INF/versions/**",
+            "**/*.proto",
         )
     }
 }
@@ -85,10 +90,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Local web server: Ktor on the coroutine-based CIO engine (lighter than Netty on Android).
+    // Local web server. HTTPS is required (not optional): browsers only expose WebCrypto's `crypto.subtle`
+    // in a secure context, and http://<lan-ip> is not one — so we serve self-signed HTTPS. The CIO server
+    // engine has no TLS support, so we use Netty (proven on Android) + Ktor's self-signed cert generator.
     val ktor = "2.3.12"
     implementation("io.ktor:ktor-server-core:$ktor")
-    implementation("io.ktor:ktor-server-cio:$ktor")
+    implementation("io.ktor:ktor-server-netty:$ktor")
+    implementation("io.ktor:ktor-network-tls-certificates:$ktor")
 
     // QR of the pairing URL on the control screen.
     implementation("com.google.zxing:core:3.5.3")

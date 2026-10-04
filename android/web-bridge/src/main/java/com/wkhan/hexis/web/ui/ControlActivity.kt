@@ -2,6 +2,8 @@ package com.wkhan.hexis.web.ui
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -81,23 +83,23 @@ class ControlActivity : Activity() {
         statusView = body("").apply { setTypeface(typeface, Typeface.BOLD) }
         root.addView(spaced(statusView, dp(20)))
 
-        connectButton = Button(this).apply { setOnClickListener { onConnect() } }
+        connectButton = primaryButton().apply { setOnClickListener { onConnect() } }
         root.addView(spaced(connectButton, dp(12)))
 
-        serverButton = Button(this).apply { setOnClickListener { onToggleServer() } }
+        serverButton = primaryButton().apply { setOnClickListener { onToggleServer() } }
         root.addView(spaced(serverButton, dp(8)))
 
         root.addView(spaced(sectionHeader("Devices"), dp(24)))
         clientsContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(spaced(clientsContainer, dp(8)))
 
-        addButton = Button(this).apply {
+        addButton = primaryButton().apply {
             text = "Add device…"
             setOnClickListener { onAddDevice() }
         }
         root.addView(spaced(addButton, dp(12)))
 
-        shareButton = Button(this).apply {
+        shareButton = primaryButton().apply {
             text = "Create read-only share link (24h)"
             setOnClickListener { onShareLink() }
         }
@@ -245,11 +247,34 @@ class ControlActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
             ).apply { topMargin = dp(14) }
         })
+        content.addView(Button(this).apply {
+            text = "Copy link"
+            setOnClickListener { copyToClipboard(full) }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(12) }
+        })
+        content.addView(TextView(this).apply {
+            text = "Your browser will warn once that the certificate isn't trusted — that's expected for a " +
+                "local server. Choose Advanced → Proceed; the connection is still encrypted."
+            setTextColor(mutedColor())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, SMALL_SP)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(14) }
+        })
         AlertDialog.Builder(this)
             .setTitle(client.name)
             .setView(ScrollView(this).apply { addView(content) })
             .setPositiveButton("Done", null)
+            .setNeutralButton("Copy link") { _, _ -> copyToClipboard(full) }
             .show()
+    }
+
+    private fun copyToClipboard(text: String) {
+        val cm = getSystemService(ClipboardManager::class.java)
+        cm?.setPrimaryClip(ClipData.newPlainText("Hexis Web link", text))
+        toast("Link copied")
     }
 
     private fun onConnect() {
@@ -311,6 +336,16 @@ class ControlActivity : Activity() {
         this.text = text
         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_SP)
         setTypeface(typeface, Typeface.BOLD)
+    }
+
+    private fun primaryButton() = Button(this).apply {
+        val accent = Color.parseColor("#5B57D9")
+        val disabled = Color.parseColor("#C5C8D2")
+        backgroundTintList = android.content.res.ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()),
+            intArrayOf(accent, disabled),
+        )
+        setTextColor(Color.WHITE)
     }
 
     private fun sectionHeader(text: String) = TextView(this).apply {
