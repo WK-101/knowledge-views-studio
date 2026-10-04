@@ -7,6 +7,9 @@ import app.parley.common.people.ThreeWayMerge.Side
 import app.parley.common.record.ContactRecord
 import app.parley.common.sync.shared.CardField
 import app.parley.common.sync.shared.CardFile
+import app.parley.common.sync.shared.FamilyShield
+import app.parley.common.sync.shared.OwnVerdict
+import app.parley.common.sync.shared.ShieldVerdict
 import app.parley.common.sync.shared.ChangeKind
 import app.parley.common.sync.shared.HistoryItem
 import app.parley.common.sync.shared.Invitation
@@ -42,12 +45,14 @@ data class SharedRunReport(
 /**
  * One shared label's sync and membership changes (docs/SHARED_LABELS.md), over its [folder], this phone's [local]
  * contacts and this member's [signer]. Pure state in, state out: the caller stores what comes back. A run that can't
- * list the folder completely, or whose key no longer opens it, changes nothing.
+ * list the folder completely, or whose key no longer opens it, changes nothing. [shieldOwn]: this phone's family spam
+ * shield verdicts, hashed into its journal for each label whose shield is on.
  */
 class SharedLabelEngine(
     private val folder: LabelFolder,
     private val local: LabelContacts,
     private val signer: MemberSigner,
+    private val shieldOwn: List<OwnVerdict> = emptyList(),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     class Outcome(val state: SharedLabelState, val report: SharedRunReport = SharedRunReport())
@@ -194,7 +199,7 @@ class SharedLabelEngine(
                 folderUri = folderUri, folderName = folderName, key = key, anchor = i.anchor, anchorName = i.anchorName, myName = myName,
                 ticket = ticket, membership = membership,
                 // A new key: what was kept about the folder under the old one doesn't apply.
-                header = null, headerWarning = false, junk = emptyMap(), unreadable = emptyMap(),
+                header = null, headerWarning = false, junk = emptyMap(), unreadable = emptyMap(), shieldIn = emptyMap(), shieldSent = "",
             )
     }
 
@@ -230,8 +235,12 @@ class SharedLabelEngine(
 
     private fun myJournal(s: SharedLabelState, left: Boolean = false) = Journal(
         signer.publicKey, s.myName, s.epoch, s.ticket, if (s.anchor.contentEquals(signer.publicKey)) s.carried else emptyList(), left, s.journal,
-        at = clock(),
+        at = clock(), shield = if (left) null else shieldOut(s),
     )
+
+    /** What this phone's journal shares through the family spam shield: nothing unless it is on for the label here. */
+    private fun shieldOut(s: SharedLabelState): List<ShieldVerdict>? =
+        if (s.shieldOn && s.membership is State.Active) FamilyShield.outgoing(FamilyShield.key(s.key, s.labelId), shieldOwn) else null
 
     private fun writeJournal(s: SharedLabelState, left: Boolean = false): String? =
         SharedLabelFiles.writeJournal(signer, s.labelId, myJournal(s, left))?.let { body ->
@@ -570,15 +579,24 @@ class SharedLabelEngine(
             taken += m.id
         }
 
+        // The family spam shield: the members' verdicts, only while it is on here. A member who left or was removed
+        // isn't in [memberKeys], so what they shared stops counting with them.
+        val shieldIn = if (!s.shieldOn) emptyMap() else journals.filter { it.memberHex in memberKeys && !it.left }
+            .mapNotNull { j -> j.shield?.takeIf { it.isNotEmpty() }?.let { j.memberHex to it } }.toMap()
         var out = s.copy(
             membership = membership, entries = entries, seen = seen, pending = pending, journal = journal.takeLast(SharedLabelFiles.MAX_ENTRIES),
             members = members, stamps = stamps, privateLeftOut = local.privateMembers(s.title),
             unreadable = unreadable.filterKeys { it in entries }, junk = junk,
             header = (headerCheck as? HeaderCheck.Ok)?.bytes ?: s.header, headerWarning = headerCheck is HeaderCheck.Suspect,
+            shieldIn = shieldIn,
         )
-        // This phone's journal: when it has news, or when it is missing from the folder.
+        // This phone's journal: when it has news, when what it shares through the shield changed, or when it is
+        // missing from the folder.
         val journalName = SharedLabelFiles.journalName(signer.publicKey)
-        if (journal.size != s.journal.size || journalName !in listing) writeJournal(out)
+        val shieldDigest = FamilyShield.digest(shieldOut(out))
+        if (journal.size != s.journal.size || journalName !in listing || shieldDigest != s.shieldSent) {
+            if (writeJournal(out) != null) out = out.copy(shieldSent = shieldDigest)
+        }
         history = SharedLabelHistory.merge(history, out.journal.map { HistoryItem(me, s.myName, it.id, it.sid, it.contactName, it.kind, it.fields, it.at) })
         out = out.copy(history = history)
         if (rep != SharedRunReport()) local.changed()
@@ -636,6 +654,8 @@ class SharedLabelEngine(
             members = s.members.filter { it.keyHex !in removed }
                 .map { if (it.keyHex == me) it.copy(anchor = true, invitedBy = null) else it.copy(awaitingKey = true, invitedBy = null, anchor = false) },
             stamps = emptyMap(),
+            // Verdicts of the members removed stop counting now; the others' come back with their new journals.
+            shieldIn = s.shieldIn.filterKeys { it !in removed }, shieldSent = "",
         )
         val listing = listing().first ?: return rotated
         return finishRotation(rotated, listing) ?: rotated
@@ -767,7 +787,7 @@ class SharedLabelEngine(
         val listing = listing().first ?: return no(UpdateResult.UNAVAILABLE)
         val (shown, kept) = arrivals(s, listing, u.files)
         val overlay = OverlayFolder(folder, shown)
-        val out = SharedLabelEngine(overlay, local, signer, clock).run(s, allowMassDelete)
+        val out = SharedLabelEngine(overlay, local, signer, shieldOwn, clock).run(s, allowMassDelete)
         // What the run didn't write over stays in the folder when it is newer than the folder's.
         for (name in overlay.untouched) if (name in kept) shown[name]?.let { folder.write(name, it) }
         val exchanged = (out.state.exchanged + (u.fromHex to u.sentAt)).entries.sortedByDescending { it.value }.take(MAX_EXCHANGED).associate { it.toPair() }

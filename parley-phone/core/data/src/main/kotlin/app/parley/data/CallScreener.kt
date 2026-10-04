@@ -89,6 +89,8 @@ class CallScreener(
     private val callLog: CallLogRepository? = null,
     /** I2: what your own calls say about a number, learned daily; looked up in memory here. */
     private val reputation: ReputationStore? = null,
+    /** The family spam shield: verdicts shared in shared labels, looked up in memory. */
+    private val family: app.parley.data.sync.shared.FamilyShieldStore? = null,
 ) {
     /** Set by the app to post per-verdict notifications. Called off the call path. */
     @Volatile
@@ -122,7 +124,8 @@ class CallScreener(
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification || s.blockInvalid ||
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
             s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true ||
-            (s.learnFromCalls && reputation?.mayHaveEntries == true) || runCatching { situationsWatching() }.getOrDefault(false)
+            (s.learnFromCalls && reputation?.mayHaveEntries == true) || runCatching { situationsWatching() }.getOrDefault(false) ||
+            family?.mayMatch() == true
     }
 
     /**
@@ -136,6 +139,7 @@ class CallScreener(
         settings.current()
         runCatching { blocks.enabledRules() }
         runCatching { reputation?.load() }
+        catching { family?.load() }
     }
 
     suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
@@ -151,6 +155,8 @@ class CallScreener(
         beforeScreen?.let { look -> suspendRunCatching { withTimeoutOrNull(SITUATION_LOOK_MS) { look() } } }
         val s = currentSettings()
         val now = System.currentTimeMillis()
+        // A process just started for this call: the shield's verdicts are read once (no-op afterwards).
+        catching { family?.load() }
         // Rules from the database, not the flow: in a process just started for this call the flow is still empty.
         val rules = blocks.enabledRules()
         val tones = runCatching { labelRingtones() }.getOrDefault(emptyMap())
@@ -352,6 +358,8 @@ class CallScreener(
             history = history,
             blockedAttempts = blockedAttempts,
             reputation = reputationOf(primary, iso, s, unknown = !isContact && !emergency && live),
+            // Memory only; never asked for a contact (saved or private) or an emergency number.
+            family = if (!isContact && !emergency) catching { family?.match(primary, iso) }.getOrNull() else null,
         )
         Gathered(facts, who.name, who.ringtone != null, who.privateTone, who.privateVoicemail)
     }

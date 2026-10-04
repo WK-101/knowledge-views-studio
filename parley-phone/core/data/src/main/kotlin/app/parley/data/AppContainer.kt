@@ -1,5 +1,7 @@
 package app.parley.data
 
+import app.parley.common.RuleKind
+import app.parley.common.RuleType
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.catching
 import app.parley.common.LabelRefs
@@ -104,7 +106,7 @@ class DataContainer(context: Context) {
     val screener by lazy {
         CallScreener(
             appContext, contacts, blocks, sims, settings, vault, scope, lists, labelRingtones = { peoplePrefs.current().labelRingtones }, callLog = callLog,
-            reputation = reputation,
+            reputation = reputation, family = familyShield,
         )
             .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
             // Situations: a window or a car may switch one on or off before this call is screened.
@@ -241,6 +243,23 @@ class DataContainer(context: Context) {
             appContext, contacts, records, people.labels, people.cardIdentity,
             defaultAccount = { settings.settings.value.let { s -> s.defaultAccountType?.let { AccountRef(it, s.defaultAccountName) } } },
             syncFolder = { folderSync.status.value.folderUri },
+            shield = familyShield,
+        )
+    }
+
+    /**
+     * The family spam shield: this phone's verdicts (its numbers blocked one by one, and those marked a scam), and the
+     * shielded labels' verdicts in memory for the call path. Built without the rest of the shared labels.
+     */
+    val familyShield by lazy {
+        app.parley.data.sync.shared.FamilyShieldStore(
+            java.io.File(appContext.noBackupFilesDir, "shared_labels"), app.parley.data.sync.shared.RecordSealer(appContext),
+            blockedNumbers = {
+                val iso = PhoneEnv.countryIso(appContext)
+                blocks.allRules()
+                    .filter { it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT && it.expiresAt == null }
+                    .mapNotNull { app.parley.data.sync.shared.FamilyShieldStore.canonical(it.pattern, iso) }
+            },
         )
     }
     val messaging by lazy { MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }

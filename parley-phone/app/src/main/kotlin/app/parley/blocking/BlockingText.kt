@@ -40,6 +40,7 @@ object BlockingText {
             BlockReason.OFF_HOURS -> R.string.blk_reason_off_hours
             BlockReason.SEND_TO_VOICEMAIL -> R.string.blk_reason_voicemail
             BlockReason.PERSONAL_REPUTATION -> R.string.blk_reason_sales_line
+            BlockReason.FAMILY_SHIELD -> R.string.fsh_reason
         },
     )
 
@@ -52,6 +53,10 @@ object BlockingText {
     private val blockedReason = Regex("^Blocked: (.+)$")
     private val allowedBy = Regex("^Allowed by '(.*)'$")
     private val likelySpam = Regex("^Likely spam · (.+?)(?: · (.+))?$")
+    private val family = Regex("^(Blocked|Called a scam|Called spam) by someone in (.+)$")
+    private val familyVerdicts = mapOf(
+        "Blocked" to R.string.fsh_verdict_blocked, "Called a scam" to R.string.fsh_verdict_scam, "Called spam" to R.string.fsh_verdict_spam,
+    )
 
     /** A verdict ("Blocked by rule 'X' · 3 calls", "Likely spam · List") in the app's language. */
     fun verdict(context: Context, text: String?): String? {
@@ -66,6 +71,7 @@ object BlockingText {
         blockedReason.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_blocked_reason, reasonFromLabel(context, m.groupValues[1])) }
         allowedBy.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_allowed_by, m.groupValues[1]) }
         likelySpam.matchEntire(text)?.let { m -> return join(context.getString(R.string.blk_verdict_likely_spam, m.groupValues[1]), m.groups[2]?.value) }
+        family.matchEntire(text)?.let { m -> return context.getString(familyVerdicts.getValue(m.groupValues[1]), m.groupValues[2]) }
         return fixedVerdicts[text]?.let { context.getString(it) } ?: text
     }
 
@@ -105,6 +111,7 @@ object BlockingText {
         "SIM allow rule" to R.string.blk_check_sim_allow_rule,
         "Repeat caller" to R.string.blk_check_repeat,
         "Your calls" to R.string.blk_check_your_calls,
+        "Family shield" to R.string.fsh_check,
     )
 
     private val results = mapOf(

@@ -4,7 +4,7 @@
     <!-- Settings entry (Backup & sync › Sync between your phones › Shared labels; searchable) -->
     <string name="set_shared_labels_title">Shared labels</string>
     <string name="set_shared_labels_summary">A family phonebook: one label kept the same on several people\'s phones</string>
-    <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud, update file, send an update, open an update</string>
+    <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud, update file, send an update, open an update, family spam shield, spam warnings, scam warnings</string>
     <string name="set_shared_labels_join_title">Join a shared label</string>
     <string name="set_shared_labels_join_summary">Open an invitation someone sent you, as a file or a QR code</string>
     <string name="set_shared_labels_join_kw">join, invitation, invite, family phonebook, shared label, qr code, file</string>

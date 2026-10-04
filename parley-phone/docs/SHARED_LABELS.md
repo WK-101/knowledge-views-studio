@@ -38,7 +38,7 @@ is easier to reason about; the screen refuses the same folder).
 | `.parley-label` | Header: the label's id, the key's epoch, the KDF settings and salt, and a check value that tells a wrong passphrase or key apart from damage | Whoever created the label, and whoever last changed its key |
 | `.parley-label-sig-<n>` | The signed note of the key change away from epoch `<n>`: the new epoch and the new header's hash, signed by the member who changed the key, sealed with epoch `<n>`'s key | Whoever changed the key |
 | `c-<sid>.plabel` | One contact: its shared fields, its version, who wrote it, signed | Any member |
-| `j-<member>.plabel` | One member's journal: their key, their name, the invitation that let them in, their recent changes, signed | That member only |
+| `j-<member>.plabel` | One member's journal: their key, their name, the invitation that let them in, their recent changes, and their [spam shield](#family-spam-shield) verdicts (hashed) when it is on, signed | That member only |
 
 `<sid>` is a random 128-bit id given to a contact when it is first shared; `<member>` is the first 128 bits of the
 SHA-256 of the member's public key. File names say nothing about anyone.
@@ -284,6 +284,48 @@ from **Active** (n) to **Active** (n + 1) as the new anchor.
 - Renaming the label on your phone keeps it shared (the others keep their own label's name), unless another label
   already has the new name: that would merge them, which is refused while either is shared. Deleting it stops its
   sync ("This label isn't on this phone any more") instead of reading as "everyone was removed".
+
+## Family spam shield
+
+Members of a shared label can warn each other about spam callers. Code: `FamilyShield` (core/common: hashing,
+merging, what a call does), the `shield` field of each journal (`SharedLabelFiles`), `SharedLabelEngine` (writing and
+reading it), `FamilyShieldStore` (core/data: this phone's own verdicts and the in-memory index the call path uses),
+step 5a of `CallPolicy`, and `ui/sync/shared/FamilyShieldScreen.kt`.
+
+- **Opt-in, per label, off by default.** The label's page has a **Family spam shield** row with a switch. Turning it
+  on first says what is shared. Its page sets what a match does on this phone: **Warn only** (the default), **Silence**
+  or **Block**. While it is off, this phone shares nothing and keeps nothing from the others.
+- **What is shared.** The numbers this phone blocks one by one (exact block rules, not ranges, temporary rules or
+  other kinds of rule), and numbers marked **It's a scam** or **Likely spam** from Report. Each verdict has a kind
+  (blocked, scam, spam-likely) and a date. It travels in the member's own journal, so the member it came from is the
+  journal's key, never a name. Names, notes and calls are never shared. A member shares at most 2,000 verdicts (the
+  newest).
+- **How a number travels.** As `HMAC-SHA256(k, E.164)` cut to 128 bits, where
+  `k = HKDF-SHA256(label key, salt = label id, "parley/v1/family-shield")`. The hash means nothing in another label or
+  under another key. Only numbers with a full international form are shared, and every phone reads them the same way
+  (libphonenumber's E.164, with legacy spellings of a line made one).
+- **Signed like everything else.** The verdicts are inside the journal's signed body: a folder writer can't add, change
+  or move one, and the journal is sealed with the label key like every other file. Update files carry journals as they
+  are, so a verdict is relayed through members who never exchange directly. Older Parley versions ignore the field.
+- **On a call.** For an unknown caller (never a saved or private contact, never an emergency number or a call within
+  the emergency window), the number's hash is looked up in memory for each shielded label. A match warns ("Blocked by
+  someone in Family", "Called a scam by someone in Family", "Called spam by someone in Family") or is silenced or
+  declined, as the label's choice says; of several labels, the one that does most counts. It sits below allow rules,
+  numbers you called or talked to, block rules and spam lists, above sales lines and the default toggles, and, like a
+  spam list, a repeat caller still rings. The index is rebuilt whenever a label's state changes (a run, an update
+  opened, the switch, leaving), and read once in a process the call starts.
+- **Withdrawing.** The shield's page lists what this phone shares; **Withdraw** stops sharing a number (it stays
+  blocked here). Unblocking a number withdraws it too. The others lose it after the next run or update.
+- **Leaving and removing.** A member who leaves or is removed is no longer a member, so what they shared stops counting
+  at once. Leaving a label on this phone removes its verdicts with it. A key change starts over: each member's journal
+  is written again under the new key.
+
+**Honest limits.** The hash keeps the numbers from anyone without the label key: someone who can read the folder but
+isn't a member can't tell them, even by trying every number. **Members can**: they hold the key, and phone numbers are
+few enough to try them all, so anyone in the label can learn which numbers you blocked or reported, and when. Share
+only in a label of people you'd tell. A removed member keeps what they had already received. A verdict is someone's
+opinion, not a fact: that is why Warn only is the default, and why saved contacts and emergency numbers always ring.
+Verdicts travel at the label's pace (the folder's next run, or the next update opened).
 
 ## Private contacts
 

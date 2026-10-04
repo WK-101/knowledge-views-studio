@@ -14,6 +14,8 @@ import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.sync.shared.SharedLabelTitles
 import app.parley.common.sync.shared.SharedLabelUpdates
+import app.parley.common.sync.shared.ShieldKind
+import app.parley.common.sync.shared.ShieldMode
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
@@ -47,6 +49,8 @@ class SharedLabels(
     private val syncFolder: () -> String?,
     private val dir: File = File(context.noBackupFilesDir, "shared_labels"),
     sealer: StateSealer = RecordSealer(context),
+    /** The family spam shield: this phone's verdicts for the journals, and the members' verdicts kept for calls. */
+    val shield: FamilyShieldStore? = null,
 ) {
     private val store = SharedLabelStateStore(dir, sealer)
     private val mutex = Mutex()
@@ -60,6 +64,7 @@ class SharedLabels(
     suspend fun load() = withContext(Dispatchers.IO) {
         if (!loaded) {
             _states.value = store.all()
+            shield?.update(_states.value)
             loaded = true
         }
     }
@@ -86,15 +91,21 @@ class SharedLabels(
     private fun folderOf(folderUri: String, labelId: String): LabelFolder =
         if (folderUri.isEmpty()) localFolder(labelId) else SafLabelFolder(context, Uri.parse(folderUri))
 
-    private fun engine(s: SharedLabelState, signer: MemberSigner) = engine(s.folderUri, s.labelId, signer)
+    private suspend fun engine(s: SharedLabelState, signer: MemberSigner) = engine(s.folderUri, s.labelId, signer)
 
-    private fun engine(folderUri: String, labelId: String, signer: MemberSigner) =
-        SharedLabelEngine(folderOf(folderUri, labelId), localContacts(), signer)
+    private suspend fun engine(folderUri: String, labelId: String, signer: MemberSigner) =
+        SharedLabelEngine(folderOf(folderUri, labelId), localContacts(), signer, shieldOwn = shield?.outgoing().orEmpty())
 
     private fun save(s: SharedLabelState): Boolean {
         val ok = store.put(s)
-        _states.value = store.all()
+        refreshStates()
         return ok
+    }
+
+    /** The states as stored, and the shield's index with them. */
+    private fun refreshStates() {
+        _states.value = store.all()
+        shield?.update(_states.value)
     }
 
     private fun hasContacts() =
@@ -208,7 +219,7 @@ class SharedLabels(
                 if (!SharedLabelMembership.syncs(s.membership) || s.byFile) continue
                 catching { engine(s, signer).run(s) }.getOrNull()?.let { save(it.state) }
             }
-            _states.value = store.all()
+            refreshStates()
         }
     }
 
@@ -252,9 +263,52 @@ class SharedLabels(
             if (signer != null) catching { engine(s, signer).leave(s) }
             store.remove(labelId)
             if (s.byFile) localFolder(labelId).clear() else SafLabelFolder.release(context, Uri.parse(s.folderUri))
-            _states.value = store.all()
+            // The verdicts its members shared go with it.
+            refreshStates()
             true
         }
+    }
+
+    // ---------------------------------------------------------------- the family spam shield
+
+    /**
+     * Turns the family spam shield on or off for a label, or changes what a match does here. A run follows when it
+     * was turned on or off, so this phone's journal says so (by file, it goes with the next update sent).
+     */
+    suspend fun setShield(labelId: String, on: Boolean, mode: ShieldMode): Boolean {
+        val changed = mutex.withLock {
+            withContext(Dispatchers.IO) {
+                val s = store.get(labelId) ?: return@withContext null
+                // Off: nothing the others shared is kept here.
+                if (!save(s.copy(shieldOn = on, shieldMode = mode, shieldIn = if (on) s.shieldIn else emptyMap()))) return@withContext null
+                s.shieldOn != on
+            }
+        } ?: return false
+        if (changed) sync(labelId)
+        return true
+    }
+
+    /** Marks [number] as a scam or likely spam for every label with the shield on, then runs them so it is shared. */
+    suspend fun markForShield(number: String, region: String?, kind: ShieldKind): Boolean {
+        val ok = shield?.mark(number, region, kind) == true
+        if (ok) rerunShielded()
+        return ok
+    }
+
+    /** Stops sharing [e164] in every shielded label. */
+    suspend fun withdrawFromShield(e164: String): Boolean {
+        val ok = shield?.withdraw(e164) == true
+        if (ok) rerunShielded()
+        return ok
+    }
+
+    /** Whether any label has the shield on here (memory only, after [load]). */
+    fun anyShielded(): Boolean = _states.value.any { it.shieldOn && SharedLabelMembership.syncs(it.membership) }
+
+    /** One run of each label with the shield on, so its journal carries what this phone shares now. */
+    private suspend fun rerunShielded() {
+        load()
+        _states.value.filter { it.shieldOn && SharedLabelMembership.syncs(it.membership) }.forEach { catching { sync(it.labelId) } }
     }
 
     // ---------------------------------------------------------------- update files

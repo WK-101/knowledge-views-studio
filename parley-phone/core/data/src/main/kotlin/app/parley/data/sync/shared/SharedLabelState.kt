@@ -9,6 +9,9 @@ import app.parley.common.sync.shared.JournalEntry
 import app.parley.common.sync.shared.LabelMember
 import app.parley.common.sync.shared.SharedLabelMembership.State
 import app.parley.common.sync.shared.SharedLabelRules
+import app.parley.common.sync.shared.ShieldKind
+import app.parley.common.sync.shared.ShieldMode
+import app.parley.common.sync.shared.ShieldVerdict
 import app.parley.common.sync.shared.Ticket
 import org.json.JSONArray
 import org.json.JSONObject
@@ -63,6 +66,14 @@ data class SharedLabelState(
     val exchanged: Map<String, Long> = emptyMap(),
     /** When this phone last made an update file (0: never). */
     val lastSentAt: Long = 0,
+    /** The family spam shield is on for this label here (off by default): this phone shares its verdicts and uses the others'. */
+    val shieldOn: Boolean = false,
+    /** What a call whose number someone here warned about does on this phone. */
+    val shieldMode: ShieldMode = ShieldMode.WARN,
+    /** The other members' verdicts, by member key hash, as their journals had them at the last run (only while [shieldOn]). */
+    val shieldIn: Map<String, List<ShieldVerdict>> = emptyMap(),
+    /** [app.parley.common.sync.shared.FamilyShield.digest] of the verdicts this phone's journal last carried. */
+    val shieldSent: String = "",
 ) {
     /** Shared by update files only: no folder, the label's files are kept in this phone's own storage. */
     val byFile: Boolean get() = folderUri.isEmpty()
@@ -174,6 +185,15 @@ data class SharedLabelState(
         put("headerWarning", headerWarning)
         put("exchanged", JSONObject().apply { exchanged.forEach { (k, v) -> put(k, v) } })
         put("sentAt", lastSentAt)
+        put("shieldOn", shieldOn); put("shieldMode", shieldMode.name); put("shieldSent", shieldSent)
+        put(
+            "shieldIn",
+            JSONObject().apply {
+                shieldIn.forEach { (m, list) ->
+                    put(m, JSONArray().apply { list.forEach { put(JSONObject().put("h", it.hash).put("k", it.kind.code).put("at", it.at)) } })
+                }
+            },
+        )
     }
 
     companion object {
@@ -259,6 +279,14 @@ data class SharedLabelState(
                 headerWarning = o.optBoolean("headerWarning"),
                 exchanged = o.optJSONObject("exchanged")?.let { x -> x.keys().asSequence().associateWith { x.getLong(it) } }.orEmpty(),
                 lastSentAt = o.optLong("sentAt"),
+                shieldOn = o.optBoolean("shieldOn"),
+                shieldMode = runCatching { ShieldMode.valueOf(o.optString("shieldMode")) }.getOrDefault(ShieldMode.WARN),
+                shieldIn = o.optJSONObject("shieldIn")?.let { x ->
+                    x.keys().asSequence().associateWith { m ->
+                        x.optJSONArray(m).items { v -> ShieldKind.of(v.optString("k"))?.let { k -> ShieldVerdict(v.getString("h"), k, v.optLong("at")) } }
+                    }
+                }.orEmpty(),
+                shieldSent = o.optString("shieldSent"),
             )
         }
     }
