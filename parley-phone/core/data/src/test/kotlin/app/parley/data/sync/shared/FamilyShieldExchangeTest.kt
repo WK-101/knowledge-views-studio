@@ -192,6 +192,50 @@ class FamilyShieldExchangeTest {
         assertNull(idx.match(scam, "GB"))
     }
 
+    /** Opens nothing until [ok]: the Keystore unavailable for a moment, in a process just started for a call. */
+    private class Flaky : StateSealer {
+        @Volatile var ok = false
+
+        override fun seal(text: String) = text
+
+        override fun open(text: String) = text.takeIf { ok }
+    }
+
+    @Test fun a_failed_read_is_tried_again_and_the_ring_path_reads_nothing() = runBlocking {
+        shareByFile()
+        ana.own = listOf(OwnVerdict(scam, ShieldKind.SCAM, 10))
+        ana.shield(true)
+        sam.shield(true)
+        assertEquals(UpdateResult.MERGED, sam.open(ana.send()))
+        val dir = File(root, "states")
+        assertTrue(SharedLabelStateStore(dir, Plain).put(sam.s))
+        val sealer = Flaky()
+        val store = FamilyShieldStore(dir, sealer, { emptyList() })
+        // Before anything was read: maybe (the call is screened), from memory.
+        assertTrue(store.mayMatch())
+        store.load()
+        assertNull(store.match(scam, "GB"))
+        assertTrue(store.mayMatch())
+        // The next call reads again, and this time the state opens.
+        sealer.ok = true
+        store.load()
+        assertEquals(ShieldKind.SCAM, store.match(scam, "GB")?.kind)
+        // Nothing shared anywhere: once read, a call isn't screened for the shield.
+        val none = FamilyShieldStore(File(root, "none"), Plain, { emptyList() })
+        none.load()
+        assertFalse(none.mayMatch())
+    }
+
+    @Test fun a_blocked_number_marked_then_withdrawn_is_not_shared_again() = runBlocking {
+        val store = FamilyShieldStore(File(root, "own"), Plain, { listOf(scam) })
+        assertEquals(listOf(scam), store.outgoing().map { it.e164 })
+        assertTrue(store.mark(scam, "GB", ShieldKind.SCAM))
+        assertTrue(store.withdraw(scam))
+        assertTrue(store.outgoing().isEmpty())
+        assertTrue(store.mine().isEmpty())
+        assertTrue(store.outgoing().isEmpty())
+    }
+
     @Test fun the_state_keeps_the_shield_across_storage() = runBlocking {
         shareByFile()
         ana.own = listOf(OwnVerdict(scam, ShieldKind.SCAM, 10))

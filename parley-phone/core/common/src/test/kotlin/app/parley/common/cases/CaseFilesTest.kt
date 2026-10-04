@@ -76,11 +76,45 @@ class CaseFilesTest {
         assertEquals("", CaseFiles.menuOf(emptyList(), remember = true))
     }
 
-    @Test fun typed_keys_offer_the_last_long_run_of_digits() {
+    @Test fun typed_keys_offer_the_first_long_run_of_digits() {
         assertEquals("41234567", CaseFiles.typedReference("2#41234567#"))
-        assertEquals("998877", CaseFiles.typedReference("3*12345*998877"))
+        assertEquals("41234567", CaseFiles.typedReference("2#41234567#3#998877"))
         assertNull(CaseFiles.typedReference("2#1#4"))
         assertNull(CaseFiles.typedReference(""))
+    }
+
+    @Test fun typed_keys_never_offer_a_pin_or_a_card_number() {
+        // A card number (Luhn-valid) then its PIN: neither is offered.
+        assertNull(CaseFiles.typedReference("1#4111111111111111#1234#"))
+        assertNull(CaseFiles.typedReference("4111111111111111"))
+        // An account number then a PIN right after it: the PIN is never offered, and no short run is in such a call.
+        assertNull(CaseFiles.typedReference("1#12345678#4321#"))
+        assertNull(CaseFiles.typedReference("3*12345*998877"))
+        // A PIN read out key by key around #: nothing up to eight digits is offered in that call.
+        assertNull(CaseFiles.typedReference("2#5#7#9#41234567#"))
+        // A long reference typed before any of that is still offered.
+        assertEquals("1234567890", CaseFiles.typedReference("2#1234567890#4321#"))
+        // A 16-digit run that fails the Luhn check isn't a card.
+        assertEquals("1234567812345678", CaseFiles.typedReference("1#1234567812345678#"))
+    }
+
+    @Test fun card_numbers_are_told_by_the_luhn_check() {
+        assertTrue(CaseFiles.looksLikeCard("4111111111111111"))
+        assertTrue(CaseFiles.looksLikeCard("378282246310005"))
+        assertFalse(CaseFiles.looksLikeCard("4111111111111112"))
+        assertFalse(CaseFiles.looksLikeCard("411111111111"))
+    }
+
+    @Test fun a_case_whose_number_is_private_now_hides_with_private_contacts() {
+        var s = CaseFiles.setMode(CaseState(), "Northwind", listOf(bank), private = false, mode = CaseMode.ON, now = 1, region = region, newId = "a")
+        assertEquals(1, CaseFiles.visible(s, notesHidden = false, privateHidden = true) { false }.cases.size)
+        assertTrue(CaseFiles.visible(s, notesHidden = false, privateHidden = true) { it == bank }.cases.isEmpty())
+        assertEquals(1, CaseFiles.visible(s, notesHidden = false, privateHidden = false) { it == bank }.cases.size)
+        // The next call takes on whether the number is private now, both ways.
+        s = CaseFiles.recordCall(s, bank, call(5), organisation = false, name = "", private = true, region = region, newId = "x")
+        assertTrue(s.cases.single().private)
+        s = CaseFiles.recordCall(s, bank, call(6), organisation = false, name = "", private = false, region = region, newId = "x")
+        assertFalse(s.cases.single().private)
     }
 
     @Test fun references_are_cleaned_and_shown_masked() {
@@ -150,5 +184,35 @@ class CaseFilesTest {
         assertNotNull(CaseFiles.find(merged, listOf(clinic), region))
         assertEquals(merged, CaseFiles.decode(CaseFiles.encode(merged)))
         assertEquals(CaseState(), CaseFiles.decode("not json"))
+    }
+
+    @Test fun a_restore_never_brings_back_what_stop_deleted() {
+        var before = CaseFiles.setMode(CaseState(), "Bank", listOf(bank), false, CaseMode.ON, 1, region, "a")
+        before = CaseFiles.addReference(before, "a", CaseReference("r1", "Claim", "CLM-1", 10))
+        before = CaseFiles.recordCall(before, bank, call(20), organisation = true, name = "Bank", private = false, region = region, newId = "x")
+        val backup = CaseFiles.forBackup(before, { false }) { it }
+        val stopped = CaseFiles.stop(before, "a")
+        val merged = CaseFiles.merge(stopped, backup, region).cases.single()
+        assertEquals(CaseMode.OFF, merged.mode)
+        assertTrue(merged.references.isEmpty())
+        assertTrue(merged.calls.isEmpty())
+        // A stopped case's backup copy carries nothing it once kept, and restoring it elsewhere keeps it so.
+        val off = CaseFiles.forBackup(stopped, { false }) { it }.cases.single()
+        assertTrue(off.references.isEmpty() && off.calls.isEmpty())
+        val elsewhere = CaseFiles.merge(CaseState(), CaseState(listOf(merged.copy(references = backup.cases.single().references))), region)
+        assertTrue(elsewhere.cases.single().references.isEmpty())
+    }
+
+    @Test fun stopped_cases_are_not_evicted_by_kept_ones() {
+        var s = CaseFiles.setMode(CaseState(), "Old bank", listOf(bank), false, CaseMode.ON, 0, region, "stopped")
+        s = CaseFiles.stop(s, "stopped")
+        repeat(CaseFiles.MAX_CASES + 5) { i ->
+            s = CaseFiles.setMode(s, "Org $i", listOf("+44207946%04d".format(1000 + i)), false, CaseMode.ON, 10L + i, region, "k$i")
+        }
+        assertEquals(CaseFiles.MAX_CASES, s.cases.count { it.kept })
+        assertEquals(CaseMode.OFF, CaseFiles.byId(s, "stopped")!!.mode)
+        // The organisation's next call keeps nothing and starts no new case.
+        val after = CaseFiles.recordCall(s, bank, call(999), organisation = true, name = "Old bank", private = false, region = region, newId = "new")
+        assertEquals(s, after)
     }
 }

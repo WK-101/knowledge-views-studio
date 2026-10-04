@@ -77,6 +77,14 @@ class MenuMemoryTest {
         assertNull(MenuMemory.secretStartOf("".toList()))
     }
 
+    @Test fun keys_read_out_around_marks_are_told_apart_from_a_long_run() {
+        assertEquals(1, MenuMemory.markedSecretStartOf("*1#2#3#4#".toList()))
+        assertEquals(0, MenuMemory.markedSecretStartOf("12*34#".toList()))
+        // A long run ended by a mark is a reference or an account number, not keys read out one by one.
+        assertNull(MenuMemory.markedSecretStartOf("2#41234567#".toList()))
+        assertNull(MenuMemory.markedSecretStartOf("1#2*3".toList()))
+    }
+
     @Test fun at_most_six_keys_are_kept() {
         val p = "123".map { MenuPress(it, 1_000L) } + (1..17).map { MenuPress(if (it % 2 == 0) '#' else '*', it * 3_000L) }
         assertEquals(MenuMemory.MAX_STEPS, MenuMemory.record(p, at = 0)!!.steps.size)

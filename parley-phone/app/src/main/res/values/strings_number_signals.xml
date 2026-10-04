@@ -10,10 +10,6 @@
         <item quantity="one">the network said it\'s not in service</item>
         <item quantity="other">the network said it\'s not in service, %1$d times</item>
     </plurals>
-    <plurals name="health_out_of_service_at_once">
-        <item quantity="one">a call ended straight away</item>
-        <item quantity="other">%1$d calls ended straight away</item>
-    </plurals>
     <!-- TalkBack: the row's menu. %1$s: the contact; %2$s: the number. -->
     <string name="health_out_of_service_more">More for %1$s, %2$s</string>
     <string name="health_out_of_service_try">Try again</string>

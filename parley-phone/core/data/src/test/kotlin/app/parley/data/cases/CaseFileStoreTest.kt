@@ -105,6 +105,22 @@ class CaseFileStoreTest {
         assertEquals(listOf(9L), s.shown.first().cases.first { it.name == "Bank" }.calls.map { it.at })
     }
 
+    @Test fun a_contact_made_private_after_its_case_hides_it_in_discreet_mode() = runBlocking {
+        val privateNow = mutableSetOf<String>()
+        val moved = MutableStateFlow(0)
+        val s = CaseFileStore(context, { it in privateNow }, { discreet }, { moved }) { "GB" }
+        s.keep("Northwind", bank)
+        discreet.value = true
+        assertEquals(listOf("Northwind"), s.shown.first().cases.map { it.name })
+        // Made private: the case was made with private = false, and still hides.
+        privateNow += bank
+        moved.value++
+        assertEquals(CaseState(), s.shown.first())
+        assertTrue(s.isPrivateNow(s.state.value.cases.single()))
+        discreet.value = false
+        assertEquals(1, s.shown.first().cases.size)
+    }
+
     @Test fun the_backup_leaves_private_contacts_out_and_carries_references_opened() = runBlocking {
         val s = store(private = setOf(clinic))
         s.keep("Bank", bank)

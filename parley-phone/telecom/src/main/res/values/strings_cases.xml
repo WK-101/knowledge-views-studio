@@ -3,9 +3,12 @@
     <!-- Case files: under the keys typed in a call to an organisation with a case file. -->
     <string name="incall_case_keep_reference">Keep as a reference</string>
     <string name="incall_case_keep_reference_title">Keep a reference number</string>
-    <string name="incall_case_keep_reference_body">It goes into this organisation\'s case file, sealed on this phone. Remove any menu keys before the number.</string>
+    <string name="incall_case_keep_reference_body">It goes into this organisation\'s case file, sealed on this phone. Never keep a PIN, a password or a card number here.</string>
     <string name="incall_case_reference_field">Reference number</string>
     <string name="incall_case_keep">Keep</string>
+    <string name="incall_case_reference_use_typed">Use the digits you typed (%1$s)</string>
+    <string name="incall_case_reference_show">Show the number</string>
+    <string name="incall_case_reference_hide">Hide the number</string>
     <string name="incall_case_reference_kept">Kept in the case file</string>
     <string name="incall_case_reference_not_kept">Couldn\'t keep it. Try again after the call.</string>
 </resources>

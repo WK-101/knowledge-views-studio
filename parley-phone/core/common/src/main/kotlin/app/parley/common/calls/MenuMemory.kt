@@ -151,6 +151,32 @@ object MenuMemory {
         return listOfNotNull(run, marked).minOrNull()
     }
 
+    /**
+     * The marks part of [secretStartOf] on its own: where digit groups shorter than [SECRET_RUN], each followed by #
+     * or *, first add up to [SECRET_AROUND_MARKS] ("2# 5# 7# 9#", "12*34#"), or null. Case files use it to tell a call
+     * where a PIN was read out key by key from one where only a long reference was typed (which the run rule flags too).
+     */
+    fun markedSecretStartOf(tones: List<Char>): Int? {
+        var firstMarked: Int? = null
+        var markedDigits = 0
+        var i = 0
+        while (i < tones.size) {
+            if (!tones[i].isDigit()) {
+                i++
+                continue
+            }
+            var end = i + 1
+            while (end < tones.size && tones[end].isDigit()) end++
+            if (end - i < SECRET_RUN && end < tones.size && tones[end] in MARKS) {
+                if (firstMarked == null) firstMarked = i
+                markedDigits += end - i
+                if (markedDigits >= SECRET_AROUND_MARKS) return firstMarked
+            }
+            i = end
+        }
+        return null
+    }
+
     /** [path] as the guard keeps it today (paths stored by an older, looser guard are cut on load); null when nothing is left. */
     fun sanitize(path: MenuPath): MenuPath? {
         val cut = secretStartOf(path.steps.map { it.tone }) ?: path.steps.size

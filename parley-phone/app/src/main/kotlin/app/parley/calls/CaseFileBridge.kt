@@ -67,7 +67,8 @@ class CaseFileBridge(private val app: Context, private val c: DataContainer) : C
         if (!mayShow() || emergency(number)) return@withContext false
         val state = c.cases.load()
         val case = CaseFiles.find(state, listOf(number), PhoneEnv.countryIso(app, accountId))
-        case != null && case.kept && (!case.private || !c.settings.current().hideVault)
+        // Whether the contact is private is asked now, not taken from when the case was made.
+        case != null && case.kept && (!c.settings.current().hideVault || !c.cases.isPrivateNow(case))
     }
 
     override suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = withContext(Dispatchers.IO) {

@@ -67,8 +67,11 @@ data class CaseState(val cases: List<CaseFile> = emptyList())
  * Pure: the store seals, reads and writes; this decides.
  */
 object CaseFiles {
-    /** At most this many case files (the ones with the oldest last call go first). */
+    /** At most this many case files kept (the ones with the oldest last call go first). */
     const val MAX_CASES = 100
+
+    /** At most this many stopped case files remembered as stopped; they don't count towards [MAX_CASES]. */
+    const val MAX_STOPPED = 500
 
     /** At most this many calls per case (the oldest go first). */
     const val MAX_CALLS = 300
@@ -121,7 +124,8 @@ object CaseFiles {
 
     /**
      * A call with [number] ended: kept in its case file. A number without one starts an [CaseMode.AUTO] case when it is
-     * an [organisation]'s ([name] and [private] then describe the contact); one that was stopped keeps nothing.
+     * an [organisation]'s ([name] then names the contact); one that was stopped keeps nothing. [private]: the number is
+     * a private contact's now, which the case takes on either way.
      */
     @Suppress("LongParameterList")
     fun recordCall(
@@ -137,7 +141,8 @@ object CaseFiles {
         val found = find(state, listOf(number), region)
         val case = when {
             found != null && !found.kept -> return state
-            found != null -> found
+            // Whether the contact is a private one now (it may have moved since the case was made).
+            found != null -> found.copy(private = private)
             organisation && name.isNotBlank() -> CaseFile(newId, name, listOf(number), CaseMode.AUTO, private, created = call.at)
             else -> return state
         }
@@ -169,19 +174,52 @@ object CaseFiles {
         raw.filterNot { it.isISOControl() }.trim().replace(Regex("\\s+"), " ").take(max).trimEnd().ifEmpty { null }
 
     /**
-     * What the keys typed in a call ([typed]: "2#41234567#") offer as a reference: the last run of at least
-     * [MIN_TYPED_DIGITS] digits (menu choices are single keys, a reference is long), or null.
+     * What the keys typed in a call ([typed]: "2#41234567#") offer as a reference, or null. Menus ask for PINs and
+     * card numbers on exactly the lines that have case files, so the guard prefers offering nothing:
+     * - nothing typed from the first secret-looking entry on is offered: a 13–19 digit run that passes the Luhn check
+     *   (a card number), a [PIN_DIGITS] run typed right after another long run with only # or * between them (an
+     *   account number then its PIN), or keys read out one by one around # and * ([MenuMemory.markedSecretStartOf]);
+     * - in a call where any of those was seen, no run of up to [PIN_SHAPED_MAX] digits is offered at all;
+     * - of what is left, the first run of at least [MIN_TYPED_DIGITS] digits (menu choices are single keys).
      */
-    fun typedReference(typed: String): String? =
-        Regex("[0-9]+").findAll(typed).map { it.value }.lastOrNull { it.length >= MIN_TYPED_DIGITS }?.take(MAX_REFERENCE)
+    fun typedReference(typed: String): String? {
+        val runs = Regex("[0-9]+").findAll(typed).toList()
+        val card = runs.firstOrNull { looksLikeCard(it.value) }?.range?.first
+        val pin = runs.zipWithNext().firstOrNull { (a, b) ->
+            a.value.length >= MIN_TYPED_DIGITS && b.value.length in PIN_DIGITS &&
+                typed.substring(a.range.last + 1, b.range.first).let { gap -> gap.isNotEmpty() && gap.all { it == '#' || it == '*' } }
+        }?.second?.range?.first
+        val marked = MenuMemory.markedSecretStartOf(typed.toList())
+        val secretAt = listOfNotNull(card, pin, marked).minOrNull()
+        return runs.asSequence()
+            .filter { it.value.length >= MIN_TYPED_DIGITS && (secretAt == null || it.range.last < secretAt) }
+            .filter { secretAt == null || it.value.length > PIN_SHAPED_MAX }
+            .firstOrNull()?.value?.take(MAX_REFERENCE)
+    }
+
+    /** A run that may be a payment card number: 13–19 digits passing the Luhn check. */
+    internal fun looksLikeCard(digits: String): Boolean {
+        if (digits.length !in CARD_DIGITS || !digits.all { it in '0'..'9' }) return false
+        val sum = digits.reversed().mapIndexed { i, c ->
+            val d = c - '0'
+            if (i % 2 == 1) (d * 2).let { if (it > 9) it - 9 else it } else d
+        }.sum()
+        return sum % 10 == 0
+    }
+
+    private val CARD_DIGITS = 13..19
+    private val PIN_DIGITS = 4..6
+    private const val PIN_SHAPED_MAX = 8
 
     /**
      * What may show now: nothing while a duress unlock hides notes ([notesHidden]; case files are notes about whom you
-     * deal with), and no private contact's case while private contacts are hidden ([privateHidden]).
+     * deal with), and no private contact's case while private contacts are hidden ([privateHidden]): one made for a
+     * private contact, or one with a number that is a private contact's now ([hidden]; the contact may have been made
+     * private after its case was made).
      */
-    fun visible(state: CaseState, notesHidden: Boolean, privateHidden: Boolean): CaseState = when {
+    fun visible(state: CaseState, notesHidden: Boolean, privateHidden: Boolean, hidden: (String) -> Boolean = { false }): CaseState = when {
         notesHidden -> CaseState()
-        privateHidden -> CaseState(state.cases.filterNot { it.private })
+        privateHidden -> CaseState(state.cases.filterNot { it.private || it.numbers.any(hidden) })
         else -> state
     }
 
@@ -193,7 +231,11 @@ object CaseFiles {
      * ([open]) so the next phone can seal them with its own key; one that can't be opened now is left out.
      */
     fun forBackup(state: CaseState, leaveOut: (CaseFile) -> Boolean, open: (String) -> String?): CaseState = CaseState(
-        state.cases.filterNot(leaveOut).map { c -> c.copy(references = c.references.mapNotNull { r -> open(r.value)?.let { r.copy(value = it) } }) },
+        state.cases.filterNot(leaveOut).map { c ->
+            // A stopped case travels as what it is: only "stay off", nothing it once kept.
+            if (!c.kept) c.copy(references = emptyList(), calls = emptyList())
+            else c.copy(references = c.references.mapNotNull { r -> open(r.value)?.let { r.copy(value = it) } })
+        },
     )
 
     /** A restored backup's references sealed for this phone ([seal]); one that can't be sealed now is left out. */
@@ -203,14 +245,17 @@ object CaseFiles {
 
     /**
      * A restored state merged into this phone's: a case found on both (same line) keeps this phone's mode and name and
-     * gains the other's numbers, references (by id) and calls (by time); one only in the backup is added.
+     * gains the other's numbers, references (by id) and calls (by time); one only in the backup is added. A case
+     * stopped here stays as it is: what "Stop keeping" deleted never comes back from an older backup.
      */
     fun merge(mine: CaseState, restored: CaseState, region: String?): CaseState {
         var out = mine
         restored.cases.forEach { r ->
             val here = find(out, r.numbers, region)
             out = if (here == null) {
-                put(out, r)
+                put(out, if (r.kept) r else r.copy(references = emptyList(), calls = emptyList()))
+            } else if (!here.kept) {
+                out
             } else {
                 val refIds = here.references.map { it.id }.toSet()
                 val callTimes = here.calls.map { it.at }.toSet()
@@ -233,13 +278,20 @@ object CaseFiles {
         return if (added.isEmpty()) case else case.copy(numbers = case.numbers + added)
     }
 
-    /** [case] in place of the one with its id (or added); the cases with the oldest activity go past [MAX_CASES]. */
+    /**
+     * [case] in place of the one with its id (or added). Past [MAX_CASES] kept cases, the ones with the oldest activity
+     * go. Stopped ones don't count towards that (they hold nothing but "stay off", and dropping one would let the
+     * organisation's next call start a case again); only past [MAX_STOPPED] of them do the oldest stopped ones go.
+     */
     private fun put(state: CaseState, case: CaseFile): CaseState {
-        val others = state.cases.filterNot { it.id == case.id }
-        val all = listOf(case) + others
-        val kept = if (all.size <= MAX_CASES) all else all.sortedByDescending { lastActivity(it) }.take(MAX_CASES)
-        return CaseState(kept)
+        val all = listOf(case) + state.cases.filterNot { it.id == case.id }
+        val (kept, stopped) = all.partition { it.kept }
+        val keep = (newest(kept, MAX_CASES) + newest(stopped, MAX_STOPPED)).toSet()
+        return CaseState(all.filter { it in keep })
     }
+
+    private fun newest(cases: List<CaseFile>, max: Int): List<CaseFile> =
+        if (cases.size <= max) cases else cases.sortedByDescending { lastActivity(it) }.take(max)
 
     private fun lastActivity(c: CaseFile): Long = maxOf(c.created, c.calls.maxOfOrNull { it.at } ?: 0, c.references.maxOfOrNull { it.at } ?: 0)
 

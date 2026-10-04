@@ -131,8 +131,31 @@ class FamilyShieldTest {
         own = FamilyShieldOwn.mark(own, "+12025550143", ShieldKind.SCAM, now = 400)
         own = FamilyShieldOwn.withRules(own, emptySet(), now = 500)
         assertEquals(listOf(ShieldOwn("+12025550143", ShieldKind.SCAM, 400, fromRule = false)), own)
-        // A mark withdrawn goes for good.
-        assertTrue(FamilyShieldOwn.withdraw(own, "+12025550143").isEmpty())
+        // A mark withdrawn isn't shared, and goes with the next look once the number isn't blocked.
+        own = FamilyShieldOwn.withdraw(own, "+12025550143")
+        assertTrue(own.single().withdrawn)
+        assertTrue(FamilyShieldOwn.withRules(own, emptySet(), now = 600).isEmpty())
+    }
+
+    @Test fun a_blocked_number_marked_then_withdrawn_stays_withdrawn() {
+        var own = FamilyShieldOwn.withRules(emptyList(), setOf(number), now = 100)
+        own = FamilyShieldOwn.mark(own, number, ShieldKind.SCAM, now = 200)
+        own = FamilyShieldOwn.withdraw(own, number)
+        repeat(2) { own = FamilyShieldOwn.withRules(own, setOf(number), now = 300L + it) }
+        assertTrue(own.single { it.e164 == number }.withdrawn)
+        assertEquals(1, own.count { it.e164 == number })
+    }
+
+    @Test fun trimming_never_drops_a_withdrawn_number_that_is_still_blocked() {
+        val blocked = (0 until FamilyShield.MAX_VERDICTS * 2 + 10).map { "+1202555%04d".format(it) }.toSet()
+        val old = blocked.first()
+        var own = FamilyShieldOwn.withRules(emptyList(), setOf(old), now = 1)
+        own = FamilyShieldOwn.withdraw(own, old)
+        own = FamilyShieldOwn.withRules(own, blocked, now = 2)
+        assertEquals(FamilyShield.MAX_VERDICTS * 2, own.size)
+        assertTrue(own.single { it.e164 == old }.withdrawn)
+        own = FamilyShieldOwn.withRules(own, blocked, now = 3)
+        assertTrue(own.single { it.e164 == old }.withdrawn)
     }
 
     // ---------------------------------------------------------------- screening

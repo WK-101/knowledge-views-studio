@@ -39,27 +39,48 @@ class FamilyShieldStore(
     private val file get() = File(dir, OWN_FILE)
     private val mutex = Mutex()
 
-    /** Null until the labels' states were read once ([load], or [update] from [SharedLabels]). */
+    /** Null until the labels' states were read ([load], or [update] from [SharedLabels]). */
     @Volatile private var index: List<LabelIndex>? = null
 
+    /**
+     * Whether [index] holds every label: false while some label's state couldn't be opened (a process just started
+     * for a ringing call, a key being upgraded), so the next [load] reads them again rather than matching nothing for
+     * the life of the process.
+     */
+    @Volatile private var complete = false
+
     /** Rebuilt whenever the shared labels' states change, so a call only looks up hashes in memory. */
-    fun update(states: List<SharedLabelState>) {
+    fun update(states: List<SharedLabelState>) = set(states, complete = true)
+
+    private fun set(states: List<SharedLabelState>, complete: Boolean) {
         index = states.filter { it.shieldOn && it.shieldIn.isNotEmpty() && SharedLabelMembership.syncs(it.membership) }.map { s ->
             LabelIndex(s.title, s.shieldMode, FamilyShield.key(s.key, s.labelId), FamilyShield.merge(s.shieldIn))
         }
-    }
-
-    /** Reads the labels' states once (off the call path's main thread: it unseals them). */
-    suspend fun load() {
-        if (index != null) return
-        withContext(Dispatchers.IO) { if (index == null) update(SharedLabelStateStore(dir, sealer).all()) }
+        this.complete = complete
     }
 
     /**
-     * Whether a call may match anything: memory only. Before the states were read, any shared label means maybe, so
-     * the call is screened (and the states are read then).
+     * Reads the labels' states (off the call path's main thread: it unseals them): at app start, and before a call is
+     * screened until every state could be read once. Afterwards [update] keeps it current, and this does nothing.
      */
-    fun mayMatch(): Boolean = index?.isNotEmpty() ?: SharedLabelStateStore(dir, sealer).isNotEmpty()
+    suspend fun load() {
+        if (index != null && complete) return
+        withContext(Dispatchers.IO) {
+            if (index != null && complete) return@withContext
+            val read = SharedLabelStateStore(dir, sealer).read()
+            // A label read meanwhile through [update] is newer than this read: only a still incomplete index is replaced.
+            if (!complete) set(read.states, read.complete)
+        }
+    }
+
+    /**
+     * Whether a call may match anything: memory only, nothing is read here. Until every label's state was read, the
+     * answer is maybe, so the call is screened (and [load] reads them then).
+     */
+    fun mayMatch(): Boolean {
+        val labels = index
+        return labels == null || !complete || labels.isNotEmpty()
+    }
 
     /** The strongest hit for [number] (read with [region]) among the shielded labels, or null. Memory only. */
     fun match(number: String, region: String?): FamilyHit? {

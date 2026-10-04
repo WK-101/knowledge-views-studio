@@ -1,10 +1,14 @@
 package app.parley.telecom
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
 import android.telecom.Call
 import android.telecom.DisconnectCause
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.calls.CallQualityCodec
@@ -12,6 +16,7 @@ import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EndFacts
+import app.parley.common.calls.FailureKind
 import app.parley.common.calls.RingEnd
 import app.parley.common.calls.RingFacts
 
@@ -40,7 +45,7 @@ internal class CallEndRecorder(
     )
 
     /** L2: the call's quality facts, for the number history and the quality diary (returned too). Never for emergency calls. */
-    fun quality(ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?): CallQualityFacts? {
+    fun quality(call: Call, ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?): CallQualityFacts? {
         if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return null
         val now = System.currentTimeMillis()
         val talked = if (ended.connectTimeMillis > 0) ((now - ended.connectTimeMillis) / 1000).coerceAtLeast(0) else 0
@@ -62,6 +67,9 @@ internal class CallEndRecorder(
             simId = ended.accountId,
             endedAfterSec = if (failed) ((now - s.startedAt) / 1000).coerceAtLeast(0) else null,
             holdSec = (s.holdModeTotalMs + holding) / 1000,
+            // The radar only trusts "unassigned" for a number in national form when it knows the phone was at home.
+            roaming = roaming(call, failed),
+            offline = offline(ended.failure, failed),
         )
         runCatching { deps().onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
         // A case file keeps the call with its hold time and, for a call you placed, the menu keys (minus anything secret).
@@ -69,6 +77,31 @@ internal class CallEndRecorder(
         val keys = if (ended.incoming) emptyList() else s.menuPresses.toList()
         runCatching { deps().onCaseCall(number, ended.accountId, facts, keys) }
         return facts
+    }
+
+    /** Placed in airplane mode or without a SIM chosen: the phone's side of a failure. */
+    private fun offline(f: FailureKind?, failed: Boolean): Boolean = failed && (f == FailureKind.AIRPLANE_MODE || f == FailureKind.NO_SIM_SELECTED)
+
+    /**
+     * Whether the network of the call's SIM is roaming now, or null when that can't be told: the SIM isn't found (on
+     * Android 10 a dual-SIM phone can't map a call's account to its SIM, so only the default one's roaming counts,
+     * and only to say yes). Only for a [failed] call. No permission beyond reading the phone state is needed: Parley
+     * is the phone app and holds it, and a SecurityException all the same is caught (unknown).
+     */
+    @SuppressLint("MissingPermission")
+    private fun roaming(call: Call, failed: Boolean): Boolean? {
+        if (!failed) return null
+        val c = context() ?: return null
+        return runCatching {
+            val tm = c.getSystemService(TelephonyManager::class.java) ?: return@runCatching null
+            val handle = call.details.accountHandle
+            val sub = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && handle != null) {
+                tm.getSubscriptionId(handle).takeIf { it != SubscriptionManager.INVALID_SUBSCRIPTION_ID }
+            } else {
+                null
+            }
+            if (sub != null) tm.createForSubscriptionId(sub).isNetworkRoaming else tm.isNetworkRoaming.takeIf { it }
+        }.getOrNull()
     }
 
     /**

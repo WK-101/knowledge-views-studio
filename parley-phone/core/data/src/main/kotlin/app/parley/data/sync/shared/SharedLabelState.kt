@@ -306,9 +306,16 @@ interface StateSealer {
 class SharedLabelStateStore(private val dir: File, private val sealer: StateSealer) {
     private fun fileOf(id: String) = File(dir, "$id.json")
 
-    fun all(): List<SharedLabelState> = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }.mapNotNull { f ->
-        runCatching { sealer.open(f.readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull()
+    fun all(): List<SharedLabelState> = read().states
+
+    /** Every state that could be opened, and whether that was all of them ([Read.complete] false: try again later). */
+    fun read(): Read {
+        val files = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }
+        val states = files.mapNotNull { f -> runCatching { sealer.open(f.readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull() }
+        return Read(states, complete = states.size == files.size)
     }
+
+    data class Read(val states: List<SharedLabelState>, val complete: Boolean)
 
     fun isNotEmpty(): Boolean = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().isNotEmpty()
 
