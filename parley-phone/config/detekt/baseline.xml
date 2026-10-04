@@ -1205,7 +1205,6 @@
     <ID>RunCatchingInSuspend:FolderSync.kt$FolderSync$runCatching { readHeader() != null }</ID>
     <ID>RunCatchingInSuspend:FolderSync.kt$FolderSync$runCatching { val aside = codec.conflictName(name, System.currentTimeMillis()) DocumentsContract.createDocument(cr, parentDoc, codec.mime, aside) ?.let { u -&gt; cr.openOutputStream(u, "wt")!!.use { it.write(codec.encode(aside, theirs.vcard, theirs.version)) } } }</ID>
     <ID>RunCatchingInSuspend:FolderSyncScreen.kt$runCatching { sync.syncNow(allowMassDelete) }</ID>
-    <ID>RunCatchingInSuspend:FolderSyncWorker.kt$FolderSyncWorker$runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }</ID>
     <ID>RunCatchingInSuspend:FolderSyncWorker.kt$FolderSyncWorker$runCatching { shared.syncAll() }</ID>
     <ID>RunCatchingInSuspend:FolderSyncWorker.kt$FolderSyncWorker$runCatching { sync.syncNow() }</ID>
     <ID>RunCatchingInSuspend:FollowUpWorker.kt$FollowUpWorker$runCatching { c.circle.notesFor( key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }, ).flatMap { n -&gt; Promises.open(n.text).map { it.text } } }</ID>

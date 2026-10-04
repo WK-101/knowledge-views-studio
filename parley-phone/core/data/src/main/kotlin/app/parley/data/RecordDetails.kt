@@ -6,6 +6,8 @@ import app.parley.common.people.CustomFields
 import app.parley.common.people.Handles
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
+import app.parley.common.record.DataRow
+import app.parley.common.record.RawRecord
 import app.parley.common.record.Mime
 
 /**
@@ -80,6 +82,56 @@ object RecordDetails {
                 .map { HandleItem(service = it.service, value = it.value, customProtocol = it.customProtocol) },
         )
         return d
+    }
+
+    /**
+     * The other way: a contact Parley holds as [ContactDetails] (a private contact) as a record the vCard engine writes,
+     * with the same columns [toDetails] reads, its labels by title ([labels]) and its [photo]. [key] identifies it in
+     * the file only. Ringtones stay out: a ringtone is a file of this phone.
+     */
+    fun toRecord(d: ContactDetails, key: String, labels: List<String> = emptyList(), photo: ByteArray? = null): ContactRecord {
+        val rows = ArrayList<DataRow>()
+        fun add(mime: String, vararg values: Pair<String, String?>, primary: Boolean = false) {
+            val m = values.filter { !it.second.isNullOrEmpty() }.toMap()
+            if (m.isNotEmpty()) rows += DataRow(mime, m, isPrimary = primary, isSuperPrimary = primary)
+        }
+        add(
+            Mime.NAME, Col.D1 to d.displayName.ifBlank { d.composedName }, Col.D2 to d.given, Col.D3 to d.family, Col.D4 to d.prefix, Col.D5 to d.middle,
+            Col.D6 to d.suffix, Col.D7 to d.phoneticGiven, Col.D8 to d.phoneticMiddle, Col.D9 to d.phoneticFamily,
+        )
+        add(Mime.NICKNAME, Col.D1 to d.nickname)
+        add(Mime.PRONOUNS, Col.D1 to d.pronouns)
+        add(Mime.NAME_PARTS, Col.D1 to d.secondSurname, Col.D2 to d.generation)
+        add(Mime.LANGUAGE, Col.D1 to d.language)
+        add(Mime.ORG, Col.D1 to d.company, Col.D4 to d.title, Col.D5 to d.department, Col.D6 to d.jobDescription, Col.D9 to d.officeLocation)
+        add(Mime.NOTE, Col.D1 to d.note)
+        fun items(mime: String, list: List<DataItem>) = list.filter { it.value.isNotBlank() }.forEach {
+            add(mime, Col.D1 to it.value, Col.D2 to it.type.toString(), Col.D3 to it.label, primary = it.isPrimary)
+        }
+        items(Mime.PHONE, d.phones)
+        items(Mime.EMAIL, d.emails)
+        items(Mime.WEBSITE, d.websites)
+        items(Mime.RELATION, d.relations)
+        d.addresses.filterNot { it.isBlank }.forEach { a ->
+            add(
+                Mime.POSTAL, Col.D1 to a.formatted, Col.D2 to a.type.toString(), Col.D3 to a.label, Col.D4 to a.street, Col.D5 to a.poBox,
+                Col.D6 to a.neighborhood, Col.D7 to a.city, Col.D8 to a.region, Col.D9 to a.postcode, Col.D10 to a.country, AddressParts.COLUMN to a.parts,
+            )
+        }
+        d.events.filter { it.date.isNotBlank() }.forEach { e ->
+            add(Mime.EVENT, Col.D1 to e.date, Col.D2 to e.type.toString(), Col.D3 to e.label, AltCalendar.COLUMN to e.calendar)
+        }
+        d.handles.filter { it.value.isNotBlank() }.forEach { h ->
+            val (mime, cols) = Handles.toColumns(h.handle)
+            cols.filterValues { !it.isNullOrEmpty() }.takeIf { it.isNotEmpty() }?.let { rows += DataRow(mime, it) }
+        }
+        d.customFields.filterNot { it.isBlank }.forEach { add(Mime.CUSTOM_FIELD, Col.D1 to it.label, Col.D2 to it.value) }
+        labels.filter { it.isNotBlank() }.forEach { add(Mime.GROUP, Col.GROUP_TITLE to it) }
+        if (photo != null && photo.isNotEmpty()) rows += DataRow(Mime.PHOTO, emptyMap(), blob = photo)
+        return ContactRecord(
+            key = key, displayName = d.displayName.ifBlank { d.composedName.ifBlank { d.company } }, starred = d.starred,
+            sendToVoicemail = d.sendToVoicemail, raws = listOf(RawRecord(null, null, rows = rows)),
+        )
     }
 
     /** Whether [record] holds something the editor would drop (a photo, custom rows, labels). */

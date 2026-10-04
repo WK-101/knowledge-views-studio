@@ -17,6 +17,7 @@ import app.parley.ui.discover.CapabilitiesScreen
 import app.parley.ui.health.HealthScreen
 import app.parley.ui.journal.HistoryHubScreen
 import app.parley.ui.journal.HistoryTab
+import app.parley.ui.export.ExportScreen
 import app.parley.ui.sync.FolderSyncScreen
 import app.parley.ui.temporary.TemporaryContactsScreen
 
@@ -43,7 +44,8 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.Birthdays> { BirthdaysScreen(appVm(), back = back, open = open) }
     composable<Routes.Backup> { BackupScreen(appVm(), back = back) }
     composable<Routes.Sync> { FolderSyncScreen(appVm(), back = back, open = open) }
-    composable<Routes.SyncMarkdown> { FolderSyncScreen(appVm(), back = back, open = open, focusMarkdown = true) }
+    composable<Routes.SyncMarkdown> { ExportScreen(appVm(), null, back = back) }
+    composable<Routes.Export> { ExportScreen(appVm(), it.toRoute<Routes.Export>().format, back = back) }
     composable<Routes.CallTime> { CallTimeScreen(appVm(), back = back) }
     composable<CallsRoutes.PhoneMenus> { PhoneMenusScreen(appVm(), back = back) }
     composable<CallsRoutes.Page> {

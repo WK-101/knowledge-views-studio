@@ -93,7 +93,7 @@ Screens of their own for particular calls; search opens each screen directly, an
 |---|---|
 | Contact list | Call and message buttons in the list `row_actions` (off by default) |
 | Organise | Save new contacts to `default_account` · My card `my_details` (it was under Messaging) |
-| Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` (kept here: people look for import and export in a contacts app's settings) |
+| Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` (kept here: people look for import and export in a contacts app's settings). Both open **Export contacts** with their format chosen: vCard, Encrypted vCard (passphrase, [ENCRYPTED_VCARD.md](ENCRYPTED_VCARD.md)), Parley/Google/Outlook CSV or notes as text; *Include private contacts* (off; a plain file warns that it isn't encrypted) and *Include your notes* (on) are choices of that export, not stored settings. Import from file recognises an encrypted vCard and asks for its passphrase |
 | Circle: keeping in touch | Keep-in-touch reminders ↗ (Reminders) |
 | Advanced | Add relations to both contacts `mirror_relations` (on by default) · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) · Log messages you start `log_prompts` · Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
 | In Tools ↗ | Labels `labels` · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` (also the add button) · Find & merge duplicates `duplicates` (also Contacts ⋮) · Contact health check `health` · Birthdays & dates `birthdays` · Scan QR code `scan_qr` (also the add button) · Coming from another phone? `coming_from` (also onboarding's last step) |
@@ -143,7 +143,7 @@ Screens of their own for particular calls; search opens each screen directly, an
 |---|---|
 | Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) |
 | Undo | History & undo `journal` ↗ (one row; Daily snapshots `time_machine`, its Snapshots tab, is in Tools) |
-| Advanced | Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export notes as Markdown `markdown_export` |
+| Advanced | Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export contacts and notes `open_export` (the Export contacts screen; it replaced Export notes as Markdown) |
 
 **Shared labels** (`shared_labels`, a screen of its own reached from Sync between your phones, and searchable as "family phonebook"; nothing is shared until you choose a label's ⋮ › Share this label…): every label shared with other people's phones, each with its own folder and passphrase, and **Join a shared label** (`shared_labels_join`) from an invitation file or a QR code. The label page shows each shared label's members, changes ("Ana changed Dr Lee's number · 2 days ago") and contacts changed on two phones. Runs with the folder sync's schedule (shortly after start, after a change to the address book, hourly while a label is shared and every four hours otherwise; never on low battery), whether or not "Sync between your phones" is set up. Kept on this phone only, sealed (`no_backup/shared_labels`: a new phone joins again with an invitation). See [SHARED_LABELS.md](SHARED_LABELS.md).
 
@@ -193,7 +193,7 @@ Each page shows what most people set once or change often, and folds the rest un
 | Recents & history | Numbers kept forever, import call history, Excel-friendly CSV, SIM in call history | Archive housekeeping and one-off imports |
 | Messaging | Forget messaged numbers after | The default suits nearly everyone |
 | Privacy & security | Hide screen content, private call history, who can see your contacts, private names in other phone apps, app permissions, delete all data | App lock, the lock screen and hiding private contacts are the everyday choices; the rest is for particular worries or a fresh start |
-| Backup & sync | Sync between phones, export notes as Markdown | Backups and History & undo are what everyone needs |
+| Backup & sync | Sync between phones, export contacts and notes | Backups and History & undo are what everyone needs |
 | Calls, Calls › SIMs & carrier, Calls › Situations, Reminders, Notifications & device, About | Nothing | Already a short list of links, each one needed when it is needed |
 
 `SettingsSearchTest` keeps every page at 12 basic rows or fewer, and `AdvancedGroupsTest` checks that what a page folds and what the catalog marks advanced agree.

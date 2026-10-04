@@ -1,7 +1,6 @@
 package app.parley.ui.settings
 
 import app.parley.common.history.RetentionDefaults
-import app.parley.common.vcard.CsvFormat
 import app.parley.ui.Destination
 import android.app.NotificationManager
 import android.content.Context
@@ -89,7 +88,6 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -120,6 +118,8 @@ import app.parley.common.ux.RecentsStyle
 import app.parley.common.ux.SalesLines
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
+import app.parley.data.export.ContactExport
+import app.parley.ui.export.SealedImportDialog
 import app.parley.messaging.CsvImportRequest
 import app.parley.messaging.MessagingInbox
 import app.parley.messaging.MessagingRoutes
@@ -371,33 +371,19 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) { vm.c.contacts.accounts() to vm.c.contacts.systemDefaultAccount() }.let { (a, d) -> accounts = a; systemDefault = d }
     }
-    val exporting = stringResource(R.string.set_exporting)
     val importing = stringResource(R.string.set_importing)
-    // Exports and imports run as app jobs: leaving this page never stops one half way (or leaves half a file).
-    val exportFailed = { e: Throwable -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) }
+    // An encrypted vCard asks for its passphrase first; it is kept only until the import starts.
+    var sealedUri by remember { mutableStateOf<Uri?>(null) }
+    var importPass by remember { mutableStateOf<CharArray?>(null) }
 
-    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
-        if (uri != null) {
-            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed, output = uri.toString()) { p ->
-                exportMessage(context, vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty()) { done, total -> p.update(done, total) })
-            }
-        }
-    }
-    // Parley's own columns, or Google's or Outlook's, chosen in the sheet before the file is.
-    var csvFormat by rememberSaveable { mutableStateOf(CsvFormat.PARLEY) }
-    var chooseCsv by rememberSaveable { mutableStateOf(false) }
-    val csvExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) {
-            val format = csvFormat
-            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed, output = uri.toString()) { p ->
-                exportMessage(context, vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty(), format) { done, total -> p.update(done, total) })
-            }
-        }
-    }
     // A large import offers "Back up first?" before anything is written.
     val backupFirst = rememberBackupFirst(vm)
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
+            if (vm.c.vcards.isSealed(uri)) {
+                sealedUri = uri
+                return@launch
+            }
             val count = vm.c.vcards.estimateCount(uri)
             backupFirst.ask(count, BackupNudge.LARGE_IMPORT) {
                 scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
@@ -427,15 +413,9 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         linkRow("import_file", Icons.Rounded.FileUpload) {
             importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/csv", "text/comma-separated-values", "application/octet-stream", "*/*"))
         }
-        linkRow("export_vcf", Icons.Rounded.FileDownload) { exporter.launch("contacts.vcf") }
-        linkRow("export_csv", Icons.Rounded.FileDownload) { chooseCsv = true }
-    }
-    if (chooseCsv) {
-        CsvExportSheet(onDismiss = { chooseCsv = false }) { f ->
-            chooseCsv = false
-            csvFormat = f
-            csvExporter.launch(csvFileName(f))
-        }
+        // One export screen for every format, with private contacts and notes when asked.
+        linkRow("export_vcf", Icons.Rounded.FileDownload) { open(Routes.Export(ContactExport.Format.VCARD.name)) }
+        linkRow("export_csv", Icons.Rounded.FileDownload) { open(Routes.Export(ContactExport.Format.CSV_PARLEY.name)) }
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
         // How keep-in-touch reminders arrive lives on Reminders; Circle ⋮ › Circle settings lands here.
@@ -464,9 +444,11 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                     accs.forEach { a ->
                         ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
                             importAccounts = null
+                            val pass = importPass
+                            importPass = null
                             scope.launch {
                                 // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
-                                val preview = catching { vm.c.vcards.csvPreview(uri) }.getOrNull()
+                                val preview = if (pass != null) null else catching { vm.c.vcards.csvPreview(uri) }.getOrNull()
                                 if (preview != null && !preview.parley) {
                                     MessagingInbox.csvImport = CsvImportRequest(uri, a, skipDuplicates)
                                     open(MessagingRoutes.CsvMapping)
@@ -477,7 +459,11 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                                     UserJobs.Kind.IMPORT, importing,
                                     { e -> res.getString(R.string.set_import_failed_toast, UserErrorText.of(context, e)) },
                                 ) { p ->
-                                    val report = vm.c.vcards.import(uri, a, { done, total -> p.update(done, total) }, skipDuplicates = skip)
+                                    val report = try {
+                                        vm.c.vcards.import(uri, a, { done, total -> p.update(done, total) }, skipDuplicates = skip, passphrase = pass)
+                                    } finally {
+                                        pass?.fill('\u0000')
+                                    }
                                     // The details, if this page is still open; the summary is said either way.
                                     importReport = report
                                     importSummaryText(res, report)
@@ -490,6 +476,13 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             confirmButton = {},
             dismissButton = { TextButton({ importAccounts = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
+    }
+    sealedUri?.let { uri ->
+        SealedImportDialog(uri, onDismiss = { sealedUri = null }) { pass ->
+            sealedUri = null
+            importPass = pass
+            scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+        }
     }
     importReport?.let { r -> ImportReportDialog(r) { importReport = null } }
 }
@@ -666,7 +659,7 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     AdvancedGroup {
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
-        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SyncMarkdown) }
+        linkRow("open_export", Icons.Rounded.Description) { open(Routes.Export()) }
     }
 }
 

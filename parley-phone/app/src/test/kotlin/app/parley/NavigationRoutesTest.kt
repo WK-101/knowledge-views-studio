@@ -258,7 +258,7 @@ class NavigationRoutesTest {
             Routes.Contact(1), Routes.edit(), Routes.Vault(2), Routes.history("123"), Routes.pick(Routes.PREFILL_MARK), Routes.Settings,
             Routes.settingsPage(SettingsCategory.APPEARANCE), Routes.Temporary, Routes.Blocking, Routes.Duplicates, Routes.Privacy,
             Routes.SpeedDial, Routes.Birthdays, Routes.Health, Routes.journal(HistoryTab.CALLS), Routes.Tools, Routes.Backup, Routes.Sync, Routes.SyncMarkdown,
-            Routes.CallTime, Routes.versions(3),
+            Routes.Export(), Routes.Export("SEALED_VCARD"), Routes.CallTime, Routes.versions(3),
             ContactPageRoutes.timeline(4), ContactPageRoutes.Sections,
             HistoryRoutes.Insights(), HistoryRoutes.Insights(quality = true), HistoryRoutes.Settings, HistoryRoutes.Import,
             HistoryRoutes.Sims(), HistoryRoutes.Sims(plans = true), HistoryRoutes.sim("sim/1"),

@@ -143,7 +143,7 @@ object SettingsText {
         "backup_reminder" to Triple(R.string.set_backup_reminder_title, R.string.set_backup_reminder_summary, R.string.set_backup_reminder_kw),
         "sync" to Triple(R.string.set_sync_title, R.string.set_sync_summary, R.string.set_sync_kw),
         "journal" to Triple(R.string.set_journal_title, R.string.set_journal_summary, R.string.set_journal_kw),
-        "markdown_export" to Triple(R.string.set_markdown_title, R.string.set_markdown_summary, R.string.set_markdown_kw),
+        "open_export" to Triple(R.string.set_open_export_title, R.string.set_open_export_summary, R.string.set_open_export_kw),
         "simple_mode" to Triple(R.string.set_simple_title, R.string.set_simple_summary, R.string.set_simple_kw),
         "time_machine" to Triple(R.string.set_time_machine_title, R.string.set_time_machine_summary, R.string.set_time_machine_kw),
         "notification_settings" to Triple(R.string.set_notification_settings_title, R.string.set_notification_settings_summary, R.string.set_notification_settings_kw),

@@ -19,8 +19,11 @@ import java.io.Writer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 
-/** One card read from a file: its 1-based position, the mapped record and the raw text (for error reports). */
-class ParsedCard(val index: Int, val record: ContactRecord, val raw: String)
+/**
+ * One card read from a file: its 1-based position, the mapped record, the raw text (for error reports) and Parley's own
+ * notes when the card came from an open export ([CardNotes]).
+ */
+class ParsedCard(val index: Int, val record: ContactRecord, val raw: String, val notes: CardNotes? = null)
 
 /** Streaming vCard file reading and writing, one card at a time, so large address books never sit in memory. */
 object VCardStream {
@@ -34,8 +37,10 @@ object VCardStream {
             Rfc9554.scribes.forEach { registerScribe(it) }
         }
 
-        fun write(record: ContactRecord, groupTitles: Map<Long, String> = emptyMap()) {
+        /** Writes [record], with Parley's [notes] about the person and their readable [summary] when given ([CardNotes]). */
+        fun write(record: ContactRecord, groupTitles: Map<Long, String> = emptyMap(), notes: CardNotes? = null, summary: String? = null) {
             val card = VCardMapper.toVCard(record, groupTitles)
+            if (notes != null) CardNotes.write(card, notes, summary)
             card.addProperty(ProductId(PRODID))
             writer.write(card)
         }
@@ -106,6 +111,7 @@ object VCardStream {
     }
 
     private fun parseChunk(index: Int, raw: String, report: ImportReportBuilder, calendars: CalendarConverter?, onCard: (ParsedCard) -> Unit) {
+        var notes: CardNotes? = null
         val record = try {
             val reader = VCardReader(raw)
             reader.defaultQuotedPrintableCharset = Charsets.UTF_8
@@ -116,6 +122,8 @@ object VCardStream {
                 return
             }
             val unmapped = LinkedHashMap<String, Int>()
+            // Parley's own notes aren't fields of the contact: taken out before mapping, kept beside the record.
+            notes = CardNotes.take(card)
             val record = VCardMapper.fromVCard(card, unmapped, calendars)
             unmapped.forEach { (k, v) -> report.unmapped(k, v) }
             record
@@ -128,7 +136,7 @@ object VCardStream {
             return
         }
         report.cardsParsed++
-        onCard(ParsedCard(index, record, raw))
+        onCard(ParsedCard(index, record, raw, notes))
     }
 
     /** The first card of [text] (RFC 9554's name and address parts included), or null. */

@@ -1108,7 +1108,7 @@ object VCardMapper {
     }
 
     /** Escapes a value written verbatim by ez-vcard (raw properties): backslashes and line breaks. */
-    private fun escapeRaw(s: String) = s.replace("\\", "\\\\").replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
+    internal fun escapeRaw(s: String) = s.replace("\\", "\\\\").replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
 
     /** Undoes vCard text escaping (`\\`, `\n`, `\N`, `\,`, `\;`, `\:`) in a raw property value. */
     internal fun unescapeRaw(s: String): String {

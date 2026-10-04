@@ -64,6 +64,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.
         step("export cleanup") { ExportFiles.cleanup(ctx, olderThanMillis = TimeUnit.HOURS.toMillis(1)) }
+        // What the folder export of notes left before the open export replaced it.
+        step("old notes export") { app.parley.data.export.ContactExport.forgetFolderExport(ctx) }
         // Contact photos taken with the camera app that no editor needs any more (Parley's cache isn't sealed).
         step("camera photos") { ContactCamera.sweep(ctx) }
         step("shared pictures") { ImageExport.sweep(ctx) }

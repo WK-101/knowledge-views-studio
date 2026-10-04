@@ -22,12 +22,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
 import app.parley.ui.ParleyListItem
 import app.parley.ui.SwitchRow
-import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.ui.common.Format
-import app.parley.ui.extras.MarkdownExportSection
 import app.parley.work.FolderSyncNotice
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
@@ -68,24 +63,10 @@ import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.sync.shared.SharedLabelRoutes
 
-/** A list state that, when [atEnd], scrolls to the last item once the list has items. */
-@Composable
-private fun rememberListStartingAtEnd(atEnd: Boolean): LazyListState {
-    val state = rememberLazyListState()
-    if (atEnd) {
-        LaunchedEffect(Unit) {
-            val count = snapshotFlow { state.layoutInfo.totalItemsCount }.first { it > 0 }
-            state.scrollToItem(count - 1)
-        }
-    }
-    return state
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}, focusMarkdown: Boolean = false) {
-    // "Export notes as Markdown" lands on its section (the last one), not on the top of Sync.
-    val listState = rememberListStartingAtEnd(focusMarkdown)
+fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}) {
+    val listState = rememberLazyListState()
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -155,8 +136,6 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
                     open(SharedLabelRoutes.All)
                 }
             }
-            // One-way Markdown notes, to a folder of their own.
-            item { MarkdownExportSection(vm) }
         }
     }
 

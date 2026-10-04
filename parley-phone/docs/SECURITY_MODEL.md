@@ -93,6 +93,32 @@ until then they stay readable. Backups contain the decrypted text inside the alr
   backup's settings are not ticked by default, whoever signed it. A restore while a duress unlock hides things goes
   through the same rule as the settings screens: the safety switches change only what shows until the next lock, and
   private-name approvals are not restored at all.
+- **What a backup holds, and what stays on this phone.** Every store is listed in `PersistentStores` with its policy
+  (backed up, backed up with the private contacts, kept on this phone with a reason, or a secret that never leaves).
+  Since 5.7 a backup also carries **family safety** (safe words, helpers, expected-call windows), the audio files of
+  **ringtones made from a name** (optional archive files `x-tunes/<name>`, which older versions verify and ignore) and
+  the **drive and abroad switches**. Safe words are secrets: they travel only inside the backup's encryption, never in
+  a plain export, and a backup made after a duress unlock leaves hidden ones out. A restore puts them beside what the
+  phone has, and the phone's own wins (a safe word for the same label, a helper on the same line). What stays on the
+  phone, on purpose, and the Backup screen says so: History & undo and Snapshots (this phone's own record of changes),
+  what Parley learned from calls (spam guesses, call quality, ring lengths: rebuilt), the drive profile's cars
+  (Bluetooth addresses of this phone's pairings), and every key, PIN and sync secret.
+
+## Open export and the encrypted vCard
+
+- **Open formats.** Settings › Contacts › Export writes vCard 4.0, CSV (Parley's, Google's or Outlook's columns) or the
+  notes as plain text, as an app job that survives leaving the screen. Parley's own notes ride in each card as
+  `X-PARLEY-*` properties and one readable `NOTE` (`CardNotes`).
+- **Private contacts only when asked.** "Include private contacts" is off by default; reading them needs the same
+  unlock as opening one. A plain file is readable by anyone who gets it, and the screen says so before the file
+  exists. While a duress unlock hides things, private contacts are left out, as from a backup.
+- **Encrypted vCard** (`SealedVCard`, docs/ENCRYPTED_VCARD.md): the vCard inside the backup envelope above with a single
+  passphrase key wrap (scrypt, AES-256-GCM STREAM). The passphrase must reach "Strong", like a backup's, since the file
+  allows offline guessing. Nothing new was invented: the same reviewed envelope code as backups.
+- **Import.** A card marked `X-PARLEY-PRIVATE` becomes a private contact again and never touches the address book; if
+  private contacts are locked it is reported as not imported rather than imported visible. The passphrase is checked
+  before anything is written, a backup picked by mistake is recognised, and passphrases live only in memory and are
+  wiped after use.
 
 ## Signed cards (My card)
 
@@ -186,7 +212,7 @@ while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackof
 | They keep the phone after Parley locks, restart it, or a private contact calls while they hold it | **Yes.** The hiding lasts until the next unlock with the real Parley PIN, across locks and restarts; private callers ring as unknown numbers |
 | They make you change the PIN, turn off the app lock or discreet mode, or turn the PIN off | **Yes, for the session.** The screens show the change; the stored settings are untouched, a "new PIN" becomes the new duress PIN, and the session's changes are forgotten at the next lock. "Change PIN" answers the same whatever is typed, so it can't be used to test PINs (see below) |
 | They make you use the fingerprint or the screen lock instead | **Yes.** With a Parley PIN set, only a PIN opens Parley, whether or not a duress PIN is set, so the lock screen looks the same either way. That includes the Quick Settings tile: turning discreet mode off while Parley is locked opens Parley's own lock screen |
-| They make a backup, or Parley backs up on its schedule | **Yes.** A backup made after a duress unlock has no private contacts and no hidden notes, and says nothing about leaving them out; scheduled backups and the Markdown export wait until the real PIN |
+| They make a backup, or Parley backs up on its schedule | **Yes.** A backup made after a duress unlock has no private contacts and no hidden notes, and says nothing about leaving them out; scheduled backups wait until the real PIN, and an export leaves private contacts out |
 | Someone who knows Parley has a duress PIN (or reads this page) and suspects you used it | **Partly.** The screens of a session look exactly like those of a Parley with a PIN and no duress PIN: the duress PIN shows "Off" (and can even be "set" there, for the session), Settings search finds the same rows, the lock screen is the same. Nothing can prove there is no second PIN, and the app can't hide that the feature exists; see "What still differs" below |
 | A forensic copy of the phone's storage, a rooted phone, a compromised OS | **No.** The data is all there, encrypted as usual; see [Threats considered](#threats-considered) |
 | Android's own screens and other apps: the system call log, Android's Settings › Apps (storage size), Google Contacts, messaging apps, other apps' notifications | **No.** Parley can't change them. "Private call history" keeps private contacts' calls out of the system call log, and private contacts are never in the address book; everything else outside Parley stays as it is. Parley's own notifications are cleared at the duress unlock (missed calls, reminders, expected-call hints); a call in progress stays |

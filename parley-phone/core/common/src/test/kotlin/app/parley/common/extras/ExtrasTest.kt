@@ -3,15 +3,12 @@ package app.parley.common.extras
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.SettingsCatalog
-import app.parley.common.circle.Promises
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 class ExtrasTest {
     // Trip mode
@@ -198,81 +195,7 @@ class ExtrasTest {
         assertTrue(Handshake.meetKey("n").startsWith("m:"))
     }
 
-    // Markdown notes
-
-    @Test fun markdown_has_front_matter_and_timeline() {
-        val t = LocalDate.of(2026, 9, 20).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        val md = MarkdownNotes.render(
-            MarkdownNotes.Person(
-                name = "Ana \"Nana\" Silva",
-                phones = listOf(MarkdownNotes.Field("Mobile", "+351 912 345 678")),
-                emails = listOf(MarkdownNotes.Field("", "ana@example.org")),
-                dates = listOf(MarkdownNotes.Field("Birthday", "1990-05-02")),
-                labels = listOf("Friends", "Family", "Friends"),
-                pinnedNote = "Ask about: the move",
-                keepInTouch = "Every 30 days", keepInTouchDays = 30,
-                timeline = listOf(MarkdownNotes.Entry(t, "Met", "Coffee\nat the bay"), MarkdownNotes.Entry(t + 86_400_000L, "Call · 4 min")),
-            ),
-            ZoneOffset.UTC, t,
-        )
-        assertTrue(md.startsWith("---\nname: \"Ana \\\"Nana\\\" Silva\"\n"))
-        assertTrue(md.contains("phones:\n  - \"+351 912 345 678 (Mobile)\"\n"))
-        assertTrue(md.contains("emails:\n  - \"ana@example.org\"\n"))
-        assertTrue(md.contains("dates:\n  - \"Birthday: 1990-05-02\"\n"))
-        assertTrue(md.contains("labels:\n  - \"Family\"\n  - \"Friends\"\nkeep_in_touch_days: 30\nexported: 2026-09-20\n${MarkdownNotes.MARKER}: "))
-        assertTrue(md.contains("## Pinned note\n\nAsk about: the move\n"))
-        // Newest first; notes on one line.
-        assertTrue(md.contains("- 2026-09-21 00:00 · Call · 4 min\n- 2026-09-20 00:00 · Met · Coffee at the bay\n"))
-        assertFalse(md.contains("## Note\n"))
-    }
-
-    @Test fun markdown_lists_promises_as_tasks() {
-        val promises = Promises.parse("[ ] send the book\nhello\n[x] call mum") +
-            Promises.parse("- [ ] send the book")
-        val md = MarkdownNotes.render(MarkdownNotes.Person(name = "Ana", promises = promises), ZoneOffset.UTC, 0)
-        assertTrue(md.contains("## Promises\n\n- [ ] send the book\n- [x] call mum\n"))
-        assertFalse(MarkdownNotes.render(MarkdownNotes.Person(name = "Ana"), ZoneOffset.UTC, 0).contains("## Promises"))
-    }
-
-    @Test fun markdown_files_carry_their_fingerprint() {
-        val ana = MarkdownNotes.Person(name = "Ana", phones = listOf(MarkdownNotes.Field("Mobile", "+351 912 345 678")))
-        val monday = MarkdownNotes.render(ana, ZoneOffset.UTC, 0)
-        val tuesday = MarkdownNotes.render(ana, ZoneOffset.UTC, 86_400_000L)
-        assertTrue(MarkdownNotes.isUntouched(monday))
-        assertTrue(monday.contains("\n${MarkdownNotes.MARKER}: ${MarkdownNotes.markerOf(monday)}\n---\n"))
-        // Another export day, same person: same fingerprint, so nothing is rewritten.
-        assertEquals(MarkdownNotes.markerOf(monday), MarkdownNotes.markerOf(tuesday))
-        assertTrue(MarkdownNotes.markerOf(monday) != MarkdownNotes.markerOf(MarkdownNotes.render(ana.copy(note = "hi"), ZoneOffset.UTC, 0)))
-        // Any edit makes it the user's file.
-        assertFalse(MarkdownNotes.isUntouched(monday + "\nMet for coffee, she's moving in May.\n"))
-        assertFalse(MarkdownNotes.isUntouched(monday.replace("# Ana", "# Ana Silva")))
-        assertFalse(MarkdownNotes.isUntouched("# My own note\n"))
-        assertNull(MarkdownNotes.markerOf("# My own note\n"))
-    }
-
-    @Test fun markdown_steps_over_files_the_user_edited() {
-        val existing = mapOf("ana.md" to "Ana.md", "ana (2).md" to "Ana (2).md", "marco.md" to "Marco.md")
-        val used = HashSet<String>()
-        // Ana.md was edited (not ours any more), Ana (2).md is Parley's untouched copy: reused, not "(3)".
-        assertEquals("Ana (2).md", MarkdownNotes.chooseFile("Ana", used, existing) { it == "Ana (2).md" })
-        // Marco.md is ours: kept under its spelling; a second Marco gets a new name.
-        assertEquals("Marco.md", MarkdownNotes.chooseFile("marco", used, existing) { it == "Marco.md" })
-        assertEquals("marco (2).md", MarkdownNotes.chooseFile("marco", used, existing) { true })
-        // Someone else's Jo.md is never taken.
-        assertEquals("Jo (2).md", MarkdownNotes.chooseFile("Jo", HashSet(), mapOf("jo.md" to "Jo.md")) { false })
-    }
-
-    @Test fun markdown_file_names_are_safe_and_unique() {
-        val taken = HashSet<String>()
-        assertEquals("Ana Marco.md", MarkdownNotes.fileName("Ana / Marco?", taken))
-        assertEquals("ana marco (2).md", MarkdownNotes.fileName("ana marco", taken))
-        assertEquals("Contact.md", MarkdownNotes.fileName("...", taken))
-        assertEquals("x.md", MarkdownNotes.fileName(" .x. ", taken))
-        assertEquals(83, MarkdownNotes.fileName("a".repeat(200), taken).length)
-        assertEquals("\"a\\nb\"", MarkdownNotes.yaml("a\nb"))
-    }
-
     @Test fun extras_settings_are_in_the_catalog() {
-        listOf("simple_mode", "markdown_export").forEach { SettingsCatalog[it] }
+        listOf("simple_mode", "open_export").forEach { SettingsCatalog[it] }
     }
 }
