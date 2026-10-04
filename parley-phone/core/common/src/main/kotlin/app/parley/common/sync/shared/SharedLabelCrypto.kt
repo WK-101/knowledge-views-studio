@@ -5,6 +5,8 @@ import app.parley.common.backup.BackupIntegrityException
 import app.parley.common.backup.Kdf
 import app.parley.common.backup.KdfParams
 import app.parley.common.backup.KdfPolicy
+import app.parley.common.backup.ensureIntact
+import app.parley.common.crypto.Aead
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -12,9 +14,6 @@ import java.io.DataOutputStream
 import java.io.EOFException
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * The encryption of a shared label's folder (docs/SHARED_LABELS.md). Like the folder sync's ([app.parley.common.backup.SyncCrypto])
@@ -64,31 +63,31 @@ object SharedLabelCrypto {
             writeByte(kdf.alg); writeInt(kdf.param); writeByte(salt.size); write(salt)
             val nonce = ByteArray(NONCE).also(random::nextBytes)
             write(nonce)
-            write(gcm(Cipher.ENCRYPT_MODE, key, nonce, ByteArray(0), checkAad(labelId, epoch)))
+            write(Aead.encrypt(key, nonce, ByteArray(0), checkAad(labelId, epoch)))
         }
         return bo.toByteArray() to key
     }
 
     /** Reads a header; throws [BackupIntegrityException] for one that isn't, or whose KDF cost is out of range. */
     fun parseHeader(bytes: ByteArray): Header {
-        ensure(bytes.size <= MAX_HEADER, "Label header too large")
+        ensureIntact(bytes.size <= MAX_HEADER, "Label header too large")
         val d = DataInputStream(ByteArrayInputStream(bytes))
         try {
             val magic = ByteArray(MAGIC.length).also(d::readFully)
-            ensure(magic.contentEquals(MAGIC.toByteArray(Charsets.US_ASCII)), "Not a Parley shared label")
+            ensureIntact(magic.contentEquals(MAGIC.toByteArray(Charsets.US_ASCII)), "Not a Parley shared label")
             val idLen = d.readUnsignedByte()
-            ensure(idLen in 1..MAX_ID, "Bad label id")
+            ensureIntact(idLen in 1..MAX_ID, "Bad label id")
             val id = String(ByteArray(idLen).also(d::readFully), Charsets.US_ASCII)
-            ensure(id.all { it.isLetterOrDigit() }, "Bad label id")
+            ensureIntact(id.all { it.isLetterOrDigit() }, "Bad label id")
             val epoch = d.readInt()
-            ensure(epoch >= 1, "Bad epoch")
+            ensureIntact(epoch >= 1, "Bad epoch")
             val kdf = KdfParams.of(d.readUnsignedByte(), d.readInt())
-            ensure(KdfPolicy.BACKUP.accepts(kdf), "KDF parameters out of range")
+            ensureIntact(KdfPolicy.BACKUP.accepts(kdf), "KDF parameters out of range")
             val saltLen = d.readUnsignedByte()
-            ensure(saltLen == BackupCrypto.SALT_SIZE, "Bad salt length")
+            ensureIntact(saltLen == BackupCrypto.SALT_SIZE, "Bad salt length")
             val salt = ByteArray(saltLen).also(d::readFully)
             val check = d.readBytes()
-            ensure(check.size == NONCE + TAG_BITS / 8, "Bad label header")
+            ensureIntact(check.size == NONCE + TAG_BITS / 8, "Bad label header")
             return Header(id, epoch, kdf, salt, check)
         } catch (e: EOFException) {
             throw BackupIntegrityException("Truncated label header", e)
@@ -105,7 +104,7 @@ object SharedLabelCrypto {
 
     /** Whether [key] is this header's key (a member's stored key after the label's key changed is not). */
     fun opens(header: Header, key: ByteArray): Boolean = try {
-        gcm(Cipher.DECRYPT_MODE, key, header.check.copyOf(NONCE), header.check.copyOfRange(NONCE, header.check.size), checkAad(header.labelId, header.epoch))
+        Aead.decrypt(key, header.check.copyOf(NONCE), header.check.copyOfRange(NONCE, header.check.size), checkAad(header.labelId, header.epoch))
         true
     } catch (_: GeneralSecurityException) {
         false
@@ -113,7 +112,7 @@ object SharedLabelCrypto {
 
     fun seal(key: ByteArray, labelId: String, fileName: String, plain: ByteArray, random: SecureRandom = SecureRandom()): ByteArray {
         val nonce = ByteArray(NONCE).also(random::nextBytes)
-        return MAGIC.toByteArray(Charsets.US_ASCII) + nonce + gcm(Cipher.ENCRYPT_MODE, key, nonce, plain, fileAad(labelId, fileName))
+        return MAGIC.toByteArray(Charsets.US_ASCII) + nonce + Aead.encrypt(key, nonce, plain, fileAad(labelId, fileName))
     }
 
     /** The body, or null when the file isn't sealed with [key] for this label under [fileName]. */
@@ -122,24 +121,13 @@ object SharedLabelCrypto {
         if (sealed.size < m + NONCE + TAG_BITS / 8) return null
         if (String(sealed.copyOf(m), Charsets.US_ASCII) != MAGIC) return null
         return try {
-            gcm(Cipher.DECRYPT_MODE, key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(labelId, fileName))
+            Aead.decrypt(key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(labelId, fileName))
         } catch (_: GeneralSecurityException) {
             null
         }
     }
 
-    private fun ensure(ok: Boolean, problem: String) {
-        if (!ok) throw BackupIntegrityException(problem)
-    }
-
     private fun checkAad(labelId: String, epoch: Int) = "$MAGIC|check|$labelId|$epoch".toByteArray(Charsets.US_ASCII)
 
     private fun fileAad(labelId: String, name: String) = "$MAGIC|$labelId|$name".toByteArray(Charsets.UTF_8)
-
-    private fun gcm(mode: Int, key: ByteArray, nonce: ByteArray, data: ByteArray, aad: ByteArray): ByteArray {
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(mode, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, nonce))
-        c.updateAAD(aad)
-        return c.doFinal(data)
-    }
 }

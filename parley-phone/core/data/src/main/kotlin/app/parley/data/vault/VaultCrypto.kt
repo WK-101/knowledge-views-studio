@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.data.security.KeystoreSeal
 import kotlinx.coroutines.CancellationException
 import java.security.GeneralSecurityException
 import android.app.KeyguardManager
@@ -26,7 +27,6 @@ import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Vault keys live in the Android Keystore and never leave it (see docs/SECURITY_MODEL.md for what that does and
@@ -300,32 +300,18 @@ object VaultCrypto {
         }
     }
 
-    private fun gcmSeal(key: SecretKey, plain: ByteArray): ByteArray {
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.ENCRYPT_MODE, key)
-        val iv = c.iv
-        return byteArrayOf(iv.size.toByte()) + iv + c.doFinal(plain)
-    }
-
-    private fun gcmOpen(key: SecretKey, blob: ByteArray, off: Int): ByteArray {
-        val ivLen = blob[off].toInt()
-        val c = Cipher.getInstance("AES/GCM/NoPadding")
-        c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, blob, off + 1, ivLen))
-        return c.doFinal(blob, off + 1 + ivLen, blob.size - off - 1 - ivLen)
-    }
-
-    fun sealCallerId(plain: ByteArray) = withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { gcmSeal(it!!, plain) }
+    fun sealCallerId(plain: ByteArray) = withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { KeystoreSeal.seal(it!!, plain) }
     fun openCallerId(blob: ByteArray): ByteArray {
         Meter.callerOpens.incrementAndGet()
         Meter.callerBytes.addAndGet(blob.size.toLong())
-        return withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { gcmOpen(it!!, blob, 0) }
+        return withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { KeystoreSeal.open(it!!, blob, 0) }
     }
 
     fun sealDetail(plain: ByteArray): ByteArray = sealDetail(sealingGeneration(), plain)
 
     private fun sealDetail(gen: Int, plain: ByteArray): ByteArray {
         val sealed = try {
-            withKey(detailAlias(gen), { detailKey(gen) }) { key -> gcmSeal(key ?: throw KeyLostException(), plain) }
+            withKey(detailAlias(gen), { detailKey(gen) }) { key -> KeystoreSeal.seal(key ?: throw KeyLostException(), plain) }
         } catch (_: KeyPermanentlyInvalidatedException) {
             // New data goes under a new generation; blobs of the invalidated key stay as they are (never deleted here).
             val next = maxOf(gen, highestGenerationEver()) + 1
@@ -403,7 +389,7 @@ object VaultCrypto {
         Meter.detailOpens.incrementAndGet()
         Meter.detailBytes.addAndGet(blob.size.toLong())
         return try {
-            withKey(detailAlias(gen), { presentDetailKey(gen) }) { key -> gcmOpen(key!!, blob, if (gen == 0) 0 else 2) }
+            withKey(detailAlias(gen), { presentDetailKey(gen) }) { key -> KeystoreSeal.open(key!!, blob, if (gen == 0) 0 else 2) }
         } catch (e: GeneralSecurityException) {
             throw classify(e)
         } catch (e: ProviderException) {
