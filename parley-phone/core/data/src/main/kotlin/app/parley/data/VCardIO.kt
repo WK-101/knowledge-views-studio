@@ -20,7 +20,10 @@ import app.parley.common.vcard.ImportReport
 import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
 import app.parley.common.vcard.VCardStream
+import app.parley.common.vcard.CardNotes
+import app.parley.common.vcard.SealedVCard
 import app.parley.data.records.ContactRecordStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -44,6 +47,29 @@ class VCardIO(
     private val vaultNumbers: suspend () -> List<String> = { emptyList() },
 ) {
     private val cr = context.contentResolver
+
+    /**
+     * Where Parley's own notes on imported cards go ([CardNotes], from an open export): a card marked private becomes a
+     * private contact again; a visible one gets its notes once it is in the address book. Set by the container.
+     */
+    interface NotesSink {
+        /** Saves [record] as a private contact with [notes]. Throws when it can't (private contacts locked). */
+        suspend fun savePrivate(record: ContactRecord, notes: CardNotes)
+
+        /** Attaches [notes] to the contact just imported as [contactId]. */
+        suspend fun saveNotes(contactId: Long, notes: CardNotes)
+    }
+
+    var notesSink: NotesSink? = null
+
+    /** Whether [source] is an encrypted vCard (or a backup): [import] then needs its passphrase. */
+    suspend fun isSealed(source: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            cr.openInputStream(source)?.use { input -> SealedVCard.looksSealed(ByteArray(8).also { b -> input.read(b) }) } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     /** Result of an export: how many contacts were written, and a line for each one that failed. */
     data class ExportResult(val exported: Int, val failures: List<String> = emptyList())
@@ -107,16 +133,32 @@ class VCardIO(
         account: AccountRef,
         progress: (Int, Int) -> Unit = { _, _ -> },
         skipDuplicates: Boolean = false,
-    ): ImportReport = if (looksLikeCsv(source)) importCsv(source, account, progress, skipDuplicates) else importVCard(source, account, progress, skipDuplicates)
+        passphrase: CharArray? = null,
+    ): ImportReport = when {
+        passphrase != null -> importVCard(source, account, progress, skipDuplicates, passphrase)
+        looksLikeCsv(source) -> importCsv(source, account, progress, skipDuplicates)
+        else -> importVCard(source, account, progress, skipDuplicates)
+    }
 
-    suspend fun importVCard(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
-        withContext(Dispatchers.IO) {
-            val total = countCards(source)
-            runImport(account, total, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
-                VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
-            }
+    /**
+     * Imports a vCard file; with [passphrase], an encrypted one ([SealedVCard]). Cards marked private by an open export
+     * become private contacts again ([NotesSink]).
+     */
+    suspend fun importVCard(
+        source: Uri,
+        account: AccountRef,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+        skipDuplicates: Boolean = false,
+        passphrase: CharArray? = null,
+    ): ImportReport = withContext(Dispatchers.IO) {
+        // An encrypted file can't be counted without opening it: its progress has no total.
+        val total = if (passphrase == null) countCards(source) else 0
+        runImport(account, total, progress, skipDuplicates) { report, sink ->
+            val raw = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
+            val input = if (passphrase != null) SealedVCard.open(raw, passphrase) else raw
+            VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
         }
+    }
 
     suspend fun importCsv(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
         withContext(Dispatchers.IO) {
@@ -158,6 +200,7 @@ class VCardIO(
         }
     }
 
+    @Suppress("CyclomaticComplexMethod") // One pass: duplicates skipped, private cards to the vault, the rest in batches.
     private suspend fun runImport(
         account: AccountRef,
         total: Int,
@@ -167,18 +210,13 @@ class VCardIO(
     ): ImportReport {
         val report = ImportReportBuilder()
         val ctx = coroutineContext
-        // Straight from the provider (the observed list may not have loaded yet on a cold start), plus private contacts.
-        val existing = if (skipDuplicates) {
-            DuplicateIndex().apply {
-                contacts.snapshot().forEach { add(it) }
-                val vault = catching { vaultNumbers() }.getOrDefault(emptyList())
-                if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { PhoneEntry(it, 2, null) }))
-            }
-        } else {
-            null
-        }
+        val existing = if (skipDuplicates) duplicateIndex() else null
         val groups = store.groupResolver()
         val pending = ArrayList<ParsedCard>()
+        // Cards of an open export: private ones wait for the vault, visible ones' notes for their new contact.
+        val noteTarget = notesSink
+        val privates = ArrayList<ParsedCard>()
+        val withNotes = ArrayList<Pair<Long, CardNotes>>()
         var seen = 0
         fun flush() {
             if (pending.isEmpty()) return
@@ -186,6 +224,7 @@ class VCardIO(
             // The report says where Android 16 put them when it refused the account chosen.
             val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true, announceRedirect = false)
             results.forEachIndexed { i, res ->
+                pending[i].notes?.takeUnless { it.isEmpty }?.let { n -> res.contactId?.let { withNotes += it to n } }
                 if (res.contactId != null) report.imported++
                 res.redirectedTo?.let { report.savedInstead = it.displayLabel }
                 res.error?.let { report.fail(pending[i].index, it, pending[i].raw) }
@@ -195,8 +234,12 @@ class VCardIO(
         parse(report) { card ->
             ctx.ensureActive()
             seen++
-            if (existing != null && existing.matches(card.record)) {
+            if (existing?.matches(card.record) == true) {
                 report.skippedDuplicates++
+            } else if (noteTarget?.let { card.notes?.private } == true) {
+                // Never into the address book, where every app could read it.
+                existing?.add(card.record)
+                privates += card
             } else {
                 existing?.add(card.record)
                 pending += card
@@ -205,9 +248,40 @@ class VCardIO(
             if (seen % PROGRESS_EVERY == 0) progress(seen, maxOf(total, seen))
         }
         flush()
+        if (noteTarget != null) saveOpenExportParts(noteTarget, privates, withNotes, report)
         progress(seen, maxOf(total, seen))
         contacts.refresh()
         return report.build()
+    }
+
+    /** Straight from the provider (the observed list may not have loaded yet on a cold start), plus private contacts. */
+    private suspend fun duplicateIndex(): DuplicateIndex = DuplicateIndex().apply {
+        contacts.snapshot().forEach { add(it) }
+        val vault = catching { vaultNumbers() }.getOrDefault(emptyList())
+        if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { PhoneEntry(it, 2, null) }))
+    }
+
+    /** The parts of an open export that wait for the import: private contacts into the vault, notes onto new contacts. */
+    @Suppress("TooGenericExceptionCaught") // A private card that can't be saved is reported, never imported visible.
+    private suspend fun saveOpenExportParts(
+        target: NotesSink,
+        privates: List<ParsedCard>,
+        withNotes: List<Pair<Long, CardNotes>>,
+        report: ImportReportBuilder,
+    ) {
+        for (card in privates) {
+            coroutineContext.ensureActive()
+            try {
+                target.savePrivate(card.record, card.notes!!)
+                report.imported++
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "A private contact couldn't be imported", e)
+                report.fail(card.index, context.getString(R.string.data_import_private_locked), "")
+            }
+        }
+        for ((id, notes) in withNotes) catching { target.saveNotes(id, notes) }
     }
 
     /**

@@ -80,6 +80,14 @@ vault unlocked), never in the Contact notes, Circle or Call time sections every 
 the restored contact's new key. Their labels travel there by title (group ids mean nothing on another phone) and are
 found again by title. "Recently deleted" copies are never backed up.
 
+Open export (5.7): Settings › Contacts › Export contacts can include private contacts, when you switch on "Include
+private contacts" (off by default) and unlock them. In a vCard each is marked `X-PARLEY-PRIVATE:1`, with its note for
+calls, "Who is this" line, labels (by title), photo, call notes and Circle moments; CSV carries the card without notes.
+A plain file says, before it is written, that anyone who gets it can read them; the **Encrypted vCard** locks the same
+file with a passphrase ([ENCRYPTED_VCARD.md](ENCRYPTED_VCARD.md)). Importing such a file (plain or encrypted) brings a
+card marked private back as a private contact: it never goes through the address book. With private contacts locked,
+the card is reported as not imported rather than made visible.
+
 ### Labels of a private contact
 
 A label stays the address book's group: its name, id and account are the group's, and Parley's label screens (create,
@@ -199,7 +207,7 @@ in discreet mode. **Save on this contact** writes the name into the Relation row
 
 | Only device contacts | Why |
 |---|---|
-| Share as a vCard file; in multi-select also Export, Copy as text and Merge | The file (or the clipboard) is handed to other apps, which could keep it; merging makes an address-book contact (QR codes are offered instead) |
+| Share as a vCard file; in multi-select also Export, Copy as text and Merge | The file (or the clipboard) is handed to other apps, which could keep it; merging makes an address-book contact (QR codes are offered instead). Settings › Contacts › Export contacts is the deliberate way out: private contacts go in only when asked, with a warning, or encrypted |
 | Version history; a copy of each edit in History & undo | Snapshots and edit copies are plain copies of the address book. A private contact's edits keep no copy: only a deleted one is kept, sealed ("Deleted private contacts") |
 | Accounts, linked copies, "other fields" | Accounts, linking and rows written by other apps exist only in the address book |
 | Copy to SIM | A SIM card is readable by any phone it is put in |
@@ -254,6 +262,7 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   blocked call when Parley is the phone app (see "Ringtone and Send to voicemail"); a label's "Allow through Do Not
   Disturb" never stars a private contact.
 - Multi-select never hands a private contact to another app: share, export, copy as text and merge skip them and say so.
+  The open export includes them only when "Include private contacts" is switched on, after their unlock.
 - A deleted private contact's copy is sealed (details still under the detail key, which the vault keeps while a copy
   needs it), stored where no backup reaches, listed only after the vault's unlock, and gone after 30 days, with
   "Clear history & undo" (its own row, "Deleted private contacts", counted apart and hidden in discreet mode, so

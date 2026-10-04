@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Export contacts and notes (open formats, private contacts on request, encrypted vCard). -->
+    <string name="export_title">Export contacts</string>
+    <string name="export_format">Format</string>
+    <string name="export_vcard">vCard (.vcf)</string>
+    <string name="export_vcard_summary">Opens in almost every contacts app, with photos</string>
+    <string name="export_sealed">Encrypted vCard</string>
+    <string name="export_sealed_summary">A vCard locked with a passphrase you choose. Parley opens it on any phone; the format is documented for other apps</string>
+    <string name="export_notes_text">Your notes as text (.txt)</string>
+    <string name="export_notes_text_summary">Notes for calls, call notes and Circle moments, person by person</string>
+    <string name="export_contents">What goes in</string>
+    <string name="export_private">Include private contacts</string>
+    <string name="export_private_summary">Off: only contacts other apps can see</string>
+    <string name="export_private_warning">This file isn\'t encrypted: anyone who gets it can read your private contacts. Keep it somewhere safe, or choose Encrypted vCard.</string>
+    <string name="export_notes">Include your notes</string>
+    <string name="export_notes_summary">Notes for calls, call notes, Circle moments and promises, kept beside each card. Parley reads them back on import</string>
+    <string name="export_notes_csv">CSV has no place for notes: choose vCard to keep them</string>
+    <string name="export_pass">Passphrase for this file</string>
+    <string name="export_pass_hint">Parley can\'t recover it: without the passphrase nobody can open the file, you included.</string>
+    <string name="export_save">Choose where to save</string>
+    <string name="export_private_locked">Private contacts stayed locked, so nothing was exported. Try again and unlock them.</string>
+    <!-- The readable notes in a card and in the text file. -->
+    <string name="export_notes_heading">Notes from Parley</string>
+    <string name="export_notes_for_calls">Note for calls</string>
+    <string name="export_notes_context">Who is this</string>
+    <string name="export_notes_circle">In your Circle: %1$s</string>
+    <!-- Import of an encrypted vCard. -->
+    <string name="import_sealed_title">Encrypted file</string>
+    <string name="import_sealed_text">Enter the passphrase this file was exported with. Private contacts in it stay private.</string>
+    <string name="import_sealed_wrong">That passphrase doesn\'t open this file. Check it and try again.</string>
+    <string name="import_sealed_backup">This is a Parley backup. Restore it from Settings › Backup &amp; sync › Backups.</string>
+    <string name="import_sealed_open">Open</string>
+    <string name="import_sealed_unreadable">Couldn\'t read this file. It may be damaged or cut off.</string>
+    <!-- Settings rows. -->
+    <string name="set_open_export_title">Export contacts and notes</string>
+    <string name="set_open_export_summary">vCard, encrypted vCard or CSV, with private contacts and your notes when you choose</string>
+    <string name="set_open_export_kw">export, vcard, vcf, csv, notes, markdown, obsidian, private, encrypted, passphrase, text</string>
+    <!-- Backup screen: what a backup holds and what stays on this phone. -->
+    <string name="bkp_kept_here_title">What a backup holds</string>
+    <string name="bkp_holds_text">Contacts and private contacts with their photos, call history, blocking, speed dial, settings, your notes and Circle, family safe words, helpers and expected calls, the drive and abroad switches, and ringtones made from a name.</string>
+    <string name="bkp_kept_here_text">Stays on this phone: History &amp; undo and Snapshots (this phone\'s own record of changes, which would only mix things up on another), what Parley learned from calls (spam guesses, call quality: it learns again), the cars of the drive profile (pair them again), and your PIN and keys (set up again on the new phone).</string>
+</resources>

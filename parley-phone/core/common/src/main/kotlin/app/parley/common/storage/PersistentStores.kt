@@ -86,6 +86,11 @@ object PersistentStores {
         const val SPAM_LISTS = "spam_lists"
         const val TO_CALL = "to_call"
         const val MENUS = "menus"
+        const val FAMILY_SAFETY = "family_safety"
+        const val CALL_SWITCHES = "call_switches"
+
+        /** Generated caller ringtones: their audio files, as optional archive files (BackupArchiveWriter.writeFiles). */
+        const val TUNES = "tunes"
     }
 
     private fun table(name: String, policy: StorePolicy, section: String? = null, db: String = MAIN_DB) =
@@ -152,7 +157,7 @@ object PersistentStores {
         PersistentStore("folder_sync_notice", StoreKind.PREFS, local("Which folder-sync pause was already notified")),
         PersistentStore("folder_sync_runs", StoreKind.PREFS, local("When the background folder sync last ran, so runs close together are skipped")),
         PersistentStore("sync_watch", StoreKind.PREFS, local("What the sync watchdog last saw and already said, by this phone's lookup keys and accounts")),
-        PersistentStore("markdown_export", StoreKind.PREFS, local("Export folder picked on this phone")),
+        PersistentStore("markdown_export", StoreKind.PREFS, local("The folder of the notes export earlier versions had; removed by the daily maintenance")),
         PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
@@ -161,11 +166,13 @@ object PersistentStores {
         PersistentStore("to_call", StoreKind.PREFS, backedUp, Sections.TO_CALL),
         // Menu memory: keys sent per number and menu shortcuts (sealed); kept by number like the To call list.
         PersistentStore("menu_memory", StoreKind.PREFS, backedUp, Sections.MENUS),
-        // A safe word is a secret: it never leaves this phone, not even in an encrypted backup.
-        PersistentStore("family_safety", StoreKind.PREFS, local("Family safe words, helpers and expected-call windows, sealed on this phone")),
-        // The car's Bluetooth address belongs to this phone's pairing; a new phone marks the car again.
-        PersistentStore("parley_drive_profile", StoreKind.PREFS, local("The drive profile's cars (Bluetooth addresses of this phone's pairings) and switches")),
-        PersistentStore("parley_roaming", StoreKind.PREFS, local("Assisted dialling switches and the trip the local-SIM hint was shown for")),
+        // Safe words, helpers and expected-call windows: a safety feature must survive a move to a new phone. Inside the
+        // backup's encryption only; a duress unlock's hidden safe words stay out (FamilySafetyBackup).
+        PersistentStore("family_safety", StoreKind.PREFS, backedUp, Sections.FAMILY_SAFETY),
+        // Their switches travel; the cars (Bluetooth addresses of this phone's pairings) and the trip the local-SIM
+        // hint was shown for stay here: a new phone pairs again and has its own trips.
+        PersistentStore("parley_drive_profile", StoreKind.PREFS, backedUp, Sections.CALL_SWITCHES),
+        PersistentStore("parley_roaming", StoreKind.PREFS, backedUp, Sections.CALL_SWITCHES),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
@@ -191,7 +198,12 @@ object PersistentStores {
             location = PersistentStore.FILES,
         ),
         PersistentStore("blocking/share.key", StoreKind.FILES, StorePolicy.Secret("Signing key for shared rule lists"), location = PersistentStore.FILES),
-        PersistentStore("markdown_export_state.json", StoreKind.FILES, local("Export bookkeeping for a folder picked here"), location = PersistentStore.FILES),
+        PersistentStore(
+            "markdown_export_state.json", StoreKind.FILES, local("Bookkeeping of the notes export earlier versions had; removed by the daily maintenance"),
+            location = PersistentStore.FILES,
+        ),
+        // Ringtones made from a name: the contacts and labels keep their URIs, the backup the audio files themselves.
+        PersistentStore("tunes", StoreKind.FILES, backedUp, Sections.TUNES, PersistentStore.FILES),
         PersistentStore("folder_sync_state.json", StoreKind.FILES, local("Sync bookkeeping for a folder picked here"), location = PersistentStore.FILES),
         PersistentStore("folder_sync_gone.json", StoreKind.FILES, local("Versions of files a folder sync deleted"), location = PersistentStore.FILES),
         PersistentStore("lists", StoreKind.FILES, backedUp, Sections.SPAM_LISTS, PersistentStore.DEVICE_PROTECTED_FILES),

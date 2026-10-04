@@ -42,6 +42,7 @@
     <string name="data_rst_part_settings">settings</string>
     <string name="data_rst_part_vault_locked">private contacts (unlock them and restore again)</string>
     <string name="data_rst_part_vault">private contacts</string>
+    <string name="data_rst_part_tunes">ringtones made from a name</string>
     <plurals name="data_rst_added">
         <item quantity="one">%1$d contact added</item>
         <item quantity="other">%1$d contacts added</item>
@@ -159,6 +160,8 @@
     <string name="data_archive_locked">Parley\'s call archive can\'t be unlocked right now. Try again later.</string>
     <string name="data_file_write_failed">Could not open the file for writing</string>
     <string name="data_file_read_failed">Could not open the file</string>
+    <string name="data_export_private_locked">Unlock your private contacts first, then export again.</string>
+    <string name="data_import_private_locked">This private contact wasn\'t imported: unlock your private contacts and import the file again.</string>
     <string name="data_vault_fallback_name">Private contact</string>
     <!-- Visual voicemail source problems -->
     <string name="data_vm_can_configure">Visual voicemail can be turned on in its settings</string>

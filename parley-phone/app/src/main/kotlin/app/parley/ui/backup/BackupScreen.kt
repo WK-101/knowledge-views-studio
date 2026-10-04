@@ -316,6 +316,14 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     )
                 }
             }
+            // What a backup holds, and what stays here on purpose (and why), so a move to a new phone holds no surprise.
+            item { Section(stringResource(R.string.bkp_kept_here_title)) }
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.bkp_holds_text), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.bkp_kept_here_text), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 
@@ -404,7 +412,7 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
     )
 }
 
-private fun strengthLabel(score: Int) = when (score) {
+internal fun strengthLabel(score: Int) = when (score) {
     0 -> R.string.bkp_strength_0
     1 -> R.string.bkp_strength_1
     2 -> R.string.bkp_strength_2
@@ -412,7 +420,7 @@ private fun strengthLabel(score: Int) = when (score) {
     else -> R.string.bkp_strength_4
 }
 
-private fun strengthHint(h: PassphraseStrength.Hint): Int? = when (h) {
+internal fun strengthHint(h: PassphraseStrength.Hint): Int? = when (h) {
     PassphraseStrength.Hint.NONE -> null
     PassphraseStrength.Hint.TOO_SHORT -> R.string.bkp_strength_short
     PassphraseStrength.Hint.COMMON -> R.string.bkp_strength_common

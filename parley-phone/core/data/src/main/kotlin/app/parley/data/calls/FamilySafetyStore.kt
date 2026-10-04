@@ -25,7 +25,8 @@ import kotlinx.coroutines.withContext
  * Family safety (WP-8): the safe words per label (I4), the helpers (I5) and the expected-call windows with the answers
  * to "Expecting a call from your notes?" (I7). One small document in its own preferences file, sealed with the vault's
  * caller-ID key like private contacts' caller cards and Circle notes: the call path reads it while the phone is locked,
- * and nothing in it is readable at rest. It stays on this phone (a safe word is a secret; it's not in backups).
+ * and nothing in it is readable at rest. Backups carry it inside their own encryption ([backupState], [restore]), so a
+ * move to a new phone keeps the safe words, helpers and windows.
  *
  * The safe words' questions and answers never leave through [summary]: screens read one with [safeWord], after the
  * user confirmed it's them. A stored document that can't be opened right now is never taken for an empty one: the
@@ -109,6 +110,24 @@ class FamilySafetyStore(context: Context) {
             true
         }
     }
+
+    // ---- backups
+
+    /**
+     * The document for a backup. While safe words are hidden (a duress unlock) only those set since go in, like a
+     * screen would show them. Throws when the stored document can't be opened now: the backup then names the section
+     * as missing instead of saving an empty one.
+     */
+    suspend fun backupState(): FamilySafetyState = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            check(loadLocked()) { "Family safety can't be opened now" }
+            if (wordsHidden) doc.copy(safeWords = doc.safeWords.filterKeys { Concealment.writtenWhileHiding(token(it)) }) else doc
+        }
+    }
+
+    /** A backup's document put in beside this phone's, which wins wherever both have something; false when not stored. */
+    suspend fun restore(backup: FamilySafetyState, region: String?): Boolean =
+        write { it.restoredFrom(backup, System.currentTimeMillis(), region) }
 
     // ---- I4 safe words
 

@@ -82,8 +82,11 @@ object Routes {
 
     @Serializable data object Sync : Destination
 
-    /** Sync, opened at its "Export notes as Markdown" section. */
+    /** Kept for old links to the Markdown notes export: it opens [Export], which replaced it. */
     @Serializable data object SyncMarkdown : Destination
+
+    /** Export contacts and notes; [format] picks the format first ([app.parley.data.export.ContactExport.Format] name). */
+    @Serializable data class Export(val format: String? = null) : Destination
 
     @Serializable data object CallTime : Destination
 

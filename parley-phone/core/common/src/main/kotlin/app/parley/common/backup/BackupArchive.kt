@@ -25,8 +25,8 @@ import java.util.zip.ZipOutputStream
  * Parley Backup archive: a plain, deterministic ZIP (usually wrapped in the BackupCrypto envelope).
  *
  * Entry order is fixed: contacts.jsonl, contacts.vcf, calllog.jsonl, callhistory.jsonl, blocking.json, speeddial.json,
- * numbersim.json, settings.json, vault/<name> (sorted), journal.jsonl, photos/<sha256>.bin (sorted),
- * manifest.json (last, because it holds the SHA-256 of every other entry). All entries use the DOS
+ * numbersim.json, settings.json, vault/<name> (sorted), journal.jsonl, x-<folder>/<name> (optional files, sorted),
+ * photos/<sha256>.bin (sorted), manifest.json (last, because it holds the SHA-256 of every other entry). All entries use the DOS
  * epoch timestamp and DEFLATE level 9, so identical content gives an identical ZIP on the same JDK.
  */
 
@@ -178,6 +178,9 @@ object BackupArchive {
         const val SETTINGS = "settings"
         const val VAULT = "vault"
         const val JOURNAL = "journal"
+
+        /** Files of one [BackupArchiveWriter.writeFiles] folder: "files.<folder>". */
+        fun files(folder: String) = "files.$folder"
     }
 
     internal val PHOTO_NAME = Regex("photos/[0-9a-f]{64}\\.bin")
@@ -229,7 +232,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
     private var manifest: Manifest? = null
     private var closed = false
 
-    private enum class Section { CONTACTS, VCF, CALLLOG, CALLHISTORY, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, VAULT, JOURNAL }
+    private enum class Section { CONTACTS, VCF, CALLLOG, CALLHISTORY, BLOCKING, SPEEDDIAL, NUMBERSIM, SETTINGS, VAULT, JOURNAL, FILES }
 
     private fun enter(s: Section) {
         check(manifest == null) { "Archive already finished" }
@@ -385,6 +388,22 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
 
     fun writeJournal(lines: Iterable<String>) = writeJournal(lines.asSequence())
 
+    /**
+     * Small files kept as they are (generated ringtones, say), as optional entries `x-<folder>/<name>`
+     * ([BackupArchive.OPTIONAL_PREFIX]): a version that doesn't know [folder] verifies and ignores them. Each folder
+     * once, after every other section; [files] are written sorted by name, so the same files give the same archive.
+     */
+    fun writeFiles(folder: String, files: Map<String, ByteArray>) {
+        check(manifest == null) { "Archive already finished" }
+        check(lastSection <= Section.FILES.ordinal) { "Files written out of order" }
+        lastSection = Section.FILES.ordinal
+        val prefix = BackupArchive.OPTIONAL_PREFIX + folder + "/"
+        require(entries.none { it.name.startsWith(prefix) }) { "Folder $folder written twice" }
+        files.keys.forEach { require(BackupArchive.isOptional(prefix + it)) { "Invalid file name '$it'" } }
+        files.toSortedMap().forEach { (name, bytes) -> entry(prefix + name) { it.write(bytes) } }
+        counts[BackupArchive.Counts.files(folder)] = files.size.toLong()
+    }
+
     /** Writes photos and the manifest and finishes the ZIP (without closing the target). Idempotent. */
     fun finish(): Manifest {
         manifest?.let { return it }
@@ -491,6 +510,26 @@ class BackupArchiveReader private constructor(
 
     fun vault(): Map<String, ByteArray> = kept.filterKeys { it.startsWith(BackupArchive.VAULT_PREFIX) }
         .mapKeys { it.key.removePrefix(BackupArchive.VAULT_PREFIX) }.mapValues { it.value.copyOf() }.toSortedMap()
+
+    /**
+     * The files of [folder] ([BackupArchiveWriter.writeFiles]), each checked against the manifest, read in one pass.
+     * Older backups have none. A file larger than the in-memory limit is a damaged backup.
+     */
+    fun files(folder: String, each: (name: String, bytes: ByteArray) -> Unit) {
+        val prefix = BackupArchive.OPTIONAL_PREFIX + folder + "/"
+        val wanted = manifest.entries.filter { it.name.startsWith(prefix) }.associateBy { it.name }
+        if (wanted.isEmpty()) return
+        ZipInputStream(source()).use { zin ->
+            for (e in generateSequence { zin.nextEntry }) {
+                val expected = wanted[e.name] ?: continue
+                intact(expected.size <= limits.maxInMemoryEntryBytes) { "Entry ${e.name} exceeds in-memory limit" }
+                val hin = VerifyingInput(zin, limits.maxInMemoryEntryBytes)
+                val bytes = hin.readBytes()
+                intact(hin.size == expected.size && hin.sha256() == expected.sha256) { "Entry ${e.name} changed since it was verified" }
+                each(e.name.removePrefix(prefix), bytes)
+            }
+        }
+    }
 
     fun photo(sha256: String): ByteArray? = kept[BackupArchive.PHOTO_PREFIX + sha256 + ".bin"]?.copyOf()
 

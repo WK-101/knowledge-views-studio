@@ -12,8 +12,11 @@ import android.util.Log
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.BackupPrefs
 import app.parley.data.backup.BackupRepository
+import app.parley.data.backup.CallSwitchesBackup
 import app.parley.data.backup.CallTimeBackup
+import app.parley.data.backup.CallerTuneFiles
 import app.parley.data.backup.ContactNotesBackup
+import app.parley.data.backup.FamilySafetyBackup
 import app.parley.data.backup.HistorySettingsBackup
 import app.parley.data.backup.SpamListsBackup
 import app.parley.data.backup.SyncWatch
@@ -34,7 +37,6 @@ import app.parley.data.circle.CircleRepository
 import app.parley.data.circle.InteractionStore
 import app.parley.data.db.AppDatabase
 import app.parley.data.extras.ExtrasStore
-import app.parley.data.extras.MarkdownExport
 import app.parley.data.history.CallHistory
 import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.MessagingStore
@@ -154,7 +156,7 @@ class DataContainer(context: Context) {
     /** I21: the Parley PIN and the duress PIN (hashes only, sealed, this phone only). */
     val appPin by lazy { AppPinStore(appContext) { RecordCrypto.get(appContext) } }
 
-    /** Family safety: safe words per label, helpers, expected-call windows (sealed, this phone only). */
+    /** Family safety: safe words per label, helpers, expected-call windows (sealed at rest, in backups). */
     val familySafety by lazy { FamilySafetyStore(appContext) }
 
     /** I11 drive profile (the cars and what happens while one is connected), read from memory on the call path. */
@@ -162,7 +164,10 @@ class DataContainer(context: Context) {
 
     /** L6 assisted dialling abroad and the local-SIM hint. */
     val roaming by lazy { RoamingRepository(appContext, sims) }
-    val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
+    val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() }.also { it.notesSink = contactExport } }
+
+    /** Open exports (vCard, encrypted vCard, CSV, notes as text) with private contacts and notes when asked. */
+    val contactExport by lazy { app.parley.data.export.ContactExport(appContext, this) }
 
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
@@ -214,6 +219,7 @@ class DataContainer(context: Context) {
     val backup by lazy {
         BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, BackupPrefs(appContext), callLog)
             .apply { callHistory = history }
+            .apply { tuneFiles = CallerTuneFiles(appContext) }
             .also { it.extras = { backupParts } }
             .also { it.privateExtras = contactKeys }
     }
@@ -230,6 +236,8 @@ class DataContainer(context: Context) {
             SpamListsBackup { lists },
             toCall.backupExtras,
             menus.backupExtras,
+            FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
+            CallSwitchesBackup({ driveProfile }, { roaming }),
         )
     }
 
@@ -277,9 +285,6 @@ class DataContainer(context: Context) {
 
     /** Extras: trip mode city, label policies, simple mode. */
     val extras by lazy { ExtrasStore(this) }
-
-    /** One-way Markdown export of notes and timelines to a folder. */
-    val markdown by lazy { MarkdownExport(appContext, this) }
 
     @OptIn(FlowPreview::class)
     private fun followKeyChanges() {

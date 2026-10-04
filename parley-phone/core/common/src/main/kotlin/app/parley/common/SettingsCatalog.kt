@@ -122,7 +122,7 @@ object SettingsCatalog {
         // Privacy & security
         "secure_screen", "private_history", "who_can_see", "private_directory", "app_permissions", "delete_all_data",
         // Backup & sync
-        "sync", "markdown_export",
+        "sync", "open_export",
     )
 
     val entries: List<SettingEntry> = listOf(
@@ -292,7 +292,7 @@ object SettingsCatalog {
         e("sync", U),
         e("journal", U),
         tool("time_machine", U),
-        e("markdown_export", U),
+        e("open_export", U),
         // Notifications & device
         // The one page for every reminder; its rows are searchable by their own words too.
         link(REM, "reminders", N),

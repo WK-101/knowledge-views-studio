@@ -14,17 +14,16 @@ import androidx.work.workDataOf
 import app.parley.common.sync.FolderSyncSchedule
 import app.parley.common.sync.FolderSyncSchedule.Trigger
 import app.parley.container
-import app.parley.ui.extras.MarkdownTexts
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 /**
- * Folder sync (when a sync folder is set and auto-sync is on), shared labels and the Markdown export with it, on three triggers
+ * Folder sync (when a sync folder is set and auto-sync is on) and shared labels, on three triggers
  * (what the auto-sync switch's summary promises):
  * - shortly after Parley starts ([runSoon]);
  * - a minute after this phone's address book settles (a content-URI trigger, which works while Parley isn't running);
  * - every hour while labels are shared (every four hours otherwise), for what no trigger can observe: the other
- *   phones' writes into the shared folders, and notes.
+ *   phones' writes into the shared folders.
  * None runs on low battery, and a start-up or periodic run right after another one is skipped ([FolderSyncSchedule]).
  */
 class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -46,9 +45,6 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         // Labels shared with other people's phones, each through its own folder (incremental; never deletes on a partial listing).
         val shared = applicationContext.container.sharedLabels
         if (shared.wantsRuns()) runCatching { shared.syncAll() }
-        // One-way Markdown notes, when a folder is set and "Keep it up to date" is on.
-        val md = applicationContext.container.markdown
-        if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }
         // A content trigger fires once: watch for the next change, after this run.
         if (trigger == Trigger.CHANGE && wanted(applicationContext, null)) watchChanges(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
         prefs.edit().putLong(K_LAST_RUN, System.currentTimeMillis()).apply()
@@ -67,7 +63,7 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         /** Background runs wait while the battery is low; a change trigger keeps its own content constraints too. */
         private fun batteryNotLow(): Constraints.Builder = Constraints.Builder().setRequiresBatteryNotLow(true)
 
-        /** After the Markdown export's folder or switch changed (and at start-up). */
+        /** After folder sync's folder or switch changed (and at start-up). */
         fun reschedule(context: Context) {
             val st = context.container.folderSync.status.value
             schedule(context, st.folderUri != null && st.auto)
@@ -83,15 +79,14 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             )
         }
 
-        /** Folder sync ([on]) or the Markdown export wants runs. */
+        /** Folder sync ([on]) or shared labels want runs. */
         private fun wanted(context: Context, on: Boolean?): Boolean {
             val c = context.container
             val sync = on ?: c.folderSync.status.value.let { it.folderUri != null && it.auto }
-            val md = c.markdown.status.value
-            return sync || (md.folderUri != null && md.auto) || c.sharedLabels.wantsRuns()
+            return sync || c.sharedLabels.wantsRuns()
         }
 
-        /** [on]: folder sync wants runs; the Markdown export's own wish is added here. */
+        /** [on]: folder sync wants runs; shared labels' own wish is added here. */
         fun schedule(context: Context, on: Boolean) {
             val wm = WorkManager.getInstance(context)
             if (!wanted(context, on)) {
