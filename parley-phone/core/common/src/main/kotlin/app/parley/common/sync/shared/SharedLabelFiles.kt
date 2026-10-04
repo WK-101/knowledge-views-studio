@@ -322,7 +322,8 @@ object SharedLabelFiles {
                 )
             }
             val name = o.str("name").orEmpty().take(MAX_NAME)
-            Journal(member, name, o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig, o.long("at")?.coerceAtLeast(0) ?: 0)
+            val at = o.long("at")?.coerceAtLeast(0) ?: 0
+            Journal(member, name, o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig, at)
         }.getOrNull() ?: return null
         if (journalName(j.member) != fileName) return null
         if (!Ed25519.verify(j.member, payload(JOURNAL_HEADER, labelId, fileName, body), sig)) return null

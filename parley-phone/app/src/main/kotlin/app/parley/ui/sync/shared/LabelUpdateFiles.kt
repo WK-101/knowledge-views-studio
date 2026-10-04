@@ -150,7 +150,11 @@ internal fun UpdateRows(vm: AppViewModel, s: SharedLabelState, open: (Destinatio
                 headlineContent = { Text(stringResource(R.string.shl_send_update)) },
                 supportingContent = {
                     Text(
-                        if (s.lastSentAt > 0) res.getString(R.string.shl_last_sent, SharedLabelTexts.ago(s.lastSentAt)) else res.getString(R.string.shl_send_update_sub),
+                        if (s.lastSentAt > 0) {
+                            res.getString(R.string.shl_last_sent, SharedLabelTexts.ago(s.lastSentAt))
+                        } else {
+                            res.getString(R.string.shl_send_update_sub)
+                        },
                     )
                 },
                 colors = rowColors(),
@@ -173,6 +177,7 @@ internal fun UpdateRows(vm: AppViewModel, s: SharedLabelState, open: (Destinatio
  * An update or invitation file from [SharedLabelInbox] (picked, or sent to Parley from another app): an update is
  * merged into its label and the result said; an invitation goes on to Join; anything else is named as not one.
  */
+@Suppress("CyclomaticComplexMethod") // Reading, an update's outcome, an invitation passed on, or not a label file.
 @Composable
 fun OpenLabelFileScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
@@ -236,7 +241,11 @@ fun OpenLabelFileScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) 
 
 private fun mergedText(res: Resources, out: SharedLabels.Opened): String {
     val title = out.state?.title.orEmpty()
-    val head = if (out.fromName.isNotBlank()) res.getString(R.string.shl_open_merged, out.fromName, title) else res.getString(R.string.shl_open_merged_someone, title)
+    val head = if (out.fromName.isNotBlank()) {
+        res.getString(R.string.shl_open_merged, out.fromName, title)
+    } else {
+        res.getString(R.string.shl_open_merged_someone, title)
+    }
     val r = out.report
     val changed = r.applied + r.imported + r.linked + r.deleted
     val tail = if (changed > 0) res.getQuantityString(R.plurals.shl_open_changed, changed, changed) else res.getString(R.string.shl_open_nothing_new)

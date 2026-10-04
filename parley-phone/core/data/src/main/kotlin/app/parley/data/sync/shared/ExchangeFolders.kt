@@ -1,5 +1,6 @@
 package app.parley.data.sync.shared
 
+import app.parley.common.catching
 import app.parley.common.sync.shared.SharedLabelFiles
 import app.parley.common.sync.shared.SharedLabelUpdates
 import java.io.File
@@ -13,7 +14,7 @@ class LocalLabelFolder(private val dir: File) : LabelFolder {
     override suspend fun list(): Map<String, String?> {
         if (!dir.isDirectory) return emptyMap()
         return dir.listFiles().orEmpty().filter { it.isFile && SharedLabelUpdates.isLabelFile(it.name) }
-            .associate { f -> f.name to runCatching { SharedLabelUpdates.stamp(f.readBytes()) }.getOrNull() }
+            .associate { f -> f.name to catching { SharedLabelUpdates.stamp(f.readBytes()) }.getOrNull() }
     }
 
     override fun read(name: String): ByteArray? = fileOf(name)?.takeIf { it.isFile && it.length() <= SharedLabelFiles.MAX_FILE_BYTES }

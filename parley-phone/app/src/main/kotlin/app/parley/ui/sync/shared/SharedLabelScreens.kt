@@ -158,30 +158,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
         // In discreet mode nothing may hint that private contacts exist.
         val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
         if (privateCount > 0 && !discreet) Banner(pluralStringResource(R.plurals.shl_private_left, privateCount, privateCount))
-        SegmentedGroup {
-            item("mode") {
-                ChoiceRow(
-                    stringResource(R.string.shl_mode_title),
-                    listOf(stringResource(R.string.shl_mode_files), stringResource(R.string.shl_mode_folder)),
-                    if (byFile) 0 else 1,
-                ) { byFile = it == 0 }
-            }
-            if (!byFile) {
-                item("folder") {
-                    ParleyListItem(
-                        modifier = Modifier.clickable { picker.launch(null) },
-                        leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                        headlineContent = { Text(stringResource(R.string.shl_share_folder)) },
-                        supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
-                        colors = rowColors(),
-                    )
-                }
-            }
-        }
-        Text(
-            stringResource(if (byFile) R.string.shl_mode_files_text else R.string.shl_mode_folder_text), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
-        )
+        HowItTravels(byFile, folder, onByFile = { byFile = it }, onPickFolder = { picker.launch(null) })
         Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             Text(stringResource(R.string.shl_share_pass_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             NewPassphrase(stringResource(R.string.shl_share_pass), pass, again, { pass = it; error = null }, { again = it; error = null })
@@ -215,6 +192,35 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
     }
 }
 
+/** "How changes travel": update files, or a folder your sync app shares (then the folder row). */
+@Composable
+private fun HowItTravels(byFile: Boolean, folder: String?, onByFile: (Boolean) -> Unit, onPickFolder: () -> Unit) {
+    SegmentedGroup {
+        item("mode") {
+            ChoiceRow(
+                stringResource(R.string.shl_mode_title),
+                listOf(stringResource(R.string.shl_mode_files), stringResource(R.string.shl_mode_folder)),
+                if (byFile) 0 else 1,
+            ) { onByFile(it == 0) }
+        }
+        if (!byFile) {
+            item("folder") {
+                ParleyListItem(
+                    modifier = Modifier.clickable(onClick = onPickFolder),
+                    leadingContent = { Icon(Icons.Rounded.Folder, null) },
+                    headlineContent = { Text(stringResource(R.string.shl_share_folder)) },
+                    supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
+                    colors = rowColors(),
+                )
+            }
+        }
+    }
+    Text(
+        stringResource(if (byFile) R.string.shl_mode_files_text else R.string.shl_mode_folder_text), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
+    )
+}
+
 // ---------------------------------------------------------------- Members & invitations
 
 /** One shared label: invitations, members with their fingerprints, every change, removing someone and leaving. */
@@ -234,7 +240,8 @@ fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit, open
     SettingsScaffold(stringResource(R.string.shl_manage_title, s.title), back) {
         SharedLabelTexts.problem(res, s)?.let { Banner(it, tone = BannerTone.WARNING) }
         Text(
-            SharedLabelTexts.status(res, s) + stringResource(R.string.main_separator) + SharedLabelTexts.where(res, s), style = MaterialTheme.typography.bodyMedium,
+            SharedLabelTexts.status(res, s) + stringResource(R.string.main_separator) + SharedLabelTexts.where(res, s),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
         )
         SharedLabelTexts.notice(res, s)?.let {
@@ -606,7 +613,8 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
     }
 }
 
-/** Who invited you and their key, the folder, the members found there, your name, and Join. */
+/** Who invited you and their key, the folder (or update files instead), the members found there, your name, and Join. */
+@Suppress("CyclomaticComplexMethod") // One screen's states: no folder yet, by file, and each preview.
 @Composable
 private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -651,6 +659,7 @@ private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit
  * always a new label here ("Family (shared)" when "Family" exists); going into a label you already have is a choice
  * you make, after being told how many of its contacts the first sync shares.
  */
+@Suppress("CyclomaticComplexMethod") // The label it joins as, the choice between new and existing, and Join.
 @Composable
 private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri?, members: List<LabelMember>, onJoined: () -> Unit) {
     val context = LocalContext.current

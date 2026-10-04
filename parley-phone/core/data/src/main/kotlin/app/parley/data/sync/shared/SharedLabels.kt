@@ -3,6 +3,7 @@ package app.parley.data.sync.shared
 import android.Manifest
 import android.content.Context
 import android.net.Uri
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ThreeWayMerge.Side
 import app.parley.common.sync.shared.CardField
@@ -204,7 +205,7 @@ class SharedLabels(
             for (s in store.all()) {
                 // A label shared by file syncs when an update is sent or opened.
                 if (!SharedLabelMembership.syncs(s.membership) || s.byFile) continue
-                runCatching { engine(s, signer).run(s) }.getOrNull()?.let { save(it.state) }
+                catching { engine(s, signer).run(s) }.getOrNull()?.let { save(it.state) }
             }
             _states.value = store.all()
         }
@@ -247,7 +248,7 @@ class SharedLabels(
         withContext(Dispatchers.IO) {
             val s = store.get(labelId) ?: return@withContext true
             val signer = signer()
-            if (signer != null) runCatching { engine(s, signer).leave(s) }
+            if (signer != null) catching { engine(s, signer).leave(s) }
             store.remove(labelId)
             if (s.byFile) localFolder(labelId).clear() else SafLabelFolder.release(context, Uri.parse(s.folderUri))
             _states.value = store.all()
@@ -281,7 +282,12 @@ class SharedLabels(
     }
 
     /** What opening an update did: the label (null when none here matches) and the engine's outcome. */
-    class Opened(val state: SharedLabelState?, val result: SharedLabelEngine.UpdateResult, val fromName: String = "", val report: SharedRunReport = SharedRunReport())
+    class Opened(
+        val state: SharedLabelState?,
+        val result: SharedLabelEngine.UpdateResult,
+        val fromName: String = "",
+        val report: SharedRunReport = SharedRunReport(),
+    )
 
     /**
      * "Open an update": the update file's label is found by the id it names, and its files are merged

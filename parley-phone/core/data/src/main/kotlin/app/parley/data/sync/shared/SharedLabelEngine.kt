@@ -412,7 +412,9 @@ class SharedLabelEngine(
         suspend fun settle(sid: String, id: Long, f: CardFile, imported: Boolean): Boolean {
             val after = local.card(id) ?: return false
             val prior = entries[sid]?.priorForNext().orEmpty()
-            entries[sid] = SharedLabelState.Entry(after.key, id, f.version, SharedCards.encode(after.card), SharedCards.hash(after.card), imported, f.bodyHash, prior)
+            entries[sid] = SharedLabelState.Entry(
+                after.key, id, f.version, SharedCards.encode(after.card), SharedCards.hash(after.card), imported, f.bodyHash, prior,
+            )
             seen[sid] = maxOf(seen[sid] ?: 0L, f.version)
             return true
         }
@@ -698,13 +700,11 @@ class SharedLabelEngine(
     suspend fun updateFile(s: SharedLabelState, sentAt: Long = clock()): ByteArray? {
         val epoch = (s.membership as? State.Active)?.epoch ?: return null
         val listing = listing().first ?: return null
-        val files = LinkedHashMap<String, ByteArray>()
-        for (name in listing.keys.filter(SharedLabelUpdates::isLabelFile).sorted()) {
-            if (files.size >= SharedLabelUpdates.MAX_FILES) break
-            val bytes = folder.read(name) ?: continue
-            val current = name == SharedLabelCrypto.HEADER_NAME || name.startsWith(SIG_PREFIX) || SharedLabelCrypto.open(s.key, s.labelId, name, bytes) != null
-            if (current) files[name] = bytes
-        }
+        fun current(name: String, bytes: ByteArray) =
+            name == SharedLabelCrypto.HEADER_NAME || name.startsWith(SIG_PREFIX) || SharedLabelCrypto.open(s.key, s.labelId, name, bytes) != null
+        val files = listing.keys.filter(SharedLabelUpdates::isLabelFile).sorted().asSequence()
+            .mapNotNull { name -> folder.read(name)?.takeIf { current(name, it) }?.let { name to it } }
+            .take(SharedLabelUpdates.MAX_FILES).toMap(LinkedHashMap())
         return SharedLabelUpdates.write(signer, s.key, s.labelId, epoch, s.myName, sentAt, files)?.takeIf { it.size <= SharedLabelUpdates.MAX_SEALED }
     }
 
@@ -748,7 +748,7 @@ class SharedLabelEngine(
      * them with the usual rules, history and replay checks. The update itself must be sealed with this label's key,
      * signed by its sender, and newer than the last one opened from them.
      */
-    @Suppress("ReturnCount")
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
     suspend fun openUpdate(s: SharedLabelState, bytes: ByteArray, allowMassDelete: Boolean = false): UpdateOutcome {
         fun no(r: UpdateResult) = UpdateOutcome(s, r)
         val peek = SharedLabelUpdates.peek(bytes) ?: return no(UpdateResult.NOT_AN_UPDATE)
@@ -778,11 +778,12 @@ class SharedLabelEngine(
      * Which of an update's [files] the run sees ([SharedLabelUpdates.takesCard] and the like), and which of those stay
      * in the folder afterwards. Files that don't open with the label's key, and this phone's own journal, are left out.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
     private fun arrivals(s: SharedLabelState, listing: Map<String, String?>, files: Map<String, ByteArray>): Pair<Map<String, ByteArray>, Set<String>> {
         val shown = LinkedHashMap<String, ByteArray>()
         val kept = HashSet<String>()
-        fun headerEpoch(bytes: ByteArray?) = bytes?.let { runCatching { SharedLabelCrypto.parseHeader(it) }.getOrNull() }?.takeIf { it.labelId == s.labelId }?.epoch
+        fun headerEpoch(bytes: ByteArray?) =
+            bytes?.let { runCatching { SharedLabelCrypto.parseHeader(it) }.getOrNull() }?.takeIf { it.labelId == s.labelId }?.epoch
         fun existing(name: String) = if (name in listing) folder.read(name) else null
         for ((name, bytes) in files) {
             val sid = SharedLabelFiles.sidOf(name)

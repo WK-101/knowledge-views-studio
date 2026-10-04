@@ -269,7 +269,8 @@ class SharedLabelExchangeTest {
         try {
             c.settings.update { AppSettings() }
             val family = c.contacts.createGroup("Family", AccountRef(null, null))!!
-            c.contacts.save(null, ContactDetails(given = "Ada", phones = listOf(DataItem(null, "+44 20 7946 0000", PhoneKind.TYPE_MOBILE)), groupIds = setOf(family)), null, null, false)
+            val ada = ContactDetails(given = "Ada", phones = listOf(DataItem(null, "+44 20 7946 0000", PhoneKind.TYPE_MOBILE)), groupIds = setOf(family))
+            c.contacts.save(null, ada, null, null, false)
             assertEquals(SharedLabels.Created.READY, c.sharedLabels.create("Family", null, "", "family passphrase".toCharArray(), "Ana"))
             val s = c.sharedLabels.forTitle("Family")!!
             assertTrue(s.byFile)

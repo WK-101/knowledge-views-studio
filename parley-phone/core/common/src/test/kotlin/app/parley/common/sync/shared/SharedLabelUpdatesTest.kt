@@ -81,7 +81,7 @@ class SharedLabelUpdatesTest {
         val traversal = runCatching { SharedLabelUpdates.write(ana, key, label, 2, "Ana", 5_000, mapOf("../x" to byteArrayOf(1))) }
         assertTrue(traversal.isFailure)
         assertFalse(SharedLabelUpdates.isLabelFile("../.parley-label"))
-        assertFalse(SharedLabelUpdates.isLabelFile("c-${sid}.plabel.tmp"))
+        assertFalse(SharedLabelUpdates.isLabelFile("c-$sid.plabel.tmp"))
         assertFalse(SharedLabelUpdates.isLabelFile("j-../../x.plabel"))
     }
 
@@ -115,7 +115,8 @@ class SharedLabelUpdatesTest {
 
     @Test fun the_newer_copy_of_a_journal_and_header_wins() {
         fun journal(epoch: Int, at: Long, lastId: Long) =
-            Journal(ana.publicKey, "Ana", epoch, null, emptyList(), false, (1..lastId).map { JournalEntry(it, sid, ChangeKind.EDITED, emptySet(), "Ada", it) }, at = at)
+            Journal(ana.publicKey, "Ana", epoch, null, emptyList(), false,
+                (1..lastId).map { JournalEntry(it, sid, ChangeKind.EDITED, emptySet(), "Ada", it) }, at = at)
         assertTrue(SharedLabelUpdates.takesJournal(journal(1, 200, 3), journal(1, 100, 3)))
         assertFalse(SharedLabelUpdates.takesJournal(journal(1, 100, 3), journal(1, 200, 3)))
         assertTrue(SharedLabelUpdates.takesJournal(journal(2, 50, 1), journal(1, 200, 3)))
