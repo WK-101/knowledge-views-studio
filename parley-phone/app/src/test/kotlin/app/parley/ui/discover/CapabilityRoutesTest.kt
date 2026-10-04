@@ -132,6 +132,7 @@ class CapabilityRoutesTest {
             "$UI.sync.shared.SharedLabelRoutes.Share" to "a label's ⋮ › Share this label…",
             "$UI.sync.shared.SharedLabelRoutes.OpenFile" to "a shared label's Open an update, or a file opened in Parley",
             "$UI.timemachine.WatchRoutes.Restore" to "the sync watchdog's notification",
+            "$UI.situations.SituationRoutes.Edit" to "one Situation, a setting: Settings › Calls › Situations",
         )
     }
 }

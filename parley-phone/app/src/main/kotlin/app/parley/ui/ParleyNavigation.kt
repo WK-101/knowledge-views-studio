@@ -15,6 +15,7 @@ import app.parley.ui.history.historyGraph
 import app.parley.ui.people.peopleGraph
 import app.parley.ui.qr.qrGraph
 import app.parley.ui.settings.settingsGraph
+import app.parley.ui.situations.situationGraph
 import app.parley.ui.timemachine.watchGraph
 
 /**
@@ -35,5 +36,6 @@ fun NavGraphBuilder.parleyGraph(nav: NavController) {
     familyGraph(nav)
     discoverGraph(nav)
     driveGraph(nav)
+    situationGraph(nav)
     sharedLabelGraph(nav)
 }

@@ -37,8 +37,8 @@ class SettingsSearchTest {
             "flip_to_silence" to SettingPlace.CALLS_ANSWERING, "speaker_default" to SettingPlace.CALLS_DURING,
             "power_button_ends_call" to SettingPlace.CALLS_DURING, "memory_prompt" to SettingPlace.CALLS_DURING,
             "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
-            "call_helpers" to SettingPlace.HELPERS, "drive_profile" to SettingPlace.DRIVE_PROFILE, "phone_menus" to SettingPlace.PHONE_MENUS,
-            "call_time" to SettingPlace.CALLS_SITUATIONS,
+            "call_helpers" to SettingPlace.HELPERS, "phone_menus" to SettingPlace.PHONE_MENUS,
+            "call_time" to SettingPlace.CALLS_SITUATIONS, "situations" to SettingPlace.CALLS_SITUATIONS,
         ).forEach { (key, place) -> assertEquals(key, place, SettingsCatalog[key].place) }
         // The Call time category dissolved into Calls › Situations; its settings are Calls' now.
         listOf("call_time", "ct_reminders", "ct_limits", "ct_supervised").forEach { assertEquals(it, SettingsCategory.CALLS, SettingsCatalog[it].category) }
@@ -59,7 +59,10 @@ class SettingsSearchTest {
         }
         assertTrue(SettingsCatalog.entries.filter { it.place == SettingPlace.TOOLS }.all { it.link })
         // Folded into one choice each, or gone with the private-name lookup provider.
-        listOf("silence_sales_lines", "connect_haptic", "private_names").forEach { k -> assertTrue(k, SettingsCatalog.entries.none { it.key == k }) }
+        // The drive profile's entry became Situations (the car is set from there).
+        listOf("silence_sales_lines", "connect_haptic", "private_names", "drive_profile").forEach { k ->
+            assertTrue(k, SettingsCatalog.entries.none { it.key == k })
+        }
     }
 
     @Test fun sort_order_and_name_order_are_two_settings() {
@@ -161,7 +164,7 @@ class SettingsSearchTest {
          * with the plan; "proximity only after answering" folded into the proximity setting instead. 5.6 lowered it to 147:
          * Settings holds preferences only, so 11 tool launchers became links to Tools (with Scan QR, Coming from another
          * phone? and Tools itself), Sales lines and Vibrate during calls each became one choice, and "Let apps show
-         * private names" went with the lookup provider.
+         * private names" went with the lookup provider. 6.0's Situations took the drive profile's entry, so the count held.
          */
         const val SETTINGS_CEILING = 147
     }

@@ -481,6 +481,17 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <!-- Quick Settings tile: the Situation on now; each tap goes to the next one (Off at the end). -->
+        <service
+            android:name=".situations.SituationTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_situation"
+            android:label="@string/sit_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <receiver
             android:name=".blocking.BlockingActionReceiver"
             android:exported="false" />

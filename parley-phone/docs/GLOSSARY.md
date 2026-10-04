@@ -58,7 +58,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 | **Expecting a call** | Lets unknown numbers ring for a while (a delivery, a callback). |
 | **SIMs and calling abroad** | Settings › Calls › SIMs & carrier › the SIM screen: your SIMs and the abroad settings. **Plan minutes per SIM** (billing and a warning) open from Tools; the SIM screen shows them once a SIM has a plan. |
 | **Sales lines (your calls)** | Numbers your own calls suggest are sales lines: one choice, Off · Tag quietly · Tag and silence. |
-| **Situations** | Settings › Calls' page for particular calls: helpers, the drive profile, phone menus and talk-time reminders and limits (once a "Call time" category of its own). |
+| **Situations** | One tap sets a moment: **Driving**, **Meeting**, **Night**, **Travelling** and the ones you make. Each sets who may ring, the reply offered first, the speaker, auto-answer, the drive profile's switches, the abroad help and the SIM for calls; turning it off puts back what you had. One is on at a time; it can turn on by itself at set times or when your car (or a Bluetooth device) connects. On Settings › Calls › Situations (the page that also holds helpers, the drive profile, phone menus and talk-time reminders and limits), the Quick Settings tile "Situation" and a line on the home screen while one is on ("Night is on · Turn off"). Not "mode", "profile" or "focus". |
 
 ## Undo
 

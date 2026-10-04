@@ -7,10 +7,12 @@ import app.parley.common.catching
 import app.parley.common.calls.CallerTune
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.FamilySafetyState
+import app.parley.common.situations.Situations
 import app.parley.common.storage.PersistentStores.Sections
 import app.parley.data.calls.DriveProfileRepository
 import app.parley.data.calls.FamilySafetyStore
 import app.parley.data.calls.RoamingRepository
+import app.parley.data.situations.SituationsController
 import java.io.File
 
 /**
@@ -58,6 +60,27 @@ class CallSwitchesBackup(private val drive: () -> DriveProfileRepository, privat
     private companion object {
         const val K_DRIVE = "${BackupExtras.PREFIX}calls.drive"
         const val K_ROAMING = "${BackupExtras.PREFIX}calls.roaming"
+    }
+}
+
+/**
+ * Situations: what each one sets and when it switches on, the built-ins as changed and the ones made. Which one is on
+ * now, and what it would put back, stay on this phone (a moment, not a preference). On restore, one only in the backup
+ * is added and this phone's own wins where both have one, unless this phone's is a built-in as it came.
+ */
+class SituationsBackup(private val situations: () -> SituationsController) : BackupExtras {
+    override val section = "situations"
+    override val sections = setOf(Sections.SITUATIONS)
+
+    override suspend fun export(): Map<String, String> = mapOf(K to Situations.encodeList(situations().forBackup()))
+
+    override suspend fun import(values: Map<String, String>) {
+        val backup = Situations.decodeList(values[K]) ?: return
+        situations().restore(backup)
+    }
+
+    private companion object {
+        const val K = "${BackupExtras.PREFIX}situations"
     }
 }
 

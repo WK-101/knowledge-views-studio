@@ -42,6 +42,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import app.parley.common.suspendRunCatching
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -92,6 +94,16 @@ class CallScreener(
     @Volatile
     var onScreened: ((ScreenedCall) -> Unit)? = null
 
+    /**
+     * Situations: whether one is on or can switch itself on (memory only), and the look at their triggers made before
+     * a call is screened, so a window that began while Parley wasn't running applies to this call. Set by the container.
+     */
+    @Volatile
+    var situationsWatching: () -> Boolean = { false }
+
+    @Volatile
+    var beforeScreen: (suspend () -> Unit)? = null
+
     private val effects = object : ScreeningEffects {
         override fun onScreened(facts: IncomingCallFacts, result: ScreeningResult) = Unit
     }
@@ -110,7 +122,7 @@ class CallScreener(
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification || s.blockInvalid ||
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
             s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true ||
-            (s.learnFromCalls && reputation?.mayHaveEntries == true)
+            (s.learnFromCalls && reputation?.mayHaveEntries == true) || runCatching { situationsWatching() }.getOrDefault(false)
     }
 
     /**
@@ -134,6 +146,8 @@ class CallScreener(
      * caller's label ringtone (contact's own tone, then label, then default), from the same lookup.
      */
     suspend fun screenCall(req: ScreenRequest): ScreeningResult {
+        // Never longer than a moment: the call is screened with what is set if the look takes longer.
+        beforeScreen?.let { look -> suspendRunCatching { withTimeoutOrNull(SITUATION_LOOK_MS) { look() } } }
         val s = currentSettings()
         val now = System.currentTimeMillis()
         // Rules from the database, not the flow: in a process just started for this call the flow is still empty.
@@ -500,5 +514,8 @@ class CallScreener(
 
     private companion object {
         const val RESCREEN_WINDOW_MS = 30_000L
+
+        /** How long the look at the Situations' triggers may hold up screening. */
+        const val SITUATION_LOOK_MS = 400L
     }
 }

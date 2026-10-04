@@ -128,6 +128,7 @@ object SettingsText {
         "family_safe_word" to Triple(R.string.set_family_safe_word_title, R.string.set_family_safe_word_summary, R.string.set_family_safe_word_kw),
         "call_helpers" to Triple(R.string.set_call_helpers_title, R.string.set_call_helpers_summary, R.string.set_call_helpers_kw),
         "drive_profile" to Triple(R.string.set_drive_profile_title, R.string.set_drive_profile_summary, R.string.set_drive_profile_kw),
+        "situations" to Triple(R.string.set_situations_title, R.string.set_situations_summary, R.string.set_situations_kw),
         "phone_menus" to Triple(R.string.set_phone_menus_title, R.string.set_phone_menus_summary, R.string.set_phone_menus_kw),
         "menu_memory" to Triple(R.string.set_menu_memory_title, R.string.set_menu_memory_summary, R.string.set_menu_memory_kw),
         "assisted_dialling" to Triple(R.string.set_assisted_dialling_title, R.string.set_assisted_dialling_summary, R.string.set_assisted_dialling_kw),

@@ -48,6 +48,9 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.history.HistoryRoutes
+import app.parley.ui.situations.AddSituationRow
+import app.parley.ui.situations.SituationRow
+import app.parley.ui.situations.canAdd
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -184,7 +187,10 @@ private fun SimsCarrierPage(open: (Destination) -> Unit) {
     }
 }
 
-/** Calls › Situations: helpers, the drive profile, phone menus and call time (once a category of its own), each a screen of its own. */
+/**
+ * Calls › Situations: the Situations themselves (one tap sets a moment; the first row is where search lands), then
+ * helpers, the drive profile, phone menus and call time (once a category of its own), each a screen of its own.
+ */
 @Composable
 private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     Text(
@@ -192,6 +198,14 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
     )
+    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
+    val now by vm.c.situations.state.collectAsStateWithLifecycle()
+    SegmentedGroup(stringResource(R.string.sit_group)) {
+        // Search for Situations lands on the first one.
+        situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }
+        situations.drop(1).forEach { s -> item("situation_${s.id}") { SituationRow(vm, s, now, open) } }
+        if (canAdd(situations)) item("situation_add") { AddSituationRow(vm, open) }
+    }
     // Helpers to bring into a call.
     FamilySafetyCallsGroup(vm, open)
     // The drive profile.

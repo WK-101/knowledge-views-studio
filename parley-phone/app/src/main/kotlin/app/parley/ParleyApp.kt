@@ -18,6 +18,7 @@ import app.parley.data.security.LockTransitions
 import app.parley.jobs.JobNotices
 import app.parley.jobs.UserJobWorker
 import app.parley.shortcuts.WidgetLockRefresh
+import app.parley.situations.SituationTriggers
 import app.parley.jobs.UserJobs
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
@@ -127,6 +128,9 @@ class ParleyApp : Application() {
             // Pictures shared before: no share from an earlier run is still being read.
             ImageExport.sweep(this@ParleyApp, all = true)
         }
+        // Situations: this phone's signals now (memory only); the listeners and the first look on IO.
+        SituationTriggers.provide(this, container)
+        container.scope.launch(Dispatchers.IO) { SituationTriggers.install(this@ParleyApp, container) }
         // Alongside: the preference-backed stores the call screen and the first screens read, built on IO so their
         // first read never parses a file on the main thread (the view model touches several as it is created).
         container.scope.launch(Dispatchers.IO) { container.warmStores() }

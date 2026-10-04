@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Situations: the reply each built-in one offers first when declining a call (people can change it). -->
+    <string name="data_situation_reply_driving">I\'m driving. I\'ll call you back when I stop.</string>
+    <string name="data_situation_reply_meeting">I\'m in a meeting. I\'ll call you back.</string>
+    <string name="data_situation_reply_travelling">I\'m travelling. Can you text me instead?</string>
+</resources>
