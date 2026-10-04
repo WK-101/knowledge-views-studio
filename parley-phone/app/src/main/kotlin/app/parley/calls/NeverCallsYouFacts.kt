@@ -44,6 +44,20 @@ object NeverCallsYouFacts {
         NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId, iso), keptSince, CallEntry::date, CallEntry::type)?.date
     }
 
+    /** Who a number is saved for when that is an organisation: the name to show, and whether it is a private contact's. */
+    data class Organisation(val name: String, val private: Boolean)
+
+    /**
+     * Case files: the organisation [number] is saved for (every contact it is saved for looks like one, as for the
+     * notice), or null. Private contacts count only while they aren't hidden.
+     */
+    suspend fun organisation(c: DataContainer, number: String, iso: String): Organisation? = withContext(Dispatchers.IO) {
+        val saved = savedFor(c, number, iso)
+        val first = saved.owners.firstOrNull() ?: return@withContext null
+        if (!saved.owners.all(NeverCallsYou::organisation)) return@withContext null
+        Organisation(first.name, private = saved.vaultId != null)
+    }
+
     /**
      * From when Parley's own copy of your calls holds every call with the line (null when it's off or can't be read):
      * Android's log alone trims itself, so it can't vouch that a line never called.

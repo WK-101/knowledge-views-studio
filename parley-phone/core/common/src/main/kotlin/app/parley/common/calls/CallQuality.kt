@@ -34,6 +34,8 @@ data class CallQualityFacts(
     val simId: String? = null,
     /** An outgoing call that never connected: seconds from placing it to its end (a "not in service" reply is quick). */
     val endedAfterSec: Long? = null,
+    /** Seconds spent in hold mode ("I'm on hold"), 0 when it wasn't used. */
+    val holdSec: Long = 0,
 )
 
 /** Compact JSON for [CallQualityFacts] lists; unknown fields are ignored so older rows keep reading. */

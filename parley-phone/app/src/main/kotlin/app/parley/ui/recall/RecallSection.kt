@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ManageSearch
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.history.HistoryRoutes
 import app.parley.common.CallType
 import app.parley.common.memory.MemorySource
 import app.parley.common.people.ContactRef
@@ -159,6 +161,7 @@ private fun groupLabel(s: RecallSource): Int = when (s) {
     RecallSource.PROMISE -> R.string.recall_group_promises
     RecallSource.NOTE -> R.string.recall_group_notes
     RecallSource.CALL_NOTE -> R.string.recall_group_call_notes
+    RecallSource.CASE_FILE -> R.string.recall_group_case_files
     RecallSource.MESSAGED -> R.string.recall_group_messaged
     RecallSource.DELETED -> R.string.recall_group_deleted
     RecallSource.DELETED_PRIVATE -> R.string.recall_group_deleted_private
@@ -228,6 +231,7 @@ private fun Leading(hit: RecallHit) {
         RecallSource.PROMISE -> Icon(Icons.Rounded.CheckBoxOutlineBlank, null, tint = tint)
         RecallSource.NOTE -> Icon(Icons.AutoMirrored.Rounded.Notes, null, tint = tint)
         RecallSource.CALL_NOTE -> Icon(Icons.Rounded.EditNote, null, tint = tint)
+        RecallSource.CASE_FILE -> Icon(Icons.Rounded.FolderOpen, null, tint = tint)
         RecallSource.MESSAGED -> Icon(Icons.AutoMirrored.Rounded.Chat, null, tint = tint)
         RecallSource.DELETED, RecallSource.DELETED_PRIVATE -> Icon(Icons.Rounded.RestoreFromTrash, null, tint = tint)
         RecallSource.SNAPSHOT -> Icon(Icons.Rounded.History, null, tint = tint)
@@ -237,6 +241,7 @@ private fun Leading(hit: RecallHit) {
 
 /** The row's second line, with the matched words in bold where it quotes the found text. */
 @Composable
+@Suppress("CyclomaticComplexMethod") // One line per group.
 private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): AnnotatedString? {
     val sep = stringResource(R.string.main_separator)
     val res = context.resources
@@ -247,6 +252,7 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
         RecallSource.CALL -> AnnotatedString(callLine(context, hit, sep))
         RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
         RecallSource.NOTE, RecallSource.CALL_NOTE -> noteLine(context, hit, sep)
+        RecallSource.CASE_FILE -> plain(stringResource(R.string.recall_case_line, Format.shortWhen(context, hit.at)), number)
         RecallSource.MESSAGED -> plain(stringResource(R.string.recall_messaged_on, hit.detail, Format.shortWhen(context, hit.at)))
         RecallSource.DELETED, RecallSource.DELETED_PRIVATE -> plain(stringResource(R.string.recall_deleted_on, dayText(hit.at)), number)
         RecallSource.SNAPSHOT -> plain(stringResource(R.string.recall_snapshot_until, dayText(hit.at)), number)
@@ -298,6 +304,7 @@ private fun targetOf(vm: AppViewModel, hit: RecallHit): Destination? {
         RecallSource.CALL -> hit.contactId?.takeIf { it < 0 }?.let(Routes::contact) ?: number?.let(Routes::history)
         RecallSource.PROMISE, RecallSource.NOTE -> hit.ref?.let { noteTarget(vm, it) } ?: number?.let(Routes::history)
         RecallSource.CALL_NOTE, RecallSource.MESSAGED -> number?.let(Routes::history)
+        RecallSource.CASE_FILE -> hit.ref?.let { HistoryRoutes.Case(it) }
         RecallSource.DELETED, RecallSource.DELETED_PRIVATE -> Routes.journal(HistoryTab.CONTACTS)
         RecallSource.SNAPSHOT -> Routes.journal(HistoryTab.SNAPSHOTS)
         RecallSource.REMEMBERED -> if (hit.memory?.source == MemorySource.TO_CALL) ToCallRoutes.List else number?.let(Routes::history)

@@ -130,6 +130,9 @@ internal class CallSession(val id: String) {
     /** `elapsedRealtime` when "I'm on hold" started, or 0. */
     var holdModeSince = 0L
 
+    /** Time spent in hold mode so far in this call, earlier stretches only (the one running is [holdModeSince]'s). */
+    var holdModeTotalMs = 0L
+
     /** The audio route before hold mode turned the speaker on, restored when it ends. */
     var routeBeforeHold: AudioRoute? = null
 

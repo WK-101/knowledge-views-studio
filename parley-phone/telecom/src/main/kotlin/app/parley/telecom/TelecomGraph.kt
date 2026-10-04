@@ -351,6 +351,24 @@ interface MenuMemoryHooks {
     suspend fun stopMenuMemory(number: String, accountId: String?) {}
 }
 
+/**
+ * Case files: what Parley keeps per service organisation (a bank, an insurer, a council). The call path reports each
+ * call; the keypad can keep the digits just typed as a reference. Never for emergency calls or hidden numbers.
+ */
+interface CaseFileHooks {
+    /**
+     * A call with [number] ended: [facts] (length, hold time) and, for a call you placed, the keys you sent ([keys],
+     * timed from the connect). Kept only when the number has a case file; secret-looking keys never are.
+     */
+    fun onCaseCall(number: String, accountId: String?, facts: CallQualityFacts, keys: List<MenuPress>) {}
+
+    /** Whether [number] has a case file the keypad may add a reference to (false while Parley's app lock is locked). */
+    suspend fun hasCaseFile(number: String, accountId: String?): Boolean = false
+
+    /** "Keep as a reference": adds [reference] to [number]'s case file, sealed; false when it couldn't be kept. */
+    suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = false
+}
+
 /** A label's safe-word question, for the in-call card. */
 data class SafeWordPrompt(val label: String, val question: String)
 
@@ -362,7 +380,7 @@ data class HelperUi(val name: String, val number: String)
  * for its part). Implemented by the app module so that this module never depends on data or feature code.
  */
 interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks,
-    MenuMemoryHooks
+    MenuMemoryHooks, CaseFileHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, UNBLOCK, REPORT, NUMBER_MEMORY, SAVE, ADD_TO_CONTACT }

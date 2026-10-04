@@ -18,6 +18,8 @@ import app.parley.data.people.RelationFromOther
 import app.parley.data.primary
 import app.parley.security.AppLock
 import app.parley.ui.Destination
+import app.parley.ui.cases.CaseOwner
+import app.parley.ui.cases.CaseShown
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.people.eventLabel
@@ -59,7 +61,12 @@ internal class ContactPageContext(
     val openRelation: (name: String) -> Unit,
     /** The system's ringtone picker; the choice comes back to the page. */
     val pickRingtone: (Intent) -> Unit,
+    /** Their case file, when one is kept or they look like an organisation. */
+    val case: CaseShown = CaseShown(null, false),
 ) {
+    /** Who a case file for them is about. */
+    val caseOwner: CaseOwner get() = caseOwnerOf(d, ui.isPrivate)
+
     val isPrivate: Boolean get() = ui.isPrivate
     val prefs: MessengerPrefs get() = ui.prefs
     val inCircle: Boolean get() = ui.meta?.reachOutDays != null
@@ -137,3 +144,7 @@ internal class ContactPageContext(
         }
     }
 }
+
+/** Who a case file for the contact [d] is about: its name, numbers and Parley key. */
+internal fun caseOwnerOf(d: ContactDetails, private: Boolean): CaseOwner =
+    CaseOwner(d.displayName, d.phones.map { it.value }.distinct(), private, d.lookupKey.ifEmpty { null })

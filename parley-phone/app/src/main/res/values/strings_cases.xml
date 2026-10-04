@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Case files: what Parley keeps per service organisation (a bank, an insurer, a council). -->
+    <string name="case_title">Case file</string>
+    <string name="case_title_who">Case file: %1$s</string>
+    <string name="case_open">Open the case file</string>
+    <string name="case_no_calls">No calls with them yet</string>
+    <plurals name="case_calls_last">
+        <item quantity="one">%1$d call · last %2$s</item>
+        <item quantity="other">%1$d calls · last %2$s</item>
+    </plurals>
+    <string name="case_hold_average">On hold %1$s on average</string>
+    <string name="case_menu">Menu: %1$s</string>
+    <plurals name="case_references">
+        <item quantity="one">%d reference number</item>
+        <item quantity="other">%d reference numbers</item>
+    </plurals>
+    <plurals name="case_open_promises">
+        <item quantity="one">%d open promise</item>
+        <item quantity="other">%d open promises</item>
+    </plurals>
+
+    <!-- The contact page's ⋮ (under More…). -->
+    <string name="case_keep">Keep a case file</string>
+    <string name="case_kept">Keeping a case file: calls, hold times and reference numbers</string>
+
+    <!-- The case screen. -->
+    <string name="case_explain">Your calls with them, how long you waited on hold, the menu keys you pressed and the reference numbers they gave you. Stays on this phone.</string>
+    <string name="case_summary">Summary</string>
+    <string name="case_hold_detail">On hold %1$s in all, %2$s on average, %3$s at the longest</string>
+    <string name="case_references_title">Reference numbers</string>
+    <string name="case_add_reference">Add a reference number</string>
+    <string name="case_reference_label">What it is for (optional)</string>
+    <string name="case_reference_label_hint">Claim, complaint, account</string>
+    <string name="case_reference_value">Reference number</string>
+    <string name="case_reference_added">Reference number kept</string>
+    <string name="case_reference_failed">Couldn\'t keep the reference number. Try again in a moment.</string>
+    <string name="case_reference_unnamed">Reference</string>
+    <string name="case_reference_typed">Typed during a call</string>
+    <string name="case_reference_show">Show %1$s</string>
+    <string name="case_reference_hide">Hide %1$s</string>
+    <string name="case_reference_copy">Copy %1$s</string>
+    <string name="case_reference_delete">Delete %1$s</string>
+    <string name="case_reference_copied">Reference number copied</string>
+    <string name="case_reference_unreadable">Can\'t open it right now. Try again in a moment.</string>
+    <string name="case_promises_title">Open promises</string>
+    <string name="case_timeline_title">Calls and notes</string>
+    <string name="case_timeline_empty">Calls with them will show here, with how long you waited on hold. Tap \"I\'m on hold\" in the call screen\'s options while you wait.</string>
+    <string name="case_call_outgoing">You called</string>
+    <string name="case_call_incoming">They called</string>
+    <string name="case_call_missed">Missed call</string>
+    <string name="case_call_declined">Declined call</string>
+    <string name="case_call_blocked">Screened call</string>
+    <string name="case_call_voicemail">Voicemail</string>
+    <string name="case_call_unanswered">No answer</string>
+    <string name="case_call_length">%1$s long</string>
+    <string name="case_call_hold">on hold %1$s</string>
+    <string name="case_note">Note</string>
+    <string name="case_reference_added_on">Reference number added: %1$s</string>
+    <string name="case_more">More options</string>
+    <string name="case_stop">Stop keeping this case file</string>
+    <string name="case_stop_title">Stop keeping this case file?</string>
+    <string name="case_stop_body">Its reference numbers, hold times and menu keys are deleted, and nothing more is kept for them. Your calls and notes stay.</string>
+    <string name="case_stop_confirm">Stop and delete</string>
+    <string name="case_stopped">Case file stopped</string>
+    <string name="case_gone">This case file isn\'t kept any more.</string>
+
+    <!-- Export as a PDF for a complaint. -->
+    <string name="case_export">Export as PDF</string>
+    <string name="case_export_title">Export the case file</string>
+    <string name="case_export_explain">A PDF with your calls, hold times, notes and open promises, for a complaint.</string>
+    <string name="case_export_include">Include reference numbers</string>
+    <string name="case_export_include_summary">Off: the PDF says how many were left out</string>
+    <string name="case_export_include_title">Include reference numbers?</string>
+    <string name="case_export_include_body">Anyone who gets the PDF can read them. Include them only if the complaint needs them.</string>
+    <string name="case_export_include_confirm">Include them</string>
+    <string name="case_export_share">Share as PDF</string>
+    <string name="case_export_share_summary">Send it by email or another app</string>
+    <string name="case_export_print">Print or save as PDF</string>
+    <string name="case_export_print_summary">Opens the print dialog, where you can save it as a file</string>
+    <string name="case_export_preparing">Preparing the case file…</string>
+    <string name="case_export_failed">Couldn\'t make the PDF: %1$s</string>
+
+    <!-- The PDF itself. -->
+    <string name="case_pdf_title">Case file: %1$s</string>
+    <string name="case_pdf_made">Made with Parley on %1$s, from this phone\'s own records.</string>
+    <string name="case_pdf_numbers">Numbers: %1$s</string>
+    <plurals name="case_pdf_calls">
+        <item quantity="one">%1$d call, on %2$s</item>
+        <item quantity="other">%1$d calls between %2$s and %3$s</item>
+    </plurals>
+    <plurals name="case_pdf_hold">
+        <item quantity="one">On hold %1$s (hold time noted for %4$d call)</item>
+        <item quantity="other">On hold %1$s in all, %2$s on average, %3$s at the longest (hold time noted for %4$d calls)</item>
+    </plurals>
+    <string name="case_pdf_menu">Phone menu keys: %1$s</string>
+    <string name="case_pdf_reference">%1$s: %2$s (noted %3$s)</string>
+    <plurals name="case_pdf_references_left_out">
+        <item quantity="one">%d reference number left out of this copy.</item>
+        <item quantity="other">%d reference numbers left out of this copy.</item>
+    </plurals>
+    <string name="case_pdf_promise">☐ %1$s</string>
+    <string name="case_pdf_note">Note: %1$s</string>
+    <!-- The PDF's file name, before ".pdf". -->
+    <string name="case_pdf_file">Case file %1$s</string>
+    <string name="case_pdf_page">Page %1$d of %2$d</string>
+
+    <!-- Recall. -->
+    <string name="recall_group_case_files">Case files</string>
+    <string name="recall_case_line">Case file · %1$s</string>
+</resources>

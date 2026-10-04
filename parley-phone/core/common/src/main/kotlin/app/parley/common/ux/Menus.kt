@@ -39,7 +39,7 @@ object ContactMenu {
         SHARE_FILE, SHOW_QR, SHARE_ENCRYPTED_QR,
         BLOCK_NUMBERS, UNBLOCK_NUMBERS,
         MAKE_PRIVATE, MAKE_VISIBLE, DELETE_AUTOMATICALLY,
-        LOG_CHAT_OR_VISIT, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, SET_RINGTONE, ALLOW_SIMILAR_NUMBERS, SEPARATE,
+        LOG_CHAT_OR_VISIT, CASE_FILE, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, SET_RINGTONE, ALLOW_SIMILAR_NUMBERS, SEPARATE,
         DELETE,
     }
 
@@ -59,6 +59,8 @@ object ContactMenu {
         val blocked: Boolean = false,
         /** Every number is an emergency number (a saved "Police"): never blocked, so neither Block nor Unblock. */
         val onlyEmergency: Boolean = false,
+        /** A case file shows on the page already (kept, or an organisation's): its card opens it, so no "Keep a case file". */
+        val caseShown: Boolean = false,
     )
 
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
@@ -66,6 +68,8 @@ object ContactMenu {
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
         group(MenuGroup.PRIVACY, listOf(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY))?.let(::add)
+        // Any contact can have a case file (a bank saved under a person's name, a landlord): the seventh place at most.
+        add(Action.CASE_FILE, f.hasNumbers && !f.caseShown)
         group(
             MenuGroup.MORE,
             listOfNotNull(

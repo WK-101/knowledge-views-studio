@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LinkOff
@@ -30,6 +31,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.common.cases.CaseFiles
+import app.parley.common.cases.CaseMode
 import app.parley.common.people.ContactCapability
 import app.parley.common.ux.ContactMenu
 import app.parley.common.ux.MenuEntry
@@ -41,6 +44,8 @@ import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.common.MenuGroupSheet
 import app.parley.ui.common.MenuItems
 import app.parley.ui.common.MenuLabel
+import java.util.UUID
+import kotlinx.coroutines.launch
 
 /**
  * The top bar's actions on a contact's page: star, edit and ⋮. The ⋮ menu has at most seven items, the rarer ones
@@ -71,6 +76,7 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
             inCircle = ctx.inCircle,
             blocked = blocked,
             onlyEmergency = onlyEmergency,
+            caseShown = ctx.case.shown,
         ),
     )
     val run: (ContactMenu.Action) -> Unit = { a -> runContactMenu(ctx, a) }
@@ -106,6 +112,8 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
         ContactMenu.Action.MAKE_VISIBLE -> ctx.show(ContactDialog.ConfirmMakeVisible)
         ContactMenu.Action.DELETE_AUTOMATICALLY -> ctx.show(ContactDialog.Expiry)
         ContactMenu.Action.LOG_CHAT_OR_VISIT -> ctx.show(ContactDialog.LogInteraction)
+        // The case card then shows on the page; the case file fills with the next call.
+        ContactMenu.Action.CASE_FILE -> keepCaseFile(ctx)
         ContactMenu.Action.ADD_TO_HOME_SCREEN -> ctx.show(ContactDialog.AddToHomeScreen)
         ContactMenu.Action.COPY_TO_SIM -> ctx.show(ContactDialog.CopyToSim)
         ContactMenu.Action.SET_RINGTONE -> ctx.pickRingtone(
@@ -137,10 +145,24 @@ private fun contactMenuLabel(a: ContactMenu.Action, temporary: Boolean): MenuLab
     ContactMenu.Action.DELETE_AUTOMATICALLY ->
         MenuLabel(stringResource(if (temporary) R.string.detail_change_expiry else R.string.contact_make_temporary), Icons.Rounded.Timer)
     ContactMenu.Action.LOG_CHAT_OR_VISIT -> MenuLabel(stringResource(R.string.circle_log_interaction), Icons.Rounded.Handshake)
+    ContactMenu.Action.CASE_FILE -> MenuLabel(stringResource(R.string.case_keep), Icons.Rounded.FolderOpen)
     ContactMenu.Action.ADD_TO_HOME_SCREEN -> MenuLabel(stringResource(R.string.detail_add_home), Icons.Rounded.AddToHomeScreen)
     ContactMenu.Action.COPY_TO_SIM -> MenuLabel(stringResource(R.string.detail_copy_sim), Icons.Rounded.SimCard)
     ContactMenu.Action.SET_RINGTONE -> MenuLabel(stringResource(R.string.detail_set_ringtone), Icons.Rounded.MusicNote)
     ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> MenuLabel(stringResource(R.string.blk_prefix_title), Icons.Rounded.Business)
     ContactMenu.Action.SEPARATE -> MenuLabel(stringResource(R.string.detail_separate), Icons.Rounded.LinkOff)
     ContactMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
+}
+
+/** "Keep a case file": for any contact, by its numbers (a private contact's hides with it). */
+private fun keepCaseFile(ctx: ContactPageContext) {
+    val owner = ctx.caseOwner
+    val vm = ctx.vm
+    ctx.scope.launch {
+        val done = vm.c.cases.update {
+            val now = System.currentTimeMillis()
+            CaseFiles.setMode(it, owner.name, owner.numbers, owner.private, CaseMode.ON, now, vm.countryIso, UUID.randomUUID().toString())
+        }
+        if (done != null) vm.toast(vm.c.appContext.getString(R.string.case_kept))
+    }
 }

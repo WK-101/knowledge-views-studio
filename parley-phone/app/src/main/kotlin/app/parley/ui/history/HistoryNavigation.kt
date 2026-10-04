@@ -33,9 +33,12 @@ object HistoryRoutes {
     @Serializable data class Sim(val id: String) : Destination
 
     fun sim(id: String): Destination = Sim(id)
+
+    /** An organisation's case file ([app.parley.common.cases.CaseFile.id]). */
+    @Serializable data class Case(val id: String) : Destination
 }
 
-/** Call history: a number's history, insights, import, and the SIMs' settings. */
+/** Call history: a number's history, insights, import, the SIMs' settings and case files. */
 fun NavGraphBuilder.historyGraph(nav: NavController) {
     val back: () -> Unit = { nav.popBackStack() }
     val open: (Destination) -> Unit = { r -> nav.navigate(r) }
@@ -46,4 +49,5 @@ fun NavGraphBuilder.historyGraph(nav: NavController) {
     composable<HistoryRoutes.Import> { ImportCallsScreen(appVm(), back = back) }
     composable<HistoryRoutes.Sims> { SimListScreen(appVm(), it.toRoute<HistoryRoutes.Sims>().plans, back = back, open = open) }
     composable<HistoryRoutes.Sim> { SimSettingsScreen(appVm(), it.toRoute<HistoryRoutes.Sim>().id, back = back) }
+    composable<HistoryRoutes.Case> { app.parley.ui.cases.CaseScreen(appVm(), it.toRoute<HistoryRoutes.Case>().id, back = back) }
 }
