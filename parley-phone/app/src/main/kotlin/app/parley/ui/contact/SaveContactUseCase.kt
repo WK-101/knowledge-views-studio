@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.data.vault.VaultCrypto
 import android.net.Uri
 import app.parley.jobs.UserErrorText
 import app.parley.R
@@ -81,6 +82,9 @@ class SaveContactUseCase(private val c: DataContainer) {
 
         data class Failed(val message: String) : Outcome
 
+        /** Private contacts are locked: nothing was written. The editor asks for their unlock and saves again. */
+        data object Locked : Outcome
+
         /**
          * Another app or a sync changed the contact since the editor loaded it, so nothing was written. [theirs] is
          * the contact as it is now (null when it is gone).
@@ -110,6 +114,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             }
         }.getOrElse { e ->
             if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
+            if (e is VaultCrypto.LockedException) return Outcome.Locked
             return Outcome.Failed(UserErrorText.of(c.appContext, e))
         } ?: return Outcome.NotSaved
         // A photo the camera app took for this contact has been copied where it belongs.

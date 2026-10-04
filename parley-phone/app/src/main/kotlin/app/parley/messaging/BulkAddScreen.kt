@@ -1,5 +1,8 @@
 package app.parley.messaging
 
+import app.parley.security.AppLock
+import app.parley.data.vault.VaultCrypto
+import androidx.activity.ComponentActivity
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import app.parley.common.catching
@@ -218,6 +221,14 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
         }
         progress = 0f
         scope.launch {
+            // Saving privately while private contacts are locked: their unlock first; cancelled, nothing is saved yet
+            // and the list stays as it is.
+            val private = dest is BulkDestination.Private || dest is BulkDestination.Temporary && dest.private
+            val activity = context as? ComponentActivity
+            if (private && activity != null && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() } && !AppLock.unlockVault(activity)) {
+                progress = null
+                return@launch
+            }
             val r = catching { c.bulkAdd.save(items, dest, desc, progress = { done, total -> progress = done.toFloat() / total }) }
             progress = null
             r.onFailure { snackbar.showSnackbar(rs.getString(R.string.edit_save_failed, UserErrorText.of(context, it))) }

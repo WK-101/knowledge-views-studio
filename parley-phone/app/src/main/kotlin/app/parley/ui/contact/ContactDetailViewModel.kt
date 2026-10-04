@@ -22,6 +22,11 @@ import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
 import app.parley.common.suspendRunCatching
 import app.parley.data.ContactDetails
+import app.parley.ui.home.BulkContactActions
+import app.parley.data.GroupInfo
+import app.parley.data.AccountRef
+import app.parley.common.people.ContactLabels
+import app.parley.common.people.Collation
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.MessengerAction
@@ -201,7 +206,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         var shown: Loaded? = null
         // I21: after a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
         val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
-        return combine(entry, reloads, hiding) { s, _, hidden -> s.takeUnless { hidden } }.transformLatest { summary ->
+        // "Lock private contacts" ([app.parley.data.vault.VaultRepository.lockAll]) reads the entry again: locked now.
+        return combine(entry, reloads, hiding, c.vault.locks) { s, _, hidden, _ -> s.takeUnless { hidden } }.transformLatest { summary ->
             if (summary == null) {
                 emit(Loaded(null, emptyList(), emptyList(), r))
                 return@transformLatest
@@ -584,6 +590,58 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private fun launch(block: suspend () -> Unit) {
         viewModelScope.launch { block() }
     }
+
+    // ---------------------------------------------------------------- labels
+
+    /** One collator for the label flows below (collators aren't thread-safe; these run one at a time). */
+    private val labelOrder = Collation.Order()
+
+    /**
+     * The labels shown under the name: a device contact's groups in every account, read from the address book; a
+     * private contact's memberships, kept sealed by Parley and readable while private contacts are locked. Shared
+     * labels are marked. Read again when contacts, private labels or shared labels change, and after [addToLabel].
+     */
+    val labels: StateFlow<List<ContactLabels.Chip>> =
+        combine(ref.filterNotNull(), c.contacts.contacts, c.privateLabels.titles, c.sharedLabels.states, reloads) { r, _, _, shared, _ -> r to shared }
+            .mapLatest { (r, shared) ->
+                val titles = withContext(Dispatchers.IO) {
+                    when (r) {
+                        is ContactRef.Private -> suspendRunCatching { c.privateLabels.titlesOf(r.vaultId) }.getOrDefault(emptySet())
+                        is ContactRef.Device -> c.contacts.labelTitlesOf(r.contactId)
+                    }
+                }
+                if (titles.isNotEmpty()) suspendRunCatching { c.sharedLabels.load() }
+                ContactLabels.chips(titles, shared.map { it.title }.toSet(), labelOrder)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
+
+    /**
+     * What "Add to label" offers: one label per title this contact isn't in. A device contact joins through a group of
+     * an account it has a copy in; a private one joins any label but a shared one (private contacts are never shared).
+     */
+    suspend fun labelChoices(): List<GroupInfo> {
+        val d = current ?: return emptyList()
+        val private = vaultId != null
+        val groups = withContext(Dispatchers.IO) { suspendRunCatching { c.contacts.groups() }.getOrDefault(emptyList()) }
+        suspendRunCatching { c.sharedLabels.load() }
+        val shared = if (private) c.sharedLabels.states.value.map { it.title.trim() }.toSet() else emptySet()
+        val accounts = if (private) null else d.rawContacts.map { accountKey(it.account) }.toSet().takeIf { it.isNotEmpty() }
+        val offered = ContactLabels.offered(
+            groups.filter { it.title.trim() !in shared }.map { ContactLabels.Group(it.id, it.title, accountKey(it.account)) },
+            labels.value.map { it.title }.toSet(), accounts, private, labelOrder,
+        )
+        val byId = groups.associateBy { it.id }
+        return offered.mapNotNull { byId[it.id] }
+    }
+
+    /** Adds this contact to [group]'s label (journaled like the Contacts tab's "Add to label"), then says so. */
+    fun addToLabel(group: GroupInfo) = launch {
+        val (skipped, _) = BulkContactActions(c).joinLabel(listOf(id), group)
+        reload()
+        say(if (skipped == 0) R.string.sel_added_to else R.string.ctl_label_not_added, group.title.trim())
+    }
+
+    private fun accountKey(a: AccountRef): String = "${a.type.orEmpty()}/${a.name.orEmpty()}"
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L

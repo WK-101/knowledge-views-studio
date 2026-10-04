@@ -18,6 +18,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
 import app.parley.container
+import app.parley.ParleyApp
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PlaceResult
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +72,8 @@ import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -304,16 +307,26 @@ object AppLock {
      * through the keyguard instead.
      */
     fun authenticateForVault(activity: ComponentActivity, onResult: (Boolean) -> Unit) {
-        if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, activity.getString(R.string.lock_unlock_private), onResult)
+        // A successful unlock here also ends "Lock private contacts" (VaultRepository.lockAll).
+        val done: (Boolean) -> Unit = { ok ->
+            if (ok) (activity.applicationContext as? ParleyApp)?.container?.vault?.unlockedByPerson()
+            onResult(ok)
+        }
+        if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, activity.getString(R.string.lock_unlock_private), done)
         val km = activity.getSystemService(KeyguardManager::class.java)
         if (km?.isDeviceSecure != true) {
-            onResult(true)
+            done(true)
             return
         }
         confirmCredential(activity, activity.getString(R.string.lock_unlock_private)) { ok ->
             if (ok) VaultSession.markAuthenticated()
-            onResult(ok)
+            done(ok)
         }
+    }
+
+    /** [authenticateForVault] as a call that returns once answered: true when private contacts are unlocked. */
+    suspend fun unlockVault(activity: ComponentActivity): Boolean = withContext(Dispatchers.Main) {
+        suspendCancellableCoroutine { cont -> authenticateForVault(activity) { ok -> if (cont.isActive) cont.resume(ok) } }
     }
 
     /** The keyguard's own "confirm your PIN, pattern or password" screen. False when it can't be shown. */
@@ -353,9 +366,9 @@ object AppLock {
 
 /**
  * Runs a vault operation; if the vault key needs a fresh unlock, asks for it once and retries.
- * Other failures go to [onError].
+ * Other failures go to [onError]. A cancelled unlock isn't one: nothing is said, and [onDeclined] runs.
  */
-fun CoroutineScope.launchVault(activity: ComponentActivity?, onError: (Exception) -> Unit, block: suspend () -> Unit) {
+fun CoroutineScope.launchVault(activity: ComponentActivity?, onError: (Exception) -> Unit, onDeclined: () -> Unit = {}, block: suspend () -> Unit) {
     launch {
         try {
             block()
@@ -364,7 +377,7 @@ fun CoroutineScope.launchVault(activity: ComponentActivity?, onError: (Exception
         } catch (e: VaultCrypto.LockedException) {
             if (activity == null) return@launch onError(e)
             AppLock.authenticateForVault(activity) { ok ->
-                if (!ok) return@authenticateForVault onError(e)
+                if (!ok) return@authenticateForVault onDeclined()
                 launch {
                     try {
                         block()
@@ -379,6 +392,21 @@ fun CoroutineScope.launchVault(activity: ComponentActivity?, onError: (Exception
             onError(e)
         }
     }
+}
+
+/** The person cancelled the private contacts' unlock that [withVaultUnlock] asked for: nothing was saved, nothing to say. */
+class VaultUnlockDeclined : Exception("Unlock cancelled")
+
+/**
+ * Runs [block], which writes private contacts; when they are locked, asks for their unlock (biometrics or the screen
+ * lock, in [activity]) and runs it once more. Throws [VaultUnlockDeclined] when the unlock is cancelled (or can't be
+ * asked here), so the caller keeps what the person typed and shows no error.
+ */
+suspend fun <T> withVaultUnlock(activity: ComponentActivity?, block: suspend () -> T): T = try {
+    block()
+} catch (e: VaultCrypto.LockedException) {
+    if (activity == null || !AppLock.unlockVault(activity)) throw VaultUnlockDeclined().apply { initCause(e) }
+    block()
 }
 
 /** Tracks when the user last proved presence (for vault details). */

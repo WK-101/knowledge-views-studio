@@ -71,8 +71,11 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     val keyboard = LocalSoftwareKeyboardController.current
     val store = vm.c.extras
     var city by rememberSaveable { mutableStateOf(store.lastTripCity.orEmpty()) }
-    val contacts by vm.contacts.collectAsStateWithLifecycle()
-    val data by produceState<ExtrasStore.TripData?>(null, contacts) {
+    // Everyone Parley lists, private contacts included while they are shown (discreet mode hides them here too).
+    val contacts by vm.everyone.collectAsStateWithLifecycle()
+    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val unlocked by vm.c.vault.unlocked.collectAsStateWithLifecycle()
+    val data by produceState<ExtrasStore.TripData?>(null, contacts, hidden, unlocked) {
         value = runCatching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
     }
     val choices = remember(data) { data?.let { TripMatch.cityChoices(it.cities, store.lastTripCity) }.orEmpty() }

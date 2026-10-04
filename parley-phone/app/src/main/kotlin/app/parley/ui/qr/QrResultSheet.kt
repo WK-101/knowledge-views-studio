@@ -85,6 +85,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.activity.ComponentActivity
+import app.parley.security.VaultUnlockDeclined
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
@@ -424,7 +425,13 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
             ) { n, days, deleteHistory, visible ->
                 temporary = false
                 scope.launch {
-                    val saved = TemporaryContactActions.save(vm, number, n, days, deleteHistory, visible)
+                    val saved = try {
+                        TemporaryContactActions.save(vm, number, n, days, deleteHistory, visible, context as? ComponentActivity)
+                    } catch (_: VaultUnlockDeclined) {
+                        // The unlock was cancelled: nothing saved, and the question again.
+                        temporary = true
+                        return@launch
+                    }
                     if (saved != null) {
                         vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))
                         onDismiss()

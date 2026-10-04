@@ -219,6 +219,9 @@ class PeopleUi(
     init {
         scope.launch(Dispatchers.IO) {
             val head = c.people.listHead.load() ?: return@launch
+            // The kept rows never hold a private contact: with private contacts listed they would show the list without
+            // them first, so it waits for the whole list instead (a moment's progress, then every row at once).
+            if (includePrivate.value && catching { c.vault.countNow() }.getOrDefault(1) > 0) return@launch
             if (listing.value == null) listHead.value = ListSections.interleave(head) { ListSections.letterOf(it.sortName) }
         }
         scope.launch {

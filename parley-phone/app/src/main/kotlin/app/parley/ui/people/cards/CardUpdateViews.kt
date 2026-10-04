@@ -194,7 +194,8 @@ private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: S
     var busy by remember { mutableStateOf(false) }
     fun run(list: List<CardChange>) {
         busy = true
-        scope.launchVault(context as? ComponentActivity, { busy = false; vm.toast(res.getString(R.string.card_update_failed)) }) {
+        val failed: (Exception) -> Unit = { busy = false; vm.toast(res.getString(R.string.card_update_failed)) }
+        scope.launchVault(context as? ComponentActivity, failed, onDeclined = { busy = false }) {
             val out = CardUpdateApply.save(vm.c, navId, key, list, vm.countryIso)
             busy = false
             when (out) {

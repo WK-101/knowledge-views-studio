@@ -127,8 +127,15 @@ object VaultCrypto {
      */
     @Volatile var detailLocked = false
 
+    /**
+     * "Lock private contacts": the person locked them again, so details neither open nor seal (as if the key needed a
+     * fresh unlock) until their next unlock in Parley, even inside the phone's own 5-minute window. Memory only, like
+     * the window itself; nothing changes in the Keystore. See [VaultRepository.lockAll].
+     */
+    @Volatile var lockedByPerson = false
+
     private fun checkNotLocked() {
-        if (detailLocked) throw LockedException()
+        if (detailLocked || lockedByPerson) throw LockedException()
     }
 
     private fun detailAlias(gen: Int) = if (gen == 0) LEGACY_DETAIL_KEY else "$DETAIL_PREFIX$gen"
@@ -307,7 +314,11 @@ object VaultCrypto {
         return withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { KeystoreSeal.open(it!!, blob, 0) }
     }
 
-    fun sealDetail(plain: ByteArray): ByteArray = sealDetail(sealingGeneration(), plain)
+    fun sealDetail(plain: ByteArray): ByteArray {
+        // Saving waits for the unlock too once the person locked private contacts (opening already does).
+        if (lockedByPerson) throw LockedException()
+        return sealDetail(sealingGeneration(), plain)
+    }
 
     private fun sealDetail(gen: Int, plain: ByteArray): ByteArray {
         val sealed = try {
@@ -417,7 +428,7 @@ object VaultCrypto {
      * A key that is missing, invalidated (the screen lock was changed) or that the Keystore can't load now counts as
      * locked. No detail key ever made means nothing was sealed with one: open.
      */
-    fun detailNeedsUnlock(): Boolean = detailLocked || try {
+    fun detailNeedsUnlock(): Boolean = detailLocked || lockedByPerson || try {
         val gen = currentGeneration()
         if (gen == null) {
             // A committed generation whose key is gone can't open anything.
@@ -498,7 +509,7 @@ object VaultCrypto {
      * off every other writer of detail blobs for the whole call. Returns true when the vault now uses the new key.
      */
     suspend fun upgradeDetailKey(reseal: suspend (convert: (ByteArray) -> ByteArray) -> Boolean, inUse: suspend () -> Set<Int>): Boolean {
-        if (detailLocked || !detailKeyNeedsUpgrade()) return false
+        if (detailLocked || lockedByPerson || !detailKeyNeedsUpgrade()) return false
         val old = currentGeneration() ?: return false
         val next = maxOf(old, highestGenerationEver(), storedGenerations().max()) + 1
         if (!createDetailKey(next)) {
