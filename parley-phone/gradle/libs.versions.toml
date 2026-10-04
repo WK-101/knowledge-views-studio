@@ -27,6 +27,7 @@ robolectric = "4.16.1"
 androidxTestCore = "1.7.0"
 androidxTestExtJunit = "1.3.0"
 detekt = "1.23.8"
+kover = "0.9.1"
 # Baseline profile and macrobenchmarks (module :baselineprofile); the profile installer ships in the app.
 baselineprofile = "1.4.1"
 benchmark = "1.4.1"
@@ -89,3 +90,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

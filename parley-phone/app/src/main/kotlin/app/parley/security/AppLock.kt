@@ -204,7 +204,8 @@ object AppLock {
         engage()
     }
 
-    private fun unlocked() {
+    /** Parley opened: by the fingerprint or screen lock, or by a PIN. Internal so the lock's timing can be tested. */
+    internal fun unlocked() {
         locked.value = false
         everUnlocked = true
     }
