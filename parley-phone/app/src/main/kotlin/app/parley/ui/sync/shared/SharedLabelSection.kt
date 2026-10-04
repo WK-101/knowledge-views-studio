@@ -220,6 +220,7 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
             },
             colors = rowColors(),
         )
+        FamilyShieldRow(vm, s, open)
         HistoryList(s, me, filter, onFilter = { filter = it }, limit = PAGE_CHANGES)
         if (s.history.size > PAGE_CHANGES) {
             TextButton({ open(SharedLabelRoutes.Manage(s.labelId)) }, Modifier.padding(horizontal = Spacing.s)) {

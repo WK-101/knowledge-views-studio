@@ -225,7 +225,7 @@ object PersistentStores {
         PersistentStore("vault-unreadable", StoreKind.FILES, StorePolicy.Secret("Unreadable private details"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore(
             "shared_labels", StoreKind.FILES,
-            StorePolicy.Secret("Shared labels' keys and sync bookkeeping, sealed; another phone joins with an invitation"),
+            StorePolicy.Secret("Shared labels' keys, sync bookkeeping and spam shield verdicts, sealed; another phone joins with an invitation"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
         PersistentStore(

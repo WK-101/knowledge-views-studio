@@ -52,6 +52,9 @@ import app.parley.common.TraceStep
 import app.parley.data.db.BlockedCallEntity
 import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
+import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.produceState
+import app.parley.common.sync.shared.ShieldKind
 import app.parley.ui.settings.bidiLtr
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -235,6 +238,28 @@ private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDis
     )
 }
 
+/** With the family spam shield on in a shared label: tell its members this number is a scam, or likely spam. */
+@Composable
+private fun FamilyShieldMarks(vm: AppViewModel, number: String, onDone: () -> Unit) {
+    val shared = vm.c.sharedLabels
+    val shielded by produceState(false) { shared.load(); value = shared.anyShielded() }
+    if (!shielded) return
+    val res = LocalResources.current
+    Text(stringResource(R.string.fsh_report_title), style = MaterialTheme.typography.titleSmall)
+    Row {
+        listOf(ShieldKind.SCAM to R.string.fsh_report_scam, ShieldKind.SPAM_LIKELY to R.string.fsh_report_spam).forEach { (kind, label) ->
+            TextButton({
+                // The dialog closes now; the mark and the runs that share it finish on their own.
+                vm.viewModelScope.launch {
+                    val ok = shared.markForShield(number, vm.countryIso, kind)
+                    vm.toast(res.getString(if (ok) R.string.fsh_marked else R.string.fsh_mark_failed))
+                }
+                onDone()
+            }) { Text(stringResource(label)) }
+        }
+    }
+}
+
 @Composable
 private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -262,6 +287,7 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (regulator != null) Text(stringResource(R.string.blk_report_regulator, regulator.name), style = MaterialTheme.typography.bodySmall)
+                FamilyShieldMarks(vm, number, onDismiss)
             }
         },
         confirmButton = {

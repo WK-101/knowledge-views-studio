@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The family spam shield: spam warnings shared within a shared label (docs/SHARED_LABELS.md). -->
+<resources>
+    <string name="fsh_title">Family spam shield</string>
+    <string name="fsh_row_off">Off · warn each other about spam callers</string>
+    <string name="fsh_row_on">On · %1$s</string>
+    <string name="fsh_mode_warn">Warn only</string>
+    <string name="fsh_mode_silence">Silence</string>
+    <string name="fsh_mode_block">Block</string>
+    <string name="fsh_explain_title">Warn each other in %1$s?</string>
+    <string name="fsh_explain_body">When someone in %1$s blocks a number or calls it a scam, your phone can warn you when that number calls you.\n\nWhat\'s shared: the numbers you block one by one, and the ones you mark as a scam or spam, each with its date and the member it came from. Never names, notes or your calls.\n\nEach number travels as a code made with this label\'s key, so nobody outside the label can tell which number it is. People in the label can work it out, so share only what you\'d tell them.\n\nYour saved contacts and emergency numbers always ring.</string>
+    <string name="fsh_turn_on">Turn on</string>
+    <string name="fsh_page">Spam warnings and what you share</string>
+    <string name="fsh_switch">Share and use spam warnings</string>
+    <string name="fsh_switch_sub">Only this label\'s members see them. Off until you turn it on.</string>
+    <string name="fsh_mode_title">When someone here warned about a caller</string>
+    <string name="fsh_never">Saved contacts and emergency numbers always ring, whatever this says.</string>
+    <string name="fsh_by_file">Send an update so the others get your changes.</string>
+    <string name="fsh_from_others">From others</string>
+    <plurals name="fsh_from_member">
+        <item quantity="one">%1$s · %2$d number</item>
+        <item quantity="other">%1$s · %2$d numbers</item>
+    </plurals>
+    <string name="fsh_from_none">Nobody here has shared a warning yet.</string>
+    <string name="fsh_yours">What you share</string>
+    <string name="fsh_yours_none">Nothing yet. Numbers you block one by one, and numbers you mark as a scam, are shared here.</string>
+    <string name="fsh_yours_off">Nothing while the shield is off.</string>
+    <string name="fsh_kind_blocked">Blocked</string>
+    <string name="fsh_kind_scam">Scam</string>
+    <string name="fsh_kind_spam">Likely spam</string>
+    <string name="fsh_own_line">%1$s · %2$s</string>
+    <string name="fsh_withdraw">Withdraw</string>
+    <string name="fsh_withdraw_cd">Stop sharing %1$s</string>
+    <string name="fsh_withdrawn">Withdrawn. The others stop seeing it after their next sync.</string>
+    <plurals name="fsh_more">
+        <item quantity="one">And %1$d more</item>
+        <item quantity="other">And %1$d more</item>
+    </plurals>
+    <string name="fsh_failed">That didn\'t work. Try again.</string>
+    <string name="fsh_limits">Only full numbers (with their country code) can be shared. Warnings travel when the label syncs, or when an update is opened.</string>
+    <string name="fsh_report_title">Warn people in your shared labels</string>
+    <string name="fsh_report_scam">It\'s a scam</string>
+    <string name="fsh_report_spam">Likely spam</string>
+    <string name="fsh_marked">Marked. People in your shared labels will be warned.</string>
+    <string name="fsh_mark_failed">This number can\'t be shared.</string>
+    <string name="fsh_verdict_blocked">Blocked by someone in %1$s</string>
+    <string name="fsh_verdict_scam">Called a scam by someone in %1$s</string>
+    <string name="fsh_verdict_spam">Called spam by someone in %1$s</string>
+    <string name="fsh_reason">someone in a shared label</string>
+    <string name="fsh_check">Family spam shield</string>
+</resources>

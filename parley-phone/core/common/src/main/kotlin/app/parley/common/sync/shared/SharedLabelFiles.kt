@@ -90,6 +90,11 @@ class Journal(
     internal val signature: ByteArray = ByteArray(0),
     /** When its member wrote it (0 in journals from before it was recorded): the newer of two copies wins. */
     val at: Long = 0,
+    /**
+     * The member's family spam shield verdicts ([FamilyShield]): keyed hashes of numbers, the kind and the time, no
+     * names. Null when they share none (older versions neither write nor read it).
+     */
+    val shield: List<ShieldVerdict>? = null,
 ) {
     val memberHex: String get() = SharedLabelFiles.keyHex(member)
 }
@@ -283,6 +288,16 @@ object SharedLabelFiles {
                         }
                     },
                 )
+                j.shield?.let { list ->
+                    put(
+                        "shield",
+                        buildJsonArray {
+                            list.take(FamilyShield.MAX_VERDICTS).forEach { v ->
+                                add(buildJsonObject { put("h", v.hash); put("k", v.kind.code); put("at", v.at) })
+                            }
+                        },
+                    )
+                }
             },
         )
         val sig = signer.sign(payload(JOURNAL_HEADER, labelId, journalName(j.member), body)) ?: return null
@@ -321,9 +336,17 @@ object SharedLabelFiles {
                     at = x.long("at") ?: return@mapNotNull null,
                 )
             }
+            val shield = (o["shield"] as? JsonArray)?.take(FamilyShield.MAX_VERDICTS)?.mapNotNull { e ->
+                val x = e as? JsonObject ?: return@mapNotNull null
+                ShieldVerdict(
+                    hash = x.str("h")?.takeIf(FamilyShield::isHash) ?: return@mapNotNull null,
+                    kind = ShieldKind.of(x.str("k")) ?: return@mapNotNull null,
+                    at = x.long("at") ?: return@mapNotNull null,
+                )
+            }
             val name = o.str("name").orEmpty().take(MAX_NAME)
             val at = o.long("at")?.coerceAtLeast(0) ?: 0
-            Journal(member, name, o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig, at)
+            Journal(member, name, o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig, at, shield)
         }.getOrNull() ?: return null
         if (journalName(j.member) != fileName) return null
         if (!Ed25519.verify(j.member, payload(JOURNAL_HEADER, labelId, fileName, body), sig)) return null

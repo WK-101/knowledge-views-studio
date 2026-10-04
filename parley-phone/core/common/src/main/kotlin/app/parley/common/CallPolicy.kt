@@ -1,6 +1,9 @@
 package app.parley.common
 
 import app.parley.common.spam.Reputation
+import app.parley.common.sync.shared.FamilyHit
+import app.parley.common.sync.shared.FamilyShield
+import app.parley.common.sync.shared.ShieldKind
 import app.parley.common.calls.ExpectedCalls
 import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.ExpectedWindow
@@ -242,6 +245,8 @@ data class IncomingCallFacts(
     val inEmergencyWindow: Boolean = false,
     /** I2: what your own calls say about this number or its range (looked up, never worked out on the call path). */
     val reputation: Reputation? = null,
+    /** Someone in a shared label with the family spam shield on blocked this number or called it a scam (memory lookup). */
+    val family: FamilyHit? = null,
 )
 
 enum class BlockReason {
@@ -251,6 +256,9 @@ enum class BlockReason {
     /** I2: looks like a sales line from your own calls, with "Silence numbers that look like sales lines" on. */
     PERSONAL_REPUTATION,
 
+    /** Someone in a shared label blocked the number or called it a scam, and the label's shield silences or blocks. */
+    FAMILY_SHIELD,
+
     /**
      * A private contact's "Send to voicemail": declined by Parley's screening (Android can't do it, it never sees
      * private contacts). Not a block: never logged or notified as one.
@@ -259,7 +267,9 @@ enum class BlockReason {
     ;
 
     /** Soft reasons can be overridden by a repeat caller; explicit choices (rules, lists you block) never. */
-    val soft: Boolean get() = this in setOf(NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED, LIST, INVALID_NUMBER, OFF_HOURS, PERSONAL_REPUTATION)
+    val soft: Boolean get() = this in setOf(
+        NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED, LIST, INVALID_NUMBER, OFF_HOURS, PERSONAL_REPUTATION, FAMILY_SHIELD,
+    )
 
     /**
      * What a window Parley opened by itself (a note, the To call list, a delivery QR code) may override: only "who may
@@ -461,6 +471,7 @@ object CallPolicy {
                 )
                 rule != null -> Verdict(VerdictKind.BLOCKED, "Blocked by rule '${rule.title}'" + if (rule.hitCount > 0) " · ${rule.hitCount + 1} calls" else "")
                 reason == BlockReason.PERSONAL_REPUTATION -> Verdict(VerdictKind.BLOCKED, SALES_LINE_SILENCED)
+                reason == BlockReason.FAMILY_SHIELD && f.family != null -> Verdict(VerdictKind.BLOCKED, familyVerdict(f.family))
                 else -> Verdict(VerdictKind.BLOCKED, "Blocked: ${reasonLabel(reason)}")
             }
             step("Decision", (if (action == BlockAction.REJECT) "Reject" else "Silence"), TraceMark.MATCH)
@@ -598,6 +609,26 @@ object CallPolicy {
                 step("Spam lists", "not listed")
             }
 
+            // 5a. The family spam shield: what someone in a shared label said about this number. A soft reason like a
+            // list's, so a repeat caller still rings; contacts and emergency calls never get here.
+            f.family?.let { hit ->
+                when (FamilyShield.outcome(hit, f.isEmergency || f.inEmergencyWindow, f.isContact)) {
+                    FamilyShield.Outcome.NONE -> Unit
+                    FamilyShield.Outcome.WARN -> {
+                        step("Family shield", hit.label, TraceMark.MATCH)
+                        warn = Verdict(VerdictKind.LIKELY_SPAM, familyVerdict(hit))
+                    }
+                    FamilyShield.Outcome.SILENCE -> {
+                        step("Family shield", hit.label, TraceMark.MATCH)
+                        return softBlock(BlockAction.SILENCE, BlockReason.FAMILY_SHIELD, warn = warn)
+                    }
+                    FamilyShield.Outcome.BLOCK -> {
+                        step("Family shield", hit.label, TraceMark.MATCH)
+                        return softBlock(BlockAction.REJECT, BlockReason.FAMILY_SHIELD, warn = warn)
+                    }
+                }
+            }
+
             // 5b. I2 personal reputation, below lists (a soft reason: a repeat caller still rings).
             f.reputation?.takeIf { it.looksLikeSales && s.learnFromCalls }?.let { rep ->
                 if (s.silenceSalesLines) {
@@ -712,6 +743,13 @@ object CallPolicy {
     /** I2's verdict ("Why it rang, or not" and Recents show it in the app's language). */
     const val SALES_LINE_SILENCED = "Silenced: looks like a sales line (your calls)"
 
+    /** The family spam shield's verdict ("Blocked by someone in Family"); Recents and the call screen show it in the app's language. */
+    fun familyVerdict(hit: FamilyHit): String = when (hit.kind) {
+        ShieldKind.BLOCKED -> "Blocked by someone in ${hit.label}"
+        ShieldKind.SCAM -> "Called a scam by someone in ${hit.label}"
+        ShieldKind.SPAM_LIKELY -> "Called spam by someone in ${hit.label}"
+    }
+
     fun reasonLabel(r: BlockReason): String = when (r) {
         BlockReason.HIDDEN -> "hidden number"
         BlockReason.NOT_A_CONTACT -> "not a contact"
@@ -724,6 +762,7 @@ object CallPolicy {
         BlockReason.OFF_HOURS -> "off hours"
         BlockReason.SEND_TO_VOICEMAIL -> "sent to voicemail"
         BlockReason.PERSONAL_REPUTATION -> "looks like a sales line (your calls)"
+        BlockReason.FAMILY_SHIELD -> "someone in a shared label"
     }
 
     private fun offHoursWho(o: OffHours) = when (o.allow) {

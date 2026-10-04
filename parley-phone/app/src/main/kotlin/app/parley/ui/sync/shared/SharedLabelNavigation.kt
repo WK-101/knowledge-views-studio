@@ -24,6 +24,9 @@ object SharedLabelRoutes {
     /** Members, invitations, every change, leaving: one shared label by its id. */
     @Serializable data class Manage(val id: String) : Destination
 
+    /** The family spam shield of one shared label, by its id. */
+    @Serializable data class Shield(val id: String) : Destination
+
     /** Opening an invitation from [SharedLabelInbox]. */
     @Serializable data object Join : Destination
 
@@ -47,6 +50,7 @@ fun NavGraphBuilder.sharedLabelGraph(nav: NavController) {
     composable<SharedLabelRoutes.All> { SharedLabelsScreen(appVm(), back, open) }
     composable<SharedLabelRoutes.Share> { ShareLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Share>().title, back, open) }
     composable<SharedLabelRoutes.Manage> { ManageSharedLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Manage>().id, back, open) }
+    composable<SharedLabelRoutes.Shield> { FamilyShieldScreen(appVm(), it.toRoute<SharedLabelRoutes.Shield>().id, back) }
     composable<SharedLabelRoutes.Join> { JoinSharedLabelScreen(appVm(), back) }
     composable<SharedLabelRoutes.OpenFile> { OpenLabelFileScreen(appVm(), back, open) }
 }
