@@ -942,6 +942,10 @@
     <string name="ux_empty_no_match">No matches for “%1$s”</string>
     <!-- Menus kept to seven items: an entry that opens a sheet with the rarer actions. -->
     <string name="home_add_contact_menu">Add a contact</string>
+    <string name="home_add_menu_open">Menu open</string>
+    <string name="home_add_menu_closed">Menu closed</string>
+    <string name="home_add_menu_show">show the ways to add</string>
+    <string name="home_add_menu_hide">close the menu</string>
     <string name="menu_group_share">Share…</string>
     <string name="menu_group_privacy">Privacy…</string>
     <string name="menu_group_more">More…</string>

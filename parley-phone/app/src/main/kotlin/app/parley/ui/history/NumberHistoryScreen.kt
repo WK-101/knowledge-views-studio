@@ -67,6 +67,7 @@ import app.parley.ui.blocking.ScreeningHistorySection
 import app.parley.ui.blocking.askToBlock
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.rememberEmergency
 import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.calls.CallFactsHistorySection
 import app.parley.ui.calls.RingFactsHistorySection
@@ -97,6 +98,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val contact = index[number]
     val history = calls.orEmpty().filter { PhoneIdentity.same(it.number, number, vm.countryIso) }
     val blocked = rememberBlocked(vm, listOf(number))
+    val emergency = rememberEmergency(vm, listOf(number))
     var messageOn by remember { mutableStateOf(false) }
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
@@ -205,7 +207,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                                 open(Routes.contact(contact.id))
                             }
                         }
-                        ActionTile(
+                        // An emergency number is never blocked: no Block (or Unblock) for it.
+                        if (!emergency) ActionTile(
                             if (blocked) Icons.Rounded.RemoveModerator else Icons.Rounded.Block,
                             stringResource(if (blocked) R.string.hist_action_unblock else R.string.hist_action_block), true, lines = 2, fillHeight = true,
                         ) { if (blocked) unblockWithUndo(vm, listOf(number), contact?.displayName) else askToBlock(listOf(number), contact?.displayName) }

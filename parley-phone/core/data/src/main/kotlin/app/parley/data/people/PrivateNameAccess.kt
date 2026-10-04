@@ -4,6 +4,8 @@ import java.util.Locale
 import android.content.Context
 import android.content.pm.PackageManager
 import java.security.MessageDigest
+import androidx.core.app.NotificationManagerCompat
+import app.parley.common.NotificationIds
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
@@ -42,6 +44,7 @@ data class PrivateNameState(
 class PrivateNameAccess(context: Context) {
     private val pm = context.applicationContext.packageManager
     private val prefs = context.applicationContext.getSharedPreferences("private_names", Context.MODE_PRIVATE)
+    private val notifications = NotificationManagerCompat.from(context.applicationContext)
     private val recent = HashMap<String, ArrayDeque<Long>>()
     private val _stored = MutableStateFlow(run { forgetLookupProvider(); read() })
 
@@ -209,7 +212,8 @@ class PrivateNameAccess(context: Context) {
 
     /**
      * Removes what the lookup provider kept: its switch, its approvals and their certificates, its prompt times and its
-     * log lines. Idempotent, and a no-op once done.
+     * log lines, and takes down a request notification it may have left (its "Allow…" would otherwise answer for the
+     * Directory, which that app never asked for). Idempotent, and a no-op once done.
      */
     private fun forgetLookupProvider() {
         val asked = runCatching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
@@ -220,6 +224,12 @@ class PrivateNameAccess(context: Context) {
         val keptLog = JSONArray()
         for (i in 0 until log.length()) log.getJSONObject(i).takeIf { it.optBoolean("d") }?.let { keptLog.put(it) }
         lookupAsked.forEach { asked.remove(it) }
+        // Every app the lookup provider knew of: approved or refused, prompted, or in its log.
+        val approved = runCatching { JSONObject(prefs.getString("approvals", "{}")!!).keys().asSequence().toList() }.getOrDefault(emptyList())
+        val logged = (0 until log.length()).mapNotNull { i -> log.getJSONObject(i).takeIf { !it.optBoolean("d") }?.optString("p")?.takeIf { it.isNotEmpty() } }
+        (approved + lookupAsked.map { it.removePrefix(LEGACY_ASKED_PREFIX) } + logged).distinct().forEach { pkg ->
+            runCatching { notifications.cancel(NotificationIds.TAG_PRIVATE_NAME, pkg.hashCode()) }
+        }
         prefs.edit().apply {
             LEGACY_KEYS.forEach { remove(it) }
             putString(K_ASKED, asked.toString())

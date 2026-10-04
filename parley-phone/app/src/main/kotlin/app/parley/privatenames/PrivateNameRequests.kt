@@ -82,6 +82,8 @@ object PrivateNameRequests {
      */
     internal fun decide(context: Context, intent: Intent) {
         val pkg = intent.getStringExtra(EXTRA_PACKAGE) ?: return
+        // The removed lookup provider's request answers nothing (that app never asked for the Directory): it only goes.
+        if (IntentRoutes.isLegacyLookupRequest(intent)) return NotificationManagerCompat.from(context).cancel(NOTIFICATION_TAG, pkg.hashCode())
         // An "Allow" from a notification posted by an earlier version answers nothing; the app is asked again.
         if (intent.getBooleanExtra(LEGACY_EXTRA_ALLOW, false)) return cancel(context, pkg)
         (context.applicationContext as? ParleyApp)?.containerOrNull?.people?.privateNames?.setApproval(pkg, LookupApproval.DENIED)

@@ -57,12 +57,14 @@ object ContactMenu {
         val inCircle: Boolean = false,
         /** One of the numbers is blocked now: Unblock takes Block's place. */
         val blocked: Boolean = false,
+        /** Every number is an emergency number (a saved "Police"): never blocked, so neither Block nor Unblock. */
+        val onlyEmergency: Boolean = false,
     )
 
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.REMIND_TO_CALL, f.hasNumbers)
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
-        add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers)
+        add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
         group(MenuGroup.PRIVACY, listOf(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY))?.let(::add)
         group(
             MenuGroup.MORE,
@@ -131,6 +133,8 @@ object RecentMenu {
         val salesLine: Boolean = false,
         /** The number is blocked now: Unblock takes Block's place. */
         val blocked: Boolean = false,
+        /** An emergency number (112, 911, a local service): never blocked or reported, so neither is offered. */
+        val emergency: Boolean = false,
     )
 
     /** The buttons at the top of the sheet: one row, so not counted with the rows. */
@@ -140,13 +144,13 @@ object RecentMenu {
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.CREATE_CONTACT, f.hasNumber && !f.saved)
         add(Action.ADD_TO_CONTACT, f.hasNumber && !f.saved)
-        add(if (f.blocked) Action.UNBLOCK else Action.BLOCK, f.hasNumber)
+        add(if (f.blocked) Action.UNBLOCK else Action.BLOCK, f.hasNumber && !f.emergency)
         if (f.hasNumber) {
             group(
                 MenuGroup.WHY_IT_RANG,
                 listOfNotNull(
                     Action.WHY_IT_RANG, Action.TEST_A_CALL, Action.SALES_LINE.takeIf { f.salesLine },
-                    Action.ALWAYS_ALLOW.takeIf { !f.saved }, Action.ALLOW_24H.takeIf { !f.saved }, Action.REPORT.takeIf { !f.saved },
+                    Action.ALWAYS_ALLOW.takeIf { !f.saved }, Action.ALLOW_24H.takeIf { !f.saved }, Action.REPORT.takeIf { !f.saved && !f.emergency },
                     Action.SEARCH_WEB,
                 ),
             )?.let(::add)

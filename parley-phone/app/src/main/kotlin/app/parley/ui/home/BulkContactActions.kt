@@ -5,6 +5,8 @@ import app.parley.common.people.BulkActions
 import app.parley.common.people.BulkEdit
 import app.parley.common.people.BulkEdits
 import app.parley.common.people.TemporaryChoice
+import app.parley.common.record.ContactRecord
+import app.parley.common.record.Messengers
 import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.DataContainer
@@ -112,64 +114,149 @@ class BulkContactActions(private val c: DataContainer) {
 
     suspend fun restoreSims(previous: Map<String, String?>) = previous.forEach { (n, sim) -> c.prefs.setSimFor(n, sim) }
 
-    /** What a move to another account did: moved, already there, who couldn't be moved (by name), private ones left out. */
-    data class MovedAccount(val moved: Int, val unchanged: Int, val failed: List<String>, val skippedPrivate: Int, val redirectedTo: AccountRef? = null)
+    /**
+     * What a move to another account did: how many moved, were there already, couldn't be moved (by name), had no copy
+     * Parley may move (only on the SIM or in a read-only account, by name), private ones left out, how many kept a SIM
+     * or read-only copy where it was, and what [undoMove] needs to put them back.
+     */
+    data class MovedAccount(
+        val moved: Int,
+        val unchanged: Int,
+        val failed: List<String>,
+        val skippedPrivate: Int,
+        val redirectedTo: AccountRef? = null,
+        val notMovable: List<String> = emptyList(),
+        val keptReadOnly: Int = 0,
+        val undo: List<MoveUndo> = emptyList(),
+    )
 
     /**
-     * Moves the device contacts among [ids] into [account]: each is copied there whole (every field, photo, labels by
-     * title, star and ringtone, as a restore does), then its old copies go. History & undo keeps the contact as it was
-     * ("Moved"), and Parley's own notes and reminders follow it to the new copy. A private contact stays in Parley.
+     * One moved contact, for Undo: the copies that moved as they were ([original]), the copies made in the target
+     * ([newRaws]), the copies that stayed ([staying]) and the contact's key after the move ([newKey]).
+     */
+    class MoveUndo internal constructor(
+        internal val original: ContactRecord,
+        internal val newRaws: List<Long>,
+        internal val staying: List<Long>,
+        internal val newKey: String?,
+    )
+
+    /**
+     * Moves the device contacts among [ids] into [account]. Only copies Parley may write and that aren't there already
+     * move: each is copied there (every field, photo, labels by title, star and ringtone, as a restore does), kept
+     * linked with the copies that stay (SIM, read-only, messenger copies, or one in [account] already), and only then
+     * removed where it was. Nothing is removed unless History & undo kept the contact as it was ("Moved"). Parley's own
+     * notes, reminders and a temporary date follow it to the new copy. A private contact stays in Parley.
      */
     suspend fun moveToAccount(ids: Collection<Long>, account: AccountRef, names: Map<Long, String>): MovedAccount = withContext(Dispatchers.IO) {
         val plan = BulkEdits.plan(BulkEdit.MOVE_ACCOUNT, ids)
         var moved = 0
         var unchanged = 0
+        var kept = 0
         val failed = ArrayList<String>()
+        val notMovable = ArrayList<String>()
+        val undo = ArrayList<MoveUndo>()
         var redirected: AccountRef? = null
         for (id in plan.ids) {
             when (val r = moveOne(id, account)) {
                 MoveOutcome.AlreadyThere -> unchanged++
                 is MoveOutcome.Failed -> failed += names[id] ?: r.name
+                is MoveOutcome.NotMovable -> notMovable += names[id] ?: r.name
                 is MoveOutcome.Moved -> {
                     moved++
+                    if (r.keptReadOnly) kept++
+                    undo += r.undo
                     redirected = redirected ?: r.redirectedTo
                 }
             }
         }
         c.contacts.refresh()
-        MovedAccount(moved, unchanged, failed, plan.skippedPrivate, redirected)
+        MovedAccount(moved, unchanged, failed, plan.skippedPrivate, redirected, notMovable, kept, undo)
     }
 
     private sealed interface MoveOutcome {
         data object AlreadyThere : MoveOutcome
         data class Failed(val name: String) : MoveOutcome
-        data class Moved(val redirectedTo: AccountRef?) : MoveOutcome
+        data class NotMovable(val name: String) : MoveOutcome
+        data class Moved(val redirectedTo: AccountRef?, val keptReadOnly: Boolean, val undo: MoveUndo) : MoveOutcome
     }
 
-    /** One contact of [moveToAccount]: journaled as "Moved", copied whole into [account], then its old copies go. */
+    private fun inTarget(a: AccountRef, target: AccountRef) = a == target || (a.isLocal && target.isLocal)
+
+    /** One contact of [moveToAccount]: journaled as "Moved", its movable copies copied into [account], then removed. */
     private suspend fun moveOne(id: Long, account: AccountRef): MoveOutcome {
         val record = suspendRunCatching { c.records.read(id, fullPhoto = true) }.getOrNull()
         if (record == null || record.raws.isEmpty()) return MoveOutcome.Failed("")
-        if (record.raws.all { it.accountType == account.type && it.accountName == account.name }) return MoveOutcome.AlreadyThere
-        // Only copies in accounts Parley may write go: a messenger's own copy (WhatsApp…) stays with that app.
-        val old = record.raws.filter { r -> r.rawId != null && c.contacts.isWritableAccount(AccountRef(r.accountType, r.accountName)) }
-            .mapNotNull { it.rawId }
-        val oldKey = c.contacts.lookupKeyOf(id)
-        return try {
-            c.contacts.recordChange(listOf(id), "MOVE")
-            val r = c.records.insertAll(listOf(record), account, announceRedirect = false).single()
-            val newId = r.contactId ?: return MoveOutcome.Failed(record.displayName)
-            c.contacts.deleteRawsUnjournaled(old)
-            // Android may join the new copy with someone's other copies: follow it to where it is now.
-            val now = c.contacts.contactsOfRaws(r.rawIds).values.firstOrNull() ?: newId
-            val newKey = c.contacts.lookupKeyOf(now)
-            if (oldKey != null && newKey != null && oldKey != newKey) suspendRunCatching { c.contactKeys.rekey(oldKey, newKey, now) }
-            MoveOutcome.Moved(r.redirectedTo)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            MoveOutcome.Failed(record.displayName)
+        val copies = record.raws.mapNotNull { r ->
+            val a = AccountRef(r.accountType, r.accountName)
+            r.rawId?.let { BulkEdits.MoveCopy(it, c.contacts.isWritableAccount(a), inTarget(a, account), Messengers.isMessengerAccount(r.accountType)) }
         }
+        return when (val split = BulkEdits.moveSplit(copies)) {
+            BulkEdits.MoveSplit.NoWritableCopy -> MoveOutcome.NotMovable(record.displayName)
+            BulkEdits.MoveSplit.AlreadyThere -> MoveOutcome.AlreadyThere
+            is BulkEdits.MoveSplit.Move -> try {
+                moveCopies(id, record, split, account) ?: MoveOutcome.Failed(record.displayName)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                MoveOutcome.Failed(record.displayName)
+            }
+        }
+    }
+
+    /**
+     * The copies [split] moves, copied into [account] and only then removed (once History & undo holds the contact as
+     * it was); null when nothing was removed because that couldn't be done safely.
+     */
+    private suspend fun moveCopies(id: Long, record: ContactRecord, split: BulkEdits.MoveSplit.Move, account: AccountRef): MoveOutcome.Moved? {
+        val moving = record.copy(raws = record.raws.filter { it.rawId in split.moving })
+        val oldKey = c.contacts.lookupKeyOf(id)
+        if (c.contacts.recordChange(listOf(id), "MOVE").isEmpty()) return null
+        val r = c.records.insertAll(listOf(moving), account, announceRedirect = false).single()
+        val newId = r.contactId
+        if (newId == null || r.rawIds.isEmpty()) return null
+        val placed = suspendRunCatching {
+            if (split.staying.isNotEmpty()) c.contacts.keepTogether(r.rawIds + split.staying)
+            c.contacts.deleteRawsUnjournaled(split.moving)
+        }
+        if (placed.isFailure) {
+            // The new copy is taken back: the originals are all still there.
+            suspendRunCatching { c.contacts.discardInserted(r.rawIds) }
+            return null
+        }
+        // Android may join the new copy with someone's other copies: follow it to where it is now.
+        val now = c.contacts.contactsOfRaws(r.rawIds).values.firstOrNull() ?: newId
+        val newKey = c.contacts.lookupKeyOf(now)
+        if (oldKey != null && newKey != null && oldKey != newKey) suspendRunCatching { c.contactKeys.rekey(oldKey, newKey, now) }
+        // A temporary contact stays temporary: its entry now names the new copies, which are what expire.
+        (newKey ?: oldKey)?.let { k -> suspendRunCatching { c.temporaries.replaceRaws(k, split.moving, r.rawIds, now) } }
+        return MoveOutcome.Moved(r.redirectedTo, split.keptReadOnly > 0, MoveUndo(moving, r.rawIds, split.staying, newKey))
+    }
+
+    /**
+     * Undo of [moveToAccount]: each contact's moved copies come back into the accounts they were in, linked with the
+     * copies that stayed, and the copies the move made go. Parley's own data and a temporary date follow back.
+     */
+    suspend fun undoMove(moves: List<MoveUndo>) = withContext(Dispatchers.IO) {
+        for (m in moves) {
+            try {
+                val back = c.records.insertAll(listOf(m.original), target = null, announceRedirect = false).single()
+                val backId = back.contactId
+                if (backId == null || back.rawIds.isEmpty()) continue
+                val staying = c.contacts.contactsOfRaws(m.staying).keys
+                if (staying.isNotEmpty()) c.contacts.keepTogether(back.rawIds + staying)
+                c.contacts.deleteRawsUnjournaled(m.newRaws)
+                val now = c.contacts.contactsOfRaws(back.rawIds).values.firstOrNull() ?: backId
+                val key = c.contacts.lookupKeyOf(now)
+                if (m.newKey != null && key != null && m.newKey != key) suspendRunCatching { c.contactKeys.rekey(m.newKey, key, now) }
+                (key ?: m.newKey)?.let { k -> suspendRunCatching { c.temporaries.replaceRaws(k, m.newRaws, back.rawIds, now) } }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // That one stays moved; History & undo still has it as it was.
+            }
+        }
+        c.contacts.refresh()
     }
 
     /**

@@ -118,6 +118,40 @@ class TemplateGallery private constructor(context: Context) {
         write { s -> s.copy(installed = s.installed.filter { it.id != id }) }
     }
 
+    /**
+     * [uninstall], returning the way back: the template's rules as they were (same ids, switched on or off, with their
+     * hits), its warn list with the user's own choices for it (mode, threshold, numbers marked "Not spam"), the
+     * settings it had set, and its record as an installed group. A rule the user saved again meanwhile isn't touched.
+     */
+    suspend fun uninstallWithUndo(c: DataContainer, id: String): suspend () -> Unit = lock.withLock {
+        val inst = installed(id) ?: return@withLock {}
+        val template = entries().firstOrNull { it.template.id == id }?.template
+        val rules = c.blocks.allRules().filter { it.id in inst.ruleIds }
+        val pack = inst.packId?.let { pid -> c.lists.state.value.packs.firstOrNull { it.id == pid } }
+        // The values the template's settings have now (its own, or as the user changed them since).
+        val settingsNow = inst.settingsBefore?.snapshot(c.settings.current().screening)
+        uninstallLocked(c, id)
+        return@withLock {
+            lock.withLock {
+                val have = c.blocks.allRules().map { it.id }.toSet()
+                rules.filter { it.id !in have }.forEach { c.blocks.saveRule(it) }
+                val bytes = template?.let { RuleTemplates.toPack(it) }
+                if (pack != null && bytes != null) {
+                    val parsed = withContext(Dispatchers.Default) { ListPack.parse(bytes) }
+                    c.lists.install(parsed, PackOrigin.BUILTIN, force = true)
+                    c.lists.setPack(pack.id) {
+                        it.copy(
+                            enabled = pack.enabled, mode = pack.mode, threshold = pack.threshold, action = pack.action,
+                            useRanges = pack.useRanges, notify = pack.notify, suppressed = pack.suppressed,
+                        )
+                    }
+                }
+                settingsNow?.let { now -> c.settings.update { a -> a.copy(screening = now.apply(a.screening)) } }
+                write { s -> s.copy(installed = s.installed.filter { it.id != id } + inst) }
+            }
+        }
+    }
+
     /** Keeps a template received from someone else. Returns a message for the user. */
     suspend fun import(opened: OpenedTemplate): String {
         val t = opened.template
@@ -137,15 +171,14 @@ class TemplateGallery private constructor(context: Context) {
         write { s -> s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
     }
 
-    /** [removeImported], returning the way back: the template kept again, and installed again when it was. */
+    /** [removeImported], returning the way back: the template kept again, and its group back as it was when installed. */
     suspend fun removeImportedWithUndo(c: DataContainer, id: String): suspend () -> Unit {
         val kept = _state.value.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() == id }
-        val template = entries().firstOrNull { it.template.id == id }?.template
-        val wasInstalled = installed(id) != null
-        removeImported(c, id)
+        val reinstall = uninstallWithUndo(c, id)
+        write { s -> s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
         return {
             write { s -> s.copy(imported = s.imported + kept.filter { k -> s.imported.none { it.json == k.json } }) }
-            if (wasInstalled && template != null) install(c, template)
+            reinstall()
         }
     }
 

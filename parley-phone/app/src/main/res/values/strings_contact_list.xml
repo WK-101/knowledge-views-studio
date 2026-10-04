@@ -46,8 +46,26 @@
         <item quantity="other">%1$d numbers now call with: %2$s</item>
     </plurals>
     <plurals name="be_moved">
-        <item quantity="one">Moved %1$d contact to %2$s. History &amp; undo keeps the old copy</item>
-        <item quantity="other">Moved %1$d contacts to %2$s. History &amp; undo keeps the old copies</item>
+        <item quantity="one">Moved %1$d contact to %2$s</item>
+        <item quantity="other">Moved %1$d contacts to %2$s</item>
+    </plurals>
+    <plurals name="be_move_confirm_title">
+        <item quantity="one">Move %1$d contact to %2$s?</item>
+        <item quantity="other">Move %1$d contacts to %2$s?</item>
+    </plurals>
+    <string name="be_move_confirm_body">Each one is copied into %1$s, then removed from the account it was in. A sync account removes it from its server too.\n\nCopies on the SIM or in accounts Parley can\'t change stay where they are. Contacts already in %1$s stay as they are. History &amp; undo keeps each one as it was.</string>
+    <string name="be_move_confirm">Move</string>
+    <plurals name="be_move_already">
+        <item quantity="one">%1$d was in %2$s already</item>
+        <item quantity="other">%1$d were in %2$s already</item>
+    </plurals>
+    <plurals name="be_move_kept_copies">
+        <item quantity="one">%1$d kept a SIM or read-only copy where it was</item>
+        <item quantity="other">%1$d kept SIM or read-only copies where they were</item>
+    </plurals>
+    <plurals name="be_move_not_movable">
+        <item quantity="one">%1$d stayed as it was (%2$s): it\'s only on the SIM or in an account Parley can\'t change</item>
+        <item quantity="other">%1$d stayed as they were, starting with %2$s: they\'re only on the SIM or in accounts Parley can\'t change</item>
     </plurals>
     <plurals name="be_move_failed">
         <item quantity="one">%1$d couldn\'t be moved (%2$s)</item>

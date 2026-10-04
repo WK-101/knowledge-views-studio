@@ -70,4 +70,10 @@ class BlockPlanTest {
     @Test fun blank_number_is_never_blocked() {
         assertNull(BlockPlan.block(BlockPlan.now("", emptyList(), emptyList(), "GB"), systemListUsable = true))
     }
+
+    @Test fun an_emergency_number_is_never_blocked() {
+        val now = BlockPlan.now("112", emptyList(), emptyList(), "GB", emergency = true)
+        assertNull(BlockPlan.block(now, systemListUsable = true))
+        assertNull(BlockPlan.block(now, systemListUsable = false))
+    }
 }

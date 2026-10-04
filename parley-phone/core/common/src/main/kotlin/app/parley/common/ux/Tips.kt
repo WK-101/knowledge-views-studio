@@ -12,8 +12,11 @@ object Tips {
     /** "Leave" on the simple home needs a press and hold. */
     const val SIMPLE_LEAVE = "simple_leave"
 
-    /** Contacts' add button and its menu (New contact, Scan QR code, Add several numbers). */
-    const val CONTACTS_SCAN_QR = "contacts_scan_qr"
+    /**
+     * Contacts' add button and its menu (New contact, Scan QR code, Add several numbers). Its own id, not the old "Scan
+     * QR" tip's: whoever dismissed that one still learns the button is a menu now.
+     */
+    const val CONTACTS_ADD_MENU = "contacts_add_menu"
 
     /** The keypad docked in Recents folds away with a swipe down or a scroll, and comes back with its button. */
     const val DOCKED_KEYPAD = "docked_keypad"

@@ -14,6 +14,9 @@ import app.parley.common.RuleType
  * which works while Parley screens calls. An "Always allow" rule for the same number would contradict the block, so
  * it is lifted (and comes back with Undo). Unblocking takes away exactly what makes the number blocked here: the
  * system entry and the exact rules. Wider rules (a prefix, a pattern, a list) are not this number's own and stay.
+ *
+ * An emergency number is never blocked: Parley and Android let emergency calls through whatever the rules say, so a
+ * block would only be a false promise, and Android's list is honoured by other apps (messages) too.
  */
 object BlockPlan {
     /** What is in place for one number now. */
@@ -24,6 +27,8 @@ object BlockPlan {
         val blockRules: List<BlockRule>,
         /** Enabled exact allow rules for this number. */
         val allowRules: List<BlockRule>,
+        /** An emergency number here (112, 911, a local service): never blocked. */
+        val emergency: Boolean = false,
     ) {
         val blocked: Boolean get() = onSystemList || blockRules.isNotEmpty()
     }
@@ -40,16 +45,20 @@ object BlockPlan {
         rules.filter { it.enabled && it.kind == kind && it.type == RuleType.EXACT && PhoneIdentity.same(it.pattern, number, region) }
 
     /** What is in place for [number], from Android's list ([systemNumbers]) and Parley's [rules]. */
-    fun now(number: String, systemNumbers: List<String>, rules: List<BlockRule>, region: String?): Now = Now(
+    fun now(number: String, systemNumbers: List<String>, rules: List<BlockRule>, region: String?, emergency: Boolean = false): Now = Now(
         number = number,
         onSystemList = systemNumbers.any { PhoneIdentity.same(it, number, region) },
         blockRules = exactRules(rules, number, region, RuleKind.BLOCK),
         allowRules = exactRules(rules, number, region, RuleKind.ALLOW),
+        emergency = emergency,
     )
 
-    /** What blocking changes; null when the number is already blocked (the place shows Unblock instead). */
+    /**
+     * What blocking changes; null when the number is already blocked (the place shows Unblock instead) or is an
+     * emergency number (never blocked).
+     */
     fun block(now: Now, systemListUsable: Boolean): Block? {
-        if (now.blocked || now.number.isBlank()) return null
+        if (now.blocked || now.emergency || now.number.isBlank()) return null
         return Block(now.number, if (systemListUsable) Where.SYSTEM_LIST else Where.PARLEY_RULE, now.allowRules)
     }
 

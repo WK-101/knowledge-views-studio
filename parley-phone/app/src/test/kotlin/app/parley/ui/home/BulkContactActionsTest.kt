@@ -2,6 +2,8 @@ package app.parley.ui.home
 
 import android.Manifest
 import android.app.Application
+import android.content.SyncAdapterType
+import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.test.core.app.ApplicationProvider
@@ -30,6 +32,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowContentResolver
 
 /**
  * The Contacts tab's bulk actions on a selection of one device contact (Bob) and one private contact (Ada): what works
@@ -53,7 +56,31 @@ class BulkContactActionsTest {
         bulk = BulkContactActions(c)
     }
 
-    @After fun tearDown() = c.scope.cancel()
+    @After fun tearDown() {
+        ShadowContentResolver.setSyncAdapterTypes(emptyArray())
+        c.scope.cancel()
+    }
+
+    // A second writable account: Google's contacts sync adapter uploads.
+    private val google = AccountRef("com.google", "me@example.com")
+
+    private fun googleWritable() =
+        ShadowContentResolver.setSyncAdapterTypes(arrayOf(SyncAdapterType(ContactsContract.AUTHORITY, google.type, true, true)))
+
+    private fun raws(where: String = "deleted = 0") = provider.rows("raw_contacts", where)
+
+    private fun phonesOf(rawId: Any?) = provider.rows("data", "raw_contact_id = $rawId AND mimetype = '${Phone.CONTENT_ITEM_TYPE}'").map { it["data1"] }
+
+    /** A raw contact in [type]/[name] (SIM, read-only…) with a name and [number], joined to [contactId] or its own. */
+    private fun rawIn(type: String, name: String, number: String, given: String, contactId: Long? = null): Long {
+        provider.exec("INSERT INTO raw_contacts (account_type, account_name, contact_id) VALUES ('$type', '$name', ${contactId ?: "NULL"})")
+        val raw = raws().maxOf { (it["_id"] as String).toLong() }
+        if (contactId == null) provider.exec("UPDATE raw_contacts SET contact_id = $raw WHERE _id = $raw")
+        val nameMime = ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
+        provider.exec("INSERT INTO data (raw_contact_id, mimetype, data1) VALUES ($raw, '$nameMime', '$given')")
+        provider.exec("INSERT INTO data (raw_contact_id, mimetype, data1, data2) VALUES ($raw, '${Phone.CONTENT_ITEM_TYPE}', '$number', 2)")
+        return raw
+    }
 
     private suspend fun bob(): Long = c.contacts.save(
         null, ContactDetails(given = "Bob", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE))), null, null, false,
@@ -230,5 +257,78 @@ class BulkContactActionsTest {
         val r = bulk.moveToAccount(listOf(bob, ada), AccountRef(null, null), mapOf(bob to "Bob"))
         assertEquals(BulkContactActions.MovedAccount(moved = 0, unchanged = 1, failed = emptyList(), skippedPrivate = 1), r)
         assertTrue(c.contacts.snapshot().any { it.id == bob })
+    }
+
+    @Test fun a_move_copies_into_the_account_journals_first_and_undo_puts_it_back() = runBlocking {
+        googleWritable()
+        val bob = bob()
+        val r = bulk.moveToAccount(listOf(bob), google, mapOf(bob to "Bob"))
+        assertEquals(1, r.moved)
+        assertTrue(r.failed.isEmpty() && r.notMovable.isEmpty())
+        // History & undo kept Bob as he was before anything was removed.
+        assertTrue(c.journal.recent().first().any { it.action == "MOVE" && it.displayName == "Bob" })
+        val inGoogle = raws("deleted = 0 AND account_type = 'com.google'").single()
+        assertEquals(listOf("+1 202 555 0100"), phonesOf(inGoogle["_id"]))
+        assertTrue("the phone copy is gone", raws("account_type IS NULL").isEmpty())
+
+        bulk.undoMove(r.undo)
+        assertTrue("the moved copy goes", raws("deleted = 0 AND account_type = 'com.google'").isEmpty())
+        val back = raws("deleted = 0 AND account_type IS NULL").single()
+        assertEquals(listOf("+1 202 555 0100"), phonesOf(back["_id"]))
+        assertEquals(1, c.contacts.loadNow().count { it.displayName == "Bob" })
+    }
+
+    @Test fun nothing_is_removed_when_history_and_undo_kept_no_copy() = runBlocking {
+        googleWritable()
+        val bob = bob()
+        c.contacts.beforeChange = { _, _ -> emptyList() }
+        val r = bulk.moveToAccount(listOf(bob), google, mapOf(bob to "Bob"))
+        assertEquals(0, r.moved)
+        assertEquals(listOf("Bob"), r.failed)
+        assertEquals(1, raws("account_type IS NULL").size)
+        assertTrue("nothing was written either", raws("account_type = 'com.google'").isEmpty())
+    }
+
+    @Test fun sim_copies_stay_where_they_are_and_are_never_doubled() = runBlocking {
+        googleWritable()
+        val bob = bob()
+        val sim = rawIn("vnd.sec.contact.sim", "SIM1", "+1 202 555 0177", "Bob", contactId = bob)
+        // SIM only: nothing Parley may move, so nothing changes, and it is said as such.
+        val dee = rawIn("vnd.sec.contact.sim", "SIM1", "+1 202 555 0188", "Dee")
+        // Already in Google, with a SIM copy beside it: nothing to do.
+        val eve = rawIn("com.google", google.name!!, "+1 202 555 0166", "Eve")
+        rawIn("vnd.sec.contact.sim", "SIM1", "+1 202 555 0155", "Eve", contactId = eve)
+        val before = provider.writes.size
+
+        val r = bulk.moveToAccount(listOf(bob, dee, eve), google, mapOf(bob to "Bob", dee to "Dee", eve to "Eve"))
+        assertEquals(1, r.moved)
+        assertEquals(1, r.unchanged)
+        assertEquals(listOf("Dee"), r.notMovable)
+        assertEquals(1, r.keptReadOnly)
+        assertTrue(provider.writes.size > before)
+        // Bob's SIM copy is still there; his new Google copy holds only the phone copy's number.
+        assertEquals(listOf("+1 202 555 0177"), phonesOf(sim))
+        val bobsGoogle = raws("deleted = 0 AND account_type = 'com.google'").map { it["_id"] }.filter { phonesOf(it).contains("+1 202 555 0100") }.single()
+        assertEquals(listOf("+1 202 555 0100"), phonesOf(bobsGoogle))
+        assertEquals(1, provider.rows("data", "data1 = '+1 202 555 0177'").size)
+        // Dee and Eve weren't touched.
+        assertEquals(listOf("+1 202 555 0188"), phonesOf(dee))
+        assertEquals(listOf("+1 202 555 0166"), phonesOf(eve))
+    }
+
+    @Test fun a_temporary_contact_stays_temporary_after_a_move_and_still_expires() = runBlocking {
+        googleWritable()
+        val bob = bob()
+        c.temporaries.mark(bob, 7)
+        val r = bulk.moveToAccount(listOf(bob), google, mapOf(bob to "Bob"))
+        assertEquals(1, r.moved)
+        val moved = c.contacts.loadNow().single { it.displayName == "Bob" }
+        val entry = c.temporaries.forKey(moved.lookupKey)
+        assertNotNull("still temporary under its new key", entry)
+        val newRaw = raws("deleted = 0 AND account_type = 'com.google'").single()["_id"]
+        assertEquals(newRaw.toString(), entry!!.rawIds)
+
+        c.temporaries.expire(now = entry.expiresAt + 1)
+        assertTrue("it deleted itself on its date", c.contacts.loadNow().none { it.displayName == "Bob" })
     }
 }

@@ -45,7 +45,10 @@ import app.parley.common.SimAccount
 import app.parley.common.people.BulkEdit
 import app.parley.common.people.BulkEdits
 import app.parley.data.AccountRef
+import app.parley.common.ux.BackupNudge
+import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyDialog
+import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
@@ -61,13 +64,16 @@ private sealed interface EditStep {
     data class RemoveLabel(val labels: List<Pair<String, Int>>) : EditStep
     data class Sim(val sims: List<SimAccount>) : EditStep
     data class Account(val accounts: List<AccountRef>) : EditStep
+
+    /** "Move N contacts to X?", asked before anything moves. */
+    data class ConfirmMove(val account: AccountRef) : EditStep
 }
 
 /**
  * The selection bar's Edit…: add to or remove from a label, a ringtone, the SIM for calls, and (address-book contacts
  * only) another account, for every selected contact at once, private ones too. Each change says what it did with
- * Undo (a move points to History & undo instead, which keeps the old copies); device contacts get a copy in History &
- * undo before they change. [onAddToLabel] opens the bar's own label picker.
+ * Undo; device contacts get a copy in History & undo before they change. A move is confirmed first (and offers a
+ * backup when the last one is old), since it re-creates each contact. [onAddToLabel] opens the bar's own label picker.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,12 +125,36 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
             }
         }
     }
-    step?.let { s -> EditStepPicker(vm, s, edits, close = { step = null }, onDismiss = onDismiss) }
+    // Asked "Back up first?" before a move of many, like Merge and Delete.
+    val backupFirst = rememberBackupFirst(vm)
+    step?.let { s ->
+        EditStepPicker(
+            vm, s, edits, movePlan.ids.size, close = { step = null }, onDismiss = onDismiss,
+            onPickAccount = { step = EditStep.ConfirmMove(it) },
+            onConfirmMove = { a ->
+                step = null
+                backupFirst.ask(movePlan.ids.size, BackupNudge.LARGE_DELETE) {
+                    onDismiss()
+                    edits.move(a)
+                }
+            },
+        )
+    }
 }
 
 /** The short list a row of the sheet asks from: which label, which SIM, which account. */
 @Composable
-private fun EditStepPicker(vm: AppViewModel, s: EditStep, edits: BulkEditRunner, close: () -> Unit, onDismiss: () -> Unit) {
+@Suppress("LongParameterList") // The sheet's steps and what each one leads to.
+private fun EditStepPicker(
+    vm: AppViewModel,
+    s: EditStep,
+    edits: BulkEditRunner,
+    moving: Int,
+    close: () -> Unit,
+    onDismiss: () -> Unit,
+    onPickAccount: (AccountRef) -> Unit,
+    onConfirmMove: (AccountRef) -> Unit,
+) {
     fun picked(then: () -> Unit) {
         close()
         onDismiss()
@@ -140,7 +170,18 @@ private fun EditStepPicker(vm: AppViewModel, s: EditStep, edits: BulkEditRunner,
             Picker(stringResource(R.string.be_sim), choices, close) { i -> picked { edits.sim(s.sims.getOrNull(i - 1)) } }
         }
         is EditStep.Account -> Picker(stringResource(R.string.be_move), s.accounts.map { vm.accountLabel(it) to null }, close) { i ->
-            picked { edits.move(s.accounts[i]) }
+            onPickAccount(s.accounts[i])
+        }
+        is EditStep.ConfirmMove -> {
+            val into = vm.accountLabel(s.account)
+            ConfirmDialog(
+                title = pluralStringResource(R.plurals.be_move_confirm_title, moving, moving, into),
+                text = stringResource(R.string.be_move_confirm_body, into),
+                confirmLabel = stringResource(R.string.be_move_confirm),
+                onConfirm = { onConfirmMove(s.account) },
+                onDismiss = close,
+                dismissLabel = stringResource(R.string.main_cancel),
+            )
         }
     }
 }
@@ -182,21 +223,29 @@ private class BulkEditRunner(private val vm: AppViewModel, private val res: Reso
         said(before.size, { res.getQuantityString(R.plurals.be_sim_set, before.size, before.size, name) }) { bulk.restoreSims(before) }
     }
 
-    /** A move has no Undo here: History & undo keeps each old copy, and the message says so. */
+    /**
+     * Says what the move did, contact by contact kind, with Undo when something moved (each moved contact goes back
+     * into the accounts it was in; History & undo keeps them too).
+     */
     fun move(target: AccountRef) {
         vm.toast(res.getString(R.string.be_moving))
         run {
             val r = bulk.moveToAccount(ids, target, chosen.associate { it.id to it.displayName })
             vm.selection.value = emptySet()
             val into = vm.accountLabel(r.redirectedTo ?: target)
-            vm.toast(
-                listOfNotNull(
-                    if (r.moved > 0) res.getQuantityString(R.plurals.be_moved, r.moved, r.moved, into) else null,
-                    if (r.moved == 0 && r.failed.isEmpty()) res.getString(R.string.be_nothing_changed) else null,
-                    if (r.failed.isNotEmpty()) res.getQuantityString(R.plurals.be_move_failed, r.failed.size, r.failed.size, r.failed.first()) else null,
-                    if (r.skippedPrivate > 0) res.getQuantityString(R.plurals.sel_private_skipped, r.skippedPrivate, r.skippedPrivate) else null,
-                ).joinToString(". "),
-            )
+            val text = listOfNotNull(
+                if (r.moved > 0) res.getQuantityString(R.plurals.be_moved, r.moved, r.moved, into) else null,
+                if (r.unchanged > 0) res.getQuantityString(R.plurals.be_move_already, r.unchanged, r.unchanged, vm.accountLabel(target)) else null,
+                if (r.keptReadOnly > 0) res.getQuantityString(R.plurals.be_move_kept_copies, r.keptReadOnly, r.keptReadOnly) else null,
+                if (r.notMovable.isNotEmpty()) {
+                    res.getQuantityString(R.plurals.be_move_not_movable, r.notMovable.size, r.notMovable.size, r.notMovable.first())
+                } else {
+                    null
+                },
+                if (r.failed.isNotEmpty()) res.getQuantityString(R.plurals.be_move_failed, r.failed.size, r.failed.size, r.failed.first()) else null,
+                if (r.skippedPrivate > 0) res.getQuantityString(R.plurals.sel_private_skipped, r.skippedPrivate, r.skippedPrivate) else null,
+            ).joinToString(". ").ifEmpty { res.getString(R.string.be_nothing_changed) }
+            if (r.undo.isNotEmpty()) CircleSnacks.show(CircleSnack(text) { bulk.undoMove(r.undo) }) else vm.toast(text)
         }
     }
 }

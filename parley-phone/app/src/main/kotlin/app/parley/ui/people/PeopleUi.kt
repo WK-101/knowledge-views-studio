@@ -185,12 +185,11 @@ class PeopleUi(
                 vault.forEach { v -> added[ContactRef.Private(v.id).navId] = v.createdAt }
                 SortFacts(addedAt = added)
             }
-            ContactSort.MOST_CALLED -> combine(contacts, c.history.calls) { list, calls ->
-                val byLine = PhoneIdentity.LineMap<Long>(countryIso)
-                list.orEmpty().forEach { ct -> ct.phones.forEach { p -> byLine.putIfAbsent(p.number, ct.id) } }
-                val counts = HashMap<Long, Int>()
-                calls.orEmpty().forEach { e -> byLine[e.number]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
-                SortFacts(calls = counts)
+            // Calls with private contacts are kept apart from the call history (in the vault): counted too while
+            // private contacts are listed.
+            ContactSort.MOST_CALLED -> combine(contacts, c.history.calls, c.vault.privateCalls, includePrivate) { list, calls, private, include ->
+                val privateCalls = if (include) private.map { it.vaultId } else emptyList()
+                SortFacts(calls = ContactSorting.callCounts(list.orEmpty(), calls.orEmpty().map { it.number }, privateCalls, countryIso))
             }
             ContactSort.COMPANY -> combine(c.people.index.data, c.vault.contacts, includePrivate) { idx, vault, include ->
                 val company = HashMap<Long, String>()

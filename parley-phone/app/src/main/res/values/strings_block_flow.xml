@@ -22,6 +22,13 @@
         <item quantity="one">Unblocked %1$d number</item>
         <item quantity="other">Unblocked %1$d numbers</item>
     </plurals>
+    <string name="blockflow_emergency_title">Emergency numbers stay open</string>
+    <string name="blockflow_emergency_text">Calls with emergency services always get through, so Parley doesn\'t block them.</string>
+    <plurals name="blockflow_emergency_left">
+        <item quantity="one">%1$d emergency number was left open</item>
+        <item quantity="other">%1$d emergency numbers were left open</item>
+    </plurals>
+    <string name="blockflow_allow_removed">Its \"Always allow\" rule was removed</string>
     <string name="recents_unblock_number">Unblock number</string>
     <string name="detail_unblock_numbers">Unblock numbers</string>
 </resources>

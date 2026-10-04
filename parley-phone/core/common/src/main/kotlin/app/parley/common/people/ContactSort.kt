@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.ContactSummary
+import app.parley.common.PhoneIdentity
 import app.parley.common.ux.ListSections
 
 /** How the Contacts list is ordered: by name (Settings' "Sort by" says first or last name), or by one of the others. */
@@ -61,6 +62,23 @@ object ContactSorting {
         }
         while (j < private.size) out += private[j++]
         return out
+    }
+
+    /**
+     * Calls with each contact of [list], for "Most called": device calls ([numbers], the call history's numbers) by line
+     * to the device contacts, and calls with private contacts ([privateCalls]: each one's vault id, kept apart from the
+     * call history) straight to them, so a private contact called often isn't "Not called yet".
+     */
+    fun callCounts(list: List<ContactSummary>, numbers: List<String>, privateCalls: List<Long>, region: String?): Map<Long, Int> {
+        val byLine = PhoneIdentity.LineMap<Long>(region)
+        list.forEach { ct -> if (!PrivateListing.isPrivate(ct)) ct.phones.forEach { p -> byLine.putIfAbsent(p.number, ct.id) } }
+        val counts = HashMap<Long, Int>()
+        numbers.forEach { n -> byLine[n]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
+        if (privateCalls.isNotEmpty()) {
+            val listed = list.filter { PrivateListing.isPrivate(it) }.map { it.id }.toSet()
+            privateCalls.forEach { v -> ContactRef.Private(v).navId.takeIf { it in listed }?.let { counts[it] = (counts[it] ?: 0) + 1 } }
+        }
+        return counts
     }
 
     /** Most calls first; the contacts never called follow under their own header, in name order. */

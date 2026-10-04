@@ -79,6 +79,12 @@ sealed interface BlockingDialog {
 
     /** The one Block question ([askToBlock]); [name] names a single number, [note] goes on any rule written. */
     data class Block(val numbers: List<String>, val name: String? = null, val note: String? = null) : BlockingDialog
+
+    /**
+     * An Unblock from outside the app (the post-call card): no question, but done only once Parley shows unlocked, since
+     * this host is drawn behind Parley's own lock. It says what it did, with Undo.
+     */
+    data class Unblock(val numbers: List<String>, val name: String? = null) : BlockingDialog
 }
 
 object BlockingDialogs {
@@ -104,6 +110,10 @@ fun BlockingDialogHost(vm: AppViewModel) {
         BlockingDialog.Snooze -> SnoozeDialog(vm, dismiss)
         is BlockingDialog.Reputation -> ReputationDialog(vm, x.number, dismiss)
         is BlockingDialog.Block -> BlockConfirmDialog(vm, x, dismiss)
+        is BlockingDialog.Unblock -> LaunchedEffect(x) {
+            dismiss()
+            unblockWithUndo(vm, x.numbers, x.name)
+        }
     }
 }
 

@@ -47,6 +47,17 @@ class ContactSortTest {
         assertEquals(listOf("[Not called yet]", "Ada", "Bob", "Cy", "Dee", "Eve"), rows(ContactSort.MOST_CALLED))
     }
 
+    @Test fun most_called_counts_calls_with_private_contacts_too() {
+        val ana = ContactSummary(11, "k11", "Ana", null, false, listOf(app.parley.common.PhoneEntry("+1 202 555 0100", 2, null)))
+        val list = listOf(ana, bob, dee, eve)
+        // Two calls with Ana from the call history, three with Dee from the vault's own calls; Eve's vault id isn't 9.
+        val counts = ContactSorting.callCounts(list, listOf("+12025550100", "+1 202 555 0100", "+15550009999"), listOf(1L, 1L, 1L, 9L), "US")
+        assertEquals(mapOf(ana.id to 2, dee.id to 3), counts)
+        assertEquals(listOf("Dee", "Ana", "[Not called yet]", "Bob", "Eve"), names(ContactSorting.mostCalled(list, counts, "Not called yet")))
+        // Hidden private contacts: their calls aren't counted.
+        assertEquals(mapOf(ana.id to 2), ContactSorting.callCounts(list, listOf("+12025550100", "+12025550100"), emptyList(), "US"))
+    }
+
     @Test fun by_company_groups_however_it_is_written_and_puts_the_rest_last() {
         val facts = SortFacts(company = mapOf(bob.id to "Zeta Ltd", ada.id to "acme", dee.id to " Acme ", cy.id to "  "))
         assertEquals(listOf("[acme]", "Ada", "Dee", "[Zeta Ltd]", "Bob", "[No company]", "Cy", "Eve"), rows(ContactSort.COMPANY, facts))

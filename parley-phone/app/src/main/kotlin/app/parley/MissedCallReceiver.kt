@@ -46,8 +46,10 @@ class MissedCallActionReceiver : BroadcastReceiver() {
                     // Block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
                     ACTION_BLOCK -> {
                         intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
-                            // The same block as everywhere (Android's list, or a rule without the phone-app role).
-                            catching { BlockFlow.block(c, listOf(n)) }
+                            // The same block as everywhere (Android's list, or a rule without the phone-app role). No
+                            // question was asked here, so an "Always allow" rule stays (the notification asks in the
+                            // app instead for such a number); an emergency number is never blocked.
+                            catching { BlockFlow.block(c, listOf(n), keepAllows = true) }
                         }
                         nm.cancel(intent.getIntExtra(EXTRA_ID, MissedCallNotifier.ID))
                         if (!MissedCallNotifier.anyShowing(context, childrenOnly = true)) {

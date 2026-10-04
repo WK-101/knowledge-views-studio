@@ -148,9 +148,13 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     var lastJournalIds: List<Long> = emptyList()
         private set
 
-    /** A deletion never goes ahead without its undo copy; other changes do, with a log entry. */
-    private suspend fun journal(ids: List<Long>, action: String) {
-        lastJournalIds = try {
+    /**
+     * A deletion never goes ahead without its undo copy; other changes do, with a log entry. Returns this change's own
+     * journal ids (empty when none was kept), which a caller that deletes afterwards (a move) must check: unlike
+     * [lastJournalIds] it can't be overwritten by another change running at the same time.
+     */
+    private suspend fun journal(ids: List<Long>, action: String): List<Long> {
+        val kept = try {
             beforeChange?.invoke(ids, action).orEmpty()
         } catch (e: CancellationException) {
             throw e
@@ -159,6 +163,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             if (action == "DELETE") throw IllegalStateException("Couldn't keep an undo copy, so nothing was deleted", e)
             emptyList()
         }
+        lastJournalIds = kept
+        return kept
     }
 
     /** Bumped after permission changes so observers reload. */
@@ -1122,8 +1128,17 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         null
     }
 
-    /** Journals contacts before a change made outside this repository (folder sync, restore). */
-    suspend fun recordChange(ids: List<Long>, action: String) = journal(ids, action)
+    /**
+     * Journals contacts before a change made outside this repository (folder sync, restore, a move). Returns the journal
+     * ids kept for this change: empty means no undo copy exists, so nothing may be deleted on the strength of it.
+     */
+    suspend fun recordChange(ids: List<Long>, action: String): List<Long> = journal(ids, action)
+
+    /**
+     * Keeps raw contacts [rawIds] together as one contact (a moved copy with the copies that stayed where they were),
+     * as [join] does but without a journal entry: the caller journaled the contact already.
+     */
+    suspend fun keepTogether(rawIds: List<Long>) = withContext(Dispatchers.IO) { setAggregation(rawIds.distinct(), AggregationExceptions.TYPE_KEEP_TOGETHER) }
 
     /** The raw contact edits go to, and every writable raw contact of [contactId]. */
     suspend fun writableRaws(contactId: Long): Pair<Long?, List<Long>> =
