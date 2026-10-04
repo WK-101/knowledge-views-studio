@@ -251,8 +251,12 @@ class OriginalPhotos(context: Context) {
         Carried(bytes, JSONObject(meta.readText()))
     }.getOrNull()
 
-    /** Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. */
+    /**
+     * Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. The
+     * same size limit as when a picture is first kept ([OriginalPhoto.MAX_BYTES]) holds here too.
+     */
     fun put(key: String, c: Carried): Boolean = runCatching {
+        if (c.bytes.size > OriginalPhoto.MAX_BYTES) return false
         val size = JSONObject().put("w", c.meta.optInt("w")).put("h", c.meta.optInt("h")).put("o", c.meta.optInt("o", ExifInterface.ORIENTATION_NORMAL))
         // The avatar's square goes along (Make private, Make visible), so it can still be adjusted there; so does how
         // the picture was kept.
@@ -289,6 +293,8 @@ class OriginalPhotos(context: Context) {
 
     /** Restores an original from a backup (bytes as [read] gave them), matched to the contact whose photo is [current]. */
     internal suspend fun restore(lookupKey: String, bytes: ByteArray, current: String?) = withContext(Dispatchers.IO) {
+        // Kept under the same limit as a picture picked here.
+        if (bytes.isEmpty() || bytes.size > OriginalPhoto.MAX_BYTES) return@withContext
         dir.mkdirs()
         val tmp = File(dir, "restore.tmp")
         tmp.writeBytes(bytes)

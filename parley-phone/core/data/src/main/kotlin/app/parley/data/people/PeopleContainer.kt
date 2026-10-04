@@ -8,6 +8,7 @@ import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.ConfirmedRestore
+import app.parley.data.security.RecordCrypto
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -30,6 +31,7 @@ private const val INDEX_IDLE_MS = 5 * 60_000L
  */
 class PeopleContainer(private val c: DataContainer) {
     val prefs: PeoplePrefs = c.peoplePrefs
+
     /**
      * Only the Contacts tab's lists and search use it: it stops following the address book a while after no screen
      * collects it (a background sync then reads nothing for it), and catches up with what changed when one does again.
@@ -41,6 +43,9 @@ class PeopleContainer(private val c: DataContainer) {
 
     /** Contact photos as picked (full size, uncropped), beside Android's reduced copy. */
     val originals by lazy { OriginalPhotos(c.appContext) }
+
+    /** The Contacts list's first screenful, for a cold start ([ContactListHead]). */
+    val listHead by lazy { ContactListHead(c.appContext, RecordCrypto.get(c.appContext)) }
 
     /** Two-way relations between saved contacts. */
     val relationMirrors by lazy { RelationMirrors(c.appContext, c.contacts, c.meta) }

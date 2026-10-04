@@ -195,6 +195,10 @@ object PersistentStores {
         PersistentStore("folder_sync_state.json", StoreKind.FILES, local("Sync bookkeeping for a folder picked here"), location = PersistentStore.FILES),
         PersistentStore("folder_sync_gone.json", StoreKind.FILES, local("Versions of files a folder sync deleted"), location = PersistentStore.FILES),
         PersistentStore("lists", StoreKind.FILES, backedUp, Sections.SPAM_LISTS, PersistentStore.DEVICE_PROTECTED_FILES),
+        PersistentStore(
+            "contact_list_head", StoreKind.FILES, local("The first screenful of the Contacts list, sealed, shown at a cold start"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         PersistentStore("history.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped call-history key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore("records.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped small-records key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore("vault_calls.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped private-calls key"), location = PersistentStore.NO_BACKUP_FILES),

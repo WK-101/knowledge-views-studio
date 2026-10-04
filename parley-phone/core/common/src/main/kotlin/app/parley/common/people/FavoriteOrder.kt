@@ -1,7 +1,6 @@
 package app.parley.common.people
 
 import app.parley.common.ContactSummary
-import java.text.Collator
 
 enum class FavoriteSort(val title: String) { CUSTOM("Custom"), NAME("A–Z"), MOST_CALLED("Most called") }
 
@@ -13,9 +12,9 @@ object FavoriteOrder {
         sort: FavoriteSort,
         customOrder: List<String>,
         callCounts: Map<Long, Int> = emptyMap(),
-        collator: Comparator<String> = Collator.getInstance().apply { strength = Collator.PRIMARY }.let { c -> Comparator { a, b -> c.compare(a, b) } },
+        collator: Comparator<String> = Collation.Order(),
     ): List<ContactSummary> {
-        val byName = favorites.sortedWith { a, b -> collator.compare(a.sortName, b.sortName) }
+        val byName = Collation.sortedBy(favorites, collator) { it.sortName }
         return when (sort) {
             FavoriteSort.NAME -> byName
             FavoriteSort.MOST_CALLED -> byName.sortedByDescending { callCounts[it.id] ?: 0 }

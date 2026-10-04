@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.common.catching
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import app.parley.common.people.FavoriteOrder
@@ -14,6 +15,7 @@ import app.parley.common.people.SearchDocs
 import app.parley.common.people.LabelFilter
 import app.parley.common.people.NameOrder
 import app.parley.common.people.ContactRef
+import app.parley.common.people.Collation
 import app.parley.common.people.PrivateLabels
 import app.parley.common.people.PersonExtra
 import app.parley.common.people.SecondLines
@@ -31,11 +33,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.text.Collator
 
 /**
  * Contacts-tab and Favorites state for the contacts features: label/account filters, the second line under names,
@@ -73,9 +76,8 @@ class PeopleUi(
     val filter = MutableStateFlow(LabelFilter())
 
     /** Collators aren't thread-safe and the flows below run concurrently on Default: one per flow. */
-    private fun newCollator(): Collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
-    private val filteredCollator = newCollator()
-    private val favoritesCollator = newCollator()
+    private val filteredCollator = Collation.Order()
+    private val favoritesCollator = Collation.Order()
 
     /** The Contacts search is open: the Filters chip shows (set by the home screen). */
     val searchOpen = MutableStateFlow(false)
@@ -139,7 +141,7 @@ class PeopleUi(
     ) { list, q, f, (idx, temporary), s ->
         list ?: return@combine null
         val f2 = f.copy(matchAll = s.labelMatchAll)
-        val r = ContactListSearch.run(list, ContactSearch.Query(q), f2, idx.extras, temporary, s.preferNickname) { a, b -> filteredCollator.compare(a, b) }
+        val r = ContactListSearch.run(list, ContactSearch.Query(q), f2, idx.extras, temporary, s.preferNickname, filteredCollator)
         val res = c.appContext.resources
         // Every field: addresses, notes, dates, relations, custom fields… (Contacts search only, never the keypad's T9).
         val hints = r.explained.mapValues { (_, field) -> matchHint(res, field) }
@@ -156,6 +158,27 @@ class PeopleUi(
     val listing: StateFlow<List<ListSections.Row<String, ContactSummary>>?> = filtered.map { list ->
         list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.sortName) } }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * The last list's first screenful with its headers, shown on a cold start until [listing] first arrives, so a large
+     * address book shows rows at once instead of a spinner. Null once the real list is there (or nothing was kept).
+     */
+    val listHead = MutableStateFlow<List<ListSections.Row<String, ContactSummary>>?>(null)
+
+    init {
+        scope.launch(Dispatchers.IO) {
+            val head = c.people.listHead.load() ?: return@launch
+            if (listing.value == null) listHead.value = ListSections.interleave(head) { ListSections.letterOf(it.sortName) }
+        }
+        scope.launch {
+            listing.first { it != null }
+            listHead.value = null
+        }
+        // Kept a while after the list settles, and only when its first screenful changed.
+        scope.launch(Dispatchers.IO) {
+            contacts.filterNotNull().debounce(LIST_HEAD_QUIET_MS).collect { catching { c.people.listHead.save(it) } }
+        }
+    }
 
     /** "Matched: address" for contacts the search found by another field than the name or number. */
     val searchHints: StateFlow<Map<Long, String>> = searched.map { it?.second.orEmpty() }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
@@ -177,7 +200,7 @@ class PeopleUi(
     val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index) { list, s, counts, idx ->
         val favs = list.orEmpty().filter { it.starred }
             .map { ct -> if (s.preferNickname) NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
-        FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts) { a, b -> favoritesCollator.compare(a, b) }
+        FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts, favoritesCollator)
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun extra(id: Long): PersonExtra? = index.value.extras[id]
@@ -224,3 +247,6 @@ class PeopleUi(
         idx.accountCounts.entries.sortedByDescending { it.value }.map { it.key.displayLabel to it.value }
     }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
+
+/** How long the contact list must be quiet before its first screenful is kept for the next cold start. */
+private const val LIST_HEAD_QUIET_MS = 10_000L

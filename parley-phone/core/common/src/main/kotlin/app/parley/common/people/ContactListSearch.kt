@@ -36,8 +36,7 @@ object ContactListSearch {
             ct
         }
         if (preferNickname) {
-            shown = shown.map { ct -> NameOrder.renamed(ct, SecondLines.displayName(ct, extras[ct.id], true)) }
-                .sortedWith { a, b -> order.compare(a.sortName, b.sortName) }
+            shown = Collation.sortedBy(shown.map { ct -> NameOrder.renamed(ct, SecondLines.displayName(ct, extras[ct.id], true)) }, order) { it.sortName }
         }
         return Result(shown, explained)
     }

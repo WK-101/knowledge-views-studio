@@ -448,7 +448,10 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp)) {
-                    items(results, key = { (it.contact?.id?.toString() ?: "n") + it.number }) { r ->
+                    items(
+                        results, key = { (it.contact?.id?.toString() ?: "n") + it.number },
+                        contentType = { if (it.secondary) "secondary" else "result" },
+                    ) { r ->
                         DialResultRow(
                             r, vm.countryIso,
                             modifier = Modifier.onFocusChanged { s ->
@@ -865,11 +868,13 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
     val c = r.contact
     val phone = c?.phones?.firstOrNull { it.number == r.number }
     val type = phone?.let { Format.phoneType(resources, it.type, it.label) }
+    // Formatted once per number, not on every recomposition while the results change under each keystroke.
+    val shown = remember(r.number, countryIso) { Bidi.ltr(Format.number(r.number, countryIso)) }
     if (r.secondary) {
         ListItem(
             modifier = modifier.clickable(onClick = onClick),
             leadingContent = { Spacer(Modifier.width(40.dp)) },
-            headlineContent = { Text(Bidi.ltr(Format.number(r.number, countryIso)), style = MaterialTheme.typography.bodyLarge) },
+            headlineContent = { Text(shown, style = MaterialTheme.typography.bodyLarge) },
             supportingContent = type?.let { { Text(it) } },
             trailingContent = {
                 Icon(
@@ -886,13 +891,13 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, avatarSize()) },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            else Text(Bidi.ltr(Format.number(r.number, countryIso)))
+            else Text(shown)
         },
         supportingContent = {
             if (c != null) {
                 Text(
                     listOfNotNull(
-                        type, if (r.primary) stringResource(R.string.keypad_primary) else null, Bidi.ltr(Format.number(r.number, countryIso)),
+                        type, if (r.primary) stringResource(R.string.keypad_primary) else null, shown,
                     ).joinToString(stringResource(R.string.main_separator)),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

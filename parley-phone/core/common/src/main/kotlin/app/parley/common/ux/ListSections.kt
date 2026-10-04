@@ -30,6 +30,34 @@ object ListSections {
         return out
     }
 
+    /** A header ([section], null for items above the first header) and the items under it. */
+    data class Run<K, T>(val section: K?, val items: List<T>)
+
+    /**
+     * [rows] as runs of items under their header, so a lazy list registers one `items` block per section instead of
+     * one `item` per row (20,000 contacts are then about 30 registrations on each recomposition, not 20,000).
+     * Lazy-list indexes are unchanged: each header still takes one, each item one.
+     */
+    fun <K, T> runs(rows: List<Row<K, T>>): List<Run<K, T>> {
+        val out = ArrayList<Run<K, T>>()
+        var section: K? = null
+        var items = ArrayList<T>()
+        var open = false
+        for (r in rows) {
+            when (r) {
+                is Row.Header -> {
+                    if (open || items.isNotEmpty()) out += Run(section, items)
+                    section = r.section
+                    items = ArrayList()
+                    open = true
+                }
+                is Row.Item -> items += r.item
+            }
+        }
+        if (open || items.isNotEmpty()) out += Run(section, items)
+        return out
+    }
+
     /**
      * The fast-scroll targets: each section's first header, as a lazy-list index. [offset] is the index of the first
      * row (rows above the list: chips, "My card"…); each header takes one index, each item one more.
