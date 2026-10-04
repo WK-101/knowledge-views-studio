@@ -38,10 +38,13 @@ internal class CallEndRecorder(
         hasNumber = !ended.hidden && !ended.number.isNullOrBlank(),
     )
 
-    /** L2: the call's quality facts, for the number history (and a quality diary later). Never for emergency calls. */
-    fun quality(ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?) {
-        if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return
-        val talked = if (ended.connectTimeMillis > 0) ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0) else 0
+    /** L2: the call's quality facts, for the number history and the quality diary (returned too). Never for emergency calls. */
+    fun quality(ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?): CallQualityFacts? {
+        if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return null
+        val now = System.currentTimeMillis()
+        val talked = if (ended.connectTimeMillis > 0) ((now - ended.connectTimeMillis) / 1000).coerceAtLeast(0) else 0
+        // A failed outgoing call keeps its cause and how quickly it failed too: a number that's no longer in service.
+        val failed = !ended.incoming && ended.connectTimeMillis <= 0 && ended.failure != null
         val facts = CallQualityFacts(
             startedAt = s.startedAt,
             incoming = ended.incoming,
@@ -51,11 +54,14 @@ internal class CallEndRecorder(
             wifi = s.wifiSeen,
             hd = s.hdSeen,
             end = endCode(cause),
-            cause = CallQualityCodec.causeName(cause?.reason)?.takeIf { drop != null },
+            cause = CallQualityCodec.causeName(cause?.reason)?.takeIf { drop != null || failed },
             drop = drop,
             subject = s.subject,
+            simId = ended.accountId,
+            endedAfterSec = if (failed) ((now - s.startedAt) / 1000).coerceAtLeast(0) else null,
         )
         runCatching { deps().onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
+        return facts
     }
 
     /**

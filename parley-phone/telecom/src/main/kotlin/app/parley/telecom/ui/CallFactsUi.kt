@@ -4,6 +4,8 @@ import android.os.SystemClock
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +57,7 @@ import app.parley.common.calls.VerifyCallBack
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
+import app.parley.telecom.SimTip
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
@@ -73,7 +76,7 @@ import kotlinx.coroutines.withContext
  * Call again, the same number on the same SIM. It stays a few seconds, or until dismissed.
  */
 @Composable
-internal fun DropCard(call: CallUi, onCallAgain: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+internal fun DropCard(call: CallUi, onCallAgain: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier, onSimTip: (Boolean) -> Unit = {}) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         color = scheme.surfaceContainerHigh,
@@ -89,6 +92,8 @@ internal fun DropCard(call: CallUi, onCallAgain: () -> Unit, onDismiss: () -> Un
             call.dropText?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs))
             }
+            // Never on a call masked on the lock screen: it names the person.
+            call.simTip?.takeIf { !call.lockMasked }?.let { tip -> SimTipRow(tip, onSimTip) }
             if (call.canCallAgain) {
                 Spacer(Modifier.height(Spacing.l))
                 Button(
@@ -102,6 +107,25 @@ internal fun DropCard(call: CallUi, onCallAgain: () -> Unit, onDismiss: () -> Un
                 }
             }
             TextButton(onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.call_failed_dismiss)) }
+        }
+    }
+}
+
+/** "Calls to Ana drop less on SIM 2": use that SIM for them from now on, or no thanks (it isn't offered again). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SimTipRow(tip: SimTip, onAnswer: (Boolean) -> Unit) {
+    Column(Modifier.padding(top = Spacing.m)) {
+        Text(
+            stringResource(R.string.call_sim_tip, tip.name, tip.simLabel),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        // Wraps under large fonts and on narrow screens rather than squeezing the labels.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
+            FilledTonalButton({ onAnswer(true) }, Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.call_sim_tip_use, tip.simLabel, tip.name))
+            }
+            TextButton({ onAnswer(false) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.call_sim_tip_no)) }
         }
     }
 }

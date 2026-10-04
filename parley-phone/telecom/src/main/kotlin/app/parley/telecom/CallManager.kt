@@ -22,6 +22,7 @@ import app.parley.common.calls.SelfSilenceEcho
 import app.parley.common.calls.CallerHaptics
 import app.parley.common.calls.CallBook
 import app.parley.common.calls.CallDrop
+import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DropFacts
 import app.parley.common.calls.CallFailure
 import app.parley.common.calls.CallHandOff
@@ -543,12 +544,13 @@ object CallManager {
             else -> shown
         }
         holdMode.stopReminders(id)
-        endRecorder.quality(ended, s, drop, cause)
+        val facts = endRecorder.quality(ended, s, drop, cause)
         keys.record(ended, s)
         if (keys.replay.value?.callId == id) keys.stopReplay()
         _lastEnded.value = ended
         // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
+        lookUpSimTip(ended, facts)
         endRecorder.ended(call, ended, s)
         call.unregisterCallback(callback)
         calls -= call
@@ -868,6 +870,27 @@ object CallManager {
     // ---- Call again, and calling a saved number back (P5, I3) ----
 
     /** Dismiss (or Call again) on the "Call dropped" card: it stays gone. */
+    /** After a drop: a SIM that has gone better for this person, shown on the "Call dropped" card once it's known. */
+    private fun lookUpSimTip(ended: CallUi, facts: CallQualityFacts?) {
+        val number = ended.number?.takeIf { ended.drop != null && !ended.hidden && it.isNotBlank() } ?: return
+        scope.launch {
+            val tip = withTimeoutOrNull(SIM_TIP_TIMEOUT_MS) { catching { deps.simTipAfterDrop(number, facts) }.getOrNull() } ?: return@launch
+            val now = _lastEnded.value
+            if (now?.id == ended.id && now.drop != null) _lastEnded.value = now.copy(simTip = tip)
+        }
+    }
+
+    /**
+     * The SIM suggestion on the "Call dropped" card answered: [accept] remembers the SIM for the person, and "Call
+     * again" then uses it.
+     */
+    fun answerSimTip(id: String, accept: Boolean) {
+        val now = _lastEnded.value?.takeIf { it.id == id } ?: return
+        val tip = now.simTip ?: return
+        _lastEnded.value = now.copy(simTip = null, accountId = if (accept) tip.simId else now.accountId)
+        runCatching { deps.answerSimTip(tip, accept) }
+    }
+
     fun dismissDrop(id: String) {
         _lastEnded.value?.takeIf { it.id == id && it.drop != null }?.let { _lastEnded.value = it.copy(drop = null, dropText = null) }
     }
@@ -1063,6 +1086,9 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** The SIM suggestion reads the quality facts (sealed); it may come a moment after the card. */
+    private const val SIM_TIP_TIMEOUT_MS = 5000L
 
     /** How long "This number never calls you" may take once the caller is known, before it is left out. */
     private const val NEVER_CALLS_TIMEOUT_MS = 1500L

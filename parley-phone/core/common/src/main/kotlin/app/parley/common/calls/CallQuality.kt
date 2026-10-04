@@ -25,11 +25,15 @@ data class CallQualityFacts(
     val hd: Boolean = false,
     /** Telecom's disconnect code. */
     val end: EndCode? = null,
-    /** Telephony's own cause, as the reason text named it ("LOST_SIGNAL"), when it was a drop. */
+    /** Telephony's own cause, as the reason text named it ("LOST_SIGNAL"), when it was a drop or an outgoing call that failed. */
     val cause: String? = null,
     val drop: DropKind? = null,
     /** The caller's subject (already cleaned by [CallSubject]). */
     val subject: String? = null,
+    /** The phone account (SIM) the call was on, so a SIM renamed later is still the same SIM; null in older rows. */
+    val simId: String? = null,
+    /** An outgoing call that never connected: seconds from placing it to its end (a "not in service" reply is quick). */
+    val endedAfterSec: Long? = null,
 )
 
 /** Compact JSON for [CallQualityFacts] lists; unknown fields are ignored so older rows keep reading. */

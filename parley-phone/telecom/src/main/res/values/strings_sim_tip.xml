@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- On the "Call dropped" card. %1$s: the person; %2$s: the SIM's name. -->
+    <string name="call_sim_tip">Calls to %1$s drop less on %2$s.</string>
+    <!-- %1$s: the SIM's name; %2$s: the person. -->
+    <string name="call_sim_tip_use">Use %1$s for %2$s</string>
+    <string name="call_sim_tip_no">No thanks</string>
+</resources>

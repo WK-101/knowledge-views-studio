@@ -272,6 +272,15 @@ interface CallRecordHooks {
 
     /** Whether [number] is blocked already, so the post-call card offers Unblock. Read off the main thread. */
     suspend fun isBlocked(number: String): Boolean = false
+
+    /**
+     * After a call with [number] dropped ([facts]: that call's, maybe not stored yet): a SIM that has gone better for
+     * this person, when there is one not offered here before (it counts as offered once returned).
+     */
+    suspend fun simTipAfterDrop(number: String, facts: CallQualityFacts?): SimTip? = null
+
+    /** "Use SIM 2 for Ana" ([accept]: remember that SIM for their numbers) or "No thanks"; either way it's answered. */
+    fun answerSimTip(tip: SimTip, accept: Boolean) {}
 }
 
 /** The call screen's look and feel, and the ways out of it into the app. */

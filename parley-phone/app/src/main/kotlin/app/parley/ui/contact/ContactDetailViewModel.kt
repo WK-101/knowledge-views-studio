@@ -2,6 +2,7 @@ package app.parley.ui.contact
 
 import app.parley.data.security.Concealment
 import app.parley.calls.ExpectedCallHints
+import app.parley.calls.NumberSignals
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -92,6 +93,9 @@ data class ContactDetailUiState(
     val isPrivate: Boolean get() = storage == ContactStorage.PRIVATE
     val variants: ContactVariants get() = ContactVariants(storage, temporary?.expiresAt)
 }
+
+/** [ContactDetailViewModel.numberAdvice]: numbers that seem out of service, and a SIM to suggest. */
+data class NumberAdviceUi(val dead: Set<String> = emptySet(), val simTip: NumberSignals.SimTip? = null)
 
 /** Whether a private contact's details can be read now; a device contact is always [OPEN]. */
 enum class PrivateAccess {
@@ -290,6 +294,28 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             )
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), ContactDetailUiState())
+
+    /**
+     * What Parley noticed about this person's numbers from their calls: the ones that seem out of service (a quiet
+     * hint beside each) and, on a dual-SIM phone, a SIM their calls go better on. Read again when calls, answers or
+     * remembered SIMs change.
+     */
+    val numberAdvice: StateFlow<NumberAdviceUi> =
+        combine(phones, history, c.callQuality.version, c.numberAdvice.version, c.prefs.numberSims) { mine, calls, _, _, _ -> mine to calls }
+            .mapLatest { (mine, calls) ->
+                if (mine.isEmpty()) return@mapLatest NumberAdviceUi()
+                val dead = suspendRunCatching { NumberSignals.deadAmong(c, mine, calls) }.getOrDefault(emptySet())
+                val sims = withContext(Dispatchers.IO) { c.sims.accounts() }
+                // A number that seems out of service isn't a reason to pick a SIM.
+                val tip = suspendRunCatching { NumberSignals.simTip(c, mine - dead, sims) }.getOrNull()
+                NumberAdviceUi(dead, tip)
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), NumberAdviceUi())
+
+    /** "Use SIM 2 for Ana" ([accept]) or its dismissal; either way it isn't suggested again. */
+    fun answerSimTip(tip: NumberSignals.SimTip, accept: Boolean) = launch {
+        NumberSignals.answerSim(c, current?.phones.orEmpty().map { it.value }, tip, accept)
+    }
 
     /** Relations other contacts give this one where one of the two is private ([RelationsFromOthers]). */
     val relationsFromOthers: StateFlow<List<RelationFromOther>> =

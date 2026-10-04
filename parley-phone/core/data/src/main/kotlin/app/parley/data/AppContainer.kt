@@ -28,6 +28,7 @@ import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
+import app.parley.data.calls.NumberAdviceStore
 import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
@@ -164,6 +165,9 @@ class DataContainer(context: Context) {
 
     /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
     val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
+
+    /** What was answered to "Numbers that seem out of service" and to SIM suggestions (by line key). */
+    val numberAdvice: NumberAdviceStore by lazy { NumberAdviceStore(appContext) }
 
     /** I2 personal reputation: what your own calls say about numbers and ranges (learned daily, sealed). */
     val reputation: ReputationStore by lazy { ReputationStore(appContext) { history } }

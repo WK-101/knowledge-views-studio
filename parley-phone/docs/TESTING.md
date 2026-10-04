@@ -2574,3 +2574,30 @@ Two or three phones with Parley as the phone app, in one shared label "Family" (
 9. **By file.** On a label shared by update files with the shield on, the page says "Send an update so the others get your changes."
 10. **Speed.** With a few hundred numbers shared, incoming calls ring (or are silenced) at once; the look-up is in memory.
 11. **Looks.** The row's switch and the page's rows are at least 48 dp, TalkBack reads "Family spam shield, switch, off" and "Stop sharing +44 7700 900123" on Withdraw; dark, AMOLED, large fonts, landscape and right to left read well.
+
+### 40.3 Dead-number radar
+Automated: `DeadNumberRadarTest` (two failures on two separate days, one day isn't enough, a call that went through or a call from the number since clears it, a good call in the call history clears it, quick failures without a cause on the phone's side, busy lines and no-signal failures don't count, a dismissal holds until a new failure).
+One phone with Parley as the phone app, a contact saved with a number that is no longer in service (or a made-up number in your own country's format that the network reports as unallocated).
+1. **Nothing yet.** Call the number once: the call fails with its reason and Retry as before. Settings › Contact health check (or Tools) shows no "Numbers that seem out of service".
+2. **Two days.** Call it twice more today: still nothing (all on one day). Call it again the next day: the health check shows "Numbers that seem out of service (1)" with a one-line explanation, the contact, the number and "the network said it's not in service, 3 times". The contact's page shows "May be out of service" in that number's line, and nothing else changes on the contact.
+3. **Try again.** ⋮ › Try again places the call through the usual call path (the dial guard and SIM choice as for any call).
+4. **Edit number.** ⋮ › Edit number opens the editor for that contact (a private contact's own editor for a private one).
+5. **Move to note.** ⋮ › Move to note: the number leaves the contact and its note gains "Old number: … (out of service since <month year>)"; the snackbar says "Moved to Ana's note" with Undo. Undo: the number and the note are back. Do it again without Undo: History & undo › Contacts lists the edit, and restoring it brings the number back. A number kept only by a read-only account says "This number can only be changed in the editor" and opens the editor.
+6. **Dismiss.** ⋮ › Dismiss: the row goes ("Dismissed until a call fails again", with Undo, which brings it back). Close and reopen the health check: still gone. Call the number again and let it fail: the row is back.
+7. **Alive after all.** With the row showing, let the number call you (or a call to it connect): the row and the page's hint disappear.
+8. **Never by itself.** Leave the row for a few days with the phone in normal use: the contact and the number are unchanged until you choose.
+9. **Private contacts.** Save the dead number as a private contact (with Private call history off) and repeat 2 and 5: the row names the private contact; Move to note writes into its sealed note, with Undo. Turn Hide private contacts on: the row disappears.
+10. **Looks.** The rows and the ⋮ menu are at least 48 dp, read with TalkBack ("More for Ana, +44 …"), in dark theme, AMOLED, landscape, large fonts and right to left (the number reads left to right).
+
+### 40.4 SIM that learns
+Automated: `SimAdviceTest` (three drops on one SIM and three good calls on the other, failed calls count as going wrong, below the thresholds, a SIM that mostly works, the other SIM must be clearly better, single-SIM phones, a SIM that's gone, not again once set or answered).
+A dual-SIM phone with Parley as the phone app and a contact (Ana) you can call on both SIMs; a place where one SIM's signal drops calls (or move out of coverage of one network mid-call).
+1. **Single SIM.** With one SIM in the phone (or one turned off), no suggestion ever shows, whatever the drops.
+2. **Not too soon.** Have two calls with Ana drop on SIM 1 and three go well on SIM 2: nothing yet.
+3. **After a drop.** With a third drop on SIM 1 (and three good calls on SIM 2), the "Call dropped" card adds "Calls to Ana drop less on SIM 2." with "Use SIM 2 for Ana" and "No thanks" (it may appear a moment after the card). Tap "Use SIM 2 for Ana" on a locked phone: it asks to unlock first. Then Call again uses SIM 2, and Ana's page shows "Always SIM 2" on her numbers.
+4. **Once only.** Close the card without answering: the next drop with Ana doesn't offer it again on the call screen, but Ana's page shows the banner "Calls to Ana drop less on SIM 2" with "Use SIM 2" and No thanks until you answer it.
+5. **On the page.** Tap "Use SIM 2": "Ana will be called on SIM 2", the banner goes and her numbers read "Always SIM 2". Remove the SIM choice from the number's ⋮ › Choose SIM: the banner doesn't come back. On another contact, tap No thanks: it doesn't come back either.
+6. **Lock screen.** With "Caller on the lock screen" hiding names, a drop on the locked phone shows no suggestion (it names the person).
+7. **Private contacts.** Repeat 3 for a private contact with Private call history off: the suggestion names them and sets their numbers' SIM. With Hide private contacts on, it doesn't show.
+8. **Looks.** The card's buttons wrap under large fonts, are at least 48 dp, read with TalkBack, and work in dark theme, landscape and right to left.
+
