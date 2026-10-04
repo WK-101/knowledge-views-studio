@@ -14,6 +14,7 @@ import app.parley.ui.LocalNavAnimScope
 import app.parley.ui.Routes
 import app.parley.ui.appVm
 import app.parley.ui.extras.HandshakeInbox
+import app.parley.ui.home.homePanes
 import app.parley.ui.timemachine.VersionHistoryScreen
 import androidx.compose.runtime.CompositionLocalProvider
 import kotlinx.serialization.Serializable
@@ -29,13 +30,15 @@ object ContactPageRoutes {
 
 /**
  * After an edit: back to where the editor was opened from, then to the saved contact (a private one has a negative id,
- * and the same page) unless that is where we already are.
+ * and the same page) unless that is where we already are. Back on Home with a detail pane beside the list (a big
+ * screen), the contact shows there instead ([showInPane] says whether it did).
  */
-internal fun NavController.afterEdit(savedId: Long?) {
+internal fun NavController.afterEdit(savedId: Long?, showInPane: (Long) -> Boolean = { false }) {
     popBackStack()
     val here = currentDestination
     when {
         savedId == null -> Unit
+        here?.hasRoute<Routes.Home>() == true && showInPane(savedId) -> Unit
         here?.hasRoute<Routes.Contact>() != true && here?.hasRoute<Routes.Vault>() != true -> navigate(Routes.Contact(savedId)) { launchSingleTop = true }
     }
 }
@@ -52,6 +55,7 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
     composable<Routes.Edit> {
         val a = it.toRoute<Routes.Edit>()
         val vm = appVm()
+        val panes = homePanes()
         val pasteText = remember(a.paste) { if (a.paste.isNotEmpty()) PasteInbox.take(a.paste) else null }
         ContactEditScreen(
             vm,
@@ -67,7 +71,7 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
             done = { savedId ->
                 // A contact received by QR gets its "Met at…" entry once it's saved.
                 HandshakeInbox.onSaved(vm, savedId, a.handshake)
-                nav.afterEdit(savedId)
+                nav.afterEdit(savedId, panes::showSaved)
             },
         )
     }

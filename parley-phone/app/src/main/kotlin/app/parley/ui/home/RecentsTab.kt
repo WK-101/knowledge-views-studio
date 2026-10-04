@@ -316,6 +316,8 @@ fun RecentRow(
 ) {
     val context = LocalContext.current
     val e = g.latest
+    // Open beside the list on a big screen: what a tap opens (the contact's page, or the number's history) is marked too.
+    val marked = selected || LocalOpenDetail.current?.let { it == recentDestination(g) } == true
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     // The rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
     // count chip and sequence dots, duration bar); Simple keeps the U3 row.
@@ -343,9 +345,9 @@ fun RecentRow(
             onLongClickLabel = stringResource(R.string.recents_select),
         )
             .then(if (RecentsMark.ACCENT in marks) Modifier.callAccent(hue) else Modifier)
-            .semantics { this.selected = selected },
+            .semantics { this.selected = marked },
         colors = when {
-            selected -> ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            marked -> ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             attention -> ListItemDefaults.colors(containerColor = hue.copy(alpha = 0.08f).compositeOver(base))
             else -> ListItemDefaults.colors(containerColor = base)
         },
@@ -623,3 +625,7 @@ private fun recentMenuLabel(a: RecentMenu.Action): MenuLabel = when (a) {
     // Shown by RecentBlockingActions with its own words; the group's entry reads "Why it rang…".
     else -> MenuLabel(stringResource(R.string.menu_group_why), Icons.Rounded.Info)
 }
+
+/** What a tap on [g] opens when it doesn't call: a private or saved contact's page, else the number's history. */
+internal fun recentDestination(g: RecentGroup): Destination =
+    g.vaultId?.let { Routes.vault(it) } ?: g.contact?.let { Routes.contact(it.id) } ?: Routes.history(g.number)

@@ -17,7 +17,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.testing.WorkManagerTestInitHelper
-import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import android.graphics.Bitmap
@@ -52,6 +52,18 @@ import app.parley.ui.home.KeypadDock
 import app.parley.ui.home.KeypadTab
 import app.parley.ui.home.LocalRecentsStyle
 import app.parley.ui.home.RecentsTab
+import app.parley.ui.home.HomeScreen
+import app.parley.ui.home.Centred
+import app.parley.ui.home.rememberWindowLayout
+import app.parley.ui.contact.ContactDetailScreen
+import app.parley.common.StartTab
+import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -75,6 +87,7 @@ class UiSmokeTest {
     private val app: ParleyApp = ApplicationProvider.getApplicationContext()
     private lateinit var scenario: ActivityScenario<ComponentActivity>
     private lateinit var activity: ComponentActivity
+    private var adaId = 0L
 
     /** How a screen is drawn: theme, black surfaces, font scale and direction. */
     private enum class Look(val mode: ThemeMode, val amoled: Boolean = false, val fontScale: Float = 1f, val rtl: Boolean = false) {
@@ -99,6 +112,7 @@ class UiSmokeTest {
         runBlocking {
             val details = ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, "+44 20 7946 0000", Phone.TYPE_MOBILE)))
             val ada = c.contacts.save(null, details, null, null, false)!!
+            adaId = ada.contactId
             c.contacts.setStarred(ada.contactId, true)
             c.vault.save(null, ContactDetails(given = "Grace", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE))))
         }
@@ -146,7 +160,8 @@ class UiSmokeTest {
             }
         }
         compose.waitForIdle()
-        compose.onRoot().assertExists()
+        // Home may also show a tip in a popup of its own: a second root.
+        assertTrue(compose.onAllNodes(isRoot()).fetchSemanticsNodes().isNotEmpty())
     }
 
     /** Waits until [text] is on screen (the lists load off the main thread). */
@@ -247,6 +262,100 @@ class UiSmokeTest {
             KeypadTab(vm, noRoute, dock = KeypadDock(expanded = false, onExpandedChange = {}) { RecentsTab(vm, noRoute) })
         }
         shows("Ada Lovelace")
+    }
+
+    // ---------------------------------------------------------------- Contact page
+
+    @Test fun contact_page_light() {
+        show(Look.LIGHT) { ContactDetailScreen(it, adaId, back = {}, open = noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun contact_page_dark() {
+        show(Look.DARK) { ContactDetailScreen(it, adaId, back = {}, open = noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun contact_page_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { ContactDetailScreen(it, adaId, back = {}, open = noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    // One dialog at a time: ⋮ › Delete asks, and Cancel closes the question without deleting.
+    @Test fun contact_page_menu_opens_its_dialog_and_cancel_closes_it() {
+        show(Look.LIGHT) { ContactDetailScreen(it, adaId, back = {}, open = noRoute) }
+        shows("Ada Lovelace")
+        compose.onNodeWithContentDescription("More").performClick()
+        compose.onAllNodesWithText("Delete")[0].performClick()
+        shows("Delete Ada Lovelace?")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertTrue(compose.onAllNodesWithText("Delete Ada Lovelace?").fetchSemanticsNodes().isEmpty())
+        shows("Ada Lovelace")
+    }
+
+    // ---------------------------------------------------------------- big screens
+
+    private fun home(look: Look, tab: StartTab, opened: MutableList<Destination>) {
+        show(look) { vm -> HomeScreen(vm, tabRequest = null, onTabRequestHandled = {}, initialTab = tab, open = { opened += it }) }
+    }
+
+    private fun hasText(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+
+    @Config(qualifiers = TABLET)
+    @Test
+    fun tablet_contacts_open_the_page_beside_the_list() {
+        val opened = mutableListOf<Destination>()
+        home(Look.LIGHT, StartTab.CONTACTS, opened)
+        shows("Choose someone to see their page here")
+        compose.onAllNodesWithText("Ada Lovelace")[0].performClick()
+        // The page opens in the pane (its Edit button is there), not as a page over Home; the list stays.
+        compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(opened.isEmpty())
+        assertTrue(!hasText("Choose someone to see their page here"))
+        // The open contact is marked in the list.
+        compose.waitUntil(10_000) { compose.onAllNodes(isSelected()).fetchSemanticsNodes().isNotEmpty() }
+        // Back closes the page and leaves the list.
+        activity.onBackPressedDispatcher.onBackPressed()
+        shows("Choose someone to see their page here")
+    }
+
+    @Config(qualifiers = TABLET)
+    @Test
+    fun tablet_contacts_dark_large_font_rtl() {
+        home(Look.LARGE_FONT_RTL, StartTab.CONTACTS, mutableListOf())
+        shows("Ada Lovelace")
+        shows("Choose someone to see their page here")
+    }
+
+    @Config(qualifiers = TABLET)
+    @Test
+    fun tablet_recents_have_a_detail_pane() {
+        home(Look.DARK, StartTab.RECENTS, mutableListOf())
+        shows("Ada Lovelace")
+        shows("Choose a call to see more about it here")
+    }
+
+    @Config(qualifiers = TABLET)
+    @Test
+    fun tablet_keypad_and_favourites_draw() {
+        home(Look.LIGHT, StartTab.KEYPAD, mutableListOf())
+        // Favourites as Home draws them on a wide screen (centred, at most their width).
+        show(Look.DARK) { vm -> Centred(rememberWindowLayout().contentMaxDp) { FavoritesTab(vm, noRoute) } }
+        shows("Ada")
+    }
+
+    // Phones are unchanged: a contact opens as its own page.
+    @Config(qualifiers = PHONE)
+    @Test
+    fun phone_contacts_open_the_page_on_its_own() {
+        val opened = mutableListOf<Destination>()
+        home(Look.LIGHT, StartTab.CONTACTS, opened)
+        shows("Ada Lovelace")
+        assertTrue(!hasText("Choose someone to see their page here"))
+        compose.onAllNodesWithText("Ada Lovelace")[0].performClick()
+        compose.waitUntil(5_000) { opened.isNotEmpty() }
+        assertEquals(Routes.Contact(adaId), opened.first())
     }
 
     // ---------------------------------------------------------------- Circle
@@ -353,5 +462,8 @@ class UiSmokeTest {
         const val CALLER_PHOTO = "caller-photo"
 
         const val PHONE = "w411dp-h891dp-port"
+
+        // A 10-inch tablet held sideways: list and detail side by side.
+        const val TABLET = "w1280dp-h800dp-land"
     }
 }

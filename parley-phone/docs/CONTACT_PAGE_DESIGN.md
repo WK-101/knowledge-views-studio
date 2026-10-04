@@ -1,9 +1,10 @@
 # Contact page design
 
-How a contact's page is laid out, and why. The code is in `app/ui/contact/ContactDetailScreen.kt` (the page),
-`ContactPageSections.kt` (foldable groups and the pinned bar) and `DetailParts.kt` (`InfoRow`, `GroupDataRow`,
-the action tiles). The pure rules (section families, joined groups, the at-a-glance line) are in
-`core/common/people/ContactPageLayout.kt` and `ContactGlance.kt`, with unit tests.
+How a contact's page is laid out, and why. The code is in `app/ui/contact/ContactDetailScreen.kt` (the page and its
+scroll behaviour), with each part in its own file (see "The page's parts" below), `ContactPageSections.kt` (foldable
+groups and the pinned bar) and `DetailParts.kt` (`InfoRow`, `GroupDataRow`, the action tiles). The pure rules (section
+families, joined groups, the at-a-glance line) are in `core/common/people/ContactPageLayout.kt` and
+`ContactGlance.kt`, with unit tests.
 
 ## Feedback on 4.2.0
 
@@ -188,3 +189,47 @@ Remind me to call is top level on the contact page, where it is the everyday rea
 own sheet already leads with Call and Message, so it waits under More… with Edit before call. Version history moved
 into More… to leave the contact ⋮ one place short of the limit. Contacts ⋮ (the tab's header menu) keeps Select all,
 Sort by…, Find & merge duplicates, Reorder favourites (when shown), Tools and Settings.
+
+## The page's parts (5.7)
+
+Until 5.6 the page was one composable of over 900 lines holding 21 separate flags for its dialogs, sheets and menu.
+It is now split by what each part draws, with no change to what the page shows or does:
+
+| File | Part |
+|---|---|
+| `ContactDetailScreen.kt` | The screen: loads the contact, the top bar (with the docked photo and name), the scroll, the pinned bar |
+| `ContactPageContext.kt` | What the parts share while the page draws: the contact, its view model, and the page's actions (call, message, video, open a dialog) |
+| `ContactHeader.kt` | Photo, name, the line under it, the at-a-glance line, the variant chips and the tiles |
+| `ContactInfoSections.kt` | Phone, Email, Address, Message or call on… and Profiles, with the number rows |
+| `ContactAboutSections.kt` | Stay in touch, Dates, About, the extra fields, Note for calls, Timeline, Call insights and the read-only fields |
+| `ContactSettingsSection.kt` | Settings for this contact |
+| `ContactMenuActions.kt` | Star, Edit and ⋮ (the menus of seven above, `ContactMenu`) |
+| `ContactDialog.kt`, `ContactDialogHost.kt` | The one open dialog, and drawing it |
+
+**One dialog at a time.** `ContactDialog` is a sealed type: `None`, the ⋮ menu and its group sheets, and each dialog or
+sheet the page opens (delete, QR codes, the photo, Delete automatically…, Add to home screen, Rhythm, Copy to SIM, the
+note for calls, Log a chat or visit and editing one, Remind me to call, Make private / visible, the SIM for a number,
+Message or call on…, a web link, the pre-call peek, Call with a reason, Which contact?). Opening one replaces whatever
+was open, which matches how the page always behaved: each dialog closes before the next one opens (Delete, then
+"Delete without a copy?"; the private QR warning, then the code). It is kept with `rememberSaveable`, so after a
+rotation the same dialog is open again, including the note being typed; only "Which contact?", which holds the
+namesakes just read, closes, as before. `ContactDialogTest` round-trips every kind through a saved state.
+
+## Beside the list (5.7)
+
+On a tablet, an unfolded foldable held sideways or a large desktop window (at least 760 dp wide and 480 dp tall,
+`WindowLayout` in core/common), Contacts shows the list with the page beside it, and Recents the list with what its
+tap opens (a contact's page, or an unknown number's history). The list takes about 40 % of the width (320 to 420 dp),
+so the page keeps at least a phone's width; below that, and on every phone either way up, nothing changes.
+
+- **In the pane** the page has no back arrow (the list is in view) and leaves the snackbar to Home. The open contact's
+  row is tinted like a selected row and TalkBack says "selected".
+- **Links inside the pane** (a relation, "Married to…", a number's history from the timeline) open in the pane; Back
+  returns through them, then empties the pane, then leaves the tab as before. A selection, an open search or the
+  docked keypad take Back first.
+- **The editor opens full screen**: it is a long form with its own discard question and keyboard, which a 400 dp pane
+  would cramp, and the page stays put behind it. On save Parley returns to Home with the saved contact open in the
+  pane, instead of opening a page over both (the same for a new contact and for "Edit this copy").
+- **Everything else** (version history, the full timeline, Settings) opens as its own page, as on a phone.
+- **Folding or resizing** to one column opens what was in the pane as its own page, so nothing is lost.
+- The header's photo uses the tablet size (160 / 120 dp) when the window is tall enough, as before.

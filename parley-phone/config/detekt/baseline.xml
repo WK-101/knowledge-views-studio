@@ -153,7 +153,7 @@
     <ID>CyclomaticComplexMethod:MissedCallNotifier.kt$MissedCallNotifier$suspend fun show(context: Context, telecomCount: Int, latestNumber: String?, reAlert: Boolean = false)</ID>
     <ID>CyclomaticComplexMethod:NavTabsSetting.kt$@Composable fun NavTabsEditor( tabs: NavTabs, /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */ inside: Map&lt;StartTab, StartTab&gt; = emptyMap(), onChange: (NavTabs) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:NumberActionActivity.kt$NumberActionActivity$@Composable private fun NumberActions(found: String, raw: String?)</ID>
-    <ID>CyclomaticComplexMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit, inPane: Boolean = false)</ID>
     <ID>CyclomaticComplexMethod:OtherFields.kt$OtherFields$fun describe(r: DataRow): Field?</ID>
     <ID>CyclomaticComplexMethod:PackTool.kt$FtcCsv$fun addTo(builder: PackBuilder, csv: String): Int</ID>
     <ID>CyclomaticComplexMethod:PackTool.kt$PackTool$@JvmStatic fun main(args: Array&lt;String&gt;)</ID>
@@ -295,7 +295,7 @@
     <ID>LongMethod:MessengerQr.kt$MessengerQr$private fun web(url: String): QrPayload.Messenger?</ID>
     <ID>LongMethod:MissedCallNotifier.kt$MissedCallNotifier$suspend fun show(context: Context, telecomCount: Int, latestNumber: String?, reAlert: Boolean = false)</ID>
     <ID>LongMethod:NavTabsSetting.kt$@Composable fun NavTabsEditor( tabs: NavTabs, /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */ inside: Map&lt;StartTab, StartTab&gt; = emptyMap(), onChange: (NavTabs) -&gt; Unit, )</ID>
-    <ID>LongMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit, inPane: Boolean = false)</ID>
     <ID>LongMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar)</ID>
     <ID>LongMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:PrivacyScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun PrivacyScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
