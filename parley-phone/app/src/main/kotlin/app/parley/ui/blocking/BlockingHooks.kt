@@ -20,10 +20,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.HourglassTop
-import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
@@ -160,10 +160,12 @@ private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.re
 /**
  * Bar shown while Recents rows are selected: block the unknown numbers in one go, after a confirmation that
  * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
- * be blocked from their own page if that's really meant.
+ * be blocked from their own page if that's really meant. With one call selected, ⋮ opens its actions ([onActions]):
+ * a long-press selects, as in every list.
  */
 @Composable
-fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
+@Suppress("CyclomaticComplexMethod") // The bar, its confirmation and the one-call ⋮ read best together.
+fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: (RecentGroup) -> Unit) {
     val recents: RecentsViewModel = activityViewModel()
     val selected by recents.selection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
@@ -186,6 +188,9 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
             TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
                 Text(" " + stringResource(R.string.blk_block_n, numbers.size))
+            }
+            chosen.singleOrNull()?.let { g ->
+                IconButton({ onActions(g) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
             }
         }
     }
@@ -263,17 +268,6 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
             }
         }
     }
-}
-
-/** Contact overflow item. Put it inside the contact page's DropdownMenu. */
-@Composable
-fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: () -> Unit) {
-    if (numbers.isEmpty()) return
-    DropdownMenuItem(
-        { Text(stringResource(R.string.blk_prefix_title)) },
-        leadingIcon = { Icon(Icons.Rounded.Business, null) },
-        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.PrefixAllow(name, numbers)) },
-    )
 }
 
 /** Label page overflow item. Put it inside the label page's DropdownMenu. */

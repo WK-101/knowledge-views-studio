@@ -39,13 +39,6 @@
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
-    <!-- "Let apps show private names": other apps request this to query one number at a time (see PrivateNameProvider). -->
-    <permission
-        android:name="${lookupPermission}"
-        android:description="@string/permission_lookup_private_name_description"
-        android:label="@string/permission_lookup_private_name_label"
-        android:protectionLevel="dangerous" />
-
     <!-- Also declared by the companion app; declaring it here too makes the grant work whichever is installed first. -->
     <permission
         android:name="${listsPermission}"
@@ -516,12 +509,7 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Parley.Sheet" />
 
-        <!-- Protected private-name lookup: one number per query, only for approved apps holding the permission. -->
-        <provider
-            android:name=".privatenames.PrivateNameProvider"
-            android:authorities="${applicationId}.privatenames"
-            android:exported="true"
-            android:permission="${lookupPermission}" />
+        <!-- "Don't allow" on a Directory request notification (see PrivateNameRequests). -->
         <receiver
             android:name=".privatenames.PrivateNameDecisionReceiver"
             android:exported="false" />
@@ -533,7 +521,7 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.NoDisplay" />
 
-        <!-- Opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names;
+        <!-- Opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names in other phone apps;
              the Contacts Provider (which holds READ_CONTACTS) discovers it and forwards approved phone apps'
              lookups. It answers only "directories" and one exact number per phone_lookup. -->
         <provider

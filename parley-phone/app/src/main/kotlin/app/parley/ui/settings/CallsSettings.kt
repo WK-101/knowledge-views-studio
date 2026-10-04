@@ -18,31 +18,27 @@ import app.parley.common.calltime.LimitScope
 import app.parley.ui.Routes
 import app.parley.ui.calltime.UssdHistoryDialog
 import app.parley.ui.calltime.reminderTextInline
-import app.parley.ui.SwitchRow
+import app.parley.ui.MenuRow
+import app.parley.common.ux.CallVibration
 import app.parley.ui.LinkRow
 
-/** Settings › Calls: haptics on call events. */
+/**
+ * Calls › During calls: "Vibrate during calls", one choice (Off · Ends, swaps and merges · Also when they answer) for
+ * the call-event buzz and the buzz when a call connects. Answer and decline always keep their own.
+ */
 @Composable
-fun CallHapticsRow(vm: AppViewModel, icon: ImageVector? = null) {
+fun CallVibrationRow(vm: AppViewModel, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
-    SwitchRow(
-        settingTitle("call_haptics"),
-        stringResource(R.string.set_call_haptics_sub),
-        config.haptics, icon,
-    ) { v -> vm.c.calling.update { it.copy(haptics = v) } }
+    val current = CallVibration.of(config.haptics, config.connectHaptic)
+    // In the order of CallVibration.
+    val choices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_call_haptics_changes), stringResource(R.string.set_call_haptics_answer))
+    MenuRow(settingTitle("call_haptics"), choices, current.ordinal, icon, stringResource(R.string.set_call_haptics_sub)) { i ->
+        val v = CallVibration.entries[i]
+        vm.c.calling.update { it.copy(haptics = v.haptics, connectHaptic = v.onConnect) }
+    }
 }
 
-/** Settings › Calls: the buzz when a call connects (answer and decline always have their own). */
-@Composable
-fun ConnectHapticRow(vm: AppViewModel, icon: ImageVector? = null) {
-    val config by vm.c.calling.config.collectAsStateWithLifecycle()
-    SwitchRow(
-        settingTitle("connect_haptic"), settingSummary("connect_haptic"),
-        config.haptics && config.connectHaptic, icon, enabled = config.haptics,
-    ) { v -> vm.c.calling.update { it.copy(connectHaptic = v) } }
-}
-
-/** Settings › Call time: reminders and limits, with a one-line summary of what's on. */
+/** Settings › Calls › Situations: talk-time reminders and limits, with a one-line summary of what's on. */
 @Composable
 fun CallTimeRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()

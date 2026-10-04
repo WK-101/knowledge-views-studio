@@ -40,10 +40,36 @@ class CapabilityCatalogTest {
         assertEquals(CapabilityAction.LOCK_NOW, rows.single { it.key == "lock_now" }.action)
         assertEquals(CapabilityAction.EXPECTING_CALL, rows.single { it.key == "expecting" }.action)
         assertEquals(CapabilityTarget.Setting("app_lock"), rows.single { it.key == "lock_now" }.target)
-        assertEquals(2, rows.count { it.action != null })
+        assertEquals(CapabilityAction.entries.toSet(), rows.mapNotNull { it.action }.toSet())
+        assertEquals(4, rows.count { it.action != null })
         // The privacy dashboard lives under Settings › Privacy and stays reachable from the privacy job.
         assertEquals(Job.KEEP_PRIVATE, rows.single { it.target == CapabilityTarget.Screen(AppScreen.PRIVACY_DASHBOARD) }.job)
         assertEquals(CapabilityTarget.Setting("reminders"), rows.single { it.key == "reminders" }.target)
+    }
+
+    /** Every screen a row can open has its row: a new [AppScreen] without one fails here. */
+    @Test fun every_screen_has_a_row() {
+        val shown = rows.mapNotNull { (it.target as? CapabilityTarget.Screen)?.screen }.toSet()
+        assertEquals(emptySet<AppScreen>(), AppScreen.entries.toSet() - shown)
+    }
+
+    /** One row per destination: two rows that open the same place are one row with a better summary. */
+    @Test fun no_two_rows_open_the_same_place() {
+        // A row that runs in place (Lock now, Is this a scam?…) only names a target for search; it opens nothing.
+        val links = rows.filter { it.action == null }
+        val twice = links.groupBy { it.target }.filterValues { it.size > 1 }.mapValues { (_, v) -> v.map { it.key } }
+        assertEquals(emptyMap<CapabilityTarget, List<String>>(), twice)
+    }
+
+    /** What arrived after 4.6 has a row (PRODUCT.md §1.2): the hub lists everything Parley does. */
+    @Test fun the_hub_has_caught_up() {
+        listOf(
+            "drive_profile", "phone_menus", "calling_abroad", "call_quality", "rtt", "shared_labels", "parley_pin", "scam_check",
+            "voicemail", "speed_dial", "private_names", "introduce", "sims",
+        ).forEach { k -> assertTrue(k, rows.any { it.key == k }) }
+        // Plan minutes and "Introduce myself…" are hidden elsewhere and kept here, folded under "More".
+        listOf("sims", "introduce").forEach { k -> assertTrue(k, !rows.single { it.key == k }.featured) }
+        assertTrue(rows.none { it.key == "card_updates" })
     }
 
     @Test fun whos_in_has_a_way_in_besides_the_contacts_chip() {

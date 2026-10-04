@@ -15,8 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Storefront
 import app.parley.data.calls.ReputationLearner
 import androidx.compose.material.icons.automirrored.rounded.ShortText
@@ -34,7 +32,6 @@ import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Accessibility
@@ -45,12 +42,10 @@ import androidx.compose.material.icons.rounded.DensityMedium
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockClock
@@ -65,14 +60,11 @@ import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Quickreply
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RestoreFromTrash
-import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.GroupAdd
-import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tag
@@ -125,6 +117,7 @@ import app.parley.common.calls.RecentsLayout
 import app.parley.common.ux.BackupNudge
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.ux.RecentsStyle
+import app.parley.common.ux.SalesLines
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
 import app.parley.messaging.CsvImportRequest
@@ -154,11 +147,9 @@ import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.history.recentsLayoutLabels
 import app.parley.ui.home.label
 import app.parley.ui.home.recentsStyleLabels
-import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.AvatarStyleSetting
 import app.parley.ui.people.CrashReportsRow
 import app.parley.ui.people.ExportAccountRow
-import app.parley.ui.people.LabelsRow
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.people.PreferNicknameRow
 import app.parley.ui.people.SecondLineRow
@@ -166,7 +157,6 @@ import app.parley.ui.people.SwipeSettings
 import app.parley.ui.people.accountLabel
 import app.parley.ui.people.hasSeveralAccounts
 import app.parley.ui.startOrSay
-import app.parley.ui.temporary.rememberTemporaryItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -175,7 +165,6 @@ import app.parley.ui.InfoRow
 import app.parley.ui.rowColors
 import app.parley.ui.SwitchRow
 import app.parley.ui.ParleyDialog
-import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /** Saves a settings change. */
 @Composable
@@ -313,17 +302,6 @@ internal fun KeypadPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
 }
 
-// ---------------------------------------------------------------- Call time
-
-@Composable
-internal fun CallTimePage(vm: AppViewModel, open: (Destination) -> Unit) {
-    SegmentedGroup {
-        item("call_time") { CallTimeRow(vm, open, Icons.Rounded.Timer) }
-        // Plan minutes are set per SIM: one row, also on Calls › SIMs & carrier ("SIMs & plan minutes").
-        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
-    }
-}
-
 // ---------------------------------------------------------------- Blocking
 
 @Composable
@@ -333,19 +311,20 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val scope = rememberCoroutineScope()
     val snoozing = s.screening.snoozeActive(System.currentTimeMillis())
     val snoozeOn = stringResource(R.string.set_expecting_call_on)
+    // I2: one choice for tags from your own calls (Tag quietly, the default) and the optional silence rule.
+    val sales = SalesLines.of(s.screening.learnFromCalls, s.screening.silenceSalesLines)
+    val salesChoices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_sales_lines_tag), stringResource(R.string.set_sales_lines_silence))
+    val salesSub = if (sales == SalesLines.TAG_AND_SILENCE) stringResource(R.string.set_sales_lines_silence_sub) else null
     SegmentedGroup {
         linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
         switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
-        // I2: tags from your own calls (on), and the optional silence rule (off, only while learning is on).
-        switchRow("learn_from_calls", s.screening.learnFromCalls, Icons.Rounded.Storefront) { v ->
+        menuRow("learn_from_calls", salesChoices, sales.ordinal, Icons.Rounded.Storefront, sub = salesSub) { i ->
+            val v = SalesLines.entries[i]
             // Learns at once (or forgets everything), in the app's scope so leaving the page doesn't stop it.
             vm.c.scope.launch {
-                vm.c.settings.update { it.copy(screening = it.screening.copy(learnFromCalls = v)) }
+                vm.c.settings.update { it.copy(screening = it.screening.copy(learnFromCalls = v.learn, silenceSalesLines = v.silence)) }
                 catching { ReputationLearner.learn(vm.c) }
             }
-        }
-        switchRow("silence_sales_lines", s.screening.silenceSalesLines, Icons.AutoMirrored.Rounded.VolumeOff, enabled = s.screening.learnFromCalls) { v ->
-            set { it.copy(screening = it.screening.copy(silenceSalesLines = v)) }
         }
         switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
             if (v) BlockingDialogs.show(BlockingDialog.Snooze)
@@ -357,7 +336,6 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
         linkRow("spam_lists", Icons.Rounded.Inventory2) { open(BlockingRoutes.Lists) }
         linkRow("templates", Icons.Rounded.Style) { open(BlockingRoutes.Templates) }
-        linkRow("dry_run", Icons.Rounded.Science) { open(BlockingRoutes.DryRun) }
         linkRow("transfer", Icons.Rounded.ImportExport) { open(BlockingRoutes.Transfer) }
     }
 }
@@ -375,7 +353,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     var importAccounts by remember { mutableStateOf<Pair<Uri, List<AccountRef>>?>(null) }
     var skipDuplicates by remember { mutableStateOf(true) }
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
-    val tempCount = rememberTemporaryItems(vm).size
     // Android 16's cloud default, when it takes new contacts instead of the phone: said under "Save new contacts to".
     var systemDefault by remember { mutableStateOf<AccountRef?>(null) }
     LaunchedEffect(Unit) {
@@ -416,7 +393,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
 
     JobProgress(vm, UserJobs.Kind.EXPORT, UserJobs.Kind.IMPORT)
-    val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_contact_list)) {
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
@@ -430,14 +406,9 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                 set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }
             }
         }
-        item("labels") { LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
+        // My card, where people look for it (it was under Messaging).
+        item("my_details") { MyDetailsRow(vm, Icons.Rounded.Badge) }
         switchRow("mirror_relations", s.mirrorRelations, Icons.Rounded.SyncAlt) { v -> set { it.copy(mirrorRelations = v) } }
-        linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) {
-            open(Routes.Temporary)
-        }
-        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BulkAdd) }
-        linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.Duplicates) }
-        linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.Health) }
         linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.Sections) }
     }
     val severalAccounts = hasSeveralAccounts(vm)
@@ -454,11 +425,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             csvFormat = f
             csvExporter.launch(csvFileName(f))
         }
-    }
-    SegmentedGroup(stringResource(R.string.set_group_birthdays)) {
-        linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }
-        // Birthday and keep-in-touch reminders are on Reminders, with every other kind.
-        remindersLinkRow(open)
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
         logPromptsRow(vm, circleCfg)
@@ -539,10 +505,8 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
             set { it.copy(callLogRetentionDays = retention[i], callLogRetentionChosen = true) }
         }
         if (archiveOn) keptForeverRow(vm)
-        // Clear everything, unknown numbers or missed calls, with an export first.
+        // Clear everything, unknown numbers or missed calls, with an export first (deleted calls come back from History & undo).
         item("clear_history") { ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
-        // Deleted calls are restored where everything else is: History & undo › Calls.
-        linkRow("history_details", Icons.Rounded.RestoreFromTrash) { open(Routes.journal(HistoryTab.CALLS)) }
     }
     val layoutLabels = recentsLayoutLabels()
     val styleLabels = recentsStyleLabels()
@@ -558,10 +522,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
         // Recents opens on the chip used last (Blocked and Voicemail aside).
         switchRow("recents_remember_filter", s.rememberRecentsFilter, Icons.Rounded.FilterList) { v -> set { it.copy(rememberRecentsFilter = v) } }
-        // Missed-call re-alerts and To call are on Reminders.
-        remindersLinkRow(open)
-        linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.Insights) }
-        // The People card in Call insights.
+        // The People card in Call insights (Recents ⋮ › Call insights).
         peopleCardRows(vm, circleCfg)
     }
     SegmentedGroup(stringResource(R.string.hist_export_import)) {
@@ -577,7 +538,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
 // ---------------------------------------------------------------- Messaging
 
 @Composable
-internal fun MessagingPage(vm: AppViewModel, open: (Destination) -> Unit) {
+internal fun MessagingPage(vm: AppViewModel) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val scope = rememberCoroutineScope()
@@ -585,17 +546,10 @@ internal fun MessagingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     SegmentedGroup {
         linkRow("quick_replies", Icons.Rounded.Quickreply, sub = s.quickReplies.joinToString(" · ")) { editReplies = true }
-        item("my_details") { MyDetailsRow(vm, Icons.Rounded.Badge) }
     }
-    // The record of numbers you opened chats with, and when it forgets them.
-    val recorded by vm.c.messaging.lastMessaged.collectAsStateWithLifecycle()
-    val recording by vm.c.messaging.recordEnabled.collectAsStateWithLifecycle()
+    // When the record of numbers you opened chats with forgets them (the list itself is in Tools).
     val expiry by vm.c.messaging.expiryDays.collectAsStateWithLifecycle()
-    val messagedSub = if (recording) pluralStringResource(R.plurals.set_numbers_count, recorded.size, recorded.size) else stringResource(R.string.set_not_kept)
     SegmentedGroup(stringResource(R.string.set_group_messaged)) {
-        linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat, sub = messagedSub) {
-            open(MessagingRoutes.Messaged)
-        }
         val choices = MessagedRecord.EXPIRY_CHOICES
         menuRow("messaged_expiry", choices.map { expiryLabel(context, it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
             scope.launch { vm.c.messaging.setExpiryDays(choices[i]) }
@@ -669,10 +623,9 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_your_data)) {
         linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.Privacy) }
         linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WhoCanSee) }
-        linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) on else off) { open(PeopleRoutes.PrivateNames) }
-    }
-    AdvancedGroup(setOf("private_directory", "app_permissions", "delete_all_data")) {
         linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PrivateNames) }
+    }
+    AdvancedGroup(setOf("app_permissions", "delete_all_data")) {
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
         }
@@ -695,13 +648,12 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
         ) { open(Routes.Backup) }
-        remindersLinkRow(open)
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
         linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SyncMarkdown) }
     }
+    // One row for History & undo (its Snapshots tab is a Tools row of its own).
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
-        linkRow("time_machine", Icons.Rounded.ManageHistory) { open(Routes.journal(HistoryTab.SNAPSHOTS)) }
     }
 }
 

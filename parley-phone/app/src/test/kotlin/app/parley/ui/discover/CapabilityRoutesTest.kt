@@ -77,4 +77,62 @@ class CapabilityRoutesTest {
             assertEquals(c.summary, context.getString(summary))
         }
     }
+
+    /**
+     * Tools is the one hub: every screen in the app's graph is opened by a Tools row, or is listed here as part of a
+     * feature that is (or as a place that isn't a feature). A new screen fails until it has a row or a reason.
+     */
+    @Test fun every_screen_is_reached_from_tools_or_explicitly_part_of_another() {
+        fun name(route: String?) = route.orEmpty().substringBefore('/').substringBefore('?')
+        val fromTools = CapabilityCatalog.rows
+            .mapNotNull { c -> (capabilityEvent(c.target) as? NavEvent.Route)?.route?.let { it::class.qualifiedName } }
+            .toSet()
+        val screens = nav.graph.map { name(it.route) }.filter { it.isNotEmpty() }.toSet()
+        val missing = screens - fromTools - PART_OF_ANOTHER.keys
+        assertEquals("Screens without a Tools row or a reason", emptySet<String>(), missing)
+        // The reasons stay honest: each names a screen that still exists and that Tools doesn't open itself.
+        assertEquals(emptySet<String>(), PART_OF_ANOTHER.keys - screens)
+        assertEquals(emptySet<String>(), PART_OF_ANOTHER.keys.intersect(fromTools))
+    }
+
+    private companion object {
+        private const val UI = "app.parley.ui"
+
+        /** Screens Tools doesn't open itself, and why that's right. */
+        val PART_OF_ANOTHER: Map<String, String> = mapOf(
+            "$UI.Routes.Home" to "the tabs",
+            "$UI.Routes.Contact" to "a contact's page",
+            "$UI.Routes.Edit" to "the editor (Tools › Make a contact from pasted text opens a new one)",
+            "$UI.Routes.Pick" to "Add to a contact, from a number",
+            "$UI.Routes.History" to "a number's history, from Recents",
+            "$UI.Routes.Vault" to "a private contact's page",
+            "$UI.Routes.Versions" to "a contact's Version history",
+            "$UI.Routes.Settings" to "Settings",
+            "$UI.Routes.SettingsPage" to "a Settings page",
+            "$UI.Routes.Tools" to "an old link to the hub",
+            "$UI.discover.DiscoverRoutes.Capabilities" to "Tools itself",
+            "$UI.Routes.SyncMarkdown" to "a section of Sync between your phones",
+            "$UI.settings.CallsRoutes.Page" to "Settings › Calls' own pages",
+            "$UI.blocking.BlockingRoutes.Rule" to "a rule of Blocking & screening",
+            "$UI.contact.ContactPageRoutes.Sections" to "a setting: Settings › Contacts › Contact page sections",
+            "$UI.contact.ContactPageRoutes.Timeline" to "a contact's timeline",
+            "$UI.extras.ExtrasRoutes.SimpleImport" to "Simple mode's setup from another phone",
+            "$UI.family.FamilyRoutes.SafeWords" to "Family safe word, set on a label's page",
+            "$UI.history.HistoryRoutes.Settings" to "an old link to Settings › Recents & history",
+            "$UI.history.HistoryRoutes.Sim" to "one SIM's plan minutes",
+            "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
+            "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
+            "$UI.people.PeopleRoutes.Diagnostics" to "Settings › About",
+            "$UI.people.PeopleRoutes.EditRaw" to "one account's copy of a contact",
+            "$UI.people.PeopleRoutes.Label" to "a label's page",
+            "$UI.people.PeopleRoutes.MeEdit" to "My card's editor",
+            "$UI.people.PeopleRoutes.NewNumber" to "My card › Changed my number",
+            "$UI.people.PeopleRoutes.SharedWith" to "My card › Shared with",
+            "$UI.people.PeopleRoutes.SimImport" to "Settings › Contacts › Import from SIM card",
+            "$UI.sync.shared.SharedLabelRoutes.Join" to "Shared labels › Join",
+            "$UI.sync.shared.SharedLabelRoutes.Manage" to "a shared label",
+            "$UI.sync.shared.SharedLabelRoutes.Share" to "a label's ⋮ › Share this label…",
+            "$UI.timemachine.WatchRoutes.Restore" to "the sync watchdog's notification",
+        )
+    }
 }

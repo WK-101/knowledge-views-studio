@@ -304,14 +304,24 @@ Sensitive screens hide non-system overlays (Android 12+) and ignore touches thro
 
 ## Private names in other apps
 
+- **One way in: the contacts Directory.** Private names reach another app only through the opt-in Directory
+  (`PrivateDirectoryProvider`), which Android's Contacts Provider queries on a phone app's behalf. Parley also had its
+  own lookup provider (`PrivateNameProvider`, `content://<package>.privatenames/lookup/<number>`) guarded by a custom
+  permission, `app.parley.permission.LOOKUP_PRIVATE_NAME`. No published app ever declared that permission, so it only
+  added an exported IPC surface with its own approvals, rate limit and log. 5.6 removed the provider and the
+  permission declaration: the manifest lost both and gained nothing (`ExportedComponentsTest`). Its switch, approvals,
+  certificates, prompt times and log lines are deleted from the `private_names` store the first time Parley starts
+  after the update (`PrivateNameAccess.forgetLookupProvider`); the Directory's own are kept. A backup made before
+  still restores its Directory approvals; its lookup-provider approvals are skipped.
 - **Approving an app.** The request notification's "Allow…" opens a sheet inside Parley, behind its lock, that names
   the app by its package name and the SHA-256 of its signing certificate (as Android reports it), never by its
   label, which the app chooses itself. "Allow" then asks for the Parley PIN (or, without one, the phone's unlock)
   once more. "Don't allow" acts from the notification (after the phone's unlock): it grants nothing. Allowing from
-  Privacy › Private names goes through the same sheet. The approval stays bound to that certificate.
-- **During a duress session** the switch, the Directory switch and the approvals are safety switches: the screens
-  show a change, nothing is stored, and the next lock forgets it (`PrivateNameAccess.endSession`). The providers
-  read only what is stored, and answer "hidden" while hiding anyway.
+  Privacy › Private names in other phone apps goes through the same sheet. The approval stays bound to that
+  certificate.
+- **During a duress session** the Directory switch and the approvals are safety switches: the screens show a change,
+  nothing is stored, and the next lock forgets it (`PrivateNameAccess.endSession`). The provider reads only what is
+  stored, and answers "hidden" while hiding anyway.
 
 ## Private calls and the system call log
 
@@ -323,7 +333,7 @@ first, the next start sweeps before anything else; the daily upkeep catches anyt
 call-log numbers that may be private, decided on every form caller ID matches on (E.164, the form older versions
 stored, the last digits; `VaultNumberKeys.Prefilter`), so no call caller ID recognises is ever skipped.
 
-Private calls are never pruned automatically: "Keep call history" applies to the phone's call log and the archive,
+Private calls are never pruned automatically: "Trim Android's call log" applies to the phone's call log and the archive,
 not to them. They go when deleted, with their contact, or when a temporary private contact expires.
 
 **What remains:** the moment between Telecom's insert and Parley's delete. The delete runs on the change notice, so

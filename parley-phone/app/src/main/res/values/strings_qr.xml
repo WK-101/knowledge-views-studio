@@ -7,7 +7,7 @@
     <string name="qs_shortcut_short">Scan QR</string>
     <string name="qs_shortcut_long">Scan a QR code from a photo</string>
     <string name="qs_tile_label">Scan QR</string>
-    <string name="qs_tip_contacts">New: scan a QR code, such as someone\'s contact card or chat link</string>
+    <string name="qs_tip_contacts">Add someone here: a new contact, a QR code such as their contact card, or several numbers at once</string>
     <string name="qs_set_title">Scan QR code</string>
     <string name="qs_set_summary">Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access</string>
     <string name="qs_set_kw">qr, qr code, scan, scanner, barcode, vcard, business card, wifi, whatsapp, signal, telegram, camera</string>

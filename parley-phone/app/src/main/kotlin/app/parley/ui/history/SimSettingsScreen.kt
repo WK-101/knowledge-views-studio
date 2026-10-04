@@ -54,12 +54,18 @@ import java.time.format.FormatStyle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 
-/** Settings › SIMs: one row per SIM, with its plan meter when set. */
+/**
+ * Settings › Calls › SIMs & carrier › SIMs: one row per SIM and the abroad settings. Plan minutes are hidden unless
+ * [plans] (Tools › Plan minutes per SIM, or search) or a SIM already has a plan: then each row shows its meter and
+ * opens the plan.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
+fun SimListScreen(vm: AppViewModel, plans: Boolean, back: () -> Unit, open: (Destination) -> Unit) {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
+    val planList by vm.c.history.plans.collectAsStateWithLifecycle()
+    val showPlans = plans || planList.any { it.enabled }
     val res = LocalResources.current
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.hist_sims_title), onBack = back)
@@ -69,13 +75,16 @@ fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
             sims.forEach { sim ->
                 item(key = sim.id) {
                     ParleyListItem(
-                        modifier = Modifier.clickable { open(HistoryRoutes.sim(sim.id)) },
+                        modifier = if (showPlans) Modifier.clickable { open(HistoryRoutes.sim(sim.id)) } else Modifier,
                         leadingContent = {
                             SimPlanBadge(vm, sim.id) { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) }
                         },
                         headlineContent = { Text(sim.label) },
-                        supportingContent = { Text(usage[sim.id]?.let { HistoryText.planSummary(res, it) } ?: listOfNotNull(sim.subtitle, stringResource(R.string.hist_no_plan)).joinToString(" · ")) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) },
+                        supportingContent = {
+                            val planLine = if (showPlans) stringResource(R.string.hist_no_plan) else null
+                            Text(usage[sim.id]?.let { HistoryText.planSummary(res, it) } ?: listOfNotNull(sim.subtitle, planLine).joinToString(" · "))
+                        },
+                        trailingContent = if (showPlans) ({ Icon(Icons.AutoMirrored.Rounded.ArrowForward, null) }) else null,
                     )
                 }
             }

@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
@@ -34,7 +36,13 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
+import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,7 +85,7 @@ import app.parley.ui.circle.CircleTab
 import app.parley.ui.common.CoachMarkAnchor
 import app.parley.ui.history.ClearHistoryMenuItem
 import app.parley.ui.history.RecentsExportMenuItem
-import app.parley.ui.history.RecentsInsightsAction
+import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
@@ -226,7 +234,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             AnimatedVisibility(tab == StartTab.CONTACTS && selection.isEmpty() && !searching, enter = scaleIn(), exit = scaleOut()) {
-                FloatingActionButton(onClick = { open(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) }) { Icon(Icons.Rounded.PersonAdd, stringResource(R.string.home_create_contact)) }
+                AddContactFab(vm, open)
             }
         },
     ) { padding ->
@@ -279,12 +287,12 @@ private fun TabIcon(t: StartTab, missed: Int) {
 @Composable
 private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit) {
     when (tab) {
-        StartTab.RECENTS -> RecentsInsightsAction(open)
+        // Call insights is in ⋮; with the keypad docked here, its Speed dial comes along.
+        StartTab.RECENTS -> if (vm.settings.collectAsStateWithLifecycle().value.homeLayout.keypadDocked) {
+            IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
+        }
         StartTab.CONTACTS -> {
-            // Scan QR, with a one-time tip.
-            CoachMarkAnchor(Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
-                IconButton({ open(QrRoutes.Scan) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
-            }
+            // Scan QR is in the add button's menu.
             IconButton({ open(PeopleRoutes.Labels) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
             // Lock Parley now, without waiting for the timeout.
             if (appLock) IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
@@ -310,21 +318,19 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     val layout = settings.homeLayout
     when (tab) {
         StartTab.RECENTS -> {
-            // With the keypad docked here, its header's Speed dial comes along.
-            if (layout.keypadDocked) MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SpeedDial) }
+            // Right after a spam call: the rules that decide which calls ring.
+            MenuItem(stringResource(R.string.set_blocking_title), Icons.Rounded.Block) { go(Routes.Blocking) }
+            MenuItem(stringResource(R.string.hist_insights_action), Icons.Rounded.Insights) { go(HistoryRoutes.Insights()) }
+            // Layout, style, what a tap does and the colours' legend, in one dialog.
+            RecentsLayoutMenuItem(close)
             RecentsExportMenuItem(close)
-            // Call-list layout (quick toggle) and clear call history.
-            RecentsLayoutMenuItem(vm, close)
             ClearHistoryMenuItem(close)
-            // What the call shapes and colours mean.
-            RecentsLegendMenuItem(close)
         }
         StartTab.CONTACTS -> {
             MenuItem(stringResource(R.string.home_select_all), Icons.Rounded.SelectAll) {
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
-            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BulkAdd) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
@@ -342,4 +348,42 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     }
     MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
     MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
+}
+
+/**
+ * Contacts' add button: a tap opens its menu (New contact, Scan QR code, Add several numbers), the ways to add
+ * someone in one place. New contact is private while only private contacts show.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    BackHandler(expanded) { expanded = false }
+    fun go(d: Destination) { expanded = false; open(d) }
+    val addLabel = stringResource(R.string.home_add_contact_menu)
+    FloatingActionButtonMenu(
+        expanded = expanded,
+        button = {
+            CoachMarkAnchor(Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
+                ToggleFloatingActionButton(
+                    checked = expanded, onCheckedChange = { expanded = it },
+                    modifier = Modifier.semantics { contentDescription = addLabel },
+                ) {
+                    Icon(if (checkedProgress > 0.5f) Icons.Rounded.Close else Icons.Rounded.PersonAdd, null)
+                }
+            }
+        },
+    ) {
+        FloatingActionButtonMenuItem(
+            onClick = { go(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) },
+            text = { Text(stringResource(R.string.home_create_contact)) }, icon = { Icon(Icons.Rounded.PersonAdd, null) },
+        )
+        FloatingActionButtonMenuItem(
+            onClick = { go(QrRoutes.Scan) }, text = { Text(stringResource(R.string.qs_menu)) }, icon = { Icon(Icons.Rounded.QrCodeScanner, null) },
+        )
+        FloatingActionButtonMenuItem(
+            onClick = { go(MessagingRoutes.BulkAdd) }, text = { Text(stringResource(R.string.home_add_several)) },
+            icon = { Icon(Icons.Rounded.GroupAdd, null) },
+        )
+    }
 }

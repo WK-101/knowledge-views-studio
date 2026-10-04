@@ -2,10 +2,10 @@ package app.parley.common.people
 
 import app.parley.common.PhoneIdentity
 
-/** A per-app decision for the private-name lookup provider. */
+/** A per-app decision for the private-name contacts Directory. */
 enum class LookupApproval { ALLOWED, DENIED, PENDING }
 
-/** What the provider did with one query (shown in the access log; the number itself is never stored). */
+/** What the Directory did with one query (shown in the access log; the number itself is never stored). */
 enum class LookupOutcome {
     /** Showed a private name. */
     ANSWERED,
@@ -30,7 +30,7 @@ enum class LookupOutcome {
 }
 
 /**
- * Rules of the protected private-name lookup ("Let apps show private names"): one exact number per query,
+ * Rules of the private-name contacts Directory ("Private names in other phone apps"): one exact number per query,
  * never a list or a prefix, only for apps the user approved, and at most [maxPerHour] lookups per app.
  */
 object LookupPolicy {

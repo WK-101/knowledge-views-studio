@@ -49,8 +49,7 @@ class ExportedComponentsTest {
             "app.parley.telecom.ParleyCallScreeningService" to "android.permission.BIND_SCREENING_SERVICE",
             // The system's "missed call" broadcast to the default dialer.
             "app.parley.MissedCallReceiver" to "android.permission.MODIFY_PHONE_STATE",
-            // Approved apps only (signature-pinned approvals inside); the directory is reached through the Contacts Provider.
-            "app.parley.privatenames.PrivateNameProvider" to "app.parley.permission.LOOKUP_PRIVATE_NAME_DEBUG",
+            // Approved phone apps only (signature-pinned approvals inside), reached through the Contacts Provider.
             "app.parley.privatenames.PrivateDirectoryProvider" to "android.permission.READ_CONTACTS",
             // Libraries: the job scheduler and the profile installer (adb / the system only).
             "androidx.work.impl.background.systemjob.SystemJobService" to "android.permission.BIND_JOB_SERVICE",
@@ -122,5 +121,15 @@ class ExportedComponentsTest {
         }
         // And a component that isn't in the manifest at all is simply absent.
         assertTrue(runCatching { context.packageManager.getActivityInfo(ComponentName(context, "app.parley.Nope"), 0) }.isFailure)
+    }
+
+    /** The private-name lookup provider went (no app ever used it): neither it nor its custom permission is declared. */
+    @Test fun the_private_name_lookup_provider_and_its_permission_are_gone() {
+        val flags = PackageManager.GET_PROVIDERS or PackageManager.GET_PERMISSIONS or PackageManager.MATCH_DISABLED_COMPONENTS
+        val info = context.packageManager.getPackageInfo(context.packageName, flags)
+        assertTrue(info.providers.orEmpty().none { it.name == "app.parley.privatenames.PrivateNameProvider" })
+        assertTrue(info.permissions.orEmpty().none { "LOOKUP_PRIVATE_NAME" in it.name })
+        // The opt-in Directory stays.
+        assertTrue(info.providers.orEmpty().any { it.name == "app.parley.privatenames.PrivateDirectoryProvider" })
     }
 }

@@ -31,7 +31,6 @@ import androidx.compose.material.icons.automirrored.rounded.CallMissed
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.Voicemail
@@ -44,7 +43,6 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +82,13 @@ import app.parley.ui.CallTypeBadge
 import app.parley.ui.CallTypeColors
 import app.parley.ui.blocking.RecentBadge
 import app.parley.ui.blocking.RecentBlockingActions
+import app.parley.ui.blocking.rememberReputation
+import app.parley.common.ux.RecentMenu
+import app.parley.ui.common.MenuLabel
+import app.parley.ui.common.MenuRows
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.ui.text.style.TextAlign
 import app.parley.ui.blocking.RecentsSelectionBar
 import app.parley.ui.blocking.rememberRecentBadges
 import app.parley.ui.calls.ToCallStrip
@@ -174,7 +179,9 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     // Swipes don't start while this list is still flinging.
     val listState = rememberLazyListState()
     LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = bottomPadding)) {
-        if (selected.isNotEmpty()) stickyHeader(key = "selection") { RecentsSelectionBar(vm, groups.orEmpty()) }
+        if (selected.isNotEmpty()) stickyHeader(key = "selection") {
+            RecentsSelectionBar(vm, groups.orEmpty(), onActions = { g -> recents.clearSelection(); menuFor = g })
+        }
         item(key = "filters") {
             RecentsFilterRow(
                 vm, filter, onFilter = { recents.setFilter(it) }, voicemailChip = isDefault,
@@ -263,7 +270,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
               ) {
                 RecentRow(
                     g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
-                    onLongClick = { if (selected.isNotEmpty()) toggleSelected(g) else menuFor = g },
+                    // One rule for lists: a long-press selects; the call's actions are the selection bar's ⋮.
+                    onLongClick = { toggleSelected(g) },
                     badge = badgeFor(g),
                     selected = g.key in selected,
                     unreturned = g.latest.id in unreturned,
@@ -321,7 +329,7 @@ fun RecentRow(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
             onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
-            onLongClickLabel = stringResource(R.string.main_more_actions),
+            onLongClickLabel = stringResource(R.string.recents_select),
         )
             .then(if (RecentsMark.ACCENT in marks) Modifier.callAccent(hue) else Modifier)
             .semantics { this.selected = selected },
@@ -495,45 +503,82 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
     )
 }
 
-/** Long-press actions for a Recents row. */
+/**
+ * A call's actions, from the Recents selection bar's ⋮ (a long-press selects the call): Call, Message, Message or
+ * call on… and Copy as one row of buttons, then at most six rows ([RecentMenu]), the screening ones under "Why it rang…".
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
+@Suppress("CyclomaticComplexMethod") // One branch per action.
+private fun RecentActionsSheet(
+    vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
+    var why by remember { mutableStateOf(false) }
     fun act(block: () -> Unit) { onDismiss(); block() }
+    val hasNumber = !g.hidden && g.number.isNotBlank()
+    val saved = g.contact != null || g.vaultId != null
+    val facts = RecentMenu.Facts(
+        hasNumber = hasNumber, saved = saved,
+        salesLine = hasNumber && rememberReputation(vm, g.number, isContact = g.contact != null) != null,
+    )
+    fun runAction(a: RecentMenu.Action) = act {
+        when (a) {
+            RecentMenu.Action.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+            RecentMenu.Action.MESSAGE -> Intents.sms(context, g.number)
+            RecentMenu.Action.MESSAGE_OR_CALL_ON -> onMessageOn(g.number)
+            RecentMenu.Action.COPY_NUMBER -> Clipboard.copy(context, g.number)
+            RecentMenu.Action.CREATE_CONTACT -> open(Routes.edit(phone = g.number))
+            RecentMenu.Action.ADD_TO_CONTACT -> open(Routes.pick(g.number))
+            RecentMenu.Action.EDIT_BEFORE_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = g.number))
+            RecentMenu.Action.BLOCK -> vm.blockNumber(g.number)
+            RecentMenu.Action.DELETE_FROM_HISTORY -> recents.delete(g)
+            // The screening rows are drawn by RecentBlockingActions in the "Why it rang…" sheet.
+            else -> Unit
+        }
+    }
+    if (why) {
+        ParleySheet(onDismissRequest = { why = false; onDismiss() }, title = stringResource(R.string.menu_group_why).removeSuffix("…")) {
+            RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED) { why = false; onDismiss() }
+            Spacer(Modifier.padding(bottom = 24.dp))
+        }
+        return
+    }
     ParleySheet(onDismissRequest = onDismiss) {
         Text(
             g.shownTitle,
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
         )
-        val hasNumber = !g.hidden && g.number.isNotBlank()
-
-        @Composable
-        fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
-            if (enabled) ListItem(
-                headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick),
-            )
+        val quick = RecentMenu.quick(facts)
+        if (quick.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s), horizontalArrangement = Arrangement.SpaceEvenly) {
+                quick.forEach { a ->
+                    val l = recentMenuLabel(a)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                        FilledTonalIconButton({ runAction(a) }, Modifier.size(48.dp)) { Icon(l.icon, l.text) }
+                        Text(l.text, style = MaterialTheme.typography.labelMedium, maxLines = 2, textAlign = TextAlign.Center)
+                    }
+                }
+            }
         }
-        row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
-        row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { Intents.sms(context, g.number) } }
-        row(R.string.reach_message_or_call_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
-        row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
-            act { vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = g.number)) }
-        }
-        row(R.string.recents_copy_number, Icons.Rounded.ContentCopy, hasNumber) { act { Clipboard.copy(context, g.number) } }
-        row(
-            R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
-        ) { act { open(Routes.edit(phone = g.number)) } }
-        row(
-            R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
-        ) { act { open(Routes.pick(g.number)) } }
-        row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
-        row(R.string.recents_select, Icons.Rounded.CheckCircle, true) { act { recents.selection.value = setOf(g.key) } }
-        if (hasNumber) RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
-        row(R.string.recents_delete_from_history, Icons.Rounded.Delete) {
-            act { recents.delete(g) }
-        }
+        MenuRows(RecentMenu.build(facts), { recentMenuLabel(it) }, onGroup = { why = true }, onAction = ::runAction)
         Spacer(Modifier.padding(bottom = 24.dp))
     }
+}
+
+/** The words and icon of a Recents call action. */
+@Composable
+private fun recentMenuLabel(a: RecentMenu.Action): MenuLabel = when (a) {
+    RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.main_call), Icons.Rounded.Call)
+    RecentMenu.Action.MESSAGE -> MenuLabel(stringResource(R.string.recents_send_message), Icons.AutoMirrored.Rounded.Message)
+    RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat)
+    RecentMenu.Action.COPY_NUMBER -> MenuLabel(stringResource(R.string.recents_copy_number), Icons.Rounded.ContentCopy)
+    RecentMenu.Action.CREATE_CONTACT -> MenuLabel(stringResource(R.string.home_create_contact), Icons.Rounded.PersonAdd)
+    RecentMenu.Action.ADD_TO_CONTACT -> MenuLabel(stringResource(R.string.recents_add_to_contact), Icons.Rounded.PersonAdd)
+    RecentMenu.Action.EDIT_BEFORE_CALL -> MenuLabel(stringResource(R.string.recents_edit_before_call), Icons.Rounded.Dialpad)
+    RecentMenu.Action.BLOCK -> MenuLabel(stringResource(R.string.recents_block_number), Icons.Rounded.Block)
+    RecentMenu.Action.DELETE_FROM_HISTORY -> MenuLabel(stringResource(R.string.recents_delete_from_history), Icons.Rounded.Delete)
+    // Shown by RecentBlockingActions with its own words; the group's entry reads "Why it rang…".
+    else -> MenuLabel(stringResource(R.string.menu_group_why), Icons.Rounded.Info)
 }

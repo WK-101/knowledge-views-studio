@@ -36,7 +36,6 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,11 +64,16 @@ import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
 import app.parley.common.ux.BackupNudge
 import app.parley.data.GroupInfo
-import app.parley.messaging.IntroduceStart
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.contact.madeVisibleText
 import app.parley.ui.contact.makeVisibleBody
-import app.parley.ui.people.CopyAsTextMenuItem
+import app.parley.ui.people.copyAsText
+import app.parley.common.ux.MenuEntry
+import app.parley.common.ux.SelectionMenu
+import app.parley.ui.common.MenuGroupSheet
+import app.parley.ui.common.MenuItems
+import app.parley.ui.common.MenuLabel
+import androidx.compose.material.icons.rounded.ContentCopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,6 +90,7 @@ fun SelectionBar(vm: AppViewModel) {
     val all by vm.people.filtered.collectAsStateWithLifecycle()
     val chosen = all.orEmpty().filter { it.id in selection }
     var menu by remember { mutableStateOf(false) }
+    var menuGroup by remember { mutableStateOf<MenuEntry.Group<SelectionMenu.Action>?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmPrivate by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
@@ -122,6 +127,45 @@ fun SelectionBar(vm: AppViewModel) {
         }
     }
 
+    // At most seven items: sharing and privacy under Share… and Privacy… (SelectionMenu).
+    val menuEntries = SelectionMenu.build(SelectionMenu.Facts(hasDevice, hasPrivate, BulkActions.available(BulkAction.MERGE, ids)))
+    fun runMenu(a: SelectionMenu.Action) {
+        when (a) {
+            // Private contacts join a label as Parley's own membership (one per label title), device ones by account.
+            SelectionMenu.Action.ADD_TO_LABEL -> scope.launch {
+                val groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
+                labelPicker = if (hasDevice) groups else groups.distinctBy { it.title.trim() }
+            }
+            SelectionMenu.Action.MESSAGE_ALL -> {
+                val numbers = chosen.mapNotNull { c -> (c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
+                if (numbers.isEmpty()) vm.toast(res.getString(R.string.sel_no_numbers))
+                else context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";"))))
+            }
+            // The clipboard and a .vcf file are readable by other apps: device contacts only.
+            SelectionMenu.Action.COPY_AS_TEXT -> {
+                copyAsText(context, targets(BulkAction.COPY_AS_TEXT))
+                noteSkipped(BulkAction.COPY_AS_TEXT)
+            }
+            SelectionMenu.Action.EXPORT_VCF -> exporter.launch("contacts-${targets(BulkAction.EXPORT).size}.vcf")
+            // Merging makes one address-book contact: only device contacts, and only two or more of them.
+            SelectionMenu.Action.MERGE -> {
+                val merged = targets(BulkAction.MERGE)
+                backupFirst.ask(merged.size, 1) {
+                    scope.launch {
+                        vm.c.contacts.join(merged.map { it.id })
+                        vm.selection.value = emptySet()
+                        vm.toast(res.getQuantityString(R.plurals.sel_merged, merged.size, merged.size))
+                        noteSkipped(BulkAction.MERGE)
+                    }
+                }
+            }
+            SelectionMenu.Action.DELETE_AUTOMATICALLY -> askExpiry = true
+            SelectionMenu.Action.MAKE_PRIVATE -> confirmPrivate = true
+            SelectionMenu.Action.MAKE_VISIBLE -> confirmVisible = true
+            SelectionMenu.Action.DELETE -> confirmDelete = true
+        }
+    }
+
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         // Same room for the status bar and cutout as the header it replaces.
         @OptIn(ExperimentalMaterial3Api::class)
@@ -155,75 +199,12 @@ fun SelectionBar(vm: AppViewModel) {
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_add_to_label)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null) }, onClick = {
-                        menu = false
-                        // Private contacts join a label as Parley's own membership (one per label title), device ones by account.
-                        scope.launch {
-                            val groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
-                            labelPicker = if (hasDevice) groups else groups.distinctBy { it.title.trim() }
-                        }
-                    })
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_message_all)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
-                        menu = false
-                        val numbers = chosen.mapNotNull { c -> (c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
-                        if (numbers.isEmpty()) vm.toast(res.getString(R.string.sel_no_numbers))
-                        else context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";"))))
-                    })
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_introduce)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
-                        menu = false
-                        // One prefilled chat at a time; you press Send yourself.
-                        if (!IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
-                    })
-                    // Merging makes one address-book contact: only device contacts, and only two or more of them.
-                    if (BulkActions.available(BulkAction.MERGE, ids)) {
-                        val merged = targets(BulkAction.MERGE)
-                        DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) }, onClick = {
-                            menu = false
-                            backupFirst.ask(merged.size, 1) {
-                                scope.launch {
-                                    vm.c.contacts.join(merged.map { it.id })
-                                    vm.selection.value = emptySet()
-                                    vm.toast(res.getQuantityString(R.plurals.sel_merged, merged.size, merged.size))
-                                    noteSkipped(BulkAction.MERGE)
-                                }
-                            }
-                        })
-                    }
-                    // The clipboard and a .vcf file are readable by other apps: device contacts only.
-                    if (hasDevice) CopyAsTextMenuItem(targets(BulkAction.COPY_AS_TEXT)) { menu = false; noteSkipped(BulkAction.COPY_AS_TEXT) }
-                    if (hasDevice) DropdownMenuItem(
-                        { Text(stringResource(R.string.sel_export_vcf)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
-                        onClick = {
-                            menu = false
-                            exporter.launch("contacts-${targets(BulkAction.EXPORT).size}.vcf")
-                        },
-                    )
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.contact_make_temporary)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) },
-                        onClick = { menu = false; askExpiry = true },
-                    )
-                    if (hasDevice) {
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.sel_move_private)) },
-                            leadingIcon = { Icon(Icons.Rounded.Lock, null) },
-                            onClick = { menu = false; confirmPrivate = true },
-                        )
-                    }
-                    if (hasPrivate) {
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.contact_make_visible)) }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) },
-                            onClick = { menu = false; confirmVisible = true },
-                        )
-                    }
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.main_delete)) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menu = false; confirmDelete = true },
-                    )
+                    MenuItems(menuEntries, { selectionMenuLabel(it) }, close = { menu = false }, onGroup = { menuGroup = it }, onAction = ::runMenu)
                 }
             }
         }
     }
+    menuGroup?.let { g -> MenuGroupSheet(g, { selectionMenuLabel(it) }, onDismiss = { menuGroup = null }, onAction = ::runMenu) }
 
     if (confirmPrivate) {
         // The private ones already are: only the device contacts move.
@@ -313,4 +294,18 @@ fun SelectionBar(vm: AppViewModel) {
             dismissButton = { TextButton({ labelPicker = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
+}
+
+/** The words and icon of a selection ⋮ action. */
+@Composable
+private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = when (a) {
+    SelectionMenu.Action.ADD_TO_LABEL -> MenuLabel(stringResource(R.string.sel_add_to_label), Icons.AutoMirrored.Rounded.Label)
+    SelectionMenu.Action.MESSAGE_ALL -> MenuLabel(stringResource(R.string.sel_message_all), Icons.AutoMirrored.Rounded.Message)
+    SelectionMenu.Action.COPY_AS_TEXT -> MenuLabel(stringResource(R.string.ppl_copy_as_text), Icons.Rounded.ContentCopy)
+    SelectionMenu.Action.EXPORT_VCF -> MenuLabel(stringResource(R.string.sel_export_vcf), Icons.Rounded.FileDownload)
+    SelectionMenu.Action.MERGE -> MenuLabel(stringResource(R.string.sel_merge), Icons.AutoMirrored.Rounded.MergeType)
+    SelectionMenu.Action.DELETE_AUTOMATICALLY -> MenuLabel(stringResource(R.string.contact_make_temporary), Icons.Rounded.Timer)
+    SelectionMenu.Action.MAKE_PRIVATE -> MenuLabel(stringResource(R.string.sel_move_private), Icons.Rounded.Lock)
+    SelectionMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
+    SelectionMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
 }

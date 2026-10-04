@@ -59,7 +59,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
                 "accountsWithContacts" to vm.people.index.value.accountCounts.size.toString(),
                 "labels" to vm.people.index.value.labelCounts.size.toString(),
                 "sims" to vm.sims.value.size.toString(),
-                "privateNameLookup" to vm.c.people.privateNames.state.value.enabled.toString(),
+                "privateDirectory" to vm.c.people.privateNames.state.value.directory.toString(),
             )
             vm.c.people.diagnostics.report(vm.settings.value, vm.people.settings.value, extra, mask) +
                 // The contacts tables with every value reduced to its shape (always masked).

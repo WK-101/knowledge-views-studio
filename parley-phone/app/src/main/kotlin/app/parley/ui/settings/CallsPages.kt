@@ -52,13 +52,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * Settings › Calls' own pages, so the Calls page itself stays a short list. [place] is where Settings search finds
- * their settings; Situations only links to screens of their own, which search opens directly.
+ * their settings; Situations mostly links to screens of their own, which search opens directly.
  */
-enum class CallsSubPage(val place: SettingPlace?, val title: Int, val summary: Int, val icon: ImageVector) {
+enum class CallsSubPage(val place: SettingPlace, val title: Int, val summary: Int, val icon: ImageVector) {
     ANSWERING(SettingPlace.CALLS_ANSWERING, R.string.set_calls_answering_title, R.string.set_calls_answering_summary, Icons.Rounded.PhoneInTalk),
     DURING(SettingPlace.CALLS_DURING, R.string.set_calls_during_title, R.string.set_calls_during_summary, Icons.Rounded.Call),
     SIMS(SettingPlace.CALLS_SIMS, R.string.set_calls_sims_title, R.string.set_calls_sims_summary, Icons.Rounded.SimCard),
-    SITUATIONS(null, R.string.set_calls_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
+    SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.set_calls_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
     ;
 
     companion object {
@@ -166,7 +166,7 @@ private fun DuringCallsPage(vm: AppViewModel) {
 private fun SimsCarrierPage(open: (Destination) -> Unit) {
     val context = LocalContext.current
     SegmentedGroup {
-        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
+        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims()) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startOrSay(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
         linkRow("carrier_settings", Icons.AutoMirrored.Rounded.PhoneForwarded, external = true) {
             context.startOrSay(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS))
@@ -174,7 +174,7 @@ private fun SimsCarrierPage(open: (Destination) -> Unit) {
     }
 }
 
-/** Calls › Situations: helpers, the drive profile, phone menus and call time, each a screen of its own. */
+/** Calls › Situations: helpers, the drive profile, phone menus and call time (once a category of its own), each a screen of its own. */
 @Composable
 private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     Text(

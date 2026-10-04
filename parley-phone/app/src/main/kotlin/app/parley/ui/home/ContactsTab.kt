@@ -265,6 +265,8 @@ fun ContactRow(
     onMessage: ((String) -> Unit)? = null,
     /** A contact that is only a company gets a building in lists too. */
     isCompany: Boolean = false,
+    /** A trailing ⋮ with the row's own actions, where the list has no selection (a long-press selects elsewhere). */
+    menu: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     ParleyListItem(
@@ -300,7 +302,7 @@ fun ContactRow(
                     Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, c.displayName), tint = MaterialTheme.colorScheme.primary)
                 }
             }
-        }) else null,
+        }) else menu,
     )
 }
 

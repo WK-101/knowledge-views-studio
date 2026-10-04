@@ -1,14 +1,11 @@
 package app.parley.ui.history
 
 import app.parley.AppViewModel
-import app.parley.ui.Destination
 import app.parley.ui.activityViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,12 +15,6 @@ import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
-
-/** Recents top-bar action: Insights. */
-@Composable
-fun RecentsInsightsAction(open: (Destination) -> Unit) {
-    IconButton({ open(HistoryRoutes.Insights) }) { Icon(Icons.Rounded.Insights, stringResource(R.string.hist_insights_action)) }
-}
 
 /** Recents overflow item "Export…"; the sheet itself is shown by [RecentsExportHost] in Recents. */
 @Composable

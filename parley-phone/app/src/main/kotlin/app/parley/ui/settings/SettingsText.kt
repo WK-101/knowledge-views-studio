@@ -44,7 +44,6 @@ object SettingsText {
         "caller_photo" to Triple(R.string.set_caller_photo_title, R.string.set_caller_photo_summary, R.string.set_caller_photo_kw),
         "confirm_call" to Triple(R.string.set_confirm_call_title, R.string.set_confirm_call_summary, R.string.set_confirm_call_kw),
         "call_haptics" to Triple(R.string.set_call_haptics_title, R.string.set_call_haptics_summary, R.string.set_call_haptics_kw),
-        "connect_haptic" to Triple(R.string.set_connect_haptic_title, R.string.set_connect_haptic_summary, R.string.set_connect_haptic_kw),
         "unknown_ringtone" to Triple(R.string.set_unknown_ringtone_title, R.string.set_unknown_ringtone_summary, R.string.set_unknown_ringtone_kw),
         "answer_rtt" to Triple(R.string.set_answer_rtt_title, R.string.set_answer_rtt_summary, R.string.set_answer_rtt_kw),
         "pocket_guard" to Triple(R.string.set_pocket_guard_title, R.string.set_pocket_guard_summary, R.string.set_pocket_guard_kw),
@@ -69,7 +68,6 @@ object SettingsText {
         "blocking" to Triple(R.string.set_blocking_title, R.string.set_blocking_summary, R.string.set_blocking_kw),
         "repeat_callers" to Triple(R.string.set_repeat_callers_title, R.string.set_repeat_callers_summary, R.string.set_repeat_callers_kw),
         "learn_from_calls" to Triple(R.string.set_learn_from_calls_title, R.string.set_learn_from_calls_summary, R.string.set_learn_from_calls_kw),
-        "silence_sales_lines" to Triple(R.string.set_silence_sales_lines_title, R.string.set_silence_sales_lines_summary, R.string.set_silence_sales_lines_kw),
         "expecting_call" to Triple(R.string.set_expecting_call_title, R.string.set_expecting_call_summary, R.string.set_expecting_call_kw),
         "expected_hints" to Triple(R.string.set_expected_hints_title, R.string.set_expected_hints_summary, R.string.set_expected_hints_kw),
         "spam_lists" to Triple(R.string.set_spam_lists_title, R.string.set_spam_lists_summary, R.string.set_spam_lists_kw),
@@ -138,7 +136,6 @@ object SettingsText {
         "private_history" to Triple(R.string.set_private_history_title, R.string.set_private_history_summary, R.string.set_private_history_kw),
         "privacy_dashboard" to Triple(R.string.set_privacy_dashboard_title, R.string.set_privacy_dashboard_summary, R.string.set_privacy_dashboard_kw),
         "who_can_see" to Triple(R.string.set_who_can_see_title, R.string.set_who_can_see_summary, R.string.set_who_can_see_kw),
-        "private_names" to Triple(R.string.set_private_names_title, R.string.set_private_names_summary, R.string.set_private_names_kw),
         "private_directory" to Triple(R.string.set_private_directory_title, R.string.set_private_directory_summary, R.string.set_private_directory_kw),
         "app_permissions" to Triple(R.string.set_app_permissions_title, R.string.set_app_permissions_summary, R.string.set_app_permissions_kw),
         "delete_all_data" to Triple(R.string.set_delete_all_data_title, R.string.set_delete_all_data_summary, R.string.set_delete_all_data_kw),
@@ -201,7 +198,6 @@ object SettingsText {
         SettingsCategory.LAYOUT -> R.string.set_cat_layout_title
         SettingsCategory.CALLS -> R.string.set_cat_calls_title
         SettingsCategory.KEYPAD -> R.string.set_cat_keypad_title
-        SettingsCategory.CALL_TIME -> R.string.set_cat_call_time_title
         SettingsCategory.BLOCKING -> R.string.set_cat_blocking_title
         SettingsCategory.CONTACTS -> R.string.set_cat_contacts_title
         SettingsCategory.HISTORY -> R.string.set_cat_history_title
@@ -217,7 +213,6 @@ object SettingsText {
         SettingsCategory.LAYOUT -> R.string.set_cat_layout_summary
         SettingsCategory.CALLS -> R.string.set_cat_calls_summary
         SettingsCategory.KEYPAD -> R.string.set_cat_keypad_summary
-        SettingsCategory.CALL_TIME -> R.string.set_cat_call_time_summary
         SettingsCategory.BLOCKING -> R.string.set_cat_blocking_summary
         SettingsCategory.CONTACTS -> R.string.set_cat_contacts_summary
         SettingsCategory.HISTORY -> R.string.set_cat_history_summary

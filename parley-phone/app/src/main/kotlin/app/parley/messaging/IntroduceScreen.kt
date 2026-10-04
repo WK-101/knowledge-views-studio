@@ -37,6 +37,13 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.pluralStringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
@@ -58,18 +65,12 @@ import app.parley.ui.showMessage
 
 /** Starting points of "Introduce myself…". */
 object IntroduceStart {
-    /** From Contacts multi-select: each person's mobile number (else the first one). False when none has a number. */
-    fun fromContacts(vm: AppViewModel, chosen: List<ContactSummary>): Boolean {
-        val targets = chosen.mapNotNull { c ->
-            val phone = c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull() ?: return@mapNotNull null
-            val e164 = NumberText.toE164(phone.number, vm.countryIso) ?: return@mapNotNull null
-            IntroQueue.Target(c.displayName, e164)
-        }.distinctBy { it.number }
-        if (targets.isEmpty()) return false
-        MessagingInbox.introTargets = targets
-        vm.navigate(NavEvent.Route(MessagingRoutes.Introduce))
-        return true
-    }
+    /** Each person's mobile number (else the first one); people without a number are left out. */
+    fun targets(chosen: List<ContactSummary>, countryIso: String): List<IntroQueue.Target> = chosen.mapNotNull { c ->
+        val phone = c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull() ?: return@mapNotNull null
+        val e164 = NumberText.toE164(phone.number, countryIso) ?: return@mapNotNull null
+        IntroQueue.Target(c.displayName, e164)
+    }.distinctBy { it.number }
 
     /** From the bulk-add result. */
     fun fromList(targets: List<IntroQueue.Target>, open: (Destination) -> Unit) {
@@ -137,10 +138,11 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         ParleyTopBar(stringResource(R.string.intro_title), onBack = back)
     }) { p ->
         if (queue.targets.isEmpty()) {
-            EmptyState(
-                Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), Modifier.padding(p),
-                action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(NavEvent.Tab(StartTab.CONTACTS)) },
-            )
+            // From Tools: choose who to introduce yourself to.
+            IntroduceChooser(vm, Modifier.padding(p)) { targets ->
+                MessagingInbox.introTargets = targets
+                queue = IntroQueue(targets)
+            }
             return@ParleyScaffold
         }
         Column(Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -206,5 +208,41 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
             editDetails = false
             vm.c.people.me.setNameAndNumber(name, number)
         }
+    }
+}
+
+/** Who to introduce yourself to (Tools › Introduce myself…): your contacts with a number, ticked one by one. */
+@Composable
+private fun IntroduceChooser(vm: AppViewModel, modifier: Modifier, onStart: (List<IntroQueue.Target>) -> Unit) {
+    val contacts by vm.contacts.collectAsStateWithLifecycle()
+    val withNumbers = remember(contacts) { contacts.orEmpty().filter { it.phones.isNotEmpty() } }
+    var picked by rememberSaveable { mutableStateOf(setOf<Long>()) }
+    if (withNumbers.isEmpty()) {
+        EmptyState(
+            Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), modifier,
+            action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(NavEvent.Tab(StartTab.CONTACTS)) },
+        )
+        return
+    }
+    Column(modifier.fillMaxSize()) {
+        Text(
+            stringResource(R.string.intro_choose), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        LazyColumn(Modifier.weight(1f)) {
+            items(withNumbers, key = { it.id }) { c ->
+                val on = c.id in picked
+                ParleyListItem(
+                    headlineContent = { Text(c.displayName) },
+                    leadingContent = { Checkbox(on, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(on, role = Role.Checkbox) { picked = if (it) picked + c.id else picked - c.id },
+                )
+            }
+        }
+        Button(
+            { onStart(IntroduceStart.targets(withNumbers.filter { it.id in picked }, vm.countryIso)) },
+            enabled = picked.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+        ) { Text(pluralStringResource(R.plurals.intro_start, picked.size, picked.size)) }
     }
 }

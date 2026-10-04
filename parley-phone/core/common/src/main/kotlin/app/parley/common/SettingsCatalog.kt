@@ -1,17 +1,20 @@
 package app.parley.common
 
-/** Top-level groups of Settings, in the order they're listed. Their names are the app's string resources. */
-enum class SettingsCategory { APPEARANCE, LAYOUT, CALLS, KEYPAD, CALL_TIME, BLOCKING, CONTACTS, HISTORY, MESSAGING, PRIVACY, BACKUP, NOTIFICATIONS, ABOUT }
+/**
+ * Top-level groups of Settings, in the order they're listed. Their names are the app's string resources. Settings holds
+ * preferences only: tools are launched from Tools, and a tool's search entry here is a link ([SettingEntry.link]).
+ */
+enum class SettingsCategory { APPEARANCE, LAYOUT, CALLS, KEYPAD, BLOCKING, CONTACTS, HISTORY, MESSAGING, PRIVACY, BACKUP, NOTIFICATIONS, ABOUT }
 
 /**
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
  * every setting is searchable wherever it lives.
  */
 enum class SettingPlace {
-    TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
+    TOOLS, BLOCKING, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
 
-    /** Settings › Calls' own pages: Answering, During calls, and SIMs & carrier (Calls itself keeps a short list). */
-    CALLS_ANSWERING, CALLS_DURING, CALLS_SIMS,
+    /** Settings › Calls' own pages: Answering, During calls, SIMs & carrier and Situations (Calls itself keeps a short list). */
+    CALLS_ANSWERING, CALLS_DURING, CALLS_SIMS, CALLS_SITUATIONS,
 
     /**
      * Settings › Reminders: every kind of reminder Parley sends, each with its switch and time (missed calls, To call
@@ -34,8 +37,8 @@ data class SettingEntry(
     /** Where the setting lives when it isn't on its category's page (a screen of its own); null: the page. */
     val place: SettingPlace? = null,
     /**
-     * A way to a page or a list (Reminders, To call), found by search like a setting but holding no value of its own.
-     * The settings budget doesn't count it.
+     * A way to a page, a list or a tool (Reminders, To call, Find & merge duplicates…), found by search like a setting
+     * but holding no value of its own. The settings budget doesn't count it.
      */
     val link: Boolean = false,
     val title: String = "",
@@ -67,7 +70,6 @@ object SettingsCatalog {
     private val L = SettingsCategory.LAYOUT
     private val C = SettingsCategory.CALLS
     private val K = SettingsCategory.KEYPAD
-    private val T = SettingsCategory.CALL_TIME
     private val B = SettingsCategory.BLOCKING
     private val P = SettingsCategory.CONTACTS
     private val H = SettingsCategory.HISTORY
@@ -79,6 +81,12 @@ object SettingsCatalog {
 
     /** A way to a page or list on [place] ([SettingEntry.link]): searchable, not a setting. */
     private fun link(place: SettingPlace, key: String, category: SettingsCategory) = SettingEntry(key, category, place, link = true)
+
+    /**
+     * A tool, launched from Tools rather than from a Settings page: search still finds it under its category's name
+     * and opens the tool itself.
+     */
+    private fun tool(key: String, category: SettingsCategory) = link(SettingPlace.TOOLS, key, category)
 
     /** Settings › Reminders. */
     private val REM = SettingPlace.REMINDERS
@@ -119,8 +127,8 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_DURING, "memory_prompt", C),
         at(SettingPlace.CALLS_DURING, "memory_lock_screen", C),
         at(SettingPlace.CALLS_DURING, "pre_call_peek", C),
+        // One choice: Off, or on every change, with or without the buzz when they answer.
         at(SettingPlace.CALLS_DURING, "call_haptics", C),
-        at(SettingPlace.CALLS_DURING, "connect_haptic", C),
         // Off by default: turning the phone face down while it rings silences it (never declines).
         at(SettingPlace.CALLS_ANSWERING, "flip_to_silence", C),
         at(SettingPlace.CALLS_ANSWERING, "unknown_ringtone", C),
@@ -130,6 +138,7 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_ANSWERING, "auto_answer", C),
         // Haptic caller ID: set on a contact's or a label's page.
         at(SettingPlace.CALLS_ANSWERING, "caller_vibration", C),
+        // Calls › Situations: screens of their own (helpers, drive profile, phone menus, call time).
         // Bring in my helper: a screen of its own, linked from Calls › Situations (and simple mode's setup).
         at(SettingPlace.HELPERS, "call_helpers", C),
         // The drive profile: a screen of its own, linked from Calls › Situations; off until a car is marked.
@@ -154,45 +163,47 @@ object SettingsCatalog {
         e("keypad_letters", K),
         e("speed_dial", K),
         e("ussd", K),
-        // Call time
-        e("call_time", T),
+        // Talk-time reminders and limits: a screen of its own, on Calls › Situations (the Call time category went).
+        at(SettingPlace.CALLS_SITUATIONS, "call_time", C),
         at(SettingPlace.SIMS, "plan_minutes", C),
         // Blocking & spam
         e("blocking", B),
         e("repeat_callers", B),
+        // Sales lines: one choice (Off · Tag quietly · Tag and silence).
         e("learn_from_calls", B),
-        e("silence_sales_lines", B),
         e("expecting_call", B),
         e("expected_hints", B),
         e("spam_lists", B),
         e("templates", B),
-        e("dry_run", B),
+        tool("dry_run", B),
         e("transfer", B),
         // Contacts
         // Settings › Contacts, where people look for how their contact list looks (it used to be under Layout & gestures).
         e("row_actions", P),
         e("default_account", P),
-        e("labels", P),
+        tool("labels", P),
         e("mirror_relations", P),
-        e("temporary_contacts", P),
+        tool("temporary_contacts", P),
+        // My card, where people look for it (it was under Messaging).
+        e("my_details", P),
         // On the Temporary contacts screen, beside the contacts it's about.
         at(SettingPlace.TEMPORARY, "temp_ask_first", P),
-        e("duplicates", P),
-        e("health", P),
+        tool("duplicates", P),
+        tool("health", P),
         e("contact_page", P),
         e("import_file", P),
-        e("bulk_add", P),
+        tool("bulk_add", P),
         // Scan QR (search finds it; it opens the scan screen).
-        at(SettingPlace.TOOLS, "scan_qr", P),
+        tool("scan_qr", P),
         // Finding your way (on Tools; search opens the page itself).
-        at(SettingPlace.TOOLS, "coming_from", P),
+        tool("coming_from", P),
         // The one hub (it was "What Parley can do" and, separately, Tools): the key stays for old links.
-        at(SettingPlace.TOOLS, "what_parley_can_do", O),
+        tool("what_parley_can_do", O),
         e("import_sim", P),
         e("export_vcf", P),
         e("export_csv", P),
         e("export_account", P),
-        e("birthdays", P),
+        tool("birthdays", P),
         // Reminders of every kind live on one page (Settings › Reminders), linked from Contacts, Recents and Backup.
         at(REM, "birthday_reminders", P),
         at(REM, "reminder_time", P),
@@ -204,7 +215,8 @@ object SettingsCatalog {
         e("log_prompts", P),
         // Recents & history
         e("archive", H),
-        at(SettingPlace.DELETED_CALLS, "history_details", H),
+        // Deleted calls come back from History & undo › Calls.
+        tool("history_details", H),
         e("kept_forever", H),
         e("csv_bom", H),
         e("retention", H),
@@ -213,15 +225,14 @@ object SettingsCatalog {
         e("recents_remember_filter", H),
         e("recents_style", H),
         e("clear_history", H),
-        e("insights", H),
+        tool("insights", H),
         // The People card.
         e("people_card", H),
         e("first_mover", H),
         e("import_calls", H),
         // Messaging
         e("quick_replies", M),
-        e("my_details", M),
-        e("messaged_numbers", M),
+        tool("messaged_numbers", M),
         e("messaged_expiry", M),
         // Privacy & security
         e("app_lock", S),
@@ -238,7 +249,6 @@ object SettingsCatalog {
         e("private_history", S),
         e("privacy_dashboard", S),
         e("who_can_see", S),
-        e("private_names", S),
         e("private_directory", S),
         e("app_permissions", S),
         e("delete_all_data", S),
@@ -247,7 +257,7 @@ object SettingsCatalog {
         at(REM, "backup_reminder", U),
         e("sync", U),
         e("journal", U),
-        e("time_machine", U),
+        tool("time_machine", U),
         e("markdown_export", U),
         // Notifications & device
         // The one page for every reminder; its rows are searchable by their own words too.
@@ -275,9 +285,9 @@ object SettingsCatalog {
         at(SettingPlace.SIMPLE_MODE, "simple_speak", L),
         at(SettingPlace.SIMPLE_MODE, "simple_helpers", L),
         at(SettingPlace.SIMPLE_MODE, "simple_share", L),
-        at(SettingPlace.CALL_TIME, "ct_reminders", T),
-        at(SettingPlace.CALL_TIME, "ct_limits", T),
-        at(SettingPlace.CALL_TIME, "ct_supervised", T),
+        at(SettingPlace.CALL_TIME, "ct_reminders", C),
+        at(SettingPlace.CALL_TIME, "ct_limits", C),
+        at(SettingPlace.CALL_TIME, "ct_supervised", C),
         at(SettingPlace.BACKUP, "backup_automatic", U),
         at(SettingPlace.BACKUP, "backup_keep", U),
         at(SettingPlace.BACKUP, "backup_restore", U),

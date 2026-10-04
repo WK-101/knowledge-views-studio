@@ -94,6 +94,13 @@ internal fun ScamCheckSheet(live: Boolean, actions: ScamCheckActions, onDismiss:
     }
 }
 
+/**
+ * The same checklist outside a call (Tools › Is this a scam?), to read before one: the warning signs, with nothing
+ * to do to a call.
+ */
+@Composable
+fun ScamSignsGuide(onDismiss: () -> Unit) = ScamCheckSheet(live = false, actions = ScamCheckActions(onVerify = null), onDismiss = onDismiss)
+
 private fun signTexts(sign: ScamCheck.Sign): Triple<ImageVector, Int, Int> = when (sign) {
     ScamCheck.Sign.PRESSURE -> Triple(Icons.Rounded.Timer, R.string.scam_sign_pressure, R.string.scam_sign_pressure_detail)
     ScamCheck.Sign.UNUSUAL_PAYMENT -> Triple(Icons.Rounded.CardGiftcard, R.string.scam_sign_payment, R.string.scam_sign_payment_detail)

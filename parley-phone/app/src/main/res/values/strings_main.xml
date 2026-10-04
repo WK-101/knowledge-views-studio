@@ -284,7 +284,7 @@
         <item quantity="other">Merged %d contacts</item>
     </plurals>
     <string name="sel_export_vcf">Export to .vcf</string>
-    <string name="sel_move_private">Move to private</string>
+    <string name="sel_move_private">Make private</string>
     <plurals name="sel_delete_title">
         <item quantity="one">Delete %d contact?</item>
         <item quantity="other">Delete %d contacts?</item>
@@ -392,8 +392,7 @@
     <string name="detail_move_vault">Make private</string>
     <string name="detail_move_failed">Couldn\'t move: %1$s</string>
     <string name="detail_moved_private">Moved to your private contacts</string>
-    <string name="detail_change_expiry">Change auto-delete</string>
-    <string name="detail_delete_after">Delete after…</string>
+    <string name="detail_change_expiry">Change when it deletes itself</string>
     <string name="detail_gone">This contact no longer exists.</string>
     <string name="detail_view_photo">View photo</string>
     <string name="detail_deletes_on">Deletes itself on %1$s</string>
@@ -728,7 +727,12 @@
     <string name="intro_copied">Your details were copied. Paste them in the chat.</string>
     <string name="intro_title">Introduce myself</string>
     <string name="intro_empty">Nobody to introduce yourself to</string>
-    <string name="intro_empty_body">Select contacts and choose “Introduce myself…”, or add several numbers first.</string>
+    <string name="intro_empty_body">Save some contacts with numbers, or add several numbers first.</string>
+    <string name="intro_choose">Choose who gets your details. Parley opens one chat at a time; you press Send.</string>
+    <plurals name="intro_start">
+        <item quantity="one">Introduce myself to %1$d person</item>
+        <item quantity="other">Introduce myself to %1$d people</item>
+    </plurals>
     <string name="intro_explainer">Parley opens one chat at a time with your details filled in. You press Send in the messenger; when you come back, the next person is ready. Nothing is sent for you.</string>
     <string name="intro_no_details">Your details aren\'t set up yet</string>
     <string name="intro_the_message">The message</string>
@@ -880,7 +884,8 @@
     <string name="recents_layout_grouped_hint">Calls in a row from the same number share a row</string>
     <string name="recents_layout_chronological_hint">Every call on its own row, newest first</string>
     <string name="recents_layout_by_day_hint">One row per number for each day</string>
-    <string name="recents_layout_menu">Layout: %1$s</string>
+    <string name="recents_view_menu">Recents view…</string>
+    <string name="recents_view_title">Recents view</string>
     <string name="clear_history_menu">Clear call history…</string>
     <string name="clear_history_title">Clear call history</string>
     <string name="clear_history_scope_all">All calls</string>
@@ -914,8 +919,8 @@
     <string name="ux_tip_search">Search names, numbers, notes and companies here.</string>
     <string name="ux_tip_speed_dial">Tip: long-press 2 to 9 to call someone with one touch.</string>
     <string name="ux_tip_set_up">Set up</string>
-    <string name="ux_tip_recents_swipe">Swipe a call sideways for quick actions, or long-press it for more.</string>
-    <string name="ux_tip_recents_long_press">Long-press a call for more actions. Swipe actions can be turned on too.</string>
+    <string name="ux_tip_recents_swipe">Swipe a call sideways for quick actions. Hold it to select it, then ⋮ for more.</string>
+    <string name="ux_tip_recents_long_press">Hold a call to select it, then ⋮ for its actions. Swipe actions can be turned on too.</string>
     <string name="ux_tip_turn_on">Turn on</string>
     <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
     <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
@@ -936,4 +941,10 @@
     <string name="ux_empty_open_contacts">Open contacts</string>
     <string name="ux_empty_back">Go back</string>
     <string name="ux_empty_no_match">No matches for “%1$s”</string>
+    <!-- Menus kept to seven items: an entry that opens a sheet with the rarer actions. -->
+    <string name="home_add_contact_menu">Add a contact</string>
+    <string name="menu_group_share">Share…</string>
+    <string name="menu_group_privacy">Privacy…</string>
+    <string name="menu_group_more">More…</string>
+    <string name="menu_group_why">Why it rang…</string>
 </resources>

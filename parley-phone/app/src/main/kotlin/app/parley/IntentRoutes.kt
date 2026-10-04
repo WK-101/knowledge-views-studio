@@ -40,8 +40,8 @@ data class IntentTarget(
     val report: String? = null,
     /** Missed calls were opened: they count as seen (once the screen shows unlocked). */
     val missedSeen: Boolean = false,
-    /** A private-name request's "Allow…": the app's package and whether it asked for the Directory. */
-    val approvePrivateName: Pair<String, Boolean>? = null,
+    /** A private-name request's "Allow…": the phone app's package (it asked through the contacts Directory). */
+    val approvePrivateName: String? = null,
     /** A prepared export to share or print now. */
     val openExport: app.parley.jobs.UserJobs.Opener? = null,
 )
@@ -73,7 +73,6 @@ object IntentRoutes {
     /** A private-name request's "Allow…": the approval sheet, behind the app lock (the extras name the app). */
     const val ACTION_APPROVE_PRIVATE_NAME = "app.parley.APPROVE_PRIVATE_NAME"
     const val EXTRA_PACKAGE = "package"
-    const val EXTRA_DIRECTORY = "directory"
 
     const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
 
@@ -222,7 +221,7 @@ object IntentRoutes {
             Intent.ACTION_EDIT -> data?.let { contactLink(it, readable) }?.let { IntentTarget(editContact = it) }
             // The sheet itself checks the app again and asks before anything is allowed.
             ACTION_APPROVE_PRIVATE_NAME -> intent.getStringExtra(EXTRA_PACKAGE)?.takeIf { it.isNotBlank() }?.let {
-                IntentTarget(approvePrivateName = it to intent.getBooleanExtra(EXTRA_DIRECTORY, false))
+                IntentTarget(approvePrivateName = it)
             }
             Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent)))
             Intent.ACTION_INSERT_OR_EDIT -> go(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))

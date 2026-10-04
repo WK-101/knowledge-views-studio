@@ -52,7 +52,6 @@ import app.parley.common.people.LookupApproval
 import app.parley.data.people.ContactsAccessApp
 import app.parley.messaging.WhatsAppNotice
 import app.parley.privatenames.PrivateDirectoryProvider
-import app.parley.privatenames.PrivateNameProvider
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Section
 import app.parley.ui.common.Format
@@ -194,8 +193,8 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                 val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
                 val allowed = pn.approvals.count { it.value == LookupApproval.ALLOWED }
                 LinkRow(
-                    stringResource(R.string.privacy_private_names),
-                    if (pn.enabled) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off),
+                    settingTitle("private_directory"),
+                    if (pn.directory) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off),
                 ) {
                     open(PeopleRoutes.PrivateNames)
                 }
@@ -238,7 +237,10 @@ private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (Loo
     )
 }
 
-/** Settings › Privacy › "Let apps show private names": approvals and the access log for the lookup provider. */
+/**
+ * Settings › Privacy › "Private names in other phone apps": the opt-in contacts Directory, the phone apps allowed to
+ * use it, and the access log.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
@@ -249,10 +251,10 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     val pm = context.packageManager
     fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
     // "Allow" shows the package and its signing certificate first; the other answers apply at once.
-    var approving by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
-    approving?.let { (pkg, dir) -> PrivateNameApprovalDialog(access, pkg, dir) { approving = null } }
-    fun decide(pkg: String, a: LookupApproval?, directory: Boolean) {
-        if (a == LookupApproval.ALLOWED) approving = pkg to directory else access.setApproval(pkg, a, directory)
+    var approving by remember { mutableStateOf<String?>(null) }
+    approving?.let { pkg -> PrivateNameApprovalDialog(access, pkg) { approving = null } }
+    fun decide(pkg: String, a: LookupApproval?) {
+        if (a == LookupApproval.ALLOWED) approving = pkg else access.setApproval(pkg, a)
     }
 
     // Scroll-linked top-bar tint.
@@ -262,15 +264,6 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
-                SwitchRow(stringResource(R.string.privacy_private_names), stringResource(R.string.pn_off_default), st.enabled) { access.setEnabled(it) }
-                Text(
-                    stringResource(R.string.pn_intro),
-                    Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            item {
-                // The opt-in contacts Directory (same approvals, limit and log as the lookup above).
-                Section(stringResource(R.string.pn_directory_section))
                 SwitchRow(
                     settingTitle("private_directory"),
                     stringResource(R.string.pn_directory_summary),
@@ -281,17 +274,12 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            if (st.directory || st.directoryApprovals.isNotEmpty()) {
+            if (st.directory || st.approvals.isNotEmpty()) {
                 item { Section(stringResource(R.string.pn_directory_apps)) }
-                if (st.directoryApprovals.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
-                items(st.directoryApprovals.entries.sortedBy { label(it.key).lowercase() }, key = { "d:" + it.key }) { (pkg, a) ->
-                    ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = true) }
+                if (st.approvals.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
+                items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
+                    ApprovalRow(pkg, label(pkg), a) { decide(pkg, it) }
                 }
-            }
-            item { Section(stringResource(R.string.pn_apps)) }
-            if (st.approvals.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
-            items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
-                ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = false) }
             }
             item { Section(stringResource(R.string.pn_log)) }
             if (st.log.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }
@@ -299,20 +287,11 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(label(e.packageName)) },
-                    supportingContent = {
-                        val outcome = stringResource(outcomeText(e.outcome))
-                        Text((if (e.viaDirectory) stringResource(R.string.pn_directory_suffix, outcome) else outcome) + " · " + Format.shortWhen(context, e.time))
-                    },
+                    supportingContent = { Text(stringResource(outcomeText(e.outcome)) + " · " + Format.shortWhen(context, e.time)) },
                 )
             }
             if (st.log.isNotEmpty()) item {
                 TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) }
-            }
-            item {
-                Text(
-                    stringResource(R.string.pn_developers, PrivateNameProvider.authority(context), PrivateNameProvider.permission(context)),
-                    Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

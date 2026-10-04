@@ -69,7 +69,7 @@ internal fun PhoneMenusRow(vm: AppViewModel, open: (Destination) -> Unit) {
 }
 
 /**
- * Calls › During calls: the buzz on call events and when a call connects, the proximity sensor (only for broken
+ * Calls › During calls: Vibrate during calls (call events and when a call connects), the proximity sensor (only for broken
  * sensors) and Android's "Power button ends call".
  */
 @Composable
@@ -99,8 +99,7 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
         stringResource(R.string.set_power_button_sub),
     ).joinToString(". ")
     SegmentedGroup(stringResource(R.string.set_group_call_feedback)) {
-        item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
-        item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
+        item("call_haptics") { CallVibrationRow(vm, Icons.Rounded.Vibration) }
         // One row for "proximity only after answering" too, rather than a second switch.
         menuRow("proximity_sensor", proximityChoices, proximity.ordinal, Icons.Rounded.Sensors, sub = proximitySub) { i ->
             val m = ScreenAtEar.Mode.entries[i]

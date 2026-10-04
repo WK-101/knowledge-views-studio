@@ -39,7 +39,6 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -108,6 +107,10 @@ import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.hasSeveralAccounts
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.blocking.BlockingRoutes
+import app.parley.ui.people.PeopleRoutes
+import app.parley.messaging.MessagingRoutes
+import androidx.compose.material.icons.rounded.NotificationsActive
 import app.parley.ui.segmentShape
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.TonalIcon
@@ -123,7 +126,6 @@ val SettingsCategory.icon: ImageVector
         SettingsCategory.LAYOUT -> Icons.Rounded.Dashboard
         SettingsCategory.CALLS -> Icons.Rounded.Call
         SettingsCategory.KEYPAD -> Icons.Rounded.Dialpad
-        SettingsCategory.CALL_TIME -> Icons.Rounded.Timer
         SettingsCategory.BLOCKING -> Icons.Rounded.Block
         SettingsCategory.CONTACTS -> Icons.Rounded.People
         SettingsCategory.HISTORY -> Icons.Rounded.History
@@ -134,14 +136,20 @@ val SettingsCategory.icon: ImageVector
         SettingsCategory.ABOUT -> Icons.Rounded.Info
     }
 
-/** Categories in groups, so the list reads in chunks rather than as one long pile. */
+/**
+ * Categories in groups, so the list reads in chunks rather than as one long pile. Reminders, a page of its own for
+ * every reminder Parley sends, sits with Notifications.
+ */
 private val categoryGroups = listOf(
     listOf(SettingsCategory.APPEARANCE, SettingsCategory.LAYOUT),
-    listOf(SettingsCategory.CALLS, SettingsCategory.KEYPAD, SettingsCategory.CALL_TIME, SettingsCategory.BLOCKING),
+    listOf(SettingsCategory.CALLS, SettingsCategory.KEYPAD, SettingsCategory.BLOCKING),
     listOf(SettingsCategory.CONTACTS, SettingsCategory.HISTORY, SettingsCategory.MESSAGING),
-    listOf(SettingsCategory.PRIVACY, SettingsCategory.BACKUP, SettingsCategory.NOTIFICATIONS),
+    listOf(SettingsCategory.PRIVACY, SettingsCategory.BACKUP, null, SettingsCategory.NOTIFICATIONS),
     listOf(SettingsCategory.ABOUT),
 )
+
+/** The root's Reminders row (null in [categoryGroups]). */
+private const val REMINDERS_ROW = "reminders"
 
 /** Settings: categories with a one-line summary each, and a search over every setting. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -217,7 +225,18 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             categoryGroups.forEach { group ->
                 SegmentedGroup {
                     group.forEach { c ->
-                        item(c.name) {
+                        if (c == null) item(REMINDERS_ROW) {
+                            ParleyListItem(
+                                modifier = Modifier.clickable { open(RemindersRoutes.Page()) },
+                                leadingContent = {
+                                    val cs = MaterialTheme.colorScheme
+                                    TonalIcon(Icons.Rounded.NotificationsActive, cs.secondaryContainer, cs.onSecondaryContainer)
+                                },
+                                headlineContent = { Text(settingTitle("reminders")) },
+                                supportingContent = { Text(settingSummary("reminders"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                colors = rowColors(),
+                            )
+                        } else item(c.name) {
                             ParleyListItem(
                                 modifier = Modifier.clickable { open(Routes.settingsPage(c)) },
                                 leadingContent = { TonalIcon(c.icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) },
@@ -337,11 +356,10 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
                 SettingsCategory.LAYOUT -> LayoutPage(vm, open)
                 SettingsCategory.CALLS -> CallsPage(vm, open)
                 SettingsCategory.KEYPAD -> KeypadPage(vm, open)
-                SettingsCategory.CALL_TIME -> CallTimePage(vm, open)
                 SettingsCategory.BLOCKING -> BlockingPage(vm, open)
                 SettingsCategory.CONTACTS -> ContactsPage(vm, open)
                 SettingsCategory.HISTORY -> HistoryPage(vm, open)
-                SettingsCategory.MESSAGING -> MessagingPage(vm, open)
+                SettingsCategory.MESSAGING -> MessagingPage(vm)
                 SettingsCategory.PRIVACY -> PrivacyPage(vm, open)
                 SettingsCategory.BACKUP -> BackupPage(vm, open)
                 SettingsCategory.NOTIFICATIONS -> NotificationsPage(vm)
@@ -442,18 +460,22 @@ internal fun settingRoute(e: SettingEntry): Destination = when (val place = e.pl
     null -> Routes.settingsPage(e.category, e.key)
     SettingPlace.TOOLS -> toolsRoute(e.key)
     SettingPlace.REMINDERS -> RemindersRoutes.Page(e.key)
-    SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
     // Calls' own pages, scrolled to the setting.
-    SettingPlace.CALLS_ANSWERING, SettingPlace.CALLS_DURING, SettingPlace.CALLS_SIMS ->
+    SettingPlace.CALLS_ANSWERING, SettingPlace.CALLS_DURING, SettingPlace.CALLS_SIMS, SettingPlace.CALLS_SITUATIONS ->
         CallsRoutes.Page(CallsSubPage.at(place)?.name ?: CallsSubPage.ANSWERING.name, e.key)
+    // Plan minutes are offered only where they're asked for (Tools, or search).
+    SettingPlace.SIMS -> HistoryRoutes.Sims(plans = e.key in PLAN_KEYS)
     else -> placeRoutes.getValue(place)
 }
+
+/** The SIM screen's settings about plan minutes. */
+private val PLAN_KEYS = setOf("plan_minutes", "sim_billing")
 
 /** The screen each other [SettingPlace] is on (one each, so a new place without a screen fails its test). */
 private val placeRoutes: Map<SettingPlace, Destination> by lazy {
     mapOf(
         SettingPlace.BLOCKING to Routes.Blocking,
-        SettingPlace.SIMS to HistoryRoutes.Sims,
+        SettingPlace.SIMS to HistoryRoutes.Sims(),
         SettingPlace.CONTACT_PAGE to ContactPageRoutes.Sections,
         SettingPlace.SIMPLE_MODE to ExtrasRoutes.SimpleSetup,
         SettingPlace.CALL_TIME to Routes.CallTime,
@@ -468,11 +490,27 @@ private val placeRoutes: Map<SettingPlace, Destination> by lazy {
     )
 }
 
-/** A Tools entry found by search: the screen itself when it has one, else the Tools hub. */
-private fun toolsRoute(key: String): Destination = when (key) {
-    "scan_qr" -> QrRoutes.Scan
-    "coming_from" -> DiscoverRoutes.ComingFrom
-    else -> DiscoverRoutes.Capabilities
+/** A tool found by search: the tool itself (Settings holds no launcher row for it), else the Tools hub. */
+private fun toolsRoute(key: String): Destination = toolRoutes[key] ?: DiscoverRoutes.Capabilities
+
+/** The screen of each tool Settings search finds (SettingPlace.TOOLS). */
+internal val toolRoutes: Map<String, Destination> by lazy {
+    mapOf(
+        "scan_qr" to QrRoutes.Scan,
+        "coming_from" to DiscoverRoutes.ComingFrom,
+        "what_parley_can_do" to DiscoverRoutes.Capabilities,
+        "dry_run" to BlockingRoutes.DryRun,
+        "labels" to PeopleRoutes.Labels,
+        "temporary_contacts" to Routes.Temporary,
+        "duplicates" to Routes.Duplicates,
+        "health" to Routes.Health,
+        "bulk_add" to MessagingRoutes.BulkAdd,
+        "birthdays" to Routes.Birthdays,
+        "insights" to HistoryRoutes.Insights(),
+        "messaged_numbers" to MessagingRoutes.Messaged,
+        "history_details" to Routes.journal(HistoryTab.CALLS),
+        "time_machine" to Routes.journal(HistoryTab.SNAPSHOTS),
+    )
 }
 
 /** Settings that don't exist on this phone, left out of search. */

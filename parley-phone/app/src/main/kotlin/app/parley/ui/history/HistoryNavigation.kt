@@ -16,14 +16,19 @@ import kotlinx.serialization.Serializable
 
 /** Destinations of the call-history features. */
 object HistoryRoutes {
-    @Serializable data object Insights : Destination
+    /** Call insights; [quality]: scrolled to the Call quality card (Tools › Call quality). */
+    @Serializable data class Insights(val quality: Boolean = false) : Destination
 
     /** The former "Call history" sub-screen; it is part of Settings › Recents & history now. */
     @Serializable data object Settings : Destination
 
     @Serializable data object Import : Destination
 
-    @Serializable data object Sims : Destination
+    /**
+     * The SIMs, with the abroad settings. Plan minutes per SIM show only from Tools' row ([plans]) or once a plan is
+     * set: most plans are unlimited, so Settings doesn't offer them up front.
+     */
+    @Serializable data class Sims(val plans: Boolean = false) : Destination
 
     @Serializable data class Sim(val id: String) : Destination
 
@@ -35,10 +40,10 @@ fun NavGraphBuilder.historyGraph(nav: NavController) {
     val back: () -> Unit = { nav.popBackStack() }
     val open: (Destination) -> Unit = { r -> nav.navigate(r) }
     composable<Routes.History> { NumberHistoryScreen(appVm(), it.toRoute<Routes.History>().number, back = back, open = open) }
-    composable<HistoryRoutes.Insights> { InsightsScreen(appVm(), back = back, open = open) }
+    composable<HistoryRoutes.Insights> { InsightsScreen(appVm(), back = back, open = open, quality = it.toRoute<HistoryRoutes.Insights>().quality) }
     // Old links to the former sub-screen land on its section of the settings page.
     composable<HistoryRoutes.Settings> { SettingsPageScreen(appVm(), SettingsCategory.HISTORY, "archive", back = back, open = open) }
     composable<HistoryRoutes.Import> { ImportCallsScreen(appVm(), back = back) }
-    composable<HistoryRoutes.Sims> { SimListScreen(appVm(), back = back, open = open) }
+    composable<HistoryRoutes.Sims> { SimListScreen(appVm(), it.toRoute<HistoryRoutes.Sims>().plans, back = back, open = open) }
     composable<HistoryRoutes.Sim> { SimSettingsScreen(appVm(), it.toRoute<HistoryRoutes.Sim>().id, back = back) }
 }
