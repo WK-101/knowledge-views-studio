@@ -544,7 +544,7 @@ object CallManager {
             else -> shown
         }
         holdMode.stopReminders(id)
-        val facts = endRecorder.quality(ended, s, drop, cause)
+        val facts = endRecorder.quality(call, ended, s, drop, cause)
         keys.record(ended, s)
         if (keys.replay.value?.callId == id) keys.stopReplay()
         _lastEnded.value = ended

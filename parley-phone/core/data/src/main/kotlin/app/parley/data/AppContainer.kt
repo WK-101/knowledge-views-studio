@@ -184,9 +184,9 @@ class DataContainer(context: Context) {
 
     /** Case files: calls, hold times, menu keys and reference numbers per organisation (sealed at rest). */
     val cases by lazy {
-        CaseFileStore(appContext, { n -> vault.lookup(n) != null }, { settings.settings.map { it.hideVault }.distinctUntilChanged() }) {
-            PhoneEnv.countryIso(appContext)
-        }
+        CaseFileStore(
+            appContext, { n -> vault.lookup(n) != null }, { settings.settings.map { it.hideVault }.distinctUntilChanged() }, { vault.contacts },
+        ) { PhoneEnv.countryIso(appContext) }
     }
 
     /** I21: the Parley PIN and the duress PIN (hashes only, sealed, this phone only). */

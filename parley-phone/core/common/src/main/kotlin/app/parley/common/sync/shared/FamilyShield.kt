@@ -114,20 +114,39 @@ object FamilyShield {
 object FamilyShieldOwn {
     /**
      * [stored] with the block rules' numbers ([blocked], E.164) as they are now: a new one is added as blocked at
-     * [now]; one no longer blocked goes, withdrawn or not; a number marked by hand stays as marked.
+     * [now]; one no longer blocked goes, withdrawn or not; a number marked by hand stays as marked. When the list is
+     * too long the oldest shared entries go first: a withdrawn one never does while its number is blocked, or the
+     * rule would share it again.
      */
     fun withRules(stored: List<ShieldOwn>, blocked: Set<String>, now: Long): List<ShieldOwn> {
         val kept = stored.filter { !it.fromRule || it.e164 in blocked }
         val known = kept.map { it.e164 }.toSet()
         val added = blocked.filter { it !in known && FamilyShield.isE164(it) }.sorted().map { ShieldOwn(it, ShieldKind.BLOCKED, now, fromRule = true) }
-        return (kept + added).takeLast(FamilyShield.MAX_VERDICTS * 2)
+        return trimmed(kept + added, MAX_OWN)
+    }
+
+    /** At most [max] entries: withdrawn ones are all kept; of the rest, the oldest go (the order is otherwise kept). */
+    internal fun trimmed(list: List<ShieldOwn>, max: Int): List<ShieldOwn> {
+        if (list.size <= max) return list
+        val gone = list.withIndex().filter { !it.value.withdrawn }
+            .sortedWith(compareBy({ it.value.at }, { it.index })).take(list.size - max).map { it.index }.toSet()
+        return list.filterIndexed { i, _ -> i !in gone }
     }
 
     /** [e164] marked by hand as [kind] at [now]: shared again even when it was withdrawn. */
     fun mark(stored: List<ShieldOwn>, e164: String, kind: ShieldKind, now: Long): List<ShieldOwn> =
         stored.filter { it.e164 != e164 } + ShieldOwn(e164, kind, now, fromRule = false)
 
-    /** [e164] withdrawn: a block rule's number is remembered as withdrawn (or the next look would share it again); a mark goes. */
-    fun withdraw(stored: List<ShieldOwn>, e164: String): List<ShieldOwn> =
-        stored.mapNotNull { if (it.e164 != e164) it else if (it.fromRule) it.copy(withdrawn = true) else null }
+    /**
+     * [e164] withdrawn. It is always remembered as a withdrawn rule entry, never just dropped: a number marked by hand
+     * may also be blocked, and the next look at the block rules would share it again. Once the number isn't blocked
+     * the entry goes with the next look.
+     */
+    fun withdraw(stored: List<ShieldOwn>, e164: String): List<ShieldOwn> {
+        val hit = stored.lastOrNull { it.e164 == e164 } ?: return stored
+        return stored.filter { it.e164 != e164 } + hit.copy(fromRule = true, withdrawn = true)
+    }
+
+    /** Entries kept at most: own verdicts shared plus withdrawn ones. */
+    private const val MAX_OWN = FamilyShield.MAX_VERDICTS * 2
 }

@@ -2,6 +2,7 @@ package app.parley.data.cases
 
 import app.parley.common.catching
 import android.content.Context
+import app.parley.common.cases.CaseFile
 import app.parley.common.cases.CaseFiles
 import app.parley.common.cases.CaseReference
 import app.parley.common.cases.CaseState
@@ -19,6 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -44,9 +48,16 @@ class CaseFileStore internal constructor(
     /** Seals text; null when sealing isn't possible right now (tests replace it). */
     sealOverride: ((String) -> String?)?,
     openOverride: ((String) -> String?)?,
+    /** Emits when contacts move into or out of the private contacts, so [shown] asks [isPrivate] again. */
+    private val vaultChanges: () -> Flow<Any?> = { flowOf(Unit) },
 ) : RecordSealing.Resealable {
-    constructor(context: Context, isPrivate: suspend (String) -> Boolean, discreet: () -> Flow<Boolean>, region: () -> String?) :
-        this(context, isPrivate, discreet, region, null, null)
+    constructor(
+        context: Context,
+        isPrivate: suspend (String) -> Boolean,
+        discreet: () -> Flow<Boolean>,
+        vaultChanges: () -> Flow<Any?> = { flowOf(Unit) },
+        region: () -> String?,
+    ) : this(context, isPrivate, discreet, region, null, null, vaultChanges)
 
     private val appContext = context.applicationContext
     private val prefs by lazy { appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }
@@ -66,12 +77,27 @@ class CaseFileStore internal constructor(
     /** Whether the stored state could be read. */
     val available: Boolean get() = loaded
 
-    /** What may show now ([CaseFiles.visible]): nothing during a duress unlock, no private contact's in discreet mode. */
+    /**
+     * What may show now ([CaseFiles.visible]): nothing during a duress unlock, and in discreet mode no case of a
+     * private contact. Whether a case is a private contact's is asked live ([isPrivate], as the backup does), not
+     * taken from the flag the case got when it was made: a contact made private since must hide its case too. A
+     * number that can't be checked counts as private.
+     */
     val shown: Flow<CaseState> by lazy {
-        combine(state, Concealment.state, discreet()) { s, _, hidePrivate ->
-            CaseFiles.visible(s, Concealment.hides(Concealed.NOTES), hidePrivate)
-        }
+        combine(state, Concealment.state, discreet(), vaultChanges()) { s, _, hidePrivate, _ -> s to hidePrivate }
+            .map { (s, hidePrivate) ->
+                val notesHidden = Concealment.hides(Concealed.NOTES)
+                if (notesHidden || !hidePrivate) return@map CaseFiles.visible(s, notesHidden, hidePrivate)
+                val numbers = s.cases.filter { !it.private }.flatMap { it.numbers }.distinct()
+                val privateNow = numbers.filter { n -> catching { isPrivate(n) }.getOrDefault(true) }.toSet()
+                CaseFiles.visible(s, notesHidden = false, privateHidden = true) { it in privateNow }
+            }
+            .flowOn(Dispatchers.IO)
     }
+
+    /** Whether [case] belongs to a private contact now: its flag, or any of its numbers saved privately (checked live). */
+    suspend fun isPrivateNow(case: CaseFile): Boolean =
+        case.private || case.numbers.any { catching { isPrivate(it) }.getOrDefault(true) }
 
     suspend fun load(): CaseState = withContext(Dispatchers.IO) {
         mutex.withLock {
@@ -157,7 +183,7 @@ class CaseFileStore internal constructor(
             val s = load()
             check(available) { "Case files can't be read right now" }
             if (s.cases.isEmpty()) return emptyMap()
-            val leaveOut = s.cases.filter { c -> c.private || c.numbers.any { catching { isPrivate(it) }.getOrDefault(true) } }.map { it.id }.toSet()
+            val leaveOut = s.cases.filter { isPrivateNow(it) }.map { it.id }.toSet()
             val out = CaseFiles.forBackup(s, { it.id in leaveOut }) { v -> catching { open(v) }.getOrNull() }
             return mapOf(X_STATE to CaseFiles.encode(out))
         }

@@ -313,9 +313,13 @@ step 5a of `CallPolicy`, and `ui/sync/shared/FamilyShieldScreen.kt`.
   declined, as the label's choice says; of several labels, the one that does most counts. It sits below allow rules,
   numbers you called or talked to, block rules and spam lists, above sales lines and the default toggles, and, like a
   spam list, a repeat caller still rings. The index is rebuilt whenever a label's state changes (a run, an update
-  opened, the switch, leaving), and read once in a process the call starts.
+  opened, the switch, leaving), and read at app start or before the first call a process screens. Deciding whether a
+  call needs screening reads nothing from storage. If a label's state can't be opened then (the Keystore busy just
+  after the process started), the next call reads the states again, so the shield is never left matching nothing.
 - **Withdrawing.** The shield's page lists what this phone shares; **Withdraw** stops sharing a number (it stays
-  blocked here). Unblocking a number withdraws it too. The others lose it after the next run or update.
+  blocked here). This holds for a blocked number that was also marked from Report. Parley remembers the number as
+  withdrawn for as long as it stays blocked, and trimming a long list never drops that record. Unblocking a number
+  withdraws it too. The others lose it after the next run or update.
 - **Leaving and removing.** A member who leaves or is removed is no longer a member, so what they shared stops counting
   at once. Leaving a label on this phone removes its verdicts with it. A key change starts over: each member's journal
   is written again under the new key.

@@ -1,6 +1,7 @@
 package app.parley.telecom.ui
 
 import app.parley.common.catching
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,6 +30,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.parley.common.cases.CaseFiles
 import app.parley.telecom.CallState
@@ -51,7 +57,8 @@ private fun caseApplies(call: CallUi): Boolean =
 /**
  * Case files, under the keys typed in a call: "Keep as a reference" for the digits just typed (a claim or account
  * reference the menu asked for), into the organisation's case file. Offered only when the number has one, the phone
- * and Parley are unlocked, and a run of digits long enough to be a reference was typed. Nothing is kept unless tapped.
+ * and Parley are unlocked, and a run of digits that looks like a reference, not a PIN or a card number, was typed
+ * ([CaseFiles.typedReference]). Nothing is kept unless tapped, and the digits are only offered, never filled in.
  */
 @Composable
 internal fun CaseReferenceRow(call: CallUi, typed: String) {
@@ -84,7 +91,9 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
         )
     }
     if (asking) {
-        var value by remember { mutableStateOf(suggestion.orEmpty()) }
+        // Empty and password-style: the typed digits are offered behind a tap, never filled in, shown or learnt by the keyboard.
+        var value by remember { mutableStateOf("") }
+        var shown by remember { mutableStateOf(false) }
         ConfirmDialog(
             title = stringResource(R.string.incall_case_keep_reference_title),
             text = stringResource(R.string.incall_case_keep_reference_body),
@@ -100,12 +109,28 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
             },
             onDismiss = { asking = false },
             content = {
-                OutlinedTextField(
-                    value = value, onValueChange = { value = it.take(CaseFiles.MAX_REFERENCE) }, singleLine = true,
-                    label = { Text(stringResource(R.string.incall_case_reference_field)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
-                )
+                Column {
+                    OutlinedTextField(
+                        value = value, onValueChange = { value = it.take(CaseFiles.MAX_REFERENCE) }, singleLine = true,
+                        label = { Text(stringResource(R.string.incall_case_reference_field)) },
+                        visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, autoCorrectEnabled = false),
+                        trailingIcon = {
+                            IconButton(onClick = { shown = !shown }) {
+                                Icon(
+                                    if (shown) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                    stringResource(if (shown) R.string.incall_case_reference_hide else R.string.incall_case_reference_show),
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = Spacing.s),
+                    )
+                    if (suggestion != null && value.isEmpty()) {
+                        TextButton(onClick = { value = suggestion }, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(R.string.incall_case_reference_use_typed, CaseFiles.masked(suggestion)))
+                        }
+                    }
+                }
             },
         )
     }

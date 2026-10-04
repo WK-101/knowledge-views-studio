@@ -69,7 +69,6 @@ private fun DeadNumberRow(vm: AppViewModel, d: NumberSignals.DeadNumber, open: (
     val shown = Bidi.ltr(Format.number(d.number, vm.countryIso))
     val why = when (d.finding.reason) {
         DeadNumberRadar.Reason.NOT_IN_SERVICE -> pluralStringResource(R.plurals.health_out_of_service_network, d.finding.failures, d.finding.failures)
-        DeadNumberRadar.Reason.FAILS_AT_ONCE -> pluralStringResource(R.plurals.health_out_of_service_at_once, d.finding.failures, d.finding.failures)
     }
     ParleyListItem(
         modifier = Modifier.clickable { open(Routes.contact(d.navId)) },

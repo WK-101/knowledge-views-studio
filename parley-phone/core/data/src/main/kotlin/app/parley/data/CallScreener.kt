@@ -125,7 +125,7 @@ class CallScreener(
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
             s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true ||
             (s.learnFromCalls && reputation?.mayHaveEntries == true) || runCatching { situationsWatching() }.getOrDefault(false) ||
-            family?.mayMatch() == true
+            runCatching { family?.mayMatch() == true }.getOrDefault(true)
     }
 
     /**

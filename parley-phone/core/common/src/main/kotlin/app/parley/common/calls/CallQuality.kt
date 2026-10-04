@@ -36,6 +36,10 @@ data class CallQualityFacts(
     val endedAfterSec: Long? = null,
     /** Seconds spent in hold mode ("I'm on hold"), 0 when it wasn't used. */
     val holdSec: Long = 0,
+    /** A failed outgoing call: whether the SIM's network was roaming then; null when it couldn't be told (and in older rows). */
+    val roaming: Boolean? = null,
+    /** A failed outgoing call placed in airplane mode or without a SIM chosen: the phone's side, never the number's. */
+    val offline: Boolean = false,
 )
 
 /** Compact JSON for [CallQualityFacts] lists; unknown fields are ignored so older rows keep reading. */

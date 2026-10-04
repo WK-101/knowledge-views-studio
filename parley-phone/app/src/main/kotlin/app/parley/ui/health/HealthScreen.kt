@@ -182,13 +182,20 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     }
 }
 
-/** Numbers that seem out of service: from the calls' own facts, read again when a call or an answer changes them. */
+/**
+ * Numbers that seem out of service: from the calls' own facts, read again when a call, an answer or the call history
+ * changes them. Nothing is shown until the call history has loaded: a good call there clears a number.
+ */
 @Composable
 private fun rememberDeadNumbers(vm: AppViewModel, contacts: List<ContactSummary>?): List<NumberSignals.DeadNumber> {
     val quality by vm.c.callQuality.version.collectAsStateWithLifecycle()
     val answers by vm.c.numberAdvice.version.collectAsStateWithLifecycle()
+    val calls by vm.c.history.callsWithPrivate.collectAsStateWithLifecycle()
     var dead by remember { mutableStateOf<List<NumberSignals.DeadNumber>>(emptyList()) }
-    LaunchedEffect(contacts, quality, answers) { dead = suspendRunCatching { NumberSignals.deadNumbers(vm.c, contacts.orEmpty()) }.getOrDefault(emptyList()) }
+    LaunchedEffect(contacts, quality, answers, calls) {
+        val history = calls ?: return@LaunchedEffect
+        dead = suspendRunCatching { NumberSignals.deadNumbers(vm.c, contacts.orEmpty(), history) }.getOrDefault(emptyList())
+    }
     return dead
 }
 
