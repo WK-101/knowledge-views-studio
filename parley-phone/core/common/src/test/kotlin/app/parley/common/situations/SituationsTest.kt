@@ -7,6 +7,7 @@ import app.parley.common.BlockRule
 import app.parley.common.CallPolicy
 import app.parley.common.Decision
 import app.parley.common.IncomingCallFacts
+import app.parley.common.LabelRefs
 import app.parley.common.OffHours
 import app.parley.common.OffHoursAllow
 import app.parley.common.PolicyClock
@@ -246,5 +247,128 @@ class SituationsTest {
         assertFalse(Situation("x").changesSomething)
         // Nothing to change: never wanted, so it can't switch itself on to do nothing.
         assertNull(Situations.wanted(listOf(Situation("x", schedule = Schedule())), sig(DayOfWeek.MONDAY, 12), emptyList()))
+    }
+
+    // ------------------------------------------------------------------ labels, the tile, clock changes
+
+    /** Off hours 22–07 for the label "Family" (the user's own), switched off. */
+    private val family = mine.copy(
+        offHours = OffHours(enabled = false, schedule = Situations.NIGHT_WINDOW, allow = OffHoursAllow.LABEL, labelTitle = "Family"),
+    )
+
+    @Test fun a_label_renamed_while_on_is_no_change_by_hand_and_all_day_silencing_goes() {
+        val on = Situations.turnOn(SituationState(), family, s(Situations.MEETING), SituationCause.MANUAL, 0)
+        // The Situation's off hours still carry the user's label title.
+        assertEquals("Family", on.behaviour.offHours.labelTitle)
+        // Family becomes Home: Parley renames off hours' label (LabelReferences) and the snapshot alike.
+        val renames = mapOf("Family" to "Home")
+        val current = on.behaviour.copy(offHours = LabelRefs.renameOffHours(on.behaviour.offHours, renames))
+        val state = Situations.stateLabelsRenamed(on.state, renames)
+        val off = Situations.turnOff(state, current, byHand = true).behaviour.offHours
+        assertEquals(family.offHours.copy(labelTitle = "Home"), off)
+        assertFalse(off.enabled)
+        // Even had the snapshot not followed, the field changed is the only one kept: no all-day silencing remains.
+        val old = Situations.turnOff(on.state, current, byHand = true).behaviour.offHours
+        assertEquals(family.offHours.copy(labelTitle = "Home"), old)
+    }
+
+    @Test fun off_hours_come_back_field_by_field() {
+        val on = Situations.turnOn(SituationState(), mine, s(Situations.NIGHT), SituationCause.MANUAL, 0)
+        // Only the window is changed by hand while Night is on: it stays; Favourites and the silencing go.
+        val evenings = Schedule(Schedule.WEEKDAYS, 21 * 60, 6 * 60)
+        val touched = on.behaviour.copy(offHours = on.behaviour.offHours.copy(schedule = evenings))
+        val back = Situations.turnOff(on.state, touched, byHand = true).behaviour.offHours
+        assertEquals(mine.offHours.copy(schedule = evenings), back)
+        assertEquals(BlockAction.REJECT, back.action)
+        // A label kept by hand without a title can't stand: off hours switches itself off rather than silence everyone.
+        val ownOn = family.copy(offHours = family.offHours.copy(enabled = true))
+        val label = Situations.turnOn(SituationState(), ownOn, s(Situations.NIGHT), SituationCause.MANUAL, 0)
+        val cleared = label.behaviour.copy(offHours = label.behaviour.offHours.copy(labelTitle = null))
+        val restored = Situations.turnOff(label.state, cleared, byHand = true).behaviour.offHours
+        assertFalse(restored.enabled)
+        assertEquals(OffHoursAllow.CONTACTS, restored.allow)
+    }
+
+    @Test fun a_label_deleted_while_on_leaves_no_all_day_silencing_and_the_situation_falls_back() {
+        val gym = Situation("gym", ring = SituationRing.LABEL, ringLabel = "Family", ringLabelId = 7)
+        val ownOn = family.copy(offHours = family.offHours.copy(enabled = true))
+        val on = Situations.turnOn(SituationState(), ownOn, gym, SituationCause.MANUAL, 0)
+        assertEquals(OffHoursAllow.LABEL, on.behaviour.offHours.allow)
+        // Family is deleted: off hours goes the way LabelReferences takes it (labelGone), and so does the snapshot.
+        val titles = setOf("Family")
+        val current = on.behaviour.copy(offHours = LabelRefs.labelGone(on.behaviour.offHours))
+        val state = Situations.stateLabelsDeleted(on.state, titles)
+        val list = Situations.labelsDeleted(listOf(gym), titles)
+        assertTrue(list.single().ringLabelGone)
+        // The one on takes its new bundle: Favourites all day, not "everyone" and not "nobody".
+        val again = Situations.turnOn(state, current, list.single(), SituationCause.MANUAL, 0)
+        assertTrue(again.behaviour.offHours.enabled)
+        assertEquals(OffHoursAllow.FAVOURITES, again.behaviour.offHours.allow)
+        // Turned off: the user's own off hours (which let only Family ring) are off, as when the label goes without one.
+        val off = Situations.turnOff(again.state, again.behaviour, byHand = true).behaviour.offHours
+        assertEquals(LabelRefs.labelGone(ownOn.offHours), off)
+        assertFalse(off.enabled)
+    }
+
+    @Test fun the_label_is_followed_by_its_row_then_by_title_and_falls_back_to_favourites() {
+        val night = Situation("n", ring = SituationRing.LABEL, ringLabel = "Family", ringLabelId = 7)
+        // Renamed in another app: the row still says which label it is.
+        assertEquals("Home", Situations.followLabel(night, mapOf(7L to "Home ")).ringLabel)
+        // A new phone (no row): matched by title, and the row kept from then on.
+        val restored = Situations.followLabel(night.copy(ringLabelId = null), mapOf(3L to "Family"))
+        assertEquals(3L, restored.ringLabelId)
+        assertFalse(restored.ringLabelGone)
+        // Gone: Favourites ring, and the title is kept for the summary (and for a label made again).
+        val gone = Situations.followLabel(night, mapOf(3L to "Work"))
+        assertTrue(gone.ringLabelGone)
+        assertEquals("Family", gone.ringLabel)
+        assertEquals(OffHoursAllow.FAVOURITES, Situations.apply(mine, gone).offHours.allow)
+        assertFalse(Situations.followLabel(gone, mapOf(9L to "Family")).ringLabelGone)
+        // Labels that can't be read change nothing.
+        assertEquals(night, Situations.followLabel(night, null))
+        // Renamed or merged in Parley: the title follows.
+        assertEquals("Home", Situations.labelsRenamed(listOf(night), mapOf("Family" to "Home")).single().ringLabel)
+        // Backups don't carry this phone's rows.
+        val merged = Situations.merge(defaults, listOf(night), defaults)
+        assertNull(merged.first { it.id == "n" }.ringLabelId)
+    }
+
+    @Test fun moving_away_from_one_that_came_on_by_itself_holds_it_off() {
+        val night = s(Situations.NIGHT).copy(schedule = Situations.NIGHT_WINDOW)
+        val list = listOf(night, s(Situations.TRAVELLING))
+        val auto = Situations.turnOn(SituationState(), mine, night, SituationCause.SCHEDULE, 0)
+        // The tile: Travelling by hand, then Off.
+        val travelling = Situations.turnOn(auto.state, auto.behaviour, s(Situations.TRAVELLING), SituationCause.MANUAL, 1)
+        assertEquals(listOf(night.id), travelling.state.held)
+        val off = Situations.turnOff(travelling.state, travelling.behaviour, byHand = true)
+        assertEquals(mine, off.behaviour)
+        // Still inside Night's window: it stays off.
+        assertEquals(Situations.Step.Keep, Situations.plan(off.state, list, sig(DayOfWeek.MONDAY, 23)).step)
+        // Next night it comes on again.
+        val morning = Situations.plan(off.state, list, sig(DayOfWeek.TUESDAY, 8))
+        val tomorrow = Situations.plan(off.state.copy(held = morning.held), list, sig(DayOfWeek.TUESDAY, 22))
+        assertEquals(Situations.Step.On(night, SituationCause.SCHEDULE), tomorrow.step)
+    }
+
+    @Test fun window_edges_are_wall_clock_times_on_days_the_clocks_change() {
+        val zone = java.time.ZoneId.of("Europe/London")
+        val night = s(Situations.NIGHT).copy(schedule = Situations.NIGHT_WINDOW)
+        fun at(y: Int, mo: Int, d: Int, h: Int, mi: Int = 0) = LocalDateTime.of(y, mo, d, h, mi).atZone(zone).toInstant().toEpochMilli()
+        // Clocks go back on 25 October 2026 (a 25-hour day): Night still starts at 22:00 that evening.
+        assertEquals(at(2026, 10, 25, 22), Situations.nextChange(listOf(night), at(2026, 10, 25, 12), zone))
+        assertEquals(at(2026, 10, 26, 7), Situations.nextChange(listOf(night), at(2026, 10, 25, 22, 1), zone))
+        // Clocks go forward on 29 March 2026 (a 23-hour day): 22:00, then 07:00.
+        assertEquals(at(2026, 3, 29, 22), Situations.nextChange(listOf(night), at(2026, 3, 29, 12), zone))
+        assertEquals(at(2026, 3, 29, 7), Situations.nextChange(listOf(night), at(2026, 3, 29, 3), zone))
+        // An edge at 24:00 is the next midnight.
+        val late = Situation("x", ring = SituationRing.EVERYONE, schedule = Schedule(Schedule.ALL_DAYS, 20 * 60, 24 * 60))
+        assertEquals(at(2026, 10, 26, 0), Situations.nextChange(listOf(late), at(2026, 10, 25, 21), zone))
+    }
+
+    @Test fun a_switch_cut_short_is_marked_pending_in_what_is_kept() {
+        val st = SituationState(activeId = "x", applied = mine, pending = true)
+        assertEquals(st, SituationState.decode(st.encode()))
+        // Older state without the mark reads as finished.
+        assertFalse(SituationState.decode("""{"activeId":"x"}""").pending)
     }
 }

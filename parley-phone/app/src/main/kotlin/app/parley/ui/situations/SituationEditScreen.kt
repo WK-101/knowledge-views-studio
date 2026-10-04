@@ -164,11 +164,13 @@ private fun ringIndex(s: Situation, labels: List<String>): Int = when (s.ring) {
 /** Who may ring, the reply, the speaker and auto-answer. */
 @Composable
 private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situation) -> Unit) {
-    val labels by produceState(emptyList<String>()) {
+    // Title → a group row with it, so the Situation follows the label if it's renamed in any app.
+    val labelRows by produceState(emptyMap<String, Long>()) {
         value = withContext(Dispatchers.IO) {
-            catching { vm.c.contacts.groups().map { LabelRefs.key(it.title) }.distinct() }.getOrDefault(emptyList())
+            catching { vm.c.contacts.groups().groupBy { LabelRefs.key(it.title) }.mapValues { (_, g) -> g.minOf { it.id } } }.getOrDefault(emptyMap())
         }
     }
+    val labels = labelRows.keys.toList()
     // A label chosen earlier is offered even while the labels are read (or if it went).
     val labelChoices = (listOfNotNull(s.ringLabel?.takeIf { s.ring == SituationRing.LABEL }) + labels).distinctBy { LabelRefs.key(it) }
     val ringOptions = listOf(
@@ -184,14 +186,17 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
     val answerSub = stringResource(R.string.sit_auto_answer_sub)
     SegmentedGroup(stringResource(R.string.sit_group_sets)) {
         item("sit_ring") {
-            MenuRow(stringResource(R.string.sit_ring), ringOptions, ringIndex, Icons.Rounded.People, stringResource(R.string.sit_ring_sub)) { i ->
+            val ringSub = labelGone(LocalContext.current, s) ?: stringResource(R.string.sit_ring_sub)
+            MenuRow(stringResource(R.string.sit_ring), ringOptions, ringIndex, Icons.Rounded.People, ringSub) { i ->
                 edit {
                     when (i) {
-                        0 -> it.copy(ring = null, ringLabel = null)
-                        1 -> it.copy(ring = SituationRing.EVERYONE, ringLabel = null)
-                        2 -> it.copy(ring = SituationRing.CONTACTS, ringLabel = null)
-                        3 -> it.copy(ring = SituationRing.FAVOURITES, ringLabel = null)
-                        else -> it.copy(ring = SituationRing.LABEL, ringLabel = labelChoices.getOrNull(i - 4))
+                        0 -> it.copy(ring = null, ringLabel = null, ringLabelId = null, ringLabelGone = false)
+                        1 -> it.copy(ring = SituationRing.EVERYONE, ringLabel = null, ringLabelId = null, ringLabelGone = false)
+                        2 -> it.copy(ring = SituationRing.CONTACTS, ringLabel = null, ringLabelId = null, ringLabelGone = false)
+                        3 -> it.copy(ring = SituationRing.FAVOURITES, ringLabel = null, ringLabelId = null, ringLabelGone = false)
+                        else -> labelChoices.getOrNull(i - 4).let { t ->
+                            it.copy(ring = SituationRing.LABEL, ringLabel = t, ringLabelId = t?.let { k -> labelRows[LabelRefs.key(k)] }, ringLabelGone = false)
+                        }
                     }
                 }
             }

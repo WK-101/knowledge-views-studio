@@ -30,6 +30,7 @@ import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.telecom.CarAudio
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,8 +41,10 @@ import java.util.concurrent.TimeUnit
  * hands-free and media links, Bluetooth headphones and speakers, by the product name Android gives without "Nearby
  * devices"), the drive profile's marked cars, car mode (Android Auto, a car dock) and the time. Parley looks again
  * when it starts, while it runs and an audio device comes or goes or car mode changes, before each incoming call is
- * screened (see [app.parley.data.CallScreener.beforeScreen]), from the Quick Settings tile, and at the next window
- * edge (one inexact WorkManager job, which survives a reboot).
+ * screened (see [app.parley.data.CallScreener.beforeScreen]) and before an outgoing call picks its SIM, from the Quick
+ * Settings tile, when the clock is set or the time zone changes ([SituationClockReceiver]: a flight lands, the job's
+ * delay was counted in the old zone), and at the next window edge (one inexact WorkManager job, which survives a
+ * reboot).
  */
 object SituationTriggers {
     private const val WORK = "situation_window"
@@ -171,6 +174,29 @@ object SituationTriggers {
                 SituationKind.CUSTOM -> R.string.sit_name_unnamed
             },
         )
+    }
+}
+
+/**
+ * The clock was set or the time zone changed: windows are wall-clock times, so look now and count the next edge again.
+ * Both broadcasts reach a receiver declared in the manifest with no permission; nothing is read unless a Situation has
+ * a window or is on.
+ */
+class SituationClockReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_TIME_CHANGED && intent.action != Intent.ACTION_TIMEZONE_CHANGED) return
+        val app = context.applicationContext
+        val done = goAsync()
+        val c = app.container
+        c.scope.launch(Dispatchers.IO) {
+            try {
+                suspendRunCatching { c.situations.reconcile() }
+                SituationTriggers.schedule(app, c)
+                SituationTriggers.refreshTile(app)
+            } finally {
+                done.finish()
+            }
+        }
     }
 }
 

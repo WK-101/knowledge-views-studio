@@ -77,7 +77,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
     val needsPermission = remember(refresh) { Build.VERSION.SDK_INT >= 31 && !Permissions.has(context, Manifest.permission.BLUETOOTH_CONNECT) }
     val rows = remember(cfg, refresh) { DriveProfile.devices(cfg, pairedDevices(context), CarAudio.connected(context)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
-    fun set(f: (DriveProfileConfig) -> DriveProfileConfig) = store.update(f)
+    fun set(f: (DriveProfileConfig) -> DriveProfileConfig) = store.update(transform = f)
 
     SettingsScaffold(stringResource(R.string.set_drive_profile_title), back) {
         Text(

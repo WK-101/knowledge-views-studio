@@ -20,12 +20,13 @@ class CallExtrasRepository(context: Context) {
     private val _config = MutableStateFlow(CallExtrasConfig.decode(prefs.getString(KEY, null)))
     val config: StateFlow<CallExtrasConfig> = _config.asStateFlow()
 
+    /** [durable]: on disk before this returns (Situations switching), not later. */
     @Synchronized
-    fun update(transform: (CallExtrasConfig) -> CallExtrasConfig) {
+    fun update(durable: Boolean = false, transform: (CallExtrasConfig) -> CallExtrasConfig) {
         val next = transform(_config.value)
         if (next == _config.value) return
         _config.value = next
-        prefs.edit().putString(KEY, CallExtrasConfig.encode(next)).apply()
+        prefs.edit().putString(KEY, CallExtrasConfig.encode(next)).let { if (durable) it.commit() else it.apply() }
     }
 
     private companion object {

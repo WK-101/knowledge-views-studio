@@ -25,12 +25,13 @@ class DriveProfileRepository(context: Context) {
     private val _config = MutableStateFlow(DriveProfileConfig.decode(prefs.getString(KEY, null)))
     val config: StateFlow<DriveProfileConfig> = _config.asStateFlow()
 
+    /** [durable]: on disk before this returns (Situations switching), not later. */
     @Synchronized
-    fun update(transform: (DriveProfileConfig) -> DriveProfileConfig) {
+    fun update(durable: Boolean = false, transform: (DriveProfileConfig) -> DriveProfileConfig) {
         val next = transform(_config.value)
         if (next == _config.value) return
         _config.value = next
-        prefs.edit().putString(KEY, DriveProfileConfig.encode(next)).apply()
+        prefs.edit().putString(KEY, DriveProfileConfig.encode(next)).let { if (durable) it.commit() else it.apply() }
     }
 
     private companion object {
@@ -52,12 +53,13 @@ class RoamingRepository(context: Context, private val sims: SimRepository) {
     private val _config = MutableStateFlow(AssistedDialConfig.decode(prefs.getString(KEY, null)))
     val config: StateFlow<AssistedDialConfig> = _config.asStateFlow()
 
+    /** [durable]: on disk before this returns (Situations switching), not later. */
     @Synchronized
-    fun update(transform: (AssistedDialConfig) -> AssistedDialConfig) {
+    fun update(durable: Boolean = false, transform: (AssistedDialConfig) -> AssistedDialConfig) {
         val next = transform(_config.value)
         if (next == _config.value) return
         _config.value = next
-        prefs.edit().putString(KEY, AssistedDialConfig.encode(next)).apply()
+        prefs.edit().putString(KEY, AssistedDialConfig.encode(next)).let { if (durable) it.commit() else it.apply() }
     }
 
     /** The trip the local-SIM hint was shown for ([AssistedDial.trip]), or null. */

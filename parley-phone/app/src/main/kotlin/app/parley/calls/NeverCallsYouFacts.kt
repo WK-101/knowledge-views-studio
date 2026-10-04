@@ -28,7 +28,9 @@ object NeverCallsYouFacts {
         val saved = savedFor(c, number, iso)
         // The history is read only for an organisation: most callers stop at the contact lookup.
         if (saved.owners.isEmpty() || !saved.owners.all(NeverCallsYou::organisation)) return@withContext false
-        NeverCallsYou.shows(number, line, saved.owners, pastCalls(c, number, saved.vaultId).map { it.type }, emergency = false)
+        val keptSince = keptSince(c, number) ?: return@withContext false
+        val past = pastCalls(c, number, saved.vaultId, iso).map { NeverCallsYou.PastCall(it.type, it.date) }
+        NeverCallsYou.shows(number, line, saved.owners, past, keptSince, emergency = false)
     }
 
     /**
@@ -38,8 +40,16 @@ object NeverCallsYouFacts {
     suspend fun firstFromThem(c: DataContainer, number: String, iso: String): Long? = withContext(Dispatchers.IO) {
         val saved = savedFor(c, number, iso)
         if (saved.owners.isEmpty() || !saved.owners.all(NeverCallsYou::organisation)) return@withContext null
-        NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId), CallEntry::date, CallEntry::type)?.date
+        val keptSince = keptSince(c, number) ?: return@withContext null
+        NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId, iso), keptSince, CallEntry::date, CallEntry::type)?.date
     }
+
+    /**
+     * From when Parley's own copy of your calls holds every call with the line (null when it's off or can't be read):
+     * Android's log alone trims itself, so it can't vouch that a line never called.
+     */
+    private suspend fun keptSince(c: DataContainer, number: String): Long? =
+        catching { c.history.keptSince(number, c.settings.current().callLogRetentionDays) }.getOrNull()
 
     /** Everyone [number] is saved for, and the private contact among them (its id) when there is one. */
     private class Saved(val owners: List<NeverCallsYou.SavedAs>, val vaultId: Long?)
@@ -65,9 +75,12 @@ object NeverCallsYouFacts {
         return Saved(contacts + listOfNotNull(privateOwner), private?.first)
     }
 
-    /** Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls. */
-    private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?): List<CallEntry> {
-        val shared = c.history.callsFor(number)
+    /**
+     * Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls.
+     * [region] is the call's SIM's, so rows logged on that SIM in its own national format are matched too.
+     */
+    private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?, region: String): List<CallEntry> {
+        val shared = c.history.callsFor(number, region = region)
         val private = vaultId?.let { id -> catching { c.vault.privateCallsOf(id) }.getOrDefault(emptyList()).map { CallHistory.privateEntry(it) } }
         return shared + private.orEmpty()
     }

@@ -44,6 +44,8 @@
 
     <!-- What the search understood, said back. -->
     <string name="recall_kind_calls">Calls</string>
+    <!-- Between kinds of call in what the search understood ("Missed, Incoming"). -->
+    <string name="recall_kind_separator">,\u0020</string>
     <string name="recall_span_today">Today</string>
     <string name="recall_span_yesterday">Yesterday</string>
     <string name="recall_span_week_so_far">This week</string>

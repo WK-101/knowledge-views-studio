@@ -76,7 +76,7 @@ private fun autoAnswerSummary(cfg: CallExtrasConfig): String {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss: () -> Unit) {
-    fun set(f: (CallExtrasConfig) -> CallExtrasConfig) = vm.c.callExtras.update(f)
+    fun set(f: (CallExtrasConfig) -> CallExtrasConfig) = vm.c.callExtras.update(transform = f)
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.PhoneInTalk, null) },

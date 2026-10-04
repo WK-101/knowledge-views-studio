@@ -5,6 +5,8 @@ import android.service.quicksettings.TileService
 import app.parley.R
 import app.parley.common.suspendRunCatching
 import app.parley.container
+import app.parley.data.situations.SituationsController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -17,12 +19,15 @@ class SituationTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
         val c = container
+        // Drawn from memory when Situations are read already; else the tile keeps what it showed until they are (read
+        // off the main thread, here in a process started just for the tile).
+        c.situationsIfReady()?.let(::render)
         // A window or the car may have changed things since the tile was last drawn.
-        c.scope.launch {
-            suspendRunCatching { c.situations.reconcile() }
-            render()
+        c.scope.launch(Dispatchers.IO) {
+            val sit = c.situations
+            suspendRunCatching { sit.reconcile() }
+            render(sit)
         }
-        render()
     }
 
     override fun onClick() {
@@ -32,18 +37,19 @@ class SituationTileService : TileService() {
 
     private fun next() {
         val c = container
-        val list = c.situations.list.value
-        val at = list.indexOfFirst { it.id == c.situations.state.value.activeId }
-        val target = list.getOrNull(at + 1)
-        c.scope.launch {
-            suspendRunCatching { if (target != null) c.situations.turnOn(target.id) else c.situations.turnOff() }
-            render()
+        c.scope.launch(Dispatchers.IO) {
+            val sit = c.situations
+            val list = sit.list.value
+            val at = list.indexOfFirst { it.id == sit.state.value.activeId }
+            val target = list.getOrNull(at + 1)
+            suspendRunCatching { if (target != null) sit.turnOn(target.id) else sit.turnOff() }
+            render(sit)
         }
     }
 
-    private fun render() {
+    private fun render(sit: SituationsController) {
         val tile = qsTile ?: return
-        val active = container.situations.active
+        val active = sit.active
         val name = active?.let { SituationTriggers.name(this, it) }
         tile.state = if (active != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.sit_tile_label)

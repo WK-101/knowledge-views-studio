@@ -323,7 +323,7 @@ private fun describe(context: Context, q: RecallQuery): String {
     val parts = ArrayList<String>()
     val types = q.callTypes
     if (types != null) {
-        parts += types.sortedBy { it.ordinal }.joinToString(", ") { res.getString(HistoryText.callType(it)) }
+        parts += types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.recall_kind_separator)) { res.getString(HistoryText.callType(it)) }
     } else if (q.callsOnly) {
         parts += res.getString(R.string.recall_kind_calls)
     }

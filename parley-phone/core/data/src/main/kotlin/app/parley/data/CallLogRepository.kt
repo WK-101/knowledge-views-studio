@@ -93,13 +93,21 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
      * digits); only rows that are exactly this line are returned ([PhoneIdentity.sameExact]): a delete built from this
      * list must never reach another number that merely ends the same way.
      */
-    fun queryForNumber(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
+    fun queryForNumber(number: String, since: Long = Long.MIN_VALUE, region: String? = null): List<CallEntry> {
         if (number.isBlank() || !Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val iso = PhoneEnv.countryIso(context)
+        // [number] as its own SIM's region reads it (a second SIM from another country), matched against each row as
+        // the row's SIM reads it: a national-format row logged on that SIM is the same line.
+        val line = region?.let { PhoneIdentity.e164(number, it) }
         val uri = Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number))
         val bounded = since != Long.MIN_VALUE
         return query(uri, if (bounded) "${Calls.DATE} >= ?" else null, if (bounded) arrayOf(since.toString()) else null)
-            .filter { !it.presentationHidden && PhoneIdentity.sameExact(it.number, number, iso) }
+            .filter { e ->
+                !e.presentationHidden && (
+                    PhoneIdentity.sameExact(e.number, number, iso) ||
+                        (line != null && PhoneIdentity.e164(e.number, PhoneEnv.countryIso(context, e.accountId)) == line)
+                    )
+            }
     }
 
     /**

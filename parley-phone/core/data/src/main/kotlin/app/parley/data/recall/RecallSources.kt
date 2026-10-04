@@ -40,17 +40,29 @@ class RecallSources(private val c: DataContainer) {
 
     val region: String get() = PhoneEnv.countryIso(c.appContext)
 
-    /** Reads every store; one that can't be read now adds nothing (the search shows what the others found). */
+    /**
+     * Reads every store; one that can't be read now adds nothing (the search shows what the others found). While
+     * private contacts may not be shown, anything naming a private contact's number stays out, as number memory keeps
+     * it out: a call note, a contact deleted earlier or a snapshot's copy (made private since, or an older copy under
+     * another key), a chat opened before the number became private. When the private numbers can't be read, nothing
+     * with a number is taken from those sources.
+     */
     suspend fun load(access: Access): Stored = withContext(Dispatchers.IO) {
         val privateNumbers = if (access.privateShown) null else safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) }
-        Stored(
-            notes = safely { notes(access, privateNumbers) }.orEmpty(),
+        val hidden: (String) -> Boolean = when {
+            access.privateShown -> { _ -> false }
+            privateNumbers == null -> { _ -> true }
+            else -> { n -> n.isNotBlank() && n in privateNumbers }
+        }
+        val stored = Stored(
+            notes = safely { notes(access, hidden) }.orEmpty(),
             deleted = safely { deleted(access) }.orEmpty(),
             snapshots = safely { snapshots() }.orEmpty(),
             messaged = c.messaging.lastMessaged.value.values.mapNotNull { m ->
                 m.number?.takeIf { it.isNotBlank() }?.let { RecallCorpus.Messaged(it, m.label, m.at) }
             },
         )
+        withoutPrivate(stored, hidden)
     }
 
     /**
@@ -84,7 +96,7 @@ class RecallSources(private val c: DataContainer) {
         }
     }
 
-    private suspend fun notes(access: Access, privateNumbers: PhoneIdentity.LineSet?): List<RecallCorpus.Note> {
+    private suspend fun notes(access: Access, hidden: (String) -> Boolean): List<RecallCorpus.Note> {
         val names = c.numberMemory.ownerNames()
         fun mayShow(key: String) = access.privateShown || !ContactRef.isPrivateKey(key)
         fun note(kind: RecallCorpus.Note.Kind, text: String?, key: String, at: Long): RecallCorpus.Note? =
@@ -92,7 +104,7 @@ class RecallSources(private val c: DataContainer) {
         // The stores hide notes during a duress unlock already; asked again here, as number memory does.
         val notesShown = !Concealment.hides(Concealed.NOTES)
         val pinned = if (!notesShown) emptyList() else c.meta.allMetaNow().mapNotNull { m -> note(RecallCorpus.Note.Kind.PINNED, m.pinnedNote, m.lookupKey, 0) }
-        val calls = if (!notesShown) emptyList() else callNotes(privateNumbers)
+        val calls = if (!notesShown) emptyList() else callNotes(hidden)
         val circle = if (Concealment.hides(Concealed.CIRCLE_NOTES)) {
             emptyList()
         } else {
@@ -101,9 +113,9 @@ class RecallSources(private val c: DataContainer) {
         return pinned + calls + circle
     }
 
-    /** Notes written after calls; one about a private contact's number stays out with them ([privateNumbers]). */
-    private suspend fun callNotes(privateNumbers: PhoneIdentity.LineSet?): List<RecallCorpus.Note> = c.meta.allCallNotesNow().mapNotNull { n ->
-        val number = c.numberMemory.numberOf(n.numberKey)?.takeIf { privateNumbers == null || it !in privateNumbers }
+    /** Notes written after calls; one about a private contact's number stays out with them ([hidden]). */
+    private suspend fun callNotes(hidden: (String) -> Boolean): List<RecallCorpus.Note> = c.meta.allCallNotesNow().mapNotNull { n ->
+        val number = c.numberMemory.numberOf(n.numberKey)?.takeIf { !hidden(it) }
         if (number == null || n.text.isBlank()) null else RecallCorpus.Note(RecallCorpus.Note.Kind.CALL, n.text, null, null, number, n.callDate, id = n.id)
     }
 
@@ -131,7 +143,17 @@ class RecallSources(private val c: DataContainer) {
         null
     }
 
-    private companion object {
-        const val TAG = "Recall"
+    internal companion object {
+        private const val TAG = "Recall"
+
+        /**
+         * [stored] without what names a [hidden] number: a device contact deleted earlier, a snapshot's copy and a chat.
+         * A deleted private contact (shown only when private contacts may be) stays. Call notes are filtered as read.
+         */
+        fun withoutPrivate(stored: Stored, hidden: (String) -> Boolean): Stored = stored.copy(
+            deleted = stored.deleted.filter { it.private || it.numbers.none(hidden) },
+            snapshots = stored.snapshots.filter { it.numbers.none(hidden) },
+            messaged = stored.messaged.filterNot { hidden(it.number) },
+        )
     }
 }

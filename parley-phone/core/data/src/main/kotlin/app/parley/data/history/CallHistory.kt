@@ -513,21 +513,44 @@ class CallHistory(
     /**
      * Recall: the archived calls from [from] until (not including) [until], newest first, decrypted a page at a time
      * through the date index, so a month asked about costs that month's rows, never the whole archive. [visit] returns
-     * false to stop (enough found). Nothing when the copy is off or its key can't be used now.
+     * false to stop (enough found). Nothing when the copy is off or its key can't be used now. A call with a private
+     * contact's number is left out, as from [calls] (one put back by an undo or a restore may still be here until the
+     * next sync): those live in the vault's own history, shown only when private contacts may be.
      */
     suspend fun archivedBetween(from: Long, until: Long, visit: (CallEntry) -> Boolean) = withContext(Dispatchers.IO) {
         if (!prefs.current().archiveEnabled || until <= from) return@withContext
+        val vk = privateLines()
         guardKey {
             var page = dao.pageBefore(until - 1, Long.MAX_VALUE, SCAN_PAGE)
             while (page.isNotEmpty()) {
                 for (r in page) {
                     if (r.date < from) return@guardKey
-                    val rec = openRow(r) ?: continue
+                    val rec = openRow(r)?.takeUnless { isPrivate(it, vk) } ?: continue
                     if (!visit(ArchivedCall(r.id, rec).toEntry())) return@guardKey
                 }
                 val last = page.last()
                 page = if (page.size < SCAN_PAGE) emptyList() else dao.pageBefore(last.date, last.id, SCAN_PAGE)
             }
+        }
+    }
+
+    /**
+     * The time from which Parley's own copy holds every call with [number]'s line, for saying "you've only ever called
+     * them": the oldest archived call, or the retention's cut-off ([retentionDays], 0 = keep everything) when the line
+     * isn't kept forever. Null when the copy is off, empty, or its key can't be used now (its calls can't be read).
+     */
+    suspend fun keptSince(number: String, retentionDays: Int, now: Long = System.currentTimeMillis()): Long? = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled) return@withContext null
+        val oldest = dao.oldest() ?: return@withContext null
+        var kept = false
+        val readable = guardKey {
+            val keys = dao.keepForever().map { it.personKey }.toSet()
+            kept = personMacs(number).any { it in keys }
+        }
+        when {
+            !readable -> null
+            retentionDays > 0 && !kept -> maxOf(oldest, now - retentionDays * DAY)
+            else -> oldest
         }
     }
 
@@ -656,19 +679,27 @@ class CallHistory(
      * Every call with [number] (any format), optionally only since [since]: all of its system call-log rows (read
      * from the provider, not the newest-3000 window Recents shows) plus every archived call, so a delete built from
      * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneIdentity.sameExact]):
-     * the list is deleted from, and a loose match (last digits) would reach other people's calls.
+     * the list is deleted from, and a loose match (last digits) would reach other people's calls. [region]: the
+     * region [number] came in for (a call's SIM), when it isn't the phone's own: log rows are then also matched as
+     * their own SIM reads them, and archived rows filed under that region too.
      */
-    suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = callsFor(number, since, forDelete = false)
+    suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE, region: String? = null): List<CallEntry> =
+        callsFor(number, since, forDelete = false, region = region)
 
     /** [callsFor]; [forDelete] also finds archived calls filed under another region ([personRowsEverywhere]). */
-    private suspend fun callsFor(number: String, since: Long, forDelete: Boolean): List<CallEntry> = withContext(Dispatchers.IO) {
+    private suspend fun callsFor(number: String, since: Long, forDelete: Boolean, region: String? = null): List<CallEntry> = withContext(Dispatchers.IO) {
         val iso = countryIso
-        val system = callLog.queryForNumber(number, since)
+        val other = region?.takeIf { !it.equals(iso, ignoreCase = true) }
+        val system = callLog.queryForNumber(number, since, other)
         if (!prefs.current().archiveEnabled) return@withContext system
         val seen = system.map { HistoryMerge.key(it) }.toHashSet()
         val archived = ArrayList<CallEntry>()
         guardKey {
-            val rows = if (forDelete) personRowsEverywhere(number, iso, since) else personRows(number, iso)
+            val rows = when {
+                forDelete -> personRowsEverywhere(number, iso, since)
+                other != null -> (personRows(number, iso) + personRows(number, other)).distinctBy { it.rowId }
+                else -> personRows(number, iso)
+            }
             for (a in rows) {
                 val e = a.toEntry()
                 if (e.date >= since && !e.presentationHidden && seen.add(HistoryMerge.key(e))) archived += e
