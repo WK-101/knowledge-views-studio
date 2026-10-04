@@ -11,6 +11,13 @@ class NotificationRegistryTest {
         assertEquals(emptyList<Any>(), NotificationIds.overlaps())
     }
 
+    @Test fun request_code_blocks_never_overlap() {
+        assertEquals(emptyList<Any>(), NotificationIds.overlaps(NotificationRequests.blocks))
+        // The busy replies post with their notification id as request code: kept clear of the fixed blocks.
+        val busy = NotificationIds.Range("busy", NotificationIds.SCREEN_BUSY_BASE, NotificationIds.SCREEN_BUSY_COUNT)
+        assertEquals(emptyList<Any>(), NotificationIds.overlaps(NotificationRequests.blocks + busy))
+    }
+
     @Test fun overlap_check_catches_a_clash() {
         val backup = NotificationIds.Range("old.backup", 4720, 1)
         assertEquals(1, NotificationIds.overlaps(NotificationIds.untagged + backup).size)

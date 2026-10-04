@@ -1,8 +1,6 @@
 package app.parley.jobs
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -13,6 +11,9 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
+import app.parley.work.NoticeChannels
+import app.parley.work.PrivateNotice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -23,23 +24,12 @@ import kotlinx.coroutines.launch
  * the background, and the end of a job that finished after its screen was gone ([UserJobs.Finished]).
  */
 object JobNotices {
-    private fun channel(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.createNotificationChannel(
-            NotificationChannel(NotificationChannels.JOBS, context.getString(R.string.job_channel), NotificationManager.IMPORTANCE_LOW)
-                .apply { description = context.getString(R.string.job_channel_desc) },
-        )
-    }
-
     private fun publicVersion(context: Context, text: Int): Notification = NotificationCompat.Builder(context, NotificationChannels.JOBS)
         .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
         .setContentTitle(context.getString(text))
         .build()
 
-    private fun openParley(context: Context): PendingIntent = PendingIntent.getActivity(
-        context, REQUEST_OPEN, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        PendingIntent.FLAG_IMMUTABLE,
-    )
+    private fun openParley(context: Context): PendingIntent = PrivateNotice.open(context, NotificationRequests.JOB_OPEN, Intent(context, MainActivity::class.java))
 
     /**
      * Opens Parley and hands [opener]'s file to the share sheet or the print dialog, from the activity (a job never
@@ -54,7 +44,7 @@ object JobNotices {
 
     /** The ongoing notification for [job] (the latest of the running ones). */
     fun progress(context: Context, job: UserJobs.Running, others: Int = 0): Notification {
-        channel(context)
+        NoticeChannels.ensure(context, NotificationChannels.JOBS)
         val fraction = job.fraction
         val text = if (others > 0) context.resources.getQuantityString(R.plurals.job_more_running, others, others)
         else context.getString(R.string.job_running_away)
@@ -102,34 +92,20 @@ object JobNotices {
         r.fraction?.let { r.copy(done = (it * PERCENT).toInt(), total = PERCENT) } ?: r
 
     fun post(context: Context, f: UserJobs.Finished) {
-        channel(context)
         val title = context.getString(if (f.failed) R.string.job_failed_title else R.string.job_done_title)
         val tap = f.opener?.let {
             PendingIntent.getActivity(
-                context, REQUEST_OPEN_FILE + (f.id % REQUESTS).toInt(), openIntent(context, it),
+                context, NotificationRequests.JOB_FILE + (f.id % NotificationRequests.JOB_FILES).toInt(), openIntent(context, it),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         } ?: openParley(context)
         // The message can name a file or a count, never a contact; still, the lock screen shows only that Parley is done.
-        val n = NotificationCompat.Builder(context, NotificationChannels.JOBS)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(title)
-            .setContentText(f.message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(f.message))
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(publicVersion(context, R.string.job_public_text))
-            .setContentIntent(tap)
-            .setAutoCancel(true)
-            .build()
-        try {
-            NotificationManagerCompat.from(context).notify(NotificationIds.TAG_JOBS, (f.id % Int.MAX_VALUE).toInt(), n)
-        } catch (_: SecurityException) {
-            // Notifications not allowed: the work itself is done either way.
-        }
+        val b = PrivateNotice.builder(
+            context, NotificationChannels.JOBS, app.parley.ui.R.drawable.ic_stat_call, title, context.getString(R.string.job_public_text), f.message, tap,
+        )
+        // Notifications not allowed: the work itself is done either way.
+        PrivateNotice.post(context, NotificationIds.TAG_JOBS, (f.id % Int.MAX_VALUE).toInt(), b)
     }
 
-    private const val REQUEST_OPEN = 7_340
-    private const val REQUEST_OPEN_FILE = 7_400
-    private const val REQUESTS = 50
     private const val PERCENT = 100
 }

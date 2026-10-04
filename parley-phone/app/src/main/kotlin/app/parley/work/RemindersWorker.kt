@@ -9,7 +9,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Event
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -58,7 +57,6 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     override suspend fun doWork(): Result {
         val c = applicationContext.container
         val s = c.settings.current()
-        ReminderChannels.ensure(applicationContext, CHANNEL)
         val cfg = c.circle.config.value
         val today = LocalDate.now()
         val now = System.currentTimeMillis()
@@ -172,28 +170,13 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    private fun builder(title: String): NotificationCompat.Builder {
-        val ctx = applicationContext
-        // Nothing personal on the lock screen, and nothing mirrored to watches.
-        val public = NotificationCompat.Builder(ctx, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(R.string.circle_notif_public))
-            .build()
-        return NotificationCompat.Builder(ctx, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(title)
-            .setAutoCancel(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
+    private fun builder(title: String): NotificationCompat.Builder =
+        PrivateNotice.builder(applicationContext, CHANNEL, R.drawable.ic_stat_cake, title, applicationContext.getString(R.string.circle_notif_public))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-    }
 
-    private fun openContact(contactId: Long, code: Int): PendingIntent = PendingIntent.getActivity(
+    private fun openContact(contactId: Long, code: Int): PendingIntent = PrivateNotice.open(
         applicationContext, code,
-        IntentRoutes.own(applicationContext).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        IntentRoutes.own(applicationContext).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId), update = true,
     )
 
     private fun addCallAndMessage(b: NotificationCompat.Builder, phone: String?, contactId: Long, code: Int) {
@@ -203,12 +186,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         b.addAction(0, ctx.getString(R.string.work_action_message), PendingIntent.getActivity(ctx, code + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))
     }
 
-    private fun post(tag: String, b: NotificationCompat.Builder) {
-        try {
-            NotificationManagerCompat.from(applicationContext).notify(tag, 0, b.build())
-        } catch (_: SecurityException) {
-        }
-    }
+    private fun post(tag: String, b: NotificationCompat.Builder) = PrivateNotice.post(applicationContext, tag, 0, b)
 
     private fun notifyDate(e: ContactEvent, tag: String, title: String, occasion: String) {
         val code = tag.hashCode()
@@ -246,11 +224,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
         val style = NotificationCompat.InboxStyle()
         lines.forEach { style.addLine(it) }
-        val open = PendingIntent.getActivity(
-            ctx, DateReminders.DIGEST_TAG.hashCode(),
-            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val open = PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode(), IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE), update = true)
         val b = builder(ctx.getString(R.string.circle_digest_title))
             .setContentText(lines.joinToString(ctx.getString(R.string.main_separator)))
             .setStyle(style)

@@ -111,6 +111,81 @@ object NotificationIds {
         all.indices.flatMap { i -> (i + 1 until all.size).filter { all[i].startsWith(all[it]) || all[it].startsWith(all[i]) }.map { all[i] to all[it] } }
 }
 
+/**
+ * PendingIntent request codes of notifications and their buttons. Android tells PendingIntents apart by request code
+ * and intent, and FLAG_UPDATE_CURRENT rewrites the extras of a match: so no two blocks here share a code, whatever
+ * their actions. Codes derived from a tag or a package name (reminders, private-name requests) are hashed per item
+ * and stay with their feature; those intents carry their own target.
+ */
+object NotificationRequests {
+    /** The in-call notification (CallNotifier): 1 opens the call screen, 2 answers, 3–19 its buttons. */
+    const val CALL = 1
+    const val CALL_ANSWER = 2
+
+    /** Re-posts a call notification swiped away: plus the notification id modulo 100. */
+    const val CALL_DISMISS = 100
+
+    /** "Decline this call?" on the call screen: plus the button's code from [CALL]. */
+    const val CALL_ASK_DECLINE = 200
+    const val PIP_MUTE = 220
+    const val PIP_HANG_UP = 221
+    const val PIP_HOLD_END = 222
+
+    const val MISSED_OPEN = 300
+    const val MISSED_CLEAR = 301
+    const val MISSED_REALERT = 302
+
+    /** Per missed-call child (plus its index). */
+    const val MISSED_DISMISS = 310
+    const val MISSED_CALL_BACK = 320
+    const val MISSED_MESSAGE = 330
+    const val MISSED_BLOCK = 340
+    const val MISSED_REMIND = 350
+
+    const val SCREEN_OPEN = 400
+    const val SCREEN_NOT_SPAM = 401
+    const val SCREEN_SNOOZE = 402
+
+    const val TO_CALL_OPEN = 500
+    const val TO_CALL_NOT_NOW = 501
+    const val TO_CALL_CALL = 502
+
+    const val BACKUP_FAILED = 600
+    const val BACKUP_REMINDER = 601
+    const val FOLDER_SYNC = 602
+    const val SYNC_WATCHDOG = 603
+    const val TEMPORARY_EXPIRED = 604
+    const val TEMPORARY_DUE = 605
+
+    /** The due-temporaries buttons: plus the decision's ordinal. */
+    const val TEMPORARY_DUE_ACTION = 610
+
+    const val JOB_OPEN = 700
+
+    /** A finished job's file: plus the job id modulo [JOB_FILES]. */
+    const val JOB_FILE = 710
+    const val JOB_FILES = 50
+
+    val blocks: List<NotificationIds.Range> = listOf(
+        NotificationIds.Range("call", CALL, 19),
+        NotificationIds.Range("call.dismiss", CALL_DISMISS, 100),
+        NotificationIds.Range("call.ask-decline", CALL_ASK_DECLINE, 20),
+        NotificationIds.Range("pip", PIP_MUTE, 3),
+        NotificationIds.Range("missed", MISSED_OPEN, 3),
+        NotificationIds.Range("missed.dismiss", MISSED_DISMISS, MissedCalls.MAX_CHILDREN),
+        NotificationIds.Range("missed.call-back", MISSED_CALL_BACK, MissedCalls.MAX_CHILDREN),
+        NotificationIds.Range("missed.message", MISSED_MESSAGE, MissedCalls.MAX_CHILDREN),
+        NotificationIds.Range("missed.block", MISSED_BLOCK, MissedCalls.MAX_CHILDREN),
+        NotificationIds.Range("missed.remind", MISSED_REMIND, MissedCalls.MAX_CHILDREN),
+        NotificationIds.Range("screen", SCREEN_OPEN, 3),
+        NotificationIds.Range("to-call", TO_CALL_OPEN, 3),
+        NotificationIds.Range("notices", BACKUP_FAILED, 6),
+        NotificationIds.Range("temporary.due", TEMPORARY_DUE_ACTION, 3),
+        NotificationIds.Range("job.open", JOB_OPEN, 1),
+        NotificationIds.Range("job.file", JOB_FILE, JOB_FILES),
+    )
+}
+
 /** Every notification channel id. Renaming one creates a new channel and drops the user's settings for the old one. */
 object NotificationChannels {
     const val INCOMING_CALLS = "incoming_calls_v1"

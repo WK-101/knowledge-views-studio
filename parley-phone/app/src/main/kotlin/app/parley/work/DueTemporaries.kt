@@ -1,7 +1,5 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,6 +11,7 @@ import androidx.core.content.edit
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.people.ContactRef
 import app.parley.common.people.TemporaryDue
 import app.parley.container
@@ -102,34 +101,15 @@ object DueTemporaries {
     private fun cancel(ctx: Context) = NotificationManagerCompat.from(ctx).cancel(NotificationIds.TAG_TEMPORARY, ID)
 
     private fun notify(ctx: Context, count: Int) {
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel(NotificationChannels.HOUSEKEEPING, ctx.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW),
-        )
         val title = ctx.resources.getQuantityString(R.plurals.temp_due_title, count, count)
-        val open = PendingIntent.getActivity(
-            ctx, 80, IntentRoutes.own(ctx).setAction(IntentRoutes.ACTION_OPEN_TEMPORARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-        // No names anywhere in it: the same text on the lock screen and after unlocking.
-        val public = NotificationCompat.Builder(ctx, NotificationChannels.HOUSEKEEPING)
-            .setSmallIcon(R.drawable.ic_stat_cake).setContentTitle(title).build()
-        val b = NotificationCompat.Builder(ctx, NotificationChannels.HOUSEKEEPING)
-            .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(title)
-            .setContentText(ctx.getString(R.string.temp_due_text))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(R.string.temp_due_text)))
-            .setContentIntent(open)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
+        val open = PrivateNotice.route(ctx, NotificationRequests.TEMPORARY_DUE, IntentRoutes.ACTION_OPEN_TEMPORARY)
+        // No names anywhere in it: the same title on the lock screen and after unlocking. Answered, not tapped away.
+        val b = PrivateNotice.builder(ctx, NotificationChannels.HOUSEKEEPING, R.drawable.ic_stat_cake, title, title, ctx.getString(R.string.temp_due_text), open)
+            .setAutoCancel(false)
             .addAction(deleteAction(ctx, open))
             .addAction(0, ctx.getString(R.string.temp_due_keep_longer), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP_LONGER))
             .addAction(0, ctx.getString(R.string.temp_keep_permanently), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP))
-        try {
-            NotificationManagerCompat.from(ctx).notify(NotificationIds.TAG_TEMPORARY, ID, b.build())
-        } catch (_: SecurityException) {
-        }
+        PrivateNotice.post(ctx, NotificationIds.TAG_TEMPORARY, ID, b)
     }
 }
 
@@ -156,7 +136,7 @@ class DueActionReceiver : BroadcastReceiver() {
         private const val EXTRA_DECISION = "decision"
 
         fun pending(context: Context, decision: TemporaryDue.Decision): PendingIntent = PendingIntent.getBroadcast(
-            context, 81 + decision.ordinal,
+            context, NotificationRequests.TEMPORARY_DUE_ACTION + decision.ordinal,
             Intent(ACTION).setClass(context, DueActionReceiver::class.java).putExtra(EXTRA_DECISION, decision.name),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

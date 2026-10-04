@@ -1,8 +1,6 @@
 package app.parley.privatenames
 
 import android.app.Activity
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ContentProvider
@@ -21,6 +19,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.work.PrivateNotice
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
@@ -99,8 +98,6 @@ class PrivateNameProvider : ContentProvider() {
         internal fun askUser(ctx: Context, pkg: String, directory: Boolean = false) {
             // The package name, never the app's own label: any app can call itself "Phone".
             val label = pkg
-            ctx.getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(R.string.privnames_channel), NotificationManager.IMPORTANCE_DEFAULT))
             val id = notificationId(pkg, directory)
 
             // "Allow…" opens the approval sheet in Parley, behind Parley's own lock (its PIN when one is set), which
@@ -134,33 +131,16 @@ class PrivateNameProvider : ContentProvider() {
                 )
                 return NotificationCompat.Action.Builder(0, title, pi).build()
             }
-            val public = NotificationCompat.Builder(ctx, CHANNEL)
-                .setSmallIcon(R.drawable.ic_tile_private)
-                .setContentTitle(ctx.getString(R.string.privnames_channel))
-                .build()
-            val open = PendingIntent.getActivity(
-                ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE,
+            val open = PrivateNotice.open(ctx, id, Intent(ctx, MainActivity::class.java))
+            val n = PrivateNotice.builder(
+                ctx, CHANNEL, R.drawable.ic_tile_private,
+                ctx.getString(if (directory) R.string.privnames_dir_request_title else R.string.privnames_request_title, label),
+                ctx.getString(R.string.privnames_channel),
+                ctx.getString(if (directory) R.string.privnames_dir_request_text else R.string.privnames_request_text, label), open,
             )
-            val n = NotificationCompat.Builder(ctx, CHANNEL)
-                .setSmallIcon(R.drawable.ic_tile_private)
-                .setContentTitle(ctx.getString(if (directory) R.string.privnames_dir_request_title else R.string.privnames_request_title, label))
-                .setStyle(
-                    NotificationCompat.BigTextStyle().bigText(
-                        ctx.getString(if (directory) R.string.privnames_dir_request_text else R.string.privnames_request_text, label),
-                    ),
-                )
-                .setContentIntent(open)
-                .setAutoCancel(true)
-                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-                .setPublicVersion(public)
-                .setLocalOnly(true)
                 .addAction(allow)
                 .addAction(deny())
-                .build()
-            try {
-                NotificationManagerCompat.from(ctx).notify(NOTIFICATION_TAG, id, n)
-            } catch (_: SecurityException) {
-            }
+            PrivateNotice.post(ctx, NOTIFICATION_TAG, id, n)
         }
 
         const val EXTRA_PACKAGE = IntentRoutes.EXTRA_PACKAGE

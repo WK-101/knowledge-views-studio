@@ -1,16 +1,12 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.IntentRoutes
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.common.backup.WatchEvent
 import app.parley.data.DataContainer
 import app.parley.ui.timemachine.WatchText
@@ -22,8 +18,6 @@ import app.parley.ui.timemachine.WatchText
  * stays until it is answered.
  */
 object SyncWatchdogNotice {
-    private const val CHANNEL = NotificationChannels.CONTACTS_SAFETY
-
     suspend fun check(context: Context, c: DataContainer) {
         val fresh = c.syncWatch.run()
         if (fresh.isNotEmpty()) notify(context, fresh)
@@ -33,38 +27,17 @@ object SyncWatchdogNotice {
         val nm = NotificationManagerCompat.from(context)
         // Notifications off: the card in the Contact health check still shows.
         if (!nm.areNotificationsEnabled()) return
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.watch_channel), NotificationManager.IMPORTANCE_DEFAULT))
-        val open = PendingIntent.getActivity(
-            context, 81, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_OPEN_HEALTH).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
         val res = context.resources
         val first = events.first()
-        val title = WatchText.title(res, first)
         val more = events.size - 1
         val text = WatchText.body(res, first, context) +
             (if (more > 0) "\n" + res.getQuantityString(R.plurals.watch_notify_more, more, more) else "")
-        val public = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(context.getString(R.string.watch_notify_public))
-            .build()
-        val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
-            .setLocalOnly(true)
-            .build()
-        try {
-            nm.notify(NotificationIds.TAG_SYNC_WATCHDOG, NotificationIds.SYNC_WATCHDOG_ID, n)
-        } catch (_: SecurityException) {
-            // Not allowed to notify: the card still shows.
-        }
+        val open = PrivateNotice.route(context, NotificationRequests.SYNC_WATCHDOG, IntentRoutes.ACTION_OPEN_HEALTH)
+        val b = PrivateNotice.builder(
+            context, NotificationChannels.CONTACTS_SAFETY, app.parley.ui.R.drawable.ic_stat_block, WatchText.title(res, first),
+            context.getString(R.string.watch_notify_public), text, open,
+        ).setOnlyAlertOnce(true)
+        // Not allowed to notify: the card still shows.
+        PrivateNotice.post(context, NotificationIds.TAG_SYNC_WATCHDOG, NotificationIds.SYNC_WATCHDOG_ID, b)
     }
 }

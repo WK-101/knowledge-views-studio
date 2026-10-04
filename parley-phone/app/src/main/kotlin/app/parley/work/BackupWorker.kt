@@ -1,23 +1,17 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationRequests
 import app.parley.container
 import app.parley.data.backup.BackupSchedule
 import app.parley.data.security.Concealment
@@ -57,25 +51,12 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
          * reminders never hides it.
          */
         fun notify(context: Context, text: String) {
-            context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-                NotificationChannel(NotificationChannels.BACKUPS, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT),
+            val b = PrivateNotice.builder(
+                context, NotificationChannels.BACKUPS, app.parley.ui.R.drawable.ic_stat_block, context.getString(R.string.work_backup_title),
+                context.getString(R.string.work_backup_title), text,
+                PrivateNotice.route(context, NotificationRequests.BACKUP_FAILED, MainActivity.ACTION_OPEN_BACKUP),
             )
-            val open = PendingIntent.getActivity(
-                context, 77, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE,
-            )
-            val n = NotificationCompat.Builder(context, NotificationChannels.BACKUPS)
-                .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-                .setContentTitle(context.getString(R.string.work_backup_title))
-                .setContentText(text)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-                .setContentIntent(open)
-                .setAutoCancel(true)
-                .build()
-            try {
-                NotificationManagerCompat.from(context).notify(NotificationIds.TAG_BACKUP_FAILED, NotificationIds.BACKUP_ID, n)
-            } catch (_: SecurityException) {
-            }
+            PrivateNotice.post(context, NotificationIds.TAG_BACKUP_FAILED, NotificationIds.BACKUP_ID, b)
         }
     }
 }
