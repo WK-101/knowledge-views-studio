@@ -33,12 +33,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import app.parley.NavEvent
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelUpdates
+import app.parley.common.vcard.SealedVCard
 import app.parley.data.sync.shared.SharedLabelEngine.UpdateResult
 import app.parley.data.sync.shared.SharedLabelState
 import app.parley.data.sync.shared.SharedLabels
@@ -64,13 +70,19 @@ internal object LabelUpdateFiles {
     private const val DIR = "label_updates"
     private const val INVITE_MAGIC = "PARLEYB1"
 
-    /** Writes [bytes] as `<label>-<date>.parleyupdate` in the share folder (only the newest stays) and opens the share sheet. */
-    fun share(context: Context, title: String, bytes: ByteArray): Boolean = runCatching {
-        val dir = File(context.cacheDir, DIR).apply { mkdirs() }
-        dir.listFiles()?.forEach { it.delete() }
-        val day = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.ROOT).format(Date())
-        val base = title.filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '-').ifEmpty { "label" }
-        val file = File(dir, "$base-$day${SharedLabelUpdates.FILE_EXTENSION}").apply { writeBytes(bytes) }
+    /**
+     * Writes [bytes] as `<label>-<date>.parleyupdate` in the share folder (only the newest stays; the daily sweep removes
+     * it after an hour, [app.parley.ui.history.ExportFiles.cleanup]) and opens the share sheet. The file is written off
+     * the main thread: it can be large.
+     */
+    suspend fun share(context: Context, title: String, bytes: ByteArray): Boolean = catching {
+        val file = withContext(Dispatchers.IO) {
+            val dir = File(context.cacheDir, DIR).apply { mkdirs() }
+            dir.listFiles()?.forEach { it.delete() }
+            val day = SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.ROOT).format(Date())
+            val base = title.filter { it.isLetterOrDigit() || it == ' ' }.trim().replace(' ', '-').ifEmpty { "label" }
+            File(dir, "$base-$day${SharedLabelUpdates.FILE_EXTENSION}").apply { writeBytes(bytes) }
+        }
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
         val send = Intent(Intent.ACTION_SEND).setType(SharedLabelUpdates.MIME).putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -78,14 +90,21 @@ internal object LabelUpdateFiles {
         context.startOrSay(Intent.createChooser(send, context.getString(R.string.shl_send_chooser)), context.getString(R.string.main_no_app))
     }.getOrDefault(false)
 
-    /** What a file handed to Parley is: an update, an invitation (sealed like a backup, named so or unnamed), or neither. */
-    enum class Kind { UPDATE, INVITATION, OTHER }
+    /**
+     * What a file handed to Parley is: an update, an invitation or an encrypted vCard (both sealed like a backup, and
+     * told apart by their name only), or neither. Without a name a sealed file can't be told apart, so it isn't guessed.
+     */
+    enum class Kind { UPDATE, INVITATION, SEALED_VCARD, OTHER }
 
-    fun kindOf(bytes: ByteArray, name: String?): Kind = when {
-        SharedLabelUpdates.looksLikeUpdate(bytes) -> Kind.UPDATE
-        bytes.size > INVITE_MAGIC.length && String(bytes.copyOf(INVITE_MAGIC.length), Charsets.US_ASCII) == INVITE_MAGIC &&
-            (name == null || name.endsWith(SharedLabelInvites.FILE_EXTENSION, ignoreCase = true)) -> Kind.INVITATION
-        else -> Kind.OTHER
+    fun kindOf(bytes: ByteArray, name: String?): Kind {
+        if (SharedLabelUpdates.looksLikeUpdate(bytes)) return Kind.UPDATE
+        val envelope = bytes.size > INVITE_MAGIC.length && String(bytes.copyOf(INVITE_MAGIC.length), Charsets.US_ASCII) == INVITE_MAGIC
+        return when {
+            !envelope || name == null -> Kind.OTHER
+            name.endsWith(SharedLabelInvites.FILE_EXTENSION, ignoreCase = true) -> Kind.INVITATION
+            name.endsWith(SealedVCard.EXTENSION, ignoreCase = true) -> Kind.SEALED_VCARD
+            else -> Kind.OTHER
+        }
     }
 
     fun displayName(context: Context, uri: Uri): String? = runCatching {
@@ -174,46 +193,104 @@ internal fun UpdateRows(vm: AppViewModel, s: SharedLabelState, open: (Destinatio
 }
 
 /**
+ * Opening a file from [SharedLabelInbox]: what it is, and for an update, the merge and its outcome. Kept here so a
+ * rotation shows the outcome instead of opening the file again; the merge itself can't be cancelled half way
+ * ([SharedLabels.openUpdate]).
+ */
+class OpenLabelFileModel : ViewModel() {
+    sealed interface Outcome {
+        data object Unreadable : Outcome
+
+        data object NotLabelFile : Outcome
+
+        data class Invitation(val uri: Uri) : Outcome
+
+        data class SealedVcard(val uri: Uri) : Outcome
+
+        class Opened(val opened: SharedLabels.Opened) : Outcome
+    }
+
+    /** Whether a file was taken from the inbox (then the screen waits for [outcome] instead of closing). */
+    var started by mutableStateOf(false)
+        private set
+    var outcome by mutableStateOf<Outcome?>(null)
+        private set
+
+    fun open(context: Context, labels: SharedLabels, uri: Uri) {
+        started = true
+        outcome = null
+        viewModelScope.launch {
+            val (bytes, name) = withContext(Dispatchers.IO) { LabelUpdateFiles.read(context, uri) to LabelUpdateFiles.displayName(context, uri) }
+            outcome = if (bytes == null) {
+                Outcome.Unreadable
+            } else {
+                when (LabelUpdateFiles.kindOf(bytes, name)) {
+                    LabelUpdateFiles.Kind.INVITATION -> Outcome.Invitation(uri)
+                    LabelUpdateFiles.Kind.SEALED_VCARD -> Outcome.SealedVcard(uri)
+                    LabelUpdateFiles.Kind.OTHER -> Outcome.NotLabelFile
+                    LabelUpdateFiles.Kind.UPDATE -> Outcome.Opened(labels.openUpdate(bytes))
+                }
+            }
+        }
+    }
+
+    /** An invitation or encrypted vCard was passed on: nothing more to show. */
+    fun passedOn() {
+        outcome = null
+    }
+}
+
+/**
  * An update or invitation file from [SharedLabelInbox] (picked, or sent to Parley from another app): an update is
- * merged into its label and the result said; an invitation goes on to Join; anything else is named as not one.
+ * merged into its label and the result said; an invitation goes on to Join, an encrypted vCard to the import;
+ * anything else is named as not one.
  */
 @Suppress("CyclomaticComplexMethod") // Reading, an update's outcome, an invitation passed on, or not a label file.
 @Composable
 fun OpenLabelFileScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
+    val model: OpenLabelFileModel = viewModel()
     val uri by SharedLabelInbox.update.collectAsStateWithLifecycle()
-    var message by remember { mutableStateOf<String?>(null) }
-    var tone by remember { mutableStateOf(BannerTone.INFO) }
-    var label by remember { mutableStateOf<SharedLabelState?>(null) }
     fun done() {
         SharedLabelInbox.update.value = null
         back()
     }
+    // The file leaves the inbox as soon as it is taken: a recreated screen shows the outcome, never merges again.
     LaunchedEffect(uri) {
         val u = uri ?: return@LaunchedEffect
-        val (bytes, name) = withContext(Dispatchers.IO) { LabelUpdateFiles.read(context, u) to LabelUpdateFiles.displayName(context, u) }
-        val kind = bytes?.let { LabelUpdateFiles.kindOf(it, name) }
-        when {
-            bytes == null -> message = res.getString(R.string.shl_open_failed).also { tone = BannerTone.WARNING }
-            kind == LabelUpdateFiles.Kind.INVITATION -> {
-                SharedLabelInbox.update.value = null
+        SharedLabelInbox.update.value = null
+        model.open(context.applicationContext, vm.c.sharedLabels, u)
+    }
+    LaunchedEffect(uri, model.started) { if (uri == null && !model.started) back() }
+    val outcome = model.outcome
+    LaunchedEffect(outcome) {
+        when (outcome) {
+            is OpenLabelFileModel.Outcome.Invitation -> {
+                model.passedOn()
                 SharedLabelInbox.link.value = null
-                SharedLabelInbox.file.value = u
+                SharedLabelInbox.file.value = outcome.uri
                 back()
                 open(SharedLabelRoutes.Join)
             }
-            kind == LabelUpdateFiles.Kind.OTHER -> message = res.getString(R.string.shl_open_not_update).also { tone = BannerTone.WARNING }
-            else -> {
-                val out = vm.c.sharedLabels.openUpdate(bytes)
-                label = out.state
-                val problem = LabelUpdateFiles.problem(res, out.result)
-                tone = if (problem == null) BannerTone.INFO else BannerTone.WARNING
-                message = problem ?: mergedText(res, out)
+            is OpenLabelFileModel.Outcome.SealedVcard -> {
+                model.passedOn()
+                back()
+                vm.navigate(NavEvent.ImportVcf(outcome.uri))
             }
+            else -> Unit
         }
     }
-    LaunchedEffect(uri) { if (uri == null && message == null) back() }
+    val opened = (outcome as? OpenLabelFileModel.Outcome.Opened)?.opened
+    val problem = opened?.let { LabelUpdateFiles.problem(res, it.result) }
+    val message = when (outcome) {
+        OpenLabelFileModel.Outcome.Unreadable -> res.getString(R.string.shl_open_failed)
+        OpenLabelFileModel.Outcome.NotLabelFile -> res.getString(R.string.shl_open_not_update)
+        is OpenLabelFileModel.Outcome.Opened -> problem ?: mergedText(res, outcome.opened)
+        else -> null
+    }
+    val tone = if (opened != null && problem == null) BannerTone.INFO else BannerTone.WARNING
+    val label = opened?.state
     SettingsScaffold(stringResource(R.string.shl_open_title), ::done) {
         val m = message
         if (m == null) {

@@ -34,6 +34,7 @@ import app.parley.data.testing.FakeDocumentsProvider
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import app.parley.data.security.RecordCrypto
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
@@ -319,8 +320,12 @@ class SharedLabelSyncTest {
         val store = SharedLabelStateStore(dir, RecordSealer(app))
         assertTrue(store.put(a))
         assertEquals(a, store.get(a.labelId))
-        // Stored sealed: the contacts' names are not in the file in plain text.
-        assertFalse(File(dir, "${a.labelId}.json").readText().contains("Ada"))
+        // Stored sealed: the whole file is the sealed text, so no contact's name or number is in it in plain text.
+        // (Looking for "Ada" itself would fail now and then: three given letters turn up in base64 by chance.)
+        val stored = File(dir, "${a.labelId}.json").readText()
+        assertTrue(stored.startsWith(RecordCrypto.TEXT_PREFIX))
+        assertTrue(stored.removePrefix(RecordCrypto.TEXT_PREFIX).all { it.isLetterOrDigit() || it in "+/=" })
+        assertFalse(a.toJson().toString().all { it.isLetterOrDigit() || it in "+/=" })
     }
 
     // ---------------------------------------------------------------- the 5.0 review's findings

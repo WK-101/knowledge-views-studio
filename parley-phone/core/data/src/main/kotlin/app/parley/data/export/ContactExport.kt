@@ -3,6 +3,7 @@ package app.parley.data.export
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import app.parley.common.ExplainedFailure
 import app.parley.common.catching
@@ -86,8 +87,10 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
 
     /**
      * Writes [choice] to [target]. [passphrase] encrypts a [Format.SEALED_VCARD] (required there); [words] word the
-     * readable summary. Throws [ExplainedFailure] when private contacts were asked for but are locked.
+     * readable summary. Throws [ExplainedFailure] when private contacts were asked for but are locked. A run that fails
+     * or is cancelled removes [target]: an empty or cut-off file is no use, and a plain one may already hold private cards.
      */
+    @Suppress("TooGenericExceptionCaught") // Any failure, cancellation included, removes the file, then goes on up.
     suspend fun export(
         target: Uri,
         choice: Choice,
@@ -95,14 +98,31 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
         passphrase: CharArray? = null,
         progress: (Int, Int) -> Unit = { _, _ -> },
     ): VCardIO.ExportResult = withContext(Dispatchers.IO) {
+        try {
+            write(target, choice, words, passphrase, progress)
+        } catch (e: Throwable) {
+            discard(context, target)
+            throw e
+        }
+    }
+
+    private suspend fun write(
+        target: Uri,
+        choice: Choice,
+        words: CardNotes.Words,
+        passphrase: CharArray?,
+        progress: (Int, Int) -> Unit,
+    ): VCardIO.ExportResult {
         val sealed = choice.format == Format.SEALED_VCARD
         require(!sealed || (passphrase?.size ?: 0) > 0) { "An encrypted export needs a passphrase" }
         val privates = privatesFor(choice)
         val notes = if (choice.includeNotes && choice.format.carriesNotes) Notes.read(c) else Notes.NONE
         val ids = c.contacts.snapshot().map { it.id }
         val run = Run(ids.size + privates.size, progress)
-        val out = context.contentResolver.openOutputStream(target, "wt")
-            ?: return@withContext VCardIO.ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
+        val out = context.contentResolver.openOutputStream(target, "wt") ?: run {
+            discard(context, target)
+            return VCardIO.ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
+        }
         val photos = choice.format.csv == null
         // Visible contacts streamed from the address book (full photos for vCards), then the private ones.
         val people = sequence {
@@ -118,7 +138,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
             }
         }
         progress(run.total, run.total)
-        VCardIO.ExportResult(written, run.failures)
+        return VCardIO.ExportResult(written, run.failures)
     }
 
     /**
@@ -290,13 +310,27 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
         private const val PROGRESS_EVERY = 25
 
         /**
+         * Removes a file the system's "Save as" created for an export that didn't happen (best effort: a provider that
+         * can't delete keeps it, empty).
+         */
+        fun discard(context: Context, target: Uri) {
+            runCatching {
+                if (target.scheme == "file") target.path?.let { File(it).delete() } else DocumentsContract.deleteDocument(context.contentResolver, target)
+            }
+                .onFailure { Log.w(TAG, "Couldn't remove an unfinished export", it) }
+        }
+
+        /**
          * Removes what the folder export of notes, which this export replaced, left on the phone: its folder's access
          * grant, its preferences and its record of the files it wrote (their names are people's names). Cheap when
-         * there is nothing to remove.
+         * there is nothing to remove. True when it was keeping a folder up to date (its "Keep it up to date", on unless
+         * turned off): that folder stops changing now, so the user is told once.
          */
-        fun forgetFolderExport(context: Context) {
+        fun forgetFolderExport(context: Context): Boolean {
             val prefs = context.getSharedPreferences("markdown_export", Context.MODE_PRIVATE)
-            prefs.getString("folder", null)?.let { u ->
+            val folder = prefs.getString("folder", null)
+            val wasUpdating = folder != null && prefs.getBoolean("auto", true)
+            folder?.let { u ->
                 runCatching {
                     context.contentResolver.releasePersistableUriPermission(
                         Uri.parse(u), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
@@ -305,6 +339,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
             }
             if (prefs.all.isNotEmpty()) context.deleteSharedPreferences("markdown_export")
             File(context.filesDir, "markdown_export_state.json").delete()
+            return wasUpdating
         }
     }
 }

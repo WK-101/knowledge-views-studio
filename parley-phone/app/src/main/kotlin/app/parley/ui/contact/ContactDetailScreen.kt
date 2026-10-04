@@ -64,6 +64,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.EventDate
 import app.parley.common.people.ContactGlance
+import app.parley.common.people.ContactRef
 import app.parley.common.people.GlanceFact
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PageBlock
@@ -119,8 +120,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     LaunchedEffect(page) { page.events.collect { vm.toast(it) } }
     val ui by page.state.collectAsStateWithLifecycle()
     // The one dialog, sheet or menu open. The plain ones come back after a rotation (so a "Save to" a photo or QR
-    // viewer opened still writes its file).
-    var dialog by rememberSaveable(stateSaver = ContactDialog.Saver) { mutableStateOf<ContactDialog>(ContactDialog.None) }
+    // viewer opened still writes its file); on a private contact's page, none that holds a number or name.
+    val dialogSaver = if (ContactRef.ofNavId(contactId) is ContactRef.Private) ContactDialog.PrivateSaver else ContactDialog.Saver
+    var dialog by rememberSaveable(stateSaver = dialogSaver) { mutableStateOf<ContactDialog>(ContactDialog.None) }
     val ctx = pageContext(vm, page, ui, contactId, open, back) { next -> dialog = next }
     val d = ctx?.d
     val listState = rememberLazyListState()

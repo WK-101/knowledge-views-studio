@@ -60,9 +60,9 @@ class CarriedSectionsRoundTripTest {
     @Test fun familySafetyTunesAndSwitchesComeBack() = runBlocking {
         val now = System.currentTimeMillis()
         val safety = c.familySafety
-        assertTrue(safety.setSafeWord("Family", SafeWord("First pet?", "Rex")))
+        assertTrue(safety.setSafeWord("Family", SafeWord("First pet?", "Rexford the terrier")))
         assertTrue(safety.setSafeWord("Work", SafeWord("Floor?", "Third")))
-        assertTrue(safety.setHelpers(listOf(Helper("Sam", "+44 7700 900001"))))
+        assertTrue(safety.setHelpers(listOf(Helper("Samira Okonkwo", "+44 7700 900001"))))
         assertTrue(safety.setConsent(ExpectedSource.DELIVERY_QR, true))
         assertTrue(safety.putWindow(ExpectedWindow(now, now + 3_600_000, ExpectedSource.DELIVERY_QR, "parcel"), now))
         val tune = CallerTune.wav(CallerTune.render(CallerTune.compose("Ada", 1)))
@@ -77,9 +77,10 @@ class CarriedSectionsRoundTripTest {
         val out = c.backup.backupNow(scheduled = false, target = Uri.fromFile(file))
         assertTrue(out.message, out.ok)
         assertEquals(emptyList<String>(), out.failedSections)
-        // Safe words are secrets: nothing of them is readable in the file.
+        // Safe words are secrets: nothing of them is readable in the file. The strings looked for are long: the file is
+        // ciphertext, where any three given letters turn up by chance in a few runs out of a hundred.
         val raw = String(file.readBytes(), Charsets.ISO_8859_1)
-        for (s in listOf("Rex", "First pet", "Sam", "parley-tune")) assertFalse(s, raw.contains(s))
+        for (s in listOf("Rexford the terrier", "First pet", "Samira Okonkwo", "parley-tune")) assertFalse(s, raw.contains(s))
 
         // The new phone: its own safe word for Family, no helpers, no tune, other switches, its own car.
         assertTrue(safety.setSafeWord("Family", SafeWord("Street?", "Elm")))
@@ -96,7 +97,7 @@ class CarriedSectionsRoundTripTest {
 
         assertEquals(SafeWord("Street?", "Elm"), safety.safeWord("Family"))
         assertEquals(SafeWord("Floor?", "Third"), safety.safeWord("Work"))
-        assertEquals(listOf("Sam"), safety.helpers().map { it.name })
+        assertEquals(listOf("Samira Okonkwo"), safety.helpers().map { it.name })
         assertEquals(listOf("parcel"), safety.windows(now + 1000).map { it.key })
         assertArrayEquals(tune, File(tunes, tuneName).readBytes())
         assertFalse(File(tunes, "notes.txt").exists())

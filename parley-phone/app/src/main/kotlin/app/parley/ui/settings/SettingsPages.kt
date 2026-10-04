@@ -363,7 +363,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
-    var importAccounts by remember { mutableStateOf<Pair<Uri, List<AccountRef>>?>(null) }
+    var importAccounts by remember { mutableStateOf<ImportAsk?>(null) }
     var skipDuplicates by remember { mutableStateOf(true) }
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
     // Android 16's cloud default, when it takes new contacts instead of the phone: said under "Save new contacts to".
@@ -372,9 +372,12 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         withContext(Dispatchers.IO) { vm.c.contacts.accounts() to vm.c.contacts.systemDefaultAccount() }.let { (a, d) -> accounts = a; systemDefault = d }
     }
     val importing = stringResource(R.string.set_importing)
-    // An encrypted vCard asks for its passphrase first; it is kept only until the import starts.
+    // An encrypted vCard asks for its passphrase first; it travels with its file only, until the import starts.
     var sealedUri by remember { mutableStateOf<Uri?>(null) }
-    var importPass by remember { mutableStateOf<CharArray?>(null) }
+    fun cancelImport() {
+        importAccounts?.pass?.fill('\u0000')
+        importAccounts = null
+    }
 
     // A large import offers "Back up first?" before anything is written.
     val backupFirst = rememberBackupFirst(vm)
@@ -386,7 +389,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             }
             val count = vm.c.vcards.estimateCount(uri)
             backupFirst.ask(count, BackupNudge.LARGE_IMPORT) {
-                scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+                scope.launch { importAccounts = ImportAsk(uri, withContext(Dispatchers.IO) { vm.c.contacts.accounts() }) }
             }
         }
     }
@@ -434,18 +437,18 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         if (severalAccounts) item("export_account") { ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
     }
 
-    importAccounts?.let { (uri, accs) ->
+    importAccounts?.let { ask ->
+        val uri = ask.uri
+        val pass = ask.pass
         ParleyDialog(
-            onDismissRequest = { importAccounts = null },
+            onDismissRequest = ::cancelImport,
             title = { Text(stringResource(R.string.set_import_into)) },
             text = {
                 Column {
                     SwitchRow(stringResource(R.string.set_skip_duplicates), stringResource(R.string.set_skip_duplicates_body), skipDuplicates) { skipDuplicates = it }
-                    accs.forEach { a ->
+                    ask.accounts.forEach { a ->
                         ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
                             importAccounts = null
-                            val pass = importPass
-                            importPass = null
                             scope.launch {
                                 // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
                                 val preview = if (pass != null) null else catching { vm.c.vcards.csvPreview(uri) }.getOrNull()
@@ -474,18 +477,20 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ importAccounts = null }) { Text(stringResource(R.string.set_cancel)) } },
+            dismissButton = { TextButton(::cancelImport) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     sealedUri?.let { uri ->
         SealedImportDialog(uri, onDismiss = { sealedUri = null }) { pass ->
             sealedUri = null
-            importPass = pass
-            scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+            scope.launch { importAccounts = ImportAsk(uri, withContext(Dispatchers.IO) { vm.c.contacts.accounts() }, pass) }
         }
     }
     importReport?.let { r -> ImportReportDialog(r) { importReport = null } }
 }
+
+/** A file waiting for "Import into": the accounts to offer and, for an encrypted vCard, the passphrase that opens it. */
+private class ImportAsk(val uri: Uri, val accounts: List<AccountRef>, val pass: CharArray? = null)
 
 // ---------------------------------------------------------------- Recents & history
 

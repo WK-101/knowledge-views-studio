@@ -1,5 +1,9 @@
 package app.parley.common.vcard
 
+import app.parley.common.PhoneIdentity
+import app.parley.common.record.Col
+import app.parley.common.record.ContactRecord
+import app.parley.common.record.Mime
 import ezvcard.VCard
 import ezvcard.property.Note
 import ezvcard.property.RawProperty
@@ -20,6 +24,8 @@ import java.time.format.DateTimeParseException
  * - `X-PARLEY-MOMENT;X-WHEN=…;X-KIND=meet|message|video|other:<note>`: a moment logged in the Circle.
  * - `X-PARLEY-PROMISE:<text>`: an open promise, read from the notes (not imported: the notes bring it back).
  * - `NOTE;X-PARLEY-SUMMARY=1:<text>`: all of the above in words, for other apps; Parley drops it on import.
+ *
+ * An import keeps them only as far as [forImport] allows.
  */
 data class CardNotes(
     val private: Boolean = false,
@@ -40,6 +46,20 @@ data class CardNotes(
     val isEmpty: Boolean
         get() = !private && forCalls.isBlank() && context.isBlank() && keepInTouchDays == null && callNotes.isEmpty() && moments.isEmpty() &&
             promises.isEmpty()
+
+    /**
+     * What an import of [record] keeps of these notes. Only a file locked with a passphrase ([fromSealed], an encrypted
+     * vCard) is known to come from Parley: any other card may come from anyone (a card sent in a messenger), so it keeps
+     * no more than whether it is private, which only ever keeps it out of the address book. Even then, a call note stays
+     * only on one of the card's own numbers: a note never lands on a stranger's calls. [region] reads numbers written
+     * without a country code.
+     */
+    fun forImport(record: ContactRecord, fromSealed: Boolean, region: String?): CardNotes {
+        if (!fromSealed) return CardNotes(private = private)
+        val own = record.raws.flatMap { it.rows }.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1] }
+            .flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
+        return copy(callNotes = callNotes.filter { it.line in own })
+    }
 
     /** The worded parts of the readable summary, in the app's language. */
     class Words(

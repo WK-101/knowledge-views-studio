@@ -108,5 +108,20 @@ sealed interface ContactDialog {
             save = { d -> save(d) ?: save(None) },
             restore = { v -> (v as? List<*>)?.filterNotNull()?.let(::restore) ?: None },
         )
+
+        /**
+         * The saver for a private contact's page: a dialog holding one of its numbers, its name or a handle closes on
+         * rotation instead, since saved state is kept by the system, outside Parley's own sealed storage.
+         */
+        val PrivateSaver: Saver<ContactDialog, Any> = Saver(
+            save = { d -> save(if (namesSomeone(d)) None else d) ?: save(None) },
+            restore = { v -> (v as? List<*>)?.filterNotNull()?.let(::restore) ?: None },
+        )
+
+        private fun namesSomeone(d: ContactDialog): Boolean = when (d) {
+            is SimFor, is Peek, is CallReason, is WebLink -> true
+            is MessageOn -> d.number.isNotEmpty()
+            else -> false
+        }
     }
 }

@@ -22,6 +22,7 @@ import app.parley.data.people.MyCardIdentity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.security.RecordCrypto
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -267,7 +268,8 @@ class SharedLabels(
      * key can't sign now.
      */
     suspend fun sendUpdate(labelId: String): Update? = mutex.withLock {
-        withContext(Dispatchers.IO) {
+        // Not cancelled half way (the screen left): a run that rewrote contacts always saves the state that says so.
+        withContext(Dispatchers.IO + NonCancellable) {
             var s = store.get(labelId) ?: return@withContext null
             if (!SharedLabelMembership.syncs(s.membership)) return@withContext null
             val signer = signer() ?: return@withContext null
@@ -294,7 +296,9 @@ class SharedLabels(
      * ([SharedLabelEngine.openUpdate]). A label not on this phone asks for its invitation first.
      */
     suspend fun openUpdate(bytes: ByteArray): Opened = mutex.withLock {
-        withContext(Dispatchers.IO) {
+        // Not cancelled half way (Back, rotation): contacts merged without the state saved would later read as this
+        // phone's own edits. Opening the same file again then finds it opened.
+        withContext(Dispatchers.IO + NonCancellable) {
             val peek = SharedLabelUpdates.peek(bytes) ?: return@withContext Opened(null, SharedLabelEngine.UpdateResult.NOT_AN_UPDATE)
             val s = store.get(peek.labelId) ?: return@withContext Opened(null, SharedLabelEngine.UpdateResult.OTHER_LABEL)
             if (!hasContacts()) return@withContext Opened(s, SharedLabelEngine.UpdateResult.UNAVAILABLE)

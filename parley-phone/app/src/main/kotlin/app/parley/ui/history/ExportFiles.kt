@@ -136,8 +136,11 @@ object ExportFiles {
      */
     const val SAFE_AGE_MS = 60 * 60_000L
 
-    /** Cache folders other screens share files from (FileProvider paths "share" and "transfer"). */
-    private val SHARED_DIRS = listOf("share", "transfer")
+    /**
+     * Cache folders other screens share files from (FileProvider paths "share" and "transfer", and the shared labels'
+     * update files: a farewell update holds the label's contacts and has its title in its name).
+     */
+    private val SHARED_DIRS = listOf("share", "transfer", "label_updates")
 
     private fun title(context: Context, subject: String?) =
         if (subject.isNullOrBlank()) context.getString(R.string.hist_export_title) else context.getString(R.string.hist_export_title_subject, subject)
