@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.parley.data.ContactsRepository
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.sync.FolderSync
+import app.parley.data.sync.FolderSync.RunStats
 import app.parley.data.testing.FakeContactsProvider
 import app.parley.data.testing.FakeDocumentsProvider
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +29,9 @@ import org.robolectric.Shadows.shadowOf
 
 /**
  * 10,000 contacts: the contact list reloads only what changed, and the folder sync pages through contacts, then
- * skips everything unchanged. Times are generous bounds for a slow CI machine, there to catch a quadratic loop.
+ * skips everything unchanged. "Only what changed" is checked by counting the contacts and files read, never by
+ * comparing two timings: a loaded machine (a parallel build, a GC pause) can make the small run slower than the big
+ * one. The times are only a ceiling, far above any machine, against a hang or a quadratic loop.
  */
 @RunWith(RobolectricTestRunner::class)
 class ContactsScaleTest {
@@ -69,16 +72,17 @@ class ContactsScaleTest {
         val (all, fullMs) = timed { repo.loadNow() }
         assertEquals(COUNT, all.size)
         assertFalse(repo.lastLoad.incremental)
-        assertTrue("full load took $fullMs ms", fullMs < 60_000)
+        assertEquals(COUNT, repo.lastLoad.read)
+        assertTrue("full load took $fullMs ms", fullMs < FULL_LOAD_CEILING_MS)
 
         provider.exec("UPDATE data SET data1 = '+1 555 9999999' WHERE raw_contact_id = 42 AND mimetype = '${Phone.CONTENT_ITEM_TYPE}'")
         provider.exec("UPDATE raw_contacts SET version = version + 1, last_updated = 2 WHERE _id = 42")
-        val (patched, patchMs) = timed { repo.loadNow() }
+        val patched = repo.loadNow()
+        // One contact read again instead of all of them.
         assertTrue(repo.lastLoad.incremental)
         assertEquals(1, repo.lastLoad.read)
         assertEquals(COUNT, patched.size)
         assertEquals("+1 555 9999999", patched.first { it.id == 42L }.phones.single().number)
-        assertTrue("incremental load ($patchMs ms) should beat the full one ($fullMs ms)", patchMs < fullMs)
 
         // The patched list is exactly what a full load gives.
         provider.exec("DELETE FROM raw_contacts WHERE _id = 7")
@@ -95,18 +99,22 @@ class ContactsScaleTest {
 
         val (first, firstMs) = timed { sync.syncNow() }
         assertEquals(COUNT, first.written)
+        assertEquals(COUNT, sync.lastRun.contactsRead)
+        assertEquals(COUNT, sync.lastRun.filesWritten)
         assertTrue("never more than one page of contacts in memory", sync.lastRun.largestPage <= ContactRecordStore.BATCH)
-        assertTrue("first sync took $firstMs ms", firstMs < 300_000)
+        assertTrue("first sync took $firstMs ms", firstMs < FIRST_SYNC_CEILING_MS)
 
         folder.reads = 0
-        val (second, secondMs) = timed { sync.syncNow() }
+        val second = sync.syncNow()
+        // Nothing changed: not one contact or file is read, and nothing is written.
         assertEquals(0, second.written + second.imported + second.updatedFromFolder)
-        assertEquals(0, sync.lastRun.contactsRead)
+        assertEquals(RunStats(), sync.lastRun)
         assertEquals(0, folder.reads)
-        assertTrue("an unchanged sync ($secondMs ms) should be far quicker than the first ($firstMs ms)", secondMs * 5 < firstMs)
     }
 
     private companion object {
         const val COUNT = 10_000
+        const val FULL_LOAD_CEILING_MS = 120_000L
+        const val FIRST_SYNC_CEILING_MS = 600_000L
     }
 }
