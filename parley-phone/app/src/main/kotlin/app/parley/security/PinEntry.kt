@@ -38,7 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.R
 import app.parley.common.security.PinRules
 import app.parley.common.security.PinVerdict
@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 internal fun PinUnlock(autoFocus: Boolean) {
-    val activity = LocalActivity.current as? FragmentActivity ?: return
+    val activity = LocalActivity.current as? ComponentActivity ?: return
     val state = remember { PinUnlockState() }
     LaunchedEffect(Unit) { state.waitFor(activity.container.appPin.waitNow()) }
     LaunchedEffect(state.waitUntil) { state.tick() }
@@ -118,7 +118,7 @@ private class PinUnlockState {
         now = SystemClock.elapsedRealtime()
     }
 
-    fun submit(activity: FragmentActivity) {
+    fun submit(activity: ComponentActivity) {
         if (!canSubmit) return
         busy = true
         wrong = false

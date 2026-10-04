@@ -49,7 +49,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -78,9 +78,9 @@ private class CreateImageDocument : ActivityResultContract<Pair<String, String>,
     override fun parseResult(resultCode: Int, intent: Intent?): Uri? = intent.takeIf { resultCode == Activity.RESULT_OK }?.data
 }
 
-private tailrec fun Context.fragmentActivity(): FragmentActivity? = when (this) {
-    is FragmentActivity -> this
-    is ContextWrapper -> baseContext.fragmentActivity()
+private tailrec fun Context.componentActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.componentActivity()
     else -> null
 }
 
@@ -134,7 +134,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
     DisposableEffect(Unit) {
         onDispose {
             val doc = target
-            if (doc != null && context.fragmentActivity()?.isChangingConfigurations != true) {
+            if (doc != null && context.componentActivity()?.isChangingConfigurations != true) {
                 vm.c.scope.launch(Dispatchers.IO) { ImageExport.discard(app, doc) }
             }
         }
@@ -195,7 +195,7 @@ private fun withPictureBytes(
         Unit
     }
     if (!img.private) return go()
-    val activity = context.fragmentActivity() ?: return
+    val activity = context.componentActivity() ?: return
     AppLock.authenticateForVault(activity) { ok -> if (ok && !vm.settings.value.hideVault) go() }
 }
 

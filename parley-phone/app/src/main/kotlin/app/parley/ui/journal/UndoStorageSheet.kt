@@ -41,7 +41,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -228,7 +228,7 @@ private fun SnapshotClearDialog(times: List<Long>, onConfirm: (SnapshotKeep) -> 
 /** Runs [then] after the app lock when it is on; without the lock, right away. */
 private fun authorize(context: Context, vm: AppViewModel, then: () -> Unit) {
     if (!vm.settings.value.appLock) return then()
-    val act = context as? FragmentActivity ?: return
+    val act = context as? ComponentActivity ?: return
     AppLock.confirm(act, context.getString(R.string.jr_storage_title)) { ok -> if (ok) then() }
 }
 

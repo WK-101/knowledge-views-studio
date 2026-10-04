@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.AppViewModel
 import app.parley.security.AppLock
 import app.parley.common.backup.ArchiveOrigin
@@ -229,7 +229,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         if (pending) {
                             Text(stringResource(R.string.rst_safety_waiting), style = MaterialTheme.typography.bodySmall)
                             TextButton({
-                                val act = context as? FragmentActivity ?: return@TextButton
+                                val act = context as? ComponentActivity ?: return@TextButton
                                 AppLock.confirm(act, res.getString(R.string.rst_safety_confirm)) { ok ->
                                     if (ok) scope.launch {
                                         if (repo.applyPendingRestore()) vm.toast(res.getString(R.string.rst_safety_applied))

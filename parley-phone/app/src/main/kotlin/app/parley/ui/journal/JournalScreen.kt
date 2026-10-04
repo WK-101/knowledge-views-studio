@@ -42,7 +42,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import android.content.res.Resources
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.res.pluralStringResource
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.common.people.ContactRef
 import app.parley.data.vault.PrivateTrash
 import app.parley.security.AppLock
@@ -136,7 +136,7 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
 private class PrivateTrashUi(
     private val vm: AppViewModel,
     private val scope: CoroutineScope,
-    private val activity: FragmentActivity?,
+    private val activity: ComponentActivity?,
     private val open: (Destination) -> Unit,
 ) {
     var count by mutableIntStateOf(0)
@@ -187,7 +187,7 @@ private class PrivateTrashUi(
 private fun rememberPrivateTrash(vm: AppViewModel, open: (Destination) -> Unit): PrivateTrashUi {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val ui = remember(vm) { PrivateTrashUi(vm, scope, context as? FragmentActivity, open) }
+    val ui = remember(vm) { PrivateTrashUi(vm, scope, context as? ComponentActivity, open) }
     // Discreet mode ("Hide private contacts") hides that there are any, here too.
     val settings by vm.settings.collectAsStateWithLifecycle()
     LaunchedEffect(ui.round, settings.hideVault) {

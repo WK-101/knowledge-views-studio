@@ -56,7 +56,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -96,7 +96,7 @@ private const val CONFIRMED_FOR_MS = 60_000L
  * Without a screen lock there's nothing to confirm; a confirmation in the last minute counts.
  */
 internal fun confirmItsYou(context: Context, onOk: () -> Unit) {
-    val activity = context as? FragmentActivity ?: return
+    val activity = context as? ComponentActivity ?: return
     if (VaultSession.recentlyAuthenticated(CONFIRMED_FOR_MS)) {
         onOk()
         return

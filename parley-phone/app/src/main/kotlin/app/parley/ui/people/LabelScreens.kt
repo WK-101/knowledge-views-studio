@@ -78,7 +78,7 @@ import app.parley.ui.sync.shared.SharedLabelSection
 import app.parley.ui.home.ContactRow
 import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -392,7 +392,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                 }
                 d.getOrNull()?.emails?.firstOrNull { it.value.isNotBlank() }?.value?.let { privateEmails += it }
             }
-            val activity = context as? FragmentActivity
+            val activity = context as? ComponentActivity
             if (locked && !unlocked && activity != null) {
                 AppLock.authenticateForVault(activity) { ok -> if (ok) emailAll(unlocked = true) }
                 return@launch

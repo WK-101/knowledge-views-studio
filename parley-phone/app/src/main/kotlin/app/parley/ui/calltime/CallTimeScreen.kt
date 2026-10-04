@@ -33,7 +33,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -163,7 +163,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                     trailingContent = {
                         val label = stringResource(R.string.ct_supervised)
                         Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v ->
-                            val act = context as? FragmentActivity ?: return@Switch
+                            val act = context as? ComponentActivity ?: return@Switch
                             if (v && !AppLock.canAuthenticate(act)) {
                                 noLock = true
                                 return@Switch

@@ -83,7 +83,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
@@ -407,7 +407,7 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
         vm.navigate(NavEvent.NewContact(details))
     }
     Action(stringResource(R.string.qs_add_private), Icons.Rounded.Lock) {
-        scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
+        scope.launchVault(context as? ComponentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
             val id = vm.c.vault.save(null, details)
             vm.toast(res.getString(R.string.sqr_saved_private))
             onDismiss()

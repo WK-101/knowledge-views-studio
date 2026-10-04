@@ -29,7 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.memory.MemoryHint
@@ -126,7 +126,7 @@ private class MemoryActions(
         when (action) {
             MemoryAction.RESTORE -> restore { vm.c.journal.restore(s.hint.ref!!.toLong()) }
             // The vault's own unlock first, as in History & undo.
-            MemoryAction.RESTORE_PRIVATE -> (context as? FragmentActivity)?.let { activity ->
+            MemoryAction.RESTORE_PRIVATE -> (context as? ComponentActivity)?.let { activity ->
                 AppLock.authenticateForVault(activity) { ok ->
                     if (ok) restore { vm.c.privateTrash.restore(s.hint.ref!!)?.let { ContactRef.Private(it).navId } }
                 }

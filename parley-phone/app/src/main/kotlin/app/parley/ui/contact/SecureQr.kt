@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -201,7 +201,8 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             confirmButton = {
                 TextButton({
                     val (details, _) = withMet()
-                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
+                    val activity = context as? ComponentActivity
+                    scope.launchVault(activity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
                         val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(NavEvent.Vault(id))
                     }
                 }) { Text(stringResource(R.string.sqr_save_privately)) }

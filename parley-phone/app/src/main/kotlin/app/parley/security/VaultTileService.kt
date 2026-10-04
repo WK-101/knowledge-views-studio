@@ -9,7 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import androidx.fragment.app.FragmentActivity
+import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.R
 import app.parley.container
@@ -66,7 +66,7 @@ class VaultTileService : TileService() {
 }
 
 /** Asks for Parley's unlock, then turns discreet mode off. Invisible apart from the system prompt. Not exported. */
-class DiscreetRevealActivity : FragmentActivity() {
+class DiscreetRevealActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppLock.applySecureFlag(this, true)
