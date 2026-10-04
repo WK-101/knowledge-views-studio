@@ -82,7 +82,12 @@ android {
     }
 
     packaging {
+        // Compressed code, as in Parley: a smaller download for a slightly slower install (docs/PERFORMANCE_BENCHMARKS.md).
+        dex.useLegacyPackaging = true
         resources.excludes += setOf("META-INF/*.version", "META-INF/**/LICENSE*", "kotlin/**", "DebugProbesKt.bin")
+        // ez-vcard comes along with :core:common, but none of its code survives shrinking here (the updater reads no
+        // vCards), so its messages, licence copies and HTML template are dead weight.
+        resources.excludes += "ezvcard/**"
     }
 
     lint {

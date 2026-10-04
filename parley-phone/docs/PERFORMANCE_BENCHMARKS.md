@@ -150,8 +150,48 @@ and look for the sections on Parley's process tracks.
 
 ## Budgets and measurements
 
-The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
-fails above it, and CI runs it.
+The release APK has a download-size budget of 8 MiB, measured on the APK file itself (what F-Droid and sideload users
+download): `./gradlew :app:checkReleaseApkSize` fails above it, and CI runs it. Until 5.4 the budget was 12 MiB with
+the code stored uncompressed; 5.5 compresses the code (below), so the budget follows the download and not the
+installed size.
+
+### 5.5: a lighter download
+
+Measured on the unsigned release builds (`./gradlew :app:assembleRelease :lists-updater:assembleRelease`, no
+keystore), 5.4.0 against 5.5, entry sizes as stored in the APK. The signed release differs only by its signature
+block (a few KB).
+
+| Part | 5.4.0 | 5.5 | Saved | Why |
+|---|---|---|---|---|
+| Parley release APK (the download) | 12,186,504 bytes (11.62 MiB) | 6,281,674 bytes (5.99 MiB) | 5,904,830 (48%) | All of the below. |
+| `classes.dex` as stored | 10,061,624 (stored) | 4,884,564 (compressed) | 5,177,060 | **Compressed code** (`packaging.dex.useLegacyPackaging = true`, an owner decision). |
+| `classes.dex` uncompressed | 10,061,624 | 9,936,000 | 125,624 | `androidx.fragment` is gone (the activities are plain `ComponentActivity`s; the app lock already used the platform `BiometricPrompt`), and ez-vcard's keep rules keep only what it reads reflectively (property constructors and the `@SupportedVersions` annotation) instead of every property and scribe whole. |
+| Geocoder place names | 1,117,302 | 540,176 | 577,126 | China's (+86, 388 KB) and Australia's (+61, 189 KB) area names are left out. Numbers from there show the country only ("China", "Australia"); every other country keeps its area names (`GeoLanguages.COUNTRIES_WITHOUT_AREAS`, `NumberInfoTest`). |
+| `resources.arsc` (stored, as Android requires) | 529,132 | 379,120 | 150,012 | **Collapsed resource names**: aapt2's `--collapse-resource-names` after AGP's own resource optimisation (AGP 8.13 has no switch for it). Nothing in Parley or its libraries looks a Parley resource up by name. The 54 strings nothing used are deleted from the sources (R8 already left them out of the APK). |
+| Parley Lists release APK | 2,796,568 (2.67 MiB) | 1,535,181 (1.46 MiB) | 1,261,387 (45%) | Compressed code (2,443,268 stored, now 1,200,759) and no ez-vcard resources (15 KB: no ez-vcard code survives shrinking there). |
+
+The debug build (`assembleDebug`, no R8, so one dex per class group) shows the compression most: 94,123,001 bytes
+(89.8 MiB) before, 32,097,490 (30.6 MiB) after, its dex 91,954,904 stored against 30,518,796 compressed; Parley Lists'
+debug APK went from 68,178,919 to 21,402,775 bytes. Resource names are collapsed in release builds only.
+
+**What it costs on the phone.** With compressed code, the installer unpacks the dex at install time, which takes a
+little longer once and keeps an uncompressed copy (about 9.5 MiB for Parley, 2.3 MiB for Parley Lists) next to the
+APK. Installed, Parley takes about 15.5 MiB (6 MiB APK plus the unpacked code) instead of about 11.6 MiB: roughly
+4 MiB more storage for a download half the size. Start-up and baseline-profile compilation are unchanged (ART runs
+the same unpacked code either way). Play would compress the download on the wire anyway; F-Droid and sideload users
+download the APK byte for byte, and that is the number the budget tracks. The owner chose the smaller download
+(docs/AUDIT_2.md §6). The figures for the signed release, the installed size and the install time on a phone are
+measured at release time (docs/RELEASING.md §3).
+
+Looked at and left alone:
+
+- **Settings in SharedPreferences instead of DataStore** (about 110 KB of uncompressed code, about 50 KB of the
+  download now that the code is compressed). The settings' DataStore files are protobuf; moving them needs DataStore
+  itself to read them once (so the library stays for the migration) or a hand-written protobuf reader on the path that
+  loads every setting. Not worth the risk for this gain.
+- **A `:core:spam` module for Parley Lists.** Lists uses the spam-pack code, which normalises numbers through
+  `PhoneIdentity`, so libphonenumber and its metadata stay in Lists either way; R8 already drops everything else of
+  `:core:common`. The only dead weight was ez-vcard's resources, now excluded in `lists-updater/build.gradle.kts`.
 
 ### 5.4: data at scale
 
@@ -255,7 +295,8 @@ Looked at and left alone:
 - **Kotlin metadata** is already stripped by R8 (no `kotlin.Metadata` in the dex); R8 full mode is the default in AGP 8.
 - **`-repackageclasses`** saved 17 KB of dex; not worth a class-naming change that can only be checked on a device.
 - **Compressed dex** (`packaging.dex.useLegacyPackaging = true`) would take about 4.5 MB off the download, but Android
-  then keeps an uncompressed copy of the dex after install, so Parley would take more space on the phone. Not done.
+  then keeps an uncompressed copy of the dex after install, so Parley would take more space on the phone. Not done
+  then; done in 5.5 (above).
 - **Material icons**: R8 keeps only the icons used (about 108 KB of code).
 - **Library translations for users of other languages**: with the filters, a phone in (for example) Italian shows the
   few Material labels (date picker, bottom sheet) in English, like the rest of Parley; Parley's own 8 languages are

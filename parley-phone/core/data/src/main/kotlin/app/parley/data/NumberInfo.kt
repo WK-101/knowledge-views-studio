@@ -29,7 +29,12 @@ object NumberInfo {
                 val sameCountry = util.getRegionCodeForNumber(parsed) == countryIso.uppercase(Locale.ROOT)
                 // Only some languages' place names ship (see GeoLanguages); others ask in English.
                 val lang = Locale.forLanguageTag(GeoLanguages.forLanguage(locale.language))
-                geocoder.getDescriptionForNumber(parsed, lang, if (sameCountry) countryIso.uppercase(Locale.ROOT) else null).ifBlank { null }
+                if (sameCountry && !GeoLanguages.hasAreaNames(parsed.countryCode)) {
+                    // Its area file isn't in the APK, and the geocoder would fail reading it: the country alone.
+                    countryName(countryIso, lang)
+                } else {
+                    geocoder.getDescriptionForNumber(parsed, lang, if (sameCountry) countryIso.uppercase(Locale.ROOT) else null).ifBlank { null }
+                }
             }
         } catch (_: Exception) {
             null
@@ -37,6 +42,10 @@ object NumberInfo {
         cache[key] = result.orEmpty()
         return result
     }
+
+    /** A country's name in [lang], as the geocoder words it when it has no area for a number. */
+    private fun countryName(countryIso: String, lang: Locale): String? =
+        Locale.Builder().setRegion(countryIso.uppercase(Locale.ROOT)).build().getDisplayCountry(lang).ifBlank { null }
 
     /** The answer [location] already worked out, without working it out (for a first frame on the main thread). */
     fun cachedLocation(number: String?, countryIso: String, locale: Locale = Locale.getDefault()): String? =
