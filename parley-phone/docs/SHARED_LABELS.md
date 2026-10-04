@@ -135,7 +135,7 @@ and under what name. A duplicate that results can be merged with **Find & merge 
 
 For households where not everyone runs a sync app (most). Code: `SharedLabelUpdates` (core/common: the format, the
 checks and which file wins), `SharedLabelEngine.updateFile` / `openUpdate` and `LocalLabelFolder` (core/data), and
-`LabelUpdates.kt` (app).
+`ui/sync/shared/LabelUpdateFiles.kt` (app: sending, opening and telling the files apart).
 
 - **Where the files live.** A label shared by file has no folder: each phone keeps the label's files (the same header,
   contact files and journals described above, sealed and signed the same way) in its own storage, outside backups
@@ -145,9 +145,12 @@ checks and which file wins), `SharedLabelEngine.updateFile` / `openUpdate` and `
   the label's files as this phone holds them, other members' included, so an update relays changes to people the
   sender never exchanges with directly. Files that don't open with the current key (junk) stay out.
 - **Open an update.** From the label's page or Members & invitations, or by opening the file from the app it arrived
-  in (Parley accepts it as `application/vnd.parley.label-update`, and as `application/octet-stream`, which many apps
-  use for a type they don't know; the screen checks what the file really is and says so when it isn't one). An
-  invitation file opened that way goes on to Join.
+  in (Parley accepts it as `application/vnd.parley.label-update`, and by its name, `.parleyupdate`, when an app gives
+  it a type it doesn't know and the link shows the name: Parley never offers to open every unknown file). The screen
+  checks what the file really is and says so when it isn't one. An invitation file opened that way goes on to Join,
+  an encrypted vCard (`.vcf.parley`) to the import; a sealed file without a name isn't guessed at. The merge, once
+  started, finishes and saves even if the screen is left or turned, which then shows its outcome without opening the
+  file again. Sent update files leave the cache within a day (an hour old at the daily sweep).
 - **Format.** `PARLEYU1 | label id | key epoch | nonce | AES-256-GCM(label key, gzip(signed))`, associated data
   `PARLEYU1|<label id>|<epoch>`. `signed` is a body (`label`, `epoch`, `from` (the sender's My card key), `name`,
   `at` (when it was made), and `files`, name → bytes) and the sender's Ed25519 signature over

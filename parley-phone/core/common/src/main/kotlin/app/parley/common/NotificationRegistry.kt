@@ -71,6 +71,10 @@ object NotificationIds {
     const val TAG_SYNC_WATCHDOG = "sync_watchdog"
     const val SYNC_WATCHDOG_ID = 0
 
+    /** Once: the notes folder export that kept a folder up to date was replaced by Export contacts. */
+    const val TAG_FOLDER_EXPORT = "folder_export"
+    const val FOLDER_EXPORT_ID = 0
+
     // Tag prefixes, id 0: one notification per contact or event.
     const val PREFIX_BIRTHDAY = "birthday:"
     const val PREFIX_NUDGE = "nudge:"
@@ -99,7 +103,7 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        TAG_SYNC_WATCHDOG, TAG_JOBS, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
@@ -157,6 +161,9 @@ object NotificationRequests {
     const val TEMPORARY_EXPIRED = 604
     const val TEMPORARY_DUE = 605
 
+    /** The one-time notice that the folder export of notes was replaced by Export contacts. */
+    const val FOLDER_EXPORT = 606
+
     /** The due-temporaries buttons: plus the decision's ordinal. */
     const val TEMPORARY_DUE_ACTION = 610
 
@@ -179,7 +186,7 @@ object NotificationRequests {
         NotificationIds.Range("missed.remind", MISSED_REMIND, MissedCalls.MAX_CHILDREN),
         NotificationIds.Range("screen", SCREEN_OPEN, 3),
         NotificationIds.Range("to-call", TO_CALL_OPEN, 3),
-        NotificationIds.Range("notices", BACKUP_FAILED, 6),
+        NotificationIds.Range("notices", BACKUP_FAILED, 7),
         NotificationIds.Range("temporary.due", TEMPORARY_DUE_ACTION, 3),
         NotificationIds.Range("job.open", JOB_OPEN, 1),
         NotificationIds.Range("job.file", JOB_FILE, JOB_FILES),

@@ -92,4 +92,35 @@ class CardNotesTest {
         assertFalse(n.private)
         assertEquals("Bo's own note", card.record.rows(Mime.NOTE).single()[Col.D1])
     }
+
+    @Test fun an_import_keeps_call_notes_on_the_cards_own_numbers_only() {
+        val text = """
+            BEGIN:VCARD
+            VERSION:4.0
+            FN:Bank
+            TEL:+44 20 7946 0000
+            X-PARLEY-NOTE-FOR-CALLS:Give them the code
+            X-PARLEY-KEEP-IN-TOUCH:7
+            X-PARLEY-CALL-NOTE;X-WHEN="2025-10-04T10:00:00Z";X-LINE=+442079460000:own line
+            X-PARLEY-CALL-NOTE;X-WHEN="2025-10-04T10:00:00Z";X-LINE=+442079461111:someone else's
+            X-PARLEY-MOMENT;X-WHEN="2025-10-04T10:00:00Z";X-KIND=meet:met
+            END:VCARD
+        """.trimIndent().replace("\n", "\r\n") + "\r\n"
+        val card = readBack(text)
+        val n = card.notes!!
+        assertEquals(2, n.callNotes.size)
+
+        // A file Parley encrypted: everything, but no note lands on a number the card doesn't hold.
+        val sealed = n.forImport(card.record, fromSealed = true, region = "GB")
+        assertEquals(listOf("own line"), sealed.callNotes.map { it.text })
+        assertEquals("Give them the code", sealed.forCalls)
+        assertEquals(7, sealed.keepInTouchDays)
+
+        // Any other file (a card sent in a messenger): none of Parley's notes, the Circle untouched.
+        val plain = n.forImport(card.record, fromSealed = false, region = "GB")
+        assertTrue(plain.isEmpty)
+
+        // Only whether it is private survives, which keeps a private card out of the address book.
+        assertTrue(n.copy(private = true).forImport(card.record, fromSealed = false, region = "GB").private)
+    }
 }

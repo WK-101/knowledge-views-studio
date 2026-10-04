@@ -153,7 +153,7 @@ class VCardIO(
     ): ImportReport = withContext(Dispatchers.IO) {
         // An encrypted file can't be counted without opening it: its progress has no total.
         val total = if (passphrase == null) countCards(source) else 0
-        runImport(account, total, progress, skipDuplicates) { report, sink ->
+        runImport(account, total, progress, skipDuplicates, fromSealed = passphrase != null) { report, sink ->
             val raw = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
             val input = if (passphrase != null) SealedVCard.open(raw, passphrase) else raw
             VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
@@ -206,8 +206,10 @@ class VCardIO(
         total: Int,
         progress: (Int, Int) -> Unit,
         skipDuplicates: Boolean,
+        fromSealed: Boolean = false,
         parse: (ImportReportBuilder, (ParsedCard) -> Unit) -> Unit,
     ): ImportReport {
+        val region = PhoneEnv.countryIso(context)
         val report = ImportReportBuilder()
         val ctx = coroutineContext
         val existing = if (skipDuplicates) duplicateIndex() else null
@@ -231,8 +233,10 @@ class VCardIO(
             }
             pending.clear()
         }
-        parse(report) { card ->
+        parse(report) { read ->
             ctx.ensureActive()
+            // Parley's notes count only from a file Parley encrypted, and only on the card's own numbers (CardNotes.forImport).
+            val card = read.notes?.let { ParsedCard(read.index, read.record, read.raw, it.forImport(read.record, fromSealed, region)) } ?: read
             seen++
             if (existing?.matches(card.record) == true) {
                 report.skippedDuplicates++

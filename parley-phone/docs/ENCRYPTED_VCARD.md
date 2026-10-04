@@ -100,7 +100,12 @@ final one (emit a full chunk only once more data follows it, so the final segmen
 
 - `SealedVCard` (core:common) writes and opens the file with `BackupCrypto`; `ContactExport` (core:data) writes the
   export; `VCardIO.import` reads it back, sending private contacts to the vault.
-- Import: Settings › Contacts › Import from file recognises the file, asks for the passphrase and checks it before
+- Parley's notes (note for calls, call notes, Circle rhythm and moments) are read back only from an encrypted vCard,
+  the one kind of file only Parley writes, and a call note only on one of its card's own numbers
+  (`CardNotes.forImport`). From a plain .vcf, which may come from anyone, Parley keeps only whether a card is private
+  (so it stays out of the address book).
+- Import: Settings › Contacts › Import from file, or opening `contacts.vcf.parley` from another app (known by its
+  name: its type is `application/octet-stream`), recognises the file, asks for the passphrase and checks it before
   anything is written. Private contacts need to be unlocked, as when opening one.
 - Tests: `SealedVCardTest` (round trip, wrong passphrase, cut-off and changed files, a backup refused),
   `CardNotesTest` (the properties), `ContactExportTest` (export and import, private contacts landing private).

@@ -28,6 +28,7 @@ import app.parley.ui.journal.HistoryTab
 import app.parley.ui.parleyGraph
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.sync.shared.LabelUpdateFiles
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -268,6 +269,24 @@ class NavigationRoutesTest {
         val vcf = Uri.parse("content://files/card.vcf")
         assertNull(resolve(Intent.ACTION_VIEW, vcf, "text/x-vcard")?.labelFile)
         assertNull(resolve(Intent.ACTION_SEND, type = "image/png") { putExtra(Intent.EXTRA_STREAM, vcf) }?.labelFile)
+    }
+
+    @Test fun anEncryptedVcardFromAnotherAppOpensTheImport() {
+        val sealed = Uri.parse("content://files/contacts.vcf.parley")
+        val viewed = resolve(Intent.ACTION_VIEW, sealed, "application/octet-stream")
+        assertEquals(NavEvent.ImportVcf(sealed), viewed?.event)
+        assertNull(viewed?.labelFile)
+        val sent = resolve(Intent.ACTION_SEND, type = "application/octet-stream") { putExtra(Intent.EXTRA_STREAM, sealed) }
+        assertEquals(NavEvent.ImportVcf(sealed), sent?.event)
+    }
+
+    @Test fun aSealedFileIsToldApartByItsNameOnly() {
+        val envelope = "PARLEYB1".toByteArray() + ByteArray(64)
+        assertEquals(LabelUpdateFiles.Kind.INVITATION, LabelUpdateFiles.kindOf(envelope, "Family.parleyinvite"))
+        assertEquals(LabelUpdateFiles.Kind.SEALED_VCARD, LabelUpdateFiles.kindOf(envelope, "contacts.vcf.parley"))
+        // Without a name it could be either (or a backup): not guessed.
+        assertEquals(LabelUpdateFiles.Kind.OTHER, LabelUpdateFiles.kindOf(envelope, null))
+        assertEquals(LabelUpdateFiles.Kind.OTHER, LabelUpdateFiles.kindOf("PK".toByteArray() + ByteArray(64), "photos.zip"))
     }
 
     @Test fun everyDestinationIsInTheGraph() {

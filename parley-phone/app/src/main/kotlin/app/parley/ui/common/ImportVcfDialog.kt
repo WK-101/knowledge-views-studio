@@ -33,23 +33,45 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
+import app.parley.ui.export.SealedImportDialog
 import app.parley.ui.qr.forgetScannedCard
 import app.parley.ui.people.cards.CardArrivalNotes
 import app.parley.ui.people.cards.rememberSignedCardText
 
-/** Import a .vcf opened or shared from another app: choose the account, import, show the result. */
+/**
+ * Import a .vcf opened or shared from another app: choose the account, import, show the result. An encrypted vCard
+ * asks for its passphrase first ([SealedImportDialog]).
+ */
 @Composable
 fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
+    var sealed by remember(uri) { mutableStateOf<Boolean?>(null) }
+    // The passphrase, checked: the import wipes it, or the dialog when it closes without importing.
+    var passphrase by remember(uri) { mutableStateOf<CharArray?>(null) }
+    LaunchedEffect(uri) { sealed = vm.c.vcards.isSealed(uri) }
+    when {
+        // A moment while the file's first bytes are read.
+        sealed == null -> Unit
+        sealed == true && passphrase == null -> SealedImportDialog(uri, onDismiss = onDone) { passphrase = it }
+        else -> ImportIntoDialog(vm, uri, passphrase, onDone)
+    }
+}
+
+@Composable
+private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val app = context.applicationContext
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var running by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
     var result by remember { mutableStateOf<String?>(null) }
     // Closed without importing: a scanned card isn't kept for later either (an import still running deletes it).
     DisposableEffect(uri) {
-        onDispose { if (!running) vm.c.scope.launch(Dispatchers.IO) { forgetScannedCard(app, uri) } }
+        onDispose {
+            if (!running) {
+                passphrase?.fill('\u0000')
+                vm.c.scope.launch(Dispatchers.IO) { forgetScannedCard(context.applicationContext, uri) }
+            }
+        }
     }
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val res = LocalResources.current
@@ -91,16 +113,21 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                             UserJobs.Kind.IMPORT, res.getString(R.string.import_importing),
                                             { e -> res.getString(R.string.import_failed, UserErrorText.of(context, e)).also { result = it } },
                                         ) { p ->
-                                            val r = vm.c.vcards.importVCard(
-                                                uri, a,
-                                                { done, total ->
-                                                    p.update(done, total)
-                                                    progress = if (total > 0) done.toFloat() / total else 0f
-                                                },
-                                                skipDuplicates = true,
-                                            )
+                                            val r = try {
+                                                vm.c.vcards.importVCard(
+                                                    uri, a,
+                                                    { done, total ->
+                                                        p.update(done, total)
+                                                        progress = if (total > 0) done.toFloat() / total else 0f
+                                                    },
+                                                    skipDuplicates = true,
+                                                    passphrase = passphrase,
+                                                )
+                                            } finally {
+                                                passphrase?.fill('\u0000')
+                                            }
                                             // A scanned card goes as soon as it has been read.
-                                            withContext(Dispatchers.IO) { forgetScannedCard(app, uri) }
+                                            withContext(Dispatchers.IO) { forgetScannedCard(context.applicationContext, uri) }
                                             importedInto(res, r, a).also { result = it }
                                         }
                                         scope.launch {

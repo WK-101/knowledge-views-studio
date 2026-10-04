@@ -48,8 +48,10 @@ fun SealedImportDialog(uri: Uri, onDismiss: () -> Unit, onOpened: (CharArray) ->
         val secret = pass.toCharArray()
         scope.launch {
             val error = withContext(Dispatchers.IO) {
+                // Opening may keep its own copy of the passphrase: it is wiped here, whatever happens.
+                val copy = secret.copyOf()
                 try {
-                    context.contentResolver.openInputStream(uri)?.use { SealedVCard.open(it, secret.copyOf()) }
+                    context.contentResolver.openInputStream(uri)?.use { SealedVCard.open(it, copy) }
                     null
                 } catch (_: WrongKeyException) {
                     res.getString(R.string.import_sealed_wrong)
@@ -57,6 +59,8 @@ fun SealedImportDialog(uri: Uri, onDismiss: () -> Unit, onOpened: (CharArray) ->
                     res.getString(R.string.import_sealed_backup)
                 } catch (_: Exception) {
                     res.getString(R.string.import_sealed_unreadable)
+                } finally {
+                    copy.fill('\u0000')
                 }
             }
             checking = false
@@ -67,7 +71,19 @@ fun SealedImportDialog(uri: Uri, onDismiss: () -> Unit, onOpened: (CharArray) ->
             }
             pass = ""
             val act = context as? ComponentActivity
-            if (VaultCrypto.detailNeedsUnlock() && act != null) AppLock.authenticateForVault(act) { onOpened(secret) } else onOpened(secret)
+            if (VaultCrypto.detailNeedsUnlock() && act != null) {
+                // Unlock cancelled: nothing is imported (private cards would fail, and a second try would repeat the rest).
+                AppLock.authenticateForVault(act) { ok ->
+                    if (ok) {
+                        onOpened(secret)
+                    } else {
+                        secret.fill('\u0000')
+                        problem = res.getString(R.string.import_sealed_locked)
+                    }
+                }
+            } else {
+                onOpened(secret)
+            }
         }
     }
 

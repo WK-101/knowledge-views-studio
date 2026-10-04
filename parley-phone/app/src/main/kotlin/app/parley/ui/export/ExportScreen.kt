@@ -35,7 +35,9 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.security.PassphraseStrength
@@ -59,6 +61,8 @@ import app.parley.ui.backup.strengthHint
 import app.parley.ui.backup.strengthLabel
 import app.parley.ui.common.JobProgress
 import app.parley.ui.settings.exportMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /** Opens the system's "Save as" for a name and type chosen at launch (the format decides both). */
 private class SaveAs : ActivityResultContract<Format, Uri?>() {
@@ -83,9 +87,10 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
     var format by rememberSaveable { mutableStateOf(Format.entries.firstOrNull { it.name == initial } ?: Format.VCARD) }
     var includePrivate by rememberSaveable { mutableStateOf(false) }
     var includeNotes by rememberSaveable { mutableStateOf(true) }
-    // The passphrase lives only on this screen (never saved), and is wiped once the job has it.
-    var pass by remember { mutableStateOf("") }
-    var repeat by remember { mutableStateOf("") }
+    // The passphrase lives only in memory (never in saved state), through rotation and the "Save as" picker.
+    val secrets: ExportPassphrase = viewModel()
+    val pass = secrets.pass
+    val repeat = secrets.repeat
     val jobs by vm.jobs.running.collectAsStateWithLifecycle()
     val running = jobs.any { it.kind == UserJobs.Kind.EXPORT }
     val hasPrivate = vm.c.vault.contacts.collectAsStateWithLifecycle().value.isNotEmpty() && !Concealment.hiding
@@ -95,11 +100,23 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
     val passOk = !sealed || (PassphraseStrength.acceptableForBackup(pass) && pass == repeat)
     val withPrivate = includePrivate && hasPrivate
 
+    // A file "Save as" created that won't be written is removed (off the main thread: it asks the file's provider).
+    fun discard(uri: Uri) {
+        val app = context.applicationContext
+        vm.c.scope.launch(Dispatchers.IO) { ContactExport.discard(app, uri) }
+    }
+
     fun start(uri: Uri) {
         val choice = ContactExport.Choice(format, includePrivate = withPrivate, includeNotes = notesOn)
-        val secret = if (sealed) pass.toCharArray() else null
-        pass = ""
-        repeat = ""
+        val secret = if (sealed) secrets.take() else null
+        if (sealed && (secret == null || secret.isEmpty())) {
+            // Parley was closed while "Save as" was open, and the passphrase went with it: the empty file goes too.
+            secret?.fill('\u0000')
+            discard(uri)
+            vm.toast(res.getString(R.string.export_pass_again))
+            return
+        }
+        secrets.clear()
         val words = ExportWords.build(context)
         vm.jobs.start(
             UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting),
@@ -117,10 +134,16 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
     val saveAs = rememberLauncherForActivityResult(SaveAs()) { uri ->
         val act = context as? ComponentActivity
         when {
-            uri == null -> Unit
+            uri == null -> secrets.release()
             // Private contacts are read only after the unlock that opens them on their page.
             withPrivate && act != null && VaultCrypto.detailNeedsUnlock() -> AppLock.authenticateForVault(act) { ok ->
-                if (ok) start(uri) else vm.toast(res.getString(R.string.export_private_locked))
+                if (ok) {
+                    start(uri)
+                } else {
+                    secrets.release()
+                    discard(uri)
+                    vm.toast(res.getString(R.string.export_private_locked))
+                }
             }
             else -> start(uri)
         }
@@ -140,9 +163,15 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
                     notesOn, Icons.Rounded.Description, enabled = format.carriesNotes && format != Format.NOTES_TEXT,
                 ) { includeNotes = it }
             }
-            if (sealed) item { PassphraseFields(pass, repeat, { pass = it }) { repeat = it } }
+            if (sealed) item { PassphraseFields(pass, repeat, { secrets.pass = it }) { secrets.repeat = it } }
             item {
-                Button({ saveAs.launch(format) }, enabled = !running && passOk, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Button({
+                    // Checked again here, and held until "Save as" answers, so the file chosen can always be written.
+                    if (passOk) {
+                        if (sealed) secrets.hold()
+                        saveAs.launch(format)
+                    }
+                }, enabled = !running && passOk, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                     Text(stringResource(R.string.export_save))
                 }
             }
@@ -154,6 +183,40 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
             }
         }
     }
+}
+
+/**
+ * The passphrase of an encrypted export, in memory only: the fields keep it through rotation, and [hold] takes the copy
+ * the export uses when "Save as" opens, so the answer can arrive on a recreated screen. Never in saved state, so it is
+ * gone if Android closes Parley meanwhile; every copy is wiped once used, released or the screen is left.
+ */
+class ExportPassphrase : ViewModel() {
+    var pass by mutableStateOf("")
+    var repeat by mutableStateOf("")
+    private var held: CharArray? = null
+
+    /** Keeps a copy of the passphrase for the export about to be saved. */
+    fun hold() {
+        release()
+        held = pass.toCharArray()
+    }
+
+    /** The copy [hold] kept, now the caller's to wipe; null when there is none. */
+    fun take(): CharArray? = held.also { held = null }
+
+    /** Wipes the copy (the picker was cancelled, or the export won't happen). */
+    fun release() {
+        held?.fill('\u0000')
+        held = null
+    }
+
+    /** Empties the fields once the export has started. */
+    fun clear() {
+        pass = ""
+        repeat = ""
+    }
+
+    override fun onCleared() = release()
 }
 
 /** The formats, one radio group. */

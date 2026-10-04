@@ -8,6 +8,7 @@ import android.provider.ContactsContract
 import app.parley.common.StartTab
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelUpdates
+import app.parley.common.vcard.SealedVCard
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
 import app.parley.ui.Routes
@@ -74,6 +75,7 @@ object IntentRoutes {
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
+            ACTION_EXPORT_CONTACTS,
         )
     }
 
@@ -116,6 +118,9 @@ object IntentRoutes {
     /** Folder sync paused and waits for the user (its notification). */
     const val ACTION_OPEN_SYNC = "app.parley.OPEN_SYNC"
 
+    /** The Export contacts screen (the notice that it replaced the folder export of notes). */
+    const val ACTION_EXPORT_CONTACTS = "app.parley.EXPORT_CONTACTS"
+
     /** Temporary contacts are due to be deleted and wait for your answer (its notification). */
     const val ACTION_OPEN_TEMPORARY = "app.parley.OPEN_TEMPORARY"
 
@@ -149,9 +154,13 @@ object IntentRoutes {
 
     private fun go(e: NavEvent) = IntentTarget(e)
 
+    /** An encrypted vCard ([SealedVCard]), known by its name: its type is octet-stream, like any unknown file's. */
+    private fun isSealedVcard(uri: Uri) = uri.lastPathSegment.orEmpty().endsWith(SealedVCard.EXTENSION, ignoreCase = true)
+
     /**
      * A shared label's update or invitation file: by its type, or by its name when the sending app didn't know the
-     * type (many send any unknown file as octet-stream; the screen then checks what it really is).
+     * type (many send any unknown file as octet-stream; the screen then checks what it really is, and passes an
+     * encrypted vCard whose link doesn't show its name on to the import).
      */
     private fun isLabelFile(type: String?, uri: Uri): Boolean {
         val name = uri.lastPathSegment.orEmpty()
@@ -188,7 +197,7 @@ object IntentRoutes {
                 @Suppress("DEPRECATION")
                 val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.takeIf(readable) ?: return null
                 when {
-                    isVcard(intent.type) -> go(NavEvent.ImportVcf(stream))
+                    isVcard(intent.type) || isSealedVcard(stream) -> go(NavEvent.ImportVcf(stream))
                     // A picture shared to Parley is searched for QR codes.
                     intent.type?.startsWith("image/") == true -> IntentTarget(NavEvent.Route(QrRoutes.Scan), qrImage = stream)
                     isLabelFile(intent.type, stream) -> labelFile(stream)
@@ -202,7 +211,8 @@ object IntentRoutes {
                 // A simple-mode setup shared as a QR code.
                 data?.scheme == "parley" && data.host == "simple" -> IntentTarget(NavEvent.Route(ExtrasRoutes.SimpleImport), simpleSetup = data)
                 data?.scheme == "parley" && data.host == "template" -> IntentTarget(NavEvent.Route(BlockingRoutes.Templates), template = data)
-                data != null && data.scheme == "content" && readable(data) && isVcard(intent.type ?: typeOf(data)) -> go(NavEvent.ImportVcf(data))
+                data != null && data.scheme == "content" && readable(data) && (isVcard(intent.type ?: typeOf(data)) || isSealedVcard(data)) ->
+                    go(NavEvent.ImportVcf(data))
                 data != null && data.scheme == "content" && readable(data) && isLabelFile(intent.type ?: typeOf(data), data) -> labelFile(data)
                 data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
@@ -215,6 +225,7 @@ object IntentRoutes {
             ACTION_OPEN_BACKUP -> go(NavEvent.Route(Routes.Backup))
             ACTION_OPEN_BLOCKING -> go(NavEvent.Route(Routes.Blocking))
             ACTION_OPEN_SYNC -> go(NavEvent.Route(Routes.Sync))
+            ACTION_EXPORT_CONTACTS -> go(NavEvent.Route(Routes.Export()))
             ACTION_OPEN_TEMPORARY -> go(NavEvent.Route(Routes.Temporary))
             ACTION_OPEN_HEALTH -> go(NavEvent.Route(Routes.Health))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))

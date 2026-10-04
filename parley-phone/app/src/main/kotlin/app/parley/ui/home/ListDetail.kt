@@ -115,6 +115,25 @@ class HomePanes(private val saved: SavedStateHandle) : ViewModel() {
         saved[key(tab)] = ArrayList(change(PaneStack(saved.get<List<String>>(key(tab)).orEmpty())).entries)
     }
 
+    /**
+     * The view models of each screen open in a pane, by tab and entry, as a navigation entry keeps them: they outlive a
+     * rotation or resize (which recreates the composition) and go once their entry has left its [PaneStack] ([prune]).
+     */
+    private val stores = HashMap<String, ViewModelStore>()
+
+    internal fun store(tab: StartTab, entry: String): ViewModelStore = stores.getOrPut(tab.name + "|" + entry) { ViewModelStore() }
+
+    /** Clears the view models of entries no pane holds any more. */
+    internal fun prune() {
+        val held = TABS.flatMap { t -> saved.get<List<String>>(key(t)).orEmpty().map { t.name + "|" + it } }.toSet()
+        stores.keys.filter { it !in held }.forEach { stores.remove(it)?.clear() }
+    }
+
+    override fun onCleared() {
+        stores.values.forEach { it.clear() }
+        stores.clear()
+    }
+
     /** The saved contact [id] is shown in the open tab's pane, when Home has one: true when it took it. */
     fun showSaved(id: Long): Boolean {
         if (!twoPanes || tab !in TABS) return false
@@ -193,7 +212,7 @@ internal fun HomeListDetail(
                 if (d == null) {
                     EmptyPane(tab)
                 } else {
-                    PaneViewModels(d) {
+                    PaneViewModels(panes, tab, d) {
                         // No shared-element flight between the list and a page that are both on screen.
                         CompositionLocalProvider(LocalNavAnimScope provides null) { PaneScreen(vm, d, back, fromPane) }
                     }
@@ -230,19 +249,18 @@ private fun EmptyPane(tab: StartTab) {
 }
 
 /**
- * A view model store for one pane's screen, as a navigation entry has: its view models start with it and are cleared
- * when something else opens in the pane.
+ * A view model store for one pane's screen, as a navigation entry has: kept in [HomePanes] through a rotation or
+ * resize, and cleared once its entry has left the pane's stack (checked as the screen leaves the composition).
  */
 @Composable
-private fun PaneViewModels(key: Destination, content: @Composable () -> Unit) {
+private fun PaneViewModels(panes: HomePanes, tab: StartTab, key: Destination, content: @Composable () -> Unit) {
     val app = LocalContext.current.applicationContext as Application
-    val owner = remember(key) { PaneOwner(app) }
-    DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
+    val owner = remember(key) { PaneOwner(app, panes.store(tab, PaneTargets.encode(key).orEmpty())) }
+    DisposableEffect(owner) { onDispose { panes.prune() } }
     CompositionLocalProvider(LocalViewModelStoreOwner provides owner) { content() }
 }
 
-private class PaneOwner(app: Application) : ViewModelStoreOwner, HasDefaultViewModelProviderFactory {
-    override val viewModelStore = ViewModelStore()
+private class PaneOwner(app: Application, override val viewModelStore: ViewModelStore) : ViewModelStoreOwner, HasDefaultViewModelProviderFactory {
     override val defaultViewModelProviderFactory: ViewModelProvider.Factory = ParleyViewModels.Factory
     override val defaultViewModelCreationExtras: CreationExtras =
         MutableCreationExtras().apply { set(ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY, app) }

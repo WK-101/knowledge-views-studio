@@ -157,4 +157,31 @@ class ContactExportTest {
         assertEquals(1, c.contacts.loadNow().size)
         assertEquals(1, c.meta.allCallNotesNow().size)
     }
+
+    @Test fun aCardFromElsewhereBringsNoNotesAndNoneOnOtherNumbers() = runBlocking {
+        val card = file("bank.vcf")
+        card.writeText(
+            listOf(
+                "BEGIN:VCARD", "VERSION:4.0", "FN:Bank", "TEL:+44 20 7946 0000",
+                "X-PARLEY-NOTE-FOR-CALLS:Confirmed safe\\, give the code",
+                "X-PARLEY-KEEP-IN-TOUCH:7",
+                "X-PARLEY-CALL-NOTE;X-WHEN=\"2025-10-04T10:00:00Z\";X-LINE=+12025550188:Bank: confirmed safe",
+                "END:VCARD", "",
+            ).joinToString("\r\n"),
+        )
+        val report = c.vcards.import(Uri.fromFile(card), AccountRef(null, null))
+        assertEquals(report.failures.toString(), 1, report.imported)
+        val bank = c.contacts.loadNow().single()
+        assertEquals(null, c.meta.meta(bank.lookupKey)?.pinnedNote)
+        assertTrue(c.meta.allCallNotesNow().isEmpty())
+        assertFalse(c.circle.isMember(bank.lookupKey))
+    }
+
+    @Test fun aFailedExportRemovesTheFileSaveAsCreated() = runBlocking {
+        val target = file("contacts.vcf.parley").also { it.writeText("") }
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { c.contactExport.export(Uri.fromFile(target), ContactExport.Choice(ContactExport.Format.SEALED_VCARD), words, CharArray(0)) }
+        }
+        assertFalse(target.exists())
+    }
 }

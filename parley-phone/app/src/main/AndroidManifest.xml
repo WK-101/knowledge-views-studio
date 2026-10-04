@@ -158,7 +158,6 @@
                 <action android:name="android.intent.action.DIAL" />
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tel" />
             </intent-filter>
             <intent-filter>
@@ -196,21 +195,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="qr" />
             </intent-filter>
             <!-- Shared rule-pack templates (parley://template?d=...), signed, opened by any QR scanner. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="template" />
             </intent-filter>
             <!-- A simple-mode setup (parley://simple?d=...), encrypted with a passcode, opened by any QR scanner. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="simple" />
             </intent-filter>
             <!-- Open or share a .vcf file to import it. -->
@@ -250,14 +246,31 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
-            <!-- A shared label's update or invitation file sent from any app. Apps often send an unknown file type as
-                 octet-stream, so that too; the screen checks what the file is and says so when it isn't one. -->
+            <!-- A shared label's update or invitation file sent from any app, by its own type. -->
             <intent-filter android:label="@string/shl_open_with">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/vnd.parley.label-update" />
-                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- Apps often give an unknown file type as octet-stream: Parley's own files (an update, an invitation, an
+                 encrypted vCard) are then known by their name, when the link shows it. Never every unknown file. The
+                 patterns repeat for names with more dots (a pattern's ".*" stops at the first match). -->
+            <intent-filter android:label="@string/shl_open_with">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.parleyupdate" />
+                <data android:pathPattern=".*\\..*\\.parleyupdate" />
+                <data android:pathPattern=".*\\..*\\..*\\.parleyupdate" />
+                <data android:pathPattern=".*\\.parleyinvite" />
+                <data android:pathPattern=".*\\..*\\.parleyinvite" />
+                <data android:pathPattern=".*\\..*\\..*\\.parleyinvite" />
+                <data android:pathPattern=".*\\.parley" />
+                <data android:pathPattern=".*\\..*\\.parley" />
+                <data android:pathPattern=".*\\..*\\..*\\.parley" />
             </intent-filter>
             <!-- The gear in Android's App info › "Parley" opens Parley's own Settings. -->
             <intent-filter>
