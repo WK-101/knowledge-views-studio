@@ -91,7 +91,7 @@ fun CapabilitiesScreen(vm: AppViewModel, back: () -> Unit) {
     val rows = remember(s.appLock) { hubRows(s.appLock) }
     val recents: RecentsViewModel = activityViewModel()
     var scamGuide by rememberSaveable { mutableStateOf(false) }
-    if (scamGuide) ScamSignsGuide { scamGuide = false }
+    ScamGuideHost(scamGuide) { scamGuide = false }
     val shown = remember(query, texts, rows) { CapabilitySearch.search(query, rows) { texts.getValue(it.key) } }
     val version = remember { BuildConfigInfo.versionName(context) }
     val fresh = remember(version, rows) { CapabilityCatalog.newIn(version).filter { it in rows } }
@@ -99,7 +99,7 @@ fun CapabilitiesScreen(vm: AppViewModel, back: () -> Unit) {
 
     fun SegmentedGroupScope.row(c: Capability) = item(c.key) {
         val (title, summary) = texts.getValue(c.key)
-        HubRow(c, title, summary, snoozing) { if (c.action == CapabilityAction.SCAM_CHECK) scamGuide = true else run(vm, recents, scope, c, snoozing) }
+        HubRow(c, title, summary, snoozing) { run(vm, recents, scope, c, snoozing) { scamGuide = true } }
     }
 
     SettingsScaffold(stringResource(R.string.discover_title), back) {
@@ -135,7 +135,7 @@ fun CapabilitiesScreen(vm: AppViewModel, back: () -> Unit) {
  * What a tap on [c] does: Expecting a call asks for how long (or ends it), Lock now locks, Voicemail opens Recents on
  * its chip, the others open their screen.
  */
-private fun run(vm: AppViewModel, recents: RecentsViewModel, scope: CoroutineScope, c: Capability, snoozing: Boolean) {
+private fun run(vm: AppViewModel, recents: RecentsViewModel, scope: CoroutineScope, c: Capability, snoozing: Boolean, onScamCheck: () -> Unit) {
     when (c.action) {
         CapabilityAction.EXPECTING_CALL ->
             if (!snoozing) BlockingDialogs.show(BlockingDialog.Snooze) else scope.launch { BlockingActions.snooze(vm.c, 0) }
@@ -145,8 +145,8 @@ private fun run(vm: AppViewModel, recents: RecentsViewModel, scope: CoroutineSco
             recents.filter.value = RecentFilter.VOICEMAIL
             vm.navigate(NavEvent.Tab(StartTab.RECENTS))
         }
-        // Shown by the screen itself.
-        CapabilityAction.SCAM_CHECK -> Unit
+        // A sheet the screen shows.
+        CapabilityAction.SCAM_CHECK -> onScamCheck()
         null -> {
             // "Introduce myself…" from here starts with nobody chosen: the screen lets you choose.
             if (c.target == CapabilityTarget.Screen(AppScreen.INTRODUCE)) MessagingInbox.introTargets = emptyList()
@@ -212,3 +212,9 @@ private fun hubRows(appLock: Boolean): List<Capability> =
 
 /** The App lock row, which Lock now replaces while the app lock is on. */
 private const val APP_LOCK_ROW = "app_lock"
+
+/** Tools › Is this a scam?: the call screen's checklist, while [open]. */
+@Composable
+private fun ScamGuideHost(open: Boolean, close: () -> Unit) {
+    if (open) ScamSignsGuide(close)
+}
