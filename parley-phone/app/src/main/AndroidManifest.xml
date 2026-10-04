@@ -250,6 +250,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
+            <!-- A shared label's update or invitation file sent from any app. Apps often send an unknown file type as
+                 octet-stream, so that too; the screen checks what the file is and says so when it isn't one. -->
+            <intent-filter android:label="@string/shl_open_with">
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.parley.label-update" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
             <!-- The gear in Android's App info › "Parley" opens Parley's own Settings. -->
             <intent-filter>
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />

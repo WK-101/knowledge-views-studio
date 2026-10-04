@@ -2,6 +2,8 @@
 <paths>
     <cache-path name="transfer" path="transfer/" />
     <cache-path name="share" path="share/" />
+    <!-- A shared label's update file on its way to the share sheet (only the newest is kept). -->
+    <cache-path name="label_updates" path="label_updates/" />
     <!-- The one photo the camera app takes for "Scan QR" (deleted once read). -->
     <cache-path name="qr" path="qr/" />
     <!-- A contact photo the camera app takes for the editor ("Take photo"; deleted once saved or cancelled). -->

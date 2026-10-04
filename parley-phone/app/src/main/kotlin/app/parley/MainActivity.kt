@@ -38,6 +38,7 @@ import app.parley.ui.blocking.BlockingDialogs
 import app.parley.ui.blocking.askToBlock
 import app.parley.ui.extras.SimpleInbox
 import app.parley.ui.qr.QrInbox
+import app.parley.ui.sync.shared.SharedLabelInbox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyRoot
@@ -207,6 +208,7 @@ class MainActivity : LockedActivity() {
         t.qrImage?.let { QrInbox.image.value = it }
         t.simpleSetup?.let { SimpleInbox.qr.value = it }
         t.template?.let { TemplateInbox.pending.value = it }
+        t.labelFile?.let { SharedLabelInbox.update.value = it }
         t.resolveContact?.let(::openResolved)
         t.editContact?.let(::editResolved)
         t.showOrCreate?.let(::showOrCreate)

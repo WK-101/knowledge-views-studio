@@ -164,6 +164,16 @@ passphrase for a file). Removing a member changes the key; what the removed memb
 phone keeps the key and its bookkeeping sealed with the small-records key, outside backups. Private contacts are never
 shared.
 
+A label can also travel as **update files** sent by any app. An update carries the label's files exactly as a folder
+would hold them (each still sealed and signed), sealed again as a whole with the label's key (AES-256-GCM, bound to
+the label and the key's epoch) and signed by its sender's My card key over its own header (`PARLEY-LABEL-UPDATE-1`).
+It is opened only whole: another key, another label or a changed byte refuses it, as does an update older than (or
+the same as) the last one opened from that sender. Its files then go through the folder's checks unchanged:
+members' signatures, growing versions, tombstones. Only a label's own file names are accepted, with caps on count,
+size and expansion, so a crafted update can't write elsewhere or exhaust memory. The messaging app that carries an
+update sees only ciphertext; anyone holding the label's key could still make one, as they could write to the folder.
+A label shared by file keeps its files in Parley's own storage, outside backups.
+
 ## Input from outside
 
 Every file, link and code from outside is read through `Bounded` (core/common): caps on bytes, entries, line length

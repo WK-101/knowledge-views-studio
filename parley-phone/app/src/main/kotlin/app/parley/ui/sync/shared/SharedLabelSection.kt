@@ -126,8 +126,16 @@ internal object SharedLabelTexts {
         else -> null
     }
 
-    fun status(res: Resources, s: SharedLabelState): String =
-        if (s.lastSyncAt > 0) res.getString(R.string.shl_status_synced, ago(s.lastSyncAt)) else res.getString(R.string.shl_status_never)
+    fun status(res: Resources, s: SharedLabelState): String = when {
+        // Shared by file and no update opened yet: nothing is here until one is.
+        s.byFile && s.header == null -> res.getString(R.string.shl_status_waiting_update)
+        s.byFile && s.lastSyncAt > 0 -> res.getString(R.string.shl_status_updated, ago(s.lastSyncAt))
+        s.lastSyncAt > 0 -> res.getString(R.string.shl_status_synced, ago(s.lastSyncAt))
+        else -> res.getString(R.string.shl_status_never)
+    }
+
+    /** Where the label travels: its folder, or update files. */
+    fun where(res: Resources, s: SharedLabelState): String = if (s.byFile) res.getString(R.string.shl_by_file) else s.folderName
 }
 
 /** This phone's key hash in a shared label (its own history lines say "You"), read off the main thread (it unseals the key). */
@@ -183,14 +191,25 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
             )
         }
-        ParleyListItem(
-            modifier = Modifier.clickable(enabled = !syncing) { sync() },
-            leadingContent = { Icon(Icons.Rounded.Sync, null) },
-            headlineContent = { Text(SharedLabelTexts.status(res, s)) },
-            supportingContent = { Text(listOfNotNull(s.folderName, SharedLabelTexts.notice(res, s)).joinToString("\n")) },
-            trailingContent = { TextButton({ sync() }, enabled = !syncing) { Text(stringResource(R.string.shl_sync_now)) } },
-            colors = rowColors(),
-        )
+        if (s.byFile) {
+            // Nothing to sync with: changes travel when an update is sent or opened.
+            ParleyListItem(
+                leadingContent = { Icon(Icons.Rounded.Sync, null) },
+                headlineContent = { Text(SharedLabelTexts.status(res, s)) },
+                supportingContent = { Text(listOfNotNull(SharedLabelTexts.where(res, s), SharedLabelTexts.notice(res, s)).joinToString("\n")) },
+                colors = rowColors(),
+            )
+            if (SharedLabelMembership.syncs(s.membership)) UpdateRows(vm, s, open)
+        } else {
+            ParleyListItem(
+                modifier = Modifier.clickable(enabled = !syncing) { sync() },
+                leadingContent = { Icon(Icons.Rounded.Sync, null) },
+                headlineContent = { Text(SharedLabelTexts.status(res, s)) },
+                supportingContent = { Text(listOfNotNull(s.folderName, SharedLabelTexts.notice(res, s)).joinToString("\n")) },
+                trailingContent = { TextButton({ sync() }, enabled = !syncing) { Text(stringResource(R.string.shl_sync_now)) } },
+                colors = rowColors(),
+            )
+        }
         ParleyListItem(
             modifier = Modifier.clickable { open(SharedLabelRoutes.Manage(s.labelId)) },
             leadingContent = { Icon(Icons.Rounded.Group, null) },

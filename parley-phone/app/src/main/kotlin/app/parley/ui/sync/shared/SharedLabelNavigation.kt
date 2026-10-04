@@ -26,12 +26,19 @@ object SharedLabelRoutes {
 
     /** Opening an invitation from [SharedLabelInbox]. */
     @Serializable data object Join : Destination
+
+    /** An update file (or an invitation file) from [SharedLabelInbox.update]: picked, or sent to Parley by another app. */
+    @Serializable data object OpenFile : Destination
 }
 
-/** An invitation waiting to be opened: a scanned `parley://label` link, or a picked file. */
+/**
+ * An invitation waiting to be opened: a scanned `parley://label` link, or a picked file. [update]: an update file, or
+ * any file another app handed over as one (it may turn out to be an invitation).
+ */
 object SharedLabelInbox {
     val link = MutableStateFlow<String?>(null)
     val file = MutableStateFlow<Uri?>(null)
+    val update = MutableStateFlow<Uri?>(null)
 }
 
 fun NavGraphBuilder.sharedLabelGraph(nav: NavController) {
@@ -39,6 +46,7 @@ fun NavGraphBuilder.sharedLabelGraph(nav: NavController) {
     val open: (Destination) -> Unit = { r -> nav.navigate(r) }
     composable<SharedLabelRoutes.All> { SharedLabelsScreen(appVm(), back, open) }
     composable<SharedLabelRoutes.Share> { ShareLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Share>().title, back, open) }
-    composable<SharedLabelRoutes.Manage> { ManageSharedLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Manage>().id, back) }
+    composable<SharedLabelRoutes.Manage> { ManageSharedLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Manage>().id, back, open) }
     composable<SharedLabelRoutes.Join> { JoinSharedLabelScreen(appVm(), back) }
+    composable<SharedLabelRoutes.OpenFile> { OpenLabelFileScreen(appVm(), back, open) }
 }

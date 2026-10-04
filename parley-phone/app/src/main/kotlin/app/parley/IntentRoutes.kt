@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
 import app.parley.common.StartTab
+import app.parley.common.sync.shared.SharedLabelInvites
+import app.parley.common.sync.shared.SharedLabelUpdates
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
 import app.parley.ui.Routes
@@ -14,6 +16,7 @@ import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.sync.shared.SharedLabelRoutes
 
 /**
  * What an intent reaching the main screen asks for: a `parley://` link, a `tel:` link, a launcher shortcut, a Quick
@@ -46,6 +49,8 @@ data class IntentTarget(
     val approvePrivateName: String? = null,
     /** A prepared export to share or print now. */
     val openExport: app.parley.jobs.UserJobs.Opener? = null,
+    /** A shared label's update or invitation file another app handed over (its screen checks which it is). */
+    val labelFile: Uri? = null,
 )
 
 /** The mapping from intents to [IntentTarget]s; pure, so every old link and shortcut is tested to still resolve. */
@@ -144,6 +149,20 @@ object IntentRoutes {
 
     private fun go(e: NavEvent) = IntentTarget(e)
 
+    /**
+     * A shared label's update or invitation file: by its type, or by its name when the sending app didn't know the
+     * type (many send any unknown file as octet-stream; the screen then checks what it really is).
+     */
+    private fun isLabelFile(type: String?, uri: Uri): Boolean {
+        val name = uri.lastPathSegment.orEmpty()
+        return type == SharedLabelUpdates.MIME || type == OCTET_STREAM ||
+            name.endsWith(SharedLabelUpdates.FILE_EXTENSION, ignoreCase = true) || name.endsWith(SharedLabelInvites.FILE_EXTENSION, ignoreCase = true)
+    }
+
+    private const val OCTET_STREAM = "application/octet-stream"
+
+    private fun labelFile(uri: Uri) = IntentTarget(NavEvent.Route(SharedLabelRoutes.OpenFile), labelFile = uri)
+
     /** A link Parley may look up as a contact: Android's contacts provider only, never any other app's (or Parley's own). */
     private fun contactLink(uri: Uri, readable: (Uri) -> Boolean): Uri? =
         uri.takeIf { it.scheme == "content" && it.authority in CONTACT_AUTHORITIES && readable(it) }
@@ -172,6 +191,7 @@ object IntentRoutes {
                     isVcard(intent.type) -> go(NavEvent.ImportVcf(stream))
                     // A picture shared to Parley is searched for QR codes.
                     intent.type?.startsWith("image/") == true -> IntentTarget(NavEvent.Route(QrRoutes.Scan), qrImage = stream)
+                    isLabelFile(intent.type, stream) -> labelFile(stream)
                     else -> null
                 }
             }
@@ -183,6 +203,7 @@ object IntentRoutes {
                 data?.scheme == "parley" && data.host == "simple" -> IntentTarget(NavEvent.Route(ExtrasRoutes.SimpleImport), simpleSetup = data)
                 data?.scheme == "parley" && data.host == "template" -> IntentTarget(NavEvent.Route(BlockingRoutes.Templates), template = data)
                 data != null && data.scheme == "content" && readable(data) && isVcard(intent.type ?: typeOf(data)) -> go(NavEvent.ImportVcf(data))
+                data != null && data.scheme == "content" && readable(data) && isLabelFile(intent.type ?: typeOf(data), data) -> labelFile(data)
                 data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
                 intent.action == Intent.ACTION_DIAL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
