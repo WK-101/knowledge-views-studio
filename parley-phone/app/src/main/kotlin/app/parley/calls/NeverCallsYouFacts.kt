@@ -3,6 +3,7 @@ package app.parley.calls
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import app.parley.common.CallEntry
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.calls.NeverCallsYou
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
@@ -44,21 +45,21 @@ object NeverCallsYouFacts {
     private class Saved(val owners: List<NeverCallsYou.SavedAs>, val vaultId: Long?)
 
     private suspend fun savedFor(c: DataContainer, number: String, iso: String): Saved {
-        val contacts = runCatching { c.contacts.lookupAll(number) }.getOrDefault(emptyList()).map { o ->
+        val contacts = catching { c.contacts.lookupAll(number) }.getOrDefault(emptyList()).map { o ->
             NeverCallsYou.SavedAs(
                 name = o.name,
-                company = runCatching { c.contacts.organization(o.contactId)?.first }.getOrNull().orEmpty(),
-                labels = runCatching { c.contacts.labelTitlesOf(o.contactId) }.getOrDefault(emptySet()),
+                company = catching { c.contacts.organization(o.contactId)?.first }.getOrNull().orEmpty(),
+                labels = catching { c.contacts.labelTitlesOf(o.contactId) }.getOrDefault(emptySet()),
                 companyLine = o.phoneType == Phone.TYPE_COMPANY_MAIN,
             )
         }
         // Discreet mode: a private contact is a plain number everywhere, so it is no organisation here either.
-        val private = if (c.settings.current().hideVault) null else runCatching { c.vault.lookup(number, iso) }.getOrNull()
+        val private = if (c.settings.current().hideVault) null else catching { c.vault.lookup(number, iso) }.getOrNull()
         val privateOwner = private?.let { (id, info) ->
             NeverCallsYou.SavedAs(
                 name = info.name,
-                company = runCatching { c.vault.summary(id)?.company }.getOrNull().orEmpty(),
-                labels = runCatching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet()),
+                company = catching { c.vault.summary(id)?.company }.getOrNull().orEmpty(),
+                labels = catching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet()),
             )
         }
         return Saved(contacts + listOfNotNull(privateOwner), private?.first)
@@ -67,7 +68,7 @@ object NeverCallsYouFacts {
     /** Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls. */
     private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?): List<CallEntry> {
         val shared = c.history.callsFor(number)
-        val private = vaultId?.let { id -> runCatching { c.vault.privateCallsOf(id) }.getOrDefault(emptyList()).map { CallHistory.privateEntry(it) } }
+        val private = vaultId?.let { id -> catching { c.vault.privateCallsOf(id) }.getOrDefault(emptyList()).map { CallHistory.privateEntry(it) } }
         return shared + private.orEmpty()
     }
 }

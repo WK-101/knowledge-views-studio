@@ -3,6 +3,7 @@ package app.parley.ui.history
 import app.parley.calls.ExpectedCallHints
 import app.parley.calls.NeverCallsYouFacts
 import app.parley.common.CallType
+import app.parley.common.catching
 import androidx.compose.runtime.produceState
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
@@ -112,7 +113,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     LaunchedEffect(number) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
     // A saved organisation's first call to you after you had only ever called them (their calls can be faked).
     val firstFromThem by produceState<Long?>(null, number, calls?.size) {
-        value = runCatching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
+        value = catching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
     }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)

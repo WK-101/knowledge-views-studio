@@ -122,10 +122,13 @@ class NeverCallsYouTest {
         assertNull(first(Row(10, CallType.OUTGOING), Row(20, CallType.UNKNOWN), Row(30, CallType.INCOMING)))
     }
 
+    private fun scamOffered(live: Boolean = true, emergency: Boolean = false, neverCallsYou: Boolean = true) =
+        ScamCheck.offered(live, savedCaller = true, lookedUp = true, hidden = false, emergency = emergency, conference = false, neverCallsYou = neverCallsYou)
+
     @Test fun scam_check_is_offered_for_a_saved_organisation_that_never_calls() {
-        assertTrue(ScamCheck.offered(live = true, savedCaller = true, lookedUp = true, hidden = false, emergency = false, conference = false, neverCallsYou = true))
-        assertFalse(ScamCheck.offered(live = true, savedCaller = true, lookedUp = true, hidden = false, emergency = false, conference = false))
-        assertFalse(ScamCheck.offered(live = true, savedCaller = true, lookedUp = true, hidden = false, emergency = true, conference = false, neverCallsYou = true))
-        assertFalse(ScamCheck.offered(live = false, savedCaller = true, lookedUp = true, hidden = false, emergency = false, conference = false, neverCallsYou = true))
+        assertTrue(scamOffered())
+        assertFalse(scamOffered(neverCallsYou = false))
+        assertFalse(scamOffered(emergency = true))
+        assertFalse(scamOffered(live = false))
     }
 }

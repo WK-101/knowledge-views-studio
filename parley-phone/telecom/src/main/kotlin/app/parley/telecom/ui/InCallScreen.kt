@@ -396,14 +396,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         onReply = { sheets.replyFor = shown.id },
         poster = poster,
     )
-    // "This number never calls you": Check it's really them and the scam sheet, while the call lasts.
-    if (primary != null && shown.id == primary.id && primary.neverCallsYouNotice && !s.keypadOpen) {
-        NeverCallsYouCard(
-            onVerify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null,
-            onScamCheck = { sheets.scamFor = primary },
-            modifier = Modifier.padding(top = Spacing.m),
-        )
-    }
+    NeverCallsYouNotice(s, sheets, a)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     // I11: "Drive profile on" while the marked car is connected.
@@ -415,6 +408,18 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
     }
     Spacer(Modifier.height(Spacing.l))
+}
+
+/** "This number never calls you" for the call in front: Check it's really them and the scam sheet, while it lasts. */
+@Composable
+private fun NeverCallsYouNotice(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
+    val primary = s.primary?.takeIf { it.neverCallsYouNotice && it.id == s.shown?.id } ?: return
+    if (s.keypadOpen) return
+    NeverCallsYouCard(
+        onVerify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null,
+        onScamCheck = { sheets.scamFor = primary },
+        modifier = Modifier.padding(top = Spacing.m),
+    )
 }
 
 /** The bottom half: what can be done now. */

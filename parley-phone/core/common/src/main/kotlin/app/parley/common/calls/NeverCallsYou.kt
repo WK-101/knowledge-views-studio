@@ -72,8 +72,8 @@ object NeverCallsYou {
         hidden: Boolean = false,
         conference: Boolean = false,
     ): Boolean {
-        if (hidden || emergency || conference || number.isNullOrBlank() || line == null) return false
-        if (EmergencyPolicy.isFallbackEmergencyNumber(number)) return false
+        if (hidden || emergency || conference) return false
+        if (number.isNullOrBlank() || line == null || EmergencyPolicy.isFallbackEmergencyNumber(number)) return false
         if (savedAs.isEmpty() || !savedAs.all(::organisation)) return false
         return onlyYouCalled(past)
     }
