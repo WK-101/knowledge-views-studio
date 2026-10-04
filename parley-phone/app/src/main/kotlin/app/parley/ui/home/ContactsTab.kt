@@ -59,6 +59,8 @@ import app.parley.ui.people.workResultsSection
 import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.avatarSize
 import kotlinx.coroutines.launch
@@ -274,9 +276,12 @@ fun ContactRow(
     menu: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    val shown = LocalOpenDetail.current == Routes.Contact(c.id)
     ParleyListItem(
-        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.recents_select)),
-        colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
+        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.recents_select))
+            // Open beside the list on a big screen: marked like a selected row, and said so.
+            .then(if (shown) Modifier.semantics { this.selected = true } else Modifier),
+        colors = if (selected || shown) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
         leadingContent = {
             if (selectionMode) {
                 Box(

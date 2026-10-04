@@ -59,15 +59,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -95,6 +96,7 @@ import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.Spacing
 import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
@@ -113,8 +115,14 @@ fun HomeScreen(
 ) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
-    // Tablets, foldables and landscape: navigation rail instead of a bottom bar.
-    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    // Tablets, foldables and landscape: navigation rail instead of a bottom bar; with room, list and detail side by side.
+    val window = rememberWindowLayout()
+    val wide = window.rail
+    val panes = homePanes()
+    SideEffect {
+        panes.twoPanes = window.listDetail
+        panes.tab = tab
+    }
     var searching by rememberSaveable { mutableStateOf(false) }
     var favoriteQuery by rememberSaveable { mutableStateOf("") }
     var keypadQuery by rememberSaveable { mutableStateOf("") }
@@ -171,6 +179,8 @@ fun HomeScreen(
     // Switching an option on while its tab is open moves to the surface that now hosts it.
     LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
     BackHandler(enabled = selection.isNotEmpty()) { vm.selection.value = emptySet() }
+    // Back closes the page beside a list only once nothing more pressing (a selection, a search) is waiting for it.
+    val paneBack = selection.isEmpty() && !searching
     // Back folds the docked keypad first.
     BackHandler(enabled = tab == StartTab.RECENTS && layout.keypadDocked && dockOpen && !searching) { dockOpen = false }
     BackHandler(enabled = searching) { closeSearch() }
@@ -237,11 +247,8 @@ fun HomeScreen(
                 }
             }
         },
-        floatingActionButton = {
-            AnimatedVisibility(tab == StartTab.CONTACTS && selection.isEmpty() && !searching, enter = scaleIn(), exit = scaleOut()) {
-                AddContactFab(vm, open, visible = tab == StartTab.CONTACTS && selection.isEmpty() && !searching)
-            }
-        },
+        // Beside a detail pane the add button belongs to the list, not the page next to it.
+        floatingActionButton = { if (!window.listDetail) AddButton(vm, open, tab == StartTab.CONTACTS && selection.isEmpty() && !searching) },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
             if (wide && showBar) {
@@ -265,10 +272,15 @@ fun HomeScreen(
                 Box(Modifier.weight(1f).fillMaxSize()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
-                            StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" })
-                            StartTab.RECENTS -> if (layout.keypadDocked) CallsSurface(vm, open, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, open)
-                            StartTab.CONTACTS -> ContactsTab(vm, open, onReorderFavorites = { reorderFavorites = true })
-                            StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
+                            StartTab.FAVORITES -> Centred(window.contentMaxDp) { FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" }) }
+                            StartTab.RECENTS -> HomeListDetail(vm, t, window, open, backEnabled = paneBack && !(layout.keypadDocked && dockOpen)) { o ->
+                                if (layout.keypadDocked) CallsSurface(vm, o, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, o)
+                            }
+                            StartTab.CONTACTS -> HomeListDetail(
+                                vm, t, window, open, backEnabled = paneBack,
+                                overlay = { Box(Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) { AddButton(vm, open, paneBack) } },
+                            ) { o -> ContactsTab(vm, o, onReorderFavorites = { reorderFavorites = true }) }
+                            StartTab.KEYPAD -> Centred(window.keypadMaxDp) { KeypadTab(vm, open, keypadQuery.takeIf { searching }) }
                             StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
                         }
                     }
@@ -402,5 +414,13 @@ private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit, visible
             onClick = { go(MessagingRoutes.BulkAdd) }, text = { Text(stringResource(R.string.home_add_several)) },
             icon = { Icon(Icons.Rounded.GroupAdd, null) },
         )
+    }
+}
+
+/** Contacts' add button while it can be used ([visible]: Contacts is open, with no selection or search). */
+@Composable
+private fun AddButton(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
+    AnimatedVisibility(visible, enter = scaleIn(), exit = scaleOut()) {
+        AddContactFab(vm, open, visible = visible)
     }
 }

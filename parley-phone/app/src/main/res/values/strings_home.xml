@@ -56,6 +56,9 @@
     <!-- What's new -->
     <string name="home_whats_new_layout">New, if you like: fewer tabs. The keypad can sit in Recents, and your favourites at the top of Contacts. Nothing changes unless you choose it.</string>
     <string name="home_whats_new_layout_action">Layout options</string>
+    <!-- The pane beside Contacts or Recents on a big screen, before anything is opened in it. -->
+    <string name="home_pane_empty_contacts">Choose someone to see their page here</string>
+    <string name="home_pane_empty_recents">Choose a call to see more about it here</string>
     <!-- The quiet count at the end of the Contacts list. -->
     <plurals name="contacts_footer_count">
         <item quantity="one">%1$d contact</item>

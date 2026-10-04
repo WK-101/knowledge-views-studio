@@ -85,10 +85,11 @@ import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.LocalSnackbar
+import app.parley.ui.ScreenSnackbarHost
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (Destination) -> Unit) {
+fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (Destination) -> Unit, inPane: Boolean = false) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -127,10 +128,11 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
         })
     }
 
-    ParleyScaffold(topBar = {
+    // [inPane]: beside Recents on a big screen, where there is nothing to go back to and Home shows the snackbar.
+    ParleyScaffold(snackbarHost = { if (!inPane) ScreenSnackbarHost() }, topBar = {
         ParleyTopBar(
             stringResource(R.string.hist_settings_title),
-            onBack = back,
+            onBack = back.takeUnless { inPane },
             actions = {
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }

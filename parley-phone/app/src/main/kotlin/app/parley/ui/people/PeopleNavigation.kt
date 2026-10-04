@@ -11,6 +11,7 @@ import app.parley.ui.Destination
 import app.parley.ui.appVm
 import app.parley.ui.contact.ContactEditScreen
 import app.parley.ui.contact.afterEdit
+import app.parley.ui.home.homePanes
 import app.parley.ui.people.cards.NewNumberScreen
 import app.parley.ui.people.cards.SharedWithScreen
 import kotlinx.serialization.Serializable
@@ -55,10 +56,11 @@ fun NavGraphBuilder.peopleGraph(nav: NavController) {
     composable<PeopleRoutes.Label> { LabelScreen(appVm(), it.toRoute<PeopleRoutes.Label>().title, back, open) }
     composable<PeopleRoutes.EditRaw> {
         val a = it.toRoute<PeopleRoutes.EditRaw>()
+        val panes = homePanes()
         ContactEditScreen(
             appVm(), contactId = a.id, prefillName = "", prefillPhone = "", prefillEmail = "", addPhone = "",
             rawId = a.raw,
-            done = { saved -> nav.afterEdit(saved?.takeIf { it > 0 }) },
+            done = { saved -> nav.afterEdit(saved?.takeIf { it > 0 }, panes::showSaved) },
         )
     }
     composable<PeopleRoutes.SimImport> { SimImportScreen(appVm(), back) }
