@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The first run's "Set up the basics" and the fresh install's introduction card. -->
+<resources>
+    <string name="basics_title">Set up the basics</string>
+    <string name="basics_intro">Three quick choices. Leave any of them as it is: you can change each one later.</string>
+    <string name="basics_ring_title">Who can ring you?</string>
+    <string name="basics_ring_line">You can change this later in Blocking &amp; screening.</string>
+    <string name="basics_for_title">Who is this phone for?</string>
+    <string name="basics_for_line">Simple mode shows a few big buttons for the people who matter. It\'s also in Settings › Layout &amp; gestures.</string>
+    <string name="basics_for_me">Me</string>
+    <string name="basics_for_someone">Someone else</string>
+    <string name="basics_for_someone_sub">Set up Simple mode next</string>
+    <string name="basics_layout_title">How should home look?</string>
+    <string name="basics_layout_line">You can change this later in Settings › Layout &amp; gestures.</string>
+    <string name="basics_layout_tabs">Separate tabs</string>
+    <string name="basics_layout_tabs_sub">Keypad, Recents, Contacts and Favourites each have a tab</string>
+    <string name="basics_layout_combined">Calls and contacts together</string>
+    <string name="basics_layout_combined_sub">The keypad sits in Recents, and your favourites at the top of Contacts</string>
+    <string name="basics_skip">Skip for now</string>
+
+    <string name="basics_intro_title">What Parley can do</string>
+    <string name="basics_intro_body">Calls, contacts and spam screening, all kept on this phone. Tools lists everything else Parley can do, by what you want done.</string>
+    <string name="basics_intro_open">Open Tools</string>
+</resources>

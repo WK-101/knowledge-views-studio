@@ -97,11 +97,19 @@ object Tips {
 }
 
 /**
- * The "What's new" card. It shows once per app version after an update, as a card the user can dismiss, and
- * never after a fresh install (there is nothing "new" yet). It never changes tabs or layout by itself.
+ * The "What's new" card. It shows once per app version after an update, as a card the user can dismiss. A fresh
+ * install has nothing "new" yet: it gets a short "What Parley can do" introduction instead, once. It never changes
+ * tabs or layout by itself.
  */
 object WhatsNew {
-    enum class Decision { SHOW, MARK_SEEN, NOTHING }
+    enum class Decision {
+        /** What's new in this version (an update). */
+        SHOW,
+
+        /** The first run's short introduction (a fresh install). */
+        INTRO,
+        NOTHING,
+    }
 
     /**
      * [seenVersion] is the last version whose card was seen or skipped (0 = never recorded), [currentVersion] this
@@ -109,7 +117,7 @@ object WhatsNew {
      */
     fun decide(seenVersion: Int, currentVersion: Int, freshInstall: Boolean): Decision = when {
         seenVersion >= currentVersion -> Decision.NOTHING
-        freshInstall -> Decision.MARK_SEEN
+        freshInstall -> Decision.INTRO
         else -> Decision.SHOW
     }
 }

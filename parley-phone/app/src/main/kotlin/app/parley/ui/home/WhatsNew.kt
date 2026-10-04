@@ -18,13 +18,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -46,6 +47,7 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
  * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
  * anything new arrives switched off. The one link is P8's "What Parley can do", which lists this release's rows first.
+ * A fresh install gets a short "What Parley can do" introduction once instead ([IntroCard]).
  */
 @Composable
 fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
@@ -53,8 +55,10 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     val (version, fresh) = remember { versionInfo(context) }
     val decision = WhatsNew.decide(ux.whatsNewSeen, version, fresh)
-    // A fresh install has nothing "new": remember this version quietly.
-    LaunchedEffect(decision) { if (decision == WhatsNew.Decision.MARK_SEEN) vm.c.ux.setWhatsNewSeen(version) }
+    if (decision == WhatsNew.Decision.INTRO) {
+        IntroCard(modifier, open) { vm.c.ux.setWhatsNewSeen(version) }
+        return
+    }
     if (decision != WhatsNew.Decision.SHOW) return
     // The combine options are offered once, here, and only switched on from Settings (never automatically).
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -88,6 +92,28 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.discover_whats_new_open)) }
                 TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }
+            }
+        }
+    }
+}
+
+/** A fresh install's one introduction: what Parley does in a few words, and the way to everything else (Tools). */
+@Composable
+private fun IntroCard(modifier: Modifier, open: (Destination) -> Unit, seen: () -> Unit) {
+    Card(
+        modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.basics_intro_title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
+            }
+            Text(stringResource(R.string.basics_intro_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.basics_intro_open)) }
+                TextButton(seen) { Text(stringResource(R.string.ux_tip_got_it)) }
             }
         }
     }
