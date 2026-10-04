@@ -8,6 +8,7 @@ import app.parley.common.calls.ExpectedWindow
 import app.parley.common.calls.FamilySafetyState
 import app.parley.common.calls.Helper
 import app.parley.common.calls.SafeWord
+import app.parley.common.LabelRefs
 import app.parley.common.calls.SafeWords
 import app.parley.common.security.Concealed
 import app.parley.data.security.Concealment
@@ -160,6 +161,16 @@ class FamilySafetyStore(context: Context) {
 
     suspend fun labelsDeleted(titles: Set<String>) {
         if (titles.isNotEmpty()) write { it.copy(safeWords = SafeWords.deleted(it.safeWords, titles)) }
+    }
+
+    /** The stored safe words of [titles] (hidden ones too), kept before their labels are deleted. */
+    suspend fun storedSafeWords(titles: Set<String>): Map<String, SafeWord> = withContext(Dispatchers.IO) {
+        mutex.withLock { if (loadLocked()) LabelRefs.entriesOf(doc.safeWords, titles) else emptyMap() }
+    }
+
+    /** Undo of a label delete: its safe words as they were stored, unless one was set again since. */
+    suspend fun restoreSafeWords(words: Map<String, SafeWord>) {
+        if (words.isNotEmpty()) write { it.copy(safeWords = LabelRefs.undoDeleteEntries(it.safeWords, words)) }
     }
 
     // ---- I5 helpers

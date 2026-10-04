@@ -19,6 +19,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.common.ux.DefaultAppFeature
 import app.parley.R
 import app.parley.common.calls.CallQualityDiary
 import app.parley.common.calls.CallQualityFacts
@@ -44,9 +45,12 @@ fun CallFactsHistorySection(vm: AppViewModel, number: String) {
     val shown = facts.filter { it.subject != null || it.drop != null || it.wifi || it.hd }.take(MAX_SHOWN)
     // I8: one quality line for the number ("7 calls in 60 days, 2 dropped, all on Work").
     val quality = remember(facts) { CallQualityDiary.numberLine(facts) }
-    if (shown.isEmpty() && quality == null) return
+    val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
+    // Without the phone-app role nothing is noted: the section says so, with the way to change it.
+    if (shown.isEmpty() && quality == null && isDefault) return
     Column {
         Section(stringResource(R.string.callfacts_section_title))
+        DefaultAppNote(vm, DefaultAppFeature.CALL_FACTS)
         quality?.let { q ->
             ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.SignalCellularAlt, null) },

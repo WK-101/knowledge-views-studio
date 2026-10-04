@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -63,6 +64,10 @@ import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.blocking.ReputationHistoryLine
 import app.parley.ui.blocking.ScreeningHistorySection
+import app.parley.ui.blocking.askToBlock
+import app.parley.ui.calls.RemindToCallSheet
+import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.calls.CallFactsHistorySection
 import app.parley.ui.calls.RingFactsHistorySection
 import app.parley.ui.common.Format
@@ -91,11 +96,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val index by vm.numberIndex.collectAsStateWithLifecycle()
     val contact = index[number]
     val history = calls.orEmpty().filter { PhoneIdentity.same(it.number, number, vm.countryIso) }
-    var blocked by remember { mutableStateOf(false) }
+    val blocked = rememberBlocked(vm, listOf(number))
     var messageOn by remember { mutableStateOf(false) }
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
-    LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     // L6: a private contact's menu shortcuts are on its own page (which hides them while the vault is locked); their
     // names may hold the private name, so they never show here. Unknown until checked, so hidden until then.
     var privateNumber by remember(number) { mutableStateOf<Boolean?>(null) }
@@ -105,6 +109,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }
+    var remindToCall by remember { mutableStateOf(false) }
+    if (remindToCall) RemindToCallSheet(vm, number, contact?.displayName, onDismiss = { remindToCall = false })
     // The app's one snackbar, shown inside this screen's Scaffold.
     val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
     if (exporting) ExportSheet(vm, history, subject = title) { exporting = false }
@@ -127,6 +133,12 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
                     DropdownMenu(menu, { menu = false }) {
+                        // To call by hand (the same fixed times as Remind me after a call).
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.to_call_remind_me_to_call)) },
+                            leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
+                            onClick = { menu = false; remindToCall = true },
+                        )
                         DropdownMenuItem(
                             { Text(stringResource(R.string.hist_export_menu)) },
                             leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
@@ -196,7 +208,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         ActionTile(
                             if (blocked) Icons.Rounded.RemoveModerator else Icons.Rounded.Block,
                             stringResource(if (blocked) R.string.hist_action_unblock else R.string.hist_action_block), true, lines = 2, fillHeight = true,
-                        ) { if (blocked) vm.unblockNumber(number) else vm.blockNumber(number); blocked = !blocked }
+                        ) { if (blocked) unblockWithUndo(vm, listOf(number), contact?.displayName) else askToBlock(listOf(number), contact?.displayName) }
                     }
                 }
             }

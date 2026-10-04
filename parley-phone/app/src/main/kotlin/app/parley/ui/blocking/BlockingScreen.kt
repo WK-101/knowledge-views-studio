@@ -586,10 +586,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                                 Row {
                                     TextButton({ dismissed.value = dismissed.value + sg.number }) { Text(stringResource(R.string.blk_dismiss)) }
                                     TextButton({
-                                        scope.launch {
-                                            BlockingActions.blockNumberRule(vm.c, sg.number, res.getString(R.string.blk_likely_spam_for_you))
-                                            vm.toast(res.getString(R.string.blk_blocked_toast))
-                                        }
+                                        askToBlock(listOf(sg.number), note = res.getString(R.string.blk_likely_spam_for_you))
                                     }) { Text(stringResource(R.string.blk_block)) }
                                 }
                             },

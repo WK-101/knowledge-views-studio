@@ -301,9 +301,15 @@ class RecentsViewModelTest {
         t.call("+44 20 7946 0002", today - 2 * MINUTE, Calls.INCOMING_TYPE, 5)
         val vm = recents()
         val g = vm.groupsWhen { it.size == 2 }.first()
-        vm.delete(g)
-        t.until("the calls to go") { t.callLog.rows().size == 1 }
+        var count = 0
+        var undo: (suspend () -> Unit)? = null
+        vm.delete(g) { n, back -> count = n; undo = back }
+        t.until("the calls to go") { t.callLog.rows().size == 1 && undo != null }
         assertEquals("+44 20 7946 0002", t.callLog.rows().single()["number"])
+        assertEquals(2, count)
+        // The sheet's Undo puts both calls back.
+        runBlocking { undo?.invoke() }
+        t.until("the calls to come back") { t.callLog.rows().size == 3 }
     }
 
     // ---------------------------------------------------------------- private contacts

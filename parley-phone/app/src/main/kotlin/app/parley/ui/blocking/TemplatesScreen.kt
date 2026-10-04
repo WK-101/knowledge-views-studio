@@ -298,14 +298,18 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                val removed = res.getString(R.string.blk_tpl_removed, name)
                 if (installed) {
-                    OutlinedButton({ scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; vm.toast(res.getString(R.string.blk_tpl_removed, name)) } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
+                    val uninstall = { scope.launch { busy = true; gallery.uninstall(vm.c, t.id); busy = false; offerReinstall(vm, gallery, t, removed) } }
+                    OutlinedButton({ uninstall() }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_uninstall)) }
                 } else {
                     OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_install)) }
                 }
                 IconButton(onShare) { Icon(Icons.Rounded.Share, stringResource(R.string.blk_tpl_share_file)) }
                 IconButton(onQr) { Icon(Icons.Rounded.QrCode, stringResource(R.string.blk_tpl_share_qr)) }
-                if (!e.builtIn) TextButton({ scope.launch { gallery.removeImported(vm.c, t.id) } }) { Text(stringResource(R.string.blk_delete), color = MaterialTheme.colorScheme.error) }
+                if (!e.builtIn) TextButton({ scope.launch { vm.offerUndo(removed, gallery.removeImportedWithUndo(vm.c, t.id)) } }) {
+                    Text(stringResource(R.string.blk_delete), color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -376,3 +380,6 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
+
+/** Undo of an uninstall installs the template again, as one group. */
+private fun offerReinstall(vm: AppViewModel, gallery: TemplateGallery, t: RuleTemplate, text: String) = vm.offerUndo(text) { gallery.install(vm.c, t) }

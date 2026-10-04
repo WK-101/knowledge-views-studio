@@ -35,6 +35,8 @@ import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
+import app.parley.ui.blocking.askToBlock
+import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.extras.SimpleInbox
 import app.parley.ui.qr.QrInbox
 import kotlinx.coroutines.Dispatchers
@@ -210,6 +212,8 @@ class MainActivity : LockedActivity() {
         t.editContact?.let(::editResolved)
         t.showOrCreate?.let(::showOrCreate)
         t.report?.let { BlockingDialogs.show(BlockingDialog.Report(it)) }
+        t.block?.let { askToBlock(listOf(it)) }
+        t.unblock?.let { unblockWithUndo(vm, listOf(it)) }
         t.event?.let { vm.navigate(it) }
         if (t.missedSeen) missedSeenPending = true
         t.approvePrivateName?.let { approvePrivateName = it }

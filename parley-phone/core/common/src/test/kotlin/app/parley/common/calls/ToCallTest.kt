@@ -253,4 +253,21 @@ class ToCallTest {
         assertEquals(now + 9, merged.items.first { it.key == "v" }.at)
         assertTrue(merged.items.any { it.key == "p" })
     }
+
+    @Test fun undo_of_a_new_reminder_takes_it_away_and_keeps_other_changes() {
+        val before = ToCall.remind(ToCallState(), "other", "+442", at = now + 50, now = now)
+        var s = ToCall.remind(before, "k1", "+441", at = now + 100, now = now)
+        s = ToCall.remind(s, "k3", "+443", at = now + 300, now = now)
+        val undone = ToCall.undoRemind(s, before, "k1")
+        assertEquals(setOf("other", "k3"), undone.items.map { it.key }.toSet())
+        assertNull(undone.handledMissed["k1"])
+    }
+
+    @Test fun undo_of_a_moved_reminder_puts_the_earlier_one_back() {
+        val before = ToCall.remind(ToCallState(), "k1", "+441", at = now + 100, now = now)
+        val moved = ToCall.remind(before, "k1", "+441", at = now + 900, now = now + 10)
+        val undone = ToCall.undoRemind(moved, before, "k1")
+        assertEquals(now + 100, undone.items.single().at)
+        assertEquals(before.handledMissed["k1"], undone.handledMissed["k1"])
+    }
 }

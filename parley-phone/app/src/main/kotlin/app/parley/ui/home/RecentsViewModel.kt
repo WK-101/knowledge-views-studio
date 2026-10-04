@@ -107,11 +107,18 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         selection.value = emptySet()
     }
 
-    /** "Delete from call history" on a row: its calls in the log (and archive) and its private calls. */
-    fun delete(g: RecentGroup) {
+    /**
+     * "Delete from call history" on a row: its calls in the log (and archive) and its private calls. [done] gets the
+     * number of calls and the way back, for the snackbar's Undo.
+     */
+    fun delete(g: RecentGroup, done: (count: Int, undo: suspend () -> Unit) -> Unit) {
         viewModelScope.launch {
-            c.history.delete(g.calls.filter { it.id > 0 })
-            g.calls.filter { it.id < 0 }.forEach { c.vault.deletePrivateCall(-it.id) }
+            val batch = c.history.delete(g.calls.filter { it.id > 0 })
+            val privateRows = c.vault.deletePrivateCallsForUndo(g.calls.filter { it.id < 0 }.map { -it.id })
+            done(g.calls.size) {
+                batch?.let { c.history.undoDelete(it) }
+                c.vault.restorePrivateCalls(privateRows)
+            }
         }
     }
 

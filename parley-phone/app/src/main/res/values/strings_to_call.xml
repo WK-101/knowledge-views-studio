@@ -16,7 +16,7 @@
     <string name="to_call_now">Now</string>
     <string name="to_call_later">Later</string>
     <string name="to_call_empty">Nothing to call</string>
-    <string name="to_call_empty_body">Choose Remind me on a missed call, a declined call or after a call, and it waits here until you call back.</string>
+    <string name="to_call_empty_body">Choose Remind me on a missed call or after a call, or Remind me to call from Recents or a contact\'s page, and it waits here until you call.</string>
     <!-- Row lines -->
     <!-- %1$s: when, "14:05" or "Mon" -->
     <string name="to_call_missed_at">Missed call · %1$s</string>
@@ -58,4 +58,7 @@
     <string name="to_call_not_now">Not now</string>
     <!-- The missed-call notification's action and the small sheet it opens -->
     <string name="to_call_remind_title">Remind me to call back</string>
+    <!-- Recents' long-press, the contact page and number history: put someone on To call by hand -->
+    <string name="to_call_remind_me_to_call">Remind me to call</string>
+    <string name="to_call_remind_me_to_call_name">Remind me to call %1$s</string>
 </resources>

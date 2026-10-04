@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
-import app.parley.common.RuleKind
-import app.parley.common.RuleType
 import app.parley.common.StartTab
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
@@ -38,6 +36,10 @@ data class IntentTarget(
     val showOrCreate: Uri? = null,
     /** The post-call card's "Report" for a number. */
     val report: String? = null,
+    /** The post-call card's or a missed-call notification's "Block": the one Block question, for a number. */
+    val block: String? = null,
+    /** The post-call card's "Unblock" for a number blocked already. */
+    val unblock: String? = null,
     /** Missed calls were opened: they count as seen (once the screen shows unlocked). */
     val missedSeen: Boolean = false,
     /** A private-name request's "Allow…": the app's package and whether it asked for the Directory. */
@@ -209,10 +211,13 @@ object IntentRoutes {
                     else -> null
                 }
             }
-            // The post-call card's "Block", "Report" and remembered line for an unknown number.
+            // The post-call card's "Block" (or "Unblock"), "Report" and remembered line for an unknown number.
             ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
                 when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
-                    "BLOCK" -> go(NavEvent.Route(BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, number)))
+                    "BLOCK" -> IntentTarget(block = number)
+                    "UNBLOCK" -> IntentTarget(unblock = number)
+                    "SAVE" -> go(NavEvent.Route(Routes.edit(phone = number)))
+                    "ADD_TO_CONTACT" -> go(NavEvent.Route(Routes.pick(number)))
                     "REPORT" -> IntentTarget(report = number)
                     // I1: the number's history, where what Parley remembers about it offers its action.
                     "NUMBER_MEMORY" -> go(NavEvent.History(number))

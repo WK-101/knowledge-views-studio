@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Said in place where a feature needs Parley as the default phone app (DefaultAppNote), with one button to switch. -->
+<resources>
+    <string name="default_app_make">Make Parley the default</string>
+    <string name="default_app_voicemail">Your voicemail shows here while Parley is your default phone app.</string>
+    <string name="default_app_call_screen">These work on Parley\'s call screen, which you see while Parley is your default phone app.</string>
+    <string name="default_app_private_caller">A private contact\'s ringtone and \"Send to voicemail\" work while Parley is your default phone app.</string>
+    <string name="default_app_call_facts">Why a call rang and how it sounded are noted while Parley is your default phone app.</string>
+    <string name="default_app_sim_rules">Android tells only the default phone app which SIM a call came in on, so a rule for one SIM works while Parley is your default phone app.</string>
+    <string name="default_app_blocking">Parley isn\'t screening your calls yet. This block works once Parley is your default phone app.</string>
+</resources>

@@ -1,6 +1,11 @@
 package app.parley.data.people
 
+import app.parley.common.BlockRule
 import app.parley.common.LabelRefs
+import app.parley.common.OffHours
+import app.parley.common.calls.SafeWord
+import app.parley.common.calltime.LimitRule
+import app.parley.common.extras.LabelPolicy
 import app.parley.common.OffHoursAllow
 import app.parley.common.RuleType
 import app.parley.data.DataContainer
@@ -72,5 +77,38 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         } else {
             null
         }
+    }
+
+    /** What [deleted] takes away for some labels, kept so an Undo can put it back ([restore]). */
+    class Snapshot internal constructor(
+        val rules: List<BlockRule>,
+        val limits: List<LimitRule>,
+        val ringtones: Map<String, String>,
+        val policies: Map<String, LabelPolicy>,
+        val safeWords: Map<String, SafeWord>,
+        val offHours: OffHours,
+    )
+
+    /** Everything that names [titles] now (read before they're deleted). */
+    suspend fun snapshot(titles: Set<String>): Snapshot = withContext(Dispatchers.IO) {
+        Snapshot(
+            rules = c.blocks.allRules().filter { it.type == RuleType.LABEL && LabelRefs.refersTo(it.labelKey, titles) },
+            limits = LabelRefs.limitsOf(c.calling.config.value, titles),
+            ringtones = LabelRefs.entriesOf(prefs.current().labelRingtones, titles),
+            policies = LabelRefs.entriesOf(c.extras.policies.value, titles),
+            safeWords = c.familySafety.storedSafeWords(titles),
+            offHours = c.settings.current().screening.offHours,
+        )
+    }
+
+    /** Puts a [snapshot] back after its labels were made again; whatever was set again meanwhile stays. */
+    suspend fun restore(snapshot: Snapshot) = withContext(Dispatchers.IO) {
+        val have = c.blocks.allRules().map { it.id }.toSet()
+        snapshot.rules.filter { it.id !in have }.forEach { c.blocks.saveRule(it) }
+        c.calling.update { LabelRefs.undoDeleteLimits(it, snapshot.limits) }
+        prefs.update { it.copy(labelRingtones = LabelRefs.undoDeleteEntries(it.labelRingtones, snapshot.ringtones)) }
+        c.extras.updatePolicies { LabelRefs.undoDeleteEntries(it, snapshot.policies) }
+        c.familySafety.restoreSafeWords(snapshot.safeWords)
+        c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.undoDeleteOffHours(s.screening.offHours, snapshot.offHours))) }
     }
 }

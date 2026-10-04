@@ -30,7 +30,9 @@ import androidx.compose.material.icons.automirrored.rounded.CallMade
 import androidx.compose.material.icons.automirrored.rounded.CallMissed
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
@@ -55,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,6 +88,10 @@ import app.parley.ui.CallTypeColors
 import app.parley.ui.blocking.RecentBadge
 import app.parley.ui.blocking.RecentBlockingActions
 import app.parley.ui.blocking.RecentsSelectionBar
+import app.parley.ui.blocking.askToBlock
+import app.parley.ui.calls.RemindToCallSheet
+import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.blocking.rememberRecentBadges
 import app.parley.ui.calls.ToCallStrip
 import app.parley.ui.calls.VoicemailInbox
@@ -500,7 +507,14 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 @Composable
 private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     fun act(block: () -> Unit) { onDismiss(); block() }
+    // "Remind me to call" takes this sheet's place with the fixed times.
+    var remind by remember { mutableStateOf(false) }
+    if (remind) {
+        RemindToCallSheet(vm, g.number, g.contact?.displayName, g.latest.accountId, onDismiss)
+        return
+    }
     ParleySheet(onDismissRequest = onDismiss) {
         Text(
             g.shownTitle,
@@ -518,6 +532,7 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
         row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
         row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { Intents.sms(context, g.number) } }
         row(R.string.reach_message_or_call_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
+        row(R.string.to_call_remind_me_to_call, Icons.Rounded.AlarmAdd, hasNumber) { remind = true }
         row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = g.number)) }
         }
@@ -528,11 +543,17 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
         row(
             R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
         ) { act { open(Routes.pick(g.number)) } }
-        row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
+        // The same Block as everywhere (a question, then Undo), and Unblock once it is blocked.
+        val blocked = hasNumber && rememberBlocked(vm, listOf(g.number))
+        if (blocked) {
+            row(R.string.recents_unblock_number, Icons.Rounded.RemoveModerator) { act { unblockWithUndo(vm, listOf(g.number), g.contact?.displayName) } }
+        } else {
+            row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { askToBlock(listOf(g.number), g.contact?.displayName) } }
+        }
         row(R.string.recents_select, Icons.Rounded.CheckCircle, true) { act { recents.selection.value = setOf(g.key) } }
         if (hasNumber) RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
         row(R.string.recents_delete_from_history, Icons.Rounded.Delete) {
-            act { recents.delete(g) }
+            act { recents.delete(g) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) } }
         }
         Spacer(Modifier.padding(bottom = 24.dp))
     }

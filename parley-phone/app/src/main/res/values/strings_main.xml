@@ -353,7 +353,6 @@
     <string name="vmi_delete_body">It\'s also deleted from your carrier\'s voicemail box the next time your voicemail app syncs, when it supports that.</string>
     <string name="vmi_deleted">Voicemail deleted</string>
     <string name="vmi_delete_failed">Couldn\'t delete it</string>
-    <string name="vmi_note_not_default">Parley can show your voicemail only while it\'s your default phone app.</string>
     <string name="vmi_note_offline">Parley shows voicemails your carrier\'s voicemail app or Android has already downloaded; it can\'t sync without internet.</string>
     <plurals name="vmi_quota">
         <item quantity="one">Mailbox: %1$d of %2$d message</item>

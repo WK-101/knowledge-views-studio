@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,8 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.calls.DefaultAppNote
+import app.parley.common.ux.DefaultAppFeature
 
 @Composable
 internal fun typeLabel(t: RuleType) = stringResource(
@@ -99,8 +102,8 @@ private val LINE_TYPES = listOf(
 fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: () -> Unit) {
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
-    val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val existing = remember(rules) { rules.firstOrNull { it.id == ruleId } }
     // The draft and which rule it was loaded from survive rotation and process death, so a restored edit is kept.
@@ -268,12 +271,8 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     FilterChip(r.simId == null, { r = r.copy(simId = null) }, label = { Text(stringResource(R.string.blk_editor_any_sim)) })
                     sims.forEach { s -> FilterChip(r.simId == s.id, { r = r.copy(simId = s.id) }, label = { Text(s.label) }) }
                 }
-                if (r.simId != null && !isDefault) {
-                    Text(
-                        stringResource(R.string.blk_editor_sim_unavailable),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
-                    )
-                }
+                // Said in place, with the way to make it work.
+                if (r.simId != null) DefaultAppNote(vm, DefaultAppFeature.SIM_RULES, inset = false)
             }
 
             Text(stringResource(R.string.blk_editor_when), style = MaterialTheme.typography.titleSmall)
@@ -357,7 +356,15 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             title = stringResource(R.string.blk_delete_rule_q),
             text = null,
             confirmLabel = stringResource(R.string.blk_delete),
-            onConfirm = { scope.launch { vm.c.blocks.deleteRule(ruleId); back() } },
+            onConfirm = {
+                scope.launch {
+                    // Undo saves it back as it was (same id, so its hits and history stay with it).
+                    val rule = vm.c.blocks.allRules().firstOrNull { it.id == ruleId }
+                    vm.c.blocks.deleteRule(ruleId)
+                    if (rule != null) vm.offerUndo(res.getString(R.string.blk_rule_deleted)) { vm.c.blocks.saveRule(rule) }
+                    back()
+                }
+            },
             onDismiss = { confirmDelete = false },
             destructive = true,
             dismissLabel = stringResource(R.string.set_cancel),

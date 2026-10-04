@@ -156,8 +156,29 @@ class NavigationRoutesTest {
             putExtra(IntentRoutes.EXTRA_NUMBER, "+1 555 0100")
             putExtra(IntentRoutes.EXTRA_POST_CALL_ACTION, "BLOCK")
         }
-        val rule = routeOf(block)
-        assertEquals(BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, "+1 555 0100"), rule)
+        // The one Block question (which links to the rule editor), not the editor itself.
+        assertEquals("+1 555 0100", block?.block)
+        assertNull(block?.event)
+        val unblock = resolve(IntentRoutes.ACTION_POST_CALL) {
+            putExtra(IntentRoutes.EXTRA_NUMBER, "+1 555 0100")
+            putExtra(IntentRoutes.EXTRA_POST_CALL_ACTION, "UNBLOCK")
+        }
+        assertEquals("+1 555 0100", unblock?.unblock)
+        // Saving after a call: a new contact, or added to one you have.
+        val save = resolve(IntentRoutes.ACTION_POST_CALL) {
+            putExtra(IntentRoutes.EXTRA_NUMBER, "+1 555 0100")
+            putExtra(IntentRoutes.EXTRA_POST_CALL_ACTION, "SAVE")
+        }
+        assertEquals(Routes.edit(phone = "+1 555 0100"), routeOf(save))
+        opens(routeOf(save))
+        val add = resolve(IntentRoutes.ACTION_POST_CALL) {
+            putExtra(IntentRoutes.EXTRA_NUMBER, "+1 555 0100")
+            putExtra(IntentRoutes.EXTRA_POST_CALL_ACTION, "ADD_TO_CONTACT")
+        }
+        assertEquals(Routes.pick("+1 555 0100"), routeOf(add))
+        opens(routeOf(add))
+
+        val rule = BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, "+1 555 0100")
         opens(rule)
         val opened = nav.currentBackStackEntry!!.toRoute<BlockingRoutes.Rule>()
         assertEquals("+1 555 0100", opened.pattern)

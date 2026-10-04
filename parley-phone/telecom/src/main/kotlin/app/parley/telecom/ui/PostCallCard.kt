@@ -15,6 +15,9 @@ import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.PersonSearch
+import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.FilledTonalButton
@@ -27,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +42,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.parley.common.catching
 import app.parley.telecom.CallUi
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ConfirmDialog
@@ -49,6 +54,15 @@ sealed interface PostCallChoice {
     data object Touched : PostCallChoice
     data object Done : PostCallChoice
     data class Block(val number: String) : PostCallChoice
+
+    /** The number is blocked already (an outgoing call to it, or it was blocked meanwhile). */
+    data class Unblock(val number: String) : PostCallChoice
+
+    /** Save as a new contact, in the app's editor. */
+    data class Save(val number: String) : PostCallChoice
+
+    /** Add the number to a contact you already have. */
+    data class AddToContact(val number: String) : PostCallChoice
     data class SavePrivately(val number: String, val name: String) : PostCallChoice
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
@@ -70,16 +84,17 @@ sealed interface PostCallChoice {
 }
 
 /**
- * Shown on the call-ended screen after a call with a number that isn't in your contacts: block it (opens the
- * rule editor), save it privately for a week, message it on a chat app, be reminded to call it back, report it, or
- * call a saved number instead (a caller who claimed to be your bank). Each opens only after the phone is unlocked,
- * except "Remind me", which only adds to the To call list.
+ * Shown on the call-ended screen after a call with a number that isn't in your contacts: save it (a new contact, added
+ * to one you have, or privately for a week), be reminded to call it back, message it on a chat app, block it (the
+ * app's one Block question) or unblock it, report it, or call a saved number instead (a caller who claimed to be your
+ * bank). Each opens only after the phone is unlocked, except "Remind me", which only adds to the To call list.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
     val number = call.number ?: return
     var saving by remember { mutableStateOf(false) }
+    val blocked by produceState(false, number) { value = catching { TelecomGraph.dependencies.isBlocked(number) }.getOrDefault(false) }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = ParleyShapes.sheet,
@@ -103,11 +118,18 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             NumberMemoryPostCall(call) { onChoice(PostCallChoice.NumberMemory(number)) }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
+                // Saving is what most people do after a first call: a plain contact first, the private week as an option.
+                Action(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_save)) { onChoice(PostCallChoice.Save(number)) }
+                Action(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { onChoice(PostCallChoice.AddToContact(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
-                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
                 // L1: call them back later, from the To call list (saved without unlocking, like a note).
                 RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
+                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
+                if (blocked) {
+                    Action(Icons.Rounded.RemoveModerator, stringResource(R.string.postcall_unblock)) { onChoice(PostCallChoice.Unblock(number)) }
+                } else {
+                    Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
+                }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
                 Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
                 // "Text me your name", for the user to send from the messaging app.

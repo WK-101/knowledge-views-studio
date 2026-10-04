@@ -79,7 +79,6 @@ import app.parley.telecom.R as TR
 @Composable
 fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?, blocked: Boolean, dismiss: () -> Unit) {
     if (number.isBlank()) return
-    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
 
@@ -97,10 +96,10 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
     }
     if (contactName == null) {
         row(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast(res.getString(R.string.blk_always_allow_toast)) }
+            allowWithUndo(vm, number, hours = null, res.getString(R.string.blk_always_allow_toast))
         }
         row(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop) {
-            scope.launch { BlockingActions.allowNumber(vm.c, number, hours = 24); vm.toast(res.getString(R.string.blk_allow_24h_toast)) }
+            allowWithUndo(vm, number, hours = 24, res.getString(R.string.blk_allow_24h_toast))
         }
         row(stringResource(R.string.blk_report), Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
     }
@@ -167,7 +166,6 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     val recents: RecentsViewModel = activityViewModel()
     val selected by recents.selection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
-    val scope = rememberCoroutineScope()
     var confirming by remember { mutableStateOf(false) }
     val chosen = groups.filter { it.key in selected }
     val people = chosen.filter { it.contact != null || it.vaultId != null }
@@ -190,19 +188,15 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
         }
     }
     if (confirming) {
-        val res = LocalResources.current
         ConfirmDialog(
             title = pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size),
             text = null,
             confirmLabel = stringResource(R.string.blk_block),
             onConfirm = {
                 confirming = false
-                scope.launch {
-                    // Without the phone-app role the system list is unavailable: rules do the job instead.
-                    numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
-                    vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
-                    recents.clearSelection()
-                }
+                // The same block as everywhere (Android's list, or a rule without the phone-app role), with Undo.
+                blockWithUndo(vm, numbers)
+                recents.clearSelection()
             },
             onDismiss = { confirming = false },
             dismissLabel = stringResource(R.string.set_cancel),

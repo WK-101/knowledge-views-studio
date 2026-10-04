@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The one Block flow (BlockFlow): the same question, result and Undo wherever a number is blocked or unblocked. -->
+<resources>
+    <string name="blockflow_title_one">Block %1$s?</string>
+    <plurals name="blockflow_title_many">
+        <item quantity="one">Block %1$d number?</item>
+        <item quantity="other">Block %1$d numbers?</item>
+    </plurals>
+    <plurals name="blockflow_system_list">
+        <item quantity="one">Calls from this number won\'t ring. It goes on your phone\'s blocked list, which messaging apps can use too.</item>
+        <item quantity="other">Calls from these numbers won\'t ring. They go on your phone\'s blocked list, which messaging apps can use too.</item>
+    </plurals>
+    <plurals name="blockflow_parley_rule">
+        <item quantity="one">Parley declines calls from this number. The rule is in Blocking &amp; screening.</item>
+        <item quantity="other">Parley declines calls from these numbers. The rules are in Blocking &amp; screening.</item>
+    </plurals>
+    <string name="blockflow_lifts_allow">Its \"Always allow\" rule is removed.</string>
+    <string name="blockflow_more_ways">More ways to block…</string>
+    <string name="blockflow_already_title">Already blocked</string>
+    <string name="blockflow_already_text">Calls from %1$s are already blocked.</string>
+    <plurals name="blockflow_unblocked_many">
+        <item quantity="one">Unblocked %1$d number</item>
+        <item quantity="other">Unblocked %1$d numbers</item>
+    </plurals>
+    <string name="recents_unblock_number">Unblock number</string>
+    <string name="detail_unblock_numbers">Unblock numbers</string>
+</resources>

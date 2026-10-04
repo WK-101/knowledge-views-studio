@@ -150,6 +150,31 @@ object LabelRefs {
         return if (rules.size == config.rules.size) config else config.copy(rules = rules)
     }
 
+    // ---- Undo of a delete (what the delete took away, put back over whatever changed since) ----
+
+    /** The call-time limits of [titles], kept before they're deleted. */
+    fun limitsOf(config: CallingConfig, titles: Set<String>): List<LimitRule> =
+        config.rules.filter { it.scope == LimitScope.LABEL && refersTo(limitTitle(it), titles) }
+
+    /** Puts [limits] back; a limit for the label set again since stays as it is now. */
+    fun undoDeleteLimits(config: CallingConfig, limits: List<LimitRule>): CallingConfig {
+        val back = limits.filter { l -> config.rules.none { it.scope == l.scope && key(limitTitle(it)) == key(limitTitle(l)) } }
+        return if (back.isEmpty()) config else config.copy(rules = config.rules + back)
+    }
+
+    /** Entries of a by-title map ([tones], policies, safe words) that refer to [titles]. */
+    fun <T> entriesOf(map: Map<String, T>, titles: Set<String>): Map<String, T> = map.filterKeys { refersTo(it, titles) }
+
+    /** Puts [entries] back; an entry set again since stays as it is now. */
+    fun <T> undoDeleteEntries(map: Map<String, T>, entries: Map<String, T>): Map<String, T> =
+        map + entries.filterKeys { k -> map.keys.none { key(it) == key(k) } }
+
+    /**
+     * Off hours as they were [before] the delete, when the delete switched them off ([labelGone]) and nobody
+     * changed them since; otherwise [now] stays.
+     */
+    fun undoDeleteOffHours(now: OffHours, before: OffHours): OffHours = if (now != before && now == labelGone(before)) before else now
+
     /** Two limit rules for the same label (after a merge): the strictest per-call limit and allowances are kept. */
     private fun dedupe(rules: List<LimitRule>): List<LimitRule> {
         val out = LinkedHashMap<String, LimitRule>()

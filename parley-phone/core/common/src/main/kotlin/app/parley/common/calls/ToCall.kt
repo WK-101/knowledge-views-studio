@@ -233,6 +233,17 @@ object ToCall {
         return ToCallState(items, handled)
     }
 
+    /**
+     * Undo of [remind] for [key]: its item and missed-call mark as they were in [before] (no item then, none now),
+     * leaving every other change made since alone.
+     */
+    fun undoRemind(state: ToCallState, before: ToCallState, key: String): ToCallState {
+        val item = before.items.firstOrNull { it.key == key }
+        val items = (state.items.filter { it.key != key } + listOfNotNull(item)).sortedBy { it.since }
+        val handled = before.handledMissed[key]?.let { state.handledMissed + (key to it) } ?: (state.handledMissed - key)
+        return ToCallState(items, handled)
+    }
+
     /** Moves [entry] (an item, or a missed call that becomes one) to [at]. */
     fun snooze(state: ToCallState, entry: ToCallEntry, at: Long, now: Long): ToCallState =
         remind(state, entry.key, entry.number, at, now, since = entry.since, accountId = entry.accountId, zone = entry.zone)

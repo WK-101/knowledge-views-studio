@@ -77,6 +77,7 @@ import app.parley.data.calls.VoicemailState
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
@@ -112,6 +113,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
 
     val res = LocalResources.current
     Column(Modifier.fillMaxWidth()) {
+        DefaultAppNote(vm, DefaultAppFeature.VOICEMAIL)
         VoicemailNote(vm, state)
         if (state.loaded && state.available && items.isEmpty()) {
             // No match (clear the search) or no voicemail yet (call the mailbox).
@@ -187,14 +189,8 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Icon(Icons.Rounded.Info, null, Modifier.padding(end = 12.dp, top = 2.dp), tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    if (state.loaded && !state.available) {
-                        stringResource(R.string.vmi_note_not_default)
-                    } else {
-                        stringResource(R.string.vmi_note_offline)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                // Without the phone-app role, the note above says so with its button.
+                Text(stringResource(R.string.vmi_note_offline), style = MaterialTheme.typography.bodyMedium)
             }
             state.sources.mapNotNull { it.problem }.distinct().forEach { p ->
                 Text(p, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)

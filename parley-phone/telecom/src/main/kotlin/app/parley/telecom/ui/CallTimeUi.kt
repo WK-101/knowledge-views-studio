@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
+import app.parley.ui.ListSectionHeader
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
@@ -192,9 +193,10 @@ private fun RttMoreRow(active: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), Add a note, Open
- * contact and Copy number, then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end). In supervised mode a limit
- * can only be shortened.
+ * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), then the everyday
+ * Add a note, Open contact and Copy number, Hold mode and RTT, then a headed Safety group (scam check, check it's really them, helper,
+ * safe word), then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end).
+ * In supervised mode a limit can only be shortened.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -230,37 +232,6 @@ internal fun CallMoreSheet(
                 modifier = Modifier.clickable(enabled = c.enabled) { onDismiss(); c.onClick() },
             )
         }
-        // Each says in one line what it does, the first time and every time (P18).
-        if (onRtt != null) RttMoreRow(rttActive) { onDismiss(); onRtt() }
-        if (onHoldMode != null) {
-            ParleyListItem(
-                headlineContent = { Text(stringResource(R.string.holdmode_start)) },
-                supportingContent = { Text(stringResource(R.string.holdmode_start_explainer)) },
-                leadingContent = { Icon(Icons.Rounded.HourglassTop, null) },
-                colors = rowColors(),
-                modifier = Modifier.clickable { onDismiss(); onHoldMode() },
-            )
-        }
-        if (onScamCheck != null) ExplainedRow(Icons.Rounded.Shield, R.string.scam_title, R.string.scam_more_explainer) { onDismiss(); onScamCheck() }
-        if (onVerify != null) ExplainedRow(Icons.Rounded.VerifiedUser, R.string.verify_title, R.string.verify_explainer) { onDismiss(); onVerify() }
-        if (onAddHelper != null) {
-            ParleyListItem(
-                headlineContent = { Text(stringResource(R.string.helper_add)) },
-                supportingContent = { Text(stringResource(R.string.helper_add_explainer)) },
-                leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
-                colors = rowColors(),
-                modifier = Modifier.clickable { onDismiss(); onAddHelper() },
-            )
-        }
-        if (onClaimsFamily != null) {
-            ParleyListItem(
-                headlineContent = { Text(stringResource(R.string.safeword_claims_family)) },
-                supportingContent = { Text(stringResource(R.string.safeword_claims_family_explainer)) },
-                leadingContent = { Icon(Icons.Rounded.FamilyRestroom, null) },
-                colors = rowColors(),
-                modifier = Modifier.clickable { onDismiss(); onClaimsFamily() },
-            )
-        }
         ParleyListItem(
             headlineContent = { Text(stringResource(R.string.incall_add_note)) },
             supportingContent = { Text(stringResource(R.string.calltime_note_saved)) },
@@ -285,8 +256,53 @@ internal fun CallMoreSheet(
                 modifier = Modifier.clickable { onDismiss(); onCopyNumber() },
             )
         }
+        // Each says in one line what it does, the first time and every time (P18).
+        if (onRtt != null) RttMoreRow(rttActive) { onDismiss(); onRtt() }
+        if (onHoldMode != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.holdmode_start)) },
+                supportingContent = { Text(stringResource(R.string.holdmode_start_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.HourglassTop, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onHoldMode() },
+            )
+        }
+        SafetyRows(onDismiss, onScamCheck, onVerify, onAddHelper, onClaimsFamily)
         CallTimeSection(call, timing, onDismiss)
         Spacer(Modifier.height(Spacing.xl))
+    }
+}
+
+/** More's Safety group: the rarer rows, under their own heading so the everyday ones above stay in reach. */
+@Composable
+private fun SafetyRows(
+    onDismiss: () -> Unit,
+    onScamCheck: (() -> Unit)?,
+    onVerify: (() -> Unit)?,
+    onAddHelper: (() -> Unit)?,
+    onClaimsFamily: (() -> Unit)?,
+) {
+    if (listOfNotNull(onScamCheck, onVerify, onAddHelper, onClaimsFamily).isEmpty()) return
+    ListSectionHeader(stringResource(R.string.incall_more_safety), inset = Spacing.l)
+    if (onScamCheck != null) ExplainedRow(Icons.Rounded.Shield, R.string.scam_title, R.string.scam_more_explainer) { onDismiss(); onScamCheck() }
+    if (onVerify != null) ExplainedRow(Icons.Rounded.VerifiedUser, R.string.verify_title, R.string.verify_explainer) { onDismiss(); onVerify() }
+    if (onAddHelper != null) {
+        ParleyListItem(
+            headlineContent = { Text(stringResource(R.string.helper_add)) },
+            supportingContent = { Text(stringResource(R.string.helper_add_explainer)) },
+            leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
+            colors = rowColors(),
+            modifier = Modifier.clickable { onDismiss(); onAddHelper() },
+        )
+    }
+    if (onClaimsFamily != null) {
+        ParleyListItem(
+            headlineContent = { Text(stringResource(R.string.safeword_claims_family)) },
+            supportingContent = { Text(stringResource(R.string.safeword_claims_family_explainer)) },
+            leadingContent = { Icon(Icons.Rounded.FamilyRestroom, null) },
+            colors = rowColors(),
+            modifier = Modifier.clickable { onDismiss(); onClaimsFamily() },
+        )
     }
 }
 

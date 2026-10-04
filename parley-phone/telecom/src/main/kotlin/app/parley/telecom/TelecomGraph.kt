@@ -262,6 +262,9 @@ interface CallRecordHooks {
 
     /** Saves [number] as a private temporary contact; returns what to tell the user, or null on failure. */
     suspend fun savePrivately(number: String, name: String): String? = null
+
+    /** Whether [number] is blocked already, so the post-call card offers Unblock. Read off the main thread. */
+    suspend fun isBlocked(number: String): Boolean = false
 }
 
 /** The call screen's look and feel, and the ways out of it into the app. */
@@ -346,7 +349,7 @@ interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHook
     MenuMemoryHooks
 
 /** Post-call card actions handled by the app. */
-enum class PostCallAction { BLOCK, REPORT, NUMBER_MEMORY }
+enum class PostCallAction { BLOCK, UNBLOCK, REPORT, NUMBER_MEMORY, SAVE, ADD_TO_CONTACT }
 
 object TelecomGraph {
     @Volatile

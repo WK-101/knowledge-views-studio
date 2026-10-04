@@ -6,7 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.telecom.TelecomManager
-import app.parley.blocking.BlockingActions
+import app.parley.blocking.BlockFlow
+import app.parley.common.catching
 import app.parley.calls.MissedCallNotifier
 import kotlinx.coroutines.launch
 
@@ -45,7 +46,8 @@ class MissedCallActionReceiver : BroadcastReceiver() {
                     // Block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
                     ACTION_BLOCK -> {
                         intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
-                            if (!c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(c, n)
+                            // The same block as everywhere (Android's list, or a rule without the phone-app role).
+                            catching { BlockFlow.block(c, listOf(n)) }
                         }
                         nm.cancel(intent.getIntExtra(EXTRA_ID, MissedCallNotifier.ID))
                         if (!MissedCallNotifier.anyShowing(context, childrenOnly = true)) {
