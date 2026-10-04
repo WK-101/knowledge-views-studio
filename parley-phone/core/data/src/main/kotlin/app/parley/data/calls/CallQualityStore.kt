@@ -18,7 +18,7 @@ class CallQualityStore private constructor(context: Context, keys: SealedLineSto
     internal constructor(context: Context, keys: SealedLineStore.Keys) : this(context, SealedLineStore.KeySource { keys })
 
     private val store = SealedLineStore(
-        context, FILE, KEY_ROWS, keys,
+        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, keys,
         encode = { CallQualityCodec.encode(listOf(it)) }, decode = { CallQualityCodec.decode(it).firstOrNull() }, startedAt = { it.startedAt },
     )
 

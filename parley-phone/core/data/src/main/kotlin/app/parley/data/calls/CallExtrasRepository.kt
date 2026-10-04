@@ -43,7 +43,7 @@ class CallExtrasRepository(context: Context) {
  */
 class RingFactsStore(context: Context, private val history: () -> CallHistory) {
     private val store = SealedLineStore(
-        context, FILE, KEY_ROWS, { SealedLineStore.HistoryKeys(history()) },
+        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, { SealedLineStore.HistoryKeys(history()) },
         encode = { RingFactsCodec.encode(listOf(it)) }, decode = { RingFactsCodec.decode(it).firstOrNull() }, startedAt = { it.startedAt },
     )
     @Volatile private var migrated = false

@@ -5,7 +5,7 @@
     <!-- Settings search entries -->
     <string name="set_family_safe_word_title">Family safe word</string>
     <string name="set_family_safe_word_summary">A private question for callers who say they\'re family, set on a label\'s page</string>
-    <string name="set_family_safe_word_kw">safe word, scam, grandparent scam, impostor, voice clone, family, question, password</string>
+    <string name="set_family_safe_word_kw">safe word, scam, grandparent scam, impostor, voice clone, family, question, password, grandparent</string>
     <string name="set_call_helpers_title">Helpers</string>
     <string name="set_call_helpers_summary">Up to 3 people you trust, added to a call with one tap</string>
     <string name="set_call_helpers_kw">helper, family, trusted, add call, conference, merge, scam</string>

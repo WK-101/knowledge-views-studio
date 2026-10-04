@@ -1,6 +1,6 @@
 # Settings map
 
-Where every setting lives, by page and group. The keys in `code` are the stable keys of `SettingsCatalog` (core/common). Settings search uses them, and so do links that open a page scrolled to a setting (`Routes.settingsPage(category, key)`). No stored setting changed in this reorganisation: only the places and a few titles moved (see [Changes](#changes-in-35)). Names follow [GLOSSARY.md](GLOSSARY.md).
+Where every setting lives, by page and group. The keys in `code` are the stable keys of `SettingsCatalog` (core/common), which holds only where each setting lives; its title, summary and search keywords are the `set_*` string resources mapped in `SettingsText`, the one copy the pages show and search matches. Settings search uses the keys, and so do links that open a page scrolled to a setting (`Routes.settingsPage(category, key)`). No stored setting changed in this reorganisation: only the places and a few titles moved (see [Changes](#changes-in-35)). Names follow [GLOSSARY.md](GLOSSARY.md).
 
 **Search covers everything below**, including settings on screens of their own (marked ↗): their catalog entries carry a `SettingPlace`, and search opens that screen.
 

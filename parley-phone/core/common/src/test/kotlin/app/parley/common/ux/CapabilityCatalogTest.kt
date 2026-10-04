@@ -52,7 +52,6 @@ class CapabilityCatalogTest {
         assertEquals(Job.STAY_IN_TOUCH, row.job)
         listOf("trip", "travel").forEach { q -> assertEquals(q, listOf(row.key), CapabilitySearch.search(q, rows).map { it.key }) }
         assertTrue(row.key in CapabilitySearch.search("who's in", rows).map { it.key })
-        assertTrue("what_parley_can_do" in app.parley.common.SettingsSearch.search("who's in").map { it.key })
     }
 
     @Test fun search_matches_word_starts_in_any_field() {

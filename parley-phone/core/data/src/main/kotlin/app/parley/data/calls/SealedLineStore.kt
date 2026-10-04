@@ -1,6 +1,5 @@
 package app.parley.data.calls
 
-import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
 import app.parley.data.history.CallHistory
@@ -17,8 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * dropped, and one the key can't open right now is kept as it is and never written over.
  */
 class SealedLineStore<T>(
-    context: Context,
-    file: String,
+    /** The store's own preferences file (app-private, not backed up). */
+    val prefs: SharedPreferences,
     private val rowsKey: String,
     private val keySource: KeySource,
     private val encode: (T) -> String,
@@ -47,8 +46,6 @@ class SealedLineStore<T>(
     }
 
     private fun keys(): Keys = keySource.keys()
-
-    val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(file, Context.MODE_PRIVATE)
 
     private data class Row<T>(val key: String, val facts: T)
 

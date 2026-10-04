@@ -41,13 +41,13 @@
     <string name="set_density_kw">compact, spacing, row height, size</string>
     <string name="set_nav_tabs_title">Navigation bar</string>
     <string name="set_nav_tabs_summary">Show, hide and reorder Favourites, Recents, Contacts and Keypad</string>
-    <string name="set_nav_tabs_kw">tabs, bottom bar, bottom navigation, navigation rail, reorder, hide tab, customise, customize, menu</string>
+    <string name="set_nav_tabs_kw">tabs, bottom bar, bottom navigation, navigation rail, reorder, hide tab, customise, customize, menu, circle</string>
     <string name="set_start_tab_title">Open on</string>
     <string name="set_start_tab_summary">The tab Parley opens on</string>
     <string name="set_start_tab_kw">start tab, default tab, home screen, launch, first screen</string>
     <string name="set_row_actions_title">Call and message buttons in the list</string>
     <string name="set_row_actions_summary">On each contact. Turn off for a clean list; tapping a contact still opens it.</string>
-    <string name="set_row_actions_kw">quick actions, buttons, call button, message button, sms, row, clean list, hide buttons, contact list</string>
+    <string name="set_row_actions_kw">quick actions, buttons, call button, message button, sms, row, clean list, hide buttons, contact list, Call &amp; message buttons on contacts</string>
     <string name="set_mirror_relations_title">Add relations to both contacts</string>
     <string name="set_mirror_relations_summary">“Mother: Ana” here adds “Child” on Ana’s contact</string>
     <string name="set_mirror_relations_kw">relation, relationship, two-way, both ways, reciprocal, family, mirror, spouse, parent, child</string>
@@ -752,10 +752,10 @@
     <!-- Backup reminder and tips settings -->
     <string name="set_backup_reminder_title">Remind me to back up</string>
     <string name="set_backup_reminder_summary">A quiet reminder when there\'s been no backup for a while (at most one notification a month)</string>
-    <string name="set_backup_reminder_kw">reminder, overdue, backup, notification</string>
+    <string name="set_backup_reminder_kw">reminder, overdue, backup, notification, nag</string>
     <string name="set_reset_tips_title">Reset tips</string>
     <string name="set_reset_tips_summary">Show the one-time tips again (keypad, Recents, search)</string>
-    <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial</string>
+    <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial, onboarding</string>
     <string name="set_group_tips">Tips</string>
     <string name="ux_tips_reset_done">Tips will show again</string>
 
