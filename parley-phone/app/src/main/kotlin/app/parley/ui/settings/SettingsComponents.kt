@@ -11,6 +11,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Arrangement
+import app.parley.common.SettingsCatalog
+import app.parley.ui.Spacing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,16 +53,24 @@ fun SegmentedGroupScope.choiceRow(key: String, options: List<String>, selected: 
     item(key) { ChoiceRow(settingTitle(key), options, selected, icon, onPick) }
 
 /**
- * Rarely needed settings, folded under "Advanced" at the end of a page. [keys] are the rows inside: the group opens
- * by itself when Settings search points at one of them.
+ * Rarely needed settings, folded under "Advanced" at the end of a page (one per page). The group opens by itself when
+ * Settings search points at a setting the catalog marks advanced ([SettingsCatalog.ADVANCED]), or at one of [keys]
+ * (rows that aren't catalog settings).
  */
 @Composable
-fun AdvancedGroup(keys: Set<String>, content: SegmentedGroupScope.() -> Unit) {
+fun AdvancedGroup(keys: Set<String> = emptySet(), content: SegmentedGroupScope.() -> Unit) {
+    AdvancedSection(keys) { SegmentedGroup(content = content) }
+}
+
+/** [AdvancedGroup] for groups that draw themselves (a page's own composable groups go inside as they are). */
+@Composable
+fun AdvancedSection(keys: Set<String> = emptySet(), content: @Composable () -> Unit) {
     val highlight = LocalHighlightKey.current
-    var open by rememberSaveable { mutableStateOf(highlight != null && highlight in keys) }
+    var open by rememberSaveable { mutableStateOf(SettingsCatalog.isAdvanced(highlight) || (highlight != null && highlight in keys)) }
     Column {
         Row(
             Modifier.fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clickable(onClickLabel = stringResource(if (open) R.string.set_advanced_hide else R.string.set_advanced_show)) { open = !open }
                 .padding(horizontal = 32.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -75,7 +87,7 @@ fun AdvancedGroup(keys: Set<String>, content: SegmentedGroupScope.() -> Unit) {
             )
         }
         AnimatedVisibility(open) {
-            Column { SegmentedGroup(content = content) }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.groupGap)) { content() }
         }
     }
 }

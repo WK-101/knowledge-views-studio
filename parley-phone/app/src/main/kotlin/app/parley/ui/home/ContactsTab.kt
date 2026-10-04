@@ -63,6 +63,8 @@ import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.avatarSize
 import kotlinx.coroutines.launch
 import app.parley.common.ux.ListSections
+import app.parley.common.people.ContactSort
+import app.parley.ui.people.ContactSortSheet
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
@@ -130,6 +132,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val runs = remember(rows) { ListSections.runs(rows) }
     val rowActions = settings.contactRowActions
     val swipe = peopleSettings.swipe
+    // The A–Z rail belongs to the name order only.
+    val byName = peopleSettings.contactSort == ContactSort.NAME
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
@@ -224,7 +228,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             ContactsFooter.line(count, query, filter, private = privateShown, privateList = privateOnly)
                 ?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
         }
-        if (query.isBlank() && count > 30) {
+        if (query.isBlank() && count > 30 && byName) {
             // "★" jumps to the favourites when they're at the top of Contacts.
             val favIndex = 1 + (if (showMe) 1 else 0)
             val letters = remember(sections, showFavorites) { (if (showFavorites) listOf(FAVOURITES_MARK) else emptyList()) + sections.keys }
@@ -236,6 +240,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
         }
         quickHost()
     }
+    ContactSortSheet(vm)
 }
 
 /** The first screenful kept from last time ([app.parley.common.people.ListHead]): plain rows that open the contact. */

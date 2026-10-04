@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import app.parley.common.people.ContactSort
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
@@ -49,6 +50,8 @@ data class PeopleSettings(
     val contactPage: ContactPageLayout = ContactPageLayout(),
     /** "jump to section" chips under a contact page's pinned header. */
     val sectionChips: Boolean = true,
+    /** How the Contacts list is ordered (Contacts ⋮ › Sort by), remembered; by name unless chosen. */
+    val contactSort: ContactSort = ContactSort.NAME,
 )
 
 private val Context.peopleStore: DataStore<Preferences> by preferencesDataStore(name = "people")
@@ -78,7 +81,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
                 when (k) {
                     K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name, K.swipeOn.name, K.sectionChips.name -> p[booleanPreferencesKey(k)] = v.toBoolean()
                     K.columns.name -> v.toIntOrNull()?.let { p[intPreferencesKey(k)] = it }
-                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name, K.swipeRight.name, K.swipeLeft.name, K.avatar.name, K.contactPage.name ->
+                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name, K.swipeRight.name, K.swipeLeft.name, K.avatar.name, K.contactPage.name,
+                    K.contactSort.name ->
                         p[stringPreferencesKey(k)] = v
                 }
             }
@@ -107,6 +111,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
             avatarStyle = this[K.avatar]?.let { v -> AvatarStyle.entries.firstOrNull { it.name == v } } ?: d.avatarStyle,
             contactPage = ContactPageLayout.decode(this[K.contactPage]),
             sectionChips = this[K.sectionChips] ?: d.sectionChips,
+            contactSort = this[K.contactSort]?.let { v -> ContactSort.entries.firstOrNull { it.name == v } } ?: d.contactSort,
         )
     }
 
@@ -126,6 +131,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         this[K.avatar] = s.avatarStyle.name
         this[K.contactPage] = s.contactPage.encode()
         this[K.sectionChips] = s.sectionChips
+        this[K.contactSort] = s.contactSort.name
     }
 
     private object K {
@@ -144,6 +150,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         val avatar = stringPreferencesKey("avatar_style")
         val contactPage = stringPreferencesKey("contact_page")
         val sectionChips = booleanPreferencesKey("contact_page_chips")
+        val contactSort = stringPreferencesKey("contact_sort")
     }
 
     private companion object {

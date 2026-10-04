@@ -1087,6 +1087,16 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     suspend fun setRingtone(contactId: Long, ringtone: String?) = updateContact(contactId, ContentValues().apply { put(Contacts.CUSTOM_RINGTONE, ringtone) })
 
+    /** The ringtone of each of [contactIds] (null: the phone's own), for a bulk change's Undo; contacts that are gone are left out. */
+    suspend fun ringtonesOf(contactIds: Collection<Long>): Map<Long, String?> = withContext(Dispatchers.IO) {
+        val out = HashMap<Long, String?>()
+        contactIds.distinct().chunked(IN_CHUNK).forEach { chunk ->
+            cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.CUSTOM_RINGTONE), "${Contacts._ID} IN (${chunk.joinToString(",")})", null, null)
+                ?.use { c -> while (c.moveToNext()) out[c.getLong(0)] = c.getString(1) }
+        }
+        out
+    }
+
     suspend fun setSendToVoicemail(contactId: Long, value: Boolean) =
         updateContact(contactId, ContentValues().apply { put(Contacts.SEND_TO_VOICEMAIL, if (value) 1 else 0) })
 
@@ -1291,6 +1301,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         if (owners.isEmpty()) return@withContext
         journal(owners.values.distinct(), "DELETE")
         cr.applyInBatches(owners.keys.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)) })
+    }
+
+    /**
+     * Deletes exactly these raw contacts without a journal entry, as an ordinary delete (an account's sync removes its
+     * server copy too). For a move whose whole contact the caller journaled first.
+     */
+    suspend fun deleteRawsUnjournaled(rawIds: Collection<Long>): Unit = withContext(Dispatchers.IO + NonCancellable) {
+        cr.applyInBatches(rawIds.distinct().map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)) })
     }
 
     /**

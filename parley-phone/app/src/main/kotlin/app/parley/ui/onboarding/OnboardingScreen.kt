@@ -76,7 +76,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.NavEvent
+import app.parley.common.ux.Basics
 import app.parley.common.ux.ComingFrom
+import app.parley.common.ux.OnboardingStep
+import app.parley.ui.extras.ExtrasRoutes
 import app.parley.common.ux.InstallSource
 import app.parley.ui.ParleyListItem
 import app.parley.ui.discover.ComingFromGroups
@@ -88,18 +91,26 @@ import kotlinx.coroutines.launch
  * First run, in short steps: what Parley promises, the default phone app (with a word about Android's
  * restricted settings first when Parley was installed from a file), then U1's permissions page: one row per
  * permission with why it's asked and what still works without it, a single "Allow all" and a switch per row.
- * Last, P7's optional "Coming from another phone?": skip it, or pick a source to finish and land in its importer.
+ * Then "Set up the basics" (who can ring, who the phone is for, the layout), and last P7's optional "Coming from
+ * another phone?": skip it, or pick a source to finish and land in its importer. Each step after the welcome can be
+ * skipped ([OnboardingStep]).
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var step by rememberSaveable { mutableIntStateOf(0) }
-    BackHandler(enabled = step > 0) { step-- }
+    var stepIndex by rememberSaveable { mutableIntStateOf(0) }
+    val step = OnboardingStep.at(stepIndex)
+    fun go(to: OnboardingStep?) { to?.let { stepIndex = it.ordinal } }
+    BackHandler(enabled = step.previous != null) { go(step.previous) }
+    // "Someone else" in the basics: Simple mode's setup opens once the first run ends.
+    var simpleSetupNext by rememberSaveable { mutableStateOf(false) }
 
     fun finish() {
         scope.launch { vm.c.settings.update { it.copy(onboardingDone = true) } }
         vm.refreshEnvironment()
         onDone()
+        // Buffered until the navigation host is up, right after onboarding closes.
+        if (simpleSetupNext) vm.navigate(NavEvent.Route(ExtrasRoutes.SimpleSetup))
     }
 
     Surface(Modifier.fillMaxSize()) {
@@ -108,10 +119,14 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (step) {
-                0 -> WelcomeStep { step = 1 }
-                1 -> DefaultDialerStep(vm) { step = 2 }
-                2 -> PermissionsStep(vm) { step = 3 }
-                else -> ComingFromStep(
+                OnboardingStep.WELCOME -> WelcomeStep { go(step.next) }
+                OnboardingStep.DEFAULT_APP -> DefaultDialerStep(vm) { go(step.next) }
+                OnboardingStep.PERMISSIONS -> PermissionsStep(vm) { go(step.next) }
+                OnboardingStep.BASICS -> BasicsStep(vm) { choice ->
+                    simpleSetupNext = Basics.opensSimpleSetup(choice)
+                    go(step.next)
+                }
+                OnboardingStep.COMING_FROM -> ComingFromStep(
                     onImport = { importer ->
                         finish()
                         // Buffered until the navigation host is up, right after onboarding closes.

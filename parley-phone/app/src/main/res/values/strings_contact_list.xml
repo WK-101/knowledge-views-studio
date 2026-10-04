@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Contacts list: its order (Contacts ⋮ › Sort by) and Edit… for several selected contacts. -->
+<resources>
+    <string name="cs_sort_menu">Sort by…</string>
+    <string name="cs_sort_title">Sort contacts by</string>
+    <string name="cs_sort_name">Name</string>
+    <string name="cs_sort_name_help">First or last name, as chosen in Settings › Appearance</string>
+    <string name="cs_sort_recent">Recently added</string>
+    <string name="cs_sort_recent_help">Newest first</string>
+    <string name="cs_sort_most_called">Most called</string>
+    <string name="cs_sort_most_called_help">From your call history on this phone</string>
+    <string name="cs_sort_company">Company</string>
+    <string name="cs_sort_company_help">Grouped by company, then by name</string>
+    <!-- Headers in the sorted list. -->
+    <string name="cs_sort_no_company">No company</string>
+    <string name="cs_sort_not_called">Not called yet</string>
+
+    <string name="be_menu">Edit…</string>
+    <plurals name="be_title">
+        <item quantity="one">Edit %1$d contact</item>
+        <item quantity="other">Edit %1$d contacts</item>
+    </plurals>
+    <string name="be_remove_label">Remove from label</string>
+    <plurals name="be_in_label">
+        <item quantity="one">%1$d of them is in it</item>
+        <item quantity="other">%1$d of them are in it</item>
+    </plurals>
+    <string name="be_ringtone">Set ringtone</string>
+    <string name="be_ringtone_sub">For calls from all of them</string>
+    <string name="be_sim">SIM for calls</string>
+    <string name="be_sim_sub">For every number they have</string>
+    <string name="be_sim_ask">Ask every time</string>
+    <string name="be_move">Move to another account</string>
+    <string name="be_moving">Moving…</string>
+    <string name="be_nothing_changed">Nothing to change: they\'re all set like that already</string>
+    <plurals name="be_label_removed">
+        <item quantity="one">Removed %1$d from %2$s</item>
+        <item quantity="other">Removed %1$d from %2$s</item>
+    </plurals>
+    <plurals name="be_ringtone_set">
+        <item quantity="one">Ringtone set for %1$d contact</item>
+        <item quantity="other">Ringtone set for %1$d contacts</item>
+    </plurals>
+    <plurals name="be_sim_set">
+        <item quantity="one">%1$d number now calls with: %2$s</item>
+        <item quantity="other">%1$d numbers now call with: %2$s</item>
+    </plurals>
+    <plurals name="be_moved">
+        <item quantity="one">Moved %1$d contact to %2$s. History &amp; undo keeps the old copy</item>
+        <item quantity="other">Moved %1$d contacts to %2$s. History &amp; undo keeps the old copies</item>
+    </plurals>
+    <plurals name="be_move_failed">
+        <item quantity="one">%1$d couldn\'t be moved (%2$s)</item>
+        <item quantity="other">%1$d couldn\'t be moved, starting with %2$s</item>
+    </plurals>
+</resources>

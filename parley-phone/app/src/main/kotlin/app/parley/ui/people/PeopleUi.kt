@@ -19,6 +19,15 @@ import app.parley.common.people.Collation
 import app.parley.common.people.PrivateLabels
 import app.parley.common.people.PersonExtra
 import app.parley.common.people.SecondLines
+import app.parley.common.people.ContactSort
+import app.parley.common.people.ContactSorting
+import app.parley.common.people.SortFacts
+import app.parley.R
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.people.PeopleIndexData
@@ -56,6 +65,7 @@ class PeopleUi(
     /** Private contacts are in Parley's lists (false in discreet mode): their labels count then too. */
     includePrivate: StateFlow<Boolean> = MutableStateFlow(true),
 ) {
+
     val settings: StateFlow<PeopleSettings> = c.people.prefs.settings
 
     /**
@@ -151,12 +161,54 @@ class PeopleUi(
 
     val filtered: StateFlow<List<ContactSummary>?> = searched.map { it?.first }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** How the Contacts list is ordered (Contacts ⋮ › Sort by), remembered. */
+    val sort: StateFlow<ContactSort> = settings.map { it.contactSort }.distinctUntilChanged()
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), settings.value.contactSort)
+
+    /** The Contacts list's sort sheet is open (from the tab's ⋮ or its sort chip). */
+    val sortSheet = MutableStateFlow(false)
+
+    fun setSort(sort: ContactSort) = update { it.copy(contactSort = sort) }
+
+    private val sortCollator = Collation.Order()
+
+    /** What the chosen order reads, only for the order that needs it (by name reads nothing). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val sortFacts: Flow<SortFacts> = sort.flatMapLatest { s ->
+        when (s) {
+            ContactSort.NAME -> flowOf(SortFacts())
+            // A device contact's last change stands in for when it was added (Android keeps no such date); a private
+            // contact's save time is its own.
+            ContactSort.RECENTLY_ADDED -> combine(contacts, c.vault.contacts) { list, vault ->
+                val added = HashMap<Long, Long>()
+                list.orEmpty().forEach { ct -> if (ct.id > 0) c.contacts.lastUpdated(ct.id)?.let { added[ct.id] = it } }
+                vault.forEach { v -> added[ContactRef.Private(v.id).navId] = v.createdAt }
+                SortFacts(addedAt = added)
+            }
+            ContactSort.MOST_CALLED -> combine(contacts, c.history.calls) { list, calls ->
+                val byLine = PhoneIdentity.LineMap<Long>(countryIso)
+                list.orEmpty().forEach { ct -> ct.phones.forEach { p -> byLine.putIfAbsent(p.number, ct.id) } }
+                val counts = HashMap<Long, Int>()
+                calls.orEmpty().forEach { e -> byLine[e.number]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
+                SortFacts(calls = counts)
+            }
+            ContactSort.COMPANY -> combine(c.people.index.data, c.vault.contacts, includePrivate) { idx, vault, include ->
+                val company = HashMap<Long, String>()
+                idx.extras.forEach { (id, e) -> if (e.company.isNotBlank()) company[id] = e.company }
+                if (include) vault.forEach { v -> if (v.company.isNotBlank()) company[ContactRef.Private(v.id).navId] = v.company }
+                SortFacts(company = company)
+            }
+        }
+    }.flowOn(Dispatchers.Default)
+
     /**
-     * [filtered] with its letter headers (from the name it is sorted by, so the A–Z rail matches "Sort by"), worked out once per list change here instead of in the list's builder
-     * (which runs again on selection, hint and settings changes).
+     * [filtered] in the chosen order with its headers (by name: the letters of the name it is sorted by, so the A–Z rail
+     * matches "Sort by"), worked out once per list change here instead of in the list's builder (which runs again on
+     * selection, hint and settings changes).
      */
-    val listing: StateFlow<List<ListSections.Row<String, ContactSummary>>?> = filtered.map { list ->
-        list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.sortName) } }
+    val listing: StateFlow<List<ListSections.Row<String, ContactSummary>>?> = combine(filtered, sort, sortFacts) { list, s, facts ->
+        val res = c.appContext.resources
+        list?.let { ContactSorting.rows(it, s, facts, sortCollator, res.getString(R.string.cs_sort_no_company), res.getString(R.string.cs_sort_not_called)) }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**

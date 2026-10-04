@@ -560,7 +560,7 @@
     <string name="set_calls_situations_intro">For particular calls: bringing in a helper, driving, phone menus and how long calls last.</string>
     <string name="set_group_before_calling">Before you call</string>
     <string name="set_group_incoming">Incoming calls</string>
-    <string name="set_group_call_feedback">Vibration and screen</string>
+    <string name="set_group_call_feedback">Vibration and power button</string>
     <plurals name="set_every_minutes">
         <item quantity="one">Every minute</item>
         <item quantity="other">Every %1$d minutes</item>
@@ -573,7 +573,7 @@
     <string name="set_proximity_during">During calls</string>
     <string name="set_proximity_once_answered">Once answered</string>
     <string name="set_proximity_once_answered_sub">The screen stays on while a call is being dialled, so you can see it connect, and turns off at your ear once the other person answers.</string>
-    <string name="set_group_call_audio">Speaker</string>
+    <string name="set_group_call_audio">Speaker and screen</string>
     <string name="set_speaker_never">Never</string>
     <string name="set_speaker_always">Always</string>
     <string name="set_speaker_unknown">Numbers not in your contacts</string>
@@ -839,6 +839,8 @@
     <string name="set_group_contact_list">Contact list</string>
     <string name="set_advanced_show">Show advanced settings</string>
     <string name="set_advanced_hide">Hide advanced settings</string>
+    <!-- Settings search: above a result folded under its page's Advanced group ("Appearance › Advanced"). -->
+    <string name="set_search_in_advanced">%1$s › Advanced</string>
     <string name="set_group_circle">Circle: keeping in touch</string>
     <string name="set_circle_reminders_title">Keep-in-touch reminders</string>
     <string name="set_circle_reminders_summary">How and when they arrive, on Reminders</string>
