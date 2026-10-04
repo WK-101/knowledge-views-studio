@@ -45,6 +45,8 @@ internal class HoldModeControl(private val scope: CoroutineScope, private val li
     fun stop(id: String) {
         val s = live.sessionOrNull(id) ?: return
         if (s.holdModeSince == 0L) return
+        // Kept for the call's facts: a case file shows how long each call waited.
+        s.holdModeTotalMs += (SystemClock.elapsedRealtime() - s.holdModeSince).coerceAtLeast(0)
         s.holdModeSince = 0
         stopReminders(id)
         val back = s.routeBeforeHold

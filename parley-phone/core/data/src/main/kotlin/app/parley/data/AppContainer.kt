@@ -30,6 +30,7 @@ import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
 import app.parley.data.calls.MenuMemoryStore
+import app.parley.data.cases.CaseFileStore
 import app.parley.data.calls.FamilySafetyStore
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calls.DriveProfileRepository
@@ -63,6 +64,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
@@ -173,6 +176,13 @@ class DataContainer(context: Context) {
     /** I6 menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
     val menus by lazy { MenuMemoryStore(appContext) { n -> vault.lookup(n) != null } }
 
+    /** Case files: calls, hold times, menu keys and reference numbers per organisation (sealed at rest). */
+    val cases by lazy {
+        CaseFileStore(appContext, { n -> vault.lookup(n) != null }, { settings.settings.map { it.hideVault }.distinctUntilChanged() }) {
+            PhoneEnv.countryIso(appContext)
+        }
+    }
+
     /** I21: the Parley PIN and the duress PIN (hashes only, sealed, this phone only). */
     val appPin by lazy { AppPinStore(appContext) { RecordCrypto.get(appContext) } }
 
@@ -280,6 +290,7 @@ class DataContainer(context: Context) {
             SpamListsBackup { lists },
             toCall.backupExtras,
             menus.backupExtras,
+            cases.backupExtras,
             FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
             CallSwitchesBackup({ driveProfile }, { roaming }),
             // Last: what a Situation on at backup time had replaced is put back over the sections restored before it.
@@ -302,7 +313,9 @@ class DataContainer(context: Context) {
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     /** Seals small records older versions stored plain (runs once in the background). */
     val recordSealing by lazy {
-        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, people.listHead) }
+        RecordSealing(appContext, db, { timeMachine }) {
+            listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead)
+        }
     }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 

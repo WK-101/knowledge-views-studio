@@ -89,6 +89,9 @@ import app.parley.ui.circle.goodTimeText
 import app.parley.ui.circle.hasPeek
 import app.parley.ui.common.Intents
 import app.parley.ui.menus.MenuShortcutsBlock
+import app.parley.ui.cases.CaseCard
+import app.parley.ui.cases.CaseOwner
+import app.parley.ui.cases.rememberCaseShown
 import app.parley.ui.people.cards.CardUpdateBanner
 import app.parley.ui.screenViewModel
 import java.time.LocalDate
@@ -226,12 +229,15 @@ private fun pageContext(
             EventDate.parse(ev.date)?.takeUnless { LifeEvents.isDeath(ev.type, ev.label) }?.let { effectiveDate(it, ev.calendar, today) }?.let { i to it }
         }
     }
+    // Case files: an organisation's calls and reference numbers, on the page and before calling.
+    val caseOwner = remember(d?.displayName, d?.phones, ui.isPrivate) { d?.let { caseOwnerOf(it, ui.isPrivate) } ?: CaseOwner("", emptyList()) }
+    val case = rememberCaseShown(vm, caseOwner)
     if (d == null) return null
     return ContactPageContext(
         vm, page, ui, d, contactId, context, scope, resources, goodTime, lastTalked, today, dated, parleyRelations, relationsFromOthers,
         open = open, back = back, show = show,
         callPeek = { number, name ->
-            if (circleCfg.preCallPeek && hasPeek(ui.memory, goodTime)) show(ContactDialog.Peek(number)) else vm.requestCall(number, name)
+            if (circleCfg.preCallPeek && (hasPeek(ui.memory, goodTime) || case.shown)) show(ContactDialog.Peek(number)) else vm.requestCall(number, name)
         },
         openRelation = { name ->
             page.openRelation(name) { target ->
@@ -243,6 +249,7 @@ private fun pageContext(
             }
         },
         pickRingtone = { ringtonePicker.launch(it) },
+        case = case,
     )
 }
 
@@ -351,6 +358,8 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
     val d = ctx.d
     // I14: a newer signed card from this person, waiting for review (never applied by itself).
     if (ui.access == PrivateAccess.OPEN && d.lookupKey.isNotEmpty()) item(key = "card_update") { CardUpdateBanner(vm, ctx.contactId, d.lookupKey, d) }
+    // Case files: an organisation's calls, hold times and reference numbers (also in the pre-call peek).
+    if (!locked && ctx.case.shown) item(key = "case_file") { CaseCard(vm, ctx.caseOwner, ctx.open) }
     // I6: menu shortcuts saved for this person's numbers (from the call screen's keypad).
     if (!locked && d.phones.isNotEmpty()) item(key = "menu_shortcuts") { MenuShortcutsBlock(vm, d.phones.map { it.value }, d.displayName, d.photoUri) }
     // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.

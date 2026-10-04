@@ -19,8 +19,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * What Recall searches besides the contact list, read from Parley's own stores when a search asks for it: notes for
- * calls, Circle notes (and the promises in them), notes written after calls, contacts deleted in Parley, the
- * snapshots' gone contacts and the chats opened from Parley. Everything is opened in memory only, for as long as the
+ * calls, Circle notes (and the promises in them), notes written after calls, case files, contacts deleted in Parley,
+ * the snapshots' gone contacts and the chats opened from Parley. Everything is opened in memory only, for as long as the
  * search is open; nothing is indexed or written.
  *
  * Private contacts' notes, calls and deleted copies are read only when [Access.privateShown]: the vault is unlocked,
@@ -36,6 +36,7 @@ class RecallSources(private val c: DataContainer) {
         val deleted: List<RecallCorpus.Gone> = emptyList(),
         val snapshots: List<RecallCorpus.Gone> = emptyList(),
         val messaged: List<RecallCorpus.Messaged> = emptyList(),
+        val cases: List<RecallCorpus.Case> = emptyList(),
     )
 
     val region: String get() = PhoneEnv.countryIso(c.appContext)
@@ -61,6 +62,7 @@ class RecallSources(private val c: DataContainer) {
             messaged = c.messaging.lastMessaged.value.values.mapNotNull { m ->
                 m.number?.takeIf { it.isNotBlank() }?.let { RecallCorpus.Messaged(it, m.label, m.at) }
             },
+            cases = safely { cases(access) }.orEmpty(),
         )
         withoutPrivate(stored, hidden)
     }
@@ -119,6 +121,19 @@ class RecallSources(private val c: DataContainer) {
         if (number == null || n.text.isBlank()) null else RecallCorpus.Note(RecallCorpus.Note.Kind.CALL, n.text, null, null, number, n.callDate, id = n.id)
     }
 
+    /**
+     * Case files kept (by name, numbers and the labels of their reference numbers, never the numbers themselves); none
+     * during a duress unlock, and a private contact's only while private contacts may show.
+     */
+    private suspend fun cases(access: Access): List<RecallCorpus.Case> {
+        if (Concealment.hides(Concealed.NOTES)) return emptyList()
+        val state = c.cases.load()
+        return state.cases.filter { it.kept && (access.privateShown || !it.private) }.map { k ->
+            val last = k.calls.maxOfOrNull { it.at } ?: k.created
+            RecallCorpus.Case(k.id, k.name, k.numbers, k.references.map { it.label }.filter { it.isNotBlank() }, last, k.private)
+        }
+    }
+
     private suspend fun deleted(access: Access): List<RecallCorpus.Gone> {
         val device = c.journal.deletedForMemory().map { d -> RecallCorpus.Gone(d.name, d.numbers, d.at, d.id.toString()) }
         if (!access.privateShown || Concealment.hides(Concealed.DELETED_PRIVATE_CONTACTS)) return device
@@ -154,6 +169,7 @@ class RecallSources(private val c: DataContainer) {
             deleted = stored.deleted.filter { it.private || it.numbers.none(hidden) },
             snapshots = stored.snapshots.filter { it.numbers.none(hidden) },
             messaged = stored.messaged.filterNot { hidden(it.number) },
+            cases = stored.cases.filter { it.private || it.numbers.none(hidden) },
         )
     }
 }

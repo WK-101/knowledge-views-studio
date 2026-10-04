@@ -89,6 +89,7 @@ object PersistentStores {
         const val FAMILY_SAFETY = "family_safety"
         const val CALL_SWITCHES = "call_switches"
         const val SITUATIONS = "situations"
+        const val CASE_FILES = "case_files"
 
         /** Generated caller ringtones: their audio files, as optional archive files (BackupArchiveWriter.writeFiles). */
         const val TUNES = "tunes"
@@ -138,6 +139,8 @@ object PersistentStores {
         PersistentStore("card_sharing", StoreKind.PREFS, backedUp, Sections.PEOPLE),
         // Contacts linked to their signed cards, by Parley key (sealed); private contacts' links travel with them.
         PersistentStore("card_links", StoreKind.PREFS, backedUp, Sections.PEOPLE),
+        // Case files: calls with hold times, menu keys and reference numbers per organisation (sealed; references twice).
+        PersistentStore("case_files", StoreKind.PREFS, backedUp, Sections.CASE_FILES),
         PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Sealed with this phone's call-history key; kept 60 days")),
         PersistentStore("parley_call_quality", StoreKind.PREFS, local("Call quality facts, sealed with this phone's call-history key; kept 60 days")),
         PersistentStore(

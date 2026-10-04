@@ -30,6 +30,8 @@ data class CallQualityFacts(
     val drop: DropKind? = null,
     /** The caller's subject (already cleaned by [CallSubject]). */
     val subject: String? = null,
+    /** Seconds spent in hold mode ("I'm on hold"), 0 when it wasn't used. */
+    val holdSec: Long = 0,
 )
 
 /** Compact JSON for [CallQualityFacts] lists; unknown fields are ignored so older rows keep reading. */

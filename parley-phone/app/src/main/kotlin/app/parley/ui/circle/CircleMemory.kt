@@ -170,11 +170,22 @@ fun hasPeek(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote 
 
 /**
  * The pre-call peek before dialling from a contact's page: a good time to call, the last note and the open
- * promises (tick them off right here), then Call. It can be turned off from the sheet or in Settings.
+ * promises (tick them off right here), an organisation's case file, then Call. It can be turned off from the sheet or in Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: PersonMemory, goodTime: String?, onCall: () -> Unit, onDismiss: () -> Unit) {
+@Suppress("LongParameterList")
+fun PreCallPeekSheet(
+    vm: AppViewModel,
+    lookupKey: String,
+    name: String,
+    memory: PersonMemory,
+    goodTime: String?,
+    onCall: () -> Unit,
+    onDismiss: () -> Unit,
+    /** More to see before calling (an organisation's case file), under the title. */
+    extra: @Composable () -> Unit = {},
+) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -186,6 +197,7 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
             )
+            extra()
             goodTime?.let {
                 ParleyListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })
             }

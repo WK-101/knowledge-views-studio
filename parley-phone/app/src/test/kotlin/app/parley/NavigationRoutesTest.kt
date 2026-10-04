@@ -297,7 +297,7 @@ class NavigationRoutesTest {
             Routes.Export(), Routes.Export("SEALED_VCARD"), Routes.CallTime, Routes.versions(3),
             ContactPageRoutes.timeline(4), ContactPageRoutes.Sections,
             HistoryRoutes.Insights(), HistoryRoutes.Insights(quality = true), HistoryRoutes.Settings, HistoryRoutes.Import,
-            HistoryRoutes.Sims(), HistoryRoutes.Sims(plans = true), HistoryRoutes.sim("sim/1"),
+            HistoryRoutes.Sims(), HistoryRoutes.Sims(plans = true), HistoryRoutes.sim("sim/1"), HistoryRoutes.Case("case-1"),
             BlockingRoutes.Lists, BlockingRoutes.Transfer, BlockingRoutes.DryRun, BlockingRoutes.Templates, BlockingRoutes.rule(5),
             PeopleRoutes.Labels, PeopleRoutes.label("Work"), PeopleRoutes.editRaw(6, 7), PeopleRoutes.SimImport, PeopleRoutes.WhoCanSee,
             PeopleRoutes.PrivateNames, PeopleRoutes.Diagnostics, PeopleRoutes.Me, PeopleRoutes.MeEdit,

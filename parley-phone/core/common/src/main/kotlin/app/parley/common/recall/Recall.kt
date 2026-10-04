@@ -25,6 +25,9 @@ enum class RecallSource {
     /** A note written after a call. */
     CALL_NOTE,
 
+    /** An organisation's case file (by its name, numbers and the labels of its reference numbers). */
+    CASE_FILE,
+
     /** A number a chat was opened with from Parley. */
     MESSAGED,
 
@@ -55,6 +58,7 @@ class RecallCorpus(
     val deleted: List<Gone> = emptyList(),
     val snapshots: List<Gone> = emptyList(),
     val messaged: List<Messaged> = emptyList(),
+    val cases: List<Case> = emptyList(),
     /** The phone's country, for numbers written nationally. */
     val region: String? = null,
 ) {
@@ -87,6 +91,12 @@ class RecallCorpus(
     )
 
     data class Messaged(val number: String, val label: String, val at: Long)
+
+    /**
+     * A case file: the organisation's [name] and [numbers], and the labels of its reference numbers ("Claim"), never
+     * their values. [at]: its last call (or when it was made).
+     */
+    data class Case(val id: String, val name: String, val numbers: List<String>, val labels: List<String>, val at: Long, val private: Boolean = false)
 }
 
 /**
@@ -184,6 +194,13 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
     }
     private val deletedDocs = corpus.deleted.map(::goneDoc)
     private val snapshotDocs = corpus.snapshots.map(::goneDoc)
+    private val caseDocs = corpus.cases.mapIndexed { i, k ->
+        ContactSearch.Builder(i.toLong(), corpus.region).apply {
+            name(k.name)
+            k.numbers.forEach { number(it) }
+            k.labels.forEach { note(it) }
+        }.build()
+    }
     private val messagedDocs = corpus.messaged.mapIndexed { i, m ->
         ContactSearch.Builder(i.toLong(), corpus.region).apply {
             number(m.number)
@@ -225,6 +242,12 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
         val q = query.search
         if (query.interpreted && !q.isEmpty) out[RecallSource.CONTACT] = contacts(q, limit)
         notes(query, out)
+        out[RecallSource.CASE_FILE] = corpus.cases.indices.mapNotNull { i ->
+            val k = corpus.cases[i]
+            if (!query.inDates(k.at, zone)) return@mapNotNull null
+            val field = ContactSearch.match(q, caseDocs[i]) ?: return@mapNotNull null
+            RecallHit(RecallSource.CASE_FILE, k.name, at = k.at, number = k.numbers.firstOrNull(), ref = k.id, private = k.private, score = scoreOf(q, field))
+        }
         out[RecallSource.MESSAGED] = corpus.messaged.indices.mapNotNull { i ->
             val m = corpus.messaged[i]
             if (!query.inDates(m.at, zone)) return@mapNotNull null

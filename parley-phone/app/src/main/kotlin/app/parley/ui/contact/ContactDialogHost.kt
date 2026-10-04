@@ -44,6 +44,7 @@ import app.parley.ui.Routes
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.ui.circle.LogInteractionDialog
 import app.parley.ui.circle.PreCallPeekSheet
+import app.parley.ui.cases.CaseCard
 import app.parley.ui.circle.PromiseNoteField
 import app.parley.ui.circle.RhythmDialog
 import app.parley.ui.common.Format
@@ -79,6 +80,8 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
             ctx.vm, d.lookupKey, d.given.ifBlank { d.displayName }, ctx.ui.memory, ctx.goodTime,
             onCall = { close(); ctx.vm.requestCall(dialog.number, d.displayName) },
             onDismiss = close,
+            // The case card opens the case file; Call stays right below, so nothing stands in the call's way.
+            extra = { if (ctx.case.shown) CaseCard(ctx.vm, ctx.caseOwner, { r -> close(); ctx.open(r) }) },
         )
         ContactDialog.RemindToCall -> d.phones.primary()?.let { p ->
             // Several numbers: the sheet asks which one, the default chosen first.

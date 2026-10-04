@@ -85,6 +85,9 @@ import app.parley.ui.home.richCalls
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.cases.CaseCard
+import app.parley.ui.cases.CaseOwner
+import app.parley.ui.Spacing
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -227,6 +230,12 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             }
             item {
                 CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title))
+            }
+            // Case files: an organisation's calls, hold times and reference numbers, before you call.
+            item(key = "case") {
+                val numbers = (listOf(number) + contact?.phones?.map { it.number }.orEmpty()).distinct()
+                val owner = CaseOwner(title, numbers, privateNumber != false, contact?.lookupKey)
+                CaseCard(vm, owner, open, Modifier.padding(vertical = Spacing.s))
             }
             item { ReputationHistoryLine(vm, number, isContact = contact != null) }
             item { ScreeningHistorySection(vm, number, contact?.displayName) }

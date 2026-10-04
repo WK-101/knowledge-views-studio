@@ -44,6 +44,8 @@ import app.parley.calls.NeverCallsYouFacts
 import app.parley.telecom.TelecomDependencies
 import app.parley.telecom.MenuMemoryHooks
 import app.parley.calls.MenuMemoryBridge
+import app.parley.calls.CaseFileBridge
+import app.parley.telecom.CaseFileHooks
 import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
@@ -93,7 +95,9 @@ import kotlinx.coroutines.withContext
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) :
     TelecomDependencies,
     // I6: menu memory lives in its own bridge.
-    MenuMemoryHooks by MenuMemoryBridge(app, c) {
+    MenuMemoryHooks by MenuMemoryBridge(app, c),
+    // Case files too.
+    CaseFileHooks by CaseFileBridge(app, c) {
     private companion object {
         /** After the last call ends, this long before the full app loads. */
         const val CALL_SETTLE_MS = 10_000L

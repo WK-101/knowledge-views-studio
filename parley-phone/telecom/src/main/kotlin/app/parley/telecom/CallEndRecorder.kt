@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.content.Context
+import android.os.SystemClock
 import android.provider.Settings
 import android.telecom.Call
 import android.telecom.DisconnectCause
@@ -42,6 +43,7 @@ internal class CallEndRecorder(
     fun quality(ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?) {
         if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return
         val talked = if (ended.connectTimeMillis > 0) ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0) else 0
+        val holding = if (s.holdModeSince > 0) (SystemClock.elapsedRealtime() - s.holdModeSince).coerceAtLeast(0) else 0
         val facts = CallQualityFacts(
             startedAt = s.startedAt,
             incoming = ended.incoming,
@@ -54,8 +56,13 @@ internal class CallEndRecorder(
             cause = CallQualityCodec.causeName(cause?.reason)?.takeIf { drop != null },
             drop = drop,
             subject = s.subject,
+            holdSec = (s.holdModeTotalMs + holding) / 1000,
         )
         runCatching { deps().onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
+        // A case file keeps the call with its hold time and, for a call you placed, the menu keys (minus anything secret).
+        val number = ended.number?.takeIf { !ended.hidden && it.isNotBlank() } ?: return
+        val keys = if (ended.incoming) emptyList() else s.menuPresses.toList()
+        runCatching { deps().onCaseCall(number, ended.accountId, facts, keys) }
     }
 
     /**

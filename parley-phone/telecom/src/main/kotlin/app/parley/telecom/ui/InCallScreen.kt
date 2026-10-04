@@ -757,6 +757,8 @@ private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
             overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.widthIn(max = CallButtonSize.panelMaxWidth).padding(horizontal = Spacing.l).height(44.dp),
         )
+        // Case files: the digits just typed can be kept as a reference for the organisation.
+        CaseReferenceRow(call, typed)
         Spacer(Modifier.height(Spacing.s))
         // The keypad reads 1 2 3 left to right in every language.
         ForceLtr {

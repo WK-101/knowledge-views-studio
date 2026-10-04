@@ -17,25 +17,30 @@ class MenusTest {
 
     /** Every combination of facts: the top of each menu stays at seven items or fewer, whatever applies. */
     @Test fun the_contact_page_menu_has_at_most_seven_items() {
-        combos(10).forEach { b ->
-            val f = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9])
+        combos(12).forEach { b ->
+            val f = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])
             val top = ContactMenu.build(f)
             assertTrue("$f: ${top.size} items", top.size <= MENU_LIMIT)
             // Nothing is lost in the regrouping: every action that applies is somewhere.
             val all = actions(top)
             assertTrue(ContactMenu.Action.DELETE in all)
             assertEquals(f.hasNumbers, ContactMenu.Action.REMIND_TO_CALL in all)
-            assertEquals(f.hasNumbers && !f.blocked, ContactMenu.Action.BLOCK_NUMBERS in all)
-            assertEquals(f.hasNumbers && f.blocked, ContactMenu.Action.UNBLOCK_NUMBERS in all)
+            assertEquals(f.hasNumbers && !f.onlyEmergency && !f.blocked, ContactMenu.Action.BLOCK_NUMBERS in all)
+            assertEquals(f.hasNumbers && !f.onlyEmergency && f.blocked, ContactMenu.Action.UNBLOCK_NUMBERS in all)
             assertEquals(f.linked, ContactMenu.Action.SEPARATE in all)
             assertEquals(f.canSeeVersions, ContactMenu.Action.VERSION_HISTORY in all)
+            assertEquals(f.hasNumbers && !f.caseShown, ContactMenu.Action.CASE_FILE in all)
+            // Every sheet a group opens keeps to seven too.
+            top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().forEach { g -> assertTrue("$f: ${g.group}", g.actions.size <= MENU_LIMIT) }
             assertEquals(all.size, all.toSet().size)
         }
     }
 
     /** Every action of every menu is reachable with some facts: none was lost when the menus were regrouped. */
     @Test fun no_action_is_lost() {
-        val contact = combos(10).flatMap { b -> actions(ContactMenu.build(ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9]))) }
+        val contact = combos(12).flatMap { b ->
+            actions(ContactMenu.build(ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])))
+        }
         assertEquals(ContactMenu.Action.entries.toSet(), contact.toSet())
         val selection = combos(3).flatMap { b -> actions(SelectionMenu.build(SelectionMenu.Facts(b[0], b[1], b[2]))) }
         assertEquals(SelectionMenu.Action.entries.toSet(), selection.toSet())
@@ -53,9 +58,12 @@ class MenusTest {
         assertEquals(MenuEntry.Action(ContactMenu.Action.BLOCK_NUMBERS), top[2])
         assertEquals(MenuEntry.Action(ContactMenu.Action.DELETE), top.last())
         assertEquals(listOf(MenuGroup.SHARE, MenuGroup.PRIVACY, MenuGroup.MORE), top.filterIsInstance<MenuEntry.Group<*>>().map { it.group })
-        // 15 actions (with Remind me to call) in 6 entries; Version history is under More….
-        assertEquals(6, top.size)
-        assertEquals(15, actions(top).size)
+        // 16 actions (with Remind me to call and Keep a case file) in 7 entries; Version history is under More….
+        assertEquals(7, top.size)
+        assertEquals(16, actions(top).size)
+        assertEquals(MenuEntry.Action(ContactMenu.Action.CASE_FILE), top[4])
+        // With a case file on the page, its card opens it: 15 actions in 6 entries.
+        assertEquals(6, ContactMenu.build(ContactMenu.Facts(linked = true, caseShown = true)).size)
         val more = top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.MORE }
         assertTrue(ContactMenu.Action.VERSION_HISTORY in more.actions)
         // A blocked number: Unblock in Block's place.
