@@ -17,6 +17,7 @@ import app.parley.data.testing.FakeContactsProvider
 import app.parley.data.vault.VaultCrypto
 import app.parley.ui.contact.ContactConversions
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -173,5 +174,61 @@ class BulkContactActionsTest {
         bulk.setExpiry(ids, 7)
         assertEquals(true, c.vault.summary(ada)!!.purgeHistory)
         assertEquals(true, c.temporaries.forKey(c.contacts.lookupKeyOf(bob)!!)!!.purgeHistory)
+    }
+
+    @Test fun leaving_a_label_and_its_undo_work_on_both_kinds() = runBlocking {
+        val bob = bob()
+        val ada = ContactRef.Private(ada()).navId
+        val groupId = c.contacts.createGroup("Team", AccountRef(null, null))!!
+        val team = c.contacts.groups().first { it.id == groupId }
+        // Joining says who is new, so Undo takes out only them.
+        bulk.addToLabel(listOf(bob), team)
+        val (_, joined) = bulk.joinLabel(listOf(bob, ada), team)
+        assertEquals(listOf(ada), joined)
+        bulk.unjoinLabel(joined, "Team")
+        assertEquals(setOf(bob), c.people.labels.members("Team"))
+
+        bulk.addToLabel(listOf(ada), team)
+        val left = bulk.leaveLabel(listOf(bob, ada), "Team")
+        assertEquals(setOf(bob, ada), left.toSet())
+        assertTrue(c.people.labels.members("Team").isEmpty())
+        // The device contact's version before the change is in History & undo.
+        assertTrue(c.journal.recent().first().any { it.action == "EDIT" && it.displayName == "Bob" })
+        bulk.rejoinLabel(left, "Team")
+        assertEquals(setOf(bob, ada), c.people.labels.members("Team"))
+    }
+
+    @Test fun a_ringtone_and_a_sim_for_all_of_them_with_undo() = runBlocking {
+        val bob = bob()
+        val adaId = ada()
+        val ada = ContactRef.Private(adaId).navId
+        c.contacts.setRingtone(bob, "content://tones/old")
+
+        val before = bulk.setRingtone(listOf(bob, ada), "content://tones/new")
+        assertEquals(mapOf(bob to "content://tones/old", ada to null), before)
+        assertEquals("content://tones/new", c.contacts.ringtonesOf(listOf(bob))[bob])
+        assertEquals("content://tones/new", c.vault.summary(adaId)!!.ringtone)
+        // Nothing left to change the second time.
+        assertTrue(bulk.setRingtone(listOf(bob, ada), "content://tones/new").isEmpty())
+        bulk.restoreRingtones(before)
+        assertEquals("content://tones/old", c.contacts.ringtonesOf(listOf(bob))[bob])
+        assertNull(c.vault.summary(adaId)!!.ringtone)
+
+        val numbers = listOf("+1 202 555 0100", "+44 20 7946 0000")
+        c.prefs.setSimFor(numbers[1], "sim2")
+        val sims = bulk.setSim(numbers, "sim2")
+        assertEquals(mapOf<String, String?>(numbers[0] to null), sims)
+        assertEquals("sim2", c.prefs.simFor(numbers[0]))
+        bulk.restoreSims(sims)
+        assertNull(c.prefs.simFor(numbers[0]))
+        assertEquals("sim2", c.prefs.simFor(numbers[1]))
+    }
+
+    @Test fun a_move_leaves_private_contacts_and_contacts_already_there_alone() = runBlocking {
+        val bob = bob()
+        val ada = ContactRef.Private(ada()).navId
+        val r = bulk.moveToAccount(listOf(bob, ada), AccountRef(null, null), mapOf(bob to "Bob"))
+        assertEquals(BulkContactActions.MovedAccount(moved = 0, unchanged = 1, failed = emptyList(), skippedPrivate = 1), r)
+        assertTrue(c.contacts.snapshot().any { it.id == bob })
     }
 }

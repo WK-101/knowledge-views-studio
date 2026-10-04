@@ -710,6 +710,7 @@
     <string name="jr_edited">Edited (version before the change)</string>
     <string name="jr_merged">Merged (version before merging)</string>
     <string name="jr_separated">Separated</string>
+    <string name="jr_moved">Moved to another account (version before the move)</string>
     <string name="jr_title">History &amp; undo</string>
     <string name="jr_tab_contacts">Contacts</string>
     <string name="jr_tab_calls">Calls</string>

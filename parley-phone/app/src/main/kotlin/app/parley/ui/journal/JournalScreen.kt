@@ -54,6 +54,7 @@ import kotlinx.coroutines.withContext
     "EDIT" -> R.string.jr_edited
     "MERGE" -> R.string.jr_merged
     "SEPARATE" -> R.string.jr_separated
+    "MOVE" -> R.string.jr_moved
     else -> null
 }
 

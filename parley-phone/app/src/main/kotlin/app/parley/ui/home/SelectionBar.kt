@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import app.parley.ui.circle.CircleSnack
+import app.parley.ui.circle.CircleSnacks
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Timer
@@ -91,6 +93,7 @@ fun SelectionBar(vm: AppViewModel) {
     var confirmVisible by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
+    var editSheet by remember { mutableStateOf(false) }
     val res = LocalResources.current
     // "Back up first?" before merging or deleting many contacts.
     val backupFirst = rememberBackupFirst(vm)
@@ -155,13 +158,10 @@ fun SelectionBar(vm: AppViewModel) {
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_add_to_label)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null) }, onClick = {
+                    // Labels, ringtone, SIM and account for all of them at once (BulkEditSheet).
+                    DropdownMenuItem({ Text(stringResource(R.string.be_menu)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = {
                         menu = false
-                        // Private contacts join a label as Parley's own membership (one per label title), device ones by account.
-                        scope.launch {
-                            val groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
-                            labelPicker = if (hasDevice) groups else groups.distinctBy { it.title.trim() }
-                        }
+                        editSheet = true
                     })
                     DropdownMenuItem({ Text(stringResource(R.string.sel_message_all)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
                         menu = false
@@ -225,6 +225,15 @@ fun SelectionBar(vm: AppViewModel) {
         }
     }
 
+    if (editSheet) {
+        BulkEditSheet(vm, chosen, onAddToLabel = {
+            // Private contacts join a label as Parley's own membership (one per label title), device ones by account.
+            scope.launch {
+                val groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
+                labelPicker = if (hasDevice) groups else groups.distinctBy { it.title.trim() }
+            }
+        }) { editSheet = false }
+    }
     if (confirmPrivate) {
         // The private ones already are: only the device contacts move.
         val moving = BulkActions.targets(BulkAction.MAKE_PRIVATE, ids).ids
@@ -295,14 +304,14 @@ fun SelectionBar(vm: AppViewModel) {
                                     // Private contacts are never shared: a shared label refuses them, and says why.
                                     vm.c.sharedLabels.load()
                                     val refused = vm.c.sharedLabels.refusedPrivate(g.title, ids)
-                                    val skipped = bulk.addToLabel(ids - refused, g)
-                                    vm.toast(
-                                        when {
-                                            refused.isNotEmpty() -> res.getQuantityString(R.plurals.shl_private_refused, refused.size, refused.size)
-                                            skipped == 0 -> res.getString(R.string.sel_added_to, g.title)
-                                            else -> res.getQuantityString(R.plurals.sel_added_skipped, skipped, skipped)
-                                        },
-                                    )
+                                    val (skipped, joined) = bulk.joinLabel(ids - refused.toSet(), g)
+                                    val text = when {
+                                        refused.isNotEmpty() -> res.getQuantityString(R.plurals.shl_private_refused, refused.size, refused.size)
+                                        skipped == 0 -> res.getString(R.string.sel_added_to, g.title)
+                                        else -> res.getQuantityString(R.plurals.sel_added_skipped, skipped, skipped)
+                                    }
+                                    // Undo takes out only the ones this added.
+                                    CircleSnacks.show(CircleSnack(text, joined.takeIf { it.isNotEmpty() }?.let { j -> { bulk.unjoinLabel(j, g.title) } }))
                                 }
                             },
                         )
