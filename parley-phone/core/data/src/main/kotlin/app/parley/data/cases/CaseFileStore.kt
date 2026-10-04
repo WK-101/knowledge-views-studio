@@ -1,5 +1,6 @@
 package app.parley.data.cases
 
+import app.parley.common.catching
 import android.content.Context
 import app.parley.common.cases.CaseFiles
 import app.parley.common.cases.CaseReference
@@ -137,7 +138,7 @@ class CaseFileStore internal constructor(
     }
 
     /** A reference number's value, opened; null when it can't be opened right now. */
-    suspend fun openReference(ref: CaseReference): String? = withContext(Dispatchers.IO) { runCatching { open(ref.value) }.getOrNull() }
+    suspend fun openReference(ref: CaseReference): String? = withContext(Dispatchers.IO) { catching { open(ref.value) }.getOrNull() }
 
     override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock { if (!loadLocked()) true else flushLocked() }
@@ -156,8 +157,8 @@ class CaseFileStore internal constructor(
             val s = load()
             check(available) { "Case files can't be read right now" }
             if (s.cases.isEmpty()) return emptyMap()
-            val leaveOut = s.cases.filter { c -> c.private || c.numbers.any { runCatching { isPrivate(it) }.getOrDefault(true) } }.map { it.id }.toSet()
-            val out = CaseFiles.forBackup(s, { it.id in leaveOut }) { v -> runCatching { open(v) }.getOrNull() }
+            val leaveOut = s.cases.filter { c -> c.private || c.numbers.any { catching { isPrivate(it) }.getOrDefault(true) } }.map { it.id }.toSet()
+            val out = CaseFiles.forBackup(s, { it.id in leaveOut }) { v -> catching { open(v) }.getOrNull() }
             return mapOf(X_STATE to CaseFiles.encode(out))
         }
 

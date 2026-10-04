@@ -98,6 +98,6 @@ class CaseReportTest {
             if (r.last + 1 < lines.size) assertFalse(lines[r.last].style == Style.DETAIL && lines[r.last + 1].style == Style.BODY)
         }
         assertEquals(lines.indices.toList(), pages.flatMap { it.toList() })
-        assertEquals(listOf(0 until 0), CaseReport.paginate(emptyList(), emptyList(), 100f))
+        assertTrue(CaseReport.paginate(emptyList(), emptyList(), 100f).single().isEmpty())
     }
 }

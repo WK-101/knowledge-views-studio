@@ -54,13 +54,7 @@ object CaseReport {
         add(Line(Style.TITLE, w.title(name)))
         add(Line(Style.SUBTITLE, w.madeOn(w.date(now))))
         if (numbers.isNotEmpty()) add(Line(Style.SUBTITLE, w.numbers(numbers)))
-        val s = timeline.summary
-        add(Line(Style.HEADING, w.summary))
-        val first = s.firstCallAt
-        val last = s.lastCallAt
-        add(Line(Style.BODY, if (s.calls > 0 && first != null && last != null) w.calls(s.calls, w.date(first), w.date(last)) else w.noCalls))
-        if (s.heldCalls > 0) add(Line(Style.BODY, w.hold(s.totalHoldSec, s.averageHoldSec, s.longestHoldSec, s.heldCalls)))
-        if (s.menu.isNotEmpty()) add(Line(Style.BODY, w.menu(s.menu)))
+        addAll(summary(timeline.summary, w))
         if (referenceCount > 0) {
             add(Line(Style.HEADING, w.references))
             if (references == null) {
@@ -73,22 +67,29 @@ object CaseReport {
             add(Line(Style.HEADING, w.promises))
             timeline.promises.forEach { add(Line(Style.BODY, w.promise(it.text))) }
         }
-        if (timeline.entries.isNotEmpty()) {
-            add(Line(Style.HEADING, w.timeline))
-            // Oldest first, as a complaint reads; at the same moment the call stays before its note (a stable sort).
-            timeline.entries.sortedBy { it.at }.forEach { e ->
-                add(Line(Style.DETAIL, w.date(e.at)))
-                add(
-                    Line(
-                        Style.BODY,
-                        when (e) {
-                            is CaseEntry.Call -> w.call(e)
-                            is CaseEntry.Note -> w.note(e.text)
-                            is CaseEntry.Reference -> w.referenceAdded(e.label)
-                        },
-                    ),
-                )
+        addAll(entries(timeline.entries, w))
+    }
+
+    private fun summary(s: CaseSummary, w: Words): List<Line> = buildList {
+        add(Line(Style.HEADING, w.summary))
+        val first = s.firstCallAt
+        val last = s.lastCallAt
+        add(Line(Style.BODY, if (s.calls > 0 && first != null && last != null) w.calls(s.calls, w.date(first), w.date(last)) else w.noCalls))
+        if (s.heldCalls > 0) add(Line(Style.BODY, w.hold(s.totalHoldSec, s.averageHoldSec, s.longestHoldSec, s.heldCalls)))
+        if (s.menu.isNotEmpty()) add(Line(Style.BODY, w.menu(s.menu)))
+    }
+
+    /** Every call and note, oldest first as a complaint reads; at the same moment the call stays before its note (a stable sort). */
+    private fun entries(entries: List<CaseEntry>, w: Words): List<Line> = if (entries.isEmpty()) {
+        emptyList()
+    } else {
+        listOf(Line(Style.HEADING, w.timeline)) + entries.sortedBy { it.at }.flatMap { e ->
+            val text = when (e) {
+                is CaseEntry.Call -> w.call(e)
+                is CaseEntry.Note -> w.note(e.text)
+                is CaseEntry.Reference -> w.referenceAdded(e.label)
             }
+            listOf(Line(Style.DETAIL, w.date(e.at)), Line(Style.BODY, text))
         }
     }
 

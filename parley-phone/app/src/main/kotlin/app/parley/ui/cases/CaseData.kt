@@ -1,5 +1,6 @@
 package app.parley.ui.cases
 
+import app.parley.common.catching
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,10 +47,10 @@ object CaseData {
             val lines = PhoneIdentity.LineSet(all, iso)
             val history = calls.filter { it.number in lines }
             val keys = all.flatMap { PhoneIdentity.lookupKeys(it, iso) }.distinct()
-            val callNotes = if (keys.isEmpty()) emptyList() else runCatching { c.meta.callNotesNow(keys) }.getOrDefault(emptyList())
+            val callNotes = if (keys.isEmpty()) emptyList() else catching { c.meta.callNotesNow(keys) }.getOrDefault(emptyList())
             // The contact's own notes (pinned, logged chats and visits) hold promises too; call notes are read above.
             val own = ownerKey?.takeIf { it.isNotEmpty() }?.let { k ->
-                runCatching { c.circle.notesFor(k, emptyList()) }.getOrDefault(emptyList()).filter { it.source != CircleRepository.NoteSource.CALL }
+                catching { c.circle.notesFor(k, emptyList()) }.getOrDefault(emptyList()).filter { it.source != CircleRepository.NoteSource.CALL }
             }.orEmpty()
             val promises = (callNotes.map { it.text } + own.map { it.text }).flatMap { Promises.parse(it) }.distinctBy { it.text to it.done }
             CaseTimelines.assemble(case, history, callNotes.map { CaseNote(it.callDate, it.text) }, promises)
@@ -64,7 +65,7 @@ object CaseData {
             ?: if (vm.c.settings.current().hideVault) {
                 null
             } else {
-                numbers.firstNotNullOfOrNull { n -> runCatching { vm.c.vault.lookup(n, vm.countryIso) }.getOrNull()?.first }?.let(ContactRef::privateKey)
+                numbers.firstNotNullOfOrNull { n -> catching { vm.c.vault.lookup(n, vm.countryIso) }.getOrNull()?.first }?.let(ContactRef::privateKey)
             }
     }
 
@@ -81,14 +82,14 @@ object CaseData {
 @Composable
 fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
     val store = vm.c.cases
-    LaunchedEffect(Unit) { runCatching { store.load() } }
+    LaunchedEffect(Unit) { catching { store.load() } }
     val state by store.shown.collectAsStateWithLifecycle(CaseState())
     val case = remember(state, owner.numbers) { CaseFiles.find(state, owner.numbers, vm.countryIso) }
     // A saved organisation shows its case file before anything was kept: its calls are already there.
     val organisation by produceState(false, owner.numbers, case == null) {
         value = case == null && owner.numbers.isNotEmpty() && !Concealment.hides(Concealed.NOTES) &&
             withContext(Dispatchers.IO) {
-                owner.numbers.any { n -> runCatching { NeverCallsYouFacts.organisation(vm.c, n, vm.countryIso) }.getOrNull() != null }
+                owner.numbers.any { n -> catching { NeverCallsYouFacts.organisation(vm.c, n, vm.countryIso) }.getOrNull() != null }
             }
     }
     return CaseShown(case, case?.kept == true || (case == null && organisation))
@@ -99,7 +100,7 @@ fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
 fun rememberCaseTimeline(vm: AppViewModel, case: CaseFile?, owner: CaseOwner): CaseTimeline? {
     val calls by (if (owner.private || case?.private == true) vm.c.history.callsWithPrivate else vm.c.history.calls).collectAsStateWithLifecycle()
     val timeline by produceState<CaseTimeline?>(null, case, owner, calls?.size) {
-        value = runCatching { CaseData.timeline(vm.c, case, owner.numbers, owner.ownerKey, calls.orEmpty(), vm.countryIso) }.getOrNull()
+        value = catching { CaseData.timeline(vm.c, case, owner.numbers, owner.ownerKey, calls.orEmpty(), vm.countryIso) }.getOrNull()
     }
     return timeline
 }

@@ -1,5 +1,6 @@
 package app.parley.ui.cases
 
+import app.parley.common.catching
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,45 +74,21 @@ import kotlinx.coroutines.launch
  * One organisation's case file: the summary, the reference numbers (hidden until shown, one at a time), the open
  * promises and every call and note, newest first. Export as PDF (for a complaint) and Stop keeping are in the top bar.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val store = vm.c.cases
-    LaunchedEffect(Unit) { runCatching { store.load() } }
+    LaunchedEffect(Unit) { catching { store.load() } }
     val state by store.shown.collectAsStateWithLifecycle(CaseState())
     val case = CaseFiles.byId(state, id)?.takeIf { it.kept }
     val ownerKey by produceState<String?>(null, case?.numbers) { value = case?.let { CaseData.ownerKey(vm, it.numbers) } }
     val owner = case?.let { CaseOwner(it.name, it.numbers, it.private, ownerKey) }
     val timeline = owner?.let { rememberCaseTimeline(vm, case, it) }
-    var menu by remember { mutableStateOf(false) }
-    var stopping by remember { mutableStateOf(false) }
-    var adding by remember { mutableStateOf(false) }
-    var exporting by remember { mutableStateOf(false) }
-    val res = LocalResources.current
+    val st = remember { CaseScreenState() }
     ParleyScaffold(
         snackbarHost = { ScreenSnackbarHost() },
-        topBar = {
-            ParleyTopBar(
-                case?.let { stringResource(R.string.case_title_who, it.name) } ?: stringResource(R.string.case_title),
-                onBack = back,
-                actions = {
-                    if (case != null) {
-                        IconButton({ exporting = true }, enabled = timeline != null) { Icon(Icons.Rounded.PictureAsPdf, stringResource(R.string.case_export)) }
-                        Box {
-                            IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
-                            DropdownMenu(menu, { menu = false }) {
-                                DropdownMenuItem(
-                                    { Text(stringResource(R.string.case_stop)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                                    onClick = { menu = false; stopping = true },
-                                )
-                            }
-                        }
-                    }
-                },
-            )
-        },
+        topBar = { CaseTopBar(case, exportable = timeline != null, st, back) },
     ) { p ->
-        if (case == null || owner == null) {
+        if (case == null) {
             Text(stringResource(R.string.case_gone), Modifier.padding(p).padding(Spacing.xl))
             return@ParleyScaffold
         }
@@ -123,24 +100,62 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
                 )
             }
             if (timeline != null) summary(timeline)
-            references(vm, case) { adding = true }
+            references(vm, case) { st.adding = true }
             if (timeline != null) timeline(timeline)
         }
     }
-    if (case != null && adding) AddReferenceDialog(vm, case) { adding = false }
-    if (case != null && stopping) {
+    if (case != null) CaseDialogs(vm, case, timeline, st, back)
+}
+
+/** Which of the screen's menus, dialogs and sheets is open. */
+private class CaseScreenState {
+    var menu by mutableStateOf(false)
+    var stopping by mutableStateOf(false)
+    var adding by mutableStateOf(false)
+    var exporting by mutableStateOf(false)
+}
+
+/** The title, Export as PDF and ⋮ with Stop keeping this case file. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState, back: () -> Unit) {
+    ParleyTopBar(
+        case?.let { stringResource(R.string.case_title_who, it.name) } ?: stringResource(R.string.case_title),
+        onBack = back,
+        actions = {
+            if (case != null) {
+                IconButton({ st.exporting = true }, enabled = exportable) { Icon(Icons.Rounded.PictureAsPdf, stringResource(R.string.case_export)) }
+                Box {
+                    IconButton({ st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
+                    DropdownMenu(st.menu, { st.menu = false }) {
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.case_stop)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                            onClick = { st.menu = false; st.stopping = true },
+                        )
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun CaseDialogs(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline?, st: CaseScreenState, back: () -> Unit) {
+    val res = LocalResources.current
+    if (st.adding) AddReferenceDialog(vm, case) { st.adding = false }
+    if (st.stopping) {
         ConfirmDialog(
             title = stringResource(R.string.case_stop_title), text = stringResource(R.string.case_stop_body),
             confirmLabel = stringResource(R.string.case_stop_confirm), destructive = true,
             onConfirm = {
-                stopping = false
-                vm.viewModelScope.launch { if (store.update { CaseFiles.stop(it, case.id) } != null) vm.toast(res.getString(R.string.case_stopped)) }
+                st.stopping = false
+                vm.viewModelScope.launch { if (vm.c.cases.update { CaseFiles.stop(it, case.id) } != null) vm.toast(res.getString(R.string.case_stopped)) }
                 back()
             },
-            onDismiss = { stopping = false },
+            onDismiss = { st.stopping = false },
         )
     }
-    if (case != null && timeline != null && exporting) CaseExportSheet(vm, case, timeline) { exporting = false }
+    if (timeline != null && st.exporting) CaseExportSheet(vm, case, timeline) { st.exporting = false }
 }
 
 private fun LazyListScope.summary(t: CaseTimeline) {

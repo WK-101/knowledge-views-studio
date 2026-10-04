@@ -1,5 +1,6 @@
 package app.parley.telecom.ui
 
+import app.parley.common.catching
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -59,7 +60,7 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
     LaunchedEffect(call.id, applies) {
         if (!applies) return@LaunchedEffect
         val number = call.number.orEmpty()
-        hasCase = runCatching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.hasCaseFile(number, call.accountId) } }.getOrDefault(false)
+        hasCase = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.hasCaseFile(number, call.accountId) } }.getOrDefault(false)
     }
     val locked = rememberKeyguardLocked()
     val suggestion = remember(typed) { CaseFiles.typedReference(typed) }
@@ -94,7 +95,7 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
                 val number = call.number.orEmpty()
                 val chosen = value
                 caseScope.launch {
-                    result = runCatching { TelecomGraph.dependencies.keepCaseReference(number, call.accountId, chosen) }.getOrDefault(false)
+                    result = catching { TelecomGraph.dependencies.keepCaseReference(number, call.accountId, chosen) }.getOrDefault(false)
                 }
             },
             onDismiss = { asking = false },

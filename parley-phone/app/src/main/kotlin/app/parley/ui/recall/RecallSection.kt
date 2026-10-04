@@ -241,6 +241,7 @@ private fun Leading(hit: RecallHit) {
 
 /** The row's second line, with the matched words in bold where it quotes the found text. */
 @Composable
+@Suppress("CyclomaticComplexMethod") // One line per group.
 private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): AnnotatedString? {
     val sep = stringResource(R.string.main_separator)
     val res = context.resources

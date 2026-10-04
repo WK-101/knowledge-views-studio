@@ -3,7 +3,6 @@ package app.parley.ui.cases
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -12,7 +11,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
@@ -41,6 +39,7 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import app.parley.ui.common.Format
 import app.parley.ui.history.ExportFiles
 
@@ -91,13 +90,9 @@ fun CaseExportSheet(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline, on
         )
         if (busy) LinearProgressIndicator(Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s))
         if (case.references.isNotEmpty()) {
-            ParleyListItem(
-                leadingContent = { Icon(Icons.Rounded.Bookmark, null) },
-                headlineContent = { Text(stringResource(R.string.case_export_include)) },
-                supportingContent = { Text(stringResource(R.string.case_export_include_summary)) },
-                trailingContent = { Switch(checked = include, onCheckedChange = null) },
-                modifier = Modifier.toggleable(include, role = Role.Switch) { on -> if (on) asking = true else include = false },
-            )
+            SwitchRow(
+                stringResource(R.string.case_export_include), stringResource(R.string.case_export_include_summary), include, Icons.Rounded.Bookmark,
+            ) { on -> if (on) asking = true else include = false }
         }
         @Composable
         fun row(label: String, sub: String, icon: ImageVector, onClick: () -> Unit) {
