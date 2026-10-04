@@ -159,7 +159,7 @@ class NumberMemoryStore(private val c: DataContainer) {
     }
 
     /** A number to hash for a call note's stored line key ([PhoneIdentity.key], or the last digits it had before). */
-    private fun numberOf(key: String): String? = when {
+    internal fun numberOf(key: String): String? = when {
         key.startsWith("+") -> key
         key.startsWith("~") -> key.drop(2).takeIf { it.isNotEmpty() }
         PhoneIdentity.isLegacyKey(key) -> key
@@ -167,7 +167,7 @@ class NumberMemoryStore(private val c: DataContainer) {
     }
 
     /** Parley key → name: device contacts by lookup key, private contacts by their key (names only, from caller ID). */
-    private suspend fun ownerNames(): Map<String, String> {
+    internal suspend fun ownerNames(): Map<String, String> {
         val out = HashMap<String, String>()
         (c.contacts.contacts.value ?: c.contacts.loadNow()).forEach { out[it.lookupKey] = it.displayName }
         runCatching { c.vault.summariesNow() }.getOrNull()?.forEach { out[ContactRef.privateKey(it.id)] = it.name }

@@ -123,7 +123,7 @@ class PeopleUi(
      * query. A contact without a doc (a private one whose details are closed, or before the index loaded) gets one
      * from what the list shows.
      */
-    private val prepared: StateFlow<List<ContactListSearch.Entry>?> = combine(
+    val prepared: StateFlow<List<ContactListSearch.Entry>?> = combine(
         contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, docs,
     ) { list, d ->
         list?.map { ct ->

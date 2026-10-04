@@ -510,6 +510,27 @@ class CallHistory(
         return false
     }
 
+    /**
+     * Recall: the archived calls from [from] until (not including) [until], newest first, decrypted a page at a time
+     * through the date index, so a month asked about costs that month's rows, never the whole archive. [visit] returns
+     * false to stop (enough found). Nothing when the copy is off or its key can't be used now.
+     */
+    suspend fun archivedBetween(from: Long, until: Long, visit: (CallEntry) -> Boolean) = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled || until <= from) return@withContext
+        guardKey {
+            var page = dao.pageBefore(until - 1, Long.MAX_VALUE, SCAN_PAGE)
+            while (page.isNotEmpty()) {
+                for (r in page) {
+                    if (r.date < from) return@guardKey
+                    val rec = openRow(r) ?: continue
+                    if (!visit(ArchivedCall(r.id, rec).toEntry())) return@guardKey
+                }
+                val last = page.last()
+                page = if (page.size < SCAN_PAGE) emptyList() else dao.pageBefore(last.date, last.id, SCAN_PAGE)
+            }
+        }
+    }
+
     /** Every number in the archive (all of it, not only the window), e.g. for a one-off key migration. */
     suspend fun archivedNumbers(): List<String> = withContext(Dispatchers.IO) {
         val out = HashSet<String>()

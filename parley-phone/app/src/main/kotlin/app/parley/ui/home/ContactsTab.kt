@@ -31,6 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import app.parley.common.recall.RecallSource
+import app.parley.ui.recall.recallSection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -107,6 +110,12 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val (quick, quickHost) = rememberQuickMessenger(vm)
     // The work profile's matches, read-only, under the search results (not while filtering the list).
     val work = rememberWorkResults(if (filter.isEmpty && !privateOnly) query else "")
+    // Recall: everything Parley remembers, with the "Search everything" chip or when the contacts give nothing.
+    val recallActive by vm.recall.active.collectAsStateWithLifecycle()
+    val recallState by vm.recall.state.collectAsStateWithLifecycle()
+    val everything by vm.recall.everything.collectAsStateWithLifecycle()
+    var recallExpanded by remember(query) { mutableStateOf(emptySet<RecallSource>()) }
+    val recallShows = recallActive && (everything || recallState.result?.isEmpty == false)
 
     val rows = listing
     if (rows == null) {
@@ -145,7 +154,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             if (showMe) item(key = "me") { MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
             if (showCircle) item(key = "circle") { CircleFavoritesSection(vm, open, "") }
-            if (count == 0 && work.isEmpty()) {
+            if (count == 0 && work.isEmpty() && !recallShows) {
                 item(key = "empty") {
                     EmptyState(
                         Icons.Rounded.People,
@@ -224,6 +233,9 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                         ) { if (selectionState.value.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
                     }
                 }
+            }
+            if (recallShows) {
+                recallSection(vm, recallState, query, fallback = !everything, recallExpanded, { recallExpanded = recallExpanded + it }, open)
             }
             workResultsSection(work) { n, name -> vm.requestCall(n, name) }
             // How many are shown, at the very end.
