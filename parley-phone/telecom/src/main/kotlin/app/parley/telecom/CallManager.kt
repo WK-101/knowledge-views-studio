@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.annotation.SuppressLint
+import app.parley.common.catching
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -306,12 +307,7 @@ object CallManager {
                 if (looked) lookedUp(s, found, number, accountId)
                 if (found != null) {
                     s.info = found
-                    if (incoming) {
-                        // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
-                        applyCallerVibration(call, s)
-                        considerAutoAnswer(call)
-                        announceInCar(call, s, found)
-                    }
+                    if (incoming) savedCallerRings(call, s, found, number, accountId)
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
                     if (looked && calls.contains(call)) s.noContact = true
@@ -404,6 +400,31 @@ object CallManager {
         autoAnswer.cancel(s)
         publish()
         return true
+    }
+
+    /** A saved caller rings: what follows from knowing who it is. */
+    private fun savedCallerRings(call: Call, s: CallSession, found: CallerDisplay, number: String, accountId: String?) {
+        checkNeverCallsYou(call, s, number, accountId)
+        // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
+        applyCallerVibration(call, s)
+        considerAutoAnswer(call)
+        announceInCar(call, s, found)
+    }
+
+    /**
+     * "This number never calls you" for a saved caller: read off the main thread while it rings, within
+     * [NEVER_CALLS_TIMEOUT_MS] (the contacts and one line's history); late, failing or an emergency call shows nothing.
+     */
+    private fun checkNeverCallsYou(call: Call, s: CallSession, number: String, accountId: String?) {
+        if (emergency.isCall(call, number)) return
+        scope.launch {
+            val shows = withTimeoutOrNull(NEVER_CALLS_TIMEOUT_MS) {
+                withContext(Dispatchers.IO) { catching { deps.neverCallsYou(number, accountId) }.getOrDefault(false) }
+            } == true
+            if (!shows || !calls.contains(call)) return@launch
+            s.neverCallsYou = true
+            publish()
+        }
     }
 
     /** I1: looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
@@ -1042,6 +1063,9 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** How long "This number never calls you" may take once the caller is known, before it is left out. */
+    private const val NEVER_CALLS_TIMEOUT_MS = 1500L
 
     /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
     private const val SCREEN_GRACE_MS = 500L

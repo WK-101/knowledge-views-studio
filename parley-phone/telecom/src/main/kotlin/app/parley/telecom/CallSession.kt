@@ -31,6 +31,9 @@ internal class CallSession(val id: String) {
     /** I1: what Parley remembers about a number that isn't a contact, once looked up. */
     var numberMemory: NumberMemoryLine? = null
 
+    /** A saved organisation whose number you have only ever called ([CallerInfoSource.neverCallsYou]). */
+    var neverCallsYou = false
+
     // ---- Screening ----
 
     /**

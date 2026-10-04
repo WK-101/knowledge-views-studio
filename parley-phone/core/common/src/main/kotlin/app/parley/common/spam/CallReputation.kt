@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import app.parley.common.CallType
 import app.parley.common.Codecs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
@@ -138,6 +139,20 @@ object CallReputation {
     const val BURST_WINDOW_MS = 7L * DAY_MS
     const val ODD_START_MINUTE = 21 * 60
     const val ODD_END_MINUTE = 8 * 60
+
+    /**
+     * How a call-log [type] counts for your history with a line: OUTGOING for the calls you made, a kind of incoming call
+     * otherwise (answered here or on another device counts as answered), null when the log doesn't say.
+     */
+    fun kindOf(type: CallType): RepKind? = when (type) {
+        CallType.OUTGOING -> RepKind.OUTGOING
+        CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> RepKind.ANSWERED
+        CallType.MISSED -> RepKind.MISSED
+        CallType.REJECTED -> RepKind.DECLINED
+        CallType.BLOCKED -> RepKind.SCREENED
+        CallType.VOICEMAIL -> RepKind.VOICEMAIL
+        CallType.UNKNOWN -> null
+    }
 
     /** The range of an E.164 [line] ("+33612345678" → "+33612345"), or null for a number too short to have one. */
     fun rangeOf(line: String): String? {

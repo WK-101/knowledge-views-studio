@@ -2,7 +2,6 @@ package app.parley.data.calls
 
 import app.parley.common.BlockRule
 import app.parley.common.CallEntry
-import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
@@ -92,7 +91,7 @@ object ReputationLearner {
     private fun repCall(e: CallEntry, iso: String, home: String, rings: Map<String, List<CallRingEntity>>, screened: Map<String, List<Long>>): RepCall? {
         if (e.presentationHidden || e.number.isBlank()) return null
         val line = PhoneIdentity.e164(e.number, iso) ?: return null
-        val type = kindOf(e) ?: return null
+        val type = CallReputation.kindOf(e.type) ?: return null
         val stopped = type != RepKind.OUTGOING && screened[line].orEmpty().any { abs(it - e.date) <= SCREEN_MATCH_MS }
         val kind = if (stopped) RepKind.SCREENED else type
         val ring = if (kind == RepKind.MISSED) {
@@ -109,16 +108,5 @@ object ReputationLearner {
         val fromRules = rules.filter { it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT }.map { it.pattern }
         val system = runCatching { c.blocks.loadSystemNow().map { it.number } }.getOrDefault(emptyList())
         return (fromRules + system).mapNotNullTo(HashSet()) { PhoneIdentity.e164(it, iso) }
-    }
-
-    private fun kindOf(e: CallEntry): RepKind? = when (e.type) {
-        CallType.OUTGOING -> RepKind.OUTGOING
-        // Answered here or on another device: either way someone picked up.
-        CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> RepKind.ANSWERED
-        CallType.MISSED -> RepKind.MISSED
-        CallType.REJECTED -> RepKind.DECLINED
-        CallType.BLOCKED -> RepKind.SCREENED
-        CallType.VOICEMAIL -> RepKind.VOICEMAIL
-        CallType.UNKNOWN -> null
     }
 }

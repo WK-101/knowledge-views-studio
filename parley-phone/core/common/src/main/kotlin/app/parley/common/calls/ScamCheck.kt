@@ -1,8 +1,9 @@
 package app.parley.common.calls
 
 /**
- * "Is this a scam?": a calm, offline checklist for a call from someone who isn't saved, with the ways out Parley
- * already has (Check it's really them, the family safe word, hanging up to call the official number, Block, Report).
+ * "Is this a scam?": a calm, offline checklist for a call from someone who isn't saved (or a saved organisation that
+ * never called before), with the ways out Parley already has (Check it's really them, the family safe word, hanging up
+ * to call the official number, Block, Report).
  * Parley can't hear the call, so it never says whether a call *is* a scam; it lists what scammers usually ask for.
  */
 object ScamCheck {
@@ -31,10 +32,20 @@ object ScamCheck {
 
     /**
      * Offered under More for a live call from someone who isn't a contact or a private contact (a hidden number too),
-     * once the caller lookup has finished; never for an emergency call or a conference.
+     * once the caller lookup has finished, and for a saved organisation whose number never called you before
+     * ([neverCallsYou], see [NeverCallsYou]): a faked caller ID shows a saved name. Never for an emergency call or a
+     * conference.
      */
-    fun offered(live: Boolean, savedCaller: Boolean, lookedUp: Boolean, hidden: Boolean, emergency: Boolean, conference: Boolean): Boolean =
-        live && !savedCaller && (lookedUp || hidden) && !emergency && !conference
+    @Suppress("LongParameterList")
+    fun offered(
+        live: Boolean,
+        savedCaller: Boolean,
+        lookedUp: Boolean,
+        hidden: Boolean,
+        emergency: Boolean,
+        conference: Boolean,
+        neverCallsYou: Boolean = false,
+    ): Boolean = live && (neverCallsYou || !savedCaller && (lookedUp || hidden)) && !emergency && !conference
 
     /** The safe-word line shows when a family safe word is set (its question shows only on the safe-word card). */
     fun safeWordReminder(safeWordSet: Boolean, emergency: Boolean): Boolean = safeWordSet && !emergency

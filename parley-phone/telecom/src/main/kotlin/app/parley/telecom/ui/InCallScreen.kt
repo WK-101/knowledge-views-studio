@@ -396,6 +396,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         onReply = { sheets.replyFor = shown.id },
         poster = poster,
     )
+    NeverCallsYouNotice(s, sheets, a)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     // I11: "Drive profile on" while the marked car is connected.
@@ -407,6 +408,18 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
     }
     Spacer(Modifier.height(Spacing.l))
+}
+
+/** "This number never calls you" for the call in front: Check it's really them and the scam sheet, while it lasts. */
+@Composable
+private fun NeverCallsYouNotice(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
+    val primary = s.primary?.takeIf { it.neverCallsYouNotice && it.id == s.shown?.id } ?: return
+    if (s.keypadOpen) return
+    NeverCallsYouCard(
+        onVerify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null,
+        onScamCheck = { sheets.scamFor = primary },
+        modifier = Modifier.padding(top = Spacing.m),
+    )
 }
 
 /** The bottom half: what can be done now. */
@@ -928,7 +941,8 @@ private fun ScamCheckDialog(
                 onSafeWord = if (safeWord) ({ sheets.family.claimed[live.id] = true }) else null,
                 onCallOfficial = { CallManager.hangup(live.id); onAddCall() },
                 onHangUp = { CallManager.hangup(live.id) },
-                blockReportNext = !live.hidden && !live.number.isNullOrBlank(),
+                // The post-call card (Block, Report) follows only a call from a number that isn't saved.
+                blockReportNext = !live.hidden && !live.number.isNullOrBlank() && live.noContact,
             )
             ScamCheckSheet(live = true, actions, close)
         }

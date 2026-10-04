@@ -1,6 +1,10 @@
 package app.parley.ui.history
 
 import app.parley.calls.ExpectedCallHints
+import app.parley.calls.NeverCallsYouFacts
+import app.parley.common.CallType
+import app.parley.common.catching
+import androidx.compose.runtime.produceState
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Box
@@ -107,6 +111,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // names may hold the private name, so they never show here. Unknown until checked, so hidden until then.
     var privateNumber by remember(number) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(number) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
+    // A saved organisation's first call to you after you had only ever called them (their calls can be faked).
+    val firstFromThem by produceState<Long?>(null, number, calls?.size) {
+        value = catching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
+    }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)
     var menu by remember { mutableStateOf(false) }
@@ -254,7 +262,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         val typeText = if (richCalls()) callClassLabel(CallClass.of(e)) else HistoryText.callType(e.type)
                         val video = if (e.video) stringResource(R.string.recents_video_call) else null
                         val length = Format.duration(e.durationSec).ifBlank { null }
-                        val parts = listOfNotNull(stringResource(typeText), video, length, e.accountId?.let { simLabels[it] })
+                        val first = if (e.date == firstFromThem && e.type != CallType.OUTGOING) stringResource(R.string.hist_first_call_from_them) else null
+                        val parts = listOfNotNull(stringResource(typeText), video, length, e.accountId?.let { simLabels[it] }, first)
                         Text(parts.joinToString(" · "))
                     },
                     trailingContent = { CallLengthGlance(e) },

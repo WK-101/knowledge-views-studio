@@ -96,6 +96,7 @@ internal class CallUiMapper(
             numberMemory = s.numberMemory,
             driving = drivingNow(state),
             handOff = handOffFacts(call),
+            neverCallsYou = neverCalls(s, call, number, hidden),
         ).withRangThrough(s)
     }
 
@@ -119,6 +120,10 @@ internal class CallUiMapper(
     /** I11: "Drive profile on" for a live call while the marked car is connected. */
     private fun drivingNow(state: CallState): Boolean =
         state != CallState.DISCONNECTED && state != CallState.DISCONNECTING && context()?.let { drive.driving(it) } == true
+
+    /** "This number never calls you": only for an organisation the lookup found; never an emergency call. */
+    private fun neverCalls(s: CallSession, call: Call, number: String?, hidden: Boolean) =
+        s.neverCallsYou && s.info != null && !hidden && !emergency.isCall(call, number)
 
     /** I2's tag, for an unknown, visible, non-emergency caller only. */
     private fun reputationTag(s: CallSession, call: Call, number: String?, hidden: Boolean) =

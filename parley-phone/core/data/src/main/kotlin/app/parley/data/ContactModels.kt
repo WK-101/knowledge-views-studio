@@ -204,6 +204,9 @@ data class CallerInfo(
     val alternativeName: String? = null,
 )
 
+/** A personal contact a number is saved for, and the type it is saved as there ([ContactsRepository.lookupAll]). */
+data class SavedNumberOwner(val contactId: Long, val name: String, val phoneType: Int)
+
 /** A birthday / anniversary / other date of a contact, for the timeline and reminders. */
 data class ContactEvent(
     val contactId: Long,
