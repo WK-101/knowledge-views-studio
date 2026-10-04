@@ -4,6 +4,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalResources
 import app.parley.common.LabelRefs
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.activityViewModel
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
@@ -30,7 +32,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,7 +57,6 @@ import app.parley.blocking.BlockingText
 import app.parley.container
 import app.parley.common.TraceCodec
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.home.RecentsViewModel
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.bidiLtrIfNumber
@@ -85,7 +85,7 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
 
     @Composable
     fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
-        ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
+        ParleyListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
     row(
         stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline,
     ) { BlockingDialogs.show(BlockingDialog.Why(number)) }
@@ -252,7 +252,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
         if (mine.isNotEmpty()) {
             Section(stringResource(R.string.blk_screening))
             mine.forEach { e ->
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { BlockingDialogs.show(BlockingDialog.Why(number)) },
                     leadingContent = { Icon(if (e.allowed) Icons.Rounded.Shield else Icons.Rounded.Block, null) },
                     headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked))) },

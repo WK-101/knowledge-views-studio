@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -42,8 +41,9 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.contact.AutoAnswerRow
-import app.parley.ui.contact.Section
 import app.parley.ui.contact.VibrationPatternDialog
 import app.parley.ui.contact.VibrationRow
 import app.parley.ui.startOrSay
@@ -84,7 +84,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         Section(stringResource(R.string.label_policy_section))
         if (sims.size >= 2 || p.simId != null) {
             val sim = sims.firstOrNull { it.id == p.simId }
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { pickSim = true },
                 leadingContent = { Icon(Icons.Rounded.SimCard, null) },
                 headlineContent = { Text(stringResource(R.string.label_policy_sim)) },
@@ -99,7 +99,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 },
             )
         }
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable { pickRhythm = true },
             leadingContent = { Icon(Icons.Rounded.Handshake, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_rhythm)) },
@@ -116,7 +116,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 }
             }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.label_policy_add_members, outside.size, outside.size)) }
         }
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.toggleable(p.allowThroughDnd, role = Role.Switch) { on ->
                 if (on) explainDnd = true
                 else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
@@ -160,7 +160,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 Text(stringResource(R.string.label_policy_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
                 val choices = listOf<Pair<String?, String>>(null to stringResource(R.string.label_policy_sim_none)) + sims.map { it.id to it.label }
                 choices.forEach { (id, label) ->
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false },
                         leadingContent = { RadioButton(p.simId == id, { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false }) },
                         headlineContent = { Text(label) },
@@ -181,7 +181,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 )
                 (listOf<Int?>(null) + LabelPolicies.RHYTHM_CHOICES).forEach { d ->
                     val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none)
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false },
                         leadingContent = {
                             RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false })
@@ -225,7 +225,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 } else {
                     Text(pluralStringResource(R.plurals.label_policy_dnd_preview, unstarred.size, unstarred.size), style = MaterialTheme.typography.bodyMedium)
                     unstarred.forEach { m ->
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
                             headlineContent = { Text(m.displayName) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -266,7 +266,7 @@ private const val ACTION_ZEN = "android.settings.ZEN_MODE_SETTINGS"
 fun LabelRhythmSuggestion(vm: AppViewModel, contactId: Long, pick: (Int) -> Unit) {
     val suggestion by produceState<Pair<String, Int>?>(null, contactId) { value = runCatching { vm.c.extras.labelRhythmFor(contactId) }.getOrNull() }
     val (label, days) = suggestion ?: return
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { pick(days) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Label, null, tint = MaterialTheme.colorScheme.primary) },

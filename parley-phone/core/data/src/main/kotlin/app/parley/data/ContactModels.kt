@@ -14,6 +14,9 @@ data class DataItem(
     val isPrimary: Boolean = false,
 )
 
+/** The row marked as default, else the first (numbers and emails). */
+fun List<DataItem>.primary(): DataItem? = firstOrNull { it.isPrimary } ?: firstOrNull()
+
 data class PostalItem(
     val id: Long? = null,
     val street: String = "",

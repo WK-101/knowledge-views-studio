@@ -14,7 +14,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.data.DryRun
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
 import androidx.compose.foundation.layout.Arrangement
 import app.parley.ui.settings.bidiLtr
@@ -92,7 +92,7 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
             items(rows, key = { "${it.call.time}|${it.call.number}" }) { r ->
                 var open by remember { mutableStateOf(false) }
                 Column {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open = !open },
                         leadingContent = {
                             Icon(

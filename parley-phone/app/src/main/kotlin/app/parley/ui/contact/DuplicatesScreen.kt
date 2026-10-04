@@ -39,17 +39,15 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.Duplicates
-import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.ui.PersonRow
 import app.parley.ui.backup.rememberBackupFirst
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.ParleyListItem
-import app.parley.ui.avatarSize
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,9 +84,8 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                     Card {
                         Column(Modifier.padding(vertical = 8.dp)) {
                             g.forEach { c ->
-                                ParleyListItem(
-                                    leadingContent = { Avatar(c.displayName, c.photoUri, avatarSize()) },
-                                    headlineContent = { Text(c.displayName) },
+                                PersonRow(
+                                    c.displayName, c.photoUri,
                                     supportingContent = { Text((c.phones.map { Bidi.ltr(it.number) } + c.emails).take(2).joinToString(stringResource(R.string.main_separator))) },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 )

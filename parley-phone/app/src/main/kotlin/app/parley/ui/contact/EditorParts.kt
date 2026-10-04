@@ -33,7 +33,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -438,7 +437,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
                 OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(RelationText.label(res, t)) },
                             supportingContent = { Text(RelationText.group(res, t.group)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -446,7 +445,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
                         )
                     }
                     item {
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(stringResource(R.string.edit_custom_more)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { custom = true },

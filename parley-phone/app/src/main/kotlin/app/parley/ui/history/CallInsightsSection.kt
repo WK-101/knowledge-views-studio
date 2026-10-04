@@ -18,9 +18,7 @@ import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,8 +41,10 @@ import app.parley.common.history.CallLogIndex
 import app.parley.common.history.Heatmap
 import app.parley.common.history.NumberKeys
 import app.parley.common.history.TrendDirection
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
+import app.parley.ui.SwitchRow
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.home.CallTypeIcon
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -56,8 +56,6 @@ import app.parley.R
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 
 /**
  * Per-person call insights for contact detail and number history: every number (E.164), last call,
@@ -93,7 +91,7 @@ fun CallInsightsSection(
             Text(shown.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
         }
         ins.lastCall?.let { last ->
-            ListItem(
+            ParleyListItem(
                 leadingContent = { CallTypeIcon(last.type, durationSec = last.durationSec) },
                 headlineContent = { Text(stringResource(R.string.hist_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
@@ -109,7 +107,7 @@ fun CallInsightsSection(
             )
         }
         val t = ins.trend
-        ListItem(
+        ParleyListItem(
             leadingContent = {
                 Icon(
                     when (t.direction) {
@@ -132,14 +130,14 @@ fun CallInsightsSection(
             supportingContent = { Text(pluralStringResource(R.plurals.hist_trend_detail, t.recent, t.recent, t.previous)) },
         )
         ins.rhythm?.let { r ->
-            ListItem(
+            ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.Update, null) },
                 headlineContent = { Text(pluralStringResource(R.plurals.hist_rhythm, r.usualGapDays, r.usualGapDays)) },
                 supportingContent = { Text(if (r.daysSinceLast == 0) stringResource(R.string.hist_last_talked_today) else pluralStringResource(R.plurals.hist_last_talked_days, r.daysSinceLast, r.daysSinceLast)) },
             )
         }
         ins.answerWindow?.let { w ->
-            ListItem(
+            ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.Schedule, null) },
                 headlineContent = { Text(stringResource(HistoryText.answerWindow(w))) },
                 supportingContent = { Text(stringResource(R.string.hist_answer_window_hint)) },
@@ -163,12 +161,12 @@ private fun KeepForeverRow(vm: AppViewModel, numbers: List<String>) {
         on = v
         scope.launch { vm.c.history.setKeepForever(numbers, v) }
     }
-    ListItem(
-        modifier = Modifier.toggleable(on, role = Role.Switch, onValueChange = ::toggle),
-        leadingContent = { Icon(Icons.Rounded.AllInclusive, null) },
-        headlineContent = { Text(stringResource(R.string.hist_keep_forever)) },
-        supportingContent = { Text(stringResource(R.string.hist_keep_forever_summary)) },
-        trailingContent = { Switch(on, onCheckedChange = null) },
+    SwitchRow(
+        stringResource(R.string.hist_keep_forever),
+        stringResource(R.string.hist_keep_forever_summary),
+        on,
+        icon = Icons.Rounded.AllInclusive,
+        onChange = ::toggle,
     )
 }
 
@@ -231,7 +229,7 @@ fun RhythmSuggestion(vm: AppViewModel, numbers: List<String>, onPick: (Int) -> U
     val idx = index ?: return
     val first = numbers.firstOrNull { it.isNotBlank() } ?: return
     val r = remember(idx, first) { idx.rhythm(idx.personKeyFor(first)) } ?: return
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { onPick(r.suggestedReminderDays) },
         leadingContent = { Icon(Icons.Rounded.Update, null, tint = MaterialTheme.colorScheme.primary) },
         headlineContent = { Text(pluralStringResource(R.plurals.hist_rhythm_if_not_talked, r.suggestedReminderDays, r.suggestedReminderDays)) },

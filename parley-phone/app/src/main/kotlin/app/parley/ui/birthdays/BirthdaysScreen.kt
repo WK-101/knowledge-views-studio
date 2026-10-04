@@ -33,11 +33,11 @@ import app.parley.common.EventDate
 import app.parley.common.StartTab
 import app.parley.common.people.LifeEvents
 import app.parley.data.ContactEvent
-import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
+import app.parley.ui.Section
 import app.parley.ui.common.Intents
-import app.parley.ui.contact.Section
 import app.parley.ui.contact.describeEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -46,8 +46,6 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.ParleyListItem
-import app.parley.ui.avatarSize
 
 /** [turning]: the age or years reached next time, counted in the date's own calendar ([AltCalendars.Due.turning]). */
 data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate, val turning: Int? = null)
@@ -98,10 +96,9 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                         item {
                             val e = u.event
                             val kind = if (LifeEvents.isDeath(e.type, e.label)) resources.getString(R.string.life_date_of_death) else if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))
-                            ParleyListItem(
+                            PersonRow(
+                                e.name, e.photoUri,
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
-                                leadingContent = { Avatar(e.name, e.photoUri, avatarSize()) },
-                                headlineContent = { Text(e.name) },
                                 supportingContent = {
                                     val birth = EventDate.parse(e.date)
                                     Text(

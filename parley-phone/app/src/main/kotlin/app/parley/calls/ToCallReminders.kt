@@ -156,7 +156,9 @@ object ToCallReminders {
         val hideVault = c.settings.current().hideVault
         val names = due.map { nameOf(c, it.number, hideVault) }
         val keys = due.map { it.key }.toTypedArray()
-        val open = PrivateNotice.open(context, NotificationRequests.TO_CALL_OPEN, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL), update = true)
+        val open = PrivateNotice.open(
+            context, NotificationRequests.TO_CALL_OPEN, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL), update = true,
+        )
         val notNow = PendingIntent.getBroadcast(
             context, NotificationRequests.TO_CALL_NOT_NOW,
             Intent(context, ToCallActionReceiver::class.java).setAction(ACTION_NOT_NOW).putExtra(EXTRA_KEYS, keys),

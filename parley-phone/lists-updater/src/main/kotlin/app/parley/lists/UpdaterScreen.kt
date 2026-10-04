@@ -22,7 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import app.parley.ui.ParleyListItem
 import java.text.NumberFormat
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTopBar
@@ -96,7 +96,7 @@ fun UpdaterScreen(repo: ListsRepo) {
                 Text(stringResource(R.string.lists_none), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(state.packs.sortedBy { it.name.lowercase() }, key = { it.id }) { pk ->
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pk.name) },
                     supportingContent = {
                         Text(
@@ -115,7 +115,7 @@ fun UpdaterScreen(repo: ListsRepo) {
             item { Header(stringResource(R.string.lists_sources)) }
             item {
                 val st = state.status[Updater.FTC_KEY]
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.lists_ftc_title)) },
                     supportingContent = {
                         Column {
@@ -141,14 +141,14 @@ fun UpdaterScreen(repo: ListsRepo) {
                 }
             }
             item {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.lists_arcep_title)) },
                     supportingContent = { Text(stringResource(R.string.lists_arcep_text)) },
                     trailingContent = { Switch(cfg.arcepEnabled, { v -> setConfig { it.copy(arcepEnabled = v) } }) },
                 )
             }
             items(cfg.community, key = { "c" + it.url }) { src ->
-                ListItem(
+                ParleyListItem(
                     headlineContent = {
                         Text(state.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }?.name ?: stringResource(R.string.lists_community))
                     },
@@ -219,7 +219,7 @@ private fun SourceLine(st: SourceStatus?, ago: (Long) -> String, size: (Long) ->
 
 @Composable
 private fun ToggleItem(title: String, subtitle: String?, value: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { s -> { Text(s) } },
         trailingContent = { Switch(value, onChange) },

@@ -295,7 +295,9 @@ class CallNotifier internal constructor(
     }
 
     private fun contentIntent(): PendingIntent =
-        PendingIntent.getActivity(context, NotificationRequests.CALL, InCallActivity.intent(context, false), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        PendingIntent.getActivity(
+            context, NotificationRequests.CALL, InCallActivity.intent(context, false), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     private fun action(action: String, id: String, req: Int): PendingIntent =
         PendingIntent.getBroadcast(

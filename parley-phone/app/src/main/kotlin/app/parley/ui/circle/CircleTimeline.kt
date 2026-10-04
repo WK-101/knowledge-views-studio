@@ -27,7 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
@@ -67,6 +66,7 @@ import app.parley.data.circle.Interaction
 import app.parley.data.circle.InteractionStore
 import app.parley.data.db.CallNoteEntity
 import app.parley.ui.Bidi
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.common.Format
 import app.parley.ui.contact.LinkifiedText
@@ -116,7 +116,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                 }
                 // The checkbox button starts a promise line.
                 PromiseNoteField(note, { note = it }, label = stringResource(R.string.circle_note))
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { picking = true },
                     colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.Event, null) },
@@ -222,7 +222,7 @@ fun ContactTimeline(
         if (grouped.isEmpty()) {
             SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
                 item {
-                    ListItem(
+                    ParleyListItem(
                         colors = clearRow,
                         headlineContent = { Text(stringResource(R.string.circle_timeline_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     )
@@ -267,7 +267,7 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
     val zone = remember { ZoneId.systemDefault() }
     when (e) {
         is TimelineEntry.Call -> {
-            ListItem(
+            ParleyListItem(
                 colors = clearRow,
                 leadingContent = { CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
                 trailingContent = { CallLengthGlance(e.call) },
@@ -297,7 +297,7 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
                 )
             }
         }
-        is TimelineEntry.Note -> ListItem(
+        is TimelineEntry.Note -> ParleyListItem(
             colors = clearRow,
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
             headlineContent = { LinkifiedText(e.text) },
@@ -305,7 +305,7 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
                 Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time))
             },
         )
-        is TimelineEntry.Date -> ListItem(
+        is TimelineEntry.Date -> ParleyListItem(
             colors = clearRow,
             leadingContent = { Icon(if (e.type == ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
             headlineContent = { Text(eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))) },
@@ -321,7 +321,7 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
     var menu by remember { mutableStateOf(false) }
     val sep = stringResource(R.string.main_separator)
     val headline = CircleText.type(res, e.type) + (e.channel?.let { sep + CircleText.channel(res, it) } ?: "")
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(enabled = item != null) { item?.let(onEdit) },
         colors = clearRow,
         leadingContent = { Icon(CircleText.typeIcon(e.type), null, tint = MaterialTheme.colorScheme.primary) },

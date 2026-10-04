@@ -38,7 +38,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -86,9 +85,10 @@ import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.db.BlockedCallEntity
 import app.parley.telecom.ScreeningGuard
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.segmentShape
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
@@ -245,7 +245,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     stringResource(R.string.blk_non_contacts_help) + (s.nonContactsSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""),
                     s.blockNonContacts,
                 ) { v -> setScreening { it.copy(blockNonContacts = v) } }
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.blk_when_stopped)) },
                     supportingContent = {
                         Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) }
@@ -397,7 +397,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         alwaysLabel = stringResource(R.string.blk_all_day),
                     )
                     OffHoursWho(vm, oh) { o -> setScreening { it.copy(offHours = o) } }
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = { Text(stringResource(R.string.blk_everyone_else)) },
                         supportingContent = {
                             ActionChoice(oh.action, { a -> setScreening { it.copy(offHours = it.offHours.copy(action = a)) } }, Modifier.padding(top = 8.dp))
@@ -443,7 +443,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         stringResource(R.string.blk_cant_exist_help),
                         s.blockInvalid,
                     ) { v -> setScreening { it.copy(blockInvalid = v) } }
-                    if (s.blockInvalid) ListItem(
+                    if (s.blockInvalid) ParleyListItem(
                         headlineContent = { Text(stringResource(R.string.blk_invalid_are)) },
                         supportingContent = {
                             ActionChoice(s.invalidAction, { a -> setScreening { it.copy(invalidAction = a) } }, Modifier.padding(top = 8.dp))
@@ -514,19 +514,19 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                             { BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank(),
                         ) { Text(stringResource(R.string.blk_test)) }
                     }
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(BlockingRoutes.DryRun) },
                         leadingContent = { Icon(Icons.Rounded.History, null) },
                         headlineContent = { Text(stringResource(R.string.blk_tools_dry_run)) },
                         supportingContent = { Text(stringResource(R.string.blk_tools_dry_run_help)) },
                     )
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(BlockingRoutes.Templates) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
                         headlineContent = { Text(stringResource(R.string.blk_templates)) },
                         supportingContent = { Text(stringResource(R.string.blk_tools_templates_help)) },
                     )
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(BlockingRoutes.Transfer) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
                         headlineContent = { Text(stringResource(R.string.blk_tools_transfer)) },
@@ -550,7 +550,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         stringResource(R.string.blk_need_default), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error,
                     )
                     system.forEach { b ->
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Icon(Icons.Rounded.Block, null) },
                             headlineContent = { Text(bidiLtr(Format.number(b.number, vm.countryIso))) },
                             trailingContent = {
@@ -577,7 +577,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         modifier = Modifier.padding(start = 16.dp, top = 12.dp),
                     )
                     suggestions.forEach { sg ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(bidiLtr(Format.number(sg.number, vm.countryIso))) },
                             supportingContent = {
                                 Text(stringResource(R.string.blk_sugg_line, BlockingText.suggestionReason(context, sg), ago(sg.lastAt, now)))
@@ -665,7 +665,7 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
     val scope = rememberCoroutineScope()
     var open by rememberSaveable { mutableStateOf(false) }
     Column {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable { open = !open },
             headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.number?.let { bidiLtr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number))) },
             supportingContent = {

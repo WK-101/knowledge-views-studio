@@ -19,13 +19,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,7 +41,9 @@ import app.parley.AppViewModel
 import app.parley.common.history.BillingIncrement
 import app.parley.common.history.PlanConfig
 import app.parley.common.history.PlanUsage
-import app.parley.ui.contact.Section
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.AbroadSettingsGroup
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
@@ -51,8 +51,6 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 
@@ -70,7 +68,7 @@ fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
             if (sims.isEmpty()) item { Text(stringResource(R.string.hist_sims_empty), Modifier.padding(16.dp)) }
             sims.forEach { sim ->
                 item(key = sim.id) {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(HistoryRoutes.sim(sim.id)) },
                         leadingContent = {
                             SimPlanBadge(vm, sim.id) { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) }
@@ -105,15 +103,11 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
         LazyColumn(Modifier.padding(p)) {
             item { Section(stringResource(R.string.hist_plan_section)) }
             item {
-                ListItem(
-                    modifier = Modifier.toggleable(
-                        plan?.enabled == true,
-                        role = Role.Switch,
-                        onValueChange = { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) },
-                    ),
-                    headlineContent = { Text(stringResource(R.string.hist_plan_track)) },
-                    supportingContent = { Text(stringResource(R.string.hist_plan_track_summary)) },
-                    trailingContent = { Switch(plan?.enabled == true, onCheckedChange = null) },
+                SwitchRow(
+                    stringResource(R.string.hist_plan_track),
+                    stringResource(R.string.hist_plan_track_summary),
+                    plan?.enabled == true,
+                    onChange = { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) },
                 )
             }
             if (plan != null && plan.enabled) {
@@ -164,7 +158,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         )
         var dayMenu by remember { mutableStateOf(false) }
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable { dayMenu = true },
             headlineContent = { Text(stringResource(R.string.hist_plan_renews)) },
             supportingContent = { Text(stringResource(if (plan.cycleStartDay > 28) R.string.hist_plan_renews_day_last else R.string.hist_plan_renews_day, plan.cycleStartDay)) },
@@ -174,7 +168,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
                 }
             },
         )
-        ListItem(
+        ParleyListItem(
             headlineContent = { Text(stringResource(R.string.hist_plan_billing)) },
             supportingContent = {
                 Column {
@@ -200,7 +194,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
             Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         var warnMenu by remember { mutableStateOf(false) }
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable { warnMenu = true },
             headlineContent = { Text(stringResource(R.string.hist_plan_warn_at)) },
             supportingContent = { Text(stringResource(R.string.hist_plan_warn_at_summary, plan.warnAtPercent)) },
@@ -215,12 +209,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
 
 @Composable
 private fun Toggle(title: String, sub: String?, value: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
-        modifier = Modifier.toggleable(value, role = Role.Switch, onValueChange = onChange),
-        headlineContent = { Text(title) },
-        supportingContent = sub?.let { { Text(it) } },
-        trailingContent = { Switch(value, onCheckedChange = null) },
-    )
+    SwitchRow(title, sub, value, onChange = onChange)
 }
 
 /** A dot on a SIM chip or button when that SIM's plan is near or over its allowance. */

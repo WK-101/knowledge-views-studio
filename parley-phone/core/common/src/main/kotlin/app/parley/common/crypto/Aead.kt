@@ -18,7 +18,8 @@ object Aead {
     const val TAG = 16
 
     /** The ciphertext and tag of [plain] under [key] at [nonce]. */
-    fun encrypt(key: Key, nonce: ByteArray, plain: ByteArray, aad: ByteArray? = null): ByteArray = cipher(Cipher.ENCRYPT_MODE, key, nonce, 0, nonce.size, aad).doFinal(plain)
+    fun encrypt(key: Key, nonce: ByteArray, plain: ByteArray, aad: ByteArray? = null): ByteArray =
+        cipher(Cipher.ENCRYPT_MODE, key, nonce, 0, nonce.size, aad).doFinal(plain)
 
     fun encrypt(key: ByteArray, nonce: ByteArray, plain: ByteArray, aad: ByteArray? = null): ByteArray = encrypt(aes(key), nonce, plain, aad)
 

@@ -29,7 +29,8 @@ object JobNotices {
         .setContentTitle(context.getString(text))
         .build()
 
-    private fun openParley(context: Context): PendingIntent = PrivateNotice.open(context, NotificationRequests.JOB_OPEN, Intent(context, MainActivity::class.java))
+    private fun openParley(context: Context): PendingIntent =
+        PrivateNotice.open(context, NotificationRequests.JOB_OPEN, Intent(context, MainActivity::class.java))
 
     /**
      * Opens Parley and hands [opener]'s file to the share sheet or the print dialog, from the activity (a job never

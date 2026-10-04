@@ -17,7 +17,6 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +50,7 @@ import app.parley.common.FavoritesPlacement
 import app.parley.common.HomeLayout
 import app.parley.common.RecentTap
 import app.parley.common.StartTab
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import kotlinx.coroutines.launch
 import app.parley.ui.SwitchRow
@@ -78,7 +78,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
     SegmentedGroup(stringResource(R.string.home_group_layout)) {
         item("calls_layout") {
             Column {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(settingTitle("calls_layout")) },
                     supportingContent = { Text(settingSummary("calls_layout")) },
                     leadingContent = { Icon(Icons.Rounded.Dialpad, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -108,7 +108,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
         }
         item("favorites_in_contacts") {
             Column {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(settingTitle("favorites_in_contacts")) },
                     supportingContent = { Text(settingSummary("favorites_in_contacts")) },
                     leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -149,7 +149,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
         }
         if (surfaces.merged) {
             item("layout_back") {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.home_back_to_separate)) },
                     supportingContent = { Text(stringResource(R.string.home_back_to_separate_sub)) },
                     leadingContent = { Icon(Icons.Rounded.ViewAgenda, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },

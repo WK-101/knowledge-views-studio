@@ -34,7 +34,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +66,7 @@ import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.cards.ShareMethod
 import app.parley.ui.Clipboard
+import app.parley.ui.ParleyListItem
 import app.parley.ui.people.cards.CardSharing
 import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
@@ -191,7 +191,7 @@ private fun MessageAppItem(
     menu: (@Composable (close: () -> Unit) -> Unit)? = null, menuLabel: String? = null,
 ) {
     var open by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(label) },
         supportingContent = sub?.let { s -> { Text(s) } },
         leadingContent = { AppBadge(label, packageName = packageName) },
@@ -217,7 +217,7 @@ private fun MessageAppItem(
 
 @Composable
 private fun SmsItem(usual: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(stringResource(R.string.msg_sms)) },
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null, Modifier.padding(horizontal = 8.dp)) },
         trailingContent = if (usual) ({ UsualTag() }) else null,
@@ -236,7 +236,7 @@ fun DirectCallItem(
     packageName: String? = null,
     onVoice: () -> Unit, onVideo: () -> Unit,
 ) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(label) },
         supportingContent = {
             Text(
@@ -266,7 +266,7 @@ fun DirectCallItem(
  */
 @Composable
 fun ViaChatCallItem(label: String, enabled: Boolean = true, sub: String? = null, packageName: String? = null, onClick: () -> Unit) {
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(stringResource(R.string.reach_call_via_chat, label)) },
         supportingContent = { Text(sub ?: stringResource(R.string.reach_call_via_chat_sub, label)) },
         leadingContent = { AppBadge(label, packageName = packageName) },
@@ -619,7 +619,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
             )
             // Only once the lookup says the number is neither a contact nor a private one.
             if (known == false && callApps.isNotEmpty()) {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.reach_save_for_calls, TemporaryContact.DEFAULT_DAYS, TemporaryContact.DEFAULT_DAYS)) },
                     supportingContent = { Text(stringResource(R.string.reach_save_for_calls_sub)) },
                     leadingContent = { Icon(Icons.Rounded.Timer, null, Modifier.padding(horizontal = 8.dp)) },

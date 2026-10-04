@@ -80,7 +80,7 @@ object FavoritesWidgetPlan {
         }
 
     /** The number a tap on [c] calls: the default one, else the first (null: none, the tap opens the page). */
-    fun numberOf(c: ContactSummary): String? = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
+    fun numberOf(c: ContactSummary): String? = c.primaryNumber
 
     /** What the widget shows for [favourites] in [grid]; [locked]: app lock on and the phone locked. */
     fun shown(favourites: List<ContactSummary>, grid: Grid, locked: Boolean): Shown {

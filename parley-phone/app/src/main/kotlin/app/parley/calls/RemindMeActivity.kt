@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.Modifier
@@ -28,6 +27,7 @@ import app.parley.container
 import app.parley.security.LockedActivity
 import app.parley.telecom.R as TelecomR
 import app.parley.telecom.ui.RemindTimes
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyTheme
 import app.parley.ui.Spacing
@@ -64,7 +64,7 @@ class RemindMeActivity : LockedActivity() {
                             title = stringResource(R.string.to_call_remind_title),
                         ) {
                             RemindTimes.choices().forEach { (choice, at) ->
-                                ListItem(
+                                ParleyListItem(
                                     headlineContent = { Text(RemindTimes.label(this@RemindMeActivity, choice, at)) },
                                     leadingContent = { Icon(Icons.Rounded.AlarmAdd, null) },
                                     modifier = Modifier.clickable(role = Role.Button) { pick(number, accountId, at, notificationId) },

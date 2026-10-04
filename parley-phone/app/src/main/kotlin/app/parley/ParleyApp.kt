@@ -9,6 +9,7 @@ import android.os.Trace
 import androidx.core.content.ContextCompat
 import app.parley.calls.PrivateCallLogSweep
 import app.parley.blocking.BlockingSetup
+import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
@@ -141,7 +142,7 @@ class ParleyApp : Application() {
             FolderSyncWorker.runSoon(this@ParleyApp)
             RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
             // Reminder channels made by an older version join the "Reminders" group, keeping their settings.
-            runCatching { NoticeChannels.regroupExisting(this@ParleyApp) }
+            catching { NoticeChannels.regroupExisting(this@ParleyApp) }
             // Well after that: stored number keys move to the line key once.
             delay(30_000)
             if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()

@@ -19,7 +19,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -56,6 +55,7 @@ import app.parley.common.ScreeningSettings
 import app.parley.common.blocking.ScreeningPreset
 import app.parley.common.blocking.ScreeningWeek
 import app.parley.data.GroupInfo
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +87,7 @@ internal fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPoi
 @Composable
 internal fun ToggleScheduleRow(title: String, schedule: Schedule?, onChange: (Schedule?) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { open = !open },
         headlineContent = { Text(title) },
         supportingContent = { Text(schedule?.let { BlockingText.schedule(LocalContext.current, it) } ?: stringResource(R.string.blk_always)) },
@@ -141,13 +141,13 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         stringResource(R.string.blk_loud_repeat_help, s.repeatWindowMinutes),
         s.ringLoudRepeat,
     ) { v -> set { it.copy(ringLoudRepeat = v) } }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { target = "repeat"; pick(s.repeatRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
         supportingContent = { Text(ringtoneTitle(context, s.repeatRingtone) ?: stringResource(R.string.set_same_as_usual)) },
         trailingContent = { if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.set_reset)) } },
     )
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { target = "spam"; pick(s.likelySpamRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_spam)) },
         supportingContent = { Text(ringtoneTitle(context, s.likelySpamRingtone) ?: stringResource(R.string.set_same_as_usual)) },
@@ -167,7 +167,7 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         Triple(stringResource(R.string.blk_notify_reported), s.notifyReported) { n: NotifyLevel -> set { it.copy(notifyReported = n) } },
         Triple(stringResource(R.string.blk_notify_likely), s.notifyLikelySpam) { n: NotifyLevel -> set { it.copy(notifyLikelySpam = n) } },
     ).forEach { (title, v, change) ->
-        ListItem(headlineContent = { Text(title) }, supportingContent = { NotifyChoice(v, allowDefault = false, change) })
+        ParleyListItem(headlineContent = { Text(title) }, supportingContent = { NotifyChoice(v, allowDefault = false, change) })
     }
     if (s.notifyBlocked == NotifyLevel.NONE) {
         Text(
@@ -194,7 +194,7 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
         Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
     )
     s.emergencyExtras.forEach { x ->
-        ListItem(
+        ParleyListItem(
             headlineContent = { Text(bidiLtr(Format.number(x, vm.countryIso))) },
             trailingContent = {
                 IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.ct_remove)) }
@@ -225,7 +225,7 @@ internal fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> U
     val expired = r.expiresAt.let { it != null && it <= now }
     val context = LocalContext.current
     val title = BlockingText.ruleTitle(context, r).let { if (r.note.isNullOrBlank() && r.type.isNumberRule) bidiLtr(it) else it }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClick = onClick),
         leadingContent = { Icon(if (r.kind == RuleKind.ALLOW) Icons.Rounded.VerifiedUser else Icons.Rounded.Rule, null) },
         headlineContent = { Text(title) },

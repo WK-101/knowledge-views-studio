@@ -58,7 +58,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -74,7 +73,6 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.ux.Tips
 import app.parley.data.AccountRef
 import app.parley.data.backup.LostNumbers
-import app.parley.ui.Avatar
 import app.parley.ui.Banner
 import app.parley.ui.Destination
 import app.parley.ui.EmptyState
@@ -82,6 +80,7 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyTopBar
+import app.parley.ui.PersonRow
 import app.parley.ui.Spacing
 import app.parley.ui.appVm
 import app.parley.ui.common.CoachMark
@@ -341,10 +340,9 @@ private fun RestoreList(st: RestoreState, list: List<Pick>, undo: () -> Unit, mo
             } else {
                 Modifier
             }
-            ParleyListItem(
+            PersonRow(
+                pick.name, null,
                 modifier = Modifier.heightIn(min = 56.dp).then(toggle),
-                leadingContent = { Avatar(pick.name, null) },
-                headlineContent = { Text(pick.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = if (pick.lines.isEmpty()) null else ({ Text(pick.lines.joinToString("\n")) }),
                 trailingContent = if (picking) ({ Checkbox(on, onCheckedChange = null) }) else null,
             )

@@ -37,15 +37,13 @@ import app.parley.common.NumberText
 import app.parley.common.cards.ShareLedger
 import app.parley.common.cards.ShareMethod
 import app.parley.common.cards.SharedPerson
-import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.EmptyState
-import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTopBar
+import app.parley.ui.PersonRow
 import app.parley.ui.Spacing
-import app.parley.ui.avatarSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -147,9 +145,8 @@ private fun SharedPersonRow(person: SharedPerson, onRemove: () -> Unit) {
     val who = SharedWithText.who(person)
     val l = person.latest
     val whenText = DateUtils.formatDateTime(context, l.at, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
-    ParleyListItem(
-        leadingContent = { Avatar(who.ifBlank { "?" }, null, avatarSize()) },
-        headlineContent = { Text(who) },
+    PersonRow(
+        who.ifBlank { "?" }, null, headline = who,
         supportingContent = {
             val line = listOfNotNull(
                 person.number?.takeIf { person.name.isNotBlank() }?.let { Bidi.ltr(NumberText.formatInternational(it)) },

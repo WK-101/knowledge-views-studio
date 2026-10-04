@@ -11,6 +11,8 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.PersonSearch
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Sms
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.contact.ActionTile
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -37,7 +39,6 @@ import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -67,7 +68,6 @@ import app.parley.ui.calls.RingFactsHistorySection
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.common.rememberNumberLocation
-import app.parley.ui.contact.Section
 import app.parley.ui.home.CallLengthGlance
 import app.parley.ui.home.CallTypeIcon
 import app.parley.ui.home.callClassLabel
@@ -212,7 +212,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             if (notes.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_call_notes)) }
                 items(notes, key = { "n" + it.id }) { n ->
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = { Text(n.text) },
                         supportingContent = { Text(Format.fullDate(context, n.callDate)) },
                         trailingContent = {
@@ -229,7 +229,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             }
             if (history.isNotEmpty()) item { Section(stringResource(R.string.hist_calls_section)) }
             items(history, key = { it.id }) { e ->
-                ListItem(
+                ParleyListItem(
                     leadingContent = { CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {

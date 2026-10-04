@@ -31,6 +31,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.AppSettings
 import app.parley.common.calls.MissedReAlert
+import app.parley.common.catching
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.ReminderDelivery
 import app.parley.common.ux.BackupNudge
@@ -67,7 +68,7 @@ fun RemindersScreen(vm: AppViewModel, focus: String?, back: () -> Unit, open: (D
     val set: ((AppSettings) -> AppSettings) -> Unit = { f -> scope.launch { vm.c.settings.update(f) } }
     val controller = controllerOf(focus, s, circle)
     // Channels an older version made join the group as soon as the page is seen.
-    LaunchedEffect(Unit) { runCatching { NoticeChannels.regroupExisting(context) } }
+    LaunchedEffect(Unit) { catching { NoticeChannels.regroupExisting(context) } }
 
     CompositionLocalProvider(LocalHighlightKey provides (controller ?: focus)) {
         SettingsScaffold(stringResource(R.string.set_reminders_title), back) {

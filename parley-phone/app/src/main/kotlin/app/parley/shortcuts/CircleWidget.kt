@@ -164,7 +164,7 @@ class CircleWidget : AppWidgetProvider() {
                     } ?: res.getString(R.string.circle_widget_date_soon)
                     else -> CircleText.last(res, lasts[p.lookupKey], now)
                 }
-                Row(ct.id, ct.displayName, line, (ct.phones.firstOrNull { it.isPrimary } ?: ct.phones.firstOrNull())?.number)
+                Row(ct.id, ct.displayName, line, ct.primaryNumber)
             }
             return Content(people, dates.filter { d -> people.none { it.contactId == d.contactId && it.line == d.line } })
         }

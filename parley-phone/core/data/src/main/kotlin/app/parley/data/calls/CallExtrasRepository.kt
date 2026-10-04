@@ -46,6 +46,7 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
         context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, { SealedLineStore.HistoryKeys(history()) },
         encode = { RingFactsCodec.encode(listOf(it)) }, decode = { RingFactsCodec.decode(it).firstOrNull() }, startedAt = { it.startedAt },
     )
+
     @Volatile private var migrated = false
 
     /** Bumped on every write, so screens re-read. */

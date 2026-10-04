@@ -12,7 +12,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -41,8 +40,9 @@ import app.parley.common.record.RawRecord
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.people.SimCard
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,7 +112,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                     else -> {
                         Text(stringResource(R.string.sim_warning), style = MaterialTheme.typography.bodyMedium)
                         if (cards!!.size > 1) cards!!.forEach { c ->
-                            ListItem(
+                            ParleyListItem(
                                 modifier = Modifier.clickable { card = c },
                                 leadingContent = { RadioButton(card == c, { card = c }) },
                                 headlineContent = { Text(c.label) },
@@ -120,7 +120,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                             )
                         }
                         fit.entry?.let { e ->
-                            ListItem(
+                            ParleyListItem(
                                 headlineContent = { Text(e.name) },
                                 supportingContent = { Text(DataL10n.ltr(Format.number(e.number, vm.countryIso))) },
                                 leadingContent = { Icon(Icons.Rounded.SimCard, null) },
@@ -189,7 +189,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                 item { Section(stringResource(R.string.sim_section)) }
                 cs.forEach { c ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable { card = c },
                             leadingContent = { RadioButton(card == c, { card = c }) },
                             headlineContent = { Text(c.label) },
@@ -204,7 +204,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                 if (list.isEmpty()) item { Text(stringResource(R.string.sim_empty), Modifier.padding(16.dp)) }
                 itemsIndexed(list) { i, e ->
                     val have = existing.matches(recordOf(e))
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { picked = if (i in picked) picked - i else picked + i },
                         leadingContent = { Checkbox(i in picked, { picked = if (it) picked + i else picked - i }) },
                         headlineContent = { Text(e.name) },
@@ -224,7 +224,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
             text = {
                 Column {
                     accounts.forEach { a ->
-                        ListItem(headlineContent = { Text(vm.accountLabel(a)) }, modifier = Modifier.clickable {
+                        ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, modifier = Modifier.clickable {
                             chooseAccount = false
                             val chosen = entries.orEmpty().filterIndexed { i, _ -> i in picked }
                             busy = true

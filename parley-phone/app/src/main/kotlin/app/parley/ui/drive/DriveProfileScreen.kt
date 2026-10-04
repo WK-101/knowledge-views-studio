@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,6 +53,7 @@ import app.parley.common.calls.DriveProfileConfig
 import app.parley.data.Permissions
 import app.parley.telecom.CarAudio
 import app.parley.ui.LinkRow
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
@@ -100,7 +100,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
             if (rows.isEmpty() && !needsPermission) {
-                item("none") { ListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_no_devices)) }) }
+                item("none") { ParleyListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_no_devices)) }) }
             }
             item("bluetooth") {
                 LinkRow(
@@ -123,7 +123,7 @@ private fun DeviceRow(row: DriveProfile.DeviceRow, onMark: (Boolean) -> Unit) {
         row.marked && !row.paired -> stringResource(R.string.drive_not_paired)
         else -> null
     }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.toggleable(row.marked, role = Role.Checkbox, onValueChange = onMark).semantics { contentDescription = desc },
         colors = rowColors(),
         leadingContent = { Icon(if (row.marked) Icons.Rounded.DirectionsCar else Icons.Rounded.Bluetooth, null) },
@@ -140,7 +140,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
     val on = cfg.enabled
     val answerSub = stringResource(R.string.drive_answer_sub)
     SegmentedGroup(stringResource(R.string.drive_group_while)) {
-        if (!on) item("mark_first") { ListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_mark_first)) }) }
+        if (!on) item("mark_first") { ParleyListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_mark_first)) }) }
         item("announce") {
             SwitchRow(
                 stringResource(R.string.drive_announce), stringResource(R.string.drive_announce_sub), cfg.announce, Icons.Rounded.RecordVoiceOver, on,
@@ -158,7 +158,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
         }
         if (cfg.answerFavourites || cfg.answerChosen) {
             item("answer_after") {
-                ListItem(
+                ParleyListItem(
                     colors = rowColors(),
                     headlineContent = { Text(stringResource(R.string.drive_answer_after), modifier = Modifier.semantics { heading() }) },
                     supportingContent = {
@@ -182,7 +182,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
                 Icons.Rounded.NotificationsOff, on,
             ) { v -> set { it.copy(silenceUnknown = v) } }
         }
-        item("replies") { ListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_replies_note)) }) }
+        item("replies") { ParleyListItem(colors = rowColors(), headlineContent = { Text(stringResource(R.string.drive_replies_note)) }) }
     }
 }
 

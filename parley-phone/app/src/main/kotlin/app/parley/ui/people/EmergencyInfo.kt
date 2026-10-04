@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.MedicalInformation
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +26,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +46,7 @@ internal fun EmergencyInfoGroup(vm: AppViewModel) {
     var noEmergencyApp by rememberSaveable { mutableStateOf(false) }
     SegmentedGroup(stringResource(R.string.me_emergency)) {
         item {
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { if (!openEmergencyInfo(context)) noEmergencyApp = true },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 leadingContent = { Icon(Icons.Rounded.MedicalInformation, null) },
@@ -55,7 +55,7 @@ internal fun EmergencyInfoGroup(vm: AppViewModel) {
             )
         }
         item {
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable {
                     scope.launch {
                         // The label if it exists, else made in the default account (as the labels screen would suggest).

@@ -1,8 +1,10 @@
 package app.parley.ui.contact
 
 import app.parley.common.calls.CallReason
+import app.parley.data.primary
 import app.parley.jobs.UserErrorText
 import app.parley.ui.Clipboard
+import app.parley.ui.ParleyListItem
 import app.parley.ui.menus.CallReasonFlow
 import app.parley.ui.menus.MenuShortcutsBlock
 import app.parley.ui.menus.ReasonTarget
@@ -101,10 +103,8 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -203,7 +203,6 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
-import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyMotion
 import androidx.compose.material.icons.rounded.LinkOff
@@ -307,7 +306,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val memory = ui.memory
     // A good time to call, from the calls with them and their local time.
     val goodTime = remember(history, d?.phones) {
-        val p = d?.phones?.let { ps -> ps.firstOrNull { it.isPrimary } ?: ps.firstOrNull() }?.value
+        val p = d?.phones?.primary()?.value
         goodTimeText(resources, history, p, PhoneEnv.countryIso(context))
     }
     /** Calls [number], through the pre-call peek when there's something to remember and it's on. */
@@ -354,7 +353,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     fun reach(dd: ContactDetails) = Reach(
         name = dd.given.ifBlank { dd.displayName },
         numbers = dd.phones.map { it.value to Format.phoneType(resources, it.type, it.label) },
-        defaultNumber = (dd.phones.firstOrNull { it.isPrimary } ?: dd.phones.firstOrNull())?.value,
+        defaultNumber = dd.phones.primary()?.value,
         messengers = messengers,
         prefs = prefs,
         // A private contact: nothing about reaching them is written outside Parley's encrypted storage.
@@ -475,7 +474,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             if (loaded) Text(stringResource(R.string.detail_gone), Modifier.padding(padding).padding(24.dp))
             return@ParleyScaffold
         }
-        val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
+        val primary = d.phones.primary()
         val r = reach(d)
         // Messenger rows grouped per app and number (Reach via apps).
         val reachGroups = remember(messengers) { r.groups(PhoneEnv.countryIso(context)) }
@@ -493,7 +492,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             val target = preferredVideo ?: only
             if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else messageSheet = primary?.value.orEmpty()
         }
-        val email = d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull()
+        val email = d.emails.primary()
         val sections = PageSections()
         val today = remember { LocalDate.now() }
         val sep = stringResource(R.string.main_separator)
@@ -1039,16 +1038,16 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 text = {
                     Column {
                         d.phones.forEach { p ->
-                            ListItem(headlineContent = { Text(stringResource(R.string.main_call_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.Rounded.Call, null) }, modifier = Modifier.clickable {
+                            ParleyListItem(headlineContent = { Text(stringResource(R.string.main_call_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.Rounded.Call, null) }, modifier = Modifier.clickable {
                                 pinDialog = false
                                 Shortcuts.pin(context, Shortcuts.Kind.CALL, d.displayName, p.value, contactId, d.photoUri)
                             })
-                            ListItem(headlineContent = { Text(stringResource(R.string.main_message_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, modifier = Modifier.clickable {
+                            ParleyListItem(headlineContent = { Text(stringResource(R.string.main_message_who, Bidi.ltr(Format.number(p.value, vm.countryIso)))) }, leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, modifier = Modifier.clickable {
                                 pinDialog = false
                                 Shortcuts.pin(context, Shortcuts.Kind.MESSAGE, d.displayName, p.value, contactId, d.photoUri)
                             })
                         }
-                        ListItem(headlineContent = { Text(stringResource(R.string.main_open_contact)) }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
+                        ParleyListItem(headlineContent = { Text(stringResource(R.string.main_open_contact)) }, leadingContent = { Icon(Icons.Rounded.Person, null) }, modifier = Modifier.clickable {
                             pinDialog = false
                             Shortcuts.pin(context, Shortcuts.Kind.OPEN, d.displayName, null, contactId, d.photoUri, d.lookupKey)
                         })
@@ -1066,7 +1065,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Column {
                         ids.forEach { ct ->
                             val id = ct.id
-                            ListItem(
+                            ParleyListItem(
                                 modifier = Modifier.clickable {
                                     relationChoice = null
                                     open(Routes.contact(id))
@@ -1196,9 +1195,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 title = { Text(stringResource(R.string.detail_sim_for, Bidi.ltr(Format.number(number, vm.countryIso)))) },
                 text = {
                     Column {
-                        ListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { page.setSimFor(number, null); simFor = null })
+                        ParleyListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { page.setSimFor(number, null); simFor = null })
                         sims.forEach { s ->
-                            ListItem(headlineContent = { Text(stringResource(R.string.detail_always_sim, s.label)) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) }, modifier = Modifier.clickable {
+                            ParleyListItem(headlineContent = { Text(stringResource(R.string.detail_always_sim, s.label)) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) }, modifier = Modifier.clickable {
                                 page.setSimFor(number, s.id); simFor = null
                             })
                         }
@@ -1291,14 +1290,6 @@ private fun PhoneRow(
             if (multiSim) DropdownMenuItem({ Text(stringResource(R.string.detail_choose_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { close(); onSim() })
         },
     )
-}
-
-@Composable
-fun Section(title: String) {
-    Column {
-        HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        ListSectionHeader(title, top = Spacing.m)
-    }
 }
 
 /** The usual chat app's own icon on a number's Message button (the chat bubble when it can't be read). */

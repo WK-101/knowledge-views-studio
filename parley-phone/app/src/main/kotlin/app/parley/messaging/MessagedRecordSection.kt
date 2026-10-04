@@ -21,10 +21,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,9 +46,9 @@ import app.parley.data.PhoneEnv
 import app.parley.data.messaging.LastMessaged
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.ui.ParleyListItem
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.launch
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
@@ -66,22 +64,18 @@ fun MessagedRecordSection(openList: () -> Unit) {
     val record by store.lastMessaged.collectAsStateWithLifecycle()
     val expiry by store.expiryDays.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    ListItem(
-        modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
-        headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
-        supportingContent = {
-            Text(
-                if (enabled) {
-                    pluralStringResource(R.plurals.rec_on_summary, record.size, record.size) + " " +
-                        (if (expiry > 0) pluralStringResource(R.plurals.rec_forgotten_after, expiry, expiry) else stringResource(R.string.rec_follows_retention))
-                } else {
-                    stringResource(R.string.rec_off_summary)
-                },
-            )
+    SwitchRow(
+        stringResource(R.string.rec_keep_record),
+        if (enabled) {
+            pluralStringResource(R.plurals.rec_on_summary, record.size, record.size) + " " +
+                (if (expiry > 0) pluralStringResource(R.plurals.rec_forgotten_after, expiry, expiry) else stringResource(R.string.rec_follows_retention))
+        } else {
+            stringResource(R.string.rec_off_summary)
         },
-        trailingContent = { Switch(enabled, onCheckedChange = null) },
+        enabled,
+        onChange = { v -> scope.launch { store.setRecordEnabled(v) } },
     )
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(stringResource(R.string.home_messaged_numbers)) },
         supportingContent = { Text(stringResource(R.string.rec_see_delete)) },
         modifier = Modifier.clickable(onClick = openList),
@@ -119,17 +113,15 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
     }) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p)) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
-                    supportingContent = {
-                        Text(stringResource(if (enabled) R.string.rec_on_detail else R.string.rec_off_detail))
-                    },
-                    trailingContent = { Switch(enabled, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
+                SwitchRow(
+                    stringResource(R.string.rec_keep_record),
+                    stringResource(if (enabled) R.string.rec_on_detail else R.string.rec_off_detail),
+                    enabled,
+                    onChange = { v -> scope.launch { store.setRecordEnabled(v) } },
                 )
             }
             item {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.rec_forget_after)) },
                     supportingContent = {
                         Text(
@@ -192,7 +184,7 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
     val shown = e.number?.let { n -> NumberText.toE164(n, region)?.let(NumberText::formatInternational) ?: n }
         ?: "…" + e.key.takeLast(4)
     val ago = DateUtils.getRelativeTimeSpanString(e.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(Bidi.ltr(shown), style = MaterialTheme.typography.bodyLarge) },
         supportingContent = { Text(e.label + stringResource(R.string.main_separator) + ago) },
         trailingContent = {

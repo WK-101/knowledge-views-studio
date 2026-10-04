@@ -45,7 +45,7 @@ object SecondLines {
         formatNumber: (String) -> String = { it },
     ): Map<Long, String> {
         val out = HashMap<Long, String>()
-        fun number(c: ContactSummary) = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number?.let(formatNumber).orEmpty()
+        fun number(c: ContactSummary) = c.primaryNumber?.let(formatNumber).orEmpty()
         fun field(c: ContactSummary, m: SecondLineMode): String {
             val e = extras[c.id] ?: PersonExtra()
             return when (m) {

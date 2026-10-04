@@ -16,9 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,12 +34,12 @@ import app.parley.jobs.UserJobs
 import app.parley.common.CallType
 import app.parley.common.extras.MarkdownNotes
 import app.parley.data.extras.MarkdownExport
+import app.parley.ui.ParleyListItem
+import app.parley.ui.SwitchRow
 import app.parley.ui.circle.CircleText
 import app.parley.ui.common.Format
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 
 /** The worded parts of the Markdown files, in the app's language. */
 object MarkdownTexts {
@@ -112,26 +110,26 @@ fun MarkdownExportSection(vm: AppViewModel) {
                 Text(stringResource(R.string.md_export_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
             }
         }
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable { picker.launch(null) },
             leadingContent = { Icon(Icons.Rounded.Folder, null) },
             headlineContent = { Text(stringResource(R.string.md_export_folder)) },
             supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
         )
-        ListItem(
-            modifier = Modifier.toggleable(st.onlyCircle, role = Role.Switch, onValueChange = { md.setOnlyCircle(it) }),
-            leadingContent = { Icon(Icons.Rounded.Groups, null) },
-            headlineContent = { Text(stringResource(R.string.md_export_only_circle)) },
-            supportingContent = { Text(stringResource(R.string.md_export_only_circle_body)) },
-            trailingContent = { Switch(st.onlyCircle, onCheckedChange = null) },
+        SwitchRow(
+            stringResource(R.string.md_export_only_circle),
+            stringResource(R.string.md_export_only_circle_body),
+            st.onlyCircle,
+            icon = Icons.Rounded.Groups,
+            onChange = { md.setOnlyCircle(it) },
         )
-        ListItem(
-            modifier = Modifier.toggleable(st.auto, role = Role.Switch, onValueChange = { md.setAuto(it); FolderSyncWorker.reschedule(context) }),
-            headlineContent = { Text(stringResource(R.string.md_export_auto)) },
-            supportingContent = { Text(stringResource(R.string.md_export_auto_body)) },
-            trailingContent = { Switch(st.auto, onCheckedChange = null) },
+        SwitchRow(
+            stringResource(R.string.md_export_auto),
+            stringResource(R.string.md_export_auto_body),
+            st.auto,
+            onChange = { md.setAuto(it); FolderSyncWorker.reschedule(context) },
         )
-        ListItem(
+        ParleyListItem(
             leadingContent = { Icon(Icons.Rounded.Description, null) },
             headlineContent = {
                 Text(

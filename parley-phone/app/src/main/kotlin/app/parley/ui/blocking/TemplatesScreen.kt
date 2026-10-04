@@ -52,6 +52,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.Section
 import app.parley.ui.common.ImageActionButtons
 import app.parley.ui.common.generatedImage
 import app.parley.ui.common.rememberImageActions
@@ -66,7 +67,6 @@ import app.parley.common.templates.RuleTemplates
 import app.parley.common.templates.TemplateException
 import app.parley.data.DryRun
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.contact.SecureQr
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle

@@ -204,7 +204,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val b = builder(ctx.getString(R.string.circle_might_enjoy, contact.displayName))
             .setContentText(CircleText.last(ctx.resources, last, now))
             .setContentIntent(openContact(contact.id, code))
-        addCallAndMessage(b, (contact.phones.firstOrNull { it.isPrimary } ?: contact.phones.firstOrNull())?.number, contact.id, code)
+        addCallAndMessage(b, contact.primaryNumber, contact.id, code)
         b.addAction(0, ctx.getString(R.string.circle_not_now), CircleActionReceiver.notNow(ctx, code + 3, tag, contact.lookupKey))
         post(tag, b)
     }

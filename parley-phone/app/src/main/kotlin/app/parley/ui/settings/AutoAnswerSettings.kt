@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
@@ -16,10 +15,7 @@ import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,11 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +38,7 @@ import app.parley.ui.Destination
 import app.parley.ui.ParleyDialog
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import app.parley.ui.people.PeopleRoutes
 
 /**
@@ -128,12 +123,5 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
 
 @Composable
 private fun SituationRow(icon: ImageVector, title: String, sub: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
-        modifier = Modifier.toggleable(on, role = Role.Switch, onValueChange = onChange),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Icon(icon, null) },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(sub) },
-        trailingContent = { Switch(on, onCheckedChange = null) },
-    )
+    SwitchRow(title, sub, on, icon = icon, onChange = onChange)
 }

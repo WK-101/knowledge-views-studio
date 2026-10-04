@@ -10,7 +10,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.SyncDisabled
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,7 +33,8 @@ import app.parley.common.people.AccountFindingKind
 import app.parley.data.AccountRef
 import app.parley.data.people.AccountReport
 import app.parley.ui.CallColors
-import app.parley.ui.contact.Section
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -95,7 +95,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
             }
         }
         if (r.findings.isEmpty()) {
-            ListItem(
+            ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.CheckCircle, null, tint = CallColors.Accept) },
                 headlineContent = { Text(stringResource(R.string.ppl_accounts_fine)) },
                 supportingContent = {
@@ -125,7 +125,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
 
 @Composable
 private fun Finding(icon: ImageVector, title: String, body: String, action: String?, onAction: (() -> Unit)?) {
-    ListItem(
+    ParleyListItem(
         leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.error) },
         headlineContent = { Text(title) },
         supportingContent = { Text(body) },

@@ -42,7 +42,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -77,6 +76,7 @@ import app.parley.common.people.MapLinks
 import app.parley.common.people.PasteParser
 import app.parley.IntentRoutes
 import app.parley.ui.Clipboard
+import app.parley.ui.ParleyListItem
 import app.parley.ui.contact.PasteInbox
 import androidx.compose.material.icons.rounded.ContactPage
 import app.parley.container
@@ -382,7 +382,7 @@ class NumberActionActivity : LockedActivity() {
             Text(stringResource(R.string.num_choose), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             if (sourceText != null) {
                 // Several numbers in the text can be saved together, after a review.
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.num_save_all, found.size, found.size)) },
                     supportingContent = { Text(stringResource(R.string.num_save_all_body)) },
                     leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
@@ -391,7 +391,7 @@ class NumberActionActivity : LockedActivity() {
             }
             MakeContactRow()
             found.forEach { f ->
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(Bidi.ltr(f.e164?.let(NumberText::formatInternational) ?: f.raw)) },
                     supportingContent = { Text(stringResource(R.string.num_in_text, f.raw)) },
                     modifier = Modifier.clickable { stage = Stage.Actions(f.e164 ?: f.raw, f.raw) },
@@ -449,7 +449,7 @@ class NumberActionActivity : LockedActivity() {
     @Composable
     private fun MakeContactRow() {
         val text = contactText ?: return
-        ListItem(
+        ParleyListItem(
             headlineContent = { Text(stringResource(R.string.paste_make_contact)) },
             supportingContent = { Text(stringResource(R.string.paste_make_contact_body)) },
             leadingContent = { Icon(Icons.Rounded.ContactPage, null) },
@@ -602,14 +602,14 @@ class NumberActionActivity : LockedActivity() {
             }
             // Call is the primary action, above the messengers.
             if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
-            ListItem(
+            ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
                 supportingContent = { Text(stringResource(R.string.reach_apps_line)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
             )
             if (contactName == null && !known) {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.keypad_add_to_contacts)) },
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                     modifier = Modifier.clickable {
@@ -622,7 +622,7 @@ class NumberActionActivity : LockedActivity() {
                         finish()
                     },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.num_save_temporary)) },
                     supportingContent = { Text(pluralStringResource(R.plurals.num_private_deletes, TemporaryContact.DEFAULT_DAYS, TemporaryContact.DEFAULT_DAYS)) },
                     leadingContent = { Icon(Icons.Rounded.Timer, null) },

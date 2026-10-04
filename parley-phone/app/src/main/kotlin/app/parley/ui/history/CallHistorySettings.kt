@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroupScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -12,9 +13,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,8 +35,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ConfirmDialog
 
 /**
@@ -52,24 +49,13 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
     var count by remember { mutableIntStateOf(0) }
     LaunchedEffect(archive) { count = vm.c.history.archiveCount() }
     var confirmOff by remember { mutableStateOf(false) }
-    ListItem(
-        modifier = Modifier.toggleable(
-            prefs.archiveEnabled,
-            role = Role.Switch,
-            onValueChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true },
-        ),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
-        headlineContent = { Text(settingTitle("archive")) },
-        supportingContent = {
-            Text(
-                if (prefs.archiveEnabled) stringResource(
-                    R.string.hist_archive_on_summary,
-                ) + "\n" + pluralStringResource(R.plurals.hist_archive_count, count, count)
-                else stringResource(R.string.hist_archive_off_summary),
-            )
-        },
-        trailingContent = { Switch(prefs.archiveEnabled, onCheckedChange = null) },
+    SwitchRow(
+        settingTitle("archive"),
+        if (prefs.archiveEnabled) stringResource(R.string.hist_archive_on_summary) + "\n" + pluralStringResource(R.plurals.hist_archive_count, count, count)
+        else stringResource(R.string.hist_archive_off_summary),
+        prefs.archiveEnabled,
+        icon = icon,
+        onChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true },
     )
     if (confirmOff) ArchiveOffDialog(vm) { confirmOff = false }
 }
@@ -100,14 +86,14 @@ private fun KeptForever(vm: AppViewModel) {
     val kept by vm.c.history.keptForever.collectAsStateWithLifecycle()
     val rowColors = ListItemDefaults.colors(containerColor = Color.Transparent)
     Column {
-        ListItem(
+        ParleyListItem(
             colors = rowColors,
             leadingContent = { Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             headlineContent = { Text(settingTitle("kept_forever")) },
             supportingContent = { Text(if (kept.isEmpty()) stringResource(R.string.hist_kept_forever_empty) else settingSummary("kept_forever")) },
         )
         kept.entries.sortedBy { it.value }.forEach { (key, number) ->
-            ListItem(
+            ParleyListItem(
                 colors = rowColors,
                 headlineContent = { Text(vm.contactFor(number)?.displayName ?: Format.number(number, vm.countryIso)) },
                 supportingContent = { Text(Format.number(number, vm.countryIso)) },

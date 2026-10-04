@@ -36,7 +36,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -62,6 +61,8 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.data.AccountRef
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.AccountRefSaver
 import app.parley.ui.common.StringSetSaver
 import app.parley.data.people.Label
@@ -70,7 +71,6 @@ import app.parley.ui.Routes
 import app.parley.ui.blocking.LabelBlockingMenuItem
 import app.parley.ui.contact.CallerTuneRow
 import app.parley.ui.contact.CallerTunes
-import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.family.SafeWordSection
 import app.parley.ui.startOrSay
@@ -159,7 +159,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 )
             }
             if (!merging) item {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable {
                         vm.people.clearFilter()
                         vm.people.setUnlabelled(true)
@@ -181,7 +181,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             }
             items(list, key = { it.title }) { l ->
                 var rowMenu by remember { mutableStateOf(false) }
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable {
                         if (merging) picked = if (l.title in picked) picked - l.title else picked + l.title else open(PeopleRoutes.label(l.title))
                     },
@@ -242,7 +242,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             content = {
                 Column {
                     picked.sorted().forEach { t ->
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable { target = t },
                             leadingContent = { RadioButton(target == t, { target = t }) },
                             headlineContent = { Text(t) },
@@ -311,7 +311,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.lbl_name)) }, singleLine = true)
                 Text(stringResource(R.string.lbl_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
                 accounts.forEach { a ->
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { account = a },
                         leadingContent = { RadioButton(account == a, { account = a }) },
                         headlineContent = { Text(idx.labelWithCount(a)) },
@@ -400,7 +400,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
             val emails = members.filter { it.id > 0 }.mapNotNull { it.emails.firstOrNull() } + privateEmails
             if (emails.isEmpty()) vm.toast(res.getString(R.string.lbl_no_emails))
-            else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") })))) vm.toast(res.getString(R.string.lbl_no_email_app))
+            else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") })))) {
+                vm.toast(res.getString(R.string.lbl_no_email_app))
+            }
         }
     }
     var menu by remember { mutableStateOf(false) }
@@ -446,7 +448,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                         (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number
                     }
                     if (numbers.isEmpty()) vm.toast(res.getString(R.string.lbl_no_numbers))
-                    else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) })))) vm.toast(res.getString(R.string.lbl_no_sms_app))
+                    else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) })))) {
+                        vm.toast(res.getString(R.string.lbl_no_sms_app))
+                    }
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }
@@ -484,7 +488,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
                     else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
                 }
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(onClick = ::pickTone),
                     leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
                     headlineContent = {

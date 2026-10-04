@@ -11,7 +11,6 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -40,6 +39,7 @@ import app.parley.blocking.BlockingText
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -126,7 +126,7 @@ fun ListsUpdaterSection(vm: AppViewModel) {
             val on = pk.id in subs
             val local = state.packs.firstOrNull { it.id == pk.id }
             val err = if (on) ListsUpdaterClient.lastError(context, pk.id) else null
-            ListItem(
+            ParleyListItem(
                 headlineContent = { Text(pk.name) },
                 supportingContent = {
                     Column {

@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +46,7 @@ import app.parley.R
 import app.parley.data.Permissions
 import app.parley.telecom.CallNotifier
 import app.parley.ui.CallColors
+import app.parley.ui.ParleyListItem
 import app.parley.ui.startOrSay
 
 /** One thing that decides whether calls reliably show up. */
@@ -139,7 +139,7 @@ fun NotificationHealthCard(vm: AppViewModel) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             shown.forEach { c ->
-                ListItem(
+                ParleyListItem(
                     leadingContent = {
                         Icon(
                             if (c.ok) Icons.Rounded.CheckCircle else Icons.Rounded.Warning, null,

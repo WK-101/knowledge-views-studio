@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +34,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.ux.ComingFrom
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyMotion
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
@@ -76,7 +76,7 @@ private fun SourceRow(s: ComingFrom.Source, expanded: Boolean, onToggle: () -> U
     val turn by animateFloatAsState(if (expanded) 180f else 0f, ParleyMotion.fastSpatial(), label = "expand")
     val stateText = stringResource(if (expanded) R.string.blk_expanded else R.string.blk_collapsed)
     Column {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable(role = Role.Button, onClick = onToggle).semantics { stateDescription = stateText },
             leadingContent = { Icon(s.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             headlineContent = { Text(stringResource(s.title)) },

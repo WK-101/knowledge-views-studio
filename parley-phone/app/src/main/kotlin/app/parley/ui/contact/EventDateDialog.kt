@@ -13,9 +13,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +31,7 @@ import app.parley.common.AltCalendar
 import app.parley.common.EventDate
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.LocalResources
+import app.parley.ui.SwitchRow
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -40,8 +39,6 @@ import java.time.Month
 import java.time.Year
 import java.time.format.TextStyle
 import java.util.Locale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ConfirmDialog
 
 /**
@@ -102,11 +99,7 @@ fun EventDateDialog(
                         monthField(Modifier.weight(0.65f)); dayField(Modifier.weight(0.35f))
                     }
                 }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.date_include_year)) },
-                    trailingContent = { Switch(withYear, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(withYear, role = Role.Switch, onValueChange = { withYear = it }),
-                )
+                SwitchRow(stringResource(R.string.date_include_year), null, withYear, onChange = { withYear = it })
                 if (withYear) {
                     OutlinedTextField(
                         year, { year = it.filter(Char::isDigit).take(4) }, label = { Text(stringResource(R.string.date_year)) }, singleLine = true,

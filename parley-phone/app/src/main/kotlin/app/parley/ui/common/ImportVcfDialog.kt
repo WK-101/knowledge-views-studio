@@ -5,7 +5,6 @@ import app.parley.common.catching
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +26,7 @@ import app.parley.common.ux.BackupNudge
 import android.content.res.Resources
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
+import app.parley.ui.ParleyListItem
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +81,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         val known = count
                         if (known == null) LinearProgressIndicator()
                         accounts.forEach { a ->
-                            ListItem(
+                            ParleyListItem(
                                 headlineContent = { Text(vm.accountLabel(a)) },
                                 modifier = Modifier.clickable(enabled = known != null) {
                                     backupFirst.ask(known ?: return@clickable, BackupNudge.LARGE_IMPORT) {

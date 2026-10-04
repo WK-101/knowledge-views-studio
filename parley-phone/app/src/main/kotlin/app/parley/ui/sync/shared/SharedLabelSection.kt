@@ -55,9 +55,9 @@ import app.parley.ui.ChoiceRow
 import app.parley.ui.Destination
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.Spacing
 import app.parley.ui.common.CoachMark
-import app.parley.ui.contact.Section
 import app.parley.ui.kitStrings
 import app.parley.ui.rowColors
 import app.parley.work.FolderSyncWorker

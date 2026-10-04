@@ -104,7 +104,9 @@ object DueTemporaries {
         val title = ctx.resources.getQuantityString(R.plurals.temp_due_title, count, count)
         val open = PrivateNotice.route(ctx, NotificationRequests.TEMPORARY_DUE, IntentRoutes.ACTION_OPEN_TEMPORARY)
         // No names anywhere in it: the same title on the lock screen and after unlocking. Answered, not tapped away.
-        val b = PrivateNotice.builder(ctx, NotificationChannels.HOUSEKEEPING, R.drawable.ic_stat_cake, title, title, ctx.getString(R.string.temp_due_text), open)
+        val b = PrivateNotice.builder(
+            ctx, NotificationChannels.HOUSEKEEPING, R.drawable.ic_stat_cake, title, title, ctx.getString(R.string.temp_due_text), open,
+        )
             .setAutoCancel(false)
             .addAction(deleteAction(ctx, open))
             .addAction(0, ctx.getString(R.string.temp_due_keep_longer), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP_LONGER))

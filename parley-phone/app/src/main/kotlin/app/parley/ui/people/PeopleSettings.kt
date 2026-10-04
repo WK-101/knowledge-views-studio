@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,9 +20,10 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.people.SecondLineMode
 import app.parley.data.AccountRef
-import app.parley.ui.contact.Section
 import app.parley.ui.LinkRow
 import app.parley.ui.MenuRow
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.SwitchRow
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
@@ -115,7 +115,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
             text = {
                 Column {
                     idx.accountCounts.entries.sortedByDescending { it.value }.forEach { (a, n) ->
-                        ListItem(headlineContent = { Text(a.displayLabel) }, supportingContent = { Text(pluralStringResource(R.plurals.lbl_n_contacts, n, n)) }, modifier = Modifier.clickable {
+                        ParleyListItem(headlineContent = { Text(a.displayLabel) }, supportingContent = { Text(pluralStringResource(R.plurals.lbl_n_contacts, n, n)) }, modifier = Modifier.clickable {
                             chooseAccount = false
                             exportAccount = a
                             exporter.launch("contacts-" + (a.name ?: "phone").replace(Regex("[^A-Za-z0-9._-]"), "_") + ".vcf")

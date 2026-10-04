@@ -26,6 +26,7 @@ import app.parley.common.people.BulkAction
 import app.parley.common.people.BulkActions
 import app.parley.data.AccountRef
 import app.parley.security.launchVault
+import app.parley.ui.ParleyListItem
 import app.parley.ui.startOrSay
 import app.parley.ui.vault.ExpiryDialog
 import androidx.compose.material.icons.rounded.FileDownload
@@ -39,7 +40,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -286,7 +286,7 @@ fun SelectionBar(vm: AppViewModel) {
                 Column {
                     if (groups.isEmpty()) Text(stringResource(R.string.sel_no_labels))
                     groups.forEach { g ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(g.title) },
                             supportingContent = { Text(g.account.displayLabel) },
                             modifier = Modifier.clickable {

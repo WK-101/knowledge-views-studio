@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PhoneInTalk
@@ -19,11 +18,9 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,7 +42,9 @@ import app.parley.common.calls.CallerHaptics
 import app.parley.common.calls.CallerHaptics.Preset
 import app.parley.common.extras.CallerChoice
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.launch
 
 /**
@@ -91,7 +90,7 @@ internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String, onTun
 @Composable
 internal fun VibrationRow(spec: String?, name: String, onClick: () -> Unit) {
     val pattern = CallerHaptics.decode(spec)
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.Rounded.Vibration, null) },
@@ -105,14 +104,7 @@ internal fun VibrationRow(spec: String?, name: String, onClick: () -> Unit) {
 /** "Answer automatically" for a person or a label (only shown while that option is on in Settings › Calls). */
 @Composable
 internal fun AutoAnswerRow(on: Boolean, summary: String, onChange: (Boolean) -> Unit) {
-    ListItem(
-        modifier = Modifier.toggleable(on, role = Role.Switch, onValueChange = onChange),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Icon(Icons.Rounded.PhoneInTalk, null) },
-        headlineContent = { Text(stringResource(R.string.caller_auto_answer)) },
-        supportingContent = { Text(summary) },
-        trailingContent = { Switch(on, onCheckedChange = null) },
-    )
+    SwitchRow(stringResource(R.string.caller_auto_answer), summary, on, icon = Icons.Rounded.PhoneInTalk, onChange = onChange)
 }
 
 @Composable
@@ -149,7 +141,7 @@ internal fun VibrationPatternDialog(current: String?, name: String, seedKey: Str
                     val selected = p?.preset == currentPattern?.preset
                     val label = if (p == null) stringResource(R.string.caller_vibration_usual) else patternName(p.preset, name)
                     val pick = { onPick(p?.let(CallerHaptics::encode)) }
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.selectable(selected, role = Role.RadioButton, onClick = pick),
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         leadingContent = { RadioButton(selected, onClick = null) },

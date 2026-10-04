@@ -136,10 +136,13 @@ object BlockingNotifier {
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setTimeoutAfter(if (blocked) 0 else 10 * 60_000L)
         if (blocked && number != null) {
-            b.addAction(action(context, context.getString(R.string.blk_not_spam), BlockingActionReceiver.ACTION_NOT_SPAM, number, e.result.listHit?.packId, NotificationRequests.SCREEN_NOT_SPAM))
+            val notSpam = context.getString(R.string.blk_not_spam)
+            val pack = e.result.listHit?.packId
+            b.addAction(action(context, notSpam, BlockingActionReceiver.ACTION_NOT_SPAM, number, pack, NotificationRequests.SCREEN_NOT_SPAM))
         }
         if (blocked && !s.snoozeActive(System.currentTimeMillis())) {
-            b.addAction(action(context, context.getString(R.string.blk_n_expecting_1h), BlockingActionReceiver.ACTION_SNOOZE, null, null, NotificationRequests.SCREEN_SNOOZE))
+            val snooze = context.getString(R.string.blk_n_expecting_1h)
+            b.addAction(action(context, snooze, BlockingActionReceiver.ACTION_SNOOZE, null, null, NotificationRequests.SCREEN_SNOOZE))
         }
         notify(nm, id, b)
     }

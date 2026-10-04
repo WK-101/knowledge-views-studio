@@ -26,5 +26,4 @@ object Intents {
     fun shareText(context: Context, text: String) {
         launch(context, Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
     }
-
 }

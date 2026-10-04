@@ -10,7 +10,6 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.TextSearch
+import app.parley.ui.ParleyListItem
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -43,7 +43,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
         LazyColumn(Modifier.padding(p)) {
             items((2..9).toList()) { key ->
                 val e = entries.firstOrNull { it.key == key }
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { editing = key },
                     leadingContent = { Text("$key") }, // l10n-ok: digit
                     headlineContent = { Text(e?.label ?: e?.number?.let(::bidiLtr) ?: stringResource(R.string.set_speed_dial_not_set)) },
@@ -71,7 +71,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
                     OutlinedTextField(q, { q = it }, label = { Text(stringResource(R.string.set_name_or_number)) }, singleLine = true)
                     matches.forEach { c ->
                         c.phones.forEach { ph ->
-                            ListItem(headlineContent = { Text(c.displayName) }, supportingContent = { Text(bidiLtr(ph.number)) }, modifier = Modifier.clickable {
+                            ParleyListItem(headlineContent = { Text(c.displayName) }, supportingContent = { Text(bidiLtr(ph.number)) }, modifier = Modifier.clickable {
                                 scope.launch { vm.c.prefs.setSpeedDial(key, ph.number, c.displayName) }
                                 editing = null
                             })

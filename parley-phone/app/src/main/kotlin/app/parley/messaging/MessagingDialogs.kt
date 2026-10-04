@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -39,6 +38,7 @@ import app.parley.common.NumberText
 import app.parley.container
 import app.parley.common.people.MeCard
 import app.parley.ui.Bidi
+import app.parley.ui.ParleyListItem
 import java.util.Locale
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
@@ -86,7 +86,7 @@ fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (Strin
                 OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.msg_search_countries)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.code }) { r ->
-                        ListItem(
+                        ParleyListItem(
                             headlineContent = { Text(r.name) },
                             supportingContent = { Text(Bidi.ltr("+${r.callingCode}") + stringResource(R.string.main_separator) + r.code) },
                             trailingContent = if (r.code == selected) ({ Icon(Icons.Rounded.Check, stringResource(R.string.contacts_selected)) }) else null,

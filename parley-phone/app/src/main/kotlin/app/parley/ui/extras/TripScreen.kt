@@ -51,15 +51,13 @@ import app.parley.common.calls.CallSource
 import app.parley.common.extras.TripMatch
 import app.parley.data.PhoneEnv
 import app.parley.data.extras.ExtrasStore
-import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.ParleyListItem
-import app.parley.ui.avatarSize
 
 /**
  * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
@@ -150,11 +148,10 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                     }
                     items(hits, key = { it.person.id }) { h ->
                         val c = byId[h.person.id]
-                        val phone = c?.let { it.phones.firstOrNull { p -> p.isPrimary } ?: it.phones.firstOrNull() }
-                        ParleyListItem(
+                        val phone = c?.primaryPhone
+                        PersonRow(
+                            h.person.name, c?.photoUri,
                             modifier = Modifier.clickable { open(Routes.contact(h.person.id)) },
-                            leadingContent = { Avatar(h.person.name, c?.photoUri, avatarSize()) },
-                            headlineContent = { Text(h.person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(reasonText(h), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             trailingContent = {
                                 if (c != null && phone != null) Row {

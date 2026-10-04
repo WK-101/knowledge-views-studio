@@ -26,7 +26,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,8 +53,9 @@ import app.parley.data.people.ContactsAccessApp
 import app.parley.messaging.WhatsAppNotice
 import app.parley.privatenames.PrivateDirectoryProvider
 import app.parley.privatenames.PrivateNameProvider
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.LinkRow
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.pluralStringResource
@@ -111,7 +111,8 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                             style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp),
                         )
                         TextButton({
-                            if (!context.startOrSay(Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes")))) vm.toast(res.getString(R.string.who_no_browser))
+                            val scopes = Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes"))
+                            if (!context.startOrSay(scopes)) vm.toast(res.getString(R.string.who_no_browser))
                         }) { Text(stringResource(R.string.who_scopes_link)) }
                     }
                 }
@@ -121,9 +122,9 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             item { Text(stringResource(Wording.APPS), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             val list = apps
             if (list == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
-            else if (list.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }
+            else if (list.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }
             else items(list, key = { it.packageName }) { a ->
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { appSettings(a.packageName) },
                     leadingContent = { AppIcon(a.packageName) },
                     headlineContent = { Text(a.label) },
@@ -141,7 +142,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                 )
             }
             item {
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Android, null) },
                     headlineContent = { Text(stringResource(R.string.who_unused)) },
                     supportingContent = { Text(stringResource(R.string.who_unused_text)) },
@@ -150,7 +151,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
 
             item {
                 // Messaging unsaved numbers keeps working without WhatsApp's Contacts permission, as far as Parley can tell.
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Info, null) },
                     headlineContent = { Text(stringResource(R.string.who_messengers)) },
                     supportingContent = { Text(stringResource(WhatsAppNotice.REVOKE_TEXT_RES)) },
@@ -175,7 +176,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
 
             item { Section(stringResource(R.string.who_share_one)) }
             item {
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Shield, null) },
                     headlineContent = { Text(stringResource(Wording.PICK)) },
                     supportingContent = {
@@ -214,7 +215,7 @@ private fun AppIcon(pkg: String) {
 @Composable
 private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (LookupApproval?) -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { menu = true },
         leadingContent = { AppIcon(pkg) },
         headlineContent = { Text(label) },
@@ -282,20 +283,20 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
             }
             if (st.directory || st.directoryApprovals.isNotEmpty()) {
                 item { Section(stringResource(R.string.pn_directory_apps)) }
-                if (st.directoryApprovals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
+                if (st.directoryApprovals.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
                 items(st.directoryApprovals.entries.sortedBy { label(it.key).lowercase() }, key = { "d:" + it.key }) { (pkg, a) ->
                     ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = true) }
                 }
             }
             item { Section(stringResource(R.string.pn_apps)) }
-            if (st.approvals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
+            if (st.approvals.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
             items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
                 ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = false) }
             }
             item { Section(stringResource(R.string.pn_log)) }
-            if (st.log.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }
+            if (st.log.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }
             items(st.log.asReversed().take(100)) { e ->
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(label(e.packageName)) },
                     supportingContent = {

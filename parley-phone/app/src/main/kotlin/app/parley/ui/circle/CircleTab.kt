@@ -1,6 +1,7 @@
 package app.parley.ui.circle
 
 import androidx.compose.foundation.layout.Box
+import app.parley.ui.PersonRow
 import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.Destination
 import androidx.compose.animation.AnimatedVisibility
@@ -164,7 +165,7 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query:
 @Composable
 private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger, open: (Destination) -> Unit) {
     val res = LocalResources.current
-    val phone = r.contact.phones.firstOrNull { it.isPrimary } ?: r.contact.phones.firstOrNull()
+    val phone = r.contact.primaryPhone
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.main_open_contact)) { open(Routes.contact(r.contact.id)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -217,10 +218,9 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
         SegmentedGroup(stringResource(R.string.circle_suggested)) {
             suggestions.forEach { s ->
                 item("s:" + s.contact.lookupKey) {
-                    ParleyListItem(
+                    PersonRow(
+                        s.contact.displayName, s.contact.photoUri,
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        leadingContent = { Avatar(s.contact.displayName, s.contact.photoUri, avatarSize()) },
-                        headlineContent = { Text(s.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = {
                             Text(
                                 pluralStringResource(

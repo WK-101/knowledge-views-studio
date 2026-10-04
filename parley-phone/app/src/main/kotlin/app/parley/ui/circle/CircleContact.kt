@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +37,7 @@ import app.parley.common.people.LifeEvents
 import app.parley.data.ContactDetails
 import app.parley.data.circle.Interaction
 import app.parley.data.db.ContactMetaEntity
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.extras.LabelRhythmSuggestion
 import app.parley.ui.history.RhythmSuggestion
@@ -82,7 +82,7 @@ fun StayInTouchCard(
     SegmentedGroup(title) {
         if (every == null) {
             if (invite) item("stay") {
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
                     colors = rowColors,
                     leadingContent = { Icon(Icons.Rounded.Handshake, null) },
@@ -93,7 +93,7 @@ fun StayInTouchCard(
         } else {
             item("stay") {
                 val status = CirclePlanner.status(CirclePlanner.Member(d.lookupKey, rhythm.days(every), last?.time, rhythm.snoozedUntil), now)
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
                     colors = rowColors,
                     leadingContent = { Icon(Icons.Rounded.Handshake, null, tint = MaterialTheme.colorScheme.primary) },
@@ -105,12 +105,12 @@ fun StayInTouchCard(
         }
         // "Usually free 6–9 pm · 7:40 pm there".
         if (goodTime != null) item("good_time") {
-            ListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
+            ParleyListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
         }
         if (showNext && next != null) item("next") {
             val (ev, days) = next
             val label = eventLabel(res, ev)
-            ListItem(
+            ParleyListItem(
                 colors = rowColors,
                 leadingContent = { Icon(if (ev.type == Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
                 headlineContent = {
@@ -153,7 +153,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
                 // A label's rhythm for people joining the Circle.
                 if (current == null) LabelRhythmSuggestion(vm, contactId) { days -> set(days) }
                 RhythmSuggestion(vm, d.phones.map { it.value }) { days -> set(days) }
-                ListItem(
+                ParleyListItem(
                     modifier = Modifier.clickable { set(current ?: CirclePlannerDefaults.DAYS, natural = true) },
                     colors = rowColors,
                     leadingContent = { Icon(Icons.Rounded.Update, null, tint = if (rhythm.mode == RhythmMode.NATURAL && current != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -168,13 +168,13 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
                     ), 90 to stringResource(R.string.detail_every_3_months), 180 to stringResource(R.string.detail_every_6_months),
                 ).forEach { (days, label) ->
                     val chosen = current == days && rhythm.mode == RhythmMode.EVERY
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = { Text(label, color = if (chosen) MaterialTheme.colorScheme.primary else Color.Unspecified) },
                         colors = rowColors,
                         modifier = Modifier.clickable { set(days) },
                     )
                 }
-                if (current != null) ListItem(
+                if (current != null) ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.circle_remove)) },
                     colors = rowColors,
                     modifier = Modifier.clickable { set(null) },

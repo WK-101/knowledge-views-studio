@@ -27,7 +27,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,6 +55,7 @@ import app.parley.R
 import app.parley.common.qr.QrParser
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
+import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import kotlinx.coroutines.CancellationException
@@ -207,7 +207,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 s.texts.forEach { t ->
                     item {
                         val p = remember(t) { QrParser.parse(t) }
-                        ListItem(
+                        ParleyListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             leadingContent = { Icon(QrLabels.icon(p), null) },
                             headlineContent = { Text(QrLabels.kind(res, p)) },

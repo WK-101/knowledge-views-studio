@@ -14,7 +14,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,8 +33,9 @@ import app.parley.R
 import app.parley.messaging.MessagedRecordSection
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.CallColors
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.calltime.NotificationHealthCard
-import app.parley.ui.contact.Section
 import app.parley.ui.people.PrivacyLinks
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -103,17 +103,17 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                 val vault = vm.c.vault.contacts.collectAsStateWithLifecycle().value.takeIf { s.duress == null }.orEmpty()
                 val priv = vm.c.vault.privateCalls.collectAsStateWithLifecycle().value.takeIf { s.duress == null }.orEmpty()
                 val journalCount by produceState(0) { value = vm.c.meta.journalCount() }
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_contacts, vault.size, vault.size)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_private_contacts_body)) },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_calls, priv.size, priv.size)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_private_calls_body)) },
                 )
                 MessagedRecordSection { vm.navigate(NavEvent.Route(MessagingRoutes.Messaged)) }
                 val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
-                ListItem(
+                ParleyListItem(
                     headlineContent = {
                         Text(
                             if (s.callLogRetentionDays > 0) pluralStringResource(R.plurals.set_privacy_history_kept, s.callLogRetentionDays, s.callLogRetentionDays)
@@ -124,11 +124,11 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                         Text(stringResource(if (archiveOn.archiveEnabled) R.string.set_privacy_archive_on else R.string.set_privacy_archive_off))
                     },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_undo_changes, journalCount, journalCount)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_undo_body)) },
                 )
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(stringResource(if (s.appLock) R.string.set_privacy_app_lock_on else R.string.set_privacy_app_lock_off)) },
                     supportingContent = { Text(stringResource(if (s.secureScreen) R.string.set_privacy_screenshots_hidden else R.string.set_privacy_screenshots_allowed)) },
                 )
@@ -136,7 +136,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
             item { Section(stringResource(R.string.set_privacy_permissions)) }
             items(requested.filter { it.startsWith("android.permission.") }) { perm ->
                 val granted = context.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
-                ListItem(
+                ParleyListItem(
                     leadingContent = { Icon(if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (granted) CallColors.Accept else MaterialTheme.colorScheme.outline) },
                     headlineContent = { Text(perm.removePrefix("android.permission.").lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) },
                     supportingContent = { Text(reasons[perm]?.let { stringResource(it) } ?: "") },

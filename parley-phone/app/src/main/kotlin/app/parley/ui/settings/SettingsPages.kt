@@ -84,7 +84,6 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -112,6 +111,7 @@ import app.parley.R
 import app.parley.common.catching
 import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.JobProgress
 import app.parley.BuildConfigInfo
 import app.parley.blocking.BlockingActions
@@ -232,7 +232,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_navigation_bar)) {
         item("nav_tabs") {
             Column {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(navTabsTitle) },
                     supportingContent = { Text(navTabsHelp) },
                     colors = rowColors(),
@@ -482,7 +482,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                 Column {
                     SwitchRow(stringResource(R.string.set_skip_duplicates), stringResource(R.string.set_skip_duplicates_body), skipDuplicates) { skipDuplicates = it }
                     accs.forEach { a ->
-                        ListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
+                        ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
                             importAccounts = null
                             scope.launch {
                                 // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.

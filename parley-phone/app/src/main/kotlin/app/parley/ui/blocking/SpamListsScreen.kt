@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -56,8 +55,9 @@ import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.SignatureStatus
 import app.parley.data.DryRun
 import app.parley.data.SpamListStore
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Section
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
@@ -145,7 +145,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 val folder = state.folderUri
                 if (folder != null) {
-                    ListItem(
+                    ParleyListItem(
                         leadingContent = { Icon(Icons.Rounded.Folder, null) },
                         headlineContent = { Text(stringResource(R.string.blk_subscribed_folder)) },
                         supportingContent = {
@@ -181,7 +181,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             if (suggested.isNotEmpty()) {
                 item { Section(stringResource(R.string.blk_built_in_section)) }
                 items(suggested, key = { "b" + it.id }) { b ->
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = {
                             val n = BlockingText.packName(context, b.id, b.name)
                             Text(if (b.country.equals(vm.countryIso, true)) stringResource(R.string.blk_for_your_sim, n) else n)
@@ -288,7 +288,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
     val stale = pk.isStale(now)
     val name = BlockingText.packName(context, pk.id, pk.name)
     Column {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.padding(0.dp),
             headlineContent = { Text(name) },
             supportingContent = {

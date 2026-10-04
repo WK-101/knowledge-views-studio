@@ -43,7 +43,7 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
                 val messengers = withContext(Dispatchers.IO) { Messengers.actions(context, c.id) }
                 val meta = vm.c.meta.meta(c.lookupKey)
                 val phones = c.phones
-                val default = number ?: (phones.firstOrNull { it.isPrimary } ?: phones.firstOrNull())?.number
+                val default = number ?: c.primaryNumber
                 val reach = Reach(
                     name = c.displayName, numbers = phones.map { it.number to Format.phoneType(res, it.type, it.label) },
                     defaultNumber = default, messengers = messengers, prefs = MessengerPrefs.decode(meta?.preferredMessenger).let { if (number != null) it.copy(number = null) else it },

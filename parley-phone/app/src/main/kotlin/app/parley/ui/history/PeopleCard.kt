@@ -18,7 +18,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -40,15 +38,14 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.circle.PeopleInsights
 import app.parley.common.history.CallLogIndex
-import app.parley.ui.Avatar
 import app.parley.ui.Bidi
+import app.parley.ui.ParleyListItem
+import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.ListSectionHeader
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import app.parley.ui.ParleyListItem
-import app.parley.ui.avatarSize
 
 /** Everything the People card shows, worked out once per history change. */
 private data class PeopleData(
@@ -125,7 +122,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                 PeopleInsights.Trend.DOWN -> Icons.AutoMirrored.Rounded.TrendingDown to stringResource(R.string.circle_reach_down, r.before)
                 PeopleInsights.Trend.SAME -> Icons.AutoMirrored.Rounded.TrendingFlat to stringResource(R.string.circle_reach_same)
             }
-            ListItem(
+            ParleyListItem(
                 headlineContent = { Text(pluralStringResource(R.plurals.circle_reach, r.circle, r.now, r.circle)) },
                 supportingContent = { Text(trend) },
                 trailingContent = { Icon(icon, trend, tint = MaterialTheme.colorScheme.primary) },
@@ -174,14 +171,16 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                     stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString()))
                 }
             }
-            if (most.isNotEmpty()) ListItem(
+            if (most.isNotEmpty()) ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) },
             )
             r.longestGap?.let { (k, days) ->
-                contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_gap, days, days, ct.displayName)) }) }
+                contacts[k]?.let { ct ->
+                    ParleyListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_gap, days, days, ct.displayName)) })
+                }
             }
-            if (r.occasions > 0) ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) })
-            ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_entries, r.entries, r.entries)) })
+            if (r.occasions > 0) ParleyListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) })
+            ParleyListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_entries, r.entries, r.entries)) })
         }
     }
 }
@@ -193,11 +192,10 @@ private fun SubHeader(text: String) {
 
 @Composable
 private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open: (Destination) -> Unit, call: Boolean = true) {
-    val phone = (ct.phones.firstOrNull { it.isPrimary } ?: ct.phones.firstOrNull())?.number
-    ParleyListItem(
+    val phone = ct.primaryNumber
+    PersonRow(
+        ct.displayName, ct.photoUri,
         modifier = Modifier.clickable { open(Routes.contact(ct.id)) },
-        leadingContent = { Avatar(ct.displayName, ct.photoUri, avatarSize()) },
-        headlineContent = { Text(ct.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(sub) },
         trailingContent = if (call && phone != null) ({
             IconButton({ vm.requestCall(phone, ct.displayName) }) {

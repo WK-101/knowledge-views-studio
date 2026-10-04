@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -74,6 +73,7 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.messaging.BulkAdd
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.AccountRefSaver
 import app.parley.ui.common.BooleanListSaver
 import app.parley.data.GroupInfo
@@ -296,7 +296,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                         item { SectionTitle(stringResource(R.string.bulk_recent_batches)) }
                         batches.forEach { b ->
                             item(key = b.tag) {
-                                ListItem(
+                                ParleyListItem(
                                     headlineContent = { Text("${b.count}" + stringResource(R.string.main_separator) + b.where, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     supportingContent = { Text(DateUtils.getRelativeTimeSpanString(b.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()) },
                                     trailingContent = { IconButton({ deleteBatch = b }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.bulk_delete_batch)) } },
@@ -410,7 +410,7 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
         BulkAdd.Status.PRIVATE -> stringResource(R.string.bulk_already_private, c.existingName.orEmpty())
         else -> stringResource(c.status.labelRes)
     }
-    ListItem(
+    ParleyListItem(
         headlineContent = { Text(Bidi.ltr(shown)) },
         supportingContent = {
             val where = c.e164?.let { NumberInfo.location(it, region) }
@@ -455,7 +455,7 @@ private fun DestinationPicker(
             var accMenu by remember { mutableStateOf(false) }
             var labelMenu by remember { mutableStateOf(false) }
             Box {
-                ListItem(
+                ParleyListItem(
                     headlineContent = { Text(account?.let { vm.accountLabel(it) } ?: stringResource(R.string.bulk_no_account)) },
                     supportingContent = { Text(stringResource(R.string.bulk_account)) },
                     trailingContent = { Icon(Icons.Rounded.ArrowDropDown, stringResource(R.string.bulk_choose_account)) },
@@ -531,7 +531,7 @@ private fun LazyListScope.resultItems(
         }
     }
     item {
-        ListItem(
+        ParleyListItem(
             headlineContent = { Text(stringResource(R.string.sel_introduce)) },
             supportingContent = { Text(stringResource(R.string.bulk_introduce_sub)) },
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },

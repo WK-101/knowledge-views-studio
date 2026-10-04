@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +29,7 @@ import app.parley.R
 import app.parley.data.history.TrashBatch
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.EmptyState
+import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
 
@@ -52,7 +52,7 @@ fun DeletedCallsList(vm: AppViewModel, modifier: Modifier = Modifier, reload: In
     }
     LazyColumn(modifier) {
         items(list, key = { it.batchId }) { b ->
-            ListItem(
+            ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.History, null) },
                 headlineContent = { Text(pluralStringResource(R.plurals.hist_calls_deleted, b.count, b.count)) },
                 supportingContent = { Text(Format.fullDate(context, b.deletedAt)) },

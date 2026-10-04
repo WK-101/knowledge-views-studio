@@ -63,7 +63,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         )
             .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.circle_promise_line, it) } ?: ctx.getString(R.string.circle_followup_body))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-        (contact.phones.firstOrNull { it.isPrimary } ?: contact.phones.firstOrNull())?.number?.let { phone ->
+        contact.primaryNumber?.let { phone ->
             val call = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id, contact.displayName)
             b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
         }
