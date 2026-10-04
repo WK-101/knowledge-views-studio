@@ -172,11 +172,14 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_ANSWERING, "auto_answer", C),
         // Haptic caller ID: set on a contact's or a label's page.
         at(SettingPlace.CALLS_ANSWERING, "caller_vibration", C),
-        // Calls › Situations: screens of their own (helpers, drive profile, phone menus, call time).
+        // Calls › Situations: the Situations themselves, then screens of their own (helpers, drive profile, phone menus,
+        // call time).
         // Bring in my helper: a screen of its own, linked from Calls › Situations (and simple mode's setup).
         at(SettingPlace.HELPERS, "call_helpers", C),
-        // The drive profile: a screen of its own, linked from Calls › Situations; off until a car is marked.
-        at(SettingPlace.DRIVE_PROFILE, "drive_profile", C),
+        // Situations ("Driving", "Meeting", "Night", "Travelling" and those made): one tap sets several behaviours and
+        // turning it off puts them back. It took the drive profile's entry: the car is set from Situations (Driving),
+        // and search finds it by its old words.
+        at(SettingPlace.CALLS_SITUATIONS, "situations", C),
         // Phone menus: a screen of its own, linked from Calls › Situations.
         at(SettingPlace.PHONE_MENUS, "phone_menus", C),
         at(SettingPlace.PHONE_MENUS, "menu_memory", C),

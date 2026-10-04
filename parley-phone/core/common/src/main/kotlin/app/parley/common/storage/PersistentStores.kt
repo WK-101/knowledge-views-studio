@@ -88,6 +88,7 @@ object PersistentStores {
         const val MENUS = "menus"
         const val FAMILY_SAFETY = "family_safety"
         const val CALL_SWITCHES = "call_switches"
+        const val SITUATIONS = "situations"
 
         /** Generated caller ringtones: their audio files, as optional archive files (BackupArchiveWriter.writeFiles). */
         const val TUNES = "tunes"
@@ -173,6 +174,12 @@ object PersistentStores {
         // hint was shown for stay here: a new phone pairs again and has its own trips.
         PersistentStore("parley_drive_profile", StoreKind.PREFS, backedUp, Sections.CALL_SWITCHES),
         PersistentStore("parley_roaming", StoreKind.PREFS, backedUp, Sections.CALL_SWITCHES),
+        // Situations ("Driving", "Night"…) and the ones made: what each sets and when it switches on.
+        PersistentStore("parley_situations", StoreKind.PREFS, backedUp, Sections.SITUATIONS),
+        PersistentStore(
+            "parley_situation_state", StoreKind.PREFS,
+            local("The Situation on now and what to put back when it goes off: this phone's moment, not a preference"),
+        ),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),

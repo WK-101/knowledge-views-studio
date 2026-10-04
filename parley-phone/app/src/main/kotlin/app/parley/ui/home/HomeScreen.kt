@@ -86,6 +86,7 @@ import app.parley.security.AppLock
 import app.parley.ui.Routes
 import app.parley.ui.activityViewModel
 import app.parley.ui.calltime.NotificationHealthBanner
+import app.parley.ui.situations.SituationChip
 import app.parley.ui.calltime.ReturnToCallChip
 import app.parley.ui.circle.CircleTab
 import app.parley.ui.common.CoachMarkAnchor
@@ -234,6 +235,8 @@ fun HomeScreen(
         bottomBar = {
             Column(if (wide) Modifier.navigationBarsPadding() else Modifier) {
                 NotificationHealthBanner(vm)
+                // The Situation on now, with one-tap Turn off.
+                SituationChip(vm, open)
                 ReturnToCallChip()
                 if (!wide && showBar) NavigationBar {
                     barTabs.forEach { t ->

@@ -548,8 +548,8 @@
     <string name="set_calls_sims_title">SIMs &amp; carrier</string>
     <string name="set_calls_sims_summary">SIMs, calling abroad, forwarding and voicemail settings</string>
     <string name="set_calls_situations_title">Situations</string>
-    <string name="set_calls_situations_summary">Helpers, driving, phone menus and call time</string>
-    <string name="set_calls_situations_intro">For particular calls: bringing in a helper, driving, phone menus and how long calls last.</string>
+    <string name="set_calls_situations_summary">Driving, meeting, night and travelling; helpers, phone menus and call time</string>
+    <string name="set_calls_situations_intro">One tap sets a moment: who may ring, how calls are answered, which reply comes first and which SIM calls go out on. Turning it off puts back what you had. Below: helpers, phone menus and how long calls last.</string>
     <string name="set_group_before_calling">Before you call</string>
     <string name="set_group_incoming">Incoming calls</string>
     <string name="set_group_call_feedback">Vibration and power button</string>

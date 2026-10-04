@@ -43,6 +43,7 @@ class ExportedComponentsTest {
             "app.parley.messaging.MessageNumberTileService" to BIND_TILE,
             "app.parley.ui.qr.QrScanTileService" to BIND_TILE,
             "app.parley.blocking.ExpectingCallTileService" to BIND_TILE,
+            "app.parley.situations.SituationTileService" to BIND_TILE,
             "app.parley.telecom.HangUpTileService" to BIND_TILE,
             // Telecom binds these as the default phone app and call screener.
             "app.parley.telecom.ParleyInCallService" to "android.permission.BIND_INCALL_SERVICE",

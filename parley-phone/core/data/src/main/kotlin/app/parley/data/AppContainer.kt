@@ -18,6 +18,7 @@ import app.parley.data.backup.CallerTuneFiles
 import app.parley.data.backup.ContactNotesBackup
 import app.parley.data.backup.FamilySafetyBackup
 import app.parley.data.backup.HistorySettingsBackup
+import app.parley.data.backup.SituationsBackup
 import app.parley.data.backup.SpamListsBackup
 import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
@@ -46,6 +47,7 @@ import app.parley.data.people.PeopleContainer
 import app.parley.data.people.PeoplePrefs
 import app.parley.data.people.TemporaryContactStore
 import app.parley.data.records.ContactRecordStore
+import app.parley.data.situations.SituationsController
 import app.parley.data.sync.FolderSync
 import app.parley.data.vault.VaultMoves
 import app.parley.data.vault.VaultCrypto
@@ -103,6 +105,11 @@ class DataContainer(context: Context) {
             reputation = reputation,
         )
             .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
+            // Situations: a window or a car may switch one on or off before this call is screened.
+            .also { s ->
+                s.situationsWatching = { situations.watching() }
+                s.beforeScreen = { situations.reconcile() }
+            }
             // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->
                 s.expectedWindows = {
@@ -129,8 +136,8 @@ class DataContainer(context: Context) {
     val dialGuard by lazy {
         DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) { n -> callLog.pastCalls(n, System.currentTimeMillis(), limit = 10) }
     }
-    // A label's SIM for people without a remembered SIM of their own.
-    val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) } } }
+    // A label's SIM for people without a remembered SIM of their own, then the SIM of the Situation on now.
+    val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) ?: situations.activeSim() } } }
     val records by lazy { ContactRecordStore(appContext) }
     val calling by lazy { CallingRepository(appContext) }
     /** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */
@@ -164,6 +171,13 @@ class DataContainer(context: Context) {
 
     /** L6 assisted dialling abroad and the local-SIM hint. */
     val roaming by lazy { RoamingRepository(appContext, sims) }
+
+    /** Situations ("Driving", "Night"…): one tap sets a moment, and turning it off puts back what was set. */
+    val situations by lazy { SituationsController(appContext, settings, { driveProfile }, { callExtras }, { roaming }) { situationSignals?.invoke() } }
+
+    /** What Situations' triggers see on this phone (audio devices, car mode), set by the app at start. */
+    @Volatile
+    var situationSignals: (() -> app.parley.common.situations.SituationSignals)? = null
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() }.also { it.notesSink = contactExport } }
 
     /** Open exports (vCard, encrypted vCard, CSV, notes as text) with private contacts and notes when asked. */
@@ -238,6 +252,7 @@ class DataContainer(context: Context) {
             menus.backupExtras,
             FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
             CallSwitchesBackup({ driveProfile }, { roaming }),
+            SituationsBackup { situations },
         )
     }
 
@@ -318,6 +333,7 @@ class DataContainer(context: Context) {
     fun warmStores() {
         runCatching { extras }
         runCatching { callExtras }
+        runCatching { situations }
         runCatching { calling }
         runCatching { ux }
         runCatching { circle }
