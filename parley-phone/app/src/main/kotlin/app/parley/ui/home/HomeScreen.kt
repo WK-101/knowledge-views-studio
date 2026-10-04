@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
@@ -324,6 +325,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
+            // Name, recently added, most called or company: kept in the list, remembered.
+            MenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BulkAdd) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.

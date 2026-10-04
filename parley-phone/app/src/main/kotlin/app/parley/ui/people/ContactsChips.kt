@@ -58,6 +58,8 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
+        // The order, while it isn't by name.
+        ContactSortChip(vm)
         // Filters (country, company, birthday…) and the ones in use, next to the search.
         ContactFieldFilterChips(vm, vaultHidden)
         // While a word is searched, the city scope comes first: the people tied to that city.

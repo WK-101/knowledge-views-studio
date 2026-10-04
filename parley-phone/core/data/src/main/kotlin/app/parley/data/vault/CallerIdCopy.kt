@@ -39,6 +39,8 @@ internal object CallerIdCopy {
             choicesKnown = o.has(C_SEEDED),
             nameAlt = alternativeOf(o),
             region = o.optString(C_REGION).ifEmpty { null },
+            company = o.optString(C_COMPANY),
+            createdAt = createdAt,
         )
     }
 

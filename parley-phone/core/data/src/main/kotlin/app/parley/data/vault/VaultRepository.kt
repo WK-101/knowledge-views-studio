@@ -87,6 +87,10 @@ data class VaultSummary(
     val nameAlt: String = name,
     /** The region its national numbers were read with when saved; null for entries saved before it was kept. */
     val region: String? = null,
+    /** Its company, from the caller-ID copy (readable while the vault is locked), for sorting Contacts by company. */
+    val company: String = "",
+    /** When it was first saved here (made private or created), for sorting Contacts by recently added. */
+    val createdAt: Long = 0,
 ) {
     /** Anything the call path must apply for this contact (Parley screens its calls then). */
     val hasCallChoices: Boolean get() = ringtone != null || sendToVoicemail || labels.isNotEmpty()
