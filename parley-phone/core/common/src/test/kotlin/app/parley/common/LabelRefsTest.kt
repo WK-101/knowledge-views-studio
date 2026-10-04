@@ -94,4 +94,31 @@ class LabelRefsTest {
         val off = LabelRefs.labelGone(OffHours(enabled = true, allow = OffHoursAllow.LABEL, labelTitle = "A"))
         assertFalse(off.enabled)
     }
+
+    @Test fun undo_of_a_delete_puts_limits_tones_and_off_hours_back() {
+        val config = CallingConfig(
+            rules = listOf(LimitRule(LimitScope.LABEL, "A", "A", perCallMinutes = 10), LimitRule(LimitScope.GLOBAL, perCallMinutes = 60)),
+        )
+        val kept = LabelRefs.limitsOf(config, setOf("A"))
+        val after = LabelRefs.deleteFromConfig(config, setOf("A"))
+        assertEquals(config.rules.toSet(), LabelRefs.undoDeleteLimits(after, kept).rules.toSet())
+        // A limit set again for the label since the delete is the one that stays.
+        val again = after.copy(rules = after.rules + LimitRule(LimitScope.LABEL, "A", "A", perCallMinutes = 5))
+        assertEquals(5, LabelRefs.undoDeleteLimits(again, kept).rules.single { it.scope == LimitScope.LABEL }.perCallMinutes)
+
+        val tones = mapOf("A" to "tone-a", "B" to "tone-b")
+        val gone = LabelRefs.entriesOf(tones, setOf("A"))
+        assertEquals(mapOf("A" to "tone-a"), gone)
+        assertEquals(tones, LabelRefs.undoDeleteEntries(mapOf("B" to "tone-b"), gone))
+        assertEquals("new", LabelRefs.undoDeleteEntries(mapOf("A" to "new"), gone)["A"])
+
+        val oh = OffHours(enabled = true, allow = OffHoursAllow.LABEL, labelTitle = "A")
+        assertEquals(oh, LabelRefs.undoDeleteOffHours(LabelRefs.labelGone(oh), oh))
+        // Changed by hand since: left alone.
+        val changed = LabelRefs.labelGone(oh).copy(enabled = true)
+        assertEquals(changed, LabelRefs.undoDeleteOffHours(changed, oh))
+        // Not about this label: nothing to put back.
+        val other = OffHours(enabled = true, allow = OffHoursAllow.CONTACTS)
+        assertEquals(other, LabelRefs.undoDeleteOffHours(other, other))
+    }
 }

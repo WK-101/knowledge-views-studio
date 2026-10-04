@@ -76,6 +76,9 @@ sealed interface BlockingDialog {
 
     /** I2: why a number looks like a sales line (your calls). */
     data class Reputation(val number: String) : BlockingDialog
+
+    /** The one Block question ([askToBlock]); [name] names a single number, [note] goes on any rule written. */
+    data class Block(val numbers: List<String>, val name: String? = null, val note: String? = null) : BlockingDialog
 }
 
 object BlockingDialogs {
@@ -100,6 +103,7 @@ fun BlockingDialogHost(vm: AppViewModel) {
         is BlockingDialog.LabelRule -> LabelRuleDialog(vm, x, dismiss)
         BlockingDialog.Snooze -> SnoozeDialog(vm, dismiss)
         is BlockingDialog.Reputation -> ReputationDialog(vm, x.number, dismiss)
+        is BlockingDialog.Block -> BlockConfirmDialog(vm, x, dismiss)
     }
 }
 

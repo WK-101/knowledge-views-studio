@@ -637,6 +637,9 @@ interface VaultDao {
     @Query("DELETE FROM private_calls WHERE id = :id")
     suspend fun deletePrivateCall(id: Long)
 
+    @Query("SELECT * FROM private_calls WHERE id IN (:ids)")
+    suspend fun privateCallsById(ids: List<Long>): List<PrivateCallEntity>
+
     @Query("SELECT * FROM private_calls WHERE vaultId = :vaultId ORDER BY date DESC")
     suspend fun privateCallsOf(vaultId: Long): List<PrivateCallEntity>
 

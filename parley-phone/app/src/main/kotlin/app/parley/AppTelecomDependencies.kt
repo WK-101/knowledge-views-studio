@@ -47,6 +47,7 @@ import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
 import app.parley.telecom.PostCallAction
+import app.parley.blocking.BlockFlow
 import app.parley.telecom.NumberMemoryLine
 import app.parley.common.memory.NumberMemory
 import app.parley.ui.memory.NumberMemoryText
@@ -569,6 +570,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, action.name)
             .putExtra(MainActivity.EXTRA_NUMBER, number)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    override suspend fun isBlocked(number: String): Boolean = withContext(Dispatchers.IO) { BlockFlow.now(c, number).blocked }
 
     override suspend fun savePrivately(number: String, name: String): String? = withContext(Dispatchers.IO) {
         val saved = runCatching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null

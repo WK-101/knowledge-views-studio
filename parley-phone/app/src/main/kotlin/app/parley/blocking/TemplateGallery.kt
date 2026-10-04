@@ -137,6 +137,18 @@ class TemplateGallery private constructor(context: Context) {
         write { s -> s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
     }
 
+    /** [removeImported], returning the way back: the template kept again, and installed again when it was. */
+    suspend fun removeImportedWithUndo(c: DataContainer, id: String): suspend () -> Unit {
+        val kept = _state.value.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() == id }
+        val template = entries().firstOrNull { it.template.id == id }?.template
+        val wasInstalled = installed(id) != null
+        removeImported(c, id)
+        return {
+            write { s -> s.copy(imported = s.imported + kept.filter { k -> s.imported.none { it.json == k.json } }) }
+            if (wasInstalled && template != null) install(c, template)
+        }
+    }
+
     companion object {
         private const val ASSETS = "templates"
 

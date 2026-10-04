@@ -298,3 +298,18 @@ Five gaps from COMPETITIVE_ANALYSIS_7 (§4.2, §6.4, §8.5: E1–E5), with no ne
 | **Text me your name** (E5) | A reply of its own in Settings › Messaging › Quick reply messages ("For numbers not in your contacts"; default "Sorry, I don't answer unknown numbers. Please text me your name and why you're calling."; empty turns it off). For a number that isn't saved, the reply sheet lists it first with that line under it (`NameReply`), sent through the carrier's reply-with-message or opened in the messaging app as before; the post-call card's **Ask their name** opens the messaging app with it for the user to send. No SEND_SMS. | The offline half of call screening: a caller who matters says who they are. |
 
 Left out: Transfer (above), a flip gesture during a call (the phone may be on the table on speaker), and speaker-by-default for emergency calls (the phone behaves exactly as Android would).
+
+## Without the default phone app
+
+Many people keep the phone maker's dialer (for its visual voicemail, for example) and use Parley for contacts. Where a feature needs Parley as the default phone app, the feature's own row or screen says so in one line with **Make Parley the default** (`DefaultAppNote`, with the by-hand guide when Android refuses without asking), rather than only the setup guide. Nothing shows while Parley is the default. The decision is `DefaultAppNeeds` (core/common, `DefaultAppFeature`), unit-tested.
+
+| Feature (`DefaultAppFeature`) | Said where | Why it needs the role |
+|---|---|---|
+| Voicemail inbox (`VOICEMAIL`) | Recents › Voicemail, above the list | Android lets only the default phone app read voicemail |
+| Parley's call screen (`CALL_SCREEN`) | Settings › Calls › Answering and › During calls, at the top | Notes, scam check, hold mode, the helper, speaker by default and menu memory are on Parley's call screen |
+| A private contact's ringtone and "Send to voicemail" (`PRIVATE_CALLER`) | A private contact's page, under Settings for this contact | Only Parley's own ringer knows the private name |
+| Call facts and quality (`CALL_FACTS`) | A number's history, in its call facts section | Parley notes them while it runs the call |
+| A rule for one SIM (`SIM_RULES`) | The rule editor, under the SIM choice | Android tells only the phone app which SIM a call came in on |
+| A block written as a Parley rule (`BLOCKING`) | The Block question, when Android's blocked list can't be used | The rule works while Parley screens calls; the screening role alone is enough, so the note shows only with neither role |
+
+Everything else works without the role: contacts, private contacts, labels, the Circle, To call, Recents (from Android's call log), blocking through the screening role, backups and sync.

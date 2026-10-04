@@ -998,6 +998,19 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
 
+    /**
+     * Deletes these private calls and returns their stored (still sealed) rows, so [restorePrivateCalls] can put them
+     * back for an Undo without opening them.
+     */
+    suspend fun deletePrivateCallsForUndo(ids: List<Long>): List<PrivateCallEntity> = withContext(Dispatchers.IO) {
+        if (ids.isEmpty()) return@withContext emptyList()
+        val rows = dao.privateCallsById(ids)
+        rows.forEach { dao.deletePrivateCall(it.id) }
+        rows
+    }
+
+    suspend fun restorePrivateCalls(rows: List<PrivateCallEntity>) = withContext(Dispatchers.IO) { rows.forEach { dao.addPrivateCall(it) } }
+
     /** Every private call, read straight from the database (not the listing, which starts with the full app). */
     suspend fun privateCallsNow(): List<PrivateCall> = withContext(Dispatchers.IO) { dao.allPrivateCalls().mapNotNull { callSeal.opened(it) } }
 

@@ -7,6 +7,7 @@ import android.content.Context
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
@@ -93,6 +94,45 @@ class LabelsRepository(
         runCatching { privateLabels()?.deleted(l.title) }
         cr.applyInBatches(safe(l.groups).map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)) })
         refs?.deleted(setOf(l.title))
+    }
+
+    /** What [deleteForUndo] took away: each account's group with its members, private members, and what named it. */
+    class Deleted internal constructor(
+        val title: String,
+        internal val groups: List<Pair<AccountRef, Set<Long>>>,
+        internal val privateMembers: Set<Long>,
+        internal val refs: LabelReferences.Snapshot?,
+    )
+
+    /**
+     * [delete], keeping what an Undo needs to put the label back: its members (device and private) and what named it
+     * (ringtone, SIM, rhythm, safe word, rules, limits, off hours). Returns [delete]'s sentence and the kept label.
+     */
+    suspend fun deleteForUndo(title: String): Pair<String?, Deleted?> = withContext(Dispatchers.IO) {
+        val l = label(title) ?: return@withContext null to null
+        val groups = safe(l.groups).map { it.account to rawMembers(it.id) }
+        val private = catching { privateLabels()?.membersOf(l.title) }.getOrNull().orEmpty()
+        val snapshot = refs?.let { r -> catching { r.snapshot(setOf(l.title)) }.getOrNull() }
+        delete(title) to Deleted(l.title, groups, private, snapshot)
+    }
+
+    /** Undo of [deleteForUndo]: the label again in each account, with its members, then everything that named it. */
+    suspend fun restore(d: Deleted) = withContext(Dispatchers.IO) {
+        val made = d.groups.mapNotNull { (account, raws) ->
+            val id = contacts.createGroup(d.title, account) ?: return@mapNotNull null
+            cr.applyInBatches(
+                raws.map { raw ->
+                    ContentProviderOperation.newInsert(Data.CONTENT_URI)
+                        .withValue(Data.RAW_CONTACT_ID, raw)
+                        .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
+                        .withValue(GroupMembership.GROUP_ROW_ID, id)
+                },
+            )
+            GroupInfo(id, d.title, account)
+        }
+        // Private members are kept by group and title: the first group made again holds them.
+        made.firstOrNull()?.let { g -> if (d.privateMembers.isNotEmpty()) catching { privateLabels()?.add(d.privateMembers, g) } }
+        d.refs?.let { snap -> refs?.restore(snap) }
     }
 
     /**

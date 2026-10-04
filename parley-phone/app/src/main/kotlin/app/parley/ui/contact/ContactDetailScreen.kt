@@ -72,7 +72,9 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.AddToHomeScreen
+import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Delete
@@ -160,6 +162,12 @@ import app.parley.ui.Bidi
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.Routes
 import app.parley.ui.blocking.ContactPrefixAllowMenuItem
+import app.parley.ui.blocking.askToBlock
+import app.parley.ui.calls.DefaultAppNote
+import app.parley.ui.calls.RemindToCallSheet
+import app.parley.common.ux.DefaultAppFeature
+import app.parley.ui.blocking.rememberBlocked
+import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.calltime.ContactCallTimeRows
 import app.parley.ui.circle.ContactTimeline
 import app.parley.ui.circle.LogInteractionDialog
@@ -258,6 +266,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val otherFields = ui.otherFields
     val interactions = ui.interactions
     var logDialog by remember { mutableStateOf(false) }
+    var remindToCall by remember { mutableStateOf(false) }
     // The pre-call peek (the number about to be called).
     val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
     val relationsFromOthers by page.relationsFromOthers.collectAsStateWithLifecycle()
@@ -377,6 +386,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         ContactMessaging.open(context, route, r)?.let { vm.toast(it) }
     }
 
+    val numbersBlocked = rememberBlocked(vm, remember(d?.phones) { d?.phones?.map { it.value }.orEmpty() })
     ParleyScaffold(
         topBar = {
             ParleyTopBar(
@@ -405,6 +415,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         DropdownMenu(menu, { menu = false }) {
                             // "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
                             if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
+                            // To call by hand (the same fixed times as Remind me after a call).
+                            if (d.phones.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    { Text(stringResource(R.string.to_call_remind_me_to_call)) }, leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
+                                    onClick = { menu = false; remindToCall = true },
+                                )
+                            }
                             if (can(ContactCapability.SHARE_VCARD_FILE)) {
                                 DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
                                     menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
@@ -437,9 +454,16 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 )
                             })
                             if (d.phones.isNotEmpty()) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_block_numbers)) }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
-                                    menu = false; d.phones.forEach { vm.blockNumber(it.value) }
-                                })
+                                // The one Block (a question, then Undo); Unblock once any of the numbers is blocked.
+                                if (numbersBlocked) {
+                                    DropdownMenuItem({ Text(stringResource(R.string.detail_unblock_numbers)) }, leadingIcon = { Icon(Icons.Rounded.RemoveModerator, null) }, onClick = {
+                                        menu = false; unblockWithUndo(vm, d.phones.map { it.value }, d.displayName)
+                                    })
+                                } else {
+                                    DropdownMenuItem({ Text(stringResource(R.string.detail_block_numbers)) }, leadingIcon = { Icon(Icons.Rounded.Block, null) }, onClick = {
+                                        menu = false; askToBlock(d.phones.map { it.value }, d.displayName)
+                                    })
+                                }
                             }
                             ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
@@ -754,7 +778,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = null) } }
         }
         // Everything that changes how Parley and the phone treat this person rather than describing them.
-        sections.addRows(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary)) {
+        sections.addRows(
+            ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary),
+            // A private contact's ringtone and "Send to voicemail" need Parley's own ringer: said here when it isn't.
+            after = if (isPrivate) ({ DefaultAppNote(vm, DefaultAppFeature.PRIVATE_CALLER) }) else null,
+        ) {
             if (d.lookupKey.isNotEmpty() && !inCircle) item {
                 InfoRow(
                     modifier = Modifier.clickable { reachOut = true },
@@ -1023,6 +1051,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 onDismiss = { peekNumber = null },
             )
         }
+        if (remindToCall) d.phones.primary()?.let { p -> RemindToCallSheet(vm, p.value, d.displayName, onDismiss = { remindToCall = false }) }
         if (logDialog || editEntry != null) {
             val initial = editEntry
             LogInteractionDialog(d.given.ifBlank { d.displayName }, initial, onDismiss = { logDialog = false; editEntry = null }) { type, note, time ->

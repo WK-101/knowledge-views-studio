@@ -264,8 +264,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             onConfirm = {
                 deleting = null
                 scope.launch {
-                    runCatching { vm.c.people.labels.delete(t) }.getOrNull()?.let { vm.toast(it) }
-                    vm.c.contacts.refresh()
+                    deleteLabelWithUndo(vm, t)
                     round++
                 }
             },
@@ -542,9 +541,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             onConfirm = {
                 confirmDelete = false
                 scope.launch {
-                    // Its ringtone, rules and limits go with it; a notice says when off hours had to change.
-                    runCatching { vm.c.people.labels.delete(current) }.getOrNull()?.let { vm.toast(it) }
-                    vm.c.contacts.refresh()
+                    deleteLabelWithUndo(vm, current)
                     back()
                 }
             },
@@ -552,5 +549,22 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             destructive = true,
             dismissLabel = stringResource(R.string.dc_cancel),
         )
+    }
+}
+
+/**
+ * Deletes a label everywhere, with Undo: its ringtone, SIM, rhythm, safe word, rules and limits go with it and come
+ * back with its members. When off hours had to change, the Undo message says so instead.
+ */
+private suspend fun deleteLabelWithUndo(vm: AppViewModel, title: String) {
+    val res = vm.getApplication<android.app.Application>().resources
+    val (said, deleted) = catching { vm.c.people.labels.deleteForUndo(title) }.getOrDefault(null to null)
+    vm.c.contacts.refresh()
+    when {
+        deleted != null -> vm.offerUndo(said ?: res.getString(R.string.lbl_deleted, title)) {
+            vm.c.people.labels.restore(deleted)
+            vm.c.contacts.refresh()
+        }
+        said != null -> vm.toast(said)
     }
 }

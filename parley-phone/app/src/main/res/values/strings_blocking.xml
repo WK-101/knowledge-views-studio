@@ -290,7 +290,6 @@
     <string name="blk_likely_spam_for_you">Likely spam for you</string>
     <string name="blk_sugg_line">%1$s · last %2$s</string>
     <string name="blk_dismiss">Dismiss</string>
-    <string name="blk_blocked_toast">Blocked</string>
     <string name="blk_block">Block</string>
     <string name="blk_nothing_yet">Nothing stopped yet.</string>
     <string name="blk_clear_log">Clear log</string>
@@ -585,7 +584,6 @@
     <string name="blk_editor_action_help">Silence lets it ring quietly and shows it as a missed call; reject ends it at once.</string>
     <string name="blk_editor_sim">SIM</string>
     <string name="blk_editor_any_sim">Any SIM</string>
-    <string name="blk_editor_sim_unavailable">Unavailable in screening-only mode: Android doesn\'t tell screening apps which SIM a call came in on. Make Parley your phone app to use this.</string>
     <string name="blk_editor_when">When</string>
     <string name="blk_editor_how_long">For how long</string>
     <string name="blk_editor_until">Until %1$s</string>
@@ -604,6 +602,7 @@
     <string name="blk_editor_dry_note">Nothing was blocked, logged or counted: this only replays your call history.</string>
     <string name="blk_save_rule">Save rule</string>
     <string name="blk_delete_rule_q">Delete this rule?</string>
+    <string name="blk_rule_deleted">Rule deleted</string>
     <!-- Messages from the rule check -->
     <string name="blk_chk_empty">Enter something to match</string>
     <string name="blk_chk_pick_label">Pick a label</string>

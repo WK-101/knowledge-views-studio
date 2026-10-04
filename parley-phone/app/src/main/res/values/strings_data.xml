@@ -1173,6 +1173,7 @@
     </plurals>
     <string name="lbl_delete_title">Delete “%1$s”?</string>
     <string name="lbl_delete_text">The label is removed from every account. The contacts in it are kept.</string>
+    <string name="lbl_deleted">Deleted “%1$s”</string>
     <string name="lbl_name">Name</string>
     <string name="lbl_saved_in">Saved in</string>
     <string name="lbl_created">Label “%1$s” created</string>

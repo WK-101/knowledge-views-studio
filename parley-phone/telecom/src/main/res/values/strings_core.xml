@@ -112,6 +112,7 @@
     <string name="incall_private">Private</string>
     <string name="incall_end">End</string>
     <string name="incall_open_contact">Open contact</string>
+    <string name="incall_more_safety">Safety</string>
     <string name="incall_not_in_contacts">Not in your contacts</string>
     <string name="incall_verified_number">Verified number</string>
     <string name="incall_possibly_spoofed">Possibly spoofed</string>
@@ -181,6 +182,9 @@
     <!-- Post-call card for unknown numbers -->
     <string name="postcall_what_to_do">What do you want to do with this number?</string>
     <string name="postcall_block">Block</string>
+    <string name="postcall_unblock">Unblock</string>
+    <string name="postcall_save">Save</string>
+    <string name="postcall_add_to_contact">Add to contact</string>
     <string name="postcall_save_privately">Save privately</string>
     <string name="postcall_report">Report</string>
     <string name="postcall_save_title">Save privately for 7 days</string>

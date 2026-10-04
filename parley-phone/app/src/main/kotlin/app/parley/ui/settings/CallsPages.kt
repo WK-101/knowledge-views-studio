@@ -39,6 +39,8 @@ import app.parley.R
 import app.parley.common.AnswerGesture
 import app.parley.common.SettingPlace
 import app.parley.common.ux.CallScreenBackground
+import app.parley.common.ux.DefaultAppFeature
+import app.parley.ui.calls.DefaultAppNote
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.LocalHighlightKey
@@ -87,6 +89,8 @@ internal fun CallsSubPageLinks(open: (Destination) -> Unit) {
 internal fun CallsSubPageScreen(vm: AppViewModel, page: CallsSubPage, focus: String?, back: () -> Unit, open: (Destination) -> Unit) {
     CompositionLocalProvider(LocalHighlightKey provides focus) {
         SettingsScaffold(stringResource(page.title), back) {
+            // Answering and During calls happen on Parley's call screen: said in place when it isn't the phone app.
+            if (page == CallsSubPage.ANSWERING || page == CallsSubPage.DURING) DefaultAppNote(vm, DefaultAppFeature.CALL_SCREEN)
             when (page) {
                 CallsSubPage.ANSWERING -> AnsweringPage(vm, open)
                 CallsSubPage.DURING -> DuringCallsPage(vm)

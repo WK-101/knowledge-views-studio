@@ -63,11 +63,6 @@ object BlockingActions {
         )
     }
 
-    suspend fun blockNumberRule(c: DataContainer, number: String, note: String? = null) {
-        val iso = PhoneEnv.countryIso(c.appContext)
-        c.blocks.addRules(listOf(BlockRule(pattern = RuleTools.check(number, RuleType.EXACT, iso).pattern, type = RuleType.EXACT, note = note)))
-    }
-
     // ---------- Hand-offs (no permission, the user finishes in another app) ----------
 
     private fun launch(context: Context, intent: Intent): Boolean =

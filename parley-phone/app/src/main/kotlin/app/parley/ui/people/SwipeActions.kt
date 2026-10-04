@@ -1,6 +1,5 @@
 package app.parley.ui.people
 
-import android.app.Application
 import android.content.res.Resources
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -53,17 +52,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.people.SwipeAction
 import app.parley.common.people.SwipeConfig
 import app.parley.common.people.SwipeGesture
 import app.parley.common.people.SwipeIntent
-import app.parley.ui.Bidi
 import app.parley.ui.CallColors
-import app.parley.ui.circle.CircleSnack
-import app.parley.ui.circle.CircleSnacks
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
@@ -236,24 +231,8 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     }
 }
 
-/** Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
-fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
-    val res = vm.getApplication<Application>().resources
-    vm.viewModelScope.launch {
-        // Only numbers this swipe newly blocked go into Undo, so Undo never lifts an earlier block.
-        val (already, fresh) = numbers.distinct().partition { runCatching { vm.c.blocks.isSystemBlocked(it) }.getOrDefault(false) }
-        val done = fresh.filter { runCatching { vm.c.blocks.blockNumber(it) }.getOrDefault(false) }
-        if (done.isEmpty()) {
-            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.contacts_swipe_already_blocked else R.string.vm_couldnt_block))
-            return@launch
-        }
-        CircleSnacks.show(
-            CircleSnack(res.getQuantityString(R.plurals.contacts_swipe_blocked, done.size, Bidi.ltr(done.first()), done.size)) {
-                done.forEach { vm.c.blocks.unblockNumber(it) }
-            },
-        )
-    }
-}
+/** Block from a swipe: no question (a swipe is its own), Undo on the snackbar, the same block as everywhere else. */
+fun blockWithUndo(vm: AppViewModel, numbers: List<String>) = app.parley.ui.blocking.blockWithUndo(vm, numbers)
 
 /** Localised name of a swipe action; [short] drops the "(with undo)" part for the swipe background. */
 internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false): String = res.getString(
