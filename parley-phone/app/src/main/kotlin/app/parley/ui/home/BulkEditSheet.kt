@@ -2,6 +2,7 @@ package app.parley.ui.home
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Resources
 import android.media.RingtoneManager
 import android.net.Uri
 import android.provider.Settings
@@ -71,7 +72,7 @@ private sealed interface EditStep {
 @Composable
 internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAddToLabel: () -> Unit, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    val bulk = remember(vm) { BulkContactActions(vm.c) }
+    val edits = remember(vm, chosen) { BulkEditRunner(vm, res, chosen) }
     val ids = chosen.map { it.id }
     var step by remember { mutableStateOf<EditStep?>(null) }
     var sims by remember { mutableStateOf<List<SimAccount>>(emptyList()) }
@@ -82,24 +83,14 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
     val index = vm.people.index.value
     val removable = remember(ids) { BulkEdits.removableLabels(ids) { index.extras[it]?.labels.orEmpty() } }
     val movePlan = BulkEdits.plan(BulkEdit.MOVE_ACCOUNT, ids)
-    // Work that outlives the sheet (and the selection): the view model's scope.
-    fun run(block: suspend () -> Unit) {
-        vm.viewModelScope.launch { block() }
-    }
-    fun done(text: String, undo: (suspend () -> Unit)?) = CircleSnacks.show(CircleSnack(text, undo))
 
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
         @Suppress("DEPRECATION")
         val picked = r.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-        // "Default ringtone" means the phone's own: no ringtone of their own.
-        val tone = picked?.takeIf { it != Settings.System.DEFAULT_RINGTONE_URI }?.toString()
         onDismiss()
-        run {
-            val before = bulk.setRingtone(ids, tone)
-            if (before.isEmpty()) vm.toast(res.getString(R.string.be_nothing_changed))
-            else done(res.getQuantityString(R.plurals.be_ringtone_set, before.size, before.size)) { bulk.restoreRingtones(before) }
-        }
+        // "Default ringtone" means the phone's own: no ringtone of their own.
+        edits.ringtone(picked?.takeIf { it != Settings.System.DEFAULT_RINGTONE_URI }?.toString())
     }
 
     ParleySheet(onDismissRequest = onDismiss, title = pluralStringResource(R.plurals.be_title, ids.size, ids.size)) {
@@ -117,63 +108,95 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
                 )
             }
             // Only with a choice to make: two SIMs, two accounts and an address-book contact among them.
-            if (sims.size > 1) EditRow(Icons.Rounded.SimCard, stringResource(R.string.be_sim), stringResource(R.string.be_sim_sub)) { step = EditStep.Sim(sims) }
+            if (sims.size > 1) {
+                EditRow(Icons.Rounded.SimCard, stringResource(R.string.be_sim), stringResource(R.string.be_sim_sub)) { step = EditStep.Sim(sims) }
+            }
             if (accounts.size > 1 && movePlan.ids.isNotEmpty()) {
-                val sub = if (movePlan.skippedPrivate > 0) res.getQuantityString(R.plurals.sel_private_skipped, movePlan.skippedPrivate, movePlan.skippedPrivate) else null
+                val n = movePlan.skippedPrivate
+                val sub = if (n > 0) pluralStringResource(R.plurals.sel_private_skipped, n, n) else null
                 EditRow(Icons.AutoMirrored.Rounded.DriveFileMove, stringResource(R.string.be_move), sub) { step = EditStep.Account(accounts) }
             }
         }
     }
+    step?.let { s -> EditStepPicker(vm, s, edits, close = { step = null }, onDismiss = onDismiss) }
+}
 
-    when (val s = step) {
-        is EditStep.RemoveLabel -> Picker(stringResource(R.string.be_remove_label), s.labels.map { (t, n) -> t to pluralStringResource(R.plurals.be_in_label, n, n) }, { step = null }) { i ->
-            val title = s.labels[i].first
-            step = null
-            onDismiss()
-            run {
-                val left = bulk.leaveLabel(ids, title)
-                if (left.isEmpty()) vm.toast(res.getString(R.string.be_nothing_changed))
-                else done(res.getQuantityString(R.plurals.be_label_removed, left.size, left.size, title)) { bulk.rejoinLabel(left, title) }
-            }
+/** The short list a row of the sheet asks from: which label, which SIM, which account. */
+@Composable
+private fun EditStepPicker(vm: AppViewModel, s: EditStep, edits: BulkEditRunner, close: () -> Unit, onDismiss: () -> Unit) {
+    fun picked(then: () -> Unit) {
+        close()
+        onDismiss()
+        then()
+    }
+    when (s) {
+        is EditStep.RemoveLabel -> {
+            val choices = s.labels.map { (t, n) -> t to pluralStringResource(R.plurals.be_in_label, n, n) }
+            Picker(stringResource(R.string.be_remove_label), choices, close) { i -> picked { edits.leaveLabel(s.labels[i].first) } }
         }
         is EditStep.Sim -> {
             val choices = listOf(stringResource(R.string.be_sim_ask) to null) + s.sims.map { it.label to it.subtitle }
-            Picker(stringResource(R.string.be_sim), choices, { step = null }) { i ->
-                val sim = s.sims.getOrNull(i - 1)
-                step = null
-                onDismiss()
-                run {
-                    val numbers = chosen.flatMap { c -> c.phones.map { it.number } }
-                    if (numbers.isEmpty()) {
-                        vm.toast(res.getString(R.string.sel_no_numbers))
-                        return@run
-                    }
-                    val before = bulk.setSim(numbers, sim?.id)
-                    if (before.isEmpty()) vm.toast(res.getString(R.string.be_nothing_changed))
-                    else done(res.getQuantityString(R.plurals.be_sim_set, before.size, before.size, sim?.label ?: res.getString(R.string.be_sim_ask))) { bulk.restoreSims(before) }
-                }
-            }
+            Picker(stringResource(R.string.be_sim), choices, close) { i -> picked { edits.sim(s.sims.getOrNull(i - 1)) } }
         }
-        is EditStep.Account -> Picker(stringResource(R.string.be_move), s.accounts.map { vm.accountLabel(it) to null }, { step = null }) { i ->
-            val target = s.accounts[i]
-            step = null
-            onDismiss()
-            val names = chosen.associate { it.id to it.displayName }
-            vm.toast(res.getString(R.string.be_moving))
-            run {
-                val r = bulk.moveToAccount(ids, target, names)
-                vm.selection.value = emptySet()
-                vm.toast(
-                    listOfNotNull(
-                        if (r.moved > 0) res.getQuantityString(R.plurals.be_moved, r.moved, r.moved, vm.accountLabel(r.redirectedTo ?: target)) else null,
-                        if (r.moved == 0 && r.failed.isEmpty()) res.getString(R.string.be_nothing_changed) else null,
-                        if (r.failed.isNotEmpty()) res.getQuantityString(R.plurals.be_move_failed, r.failed.size, r.failed.size, r.failed.first()) else null,
-                        if (r.skippedPrivate > 0) res.getQuantityString(R.plurals.sel_private_skipped, r.skippedPrivate, r.skippedPrivate) else null,
-                    ).joinToString(". "),
-                )
-            }
+        is EditStep.Account -> Picker(stringResource(R.string.be_move), s.accounts.map { vm.accountLabel(it) to null }, close) { i ->
+            picked { edits.move(s.accounts[i]) }
         }
-        null -> Unit
+    }
+}
+
+/**
+ * Runs the sheet's edits in the view model's scope (they outlive the sheet and the selection) and says what each did,
+ * with Undo where it can be undone.
+ */
+private class BulkEditRunner(private val vm: AppViewModel, private val res: Resources, private val chosen: List<ContactSummary>) {
+    private val bulk = BulkContactActions(vm.c)
+    private val ids = chosen.map { it.id }
+
+    private fun run(block: suspend () -> Unit) {
+        vm.viewModelScope.launch { block() }
+    }
+
+    private fun said(changed: Int, text: () -> String, undo: suspend () -> Unit) {
+        if (changed == 0) vm.toast(res.getString(R.string.be_nothing_changed)) else CircleSnacks.show(CircleSnack(text(), undo))
+    }
+
+    fun ringtone(tone: String?) = run {
+        val before = bulk.setRingtone(ids, tone)
+        said(before.size, { res.getQuantityString(R.plurals.be_ringtone_set, before.size, before.size) }) { bulk.restoreRingtones(before) }
+    }
+
+    fun leaveLabel(title: String) = run {
+        val left = bulk.leaveLabel(ids, title)
+        said(left.size, { res.getQuantityString(R.plurals.be_label_removed, left.size, left.size, title) }) { bulk.rejoinLabel(left, title) }
+    }
+
+    fun sim(sim: SimAccount?) = run {
+        val numbers = chosen.flatMap { c -> c.phones.map { it.number } }
+        if (numbers.isEmpty()) {
+            vm.toast(res.getString(R.string.sel_no_numbers))
+            return@run
+        }
+        val before = bulk.setSim(numbers, sim?.id)
+        val name = sim?.label ?: res.getString(R.string.be_sim_ask)
+        said(before.size, { res.getQuantityString(R.plurals.be_sim_set, before.size, before.size, name) }) { bulk.restoreSims(before) }
+    }
+
+    /** A move has no Undo here: History & undo keeps each old copy, and the message says so. */
+    fun move(target: AccountRef) {
+        vm.toast(res.getString(R.string.be_moving))
+        run {
+            val r = bulk.moveToAccount(ids, target, chosen.associate { it.id to it.displayName })
+            vm.selection.value = emptySet()
+            val into = vm.accountLabel(r.redirectedTo ?: target)
+            vm.toast(
+                listOfNotNull(
+                    if (r.moved > 0) res.getQuantityString(R.plurals.be_moved, r.moved, r.moved, into) else null,
+                    if (r.moved == 0 && r.failed.isEmpty()) res.getString(R.string.be_nothing_changed) else null,
+                    if (r.failed.isNotEmpty()) res.getQuantityString(R.plurals.be_move_failed, r.failed.size, r.failed.size, r.failed.first()) else null,
+                    if (r.skippedPrivate > 0) res.getQuantityString(R.plurals.sel_private_skipped, r.skippedPrivate, r.skippedPrivate) else null,
+                ).joinToString(". "),
+            )
+        }
     }
 }
 

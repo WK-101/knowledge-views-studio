@@ -294,7 +294,9 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
                     modifier = Modifier.clickable { onPick(e) },
                     leadingContent = { Icon(e.category.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     // A folded setting says so: the page opens its Advanced group for it.
-                    overlineContent = { Text(if (e.advanced) stringResource(R.string.set_search_in_advanced, e.category.localTitle()) else e.category.localTitle()) },
+                    overlineContent = {
+                        Text(if (e.advanced) stringResource(R.string.set_search_in_advanced, e.category.localTitle()) else e.category.localTitle())
+                    },
                     headlineContent = { Text(e.title) },
                     supportingContent = { Text(e.summary, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                     colors = rowColors(),

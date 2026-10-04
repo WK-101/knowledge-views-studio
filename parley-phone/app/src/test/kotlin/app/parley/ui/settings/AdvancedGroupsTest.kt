@@ -62,7 +62,8 @@ class AdvancedGroupsTest {
         val keys = rowKey.findAll(body).map { it.groupValues[1] }.toMutableSet()
         // Composable groups (capitalised) and a scope's row helpers (…Row, …Rows); other calls are lambdas and the like.
         call.findAll(body).map { it.groupValues[1] }
-            .filter { (it[0].isUpperCase() || it.endsWith("Row") || it.endsWith("Rows")) && it in functions && seen.add(it) }.forEach { keys += keysIn(functions.getValue(it), seen) }
+            .filter { (it[0].isUpperCase() || it.endsWith("Row") || it.endsWith("Rows")) && it in functions && seen.add(it) }
+            .forEach { keys += keysIn(functions.getValue(it), seen) }
         return keys.filterTo(HashSet()) { k -> SettingsCatalog.entries.any { it.key == k } }
     }
 
