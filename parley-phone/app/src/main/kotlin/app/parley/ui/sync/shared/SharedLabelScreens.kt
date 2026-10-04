@@ -72,10 +72,12 @@ import app.parley.common.sync.shared.LabelMember
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.data.sync.shared.SharedLabelEngine
+import app.parley.data.sync.shared.SharedLabelState
 import app.parley.data.sync.shared.SharedLabels
 import app.parley.ui.Banner
 import app.parley.ui.BannerTone
 import app.parley.ui.Bidi
+import app.parley.ui.ChoiceRow
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.Destination
 import app.parley.ui.ParleyDialog
@@ -122,13 +124,18 @@ private fun createdProblem(r: SharedLabels.Created): Int? = when (r) {
     SharedLabels.Created.FAILED -> R.string.shl_err_failed
 }
 
-/** "Share this label…": an empty folder, the label's own passphrase, your name; then invitations on the next screen. */
+/**
+ * "Share this label…": how changes travel (update files, or an empty folder your sync app shares), the label's own
+ * passphrase, your name; then invitations on the next screen.
+ */
 @Composable
 fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
+    // Update files by default: most families don't run a sync app.
+    var byFile by rememberSaveable { mutableStateOf(true) }
     // Passphrases are never put in saved state.
     var pass by remember { mutableStateOf("") }
     var again by remember { mutableStateOf("") }
@@ -151,17 +158,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
         // In discreet mode nothing may hint that private contacts exist.
         val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
         if (privateCount > 0 && !discreet) Banner(pluralStringResource(R.plurals.shl_private_left, privateCount, privateCount))
-        SegmentedGroup {
-            item("folder") {
-                ParleyListItem(
-                    modifier = Modifier.clickable { picker.launch(null) },
-                    leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                    headlineContent = { Text(stringResource(R.string.shl_share_folder)) },
-                    supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
-                    colors = rowColors(),
-                )
-            }
-        }
+        HowItTravels(byFile, folder, onByFile = { byFile = it }, onPickFolder = { picker.launch(null) })
         Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             Text(stringResource(R.string.shl_share_pass_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             NewPassphrase(stringResource(R.string.shl_share_pass), pass, again, { pass = it; error = null }, { again = it; error = null })
@@ -172,10 +169,10 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
             Button(
                 {
-                    val f = folder ?: return@Button
+                    val f = if (byFile) null else Uri.parse(folder ?: return@Button)
                     busy = true
                     scope.launch {
-                        val r = vm.c.sharedLabels.create(title, Uri.parse(f), folderName(Uri.parse(f)), pass.toCharArray(), name.trim())
+                        val r = vm.c.sharedLabels.create(title, f, f?.let(::folderName).orEmpty(), pass.toCharArray(), name.trim())
                         busy = false
                         error = createdProblem(r)?.let(res::getString)
                         if (r == SharedLabels.Created.READY) {
@@ -187,7 +184,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
                         }
                     }
                 },
-                enabled = !busy && folder != null && passReady(pass, again) && name.isNotBlank(),
+                enabled = !busy && (byFile || folder != null) && passReady(pass, again) && name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.shl_share_start)) }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -195,11 +192,40 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
     }
 }
 
+/** "How changes travel": update files, or a folder your sync app shares (then the folder row). */
+@Composable
+private fun HowItTravels(byFile: Boolean, folder: String?, onByFile: (Boolean) -> Unit, onPickFolder: () -> Unit) {
+    SegmentedGroup {
+        item("mode") {
+            ChoiceRow(
+                stringResource(R.string.shl_mode_title),
+                listOf(stringResource(R.string.shl_mode_files), stringResource(R.string.shl_mode_folder)),
+                if (byFile) 0 else 1,
+            ) { onByFile(it == 0) }
+        }
+        if (!byFile) {
+            item("folder") {
+                ParleyListItem(
+                    modifier = Modifier.clickable(onClick = onPickFolder),
+                    leadingContent = { Icon(Icons.Rounded.Folder, null) },
+                    headlineContent = { Text(stringResource(R.string.shl_share_folder)) },
+                    supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
+                    colors = rowColors(),
+                )
+            }
+        }
+    }
+    Text(
+        stringResource(if (byFile) R.string.shl_mode_files_text else R.string.shl_mode_folder_text), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
+    )
+}
+
 // ---------------------------------------------------------------- Members & invitations
 
 /** One shared label: invitations, members with their fingerprints, every change, removing someone and leaving. */
 @Composable
-fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit) {
+fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (Destination) -> Unit) {
     val res = LocalResources.current
     val shared = vm.c.sharedLabels
     LaunchedEffect(Unit) { shared.load() }
@@ -214,7 +240,8 @@ fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     SettingsScaffold(stringResource(R.string.shl_manage_title, s.title), back) {
         SharedLabelTexts.problem(res, s)?.let { Banner(it, tone = BannerTone.WARNING) }
         Text(
-            SharedLabelTexts.status(res, s) + stringResource(R.string.main_separator) + s.folderName, style = MaterialTheme.typography.bodyMedium,
+            SharedLabelTexts.status(res, s) + stringResource(R.string.main_separator) + SharedLabelTexts.where(res, s),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
         )
         SharedLabelTexts.notice(res, s)?.let {
@@ -223,21 +250,27 @@ fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit) {
                 modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.xs),
             )
         }
-        if (active) InviteRows(vm, id, s.title)
+        if (active) UpdateRows(vm, s, open)
+        if (active) InviteRows(vm, id, s.title, s.byFile)
         SegmentedGroup(stringResource(R.string.shl_members)) {
             s.members.forEach { m ->
-                item(m.keyHex) { MemberRow(m, me, s.members, canRemove = active && m.keyHex != me) { removing = m } }
+                item(m.keyHex) {
+                    MemberRow(m, me, s.members, canRemove = active && m.keyHex != me, LabelUpdateFiles.memberLine(res, s, m.keyHex, me)) { removing = m }
+                }
             }
         }
         Column { HistoryList(s, me, filter, onFilter = { filter = it }) }
-        LeaveButton(vm, id, s.title, back)
+        LeaveButton(vm, s, back)
     }
     removing?.let { m -> RemoveMemberDialog(vm, s.labelId, m) { removing = null } }
 }
 
-/** Invite with a QR code (shown here) or a file (sealed with the label's passphrase, saved where you choose). */
+/**
+ * Invite with a QR code (shown here) or a file (sealed with the label's passphrase, saved where you choose). [byFile]:
+ * the label travels by update files, so the newcomer also needs one.
+ */
 @Composable
-private fun InviteRows(vm: AppViewModel, id: String, title: String) {
+private fun InviteRows(vm: AppViewModel, id: String, title: String, byFile: Boolean) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -276,6 +309,12 @@ private fun InviteRows(vm: AppViewModel, id: String, title: String) {
             )
         }
     }
+    if (byFile) {
+        Text(
+            stringResource(R.string.shl_invite_then_update), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
+        )
+    }
     if (showQr) InviteQrDialog(vm, id, title) { showQr = false }
     if (askFilePass) {
         PassphraseDialog(stringResource(R.string.shl_invite_file), stringResource(R.string.shl_invite_file_pass), onDismiss = { askFilePass = false }) { p ->
@@ -292,9 +331,11 @@ private fun inviteFileText(r: SharedLabels.InviteFile): Int = when (r) {
     SharedLabels.InviteFile.FAILED -> R.string.shl_invite_failed
 }
 
-/** "Leave this label", after a question. */
+/** "Leave this label", after a question; shared by file, a last update goes to the share sheet so the others see it. */
 @Composable
-private fun LeaveButton(vm: AppViewModel, id: String, title: String, back: () -> Unit) {
+private fun LeaveButton(vm: AppViewModel, s: SharedLabelState, back: () -> Unit) {
+    val id = s.labelId
+    val title = s.title
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -306,12 +347,13 @@ private fun LeaveButton(vm: AppViewModel, id: String, title: String, back: () ->
     if (leaving) {
         ConfirmDialog(
             title = stringResource(R.string.shl_leave_title, title),
-            text = stringResource(R.string.shl_leave_text),
+            text = stringResource(if (s.byFile) R.string.shl_leave_by_file_text else R.string.shl_leave_text),
             confirmLabel = stringResource(R.string.shl_leave),
             destructive = true,
             onConfirm = {
                 leaving = false
                 scope.launch {
+                    vm.c.sharedLabels.farewell(id)?.let { LabelUpdateFiles.share(context, title, it) }
                     vm.c.sharedLabels.leave(id)
                     FolderSyncWorker.reschedule(context)
                     vm.toast(res.getString(R.string.shl_left, title))
@@ -324,7 +366,7 @@ private fun LeaveButton(vm: AppViewModel, id: String, title: String, back: () ->
 }
 
 @Composable
-private fun MemberRow(m: LabelMember, me: String?, all: List<LabelMember>, canRemove: Boolean, onRemove: () -> Unit) {
+private fun MemberRow(m: LabelMember, me: String?, all: List<LabelMember>, canRemove: Boolean, exchanged: String? = null, onRemove: () -> Unit) {
     val name = if (m.keyHex == me) stringResource(R.string.shl_member_you, m.name) else m.name
     val role = when {
         m.awaitingKey -> stringResource(R.string.shl_member_needs_invite)
@@ -340,6 +382,7 @@ private fun MemberRow(m: LabelMember, me: String?, all: List<LabelMember>, canRe
         supportingContent = {
             Column {
                 role?.let { Text(it) }
+                exchanged?.let { Text(it) }
                 Text(
                     stringResource(R.string.shl_fingerprint, Bidi.ltr(m.fingerprint)),
                     fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
@@ -570,15 +613,18 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
     }
 }
 
-/** Who invited you and their key, the folder, the members found there, your name, and Join. */
+/** Who invited you and their key, the folder (or update files instead), the members found there, your name, and Join. */
+@Suppress("CyclomaticComplexMethod") // One screen's states: no folder yet, by file, and each preview.
 @Composable
 private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit) {
     val scope = rememberCoroutineScope()
     var folder by remember { mutableStateOf<Uri?>(null) }
+    var byFile by rememberSaveable { mutableStateOf(false) }
     var preview by remember { mutableStateOf<SharedLabelEngine.Preview?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             folder = uri
+            byFile = false
             preview = null
             scope.launch { preview = vm.c.sharedLabels.preview(i, uri) }
         }
@@ -591,6 +637,12 @@ private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit
             Icon(Icons.Rounded.Folder, null, Modifier.size(18.dp))
             Text("  " + (folder?.let { folderName(it) } ?: stringResource(R.string.shl_join_pick)))
         }
+        if (folder == null && !byFile) TextButton({ byFile = true }) { Text(stringResource(R.string.shl_join_without_folder)) }
+        if (byFile) Text(stringResource(R.string.shl_join_by_file_text, i.inviterName), style = MaterialTheme.typography.bodyMedium)
+    }
+    if (byFile) {
+        JoinAs(vm, i, null, emptyList(), onJoined)
+        return
     }
     val f = folder ?: return
     when (val p = preview) {
@@ -607,8 +659,9 @@ private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit
  * always a new label here ("Family (shared)" when "Family" exists); going into a label you already have is a choice
  * you make, after being told how many of its contacts the first sync shares.
  */
+@Suppress("CyclomaticComplexMethod") // The label it joins as, the choice between new and existing, and Join.
 @Composable
-private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri, members: List<LabelMember>, onJoined: () -> Unit) {
+private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri?, members: List<LabelMember>, onJoined: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -626,8 +679,10 @@ private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri, members: List<L
         }
     }
     val title = rejoining ?: into ?: newTitle
-    SegmentedGroup(stringResource(R.string.shl_members)) {
-        members.forEach { m -> item(m.keyHex) { MemberRow(m, null, members, canRemove = false) {} } }
+    if (members.isNotEmpty()) {
+        SegmentedGroup(stringResource(R.string.shl_members)) {
+            members.forEach { m -> item(m.keyHex) { MemberRow(m, null, members, canRemove = false) {} } }
+        }
     }
     Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         JoinTarget(title, existing = rejoining != null || into != null, canChoose = rejoining == null) {
@@ -641,11 +696,11 @@ private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri, members: List<L
             val t = title ?: return@Button
             busy = true
             scope.launch {
-                val joined = shared.join(i, folder, folderName(folder), name.trim(), t, intoExisting = into != null)
+                val joined = shared.join(i, folder, folder?.let(::folderName).orEmpty(), name.trim(), t, intoExisting = into != null)
                 busy = false
                 if (joined != null) {
                     FolderSyncWorker.reschedule(context)
-                    vm.toast(res.getString(R.string.shl_join_done, joined))
+                    vm.toast(res.getString(if (folder == null) R.string.shl_join_by_file_done else R.string.shl_join_done, joined))
                     onJoined()
                 } else {
                     vm.toast(res.getString(R.string.shl_join_failed))

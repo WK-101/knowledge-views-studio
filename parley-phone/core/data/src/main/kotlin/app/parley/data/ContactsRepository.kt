@@ -27,7 +27,6 @@ import android.provider.ContactsContract.CommonDataKinds.Note
 import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.Relation
-import android.provider.ContactsContract.CommonDataKinds.Photo
 import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
@@ -41,9 +40,7 @@ import app.parley.common.PhoneEntry
 import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
 import app.parley.common.AltCalendar
-import app.parley.common.people.AddressParts
 import app.parley.common.people.Handles
-import app.parley.common.people.RowEdits
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
@@ -794,254 +791,115 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     .withExpectedCount(1)
                     .build()
             }
-            val rawId: Long?
-            val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
-            val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
-            var redirectedTo: AccountRef? = null
-            // The account written to: custom fields take its kind (CustomFields).
-            var targetType: String? = original?.rawContacts?.firstOrNull { it.id == original.editRawId }?.account?.type
-            if (original == null || original.editRawId == null) {
-                // Android 16 refuses the phone while the user's default is a cloud account: that account takes it.
-                val decision = DeviceAccounts.newContacts(context).decide(if (original == null) account else null)
-                val acc = decision.account
-                if (decision.redirected) redirectedTo = acc
-                targetType = acc.type
-                ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
-                    .withValue(RawContacts.ACCOUNT_TYPE, acc.type)
-                    .withValue(RawContacts.ACCOUNT_NAME, acc.name)
-                    .build()
-                rawId = null
-                insertTarget = { it.withValueBackReference(Data.RAW_CONTACT_ID, 0) }
-            } else {
-                rawId = original.editRawId
-                insertTarget = { it.withValue(Data.RAW_CONTACT_ID, rawId) }
-            }
-
-            // Only rows that really changed are written, so a sync adapter uploads (and other apps see) just the edit.
-            val changed = LinkedHashSet<String>()
-            // Read-only rows are shown locked; an edit or removal of one must not be written or logged.
-            val locked = original?.readOnlyDataIds.orEmpty()
-            fun insert(mime: String, values: ContentValues) {
-                ops += insertTarget(ContentProviderOperation.newInsert(Data.CONTENT_URI))
-                    .withValue(Data.MIMETYPE, mime).withValues(values).build()
-                changed += fieldName(mime)
-            }
-            fun update(id: Long, mime: String, values: ContentValues) {
-                if (id in locked) return
-                ops += ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Data.CONTENT_URI, id)).withValues(values).build()
-                changed += fieldName(mime)
-            }
-            fun delete(id: Long, mime: String) {
-                if (id in locked) return
-                ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build()
-                changed += fieldName(mime)
-            }
-            // Rows moved in the editor that must be written again, so each kind reads back in the order chosen.
-            val wanted = ContactRowOrder.rewrite(original, edited, locked, targetType)
-            val read = ContactRowOrder.columns(cr, wanted)
-            val rewrite = ContactRowOrder.kept(wanted, read)
-            val kept = read.orEmpty()
-            fun replace(id: Long, mime: String, values: ContentValues) {
-                delete(id, mime)
-                insert(mime, ContentValues(kept[id] ?: ContentValues()).apply { putAll(values) })
-            }
-            fun single(id: Long?, mime: String, blank: Boolean, values: ContentValues, same: Boolean = false) {
-                when {
-                    id != null && blank -> delete(id, mime)
-                    id != null && same -> Unit
-                    id != null -> update(id, mime, values)
-                    !blank -> insert(mime, values)
-                }
-            }
-            fun t(s: String?) = s.orEmpty().trim()
-
-            val nameValues = ContentValues().apply {
-                put(StructuredName.DISPLAY_NAME, edited.composedName.ifBlank { null })
-                put(StructuredName.PREFIX, edited.prefix.trim().ifEmpty { null })
-                put(StructuredName.GIVEN_NAME, edited.given.trim().ifEmpty { null })
-                put(StructuredName.MIDDLE_NAME, edited.middle.trim().ifEmpty { null })
-                put(StructuredName.FAMILY_NAME, edited.family.trim().ifEmpty { null })
-                put(StructuredName.SUFFIX, edited.suffix.trim().ifEmpty { null })
-                put(StructuredName.PHONETIC_GIVEN_NAME, edited.phoneticGiven.trim().ifEmpty { null })
-                put(StructuredName.PHONETIC_FAMILY_NAME, edited.phoneticFamily.trim().ifEmpty { null })
-                put(StructuredName.PHONETIC_MIDDLE_NAME, edited.phoneticMiddle.trim().ifEmpty { null })
-            }
-            val o = original
-            fun nameOf(d: ContactDetails) =
-                listOf(d.prefix, d.given, d.middle, d.family, d.suffix, d.phoneticGiven, d.phoneticFamily, d.phoneticMiddle).map(::t)
-            val sameName = o != null && nameOf(o) == nameOf(edited)
-            val noName = edited.composedName.isBlank() && edited.phoneticGiven.isBlank() && edited.phoneticFamily.isBlank() && edited.phoneticMiddle.isBlank()
-            single(original?.nameId, StructuredName.CONTENT_ITEM_TYPE, noName, nameValues, sameName)
-            single(
-                original?.nicknameId, Nickname.CONTENT_ITEM_TYPE, edited.nickname.isBlank(), ContentValues().apply { put(Nickname.NAME, edited.nickname.trim()) },
-                o != null && t(o.nickname) == t(edited.nickname),
-            )
-            // Pronouns: Parley's own row (Android has no kind for them), written like the nickname.
-            single(
-                original?.pronounsId, Mime.PRONOUNS, edited.pronouns.isBlank(), ContentValues().apply { put(Data.DATA1, edited.pronouns.trim()) },
-                o != null && t(o.pronouns) == t(edited.pronouns),
-            )
+            val target = saveTarget(original, account, ops)
+            val w = rowWriter(original, edited, target, ops)
+            w.names(original, edited)
             // Name parts, language and custom fields: Parley's rows (custom fields as Google's in a Google account).
-            ExtraRows.write(original, edited, targetType, ExtraRows.Writer(::insert, ::update, ::delete, rewrite, ::replace))
-            // The work row: only company, title and department are written; a row that still holds an office, a job
-            // description or the like is kept with those cleared rather than deleted (see WorkRow).
-            val orgId = original?.orgId
-            val orgValues = ContentValues().apply {
-                put(Organization.COMPANY, edited.company.trim().ifEmpty { null })
-                put(Organization.TITLE, edited.title.trim().ifEmpty { null })
-                put(Organization.DEPARTMENT, edited.department.trim().ifEmpty { null })
-            }
-            val orgAction = WorkRow.action(
-                exists = orgId != null,
-                // A new row also counts the office and job description it carries (a private contact made visible
-                // may hold only those); an existing row's are the provider's, kept as they are.
-                editedBlank = edited.company.isBlank() && edited.title.isBlank() && edited.department.isBlank() &&
-                    (orgId != null || (edited.officeLocation.isBlank() && edited.jobDescription.isBlank())),
-                same = o != null && t(o.company) == t(edited.company) && t(o.title) == t(edited.title) && t(o.department) == t(edited.department),
-                holdsOthers = orgId != null && workRowHoldsOthers(orgId),
-            )
-            when (orgAction) {
-                WorkRow.Action.NONE -> Unit
-                WorkRow.Action.INSERT -> insert(
-                    Organization.CONTENT_ITEM_TYPE,
-                    // A new row (a private contact made visible) carries the parts the editor only shows.
-                    orgValues.apply {
-                        edited.officeLocation.trim().ifEmpty { null }?.let { put(Organization.OFFICE_LOCATION, it) }
-                        edited.jobDescription.trim().ifEmpty { null }?.let { put(Organization.JOB_DESCRIPTION, it) }
-                    },
-                )
-                WorkRow.Action.UPDATE, WorkRow.Action.CLEAR -> update(orgId!!, Organization.CONTENT_ITEM_TYPE, orgValues)
-                WorkRow.Action.DELETE -> delete(orgId!!, Organization.CONTENT_ITEM_TYPE)
-            }
-            single(original?.noteId, Note.CONTENT_ITEM_TYPE, edited.note.isBlank(), ContentValues().apply { put(Note.NOTE, edited.note.trim()) }, o != null && t(o.note) == t(edited.note))
+            ExtraRows.write(original, edited, target.accountType, w.extraWriter)
+            w.work(original, edited, ::workRowHoldsOthers)
+            w.note(original, edited)
+            w.lists(original, edited)
+            ExtraRows.events(original?.events.orEmpty(), edited.events, w.extraWriter)
+            w.handles(original, edited)
+            w.addresses(original, edited)
+            w.groups(original, edited, target.rawId)
+            w.photo(original, target.rawId, photo != null, removePhoto)
 
-            fun multi(orig: List<DataItem>, now: List<DataItem>, mime: String, valueCol: String, typeCol: String, labelCol: String) {
-                val keep = now.mapNotNull { it.id }.toSet()
-                val before = orig.filter { it.id != null }.associateBy { it.id }
-                orig.filter { it.id != null && it.id !in keep }.forEach { delete(it.id!!, mime) }
-                now.forEach { item ->
-                    val v = ContentValues().apply {
-                        put(valueCol, item.value.trim())
-                        put(typeCol, item.type)
-                        put(labelCol, item.label?.takeIf { item.type == 0 })
-                    }
-                    val prev = item.id?.let { before[it] }
-                    val same = prev != null && t(prev.value) == t(item.value) && prev.type == item.type &&
-                        prev.label?.takeIf { prev.type == 0 } == item.label?.takeIf { item.type == 0 }
-                    when {
-                        item.id != null && item.value.isBlank() -> delete(item.id, mime)
-                        item.id != null && item.id in rewrite -> replace(item.id, mime, v)
-                        item.id != null && same -> Unit
-                        item.id != null -> update(item.id, mime, v)
-                        item.value.isNotBlank() -> insert(mime, v)
-                    }
-                }
-            }
-            multi(original?.phones.orEmpty(), edited.phones, Phone.CONTENT_ITEM_TYPE, Phone.NUMBER, Phone.TYPE, Phone.LABEL)
-            multi(original?.emails.orEmpty(), edited.emails, Email.CONTENT_ITEM_TYPE, Email.ADDRESS, Email.TYPE, Email.LABEL)
-            multi(original?.websites.orEmpty(), edited.websites, Website.CONTENT_ITEM_TYPE, Website.URL, Website.TYPE, Website.LABEL)
-            multi(original?.relations.orEmpty(), edited.relations, Relation.CONTENT_ITEM_TYPE, Relation.NAME, Relation.TYPE, Relation.LABEL)
-            ExtraRows.events(original?.events.orEmpty(), edited.events, ExtraRows.Writer(::insert, ::update, ::delete, rewrite, ::replace))
-
-            // Messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
-            fun handleRow(h: HandleItem) = Handles.toColumns(h.handle).let { (m, v) -> RowEdits.Row(h.id, m, v) }
-            val handleOps = RowEdits.plan(
-                original?.handles.orEmpty().map(::handleRow), edited.handles.map(::handleRow),
-                setOf(Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE), locked, rewrite,
-            )
-            fun cv(m: Map<String, String?>) = ContentValues().apply { m.forEach { (k, v) -> put(k, v) } }
-            handleOps.forEach { op ->
-                when (op) {
-                    is RowEdits.Op.Delete -> delete(op.id, op.mime)
-                    is RowEdits.Op.Update -> update(op.id, op.mime, cv(op.values))
-                    // A moved handle keeps its other columns; a new one is TYPE_OTHER (3) for both kinds, like other contacts apps.
-                    is RowEdits.Op.Insert -> op.replaces?.let { id -> kept[id] }?.let { k -> insert(op.mime, ContentValues(k).apply { putAll(cv(op.values)) }) }
-                        ?: insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
-                }
-            }
-
-            val keepAddr = edited.addresses.mapNotNull { it.id }.toSet()
-            val addrBefore = original?.addresses.orEmpty().filter { it.id != null }.associateBy { it.id }
-            original?.addresses.orEmpty().filter { it.id != null && it.id !in keepAddr }.forEach { delete(it.id!!, StructuredPostal.CONTENT_ITEM_TYPE) }
-            edited.addresses.forEach { a ->
-                val v = ContentValues().apply {
-                    put(StructuredPostal.STREET, a.street.trim())
-                    put(StructuredPostal.POBOX, a.poBox.trim())
-                    put(StructuredPostal.NEIGHBORHOOD, a.neighborhood.trim())
-                    put(StructuredPostal.CITY, a.city.trim())
-                    put(StructuredPostal.REGION, a.region.trim())
-                    put(StructuredPostal.POSTCODE, a.postcode.trim())
-                    put(StructuredPostal.COUNTRY, a.country.trim())
-                    put(StructuredPostal.FORMATTED_ADDRESS, a.formatted)
-                    put(StructuredPostal.TYPE, a.type)
-                    put(StructuredPostal.LABEL, a.label?.takeIf { a.type == 0 })
-                    // RFC 9554's parts aren't edited: written with a new row only, an existing row keeps its own.
-                    if (a.id == null && a.parts.isNotBlank()) put(AddressParts.COLUMN, a.parts)
-                }
-                val prev = a.id?.let { addrBefore[it] }
-                val same = prev != null && prev.type == a.type && prev.label?.takeIf { prev.type == 0 } == a.label?.takeIf { a.type == 0 } &&
-                    listOf(prev.street, prev.poBox, prev.neighborhood, prev.city, prev.region, prev.postcode, prev.country).map(::t) ==
-                    listOf(a.street, a.poBox, a.neighborhood, a.city, a.region, a.postcode, a.country).map(::t)
-                when {
-                    a.id != null && a.isBlank -> delete(a.id, StructuredPostal.CONTENT_ITEM_TYPE)
-                    a.id != null && a.id in rewrite -> replace(a.id, StructuredPostal.CONTENT_ITEM_TYPE, v)
-                    a.id != null && same -> Unit
-                    a.id != null -> update(a.id, StructuredPostal.CONTENT_ITEM_TYPE, v)
-                    !a.isBlank -> insert(StructuredPostal.CONTENT_ITEM_TYPE, v)
-                }
-            }
-
-            // Group membership (only groups of the target account can be assigned).
-            val origGroups = original?.groupIds.orEmpty()
-            (edited.groupIds - origGroups).forEach { g -> insert(GroupMembership.CONTENT_ITEM_TYPE, ContentValues().apply { put(GroupMembership.GROUP_ROW_ID, g) }) }
-            if (rawId != null) {
-                (origGroups - edited.groupIds).forEach { g ->
-                    ops += ContentProviderOperation.newDelete(Data.CONTENT_URI)
-                        .withSelection(
-                            "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=?",
-                            arrayOf(rawId.toString(), GroupMembership.CONTENT_ITEM_TYPE, g.toString()),
-                        ).build()
-                    changed += fieldName(GroupMembership.CONTENT_ITEM_TYPE)
-                }
-            }
-            if (photo != null || removePhoto) changed += "Photo"
-            if (removePhoto) {
-                (original?.writableRawIds.orEmpty() + listOfNotNull(rawId)).distinct().forEach { rid ->
-                    ops += ContentProviderOperation.newDelete(Data.CONTENT_URI)
-                        .withSelection("${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(rid.toString(), Photo.CONTENT_ITEM_TYPE))
-                        .build()
-                }
-            }
-
-            val onlyAssert = ops.size == 1 && versioned != null
-            val results = if (ops.isEmpty() || onlyAssert) {
-                emptyArray<ContentProviderResult>()
-            } else {
-                try {
-                    cr.applyBatch(ContactsContract.AUTHORITY, ops)
-                } catch (e: OperationApplicationException) {
-                    if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
-                    throw e
-                }
-            }
-            val finalRawId = rawId ?: results.firstOrNull { it.uri != null }?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
-            // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
-            // (AOSP does the same, F24). The person stays if another copy has details.
-            if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
-                val others = original?.rawContacts.orEmpty().map { it.id }.filter { it != rawId }
-                cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
-                return@withContext others.firstNotNullOfOrNull { contactIdForRaw(it) }?.let { SaveResult(it, null) }
-            }
-            if (linkTo.isNotEmpty()) setAggregation(linkTo + finalRawId, AggregationExceptions.TYPE_KEEP_TOGETHER)
-            if (photo != null) writePhoto(finalRawId, photo)
-            val contactId = contactIdForRaw(finalRawId)
-            // Remember what Parley wrote (and the version it left), for "Why did this change?" and the journal.
-            runCatching {
-                val key = contactId?.let { id -> cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }
-                writeLog.version(cr, finalRawId)?.let { v -> writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
-            }
-            contactId?.let { SaveResult(it, finalRawId, redirectedTo) }?.also { r -> if (announceRedirect) r.redirectedTo?.let(DeviceAccounts::noteRedirect) }
+            val results = applySave(ops, versioned, expected, original)
+            finishSave(original, target, results, w.changed, photo)?.also { r -> if (announceRedirect) r.redirectedTo?.let(DeviceAccounts::noteRedirect) }
         }
+
+    /**
+     * Where a save writes: the raw contact being edited ([rawId]), or a new one this batch creates first (an insert
+     * added to the batch; [rawId] null). [linkTo]: the copies a new raw contact is joined to (adding to a contact with
+     * no writable copy); [accountType]: the account written to (custom fields take its kind, [CustomFields]).
+     */
+    private class SaveTarget(
+        val rawId: Long?,
+        val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder,
+        val linkTo: List<Long>,
+        val accountType: String?,
+        val redirectedTo: AccountRef?,
+    )
+
+    private fun saveTarget(original: ContactDetails?, account: AccountRef?, ops: MutableList<ContentProviderOperation>): SaveTarget {
+        val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
+        if (original != null && original.editRawId != null) {
+            val rawId = original.editRawId
+            val type = original.rawContacts.firstOrNull { it.id == rawId }?.account?.type
+            return SaveTarget(rawId, { it.withValue(Data.RAW_CONTACT_ID, rawId) }, linkTo, type, null)
+        }
+        // Android 16 refuses the phone while the user's default is a cloud account: that account takes it.
+        val decision = DeviceAccounts.newContacts(context).decide(if (original == null) account else null)
+        val acc = decision.account
+        ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
+            .withValue(RawContacts.ACCOUNT_TYPE, acc.type)
+            .withValue(RawContacts.ACCOUNT_NAME, acc.name)
+            .build()
+        return SaveTarget(null, { it.withValueBackReference(Data.RAW_CONTACT_ID, 0) }, linkTo, acc.type, acc.takeIf { decision.redirected })
+    }
+
+    /** The row writer for one save: read-only rows stay untouched, rows moved in the editor are written again in order. */
+    private fun rowWriter(original: ContactDetails?, edited: ContactDetails, target: SaveTarget, ops: MutableList<ContentProviderOperation>): ContactRowWriter {
+        val locked = original?.readOnlyDataIds.orEmpty()
+        val wanted = ContactRowOrder.rewrite(original, edited, locked, target.accountType)
+        val read = ContactRowOrder.columns(cr, wanted)
+        return ContactRowWriter(ops, target.insertTarget, locked, ContactRowOrder.kept(wanted, read), read.orEmpty(), ::fieldName)
+    }
+
+    /** Runs the batch (nothing when only the version check is in it); a failed version check reads as changed elsewhere. */
+    private fun applySave(
+        ops: ArrayList<ContentProviderOperation>,
+        versioned: Long?,
+        expected: Long?,
+        original: ContactDetails?,
+    ): Array<ContentProviderResult> {
+        val onlyAssert = ops.size == 1 && versioned != null
+        if (ops.isEmpty() || onlyAssert) return emptyArray()
+        return try {
+            cr.applyBatch(ContactsContract.AUTHORITY, ops)
+        } catch (e: OperationApplicationException) {
+            if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
+            throw e
+        }
+    }
+
+    /**
+     * After the batch: an emptied copy is removed, a new copy joined to the contact, the photo written, and Parley's
+     * write log told what changed. The result, or null when the contact can't be found.
+     */
+    private fun finishSave(
+        original: ContactDetails?,
+        target: SaveTarget,
+        results: Array<ContentProviderResult>,
+        changed: Set<String>,
+        photo: Uri?,
+    ): SaveResult? {
+        val rawId = target.rawId
+        val finalRawId = rawId ?: results.firstOrNull { it.uri != null }?.uri?.let { ContentUris.parseId(it) } ?: return null
+        // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
+        // (AOSP does the same, F24). The person stays if another copy has details.
+        if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
+            val others = original?.rawContacts.orEmpty().map { it.id }.filter { it != rawId }
+            cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
+            return others.firstNotNullOfOrNull { contactIdForRaw(it) }?.let { SaveResult(it, null) }
+        }
+        if (target.linkTo.isNotEmpty()) setAggregation(target.linkTo + finalRawId, AggregationExceptions.TYPE_KEEP_TOGETHER)
+        if (photo != null) writePhoto(finalRawId, photo)
+        val contactId = contactIdForRaw(finalRawId)
+        logWrite(contactId, finalRawId, original, changed)
+        return contactId?.let { SaveResult(it, finalRawId, target.redirectedTo) }
+    }
+
+    /** Remembers what Parley wrote (and the version it left), for "Why did this change?" and the journal. */
+    private fun logWrite(contactId: Long?, rawId: Long, original: ContactDetails?, changed: Set<String>) {
+        try {
+            val key = contactId?.let(::lookupKeyOf)
+            writeLog.version(cr, rawId)?.let { v -> writeLog.record(rawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
+        } catch (_: Exception) {
+            // The log is a convenience: a save never fails because it couldn't be noted.
+        }
+    }
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */
     val writeLog by lazy { ParleyWriteLog(context) }

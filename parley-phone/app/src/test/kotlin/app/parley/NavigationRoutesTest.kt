@@ -28,6 +28,7 @@ import app.parley.ui.journal.HistoryTab
 import app.parley.ui.parleyGraph
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.sync.shared.SharedLabelRoutes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -251,6 +252,22 @@ class NavigationRoutesTest {
         assertEquals("archive", nav.currentBackStackEntry!!.toRoute<Routes.SettingsPage>().focus)
         opens(PeopleRoutes.label("Family / close"))
         assertEquals("Family / close", nav.currentBackStackEntry!!.toRoute<PeopleRoutes.Label>().title)
+    }
+
+    @Test fun sharedLabelFilesFromOtherAppsOpenTheirScreen() {
+        val update = Uri.parse("content://files/Family-2026-10-04.parleyupdate")
+        val viewed = resolve(Intent.ACTION_VIEW, update, "application/octet-stream")
+        assertEquals(update, viewed?.labelFile)
+        assertEquals(SharedLabelRoutes.OpenFile, routeOf(viewed))
+        opens(routeOf(viewed))
+        val sent = resolve(Intent.ACTION_SEND, type = "application/vnd.parley.label-update") { putExtra(Intent.EXTRA_STREAM, update) }
+        assertEquals(update, sent?.labelFile)
+        val invite = Uri.parse("content://files/Family.parleyinvite")
+        assertEquals(invite, resolve(Intent.ACTION_VIEW, invite, "application/x-unknown")?.labelFile)
+        // Other files keep going where they went: a vCard is still imported, a picture still scanned.
+        val vcf = Uri.parse("content://files/card.vcf")
+        assertNull(resolve(Intent.ACTION_VIEW, vcf, "text/x-vcard")?.labelFile)
+        assertNull(resolve(Intent.ACTION_SEND, type = "image/png") { putExtra(Intent.EXTRA_STREAM, vcf) }?.labelFile)
     }
 
     @Test fun everyDestinationIsInTheGraph() {

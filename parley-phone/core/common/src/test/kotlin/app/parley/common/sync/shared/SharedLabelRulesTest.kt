@@ -79,4 +79,26 @@ class SharedLabelRulesTest {
         assertEquals(Long.MAX_VALUE, SharedLabelRules.nextVersion(Long.MAX_VALUE, now))
         assertTrue(SharedLabelRules.nextVersion(Long.MAX_VALUE - 1, now) > 0)
     }
+
+    @Test fun an_edit_made_alongside_this_phones_copy_merges_whichever_is_newer() {
+        // This phone took 10 from someone, then wrote 20 itself; a member's edit from 10 didn't see 20.
+        val prior = listOf(10L)
+        assertTrue(SharedLabelRules.concurrent(30, 10, 20, prior))
+        assertTrue(SharedLabelRules.concurrent(15, 10, 20, prior))
+        assertEquals(Remote.CONCURRENT, SharedLabelRules.remote(15, false, true, 20, 20, parent = 10, prior = prior))
+        assertEquals(Remote.CONCURRENT, SharedLabelRules.remote(30, false, true, 20, 20, parent = 10, prior = prior))
+        assertEquals(Action.MERGE, SharedLabelRules.decide(Local.UNCHANGED, Remote.CONCURRENT))
+        assertEquals(Action.MERGE, SharedLabelRules.decide(Local.CHANGED, Remote.CONCURRENT))
+        assertEquals(Action.IMPORT_AGAIN, SharedLabelRules.decide(Local.GONE, Remote.CONCURRENT))
+        // A deletion made alongside an edit loses to it: this phone's copy is written again.
+        assertEquals(Remote.MISSING, SharedLabelRules.remote(30, true, true, 20, 20, parent = 10, prior = prior))
+        // Written from this phone's synced version: an ordinary change. Unknown parent or none: as before.
+        assertEquals(Remote.CHANGED, SharedLabelRules.remote(30, false, true, 20, 20, parent = 20, prior = prior))
+        assertEquals(Remote.CHANGED, SharedLabelRules.remote(30, false, true, 20, 20, parent = 5, prior = prior))
+        assertEquals(Remote.CHANGED, SharedLabelRules.remote(30, false, true, 20, 20, parent = null, prior = prior))
+        // A version this phone held itself, put back: never an edit alongside.
+        assertFalse(SharedLabelRules.concurrent(10, 5, 20, listOf(10L, 5L)))
+        assertEquals(Remote.MISSING, SharedLabelRules.remote(15, false, true, 20, 20, parent = 5, prior = prior))
+        assertEquals(Remote.UNCHANGED, SharedLabelRules.remote(20, false, true, 20, 20, parent = 10, prior = prior))
+    }
 }

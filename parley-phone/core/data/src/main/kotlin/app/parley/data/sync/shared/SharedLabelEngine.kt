@@ -27,6 +27,7 @@ import app.parley.common.sync.shared.SharedLabelRules
 import app.parley.common.sync.shared.SharedLabelRules.Action
 import app.parley.common.sync.shared.SharedLabelRules.Local
 import app.parley.common.sync.shared.SharedLabelRules.Remote
+import app.parley.common.sync.shared.SharedLabelUpdates
 
 /** What one run did, for the status line and tests. */
 data class SharedRunReport(
@@ -132,9 +133,9 @@ class SharedLabelEngine(
         passphrase: CharArray,
         myName: String,
         kdf: KdfParams = BackupCrypto.DEFAULT_KDF,
+        labelId: String = SharedLabelFiles.newId(),
     ): SharedLabelState? {
         if (checkEmpty() != null) return null
-        val labelId = SharedLabelFiles.newId()
         val (header, key) = SharedLabelCrypto.newHeader(labelId, 1, passphrase, kdf)
         folder.write(SharedLabelCrypto.HEADER_NAME, header) ?: return null
         return SharedLabelState(
@@ -227,8 +228,10 @@ class SharedLabelEngine(
         }
     }
 
-    private fun myJournal(s: SharedLabelState, left: Boolean = false) =
-        Journal(signer.publicKey, s.myName, s.epoch, s.ticket, if (s.anchor.contentEquals(signer.publicKey)) s.carried else emptyList(), left, s.journal)
+    private fun myJournal(s: SharedLabelState, left: Boolean = false) = Journal(
+        signer.publicKey, s.myName, s.epoch, s.ticket, if (s.anchor.contentEquals(signer.publicKey)) s.carried else emptyList(), left, s.journal,
+        at = clock(),
+    )
 
     private fun writeJournal(s: SharedLabelState, left: Boolean = false): String? =
         SharedLabelFiles.writeJournal(signer, s.labelId, myJournal(s, left))?.let { body ->
@@ -239,11 +242,11 @@ class SharedLabelEngine(
     /** A contact file written: its stamp (the content's hash when the provider gives none) and what it signed. */
     private class Written(val stamp: String, val hash: String)
 
-    private fun writeCard(s: SharedLabelState, sid: String, version: Long, card: ContactRecord?): Written? =
-        writeCardText(s, sid, version, card?.let(SharedCards::encode))
+    private fun writeCard(s: SharedLabelState, sid: String, version: Long, card: ContactRecord?, parent: Long?): Written? =
+        writeCardText(s, sid, version, card?.let(SharedCards::encode), parent)
 
-    private fun writeCardText(s: SharedLabelState, sid: String, version: Long, card: String?): Written? {
-        val body = SharedLabelFiles.writeCard(signer, s.labelId, sid, version, clock(), card) ?: return null
+    private fun writeCardText(s: SharedLabelState, sid: String, version: Long, card: String?, parent: Long? = null): Written? {
+        val body = SharedLabelFiles.writeCard(signer, s.labelId, sid, version, clock(), card, parent) ?: return null
         val name = SharedLabelFiles.cardName(sid)
         val sealed = SharedLabelCrypto.seal(s.key, s.labelId, name, body)
         val stamp = folder.write(name, sealed) ?: return null
@@ -358,7 +361,7 @@ class SharedLabelEngine(
             val r = reads[sid] ?: continue
             val f = r.file ?: continue
             if (r.member || !accepted(e, f)) continue
-            val w = writeCardText(s, sid, f.version, f.card) ?: continue
+            val w = writeCardText(s, sid, f.version, f.card, f.parent) ?: continue
             stamps[r.name] = w.stamp
             junk.remove(r.name)
             entries[sid] = e.copy(fileHash = w.hash)
@@ -376,11 +379,12 @@ class SharedLabelEngine(
                 return SharedLabelRules.unreadable(u.since, now, u.stranger) to null
             }
             unreadable.remove(sid)
-            return SharedLabelRules.remote(f.version, f.deleted, readable = true, lastVersion = e.ver, seenVersion = seen[sid]) to f
+            val prior = e.prior.map { it.ver }
+            return SharedLabelRules.remote(f.version, f.deleted, readable = true, lastVersion = e.ver, seenVersion = seen[sid], f.parent, prior) to f
         }
 
         // First pass: decisions, then the guard against deleting a lot at once.
-        val plan = LinkedHashMap<String, Triple<Action, Local, CardFile?>>()
+        val plan = LinkedHashMap<String, Triple<Action, Remote, CardFile?>>()
         for ((sid, e) in entries) {
             val m = mapped[sid]
             val localState = when {
@@ -389,7 +393,7 @@ class SharedLabelEngine(
                 else -> Local.UNCHANGED
             }
             val (remote, file) = remoteOf(sid, e)
-            plan[sid] = Triple(SharedLabelRules.decide(localState, remote), localState, file)
+            plan[sid] = Triple(SharedLabelRules.decide(localState, remote), remote, file)
         }
         val deletions = plan.values.count { it.first == Action.DELETE_LOCAL || it.first == Action.PUBLISH_TOMBSTONE }
         if (!allowMassDelete && SharedLabelRules.mustConfirm(deletions, entries.size)) {
@@ -407,16 +411,34 @@ class SharedLabelEngine(
 
         suspend fun settle(sid: String, id: Long, f: CardFile, imported: Boolean): Boolean {
             val after = local.card(id) ?: return false
-            entries[sid] = SharedLabelState.Entry(after.key, id, f.version, SharedCards.encode(after.card), SharedCards.hash(after.card), imported, f.bodyHash)
+            val prior = entries[sid]?.priorForNext().orEmpty()
+            entries[sid] = SharedLabelState.Entry(
+                after.key, id, f.version, SharedCards.encode(after.card), SharedCards.hash(after.card), imported, f.bodyHash, prior,
+            )
             seen[sid] = maxOf(seen[sid] ?: 0L, f.version)
             return true
         }
 
-        fun publish(sid: String, m: LabelContacts.Member, base: ContactRecord?, imported: Boolean, kind: ChangeKind, vararg also: Long): Boolean {
-            val ver = version(sid, *also)
-            val w = writeCard(s, sid, ver, m.card) ?: return false
+        /**
+         * Writes [m] as the sid's next version. [parent]: the version it was made from (this phone's synced one, or the
+         * member's version merged in); [theirs]: that merged version, remembered as one this phone held.
+         */
+        @Suppress("LongParameterList")
+        fun publish(
+            sid: String,
+            m: LabelContacts.Member,
+            base: ContactRecord?,
+            imported: Boolean,
+            kind: ChangeKind,
+            also: Long = 0L,
+            parent: Long? = entries[sid]?.ver,
+            theirs: SharedLabelState.Prior? = null,
+        ): Boolean {
+            val ver = version(sid, also)
+            val w = writeCard(s, sid, ver, m.card, parent) ?: return false
             written(sid, w)
-            entries[sid] = SharedLabelState.Entry(m.key, m.id, ver, SharedCards.encode(m.card), SharedCards.hash(m.card), imported, w.hash)
+            val prior = entries[sid]?.priorForNext(theirs) ?: listOfNotNull(theirs)
+            entries[sid] = SharedLabelState.Entry(m.key, m.id, ver, SharedCards.encode(m.card), SharedCards.hash(m.card), imported, w.hash, prior)
             seen[sid] = ver
             log(sid, kind, SharedCards.changedFields(base, m.card), m.card.displayName)
             rep = rep.copy(written = rep.written + 1)
@@ -425,8 +447,9 @@ class SharedLabelEngine(
 
         fun authorName(f: CardFile) = names[f.authorHex] ?: ""
 
-        // Applies [merged] here when it differs, then writes it when it differs from the folder's.
-        suspend fun mergeInto(sid: String, m: LabelContacts.Member, base: ContactRecord?, theirs: CardFile, imported: Boolean) {
+        // Applies [merged] here when it differs, then writes it when it differs from the folder's. [olderBase]: [base]'s
+        // text when it is a version before the synced one (an edit made alongside), so a choice later uses it too.
+        suspend fun mergeInto(sid: String, m: LabelContacts.Member, base: ContactRecord?, theirs: CardFile, imported: Boolean, olderBase: String = "") {
             val theirsText = theirs.card ?: return
             val theirsCard = SharedCards.decode(theirsText) ?: return
             val merge = SharedCards.merge(base, m.card, theirsCard)
@@ -435,7 +458,7 @@ class SharedLabelEngine(
             if (merge.conflicts.isNotEmpty()) {
                 // Waits for the user; the entry keeps the version in common, so the next run merges again.
                 val by = authorName(theirs).ifEmpty { pending[sid]?.authorName.orEmpty() }
-                pending[sid] = SharedLabelState.Pending(theirsText, theirs.version, by, merge.conflicts)
+                pending[sid] = SharedLabelState.Pending(theirsText, theirs.version, by, merge.conflicts, olderBase)
                 entries[sid] = (entries[sid] ?: SharedLabelState.Entry(m.key, id, 0, "", "", imported)).copy(contactId = id)
                 seen[sid] = maxOf(seen[sid] ?: 0L, theirs.version)
                 rep = rep.copy(conflicts = rep.conflicts + 1)
@@ -444,7 +467,8 @@ class SharedLabelEngine(
             pending.remove(sid)
             val after = local.card(id) ?: return
             if (SharedCards.hash(merge.card) != SharedCards.hash(theirsCard)) {
-                publish(sid, after, theirsCard, imported, ChangeKind.EDITED, theirs.version)
+                val held = SharedLabelState.Prior(theirs.version, theirsText).takeIf { theirs.version > 0 }
+                publish(sid, after, theirsCard, imported, ChangeKind.EDITED, theirs.version, parent = theirs.version.takeIf { it > 0 }, theirs = held)
             } else {
                 settle(sid, id, theirs, imported)
             }
@@ -453,16 +477,17 @@ class SharedLabelEngine(
 
         // Second pass: act.
         for ((sid, p) in plan) {
-            val (action, _, file) = p
+            val (action, remote, file) = p
             val e = entries[sid] ?: continue
             val m = mapped[sid]
             val base = e.base.takeIf { it.isNotEmpty() }?.let(SharedCards::decode)
             // A contact waiting for a choice: merged again against the newest version from the folder.
             val waiting = pending[sid]
             if (waiting != null && m != null) {
-                val theirs = file?.takeIf { !it.deleted && it.version > waiting.ver }
-                    ?: CardFile(sid, waiting.ver, 0, ByteArray(32), false, waiting.theirs, "", ByteArray(0))
-                mergeInto(sid, m, base, theirs, e.imported)
+                val newer = file?.takeIf { !it.deleted && it.version > waiting.ver }
+                val theirs = newer ?: CardFile(sid, waiting.ver, 0, ByteArray(32), false, waiting.theirs, "", ByteArray(0))
+                val older = waiting.base.takeIf { newer == null }.orEmpty()
+                mergeInto(sid, m, older.takeIf { it.isNotEmpty() }?.let(SharedCards::decode) ?: base, theirs, e.imported, older)
                 continue
             }
             if (waiting != null) pending.remove(sid)
@@ -475,10 +500,15 @@ class SharedLabelEngine(
                     val id = local.apply(m!!.id, card) ?: continue
                     if (settle(sid, id, f, e.imported)) rep = rep.copy(applied = rep.applied + 1)
                 }
-                Action.MERGE -> mergeInto(sid, m!!, base, file ?: continue, e.imported)
+                Action.MERGE -> {
+                    val f = file ?: continue
+                    // An edit made alongside this phone's copy merges against the version both started from.
+                    val older = if (remote == Remote.CONCURRENT) e.prior.firstOrNull { it.ver == f.parent }?.base.orEmpty() else ""
+                    mergeInto(sid, m!!, older.takeIf { it.isNotEmpty() }?.let(SharedCards::decode) ?: base, f, e.imported, older)
+                }
                 Action.PUBLISH_TOMBSTONE -> {
                     val ver = version(sid, file?.version ?: 0L)
-                    written(sid, writeCard(s, sid, ver, null) ?: continue)
+                    written(sid, writeCard(s, sid, ver, null, parent = e.ver) ?: continue)
                     entries.remove(sid)
                     seen[sid] = ver
                     log(sid, ChangeKind.REMOVED, emptySet(), base?.displayName.orEmpty())
@@ -536,7 +566,7 @@ class SharedLabelEngine(
         for (m in labelMembers) {
             if (m.id in taken) continue
             val sid = SharedLabelFiles.newId()
-            publish(sid, m, null, imported = false, kind = ChangeKind.ADDED)
+            publish(sid, m, null, imported = false, kind = ChangeKind.ADDED, parent = null)
             taken += m.id
         }
 
@@ -571,12 +601,14 @@ class SharedLabelEngine(
         if (!writable(s, listing)) return null
         val mine = local.idFor(e.key, e.contactId)?.let { local.card(it) } ?: return null
         val theirs = SharedCards.decode(p.theirs) ?: return null
-        val merged = SharedCards.merge(e.base.takeIf { it.isNotEmpty() }?.let(SharedCards::decode), mine.card, theirs, picks)
+        val from = p.base.ifEmpty { e.base }
+        val merged = SharedCards.merge(from.takeIf { it.isNotEmpty() }?.let(SharedCards::decode), mine.card, theirs, picks)
         val id = local.apply(mine.id, merged.card) ?: return null
         val after = local.card(id) ?: return null
         val ver = SharedLabelRules.nextVersion(maxOf(s.seen[sid] ?: 0L, p.ver), clock())
-        val w = writeCard(s, sid, ver, after.card) ?: return null
-        val entry = SharedLabelState.Entry(after.key, id, ver, SharedCards.encode(after.card), SharedCards.hash(after.card), e.imported, w.hash)
+        val w = writeCard(s, sid, ver, after.card, parent = p.ver.takeIf { it > 0 }) ?: return null
+        val prior = e.priorForNext(SharedLabelState.Prior(p.ver, p.theirs).takeIf { p.ver > 0 })
+        val entry = SharedLabelState.Entry(after.key, id, ver, SharedCards.encode(after.card), SharedCards.hash(after.card), e.imported, w.hash, prior)
         val nextId = (s.journal.maxOfOrNull { it.id } ?: 0L) + 1
         val journal = s.journal + JournalEntry(nextId, sid, ChangeKind.EDITED, SharedCards.changedFields(theirs, after.card), after.card.displayName, clock())
         val out = s.copy(
@@ -655,6 +687,135 @@ class SharedLabelEngine(
         )
     }
 
+    // ---------------------------------------------------------------- update files
+
+    /** Writes this phone's journal into the label's files: a member who joined by file sends it with their first update. */
+    fun introduce(s: SharedLabelState): Boolean = writeJournal(s) != null
+
+    /**
+     * An update file with the label's files as this phone's folder holds them (docs/SHARED_LABELS.md, "Sharing by
+     * file"): the header, the key-change notes, and the contact files and journals sealed with the current key (junk
+     * stays out). Null when the folder can't be listed, the label isn't active here, or the key can't sign now.
+     */
+    suspend fun updateFile(s: SharedLabelState, sentAt: Long = clock()): ByteArray? {
+        val epoch = (s.membership as? State.Active)?.epoch ?: return null
+        val listing = listing().first ?: return null
+        fun current(name: String, bytes: ByteArray) =
+            name == SharedLabelCrypto.HEADER_NAME || name.startsWith(SIG_PREFIX) || SharedLabelCrypto.open(s.key, s.labelId, name, bytes) != null
+        val files = listing.keys.filter(SharedLabelUpdates::isLabelFile).sorted().asSequence()
+            .mapNotNull { name -> folder.read(name)?.takeIf { current(name, it) }?.let { name to it } }
+            .take(SharedLabelUpdates.MAX_FILES).toMap(LinkedHashMap())
+        return SharedLabelUpdates.write(signer, s.key, s.labelId, epoch, s.myName, sentAt, files)?.takeIf { it.size <= SharedLabelUpdates.MAX_SEALED }
+    }
+
+    /** Why an update file wasn't merged, or that it was. */
+    enum class UpdateResult {
+        MERGED,
+
+        /** Not an update file. */
+        NOT_AN_UPDATE,
+
+        /** For another shared label. */
+        OTHER_LABEL,
+
+        /** Sealed with another key than this phone's (a forged or altered file). */
+        WRONG_KEY,
+
+        /** Made before the label's key changed: ask for a new one. */
+        OLDER_KEY,
+
+        /** Made after the label's key changed: this phone needs a new invitation first. */
+        NEWER_KEY,
+
+        /** Altered, or not signed by the member it names. */
+        DAMAGED,
+
+        /** Opened before, or older than one opened from the same member: a copy put back. */
+        ALREADY_OPENED,
+
+        /** This phone's own update. */
+        OWN,
+
+        /** The label doesn't sync here now (left, or its folder can't be read). */
+        UNAVAILABLE,
+    }
+
+    class UpdateOutcome(val state: SharedLabelState, val result: UpdateResult, val fromName: String = "", val report: SharedRunReport = SharedRunReport())
+
+    /**
+     * Merges an update file into the label as if a sync app had brought its files: each file is taken when it is
+     * newer than the folder's (an edit made alongside one here is merged by the run instead), then one run applies
+     * them with the usual rules, history and replay checks. The update itself must be sealed with this label's key,
+     * signed by its sender, and newer than the last one opened from them.
+     */
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
+    suspend fun openUpdate(s: SharedLabelState, bytes: ByteArray, allowMassDelete: Boolean = false): UpdateOutcome {
+        fun no(r: UpdateResult) = UpdateOutcome(s, r)
+        val peek = SharedLabelUpdates.peek(bytes) ?: return no(UpdateResult.NOT_AN_UPDATE)
+        if (peek.labelId != s.labelId) return no(UpdateResult.OTHER_LABEL)
+        if (peek.epoch > s.epoch) return no(UpdateResult.NEWER_KEY)
+        if (!SharedLabelMembership.syncs(s.membership)) return no(UpdateResult.UNAVAILABLE)
+        if (peek.epoch < s.epoch) return no(UpdateResult.OLDER_KEY)
+        val u = when (val o = SharedLabelUpdates.open(bytes, s.key, s.labelId, s.epoch)) {
+            is SharedLabelUpdates.Opened.Ok -> o.update
+            SharedLabelUpdates.Opened.WrongKey -> return no(UpdateResult.WRONG_KEY)
+            SharedLabelUpdates.Opened.NotAnUpdate -> return no(UpdateResult.NOT_AN_UPDATE)
+            SharedLabelUpdates.Opened.Damaged -> return no(UpdateResult.DAMAGED)
+        }
+        if (u.fromHex == me) return no(UpdateResult.OWN)
+        if (!SharedLabelUpdates.fresh(u.sentAt, s.exchanged[u.fromHex], clock())) return no(UpdateResult.ALREADY_OPENED)
+        val listing = listing().first ?: return no(UpdateResult.UNAVAILABLE)
+        val (shown, kept) = arrivals(s, listing, u.files)
+        val overlay = OverlayFolder(folder, shown)
+        val out = SharedLabelEngine(overlay, local, signer, clock).run(s, allowMassDelete)
+        // What the run didn't write over stays in the folder when it is newer than the folder's.
+        for (name in overlay.untouched) if (name in kept) shown[name]?.let { folder.write(name, it) }
+        val exchanged = (out.state.exchanged + (u.fromHex to u.sentAt)).entries.sortedByDescending { it.value }.take(MAX_EXCHANGED).associate { it.toPair() }
+        return UpdateOutcome(out.state.copy(exchanged = exchanged), UpdateResult.MERGED, u.fromName, out.report)
+    }
+
+    /**
+     * Which of an update's [files] the run sees ([SharedLabelUpdates.takesCard] and the like), and which of those stay
+     * in the folder afterwards. Files that don't open with the label's key, and this phone's own journal, are left out.
+     */
+    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
+    private fun arrivals(s: SharedLabelState, listing: Map<String, String?>, files: Map<String, ByteArray>): Pair<Map<String, ByteArray>, Set<String>> {
+        val shown = LinkedHashMap<String, ByteArray>()
+        val kept = HashSet<String>()
+        fun headerEpoch(bytes: ByteArray?) =
+            bytes?.let { runCatching { SharedLabelCrypto.parseHeader(it) }.getOrNull() }?.takeIf { it.labelId == s.labelId }?.epoch
+        fun existing(name: String) = if (name in listing) folder.read(name) else null
+        for ((name, bytes) in files) {
+            val sid = SharedLabelFiles.sidOf(name)
+            val take = when {
+                name == SharedLabelCrypto.HEADER_NAME -> headerEpoch(bytes)?.let { SharedLabelUpdates.takesHeader(it, headerEpoch(existing(name))) } == true
+                name.startsWith(SIG_PREFIX) -> name !in listing
+                name == SharedLabelFiles.journalName(signer.publicKey) -> false
+                sid != null -> {
+                    val incoming = openCard(s, name, bytes) ?: continue
+                    val there = existing(name)?.let { openCard(s, name, it) }
+                    if (SharedLabelUpdates.keepsCard(incoming, there)) kept += name
+                    SharedLabelUpdates.takesCard(incoming, there)
+                }
+                else -> {
+                    val incoming = openJournal(s, name, bytes) ?: continue
+                    SharedLabelUpdates.takesJournal(incoming, existing(name)?.let { openJournal(s, name, it) })
+                }
+            }
+            if (take) {
+                shown[name] = bytes
+                if (sid == null) kept += name
+            }
+        }
+        return shown to kept
+    }
+
+    private fun openCard(s: SharedLabelState, name: String, bytes: ByteArray): CardFile? =
+        SharedLabelCrypto.open(s.key, s.labelId, name, bytes)?.let { SharedLabelFiles.readCard(s.labelId, name, it) }
+
+    private fun openJournal(s: SharedLabelState, name: String, bytes: ByteArray): Journal? =
+        SharedLabelCrypto.open(s.key, s.labelId, name, bytes)?.let { SharedLabelFiles.readJournal(s.labelId, name, it) }
+
     /** Leaving: this phone's journal says so, so the others see it; the caller then forgets the label. */
     suspend fun leave(s: SharedLabelState): Boolean {
         if (s.membership !is State.Active) return true
@@ -665,6 +826,12 @@ class SharedLabelEngine(
 
     private companion object {
         val PROBE = "PARLEY-LABEL-PROBE".toByteArray()
+
+        /** The key-change notes' names start so ([SharedLabelCrypto.headerSigName]). */
+        const val SIG_PREFIX = ".parley-label-sig-"
+
+        /** Senders whose last update time is kept (the members a label can count, and some to spare). */
+        const val MAX_EXCHANGED = 2 * SharedLabelFiles.MAX_MEMBERS
 
         /** L7: journals opened per run at most (members' own first): twice the members a label can count. */
         const val MAX_JOURNALS = 2 * SharedLabelFiles.MAX_MEMBERS

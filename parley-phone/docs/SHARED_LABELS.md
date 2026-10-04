@@ -1,9 +1,10 @@
 # Shared labels (a family phonebook)
 
-One label ("Family", "Doctors & school") kept the same on several people's phones, through a folder those phones
-already share (Syncthing, Nextcloud, a USB stick). There is no server and Parley has no internet permission: the
-folder app moves the files, Parley only reads and writes them. This page is the design; the code references are the
-source of truth.
+One label ("Family", "Doctors & school") kept the same on several people's phones, either through **update files**
+that members send each other by any app (a message, an e-mail), or through a folder those phones already share
+(Syncthing, Nextcloud, a USB stick). There is no server and Parley has no internet permission: the person or the folder
+app moves the files, Parley only reads and writes them. Both carry exactly the same signed files, so a label can use
+either, or both at once. This page is the design; the code references are the source of truth.
 
 Code: `core/common/.../common/sync/shared/` (formats, signatures, merge decisions, membership; all unit-tested) and
 `core/data/.../data/sync/shared/` (the folder, the address book and the sync run); screens in
@@ -11,9 +12,12 @@ Code: `core/common/.../common/sync/shared/` (formats, signatures, merge decision
 
 ## What it is, in the user's words
 
-- On a label's page, ⋮ › **Share this label…**: choose an empty folder in your Syncthing or Nextcloud folder, set a
-  passphrase for this label, and your name as the others will see it. Then **Invite** people, one at a time, with a
-  QR code (in the same room) or a file (sent any way you like, opened with the label's passphrase).
+- On a label's page, ⋮ › **Share this label…**: choose how changes travel (**Update files**, the default, or **A shared
+  folder** in your Syncthing or Nextcloud folder), set a passphrase for this label, and your name as the others will
+  see it. Then **Invite** people, one at a time, with a QR code (in the same room) or a file (sent any way you like,
+  opened with the label's passphrase).
+- With update files: **Send an update** after you change something, and **Open an update** when someone sends you one
+  (or tap the file in the app it arrived in). See [Sharing by file](#sharing-by-file).
 - The people you invite add the same folder on their phone (their sync app already shares it) and open the
   invitation. They see who is in the label, with each person's key fingerprint, before joining.
 - From then on, the label's contacts stay the same on every member's phone: an edit, a new contact or a delete on one
@@ -126,6 +130,62 @@ A contact that arrives is added to the label as a new contact. It is joined to o
 already in this label and not shared yet (same number or e-mail), never to a contact elsewhere in your address book:
 a member could otherwise pull any contact of yours into the label, and learn from the published copy what you have
 and under what name. A duplicate that results can be merged with **Find & merge duplicates**, like any other.
+
+## Sharing by file
+
+For households where not everyone runs a sync app (most). Code: `SharedLabelUpdates` (core/common: the format, the
+checks and which file wins), `SharedLabelEngine.updateFile` / `openUpdate` and `LocalLabelFolder` (core/data), and
+`LabelUpdates.kt` (app).
+
+- **Where the files live.** A label shared by file has no folder: each phone keeps the label's files (the same header,
+  contact files and journals described above, sealed and signed the same way) in its own storage, outside backups
+  (`noBackupFilesDir/shared_labels/files-<label id>`), as if it were that phone's copy of a shared folder.
+- **Send an update.** One run writes this phone's changes into those files, then they all go into one **update file**
+  (`<label>-<date>.parleyupdate`, type `application/vnd.parley.label-update`) handed to the share sheet. It carries
+  the label's files as this phone holds them, other members' included, so an update relays changes to people the
+  sender never exchanges with directly. Files that don't open with the current key (junk) stay out.
+- **Open an update.** From the label's page or Members & invitations, or by opening the file from the app it arrived
+  in (Parley accepts it as `application/vnd.parley.label-update`, and as `application/octet-stream`, which many apps
+  use for a type they don't know; the screen checks what the file really is and says so when it isn't one). An
+  invitation file opened that way goes on to Join.
+- **Format.** `PARLEYU1 | label id | key epoch | nonce | AES-256-GCM(label key, gzip(signed))`, associated data
+  `PARLEYU1|<label id>|<epoch>`. `signed` is a body (`label`, `epoch`, `from` (the sender's My card key), `name`,
+  `at` (when it was made), and `files`, name → bytes) and the sender's Ed25519 signature over
+  `PARLEY-LABEL-UPDATE-1`, the label id, the epoch and the body. Only a label's own file names are allowed (the
+  header, `.parley-label-sig-<n>`, `c-<sid>.plabel`, `j-<member>.plabel`), each at most a folder file's size, at most
+  5,000 files and 48 MB expanded.
+- **Merging.** The update's files are laid over this phone's as if a sync app had brought them, one file at a time:
+  a contact file when it is newer than the one here, a journal when it was written later (or has more changes), the
+  header only for a later key, a key-change note when there is none. Then **one ordinary run** applies them with
+  every rule on this page: members worked out from journals, only members' signed files applied, field-by-field
+  merges, "Changed on two phones", tombstones, History & undo, the mass-deletion pause. What the run didn't write over
+  stays in the files when it is newer, so the next update passes it on.
+- **Edits made alongside each other.** Updates travel slowly, so two members often change the same contact from the
+  same version without seeing each other's change. Every contact file now says which version it was written from (its
+  **parent**, inside the signed body; older Parley versions ignore it), and each phone remembers the last three
+  versions it held of each contact. A file written from one of those, rather than from the version this phone synced,
+  is **concurrent** (`SharedLabelRules.concurrent`): it is merged field by field against the version both started
+  from, whichever of the two is newer, so neither change is lost; a field both changed differently asks, as above. A
+  deletion made alongside an edit loses to it, like any deletion that meets an edit. The same holds for folders, where
+  a sync app's conflict could otherwise drop one side.
+- **Copies put back.** An update must be sealed with this phone's key for the label (another key, another label or one
+  changed byte: refused whole), signed by the member it names, and newer than the last update this phone opened from
+  that member (an update opened again, or an older one, is refused: "You opened this update before"). Its time may be
+  at most a day ahead of this phone's clock. Inside, every file is checked as a folder's would be: a contact file
+  older than the version this phone saw is ignored.
+- **Key changes.** An update made before the label's key changed is refused ("made before the label's key changed");
+  one made after asks for a new invitation first. Removing a member works as above; the others then need a new
+  invitation and an update.
+- **Joining by file.** On the invitation's screen, **No shared folder? Use update files** joins without a folder: the
+  label's contacts and members arrive with the first update the inviter sends; this phone's journal goes back with
+  the first update it sends, so the others count it. The invitation itself is unchanged (same file, same QR code).
+- **Leaving by file.** Leave this label offers a last update whose journal says you left; once the others open it they
+  see it. The label's files are then removed from this phone.
+- **What each member sees.** The label's page shows "Shared by update files", when it last changed, and Send an
+  update / Open an update instead of Sync now. Members & invitations shows, for each member, when their last update
+  was made ("Last update from them 2 days ago"), and when you last sent one.
+- **A label can use both.** Send an update and Open an update are offered on every shared label: a member with the
+  folder can send an update to one without it, whose replies are merged into the folder for everyone.
 
 ## Syncing
 
@@ -241,7 +301,11 @@ tombstone for the others).
   put back.
 - Membership is by invitation. An invitation (and its passcode or the label's passphrase) lets in whoever has it,
   once, within 7 days. The members list shows everyone with their fingerprint: check it after someone joins.
-- Nothing is real time: changes travel as fast as the folder app moves files, and Parley looks every hour.
+- Nothing is real time: changes travel as fast as the folder app moves files, and Parley looks every hour. By file,
+  they travel when someone sends an update and the others open it.
+- By file, an update holds the whole label (not only what changed): a family label of a few hundred contacts is a
+  few hundred kilobytes. An update older than one already opened from the same member is refused, so open them in
+  the order they came; a member's change that only an older update carried still arrives with that member's next one.
 - A removed member keeps what they had and can still fill the folder with files nobody reads; one they write over a
   contact's file holds that contact back for up to an hour (a day if signed by a key nobody knows) before the members'
   copy goes back.

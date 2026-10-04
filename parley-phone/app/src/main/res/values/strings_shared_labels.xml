@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shared labels: one label kept the same on several people's phones through a folder (docs/SHARED_LABELS.md). -->
+<!-- Shared labels: one label kept the same on several people's phones, by update files or a folder (docs/SHARED_LABELS.md). -->
 <resources>
     <!-- Settings entry (Backup & sync › Sync between your phones › Shared labels; searchable) -->
     <string name="set_shared_labels_title">Shared labels</string>
     <string name="set_shared_labels_summary">A family phonebook: one label kept the same on several people\'s phones</string>
-    <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud</string>
+    <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud, update file, send an update, open an update</string>
     <string name="set_shared_labels_join_title">Join a shared label</string>
     <string name="set_shared_labels_join_summary">Open an invitation someone sent you, as a file or a QR code</string>
     <string name="set_shared_labels_join_kw">join, invitation, invite, family phonebook, shared label, qr code, file</string>
@@ -81,7 +81,7 @@
 
     <!-- Sharing a label -->
     <string name="shl_share_title">Share %1$s</string>
-    <string name="shl_share_intro">Keep this label the same on the phones of people you choose, such as your family. It travels through a folder your sync app (Syncthing, Nextcloud…) shares with them: no server, no account. Each person signs their changes with their card key.</string>
+    <string name="shl_share_intro">Keep this label the same on the phones of people you choose, such as your family: no server, no account. Each person signs their changes with their card key.</string>
     <string name="shl_share_folder">Folder</string>
     <string name="shl_share_folder_none">An empty folder that your sync app shares with them</string>
     <string name="shl_share_pass">Passphrase for this label</string>
@@ -176,4 +176,50 @@
     <!-- Quiet notes under the sync status: nothing for the user to do, but something in the folder isn't right. -->
     <string name="shl_status_unreadable">Some files in the folder couldn\'t be read. If they stay that way, this phone writes its own copies again.</string>
     <string name="shl_status_header">The folder\'s label file was changed without a member\'s signature. Parley keeps using the one it had.</string>
+
+    <!-- Sharing by update files: no shared folder; each person sends an update file by any app, the others open it. -->
+    <string name="shl_mode_title">How changes travel</string>
+    <string name="shl_mode_files">Update files</string>
+    <string name="shl_mode_folder">A shared folder</string>
+    <string name="shl_mode_files_text">No extra app needed. When you change something, send an update file to the others by any app (a message, an email). They open it in Parley, and theirs come back the same way.</string>
+    <string name="shl_mode_folder_text">For people who already use Syncthing or Nextcloud: changes travel through a folder it shares, every hour, with nothing to send.</string>
+    <string name="shl_by_file">Shared by update files</string>
+    <string name="shl_updates">Updates</string>
+    <string name="shl_send_update">Send an update</string>
+    <string name="shl_send_update_sub">One file with this label as your phone has it. Send it by any app.</string>
+    <string name="shl_open_update">Open an update</string>
+    <string name="shl_open_update_sub">A .parleyupdate file someone in this label sent you</string>
+    <string name="shl_send_chooser">Send the update</string>
+    <string name="shl_send_failed">Couldn\'t make the update. Unlock the phone and try again.</string>
+    <string name="shl_last_sent">You last sent an update %1$s</string>
+    <string name="shl_member_last_update">Last update from them %1$s</string>
+    <string name="shl_member_no_update">No update from them yet</string>
+    <string name="shl_status_waiting_update">Open the update you were sent to see this label\'s contacts</string>
+    <string name="shl_status_updated">Updated %1$s</string>
+    <string name="shl_invite_then_update">After they join, send them an update, and ask them to send one back.</string>
+    <string name="shl_open_with">Open in Parley</string>
+    <string name="shl_open_title">Open an update</string>
+    <string name="shl_open_reading">Reading the update…</string>
+    <string name="shl_open_merged">The update from %1$s is in %2$s.</string>
+    <string name="shl_open_merged_someone">The update is in %1$s.</string>
+    <plurals name="shl_open_changed">
+        <item quantity="one">%d contact changed or added here</item>
+        <item quantity="other">%d contacts changed or added here</item>
+    </plurals>
+    <string name="shl_open_nothing_new">Nothing new for this phone.</string>
+    <string name="shl_open_not_update">This file isn\'t a shared-label update or invitation.</string>
+    <string name="shl_open_other_label">This update is for a label that isn\'t on this phone. Open the invitation first, then the update.</string>
+    <string name="shl_open_wrong_key">This update doesn\'t open with this label\'s key. It may have been changed on the way: ask for a new one.</string>
+    <string name="shl_open_older_key">This update was made before the label\'s key changed. Ask for a new one.</string>
+    <string name="shl_open_newer_key">This label\'s key was changed. Ask a member for a new invitation, then open this update again.</string>
+    <string name="shl_open_damaged">This update was changed after it was made, or isn\'t signed by the person it names. Nothing was taken from it.</string>
+    <string name="shl_open_already">You opened this update before, or a newer one from the same person. Nothing changed.</string>
+    <string name="shl_open_own">This is your own update. Send it to the others in the label.</string>
+    <string name="shl_open_unavailable">This label isn\'t syncing on this phone right now, so the update couldn\'t be opened.</string>
+    <string name="shl_open_failed">Couldn\'t read the file.</string>
+    <string name="shl_open_show_label">Show the label</string>
+    <string name="shl_join_without_folder">No shared folder? Use update files</string>
+    <string name="shl_join_by_file_text">You\'ll see the members and contacts once you open an update from %1$s.</string>
+    <string name="shl_join_by_file_done">You joined %1$s. Now open the update you were sent, and send one back.</string>
+    <string name="shl_leave_by_file_text">The contacts stay on this phone in the label. Send the others this last update so they see you left.</string>
 </resources>

@@ -8,6 +8,7 @@ import app.parley.common.sync.shared.HistoryItem
 import app.parley.common.sync.shared.JournalEntry
 import app.parley.common.sync.shared.LabelMember
 import app.parley.common.sync.shared.SharedLabelMembership.State
+import app.parley.common.sync.shared.SharedLabelRules
 import app.parley.common.sync.shared.Ticket
 import org.json.JSONArray
 import org.json.JSONObject
@@ -25,6 +26,7 @@ data class SharedLabelState(
     val labelId: String,
     /** The label on this phone that is shared (follows renames made on the label page). */
     val title: String,
+    /** The shared folder; empty for a label shared by update files only ([byFile]), whose files stay on this phone. */
     val folderUri: String,
     val folderName: String,
     val key: ByteArray,
@@ -57,11 +59,20 @@ data class SharedLabelState(
     val header: ByteArray? = null,
     /** M3: the folder's header isn't the one this phone accepted, and no member signed a key change. */
     val headerWarning: Boolean = false,
+    /** Update files opened, by sender (member key hash) → when they sent the last one: older ones are copies put back. */
+    val exchanged: Map<String, Long> = emptyMap(),
+    /** When this phone last made an update file (0: never). */
+    val lastSentAt: Long = 0,
 ) {
+    /** Shared by update files only: no folder, the label's files are kept in this phone's own storage. */
+    val byFile: Boolean get() = folderUri.isEmpty()
+
     /**
      * One contact's last synced state: its contact, the version and card ([base]) synced, and how it got here.
      * [fileHash]: the hash of the signed file this phone accepted (or wrote) at [ver] ([CardFile.bodyHash]), so it can
-     * tell later that a file is exactly that one.
+     * tell later that a file is exactly that one. [prior]: the versions this phone held before [ver], newest first
+     * (at most [SharedLabelRules.PRIOR_VERSIONS]), so an edit made from one of them merges against it
+     * ([SharedLabelRules.concurrent]).
      */
     data class Entry(
         val key: String,
@@ -71,13 +82,25 @@ data class SharedLabelState(
         val baseHash: String,
         val imported: Boolean,
         val fileHash: String = "",
-    )
+        val prior: List<Prior> = emptyList(),
+    ) {
+        /** [prior] with this entry's own version first, and [also] (another version the next one descends from). */
+        fun priorForNext(also: Prior? = null): List<Prior> =
+            (listOfNotNull(also, Prior(ver, base).takeIf { ver > 0 && base.isNotEmpty() }) + prior)
+                .distinctBy { it.ver }.take(SharedLabelRules.PRIOR_VERSIONS)
+    }
+
+    /** A version of a contact this phone held, and its card then. */
+    data class Prior(val ver: Long, val base: String)
 
     /** A file this phone couldn't use [since] then; [stranger]: well formed and signed, but not by a member. */
     data class Unreadable(val since: Long, val stranger: Boolean)
 
-    /** A contact both this phone and [authorName] changed: [theirs] (at [ver]) waits until the user picks [fields]. */
-    data class Pending(val theirs: String, val ver: Long, val authorName: String, val fields: Set<CardField>)
+    /**
+     * A contact both this phone and [authorName] changed: [theirs] (at [ver]) waits until the user picks [fields].
+     * [base]: the card both started from when it isn't the synced one (an edit made alongside); empty otherwise.
+     */
+    data class Pending(val theirs: String, val ver: Long, val authorName: String, val fields: Set<CardField>, val base: String = "")
 
     val epoch: Int get() = when (val m = membership) {
         is State.Active -> m.epoch
@@ -113,7 +136,7 @@ data class SharedLabelState(
                     put(
                         sid,
                         JSONObject().put("k", e.key).put("c", e.contactId).put("v", e.ver).put("b", e.base).put("h", e.baseHash).put("i", e.imported)
-                            .put("fh", e.fileHash),
+                            .put("fh", e.fileHash).put("pr", JSONArray().apply { e.prior.forEach { put(JSONObject().put("v", it.ver).put("b", it.base)) } }),
                     )
                 }
             },
@@ -123,7 +146,8 @@ data class SharedLabelState(
             "pending",
             JSONObject().apply {
                 pending.forEach { (sid, p) ->
-                    put(sid, JSONObject().put("t", p.theirs).put("v", p.ver).put("a", p.authorName).put("f", JSONArray(p.fields.map { it.name })))
+                    val o = JSONObject().put("t", p.theirs).put("v", p.ver).put("a", p.authorName).put("f", JSONArray(p.fields.map { it.name }))
+                    put(sid, if (p.base.isEmpty()) o else o.put("b", p.base))
                 }
             },
         )
@@ -148,6 +172,8 @@ data class SharedLabelState(
         put("junk", JSONObject().apply { junk.forEach { (k, v) -> put(k, v) } })
         header?.let { put("header", b64(it)) }
         put("headerWarning", headerWarning)
+        put("exchanged", JSONObject().apply { exchanged.forEach { (k, v) -> put(k, v) } })
+        put("sentAt", lastSentAt)
     }
 
     companion object {
@@ -194,10 +220,13 @@ data class SharedLabelState(
                 carried = o.optJSONArray("carried").items { Carried(unb64(it.getString("key")), it.optString("name")) },
                 membership = membership,
                 entries = o.optJSONObject("entries").byKey { _, e ->
-                    Entry(e.getString("k"), e.getLong("c"), e.getLong("v"), e.getString("b"), e.getString("h"), e.optBoolean("i"), e.optString("fh"))
+                    val prior = e.optJSONArray("pr").items { Prior(it.getLong("v"), it.getString("b")) }
+                    Entry(e.getString("k"), e.getLong("c"), e.getLong("v"), e.getString("b"), e.getString("h"), e.optBoolean("i"), e.optString("fh"), prior)
                 },
                 seen = seen,
-                pending = o.optJSONObject("pending").byKey { _, p -> Pending(p.getString("t"), p.getLong("v"), p.optString("a"), fields(p.optJSONArray("f"))) },
+                pending = o.optJSONObject("pending").byKey { _, p ->
+                    Pending(p.getString("t"), p.getLong("v"), p.optString("a"), fields(p.optJSONArray("f")), p.optString("b"))
+                },
                 history = o.optJSONArray("history").items { h ->
                     HistoryItem(
                         h.getString("m"), h.optString("n"), h.getLong("e"), h.getString("s"), h.optString("c"),
@@ -228,6 +257,8 @@ data class SharedLabelState(
                 junk = o.optJSONObject("junk")?.let { s -> s.keys().asSequence().associateWith { s.getString(it) } }.orEmpty(),
                 header = o.optString("header").takeIf { it.isNotEmpty() }?.let(::unb64),
                 headerWarning = o.optBoolean("headerWarning"),
+                exchanged = o.optJSONObject("exchanged")?.let { x -> x.keys().asSequence().associateWith { x.getLong(it) } }.orEmpty(),
+                lastSentAt = o.optLong("sentAt"),
             )
         }
     }

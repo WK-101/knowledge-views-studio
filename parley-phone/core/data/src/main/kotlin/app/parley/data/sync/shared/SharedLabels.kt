@@ -3,14 +3,17 @@ package app.parley.data.sync.shared
 import android.Manifest
 import android.content.Context
 import android.net.Uri
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ThreeWayMerge.Side
 import app.parley.common.sync.shared.CardField
 import app.parley.common.sync.shared.Invitation
 import app.parley.common.sync.shared.MemberSigner
+import app.parley.common.sync.shared.SharedLabelFiles
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.sync.shared.SharedLabelTitles
+import app.parley.common.sync.shared.SharedLabelUpdates
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
@@ -41,7 +44,7 @@ class SharedLabels(
     private val defaultAccount: () -> AccountRef?,
     /** The folder of "Sync between your phones": a shared label keeps to a folder of its own. */
     private val syncFolder: () -> String?,
-    dir: File = File(context.noBackupFilesDir, "shared_labels"),
+    private val dir: File = File(context.noBackupFilesDir, "shared_labels"),
     sealer: StateSealer = RecordSealer(context),
 ) {
     private val store = SharedLabelStateStore(dir, sealer)
@@ -76,7 +79,16 @@ class SharedLabels(
 
     private fun localContacts() = ProviderLabelContacts(context, contacts, records, labels, defaultAccount)
 
-    private fun engine(folderUri: String, signer: MemberSigner) = SharedLabelEngine(SafLabelFolder(context, Uri.parse(folderUri)), localContacts(), signer)
+    /** Where a label shared by update files only keeps its files on this phone. */
+    private fun localFolder(labelId: String) = LocalLabelFolder(File(dir, "files-$labelId"))
+
+    private fun folderOf(folderUri: String, labelId: String): LabelFolder =
+        if (folderUri.isEmpty()) localFolder(labelId) else SafLabelFolder(context, Uri.parse(folderUri))
+
+    private fun engine(s: SharedLabelState, signer: MemberSigner) = engine(s.folderUri, s.labelId, signer)
+
+    private fun engine(folderUri: String, labelId: String, signer: MemberSigner) =
+        SharedLabelEngine(folderOf(folderUri, labelId), localContacts(), signer)
 
     private fun save(s: SharedLabelState): Boolean {
         val ok = store.put(s)
@@ -89,20 +101,25 @@ class SharedLabels(
 
     enum class Created { READY, SAME_AS_SYNC, FOLDER_IN_USE, FOLDER_UNAVAILABLE, CANT_SIGN, NO_PERMISSION, FAILED }
 
-    /** Shares the label [title] through the empty folder [folderUri], with its own [passphrase]; then runs once. */
-    suspend fun create(title: String, folderUri: Uri, folderName: String, passphrase: CharArray, myName: String): Created = mutex.withLock {
+    /**
+     * Shares the label [title] through the empty folder [folderUri], or by update files only when it is null, with
+     * its own [passphrase]; then runs once.
+     */
+    suspend fun create(title: String, folderUri: Uri?, folderName: String, passphrase: CharArray, myName: String): Created = mutex.withLock {
         withContext(Dispatchers.IO) {
             if (!hasContacts()) return@withContext Created.NO_PERMISSION
-            if (folderUri.toString() == syncFolder()) return@withContext Created.SAME_AS_SYNC
+            if (folderUri != null && folderUri.toString() == syncFolder()) return@withContext Created.SAME_AS_SYNC
             val signer = signer() ?: return@withContext Created.CANT_SIGN
-            SafLabelFolder.keep(context, folderUri)
-            val engine = engine(folderUri.toString(), signer)
+            folderUri?.let { SafLabelFolder.keep(context, it) }
+            val labelId = SharedLabelFiles.newId()
+            val engine = engine(folderUri?.toString().orEmpty(), labelId, signer)
             when (engine.checkEmpty()) {
                 null -> Unit
                 SharedRunResult.NOT_A_LABEL -> return@withContext Created.FOLDER_IN_USE
                 else -> return@withContext Created.FOLDER_UNAVAILABLE
             }
-            val s = engine.create(title, folderUri.toString(), folderName, passphrase, myName) ?: return@withContext Created.FAILED
+            val s = engine.create(title, folderUri?.toString().orEmpty(), folderName, passphrase, myName, labelId = labelId)
+                ?: return@withContext Created.FAILED
             if (!save(s)) return@withContext Created.FAILED
             identity.markShared()
             save(engine.run(s).state)
@@ -114,7 +131,7 @@ class SharedLabels(
     suspend fun inviteLink(labelId: String, passcode: String): String? = withContext(Dispatchers.Default) {
         val s = store.get(labelId) ?: return@withContext null
         val signer = signer() ?: return@withContext null
-        engine(s.folderUri, signer).invitation(s, s.folderName)?.let { SharedLabelInvites.qrLink(it, passcode) }
+        engine(s, signer).invitation(s, s.folderName)?.let { SharedLabelInvites.qrLink(it, passcode) }
     }
 
     enum class InviteFile { READY, WRONG_PASSPHRASE, FAILED }
@@ -123,7 +140,7 @@ class SharedLabels(
     suspend fun inviteFile(labelId: String, passphrase: CharArray, write: (ByteArray) -> Boolean): InviteFile = withContext(Dispatchers.IO) {
         val s = store.get(labelId) ?: return@withContext InviteFile.FAILED
         val signer = signer() ?: return@withContext InviteFile.FAILED
-        val engine = engine(s.folderUri, signer)
+        val engine = engine(s, signer)
         if (!engine.checkPassphrase(s, passphrase)) return@withContext InviteFile.WRONG_PASSPHRASE
         val i = engine.invitation(s, s.folderName) ?: return@withContext InviteFile.FAILED
         if (runCatching { write(SharedLabelInvites.file(i, passphrase)) }.getOrDefault(false)) InviteFile.READY else InviteFile.FAILED
@@ -133,7 +150,7 @@ class SharedLabels(
     suspend fun preview(i: Invitation, folderUri: Uri): SharedLabelEngine.Preview = withContext(Dispatchers.IO) {
         val signer = signer() ?: return@withContext SharedLabelEngine.Preview.Unavailable(SharedRunResult.CANT_SIGN)
         SafLabelFolder.keep(context, folderUri)
-        engine(folderUri.toString(), signer).preview(i)
+        engine(folderUri.toString(), i.labelId, signer).preview(i)
     }
 
     /**
@@ -153,9 +170,10 @@ class SharedLabels(
      * Joins [i] through [folderUri] as [myName], as the label [title]: a new label made here, or, with [intoExisting],
      * the label of that name the user picked (after being told how many contacts the first run shares). Then the first
      * run brings its contacts. A label this phone left or whose key changed comes back where it was, with what it
-     * synced. The title the label has here, or null when it couldn't be joined.
+     * synced. With no folder ([folderUri] null) the label is shared by update files: its contacts arrive with the
+     * first update opened. The title the label has here, or null when it couldn't be joined.
      */
-    suspend fun join(i: Invitation, folderUri: Uri, folderName: String, myName: String, title: String, intoExisting: Boolean): String? = mutex.withLock {
+    suspend fun join(i: Invitation, folderUri: Uri?, folderName: String, myName: String, title: String, intoExisting: Boolean): String? = mutex.withLock {
         withContext(Dispatchers.IO) {
             if (!hasContacts()) return@withContext null
             val signer = signer() ?: return@withContext null
@@ -168,11 +186,13 @@ class SharedLabels(
                 val account = defaultAccount() ?: contacts.accounts().firstOrNull() ?: return@withContext null
                 labels.create(t, account) ?: return@withContext null
             }
-            val engine = engine(folderUri.toString(), signer)
-            val s = engine.join(i, folderUri.toString(), folderName, t, myName, existing)
+            val engine = engine(folderUri?.toString().orEmpty(), i.labelId, signer)
+            val s = engine.join(i, folderUri?.toString().orEmpty(), folderName, t, myName, existing)
             if (!save(s)) return@withContext null
             identity.markShared()
-            save(engine.run(s).state)
+            // By file, nothing is there to sync until the first update: this phone's journal waits in its files for the
+            // update it sends back, so the others count it.
+            if (s.byFile) engine.introduce(s) else save(engine.run(s).state)
             t
         }
     }
@@ -183,8 +203,9 @@ class SharedLabels(
             if (!hasContacts()) return@withContext
             val signer = signer() ?: return@withContext
             for (s in store.all()) {
-                if (!SharedLabelMembership.syncs(s.membership)) continue
-                runCatching { engine(s.folderUri, signer).run(s) }.getOrNull()?.let { save(it.state) }
+                // A label shared by file syncs when an update is sent or opened.
+                if (!SharedLabelMembership.syncs(s.membership) || s.byFile) continue
+                catching { engine(s, signer).run(s) }.getOrNull()?.let { save(it.state) }
             }
             _states.value = store.all()
         }
@@ -196,7 +217,9 @@ class SharedLabels(
             val s = store.get(labelId) ?: return@withContext null
             if (!hasContacts()) return@withContext s.copy(lastResult = SharedRunResult.NO_PERMISSION).also { save(it) }
             val signer = signer() ?: return@withContext s.copy(lastResult = SharedRunResult.CANT_SIGN).also { save(it) }
-            val out = engine(s.folderUri, signer).run(s, allowMassDelete).state
+            // Shared by file and no update opened yet: there is nothing here to sync with.
+            if (s.byFile && s.header == null) return@withContext s
+            val out = engine(s, signer).run(s, allowMassDelete).state
             save(out)
             out
         }
@@ -207,7 +230,7 @@ class SharedLabels(
         withContext(Dispatchers.IO) {
             val s = store.get(labelId) ?: return@withContext false
             val signer = signer() ?: return@withContext false
-            engine(s.folderUri, signer).resolve(s, sid, picks)?.let { save(it) } ?: false
+            engine(s, signer).resolve(s, sid, picks)?.let { save(it) } ?: false
         }
     }
 
@@ -216,7 +239,7 @@ class SharedLabels(
         withContext(Dispatchers.IO) {
             val s = store.get(labelId) ?: return@withContext false
             val signer = signer() ?: return@withContext false
-            engine(s.folderUri, signer).removeMembers(s, members, passphrase)?.let { save(it) } ?: false
+            engine(s, signer).removeMembers(s, members, passphrase)?.let { save(it) } ?: false
         }
     }
 
@@ -225,11 +248,74 @@ class SharedLabels(
         withContext(Dispatchers.IO) {
             val s = store.get(labelId) ?: return@withContext true
             val signer = signer()
-            if (signer != null) runCatching { engine(s.folderUri, signer).leave(s) }
+            if (signer != null) catching { engine(s, signer).leave(s) }
             store.remove(labelId)
-            SafLabelFolder.release(context, Uri.parse(s.folderUri))
+            if (s.byFile) localFolder(labelId).clear() else SafLabelFolder.release(context, Uri.parse(s.folderUri))
             _states.value = store.all()
             true
+        }
+    }
+
+    // ---------------------------------------------------------------- update files
+
+    /** An update file made now, and the label as it is after the run that wrote this phone's changes into it. */
+    class Update(val bytes: ByteArray, val state: SharedLabelState)
+
+    /**
+     * "Send an update": a run writes this phone's changes into the label's files (when there is something to sync
+     * with), then they all go into one update file to send by any app. Null when the label isn't active here or the
+     * key can't sign now.
+     */
+    suspend fun sendUpdate(labelId: String): Update? = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            var s = store.get(labelId) ?: return@withContext null
+            if (!SharedLabelMembership.syncs(s.membership)) return@withContext null
+            val signer = signer() ?: return@withContext null
+            val engine = engine(s, signer)
+            if (hasContacts() && !(s.byFile && s.header == null)) s = engine.run(s).state
+            val now = System.currentTimeMillis()
+            val bytes = engine.updateFile(s, now) ?: return@withContext null
+            s = s.copy(lastSentAt = now)
+            save(s)
+            Update(bytes, s)
+        }
+    }
+
+    /** What opening an update did: the label (null when none here matches) and the engine's outcome. */
+    class Opened(
+        val state: SharedLabelState?,
+        val result: SharedLabelEngine.UpdateResult,
+        val fromName: String = "",
+        val report: SharedRunReport = SharedRunReport(),
+    )
+
+    /**
+     * "Open an update": the update file's label is found by the id it names, and its files are merged
+     * ([SharedLabelEngine.openUpdate]). A label not on this phone asks for its invitation first.
+     */
+    suspend fun openUpdate(bytes: ByteArray): Opened = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val peek = SharedLabelUpdates.peek(bytes) ?: return@withContext Opened(null, SharedLabelEngine.UpdateResult.NOT_AN_UPDATE)
+            val s = store.get(peek.labelId) ?: return@withContext Opened(null, SharedLabelEngine.UpdateResult.OTHER_LABEL)
+            if (!hasContacts()) return@withContext Opened(s, SharedLabelEngine.UpdateResult.UNAVAILABLE)
+            val signer = signer() ?: return@withContext Opened(s, SharedLabelEngine.UpdateResult.UNAVAILABLE)
+            val out = engine(s, signer).openUpdate(s, bytes)
+            if (out.result == SharedLabelEngine.UpdateResult.MERGED) save(out.state)
+            Opened(out.state, out.result, out.fromName, out.report)
+        }
+    }
+
+    /**
+     * Before leaving a label shared by file: a last update whose journal says this phone left, so the others see it
+     * once they open it. Null when it can't be made (leaving still works).
+     */
+    suspend fun farewell(labelId: String): ByteArray? = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val s = store.get(labelId)?.takeIf { it.byFile && SharedLabelMembership.syncs(it.membership) } ?: return@withContext null
+            val signer = signer() ?: return@withContext null
+            val engine = engine(s, signer)
+            if (!engine.leave(s)) return@withContext null
+            engine.updateFile(s)
         }
     }
 
