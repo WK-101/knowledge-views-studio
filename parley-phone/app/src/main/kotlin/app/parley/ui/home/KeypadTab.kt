@@ -95,7 +95,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -871,7 +870,7 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
     // Formatted once per number, not on every recomposition while the results change under each keystroke.
     val shown = remember(r.number, countryIso) { Bidi.ltr(Format.number(r.number, countryIso)) }
     if (r.secondary) {
-        ListItem(
+        ParleyListItem(
             modifier = modifier.clickable(onClick = onClick),
             leadingContent = { Spacer(Modifier.width(40.dp)) },
             headlineContent = { Text(shown, style = MaterialTheme.typography.bodyLarge) },

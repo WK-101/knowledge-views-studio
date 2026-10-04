@@ -162,6 +162,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
                     trailingContent = {
                         val label = stringResource(R.string.ct_supervised)
+                        // Not a SwitchRow: turning supervised mode on or off first asks Parley's lock.
+                        @Suppress("DesignSystemComponent")
                         Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v ->
                             val act = context as? ComponentActivity ?: return@Switch
                             if (v && !AppLock.canAuthenticate(act)) {
