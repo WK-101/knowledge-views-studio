@@ -42,6 +42,18 @@ class ArchivedExportTest {
         assertTrue(report.unmappedProperties.toString(), report.unmappedProperties.isEmpty())
     }
 
+    @Test fun parleys_csv_archived_flag_reads_back_as_archived() {
+        val sb = StringBuilder()
+        CsvExports.write(CsvFormat.PARLEY, listOf(ana, ben), sb, withBom = false, archived = setOf(ana.key))
+        val cards = ArrayList<ParsedCard>()
+        ContactCsv.read(sb.toString().reader(), ImportReportBuilder()) { cards += it }
+        assertEquals(2, cards.size)
+        // The import archives Ana again (as for a vCard), never puts her back in every app's address book.
+        assertTrue(cards[0].notes!!.archived)
+        assertTrue(cards[0].notes!!.forImport(cards[0].record, fromSealed = false, region = "GB").archived)
+        assertEquals(null, cards[1].notes)
+    }
+
     @Test fun googles_csv_labels_an_archived_contact() {
         val sb = StringBuilder()
         CsvExports.write(CsvFormat.GOOGLE, listOf(ana, ben), sb, withBom = false, archived = setOf(ana.key))

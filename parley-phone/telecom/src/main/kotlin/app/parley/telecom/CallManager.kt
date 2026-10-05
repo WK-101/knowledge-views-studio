@@ -124,6 +124,8 @@ object CallManager {
     fun setUiVisible(visible: Boolean) {
         notifier.uiVisible = visible
         notifier.send(_calls.value)
+        // A rescue call has no InCallService behind it: its screen-off at the ear follows the call screen here.
+        RescueCall.updateProximity()
     }
 
     internal var onChanged: ((List<CallUi>) -> Unit)?

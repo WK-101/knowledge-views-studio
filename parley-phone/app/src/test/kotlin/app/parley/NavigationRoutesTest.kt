@@ -1,6 +1,7 @@
 package app.parley
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModelStore
@@ -324,6 +325,27 @@ class NavigationRoutesTest {
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.ACTION_SHOW_MISSED), fromParley = false) { null })
         // Public actions still work from anywhere.
         assertEquals(NavEvent.Tab(StartTab.RECENTS), IntentRoutes.resolve(Intent(Intent.ACTION_CALL_BUTTON), fromParley = false) { null }?.event)
+    }
+
+    @Test fun only_the_situation_tiles_long_press_opens_rescue_call() {
+        fun press(cls: String, pkg: String = context.packageName) =
+            IntentRoutes.tileLongPress(context, Intent(IntentRoutes.QS_TILE_PREFERENCES).putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(pkg, cls)))
+        val rescue = press("app.parley.situations.SituationTileService")
+        assertEquals(IntentRoutes.ACTION_RESCUE_CALL, rescue.action)
+        assertTrue("through Parley's own entry", IntentRoutes.fromParley(rescue))
+        // Every other tile (and a tile of another app, or none named) keeps Android's App info.
+        val others = listOf(
+            press("app.parley.telecom.HangUpTileService"),
+            press("app.parley.security.VaultTileService"),
+            press("app.parley.situations.SituationTileService", pkg = "com.example"),
+            IntentRoutes.tileLongPress(context, Intent(IntentRoutes.QS_TILE_PREFERENCES)),
+        )
+        for (other in others) {
+            assertEquals(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, other.action)
+            assertEquals(context.packageName, other.data?.schemeSpecificPart)
+        }
+        // MainActivity itself takes no tile long press any more.
+        assertNull(IntentRoutes.resolve(Intent(IntentRoutes.QS_TILE_PREFERENCES), fromParley = false) { null })
     }
 
     @Test fun only_parleys_own_entry_counts_as_parley() {

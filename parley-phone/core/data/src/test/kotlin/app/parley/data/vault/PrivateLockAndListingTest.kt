@@ -121,6 +121,23 @@ class PrivateLockAndListingTest {
         assertEquals(2, c.vault.summariesNow().size)
     }
 
+    @Test fun lock_private_contacts_holds_after_parley_is_stopped_until_the_next_unlock() = runBlocking {
+        val id = person("Ana", "+351 21 000 0001")
+        c.vault.lockAll()
+        assertTrue(File(app.noBackupFilesDir, VaultCrypto.LOCKED_FILE).exists())
+        // Android stops Parley and it starts again within the phone's 5-minute window: still locked.
+        VaultCrypto.forgetLockForTest()
+        assertTrue(VaultCrypto.lockedByPerson)
+        assertTrue(VaultCrypto.detailNeedsUnlock())
+        assertLocked { c.vault.details(id) }
+        // The next unlock in Parley ends it, for good.
+        c.vault.unlockedByPerson()
+        assertFalse(File(app.noBackupFilesDir, VaultCrypto.LOCKED_FILE).exists())
+        VaultCrypto.forgetLockForTest()
+        assertFalse(VaultCrypto.lockedByPerson)
+        assertEquals("Ana", c.vault.details(id)!!.given)
+    }
+
     private suspend fun assertLocked(block: suspend () -> Unit) {
         try {
             block()

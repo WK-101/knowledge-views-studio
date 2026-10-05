@@ -82,6 +82,9 @@ object RescueCall {
     private var tone: Ringtone? = null
     private var vibrator: Vibrator? = null
     private var clip: RescueClip? = null
+
+    /** The screen off at the ear once answered on the earpiece, as on a real call (same setting, same wake lock). */
+    private var proximity: ProximityController? = null
     private var watch: Job? = null
     private var clearEnded: Job? = null
 
@@ -140,6 +143,7 @@ object RescueCall {
         _state.value = s.copy(call = active)
         RescueNotifier.ongoing(app, active)
         caller?.clip?.let { uri -> clip = RescueClip(app).also { it.play(uri, speaker = s.audio.current?.type == RouteType.SPEAKER) } }
+        updateProximity()
     }
 
     /** Decline while it rings, or hang up once answered: "Call ended" for a moment, then nothing is left. */
@@ -177,6 +181,23 @@ object RescueCall {
         val r = s.audio.routes.firstOrNull { it.key == route.key } ?: return
         _state.value = s.copy(audio = s.audio.copy(current = r))
         clip?.route(speaker = r.type == RouteType.SPEAKER)
+        updateProximity()
+    }
+
+    /**
+     * Holds the proximity screen-off while the answered call is on the earpiece with the call screen in front, so a
+     * cheek can't press End call or Mute; let go otherwise. [CallManager] calls it when the call screen comes and goes.
+     */
+    internal fun updateProximity() {
+        val s = _state.value
+        val call = s?.call
+        val app = appContext
+        if (call == null || app == null) {
+            proximity?.release()
+            return
+        }
+        val p = proximity ?: ProximityController(app).also { proximity = it }
+        p.update(listOf(call), s.audio, CallManager.uiVisible, screenAtEarMode())
     }
 
     /** A real call arrived: the rescue call goes at once, with no "Call ended", so the real call's screen takes over. */
@@ -195,6 +216,7 @@ object RescueCall {
         stopRinging()
         clip?.stop()
         clip = null
+        proximity?.release()
         context?.let { RescueNotifier.cancel(it) }
     }
 
@@ -292,6 +314,7 @@ object RescueCall {
         stopAll(appContext)
         _state.value = null
         caller = null
+        proximity = null
         systemInCall = telecomInCall
     }
 

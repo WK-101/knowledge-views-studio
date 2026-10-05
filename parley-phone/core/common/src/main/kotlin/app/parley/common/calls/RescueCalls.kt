@@ -72,6 +72,16 @@ object RescuePlan {
         else -> Due.RING
     }
 
+    /**
+     * Whether a call read back from storage can still ring: set since the phone last started ([storedBoot] and
+     * [bootNow] are Android's boot counts, -1 when unknown; a restart drops its alarm, and Parley isn't told of
+     * restarts) and not past its time by more than [STALE_MS]. One that can't is dropped, never shown as waiting.
+     */
+    fun stillWaiting(pending: RescueRequest, storedBoot: Int, bootNow: Int, nowMillis: Long): Boolean {
+        val sameBoot = storedBoot < 0 || bootNow < 0 || storedBoot == bootNow
+        return sameBoot && nowMillis - pending.atMillis <= STALE_MS
+    }
+
     /** What an alarm finds: ring now, too early (wait on), too late, or nothing waiting any more. */
     enum class Due { RING, EARLY, STALE, GONE }
 

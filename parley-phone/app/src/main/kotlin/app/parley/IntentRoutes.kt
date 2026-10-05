@@ -123,6 +123,21 @@ object IntentRoutes {
 
     /** The Situation tile, whose long press opens Rescue call. */
     private const val SITUATION_TILE = "app.parley.situations.SituationTileService"
+
+    /**
+     * Where a long press on one of Parley's tiles goes ([QS_TILE_PREFERENCES], which Android sends to the app for every
+     * tile it holds): the Situation tile's opens Rescue call through Parley's own entry; every other tile's opens
+     * App info, as Android does for a tile with no screen of its own.
+     */
+    fun tileLongPress(context: Context, intent: Intent): Intent {
+        val tile = tileComponent(intent)
+        return if (tile?.packageName == context.packageName && tile.className == SITUATION_TILE) {
+            own(context).setAction(ACTION_RESCUE_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
     const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
 
     /** Folder sync paused and waits for the user (its notification). */
@@ -168,10 +183,10 @@ object IntentRoutes {
 
     private fun go(e: NavEvent) = IntentTarget(e)
 
-    /** The tile a long press came from (its class name), from the extra Android adds. */
-    private fun tileComponent(intent: Intent): String? = runCatching {
+    /** The tile a long press came from, from the extra Android adds. */
+    private fun tileComponent(intent: Intent): ComponentName? = runCatching {
         @Suppress("DEPRECATION")
-        intent.getParcelableExtra<ComponentName>(Intent.EXTRA_COMPONENT_NAME)?.className
+        intent.getParcelableExtra<ComponentName>(Intent.EXTRA_COMPONENT_NAME)
     }.getOrNull()
 
     /** An encrypted vCard ([SealedVCard]), known by its name: its type is octet-stream, like any unknown file's. */
@@ -197,6 +212,35 @@ object IntentRoutes {
         uri.takeIf { it.scheme == "content" && it.authority in CONTACT_AUTHORITIES && readable(it) }
 
     private val CONTACT_AUTHORITIES = setOf(ContactsContract.AUTHORITY, "contacts")
+
+    /** A link to view or a number to dial: Parley's own links, a vCard or label file, a number, Recents or a contact. */
+    private fun viewOrDial(intent: Intent, readable: (Uri) -> Boolean, typeOf: (Uri) -> String?): IntentTarget? {
+        val data = intent.data
+        if (data?.scheme == "parley") parleyLink(data)?.let { return it }
+        if (data != null && data.scheme == "content" && readable(data)) sharedFile(data, intent.type ?: typeOf(data))?.let { return it }
+        return when {
+            data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
+            intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
+            intent.action == Intent.ACTION_DIAL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
+            data != null -> contactLink(data, readable)?.let { IntentTarget(resolveContact = it) }
+            else -> null
+        }
+    }
+
+    /** A `parley://` link: a secure QR code, a simple-mode setup shared as a QR code, or a blocking template. */
+    private fun parleyLink(data: Uri): IntentTarget? = when (data.host) {
+        "qr" -> go(NavEvent.SecureQr(data))
+        "simple" -> IntentTarget(NavEvent.Route(ExtrasRoutes.SimpleImport), simpleSetup = data)
+        "template" -> IntentTarget(NavEvent.Route(BlockingRoutes.Templates), template = data)
+        else -> null
+    }
+
+    /** A readable file another app opened with Parley ([type] its type): a vCard to import, or a shared label's file. */
+    private fun sharedFile(data: Uri, type: String?): IntentTarget? = when {
+        isVcard(type) || isSealedVcard(data) -> go(NavEvent.ImportVcf(data))
+        isLabelFile(type, data) -> labelFile(data)
+        else -> null
+    }
 
     /**
      * [typeOf] reads a content URI's type (only asked for `content:` links without one). [readable] says whether Parley
@@ -226,20 +270,7 @@ object IntentRoutes {
             }
             QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let { contactLink(it, readable) }?.let { IntentTarget(resolveContact = it) }
             SHOW_OR_CREATE -> data?.let { IntentTarget(showOrCreate = it) }
-            Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
-                data?.scheme == "parley" && data.host == "qr" -> go(NavEvent.SecureQr(data))
-                // A simple-mode setup shared as a QR code.
-                data?.scheme == "parley" && data.host == "simple" -> IntentTarget(NavEvent.Route(ExtrasRoutes.SimpleImport), simpleSetup = data)
-                data?.scheme == "parley" && data.host == "template" -> IntentTarget(NavEvent.Route(BlockingRoutes.Templates), template = data)
-                data != null && data.scheme == "content" && readable(data) && (isVcard(intent.type ?: typeOf(data)) || isSealedVcard(data)) ->
-                    go(NavEvent.ImportVcf(data))
-                data != null && data.scheme == "content" && readable(data) && isLabelFile(intent.type ?: typeOf(data), data) -> labelFile(data)
-                data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
-                intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
-                intent.action == Intent.ACTION_DIAL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
-                data != null -> contactLink(data, readable)?.let { IntentTarget(resolveContact = it) }
-                else -> null
-            }
+            Intent.ACTION_DIAL, Intent.ACTION_VIEW -> viewOrDial(intent, readable, typeOf)
             Intent.ACTION_CALL_BUTTON -> go(NavEvent.Tab(StartTab.RECENTS))
             Intent.ACTION_APPLICATION_PREFERENCES -> go(NavEvent.Route(Routes.Settings))
             ACTION_OPEN_BACKUP -> go(NavEvent.Route(Routes.Backup))
@@ -255,8 +286,6 @@ object IntentRoutes {
             ACTION_PASTE_CONTACT -> intent.getStringExtra(EXTRA_PASTE_ID)?.takeIf { it.isNotEmpty() }?.let { go(NavEvent.Route(Routes.edit(paste = it))) }
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
             ACTION_RESCUE_CALL -> go(NavEvent.Route(SituationRoutes.RescueCall))
-            // Only opens a screen (ringing needs a tap there), so any sender may: the other tiles just open Parley.
-            QS_TILE_PREFERENCES -> tileComponent(intent)?.takeIf { it == SITUATION_TILE }?.let { go(NavEvent.Route(SituationRoutes.RescueCall)) }
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))

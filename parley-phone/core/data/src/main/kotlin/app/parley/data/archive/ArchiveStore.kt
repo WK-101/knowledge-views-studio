@@ -17,6 +17,7 @@ import app.parley.common.record.Messengers
 import app.parley.common.record.withoutMessengers
 import app.parley.common.storage.PersistentStores
 import app.parley.data.AccountRef
+import app.parley.data.ContactsRepository
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.backup.BackupExtras
@@ -44,7 +45,8 @@ import java.io.File
  *
  * Each contact is two files in `files/archive`, sealed with the small-records key (no unlock needed, so the call path
  * reads them while the phone is locked): `<id>.card`, the [ArchivedCard] lists and caller ID use, and `<id>.rec`, the
- * whole record with its photos, opened only by Unarchive, backups and exports.
+ * whole record with its photos (one larger than 512 KB kept as its thumbnail, as for Make private), opened only by
+ * Unarchive, backups and exports.
  */
 class ArchiveStore(private val c: DataContainer) {
     private val dir = File(c.appContext.filesDir, "archive")
@@ -110,7 +112,17 @@ class ArchiveStore(private val c: DataContainer) {
             _cards.value = (_cards.value + card).sortedBy { it.name.lowercase() }
             id
         }
-        val purged = c.contacts.purgeForVault(contactId)
+        val purged = catching { c.contacts.purgeForVault(contactId) }.getOrElse { e ->
+            // The address book refused (a read-only copy, a provider error). While the contact is still there, the
+            // archive gives its copy back, so the person is never both archived and in the address book, and a retry
+            // doesn't add a second archived copy. Gone after all: the archive holds it whole, so carry on.
+            Log.w(TAG, "A contact couldn't be removed from the address book", e)
+            if (catching { c.contacts.lookupKeyOf(contactId) }.getOrNull() != null) {
+                forgetFiles(id)
+                return@withContext null
+            }
+            ContactsRepository.VaultPurge(synced = true, messengerCopies = false)
+        }
         if (key.isNotEmpty()) {
             val archivedKey = ContactRef.archivedKey(id)
             c.contactKeys.rekey(key, archivedKey, null)
@@ -153,17 +165,20 @@ class ArchiveStore(private val c: DataContainer) {
             if (result.rawIds.isNotEmpty()) catching { c.contacts.discardInserted(result.rawIds) }
             return@withContext Unarchived.NotWritten
         }
-        mutex.withLock {
-            File(dir, "$id$CARD").delete()
-            File(dir, "$id$REC").delete()
-            _cards.value = _cards.value.filterNot { it.id == id }
-        }
+        forgetFiles(id)
         val from = card.parleyKey
         val key = keyOf(newId)
         if (key != null) c.contactKeys.rekey(from, key, newId)
         else c.contactKeys.rekeyLater(from, result.rawIds.ifEmpty { c.contacts.rawIds(newId) }, newId)
         c.contacts.refresh()
         Unarchived.Done(newId, result.redirectedTo)
+    }
+
+    /** Removes archived contact [id]'s files and card. */
+    private suspend fun forgetFiles(id: Long) = mutex.withLock {
+        File(dir, "$id$CARD").delete()
+        File(dir, "$id$REC").delete()
+        _cards.value = _cards.value.filterNot { it.id == id }
     }
 
     /** The whole record of archived contact [id] (photos included), for Unarchive, backups and exports. */
@@ -240,7 +255,10 @@ class ArchiveStore(private val c: DataContainer) {
             importCounting(values)
         }
 
-        /** Adds the backup's archived contacts this phone doesn't have yet (same lookup key, or same name and numbers). */
+        /**
+         * Adds the backup's archived contacts this phone doesn't have yet (same lookup key, or same name and numbers).
+         * It runs before the other sections, which then find each archived person's new key through [restoredKeys].
+         */
         override suspend fun importCounting(values: Map<String, String>): Int {
             val a = values[X_ARCHIVE]?.let { catching { JSONArray(it) }.getOrNull() } ?: return 0
             val entries = (0 until a.length()).mapNotNull { i ->
@@ -252,13 +270,21 @@ class ArchiveStore(private val c: DataContainer) {
         }
     }
 
+    /**
+     * For a backup's other sections: the archived keys in [values] (a backup's `x.` values) → the same people's keys
+     * here, once this part has restored them ([Archive.restoredKeys]). Empty when the backup has no archived contacts.
+     */
+    suspend fun restoredKeys(values: Map<String, String>): Map<String, String> {
+        val a = values[X_ARCHIVE]?.let { catching { JSONArray(it) }.getOrNull() } ?: return emptyMap()
+        val cards = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.optString(J_CARD)?.let(Archive::decode) }
+        return Archive.restoredKeys(cards, all())
+    }
+
     /** Adds [card] with [record] unless an archived contact here is the same one. False when it couldn't be kept. */
     internal suspend fun restore(card: ArchivedCard, record: ContactRecord): Boolean = withContext(Dispatchers.IO) {
         load()
         mutex.withLock {
-            val here = _cards.value.any { h ->
-                (card.originalKey.isNotEmpty() && h.originalKey == card.originalKey) || (h.name == card.name && h.numbers.toSet() == card.numbers.toSet())
-            }
+            val here = _cards.value.any { Archive.sameOne(it, card) }
             if (here) return@withLock true
             val id = nextId()
             val kept = card.copy(id = id)

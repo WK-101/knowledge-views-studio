@@ -47,22 +47,32 @@ so the call path names it while the phone is locked.
 - **Archive** (contact page › ⋮ › Privacy…, and a chapter's end) reads the lossless record the way Make private does
   (`ContactRecordStore.readCapped`), keeps it, then removes the contact from the address book (`purgeForVault`), and
   re-keys what Parley keeps about the person to `parley-archived:<id>` (`ContactRef.archivedKey`), a key the key sweep
-  never resolves through the address book. A temporary contact archived stops expiring.
-- **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"), missed-call
+  never resolves through the address book. A temporary contact archived stops expiring. A photo larger than 512 KB is
+  kept as its thumbnail, as for Make private (`MAX_KEPT_PHOTO`), so Unarchive brings it back at that size. When the
+  address book refuses to remove the contact (a read-only copy, a provider error), the archive gives its copy back
+  and nothing is archived: a person is never both archived and in the address book.
+- **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"; its agenda items show
+  on their own card and can be ticked, `AgendaStore.targetFor` finds the archived contact by number), missed-call
   notifications, Recents, a number's history, Recall ("Archived contacts"), and screening, which counts an archived
   caller as a saved contact. Hide private contacts and a duress session treat it like any saved contact.
 - **Unarchive** (Contacts › ⋮ › Archived) inserts the record back into the accounts it came from; when one of them
   isn't on the phone now, the user picks an account (`Archive.target`). What Parley kept follows it to the new key.
 - **Backups** carry each archived contact (card and record, photos included) in the encrypted backup, restored with
-  the contacts and never twice; **exports** include archived contacts, a vCard with `X-PARLEY-ARCHIVED:1` (archived
-  again on import), Parley's CSV with an Archived column, Google's CSV with an "Archived" label.
+  the contacts and never twice. A restore gives an archived contact a new id, so the archive part is restored first
+  and what the other parts keep under the backup's `parley-archived:<id>` (the note for calls with its agenda, relation
+  links, Circle rhythm and dates, logged moments, call time, vibration and auto-answer) follows the same person to
+  their key here (`Archive.restoredKeys`, matched by the key before archiving or by name and numbers), never the bare
+  id, which may name someone else; an archived key never matches anyone in the address book. **Exports** include
+  archived contacts: a vCard with `X-PARLEY-ARCHIVED:1` and Parley's CSV with an Archived column are both archived
+  again on import; Google's CSV carries an "Archived" label.
 - A private contact has no Archive: it is out of other apps already.
 
 ### What stays where for a private contact
 
 | What | Where | Readable while the vault is locked? |
 |---|---|---|
-| Name, numbers, number labels, job/company line, "who is this" line, note for calls, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
+| Name, numbers, number labels, job/company line, "who is this" line, note for calls without its agenda items, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
+| The note for calls whole, with its agenda items (6.2) | Vault details, main part, only: the caller-ID copy keeps the note without them (`Agenda.withoutItems`). If the detail key is ever lost, "Keep what's left" keeps the note but not the items. Copies written before 6.2 still hold the items until the contact is next saved; the call path strips them as it reads | No: items show and are ticked after unlock |
 | Label membership (group id + title per label), own ringtone, "send to voicemail", vibration pattern and auto-answer (4.4) | The same caller-ID copy, the only place they are kept (`VaultRepository.updateCallerChoices`; read through `PrivateLabelStore`) | Yes: the call path applies them while the phone is locked, and they change without unlocking |
 | Every other field (emails, addresses with their RFC 9554 parts, dates with the calendar they follow, relations, websites and profiles, notes, handles, custom fields, the language, phonetic middle name, second surname and generation…), the usual app | Vault details, main part (auth-bound detail key) | No: the page asks to unlock, in place |
 | The original address-book record it was made private with (photo included) and its carried interactions | Vault details, extra part (same key; opened only by Make visible, backups and the first seeding) | No |
@@ -278,8 +288,9 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   hiding them from the Quick Settings tile lock every private contact's details again at once
   (`VaultRepository.lockAll`): opened details are forgotten and `VaultCrypto.lockedByPerson` refuses to open or seal
   any until the next unlock in Parley, even inside the key's own 5-minute window. Names and numbers stay listed (the
-  caller-ID copy needs no unlock); "Hide private contacts" is what takes them out of sight. Kept in memory, like the
-  window itself; it is not the app lock.
+  caller-ID copy needs no unlock); "Hide private contacts" is what takes them out of sight. Kept in
+  `no_backup/vault_locked`, so Parley being closed or stopped by Android doesn't undo it; the next successful unlock in
+  Parley removes it. It is not the app lock.
 - Parley's lists wait for the private listing (`VaultRepository.listing`, null until opened, caller-ID copies opened
   by a few workers at once) before their first showing, so private contacts never pop in after the others (6.2).
 - Caller ID, the private call history, missed-call notifications and the lock screen use the same caller-ID copy as

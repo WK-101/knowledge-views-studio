@@ -40,9 +40,27 @@ class NativeNamesTest {
         assertEquals("ru", NativeNames.languageOfLabel("Name in Russian"))
         assertEquals("zh", NativeNames.languageOfLabel("name in chinese"))
         assertEquals("", NativeNames.languageOfLabel("Name in their language"))
-        assertTrue(NativeNames.isRow("0", "Name in Greek"))
-        assertFalse(NativeNames.isRow("1", "Name in Greek"))
-        assertFalse(NativeNames.isRow("0", "Maiden name"))
+        assertTrue(NativeNames.isRow("0", "Name in Greek", "el", "Γιώργος"))
+        assertFalse(NativeNames.isRow("1", "Name in Greek", "el", "Γιώργος"))
+        assertFalse(NativeNames.isRow("0", "Maiden name", null, "Smith"))
+    }
+
+    @Test fun only_parleys_marker_or_its_exact_label_on_another_script_make_a_native_name() {
+        // Parley's marker: the language tag in a column Nickname doesn't use.
+        assertTrue(NativeNames.isRow("0", "Name in Russian", "ru", "Ivan", mainName = "Ivan Petrov"))
+        // A sync that kept only the name and label: Parley's exact label, on a name in another script.
+        assertTrue(NativeNames.isRow("0", "Name in Russian", null, "Иван", mainName = "Ivan Petrov"))
+        assertTrue(NativeNames.isRow("0", "Name in their language", null, "王伟"))
+        assertTrue(NativeNames.isRow({ mapOf(Col.D1 to "Иван", Col.D2 to "0", Col.D3 to "name in russian")[it] }))
+        // The person's own labels stay nicknames: "Name in school" isn't a language, and isn't Parley's label.
+        assertFalse(NativeNames.isRow("0", "Name in school", null, "Bubbles", mainName = "Ivan Petrov"))
+        assertFalse(NativeNames.isRow("0", "Name in school", null, "Пузырь"))
+        assertFalse(NativeNames.isRow("0", "Name in Russian class", null, "Ваня"))
+        // The exact label on a name in the main name's own script: a nickname someone labelled so.
+        assertFalse(NativeNames.isRow("0", "Name in Russian", null, "Ваня", mainName = "Иван Петров"))
+        assertFalse(NativeNames.isRow("0", "Name in Russian", null, "Vanya"))
+        assertTrue(NativeNames.isExactLabel("Name in Greek"))
+        assertFalse(NativeNames.isExactLabel("Name in school"))
     }
 
     @Test fun row_values_and_back() {
@@ -142,5 +160,15 @@ class NativeNamesTest {
         assertTrue(EditorForm.Kind.NATIVE_NAME in choices)
         assertTrue(EditorForm.Kind.CITIZENSHIP in choices)
         assertFalse(EditorForm.Kind.CITIZENSHIP in EditorForm.meCardKinds)
+    }
+
+    @Test fun language_rows_read_primary_first_with_leftovers_after() {
+        val read = Languages.read(
+            listOf(Languages.Row(1, "ru", false), Languages.Row(2, "en", true), Languages.Row(3, " ", false), Languages.Row(4, "RU", false)),
+        )
+        assertEquals(listOf("en", "ru"), read.values)
+        assertEquals(listOf(2L, 1L, 3L, 4L), read.ids)
+        assertEquals(2L, read.primaryId)
+        assertNull(Languages.read(listOf(Languages.Row(1, "ru", false))).primaryId)
     }
 }

@@ -82,4 +82,18 @@ class RescuePlanTest {
         assertNull(RescuePlan.shownName("", null))
         assertEquals(RescuePlan.MAX_NAME, RescuePlan.shownName("x".repeat(100), null)!!.length)
     }
+
+    @Test fun a_call_read_back_after_a_restart_or_long_past_its_time_is_not_waiting() {
+        val now = at(2026, 10, 4, 14, 0)
+        val later = RescueRequest("a", "Mum", null, now + 60 * 60_000)
+        assertTrue(RescuePlan.stillWaiting(later, storedBoot = 7, bootNow = 7, nowMillis = now))
+        // The phone restarted since: its alarm is gone, so it can't ring.
+        assertFalse(RescuePlan.stillWaiting(later, storedBoot = 7, bootNow = 8, nowMillis = now))
+        // Boot count unknown on either side: only the time counts.
+        assertTrue(RescuePlan.stillWaiting(later, storedBoot = -1, bootNow = 8, nowMillis = now))
+        // Its time passed a moment ago: the late alarm may still come. Long ago: never.
+        val past = RescueRequest("b", "Mum", null, now - 60_000)
+        assertTrue(RescuePlan.stillWaiting(past, 7, 7, now))
+        assertFalse(RescuePlan.stillWaiting(past, 7, 7, now + RescuePlan.STALE_MS))
+    }
 }

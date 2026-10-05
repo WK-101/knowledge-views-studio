@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.app.NotificationManager
+import android.os.PowerManager
 import app.parley.common.NotificationIds
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.MenuPress
@@ -14,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowPowerManager
 
 /**
  * Rescue call: shown like a call on the call screen, but never a call. A real call always wins, and nothing the
@@ -125,6 +127,27 @@ internal class RescueCallTest : CallPathTest() {
         FakeTelecom.advance(5_000)
         assertNull(RescueCall.state.value)
         assertTrue(telecom.sent.isEmpty())
+    }
+
+    @Test fun answered_at_the_ear_the_screen_goes_off_like_a_real_call() {
+        shadowOf(context.getSystemService(PowerManager::class.java)).setIsWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, true)
+        ShadowPowerManager.clearWakeLocks()
+        CallManager.setUiVisible(true)
+        try {
+            val c = start()
+            fun proximityHeld() = ShadowPowerManager.getLatestWakeLock()?.let { it.isHeld && shadowOf(it).tag == "parley:proximity" } == true
+            assertFalse("not while it rings", proximityHeld())
+            CallManager.answer(c.id)
+            assertTrue("answered on the earpiece: a cheek can't end it", proximityHeld())
+            CallManager.toggleSpeaker()
+            assertFalse("on the speaker the screen stays on", proximityHeld())
+            CallManager.toggleSpeaker()
+            assertTrue(proximityHeld())
+            CallManager.hangup(rescue().id)
+            assertFalse("let go when it ends", proximityHeld())
+        } finally {
+            CallManager.setUiVisible(false)
+        }
     }
 
     @Test fun no_log_note_archive_statistic_or_case_file_is_written() {

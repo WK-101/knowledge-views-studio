@@ -34,6 +34,8 @@ class ExportedComponentsTest {
             "app.parley.messaging.NumberActionActivity",
             "app.parley.shortcuts.DialWidgetConfigActivity",
             "app.parley.shortcuts.FavoritesWidgetConfigActivity",
+            // A Quick Settings tile's long press: forwards to Rescue call or App info, showing nothing itself.
+            "app.parley.situations.TileLongPressActivity",
         )
 
         /** Exported services, receivers and providers, with the permission a caller must hold. */

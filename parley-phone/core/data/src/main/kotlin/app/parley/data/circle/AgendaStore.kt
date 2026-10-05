@@ -54,7 +54,7 @@ class AgendaStore(private val c: DataContainer) {
             !VaultCrypto.detailNeedsUnlock()
 
     /**
-     * Who [number] is for the agenda: a contact, a private contact, or the number itself. Null for a work-profile
+     * Who [number] is for the agenda: a contact, a private contact, an archived contact, or the number itself. Null for a work-profile
      * contact (Parley keeps nothing for those), a private contact while private contacts are hidden (the number must
      * not show an agenda of its own either), and something too short to be a number.
      */
@@ -70,6 +70,9 @@ class AgendaStore(private val c: DataContainer) {
             val hidden = c.settings.current().hideVault || Concealment.hides(Concealed.PRIVATE_CONTACTS)
             return@withContext if (hidden) null else AgendaTarget.Private(private.first)
         }
+        // An archived contact keeps its items in its note for calls, under its archived key, like a contact's.
+        val archived = catching { c.archive.lookup(number, PhoneEnv.countryIso(c.appContext, accountId)) }.getOrNull()
+        if (archived != null) return@withContext AgendaTarget.Contact(archived.parleyKey, null)
         AgendaTarget.Number(number)
     }
 

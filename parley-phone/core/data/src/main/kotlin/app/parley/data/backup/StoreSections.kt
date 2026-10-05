@@ -52,6 +52,8 @@ class ContactNotesBackup(
     /** The notes DAO the app uses (it seals notes at rest); the backup holds them decrypted, inside its own encryption. */
     private val metaDao: MetaDao = db.metaDao(),
     private val rawIds: (Long) -> List<Long>,
+    /** A backup's archived keys → the same archived people's keys here ([app.parley.data.archive.ArchiveStore.restoredKeys]). */
+    private val archivedKeys: suspend (Map<String, String>) -> Map<String, String> = { emptyMap() },
 ) : BackupExtras {
     override val section = "contact notes"
     override val sections = setOf(Sections.CONTACT_NOTES)
@@ -93,7 +95,8 @@ class ContactNotesBackup(
 
     override suspend fun importCounting(values: Map<String, String>): Int {
         if (values.keys.none { it == K_META || it == K_CALL_NOTES || it == K_TEMPORARY }) return 0
-        val refs = PersonRefs(contactsNow())
+        // An archived contact's note for calls (with its agenda) and relations come back to it under its key here.
+        val refs = PersonRefs(contactsNow(), archivedKeys(values))
         var unmatched = 0
         // People are resolved (and raw ids read from the provider) first; the database writes then run as one transaction.
         val metas = values[K_META]?.let { JSONArray(it).objects() }.orEmpty().mapNotNull { o ->
@@ -167,6 +170,7 @@ class ContactNotesBackup(
 class CallTimeBackup(
     private val calling: CallingRepository,
     private val callExtras: CallExtrasRepository,
+    private val archivedKeys: suspend (Map<String, String>) -> Map<String, String> = { emptyMap() },
     private val contactsNow: suspend () -> List<ContactSummary>,
 ) : BackupExtras, ConfirmedRestore {
     override val section = "call time"
@@ -191,7 +195,7 @@ class CallTimeBackup(
         values[K_SWITCHES]?.let { v -> callExtras.update { CallExtrasConfig.decode(v) } }
         val backup = values[K_CONFIG]?.let { CallingJson.decode(it) } ?: return 0
         val people = values[K_PEOPLE]?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
-        val refs = PersonRefs(contactsNow())
+        val refs = PersonRefs(contactsNow(), archivedKeys(values))
         val mapped = CallTimeRestore.remap(backup) { k -> refs.resolve(people.optJSONObject(k)?.toPersonRef() ?: PersonRef(k))?.lookupKey }
         // Supervision is a safeguard either way: switching it off, or on, from a file waits for the user's confirmation.
         if (calling.config.value.supervised || mapped.config.supervised) pending = mapped.config else apply(mapped.config)

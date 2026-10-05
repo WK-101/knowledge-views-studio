@@ -85,6 +85,22 @@ class AgendaStoreTest {
         assertEquals(2, pinned.promises.size)
     }
 
+    @Test fun an_archived_callers_items_stay_theirs() = runBlocking {
+        File(app.filesDir, "archive").deleteRecursively()
+        val ada = ada()
+        c.circle.editPinnedNote(ada.lookupKey, ada.contactId) { "Gate code 1234\n[ ] Ask about the trip" }
+        assertNotNull(c.archive.archive(ada.contactId!!))
+        val key = c.archive.all().single().parleyKey
+        // Out of the address book, the number still finds Ada's items, not the number's own notes.
+        val target = c.agenda.targetFor(adaNumber)
+        assertEquals(AgendaTarget.Contact(key, null), target)
+        assertEquals(listOf("Ask about the trip"), c.agenda.open(target!!))
+        assertNotNull(c.agenda.setDone(target, "Ask about the trip", true))
+        assertEquals(AgendaStore.Added.ADDED, c.agenda.add(target, "The loan"))
+        assertEquals(listOf("The loan"), c.agenda.open(target))
+        assertTrue("nothing went onto the number's notes", c.meta.allCallNotesNow().isEmpty())
+    }
+
     @Test fun a_number_that_isnt_saved_keeps_its_items_on_its_notes() = runBlocking {
         val target = c.agenda.targetFor(unknown)
         assertTrue(target is AgendaTarget.Number)

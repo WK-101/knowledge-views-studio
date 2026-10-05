@@ -54,6 +54,19 @@ object Archive {
     fun index(cards: List<ArchivedCard>, region: String?): PhoneIdentity.LineMap<ArchivedCard> =
         PhoneIdentity.LineMap<ArchivedCard>(region).also { m -> cards.forEach { c -> c.numbers.forEach { n -> m.putIfAbsent(n, c) } } }
 
+    /** Whether [a] and [b] are the same archived person: the same key before archiving, or the same name and numbers. */
+    fun sameOne(a: ArchivedCard, b: ArchivedCard): Boolean =
+        (a.originalKey.isNotEmpty() && a.originalKey == b.originalKey) || (a.name == b.name && a.numbers.toSet() == b.numbers.toSet())
+
+    /**
+     * A backup's archived keys ([ArchivedCard.parleyKey] of its [backup] cards) → the key of the same person among the
+     * archived contacts [here]. A restore gives an archived contact a new id, so what the backup keeps under the old
+     * key (the note for calls and its agenda, the Circle, logged moments, call time) follows this map, never the bare
+     * id, which may name someone else here. A backup card with no match here is left out: its data matches nobody.
+     */
+    fun restoredKeys(backup: List<ArchivedCard>, here: List<ArchivedCard>): Map<String, String> =
+        backup.mapNotNull { b -> here.firstOrNull { sameOne(it, b) }?.let { b.parleyKey to it.parleyKey } }.toMap()
+
     private val json = Codecs.stored
 
     fun encode(card: ArchivedCard): String = json.encodeToString(ArchivedCard.serializer(), card)

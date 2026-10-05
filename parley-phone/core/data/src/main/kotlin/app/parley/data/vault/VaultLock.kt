@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Whether private contacts' details are unlocked now, as far as Parley can tell, and "Lock private contacts" (see
- * [VaultRepository.lockAll]). Memory only, like the detail key's own window.
+ * Whether private contacts' details are unlocked now, as far as Parley can tell (memory only, like the detail key's
+ * own window), and "Lock private contacts" (see [VaultRepository.lockAll]), which holds until the next unlock in
+ * Parley even across a restart of Parley ([VaultCrypto.lockedByPerson]).
  */
 class VaultLock(private val scope: CoroutineScope) {
     private val unlockedNow = MutableStateFlow(false)

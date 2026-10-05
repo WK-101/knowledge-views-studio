@@ -176,9 +176,12 @@ data class ContactDetails(
     val messengerPrefs: String = "",
     /**
      * The languages they speak ([app.parley.common.record.Mime.LANGUAGE], one row each), in order: the first is the one
-     * to use with them. Each a BCP 47 tag, or the name as typed. [languageIds] are the rows read, in the same order.
+     * to use with them. Each a BCP 47 tag, or the name as typed. [languageIds] are the rows read, in the same order,
+     * then any blank or repeated rows a save removes ([app.parley.common.people.Languages.read]); [languagePrimaryId]
+     * the row marked primary when read (null: none).
      */
     val languageIds: List<Long> = emptyList(),
+    val languagePrimaryId: Long? = null,
     val languages: List<String> = emptyList(),
     val customFields: List<CustomFieldItem> = emptyList(),
     /**

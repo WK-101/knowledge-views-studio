@@ -312,15 +312,16 @@ class DataContainer(context: Context) {
      */
     private val backupParts: List<BackupExtras> by lazy {
         listOf(
+            // First: archived contacts come back before the parts that keep something about them look for their keys.
+            archive.backupExtras,
             people.backupExtras, circle.backupExtras, extras.backupExtras, extras.callerChoicesBackup,
-            ContactNotesBackup(db, { contacts.loadNow() }, metaDao = meta) { id -> contacts.rawIds(id) },
-            CallTimeBackup(calling, callExtras) { contacts.loadNow() },
+            ContactNotesBackup(db, { contacts.loadNow() }, metaDao = meta, rawIds = { id -> contacts.rawIds(id) }, archivedKeys = archive::restoredKeys),
+            CallTimeBackup(calling, callExtras, archive::restoredKeys) { contacts.loadNow() },
             HistorySettingsBackup { history.prefs },
             SpamListsBackup { lists },
             toCall.backupExtras,
             menus.backupExtras,
             cases.backupExtras,
-            archive.backupExtras,
             FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
             CallSwitchesBackup({ driveProfile }, { roaming }),
             // Last: what a Situation on at backup time had replaced is put back over the sections restored before it.
@@ -366,6 +367,7 @@ class DataContainer(context: Context) {
         CircleRepository(
             appContext, meta, InteractionStore(db.interactionDao()),
             index = { history.index }, contactsFlow = { contacts.contacts }, freshContacts = { contacts.loadNow() }, db = db,
+            archivedKeys = { archive.restoredKeys(it) },
         )
     }
 

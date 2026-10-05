@@ -22,9 +22,19 @@ object ChapterNotices {
         if (ended.isEmpty()) return
         val titles = c.people.labels.labels().map { it.title }.toSet()
         catching { c.sharedLabels.load() }
-        val ask = ended.filter { t -> t in titles && Chapters.decidesHere(c.sharedLabels.forTitle(t) != null, c.sharedLabels.isOwner(t)) }
-        // Each ending is told once, whichever phone decides; a label gone since has nothing to ask.
-        c.extras.updateChapters { m -> m.mapValues { (t, ch) -> if (t in ended && t in titles) ch.copy(askedAt = now) else ch } }
+        val ask = ArrayList<String>()
+        val settled = HashSet<String>()
+        // A label gone since has nothing to ask.
+        for (t in ended.filter { it in titles }) {
+            val shared = c.sharedLabels.forTitle(t) != null
+            val owner = c.sharedLabels.isOwner(t)
+            if (Chapters.decisionKnown(shared, owner)) {
+                settled += t
+                if (Chapters.decidesHere(shared, owner)) ask += t
+            }
+        }
+        // Each ending is told once, by the phone that decides; one whose owner can't be told yet waits for the next check.
+        c.extras.updateChapters { m -> m.mapValues { (t, ch) -> if (t in settled) ch.copy(askedAt = now) else ch } }
         if (ask.isNotEmpty()) notify(c.appContext, ask)
     }
 

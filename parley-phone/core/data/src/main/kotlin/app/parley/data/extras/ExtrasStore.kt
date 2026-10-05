@@ -265,6 +265,11 @@ class ExtrasStore(private val c: DataContainer) {
 
     fun dndKeys(): Set<String> = _dndStars.value.keys
 
+    /** Who was in a label when its chapter began, by key: followed by the key sweep ([chapterRekey]). */
+    fun chapterKeys(): Set<String> = Chapters.keys(_chapters.value)
+
+    fun chapterRekey(from: String, to: String, toId: Long?) = updateChapters { Chapters.rekeyed(it, from, to, toId) }
+
     /**
      * The SIM a label asks for when calling [number], for people without a SIM of their own (the remembered SIM
      * per number wins; callers check it first). A private contact's labels count too (kept by Parley). Null = none.
@@ -469,9 +474,14 @@ class ExtrasStore(private val c: DataContainer) {
                 CallerChoices.decode(v).filterKeys { !ContactRef.isPrivateKey(it) }.map { (k, choice) -> CallerChoiceRestore.Entry(PersonRef(k), choice) }
             } ?: return 0
             if (entries.isEmpty()) return 0
-            val r = CallerChoiceRestore.restore(entries, c.contacts.loadNow())
-            updateChoices { current -> CallerChoices.merge(current, r.choices) }
-            return r.unmatched
+            // An archived contact's choices go to the same archived person here (restored before this part), never
+            // to someone in the address book.
+            val (archivedEntries, device) = entries.partition { ContactRef.isArchivedKey(it.ref.key) }
+            val keys = if (archivedEntries.isEmpty()) emptyMap() else c.archive.restoredKeys(values)
+            val archived = archivedEntries.mapNotNull { e -> keys[e.ref.key]?.let { it to e.choice } }.toMap()
+            val r = CallerChoiceRestore.restore(device, c.contacts.loadNow())
+            updateChoices { current -> CallerChoices.merge(current, r.choices + archived) }
+            return r.unmatched + archivedEntries.size - archived.size
         }
     }
 

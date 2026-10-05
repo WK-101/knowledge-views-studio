@@ -119,4 +119,27 @@ class ChaptersTest {
         assertEquals(map, Chapters.decode(Chapters.encode(map)))
         assertTrue(Chapters.decode("not json").isEmpty())
     }
+
+    @Test fun someone_there_at_the_start_whose_key_and_id_changed_did_not_join() {
+        val now = at("2026-10-04")
+        val c = Chapters.begin(listOf(Chapters.Member(1, "k1"), Chapters.Member(2, "k2")), at("2026-11-01"), now)
+        val map = mapOf("Trip" to c, "Other" to Chapters.begin(listOf(Chapters.Member(7, "k7")), at("2026-11-01"), now))
+        assertEquals(setOf("k1", "k2", "k7"), Chapters.keys(map))
+        // k1 was re-created by a sync during the chapter: new key, new id. The key sweep follows it.
+        val moved = Chapters.rekeyed(map, "k1", "k1-new", 11)
+        val members = listOf(Chapters.Member(11, "k1-new"), Chapters.Member(2, "k2"), Chapters.Member(3, "k3"))
+        assertEquals(listOf(3L), Chapters.joinedDuring(moved.getValue("Trip"), members).map { it.id })
+        assertEquals("other chapters are left alone", map["Other"], moved["Other"])
+        // Without the move, they would have been offered for archiving as new.
+        assertEquals(listOf(11L, 3L), Chapters.joinedDuring(c, members).map { it.id })
+    }
+
+    @Test fun a_shared_chapter_is_marked_told_only_once_its_owner_is_known() {
+        assertTrue(Chapters.decisionKnown(shared = false, owner = null))
+        assertTrue(Chapters.decisionKnown(shared = true, owner = false))
+        assertTrue(Chapters.decisionKnown(shared = true, owner = true))
+        // The identity key can't be read right now: neither told nor skipped; the next check asks again.
+        assertFalse(Chapters.decisionKnown(shared = true, owner = null))
+        assertFalse(Chapters.decidesHere(shared = true, owner = null))
+    }
 }
