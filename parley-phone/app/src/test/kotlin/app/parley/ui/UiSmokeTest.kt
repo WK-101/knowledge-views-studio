@@ -66,6 +66,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -82,7 +83,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = ParleyApp::class)
 class UiSmokeTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    // Composition coroutines resume on the test thread, as they would on the main thread in the app. With the rule's
+    // default (unconfined) dispatcher, an effect waiting on background work (a load on IO, a state flow set from the
+    // app's Default scope) carries on in that background thread, and can drive a frame there and touch the views.
+    @get:Rule val compose = createEmptyComposeRule(StandardTestDispatcher())
 
     private val app: ParleyApp = ApplicationProvider.getApplicationContext()
     private lateinit var scenario: ActivityScenario<ComponentActivity>
