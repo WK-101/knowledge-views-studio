@@ -135,7 +135,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // Job and company under the name.
                 val org = async { c.contacts.organization(it.contactId) }
                 val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
-                val nativeName = async { runCatching { c.contacts.nativeNameOf(it.contactId) }.getOrNull() }
+                val nativeName = async { catching { c.contacts.nativeNameOf(it.contactId) }.getOrNull() }
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
                 val memory = async { it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() } }
                 val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }

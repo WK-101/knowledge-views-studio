@@ -17,7 +17,6 @@ object DetailsSearch {
             shownName(d.displayName, extraName)
             phonetic(d.phoneticGiven, d.phoneticMiddle, d.phoneticFamily)
             nickname(d.nickname)
-            nativeName(d.nativeName.shown, d.nativeName.given, d.nativeName.family)
             d.phones.forEach { number(it.value) }
             d.emails.forEach { email(it.value) }
             d.addresses.forEach { a -> address(a.street, a.poBox, a.neighborhood, a.city, a.region, a.postcode, a.country, a.parts) }
@@ -32,10 +31,16 @@ object DetailsSearch {
             note(d.pinnedNote)
             d.customFields.forEach { custom(it.label, it.value) }
             pronouns(d.pronouns)
-            d.languages.forEach { language(it) }
-            d.citizenships.forEach { citizenship(it) }
+            namesAndLanguages(d)
             labels.forEach { label(it) }
         }.build()
+
+    /** The name in their language, the languages and citizenship. */
+    private fun ContactSearch.Builder.namesAndLanguages(d: ContactDetails) {
+        nativeName(d.nativeName.shown, d.nativeName.given, d.nativeName.family)
+        d.languages.forEach { language(it) }
+        d.citizenships.forEach { citizenship(it) }
+    }
 
     /** A name kept only as a whole (no parts) is still a name, unless it is really a number or an email. */
     private fun wholeNameOnly(d: ContactDetails): Boolean =

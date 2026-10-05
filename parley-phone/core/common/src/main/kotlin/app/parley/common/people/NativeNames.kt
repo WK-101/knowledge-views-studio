@@ -105,10 +105,8 @@ object Scripts {
         while (i < text.length) {
             val cp = text.codePointAt(i)
             i += Character.charCount(cp)
-            if (!Character.isLetter(cp)) continue
-            val s = Character.UnicodeScript.of(cp)
-            if (s == Character.UnicodeScript.COMMON || s == Character.UnicodeScript.INHERITED) continue
-            counts[s] = (counts[s] ?: 0) + 1
+            val s = if (Character.isLetter(cp)) Character.UnicodeScript.of(cp) else null
+            if (s != null && s != Character.UnicodeScript.COMMON && s != Character.UnicodeScript.INHERITED) counts[s] = (counts[s] ?: 0) + 1
         }
         return counts.maxByOrNull { it.value }?.key
     }
@@ -120,9 +118,8 @@ object Scripts {
             val cp = text.codePointAt(i)
             i += Character.charCount(cp)
             // Latin letters (with their accents) are below U+0250, and Latin Extended Additional sits at U+1E00–U+1EFF.
-            if (cp < 0x250 || cp in 0x1E00..0x1EFF || !Character.isLetter(cp)) continue
-            val s = Character.UnicodeScript.of(cp)
-            if (s != Character.UnicodeScript.LATIN && s != Character.UnicodeScript.COMMON && s != Character.UnicodeScript.INHERITED) return true
+            val latinRange = cp < 0x250 || cp in 0x1E00..0x1EFF
+            if (!latinRange && Character.isLetter(cp) && Character.UnicodeScript.of(cp) !in LATIN_OR_COMMON) return true
         }
         return false
     }
@@ -160,6 +157,7 @@ object Scripts {
         }
     }
 
+    private val LATIN_OR_COMMON = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.COMMON, Character.UnicodeScript.INHERITED)
     private val KANA = setOf(Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA)
 
     private val OTHER: Map<Character.UnicodeScript, String> = mapOf(

@@ -137,13 +137,6 @@ class NativeNamesTest {
         assertTrue(FieldFilter().toggle(Facet.LANGUAGE, ContactFacets.key("English")).matches(doc.facets, false, false))
     }
 
-    @Test fun lists_show_the_native_name_only_when_asked() {
-        val c = app.parley.common.ContactSummary(1, "k", "Ivan Petrov", null, false, emptyList())
-        val extras = mapOf(1L to PersonExtra(company = "Acme", nativeName = "Иван Петров"))
-        assertEquals("Acme", SecondLines.compute(listOf(c), extras, SecondLineMode.COMPANY_TITLE)[1])
-        assertEquals("Иван Петров", SecondLines.compute(listOf(c), extras, SecondLineMode.COMPANY_TITLE, nativeNames = true)[1])
-    }
-
     @Test fun editor_offers_the_new_kinds_only_as_add_chips() {
         val choices = EditorForm.addChoices(emptySet())
         assertTrue(EditorForm.Kind.NATIVE_NAME in choices)

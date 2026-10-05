@@ -61,9 +61,6 @@
     <string name="set_prefer_nickname_title">Prefer nicknames</string>
     <string name="set_prefer_nickname_summary">Show “Bob” instead of “Robert Jones” in lists</string>
     <string name="set_prefer_nickname_kw">nickname, short name</string>
-    <string name="set_native_names_title">Show names in their own language</string>
-    <string name="set_native_names_summary">Under each name in the list, when you\'ve added one, like Иван Петров</string>
-    <string name="set_native_names_kw">native name, script, Cyrillic, Chinese, Arabic, transliteration, second name</string>
     <string name="set_swipe_actions_title">Swipe actions</string>
     <string name="set_swipe_actions_summary">Off by default. Swipe a contact or a call right to call, left to message</string>
     <string name="set_swipe_actions_kw">swipe, gesture, slide, left, right, quick actions</string>

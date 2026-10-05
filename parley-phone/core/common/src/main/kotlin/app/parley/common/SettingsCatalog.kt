@@ -103,7 +103,7 @@ object SettingsCatalog {
      */
     val ADVANCED: Set<String> = setOf(
         // Appearance
-        "amoled", "density", "avatar_style", "second_line", "prefer_nickname", "native_names",
+        "amoled", "density", "avatar_style", "second_line", "prefer_nickname",
         // Layout & gestures
         "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions",
         // Calls › Answering and During calls
@@ -142,7 +142,6 @@ object SettingsCatalog {
         e("name_order", A),
         e("second_line", A),
         e("prefer_nickname", A),
-        e("native_names", A),
         e("swipe_actions", L),
         e("avatar_style", A),
         e("reset_tips", A),

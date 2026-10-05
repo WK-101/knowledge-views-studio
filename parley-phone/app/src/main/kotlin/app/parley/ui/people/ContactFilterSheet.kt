@@ -82,6 +82,7 @@ fun ContactFieldFilterChips(vm: AppViewModel, vaultHidden: Boolean) {
 
 /** How one chosen value reads on its chip ("Portugal", "Birthday in May", "Has an email"). */
 @Composable
+@Suppress("CyclomaticComplexMethod") // One wording per facet.
 private fun fieldValueLabel(facet: Facet, key: String, choices: List<FacetChoice>?, fields: FieldFilter): String {
     val display = choices?.firstOrNull { it.key == key }?.display ?: fields.shownAs(facet, key) ?: key
     return when (facet) {

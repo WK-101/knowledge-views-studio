@@ -828,7 +828,7 @@ object VCardMapper {
                 is Nickname -> p.values.filter { it.isNotBlank() }.forEach { value ->
                     val language = p.parameters.language?.trim()?.takeIf { it.isNotEmpty() }
                     val label = labelOf(p)
-                    if (language != null && (NativeNames.isLabel(label) || label == null && Scripts.isNonLatin(value))) {
+                    if (language != null && nativeNickname(label, value)) {
                         val v = mutableMapOf(Col.D1 to value, Col.D2 to NativeNames.TYPE_CUSTOM, Col.D3 to (label ?: NativeNames.label(language)))
                         v[NativeNames.LANGUAGE_COLUMN] = language
                         emit(Mime.NICKNAME, v, p)
@@ -1063,6 +1063,9 @@ object VCardMapper {
     }
 
     private val PLACEHOLDER = DataRow("", emptyMap())
+
+    /** A NICKNAME with LANGUAGE is the name in their language when labelled so, or unlabelled in another script. */
+    private fun nativeNickname(label: String?, value: String): Boolean = NativeNames.isLabel(label) || label == null && Scripts.isNonLatin(value)
 
     /** An RFC 9554 SOCIALPROFILE kept as written: the website row's columns and the property (for PREF and residuals). */
     private class SocialRow(val values: MutableMap<String, String>, val property: VCardProperty)

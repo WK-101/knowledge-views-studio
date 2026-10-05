@@ -237,7 +237,7 @@ class PeopleUi(
 
     /** Second line for each visible contact (collisions among visible names are resolved automatically). */
     val secondLines: StateFlow<Map<Long, String>> = combine(filtered, index, settings) { list, idx, s ->
-        SecondLines.compute(list.orEmpty(), idx.extras, s.secondLine, { Format.number(it, countryIso) }, nativeNames = s.nativeNames)
+        SecondLines.compute(list.orEmpty(), idx.extras, s.secondLine) { Format.number(it, countryIso) }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Calls per contact over the loaded call history (for "Most called"). */

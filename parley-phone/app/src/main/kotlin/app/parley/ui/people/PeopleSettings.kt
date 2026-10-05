@@ -66,15 +66,6 @@ fun PreferNicknameRow(vm: AppViewModel, icon: ImageVector? = null) {
     }
 }
 
-/** Settings › Appearance: names in their own language under each name in the lists. */
-@Composable
-fun NativeNamesRow(vm: AppViewModel, icon: ImageVector? = null) {
-    val s by vm.people.settings.collectAsStateWithLifecycle()
-    SwitchRow(settingTitle("native_names"), stringResource(R.string.set_native_names_summary), s.nativeNames, icon) { v ->
-        vm.people.update { it.copy(nativeNames = v) }
-    }
-}
-
 /** Settings › Contacts: labels. */
 @Composable
 fun LabelsRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {

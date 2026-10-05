@@ -111,10 +111,7 @@ object RecordDetails {
         add(Mime.NICKNAME, Col.D1 to d.nickname)
         add(Mime.PRONOUNS, Col.D1 to d.pronouns)
         add(Mime.NAME_PARTS, Col.D1 to d.secondSurname, Col.D2 to d.generation)
-        // With several languages, the first is primary: a card writes it as PREF=1.
-        d.languages.map { it.trim() }.filter { it.isNotEmpty() }.forEachIndexed { i, l -> add(Mime.LANGUAGE, Col.D1 to l, primary = i == 0 && d.languages.size > 1) }
-        d.citizenships.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(Mime.CITIZENSHIP, Col.D1 to it) }
-        if (!d.nativeName.isBlank) add(Mime.NICKNAME, *NativeNames.rowValues(d.nativeName).toList().toTypedArray())
+        rows += namesAndLanguages(d)
         add(Mime.ORG, Col.D1 to d.company, Col.D4 to d.title, Col.D5 to d.department, Col.D6 to d.jobDescription, Col.D9 to d.officeLocation)
         add(Mime.NOTE, Col.D1 to d.note)
         fun items(mime: String, list: List<DataItem>) = list.filter { it.value.isNotBlank() }.forEach {
@@ -144,6 +141,19 @@ object RecordDetails {
             key = key, displayName = d.displayName.ifBlank { d.composedName.ifBlank { d.company } }, starred = d.starred,
             sendToVoicemail = d.sendToVoicemail, raws = listOf(RawRecord(null, null, rows = rows)),
         )
+    }
+
+    /** The name in their language, the languages (the first primary when several: a card writes PREF=1) and citizenship. */
+    private fun namesAndLanguages(d: ContactDetails): List<DataRow> = buildList {
+        val spoken = d.languages.map { it.trim() }.filter { it.isNotEmpty() }
+        spoken.forEachIndexed { i, l ->
+            val primary = i == 0 && spoken.size > 1
+            add(DataRow(Mime.LANGUAGE, mapOf(Col.D1 to l), isPrimary = primary, isSuperPrimary = primary))
+        }
+        d.citizenships.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(DataRow(Mime.CITIZENSHIP, mapOf(Col.D1 to it))) }
+        if (!d.nativeName.isBlank) {
+            add(DataRow(Mime.NICKNAME, NativeNames.rowValues(d.nativeName).filterValues { !it.isNullOrEmpty() }))
+        }
     }
 
     /** Whether [record] holds something the editor would drop (a photo, custom rows, labels). */

@@ -26,7 +26,8 @@ internal fun moreFacts(res: Resources, d: ContactDetails): List<MoreFact> = buil
     }
     // "Speaks Russian, English": the first is the one to use with them.
     Languages.displayList(d.languages).takeIf { it.isNotEmpty() }?.let {
-        add(MoreFact(res.getString(R.string.detail_speaks, it), res.getString(if (d.languages.size > 1) R.string.detail_languages else R.string.detail_language)))
+        val label = if (d.languages.size > 1) R.string.detail_languages else R.string.detail_language
+        add(MoreFact(res.getString(R.string.detail_speaks, it), res.getString(label)))
     }
     Citizenship.displayList(d.citizenships).takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.detail_citizenship))) }
     d.secondSurname.trim().takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.detail_second_surname))) }

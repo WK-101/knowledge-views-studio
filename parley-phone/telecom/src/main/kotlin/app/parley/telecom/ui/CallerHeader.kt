@@ -126,7 +126,7 @@ internal fun CallerHeader(
         }
         CallerName(call, compact, poster, onOpenContact)
         // Their name in their own language, as a second line under the name.
-        if (!compact) call.nativeName?.let { CallerNativeName(it) }
+        CallerNativeName(call.nativeName.takeUnless { compact })
         // The caller's pronouns, right under the name.
         call.pronouns?.let { CallerPronouns(it) }
         SecondaryLine(call)

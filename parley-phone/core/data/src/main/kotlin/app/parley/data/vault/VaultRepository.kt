@@ -901,7 +901,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** The caller card of entry [id] (no unlock needed), or null. */
     suspend fun callerCard(id: Long): VaultCallerCard? = withContext(Dispatchers.IO) {
         val e = dao.callerRow(id) ?: return@withContext null
-        runCatching {
+        catching {
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
             VaultCallerCard(
                 o.optString("name"), o.optString("sub").ifEmpty { null }, o.optString("ctx").ifEmpty { null },

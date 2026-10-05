@@ -23,8 +23,6 @@ data class PersonExtra(
     val labels: Set<String> = emptySet(),
     /** The contact has a date-of-death event. */
     val deceased: Boolean = false,
-    /** Their name in their own language ([NativeName.shown]), "" when none. */
-    val nativeName: String = "",
 ) {
     val companyTitle: String
         get() = listOf(company.trim(), title.trim()).filter { it.isNotEmpty() }.distinctBy { it.lowercase() }.joinToString(" · ")
@@ -39,15 +37,12 @@ object SecondLines {
      * - When two or more visible names are the same (after case and accent folding), each of them gets the
      *   first field that tells them apart, in this order: company · title, nickname, number, account.
      *   That happens even with [SecondLineMode.NONE], because two identical rows are useless.
-     * - With [nativeNames] ("Show names in their own language"), a contact's name in their own language takes the
-     *   line instead.
      */
     fun compute(
         contacts: List<ContactSummary>,
         extras: Map<Long, PersonExtra>,
         mode: SecondLineMode,
         formatNumber: (String) -> String = { it },
-        nativeNames: Boolean = false,
     ): Map<Long, String> {
         val out = HashMap<Long, String>()
         fun number(c: ContactSummary) = c.primaryNumber?.let(formatNumber).orEmpty()
@@ -62,7 +57,6 @@ object SecondLines {
             }
         }
         for (c in contacts) field(c, mode).takeIf { it.isNotEmpty() }?.let { out[c.id] = it }
-        if (nativeNames) for (c in contacts) extras[c.id]?.nativeName?.trim()?.takeIf { it.isNotEmpty() }?.let { out[c.id] = it }
 
         val byName = contacts.groupBy { TextSearch.normalize(it.displayName).trim() }
         val order = listOf(SecondLineMode.COMPANY_TITLE, SecondLineMode.NICKNAME, SecondLineMode.NUMBER, SecondLineMode.ACCOUNT)

@@ -102,7 +102,14 @@ internal fun CustomFieldRow(
  * stays), and the list follows it.
  */
 @Composable
-internal fun LanguagesRow(values: List<String>, locked: Boolean, focus: FocusRequester, icon: ImageVector, modifier: Modifier, onChange: (List<String>) -> Unit) {
+internal fun LanguagesRow(
+    values: List<String>,
+    locked: Boolean,
+    focus: FocusRequester,
+    icon: ImageVector,
+    modifier: Modifier,
+    onChange: (List<String>) -> Unit,
+) {
     var text by rememberSaveable { mutableStateOf(Languages.join(values)) }
     // Changed elsewhere (a merge, a paste): show the new list.
     if (Languages.split(text) != values) text = Languages.join(values)
@@ -133,7 +140,10 @@ internal fun NativeNameRow(name: NativeName, locked: Boolean, focus: FocusReques
     val lines = if (showParts) 4 else 2
     val stored = remember(name.language) { Languages.toStored(name.language) }
     val languageShown = remember(stored) { Languages.display(stored) }
+    val languageSupport = stringResource(R.string.edit_language_saved_as, languageShown)
+        .takeIf { name.language.isNotBlank() && languageShown != name.language.trim() }
     val suggested = remember(name.full, name.given, name.family) { Scripts.suggestLanguage(name.shown) }
+    val words = KeyboardCapitalization.Words
     FormRow(
         Icons.Rounded.Translate, stringResource(R.string.edit_native_name), Modifier.padding(top = FormTokens.groupGap),
         end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_native_name), onRemove) } } else null,
@@ -145,34 +155,40 @@ internal fun NativeNameRow(name: NativeName, locked: Boolean, focus: FocusReques
         if (showParts) {
             Spacer(Modifier.height(FormTokens.segmentGap))
             EditorField(
-                stringResource(R.string.edit_native_name_given), name.given, shape = formFieldShape(1, lines), cap = KeyboardCapitalization.Words, locked = locked,
+                stringResource(R.string.edit_native_name_given), name.given, shape = formFieldShape(1, lines), cap = words, locked = locked,
             ) { onChange(name.copy(given = it)) }
             Spacer(Modifier.height(FormTokens.segmentGap))
             EditorField(
-                stringResource(R.string.edit_native_name_family), name.family, shape = formFieldShape(2, lines), cap = KeyboardCapitalization.Words, locked = locked,
+                stringResource(R.string.edit_native_name_family), name.family, shape = formFieldShape(2, lines), cap = words, locked = locked,
             ) { onChange(name.copy(family = it)) }
         }
         Spacer(Modifier.height(FormTokens.segmentGap))
         EditorField(
-            stringResource(R.string.edit_native_language), name.language, shape = formFieldShape(lines - 1, lines), cap = KeyboardCapitalization.Words,
-            locked = locked,
-            support = if (name.language.isNotBlank() && languageShown != name.language.trim()) stringResource(R.string.edit_language_saved_as, languageShown) else null,
+            stringResource(R.string.edit_native_language), name.language, shape = formFieldShape(lines - 1, lines), cap = words,
+            locked = locked, support = languageSupport,
         ) { onChange(name.copy(language = it)) }
-        val offer = suggested?.takeIf { !locked && name.language.isBlank() }
-        if (offer != null || (!showParts && !locked)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                offer?.let { tag ->
-                    AssistChip(
-                        onClick = { onChange(name.copy(language = tag)) },
-                        label = { Text(stringResource(R.string.edit_native_language_use, Languages.display(tag))) },
-                        shape = ParleyShapes.pill,
-                    )
-                }
-                if (!showParts && !locked) {
-                    AssistChip(onClick = { parts = true }, label = { Text(stringResource(R.string.edit_native_name_parts)) }, shape = ParleyShapes.pill)
-                }
+        if (!locked) {
+            NativeNameChips(suggested?.takeIf { name.language.isBlank() }, offerParts = !showParts, onLanguage = { onChange(name.copy(language = it)) }) {
+                parts = true
             }
         }
+    }
+}
+
+/** Under the name in their language: "Use Russian" (the language its script suggests) and "Add first and last name". */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NativeNameChips(suggested: String?, offerParts: Boolean, onLanguage: (String) -> Unit, onParts: () -> Unit) {
+    if (suggested == null && !offerParts) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+        suggested?.let { tag ->
+            AssistChip(
+                onClick = { onLanguage(tag) },
+                label = { Text(stringResource(R.string.edit_native_language_use, Languages.display(tag))) },
+                shape = ParleyShapes.pill,
+            )
+        }
+        if (offerParts) AssistChip(onClick = onParts, label = { Text(stringResource(R.string.edit_native_name_parts)) }, shape = ParleyShapes.pill)
     }
 }
 

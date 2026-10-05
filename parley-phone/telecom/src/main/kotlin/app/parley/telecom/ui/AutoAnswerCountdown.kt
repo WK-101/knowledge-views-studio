@@ -92,9 +92,10 @@ internal fun AutoAnswerCountdown(call: CallUi) {
 
 private const val TICK_MS = 200L
 
-/** The caller's name in their own language ("Иван Петров") under their name on the call screen. */
+/** The caller's name in their own language ("Иван Петров") under their name on the call screen; nothing for null. */
 @Composable
-internal fun CallerNativeName(name: String) {
+internal fun CallerNativeName(name: String?) {
+    if (name == null) return
     Text(
         name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,

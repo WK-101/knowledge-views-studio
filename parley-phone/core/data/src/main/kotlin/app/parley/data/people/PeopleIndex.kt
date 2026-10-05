@@ -103,11 +103,11 @@ class PeopleIndex(
         var company = ""
         var title = ""
         var nickname = ""
-        var nativeName = ""
         val accounts = LinkedHashSet<String>()
         val accountRefs = LinkedHashSet<AccountRef>()
         val labels = HashSet<String>()
         var deceased = false
+
         // Names in other scripts are searched by their Latin spelling too, made here once per contact.
         val search = ContactSearch.Builder(id, region, latin = Romanizer)
 
@@ -119,11 +119,7 @@ class PeopleIndex(
                     title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
                 }
                 // A nickname labelled "Name in Russian" is the name in their language (NativeNames), not a nickname.
-                Nickname.CONTENT_ITEM_TYPE -> if (NativeNames.isRow(mime, get)) {
-                    if (nativeName.isEmpty()) nativeName = NativeNames.fromRow(get).shown
-                } else if (nickname.isEmpty()) {
-                    nickname = get(Data.DATA1).orEmpty().trim()
-                }
+                Nickname.CONTENT_ITEM_TYPE -> if (nickname.isEmpty() && !NativeNames.isRow(mime, get)) nickname = get(Data.DATA1).orEmpty().trim()
                 GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { labels += it }
                 Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) deceased = true
             }
@@ -249,7 +245,7 @@ class PeopleIndex(
         return byId.mapValues { (_, a) ->
             a.labels.forEach { a.search.label(it) }
             a.accounts.forEach { a.search.account(it) }
-            Entry(PersonExtra(a.company, a.title, a.nickname, a.accounts.toList(), a.labels, a.deceased, a.nativeName), a.accountRefs, a.search.build())
+            Entry(PersonExtra(a.company, a.title, a.nickname, a.accounts.toList(), a.labels, a.deceased), a.accountRefs, a.search.build())
         }
     }
 

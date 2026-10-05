@@ -88,7 +88,7 @@ object ContactCsv {
         return buildList {
             add(name?.get(Col.D4).orEmpty()); add(name?.get(Col.D2).orEmpty()); add(name?.get(Col.D5).orEmpty())
             add(name?.get(Col.D3).orEmpty()); add(name?.get(Col.D6).orEmpty())
-            add(rows.filter { it.mimeType == Mime.NICKNAME && !native(it) }.mapNotNull { it[Col.D1] }.joinToString(", "))
+            add(nicknames(rows))
             add(org?.get(Col.D1).orEmpty()); add(org?.get(Col.D4).orEmpty()); add(org?.get(Col.D5).orEmpty())
             val phones = rows.filter { it.mimeType == Mime.PHONE }
             for (i in 0 until slots.phones) { val p = phones.getOrNull(i); add(p?.let { typeName(it, PHONE_TYPES) }.orEmpty()); add(p?.get(Col.D1).orEmpty()) }
@@ -107,13 +107,24 @@ object ContactCsv {
             add(rows.firstOrNull { it.mimeType == Mime.EVENT && it[Col.D2] == "3" }?.get(Col.D1).orEmpty())
             add(rows.filter { it.mimeType == Mime.NOTE }.mapNotNull { it[Col.D1] }.joinToString(NOTE_SEPARATOR))
             add(rows.filter { it.mimeType == Mime.GROUP }.mapNotNull { it[Col.GROUP_TITLE] }.joinToString(GROUP_SEPARATOR))
-            val nativeName = rows.firstOrNull(::native)?.let { r -> NativeNames.fromRow { r[it] } }
-            add(nativeName?.shown.orEmpty())
-            add(nativeName?.language.orEmpty())
-            add(rows.filter { it.mimeType == Mime.LANGUAGE }.mapNotNull { it[Col.D1] }.joinToString(", "))
-            add(rows.filter { it.mimeType == Mime.CITIZENSHIP }.mapNotNull { it[Col.D1] }.joinToString(", "))
+            addAll(nameAndLanguageCells(rows))
         }
     }
+
+    /** The name in their language and its language, the languages and the citizenship ([TAIL]'s last four). */
+    private fun nameAndLanguageCells(rows: List<DataRow>): List<String> {
+        val nativeName = rows.firstOrNull(::native)?.let { r -> NativeNames.fromRow { r[it] } }
+        return listOf(
+            nativeName?.shown.orEmpty(),
+            nativeName?.language.orEmpty(),
+            rows.filter { it.mimeType == Mime.LANGUAGE }.mapNotNull { it[Col.D1] }.joinToString(", "),
+            rows.filter { it.mimeType == Mime.CITIZENSHIP }.mapNotNull { it[Col.D1] }.joinToString(", "),
+        )
+    }
+
+    /** The nicknames, without the name in their language (which has its own columns). */
+    private fun nicknames(rows: List<DataRow>): String =
+        rows.filter { it.mimeType == Mime.NICKNAME && !native(it) }.mapNotNull { it[Col.D1] }.joinToString(", ")
 
     private fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow(r[Col.D2], r[Col.D3])
 
@@ -342,7 +353,8 @@ object ContactCsv {
                 cell("Notes").takeIf { it.isNotEmpty() }?.let { put(Mime.NOTE, Col.D1 to it) }
                 cell("Groups").split(GROUP_SEPARATOR.trim()).map { it.trim() }.filter { it.isNotEmpty() }.forEach { put(Mime.GROUP, Col.GROUP_TITLE to it) }
                 cell(NATIVE_NAME).takeIf { it.isNotEmpty() }?.let { n ->
-                    put(Mime.NICKNAME, *NativeNames.rowValues(NativeName(full = n, language = cell(NATIVE_LANGUAGE))).toList().toTypedArray())
+                    val v = NativeNames.rowValues(NativeName(full = n, language = cell(NATIVE_LANGUAGE)))
+                    rows += DataRow(Mime.NICKNAME, v.filterValues { !it.isNullOrEmpty() }.mapValues { it.value.orEmpty() })
                 }
                 Languages.split(cell(LANGUAGES)).forEach { put(Mime.LANGUAGE, Col.D1 to it) }
                 cell(CITIZENSHIP).split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { put(Mime.CITIZENSHIP, Col.D1 to it) }
