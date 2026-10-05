@@ -197,7 +197,8 @@ class VaultMoves(
             return original.copy(
                 prefix = d.prefix, given = d.given, middle = d.middle, family = d.family, suffix = d.suffix,
                 phoneticGiven = d.phoneticGiven, phoneticFamily = d.phoneticFamily, nickname = d.nickname, pronouns = d.pronouns,
-                phoneticMiddle = d.phoneticMiddle, secondSurname = d.secondSurname, generation = d.generation, language = d.language,
+                phoneticMiddle = d.phoneticMiddle, secondSurname = d.secondSurname, generation = d.generation, languages = d.languages,
+                nativeName = d.nativeName, citizenships = d.citizenships,
                 customFields = d.customFields.map { f ->
                     val i = customPool.indexOfFirst { it.label.trim() == f.label.trim() && it.value.trim() == f.value.trim() }
                     if (i >= 0) customPool.removeAt(i).let { o -> f.copy(id = o.id, mime = o.mime) } else f.copy(id = null, mime = null)

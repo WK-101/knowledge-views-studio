@@ -22,6 +22,9 @@ internal object CallerIdCopy {
     const val C_VIBRATION = "vb"
     const val C_AUTO_ANSWER = "aa"
     const val C_PRONOUNS = "pn"
+
+    /** The name in their own language, shown under the name on the call screen like the name itself. */
+    const val C_NATIVE_NAME = "nn"
     const val C_NAME_ALT = "alt"
 
     /** Marks a caller-ID copy that keeps the star, labels, ringtone and voicemail itself. */

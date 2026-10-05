@@ -14,12 +14,14 @@ import android.provider.ContactsContract.RawContacts
 import app.parley.common.ContactSummary
 import app.parley.common.people.ContactSearch
 import app.parley.common.people.LifeEvents
+import app.parley.common.people.NativeNames
 import app.parley.common.people.PersonExtra
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
+import app.parley.data.messaging.Romanizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,7 +107,9 @@ class PeopleIndex(
         val accountRefs = LinkedHashSet<AccountRef>()
         val labels = HashSet<String>()
         var deceased = false
-        val search = ContactSearch.Builder(id, region)
+
+        // Names in other scripts are searched by their Latin spelling too, made here once per contact.
+        val search = ContactSearch.Builder(id, region, latin = Romanizer)
 
         /** One data row of the contact: what the lists show from it, and everything the search looks at. */
         fun row(mime: String, get: (String) -> String?, titles: Map<Long, String>) {
@@ -114,7 +118,8 @@ class PeopleIndex(
                     company = get(Data.DATA1).orEmpty().trim()
                     title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
                 }
-                Nickname.CONTENT_ITEM_TYPE -> if (nickname.isEmpty()) nickname = get(Data.DATA1).orEmpty().trim()
+                // A nickname labelled "Name in Russian" is the name in their language (NativeNames), not a nickname.
+                Nickname.CONTENT_ITEM_TYPE -> if (nickname.isEmpty() && !NativeNames.isRow(mime, get)) nickname = get(Data.DATA1).orEmpty().trim()
                 GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { labels += it }
                 Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) deceased = true
             }

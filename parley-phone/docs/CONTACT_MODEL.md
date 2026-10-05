@@ -186,6 +186,7 @@ in discreet mode. **Save on this contact** writes the name into the Relation row
 | Labels: page, filters, editor chips, Add to label, label ringtone, SIM, rhythm, rules, limits | Yes | No | Yes, membership kept sealed by Parley (see "Labels of a private contact") |
 | Ringtone, Send to voicemail | Yes (Android) | No | Yes, applied by Parley's call screening and ringer |
 | Custom fields, language, second surname and generation, address parts, dates by another calendar (5.3) | Yes (custom fields as Google's own kind in a Google account, Parley's rows elsewhere; see EDITOR_DESIGN.md "More fields") | — | Yes (sealed in the details; carried both ways by the conversions) |
+| Name in their language, languages, citizenship (6.2) | Yes (a labelled nickname row, Parley's language and citizenship rows; EDITOR_DESIGN.md "More fields") | — | Yes (sealed in the details; the name in their language also on the caller card, for the call screen) |
 | Vibration pattern (haptic caller ID), auto-answer, pronouns (4.4) | Yes (Parley, by lookup key; pronouns in a Parley data row) | No | Yes (caller-ID copy; pronouns sealed in the details and on the caller card), moved both ways by the conversions |
 | Call time limit, talk-time reminder | Yes | No | Yes (by its Parley key; the limit keeps no name outside the vault) |
 | Signed card updates ("Ana sent an updated card", 4.6) | Yes | No | Yes (the link by its Parley key; Apply edits the sealed details; never named in discreet mode) |

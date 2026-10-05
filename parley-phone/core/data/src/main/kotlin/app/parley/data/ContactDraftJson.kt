@@ -1,6 +1,7 @@
 package app.parley.data
 
 import app.parley.common.people.HandleService
+import app.parley.common.people.NativeName
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -16,7 +17,10 @@ object ContactDraftJson {
         putOpt("nameId", d.nameId); put("prefix", d.prefix); put("given", d.given); put("middle", d.middle); put("family", d.family); put("suffix", d.suffix)
         put("pg", d.phoneticGiven); put("pf", d.phoneticFamily); put("pm", d.phoneticMiddle)
         putOpt("namePartsId", d.namePartsId); put("sur2", d.secondSurname); put("gen", d.generation)
-        putOpt("languageId", d.languageId); put("lang", d.language)
+        put("languageIds", longs(d.languageIds)); put("languages", JSONArray(d.languages))
+        put("citizenshipIds", longs(d.citizenshipIds)); put("citizenships", JSONArray(d.citizenships))
+        putOpt("nativeNameId", d.nativeNameId)
+        put("native", d.nativeName.let { JSONObject().put("full", it.full).put("given", it.given).put("family", it.family).put("language", it.language) })
         put("custom", JSONArray().apply {
             d.customFields.forEach { f -> put(JSONObject().putOpt("id", f.id).put("label", f.label).put("value", f.value).putOpt("mime", f.mime)) }
         })
@@ -58,7 +62,14 @@ object ContactDraftJson {
             nameId = o.long("nameId"), prefix = o.optString("prefix"), given = o.optString("given"), middle = o.optString("middle"),
             family = o.optString("family"), suffix = o.optString("suffix"), phoneticGiven = o.optString("pg"), phoneticFamily = o.optString("pf"),
             phoneticMiddle = o.optString("pm"), namePartsId = o.long("namePartsId"), secondSurname = o.optString("sur2"), generation = o.optString("gen"),
-            languageId = o.long("languageId"), language = o.optString("lang"),
+            // A draft saved before languages became a list held one "languageId" and "lang": a list of one.
+            languageIds = o.optJSONArray("languageIds")?.let(::readLongs) ?: listOfNotNull(o.long("languageId")),
+            languages = o.optJSONArray("languages")?.let(::readStrings) ?: o.optString("lang").takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
+            citizenshipIds = readLongs(o.optJSONArray("citizenshipIds")), citizenships = readStrings(o.optJSONArray("citizenships")),
+            nativeNameId = o.long("nativeNameId"),
+            nativeName = o.optJSONObject("native")?.let {
+                NativeName(it.optString("full"), it.optString("given"), it.optString("family"), it.optString("language"))
+            } ?: NativeName(),
             customFields = o.optJSONArray("custom").objects().map { f ->
                 CustomFieldItem(f.long("id"), f.optString("label"), f.optString("value"), f.str("mime"))
             },
@@ -99,6 +110,8 @@ object ContactDraftJson {
         a.objects().map { DataItem(it.long("id"), it.optString("value"), it.optInt("type"), it.str("label"), it.optBoolean("primary")) }
 
     private fun longs(values: Collection<Long>) = JSONArray().apply { values.forEach { put(it) } }
+
+    private fun readStrings(a: JSONArray?): List<String> = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
 
     private fun readLongs(a: JSONArray?): List<Long> = if (a == null) emptyList() else (0 until a.length()).map { a.getLong(it) }
 

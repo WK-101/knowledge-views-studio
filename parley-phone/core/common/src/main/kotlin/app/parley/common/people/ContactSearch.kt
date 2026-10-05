@@ -28,6 +28,9 @@ object ContactSearch {
         NUMBER,
         PHONETIC,
         NICKNAME,
+
+        /** The name in their own language and script ([NativeName]). */
+        NATIVE_NAME,
         EMAIL,
         COMPANY,
         ADDRESS,
@@ -47,6 +50,7 @@ object ContactSearch {
         LABEL,
         PRONOUNS,
         LANGUAGE,
+        CITIZENSHIP,
         ACCOUNT,
     }
 
@@ -168,6 +172,11 @@ object ContactSearch {
         private val region: String? = null,
         /** The languages month names are searched in: English and the phone's ("maio", "Mai" find May). */
         private val languages: List<Locale> = monthLanguages(),
+        /**
+         * Spells names in other scripts in Latin letters, so "ivan" finds "Иван" and "wang" finds "王伟". The spelling is
+         * made here, once per contact, so a keystroke never transliterates.
+         */
+        private val latin: Latinizer? = null,
     ) {
         private val fields = ArrayList<Field>()
         private val texts = ArrayList<String>()
@@ -181,6 +190,12 @@ object ContactSearch {
             if (text.isEmpty()) return
             fields += field
             texts += fold(text)
+            if (latin != null && field in SPELLED && Scripts.hasNonLatin(text)) {
+                latin.latin(text)?.let(::fold)?.trim()?.takeIf { it.isNotEmpty() && it != texts.last() }?.let {
+                    fields += field
+                    texts += it
+                }
+            }
         }
 
         fun name(vararg parts: String?) {
@@ -196,6 +211,20 @@ object ContactSearch {
         fun nickname(s: String?) {
             if (!s.isNullOrBlank()) facets.named = true
             add(Field.NICKNAME, s)
+        }
+
+        /** The name in their own language: the full name and its parts. */
+        fun nativeName(full: String?, given: String? = null, family: String? = null) {
+            if (!full.isNullOrBlank() || !given.isNullOrBlank() || !family.isNullOrBlank()) facets.named = true
+            add(Field.NATIVE_NAME, full, given, family)
+        }
+
+        /** A country they are a citizen of, as stored (an ISO code): found by code and by its name in English and the phone's language. */
+        fun citizenship(code: String?) {
+            if (code.isNullOrBlank()) return
+            val english = Citizenship.facetName(code)
+            add(Field.CITIZENSHIP, listOf(code, english) + languages.map { Citizenship.display(code, it) })
+            facets.add(Facet.CITIZENSHIP, english)
         }
 
         fun number(raw: String?) {
@@ -311,7 +340,11 @@ object ContactSearch {
                     phonetic(get(Col.D7), get(Col.D8), get(Col.D9))
                 }
                 Mime.NAME_PARTS -> name(get(Col.D1), get(Col.D2))
-                Mime.NICKNAME -> nickname(get(Col.D1))
+                Mime.NICKNAME -> if (NativeNames.isRow(get(Col.D2), get(Col.D3))) {
+                    nativeName(get(Col.D1), get(NativeNames.GIVEN_COLUMN), get(NativeNames.FAMILY_COLUMN))
+                } else {
+                    nickname(get(Col.D1))
+                }
                 Mime.PHONE -> number(get(Col.D1))
                 Mime.EMAIL -> email(get(Col.D1))
                 Mime.POSTAL -> address(
@@ -329,6 +362,7 @@ object ContactSearch {
                 Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD -> custom(get(Col.D1), get(Col.D2))
                 Mime.PRONOUNS -> pronouns(get(Col.D1))
                 Mime.LANGUAGE -> language(get(Col.D1))
+                Mime.CITIZENSHIP -> citizenship(get(Col.D1))
             }
         }
 
@@ -348,8 +382,11 @@ object ContactSearch {
     /** The Data kinds [Builder.row] reads (for the address book's query). */
     val ROW_KINDS: List<String> = listOf(
         Mime.NAME, Mime.NAME_PARTS, Mime.NICKNAME, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE, Mime.IM, Mime.SIP,
-        Mime.RELATION, Mime.EVENT, Mime.NOTE, Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD, Mime.PRONOUNS, Mime.LANGUAGE,
+        Mime.RELATION, Mime.EVENT, Mime.NOTE, Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD, Mime.PRONOUNS, Mime.LANGUAGE, Mime.CITIZENSHIP,
     )
+
+    /** Fields whose text in another script is also searched by its Latin spelling ([Builder.latin]). */
+    private val SPELLED = setOf(Field.NAME, Field.NICKNAME, Field.NATIVE_NAME, Field.PHONETIC)
 }
 
 /**

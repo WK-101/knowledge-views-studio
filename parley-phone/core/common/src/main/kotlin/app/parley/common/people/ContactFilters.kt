@@ -13,6 +13,9 @@ enum class Facet {
     LANGUAGE,
     CUSTOM_LABEL,
 
+    /** A country they are a citizen of, by its English name like [COUNTRY] ([Citizenship]). */
+    CITIZENSHIP,
+
     /** "1".."12". */
     BIRTHDAY_MONTH,
 

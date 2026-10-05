@@ -7,6 +7,8 @@ import app.parley.common.AltCalendar
 import app.parley.common.AltCalendars
 import app.parley.common.CalendarConverter
 import app.parley.common.people.AddressParts
+import app.parley.common.people.NativeNames
+import app.parley.common.people.Scripts
 import app.parley.common.people.Profile
 import app.parley.common.people.ProfileService
 import app.parley.common.people.SocialProfiles
@@ -85,6 +87,14 @@ import java.util.Base64
  * Gregorian day where the calendar's numbering is unambiguous ([AltCalendars.fromWritten]), and otherwise kept as
  * written in a custom field and named in the import report. Custom
  * fields ([Mime.CUSTOM_FIELD], and Google's, which become them) are `itemN.X-PARLEY-CUSTOM` with an `X-ABLabel`.
+ * Several languages keep their order with `PREF` (1 for the one to use with them).
+ *
+ * **A name in their own language** ([NativeNames]: a nickname row labelled "Name in Russian") is written twice: as
+ * RFC 6350 §5.4 alternatives of the name, `FN;ALTID=1;LANGUAGE=ru` (and `N;ALTID=1;LANGUAGE=ru` with its parts) beside
+ * the main `FN;ALTID=1`, for vCard 4.0 readers; and as that `NICKNAME` with its `X-ABLabel` and `LANGUAGE`, which
+ * Google Contacts and Apple Contacts import as a labelled nickname (a 3.0 card has no ALTID). On import a `NICKNAME`
+ * with `LANGUAGE` in another script, or labelled "Name in …", is the name in their language; an alternative `FN` or `N`
+ * with `LANGUAGE` makes one unless a nickname already holds it. Citizenship is `X-PARLEY-CITIZENSHIP` (an ISO code).
  *
  * **Starred** is written as `X-PARLEY-STARRED:1` (not `CATEGORIES:starred`, which would collide with a real
  * label named "starred"); on import both forms are understood.
@@ -103,6 +113,12 @@ object VCardMapper {
 
     /** A custom field's value, grouped with its label in an `X-ABLabel`. */
     const val X_CUSTOM = "X-PARLEY-CUSTOM"
+
+    /** A country the person is a citizen of ([Mime.CITIZENSHIP]): its ISO 3166 code. */
+    const val X_CITIZENSHIP = "X-PARLEY-CITIZENSHIP"
+
+    /** The ALTID tying the main name to its forms in other languages (RFC 6350 §5.4). */
+    private const val NAME_ALTID = "1"
 
     /** [Mime.LANGUAGE]'s DATA3 for a language read from [LANGUAGE] rather than LANG. */
     const val CARD_LANGUAGE = "card"
@@ -130,8 +146,8 @@ object VCardMapper {
 
     /** Row order used by [canonical] and import: the order kinds appear in on a contact card. */
     private val MIME_ORDER = listOf(
-        Mime.NAME, Mime.NAME_PARTS, Mime.NICKNAME, Mime.PRONOUNS, Mime.LANGUAGE, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE,
-        Mime.EVENT, Mime.IM, Mime.SIP, Mime.RELATION, Mime.NOTE, Mime.CUSTOM_FIELD, Mime.GROUP, Mime.PHOTO,
+        Mime.NAME, Mime.NAME_PARTS, Mime.NICKNAME, Mime.PRONOUNS, Mime.LANGUAGE, Mime.CITIZENSHIP, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG,
+        Mime.WEBSITE, Mime.EVENT, Mime.IM, Mime.SIP, Mime.RELATION, Mime.NOTE, Mime.CUSTOM_FIELD, Mime.GROUP, Mime.PHOTO,
     )
     private val MAPPED = MIME_ORDER.toSet()
 
@@ -144,7 +160,7 @@ object VCardMapper {
     )
 
     /** Kinds whose primary flags are meaningless once flattened to one raw contact. */
-    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS, Mime.NAME_PARTS, Mime.CUSTOM_FIELD)
+    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS, Mime.NAME_PARTS, Mime.CUSTOM_FIELD, Mime.CITIZENSHIP)
 
     private val URL_SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*://\\S")
     private val DATE_FULL = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
@@ -436,6 +452,14 @@ object VCardMapper {
         val fn = add(FormattedName(c.displayName.ifEmpty { nameRow?.let(::composeName).orEmpty() }))
         // Without a name row the display name is derived (company, number...); say so, so no name row is invented.
         if (nameRow == null) fn.addParameter(X_DERIVED, "1")
+        // The name in their own language: the main name's alternatives in that language (RFC 6350 §5.4).
+        val natives = rows.filter { it.mimeType == Mime.NICKNAME && NativeNames.isRow(it[Col.D2], it[Col.D3]) }
+            .map { r -> NativeNames.fromRow { r[it] } }.filter { it.language.isNotEmpty() && it.shown.isNotEmpty() }
+        if (natives.isNotEmpty()) {
+            fn.parameters.altId = NAME_ALTID
+            natives.forEach { n -> add(FormattedName(n.shown).also { it.parameters.altId = NAME_ALTID; it.parameters.language = n.language }) }
+        }
+        val nativeParts = natives.filter { it.given.isNotEmpty() || it.family.isNotEmpty() }
         if (nameRow != null) {
             val v = nameRow.present()
             val n = StructuredName()
@@ -449,7 +473,18 @@ object VCardMapper {
                 n.parameters.setSortAs(*listOf(v[Col.D9].orEmpty(), v[Col.D7].orEmpty()).dropLastWhile { it.isEmpty() }.toTypedArray())
             }
             nameParts?.let { Rfc9554.setParts(n, it) }
+            if (nativeParts.isNotEmpty()) n.parameters.altId = NAME_ALTID
             add(n)
+            nativeParts.forEach { nn ->
+                add(
+                    StructuredName().also {
+                        it.given = nn.given.ifEmpty { null }
+                        it.family = nn.family.ifEmpty { null }
+                        it.parameters.altId = NAME_ALTID
+                        it.parameters.language = nn.language
+                    },
+                )
+            }
             val consumed = mutableSetOf(Col.D2, Col.D3, Col.D4, Col.D5, Col.D6, Col.D7, Col.D8, Col.D9)
             if (v[Col.D1] == c.displayName) consumed += Col.D1
             finish(n, nameRow, consumed)
@@ -463,6 +498,8 @@ object VCardMapper {
         if (c.key.isNotEmpty()) add(Uid(c.key))
 
         var orgIndex = 0
+        var spoken = 0
+        val spokenPrimary = rows.any { it.mimeType == Mime.LANGUAGE && it.isPrimary && it[Col.D3] != CARD_LANGUAGE }
         var hadBirthday = false
         var hadAnniversary = false
         val categories = ArrayList<String>()
@@ -473,7 +510,10 @@ object VCardMapper {
                 Mime.NICKNAME -> {
                     val p = Nickname().also { it.values += v.getValue(Col.D1) }
                     add(p)
-                    finish(p, r, typed(p, Types.NICKNAME, v) + Col.D1)
+                    // A name in their language says which (its parts ride along as Parley's parameters).
+                    val language = v[NativeNames.LANGUAGE_COLUMN]?.takeIf { NativeNames.isRow(v[Col.D2], v[Col.D3]) }
+                    language?.let { p.parameters.language = it }
+                    finish(p, r, typed(p, Types.NICKNAME, v) + Col.D1 + listOfNotNull(NativeNames.LANGUAGE_COLUMN.takeIf { language != null }))
                 }
                 Mime.PHONE -> {
                     val p = add(Telephone(v.getValue(Col.D1)))
@@ -593,6 +633,12 @@ object VCardMapper {
                     val p = if (v[Col.D3] == CARD_LANGUAGE) raw(LANGUAGE, v.getValue(Col.D1))
                     else add(Language(v.getValue(Col.D1)).also { l -> v[Col.D2]?.split(',')?.filter { it.isNotBlank() }?.forEach { l.parameters.addType(it) } })
                     finish(p, r, setOf(Col.D1, Col.D2) + listOfNotNull(Col.D3.takeIf { v[it] == CARD_LANGUAGE }))
+                    // Several languages keep their order: the one to use with them is 1, the others follow.
+                    if (p is Language && !r.isPrimary && spokenPrimary) p.parameters.pref = 2 + spoken++
+                }
+                Mime.CITIZENSHIP -> {
+                    val p = raw(X_CITIZENSHIP, v.getValue(Col.D1))
+                    finish(p, r, setOf(Col.D1))
                 }
                 Mime.CUSTOM_FIELD -> {
                     val g = newGroup()
@@ -679,6 +725,9 @@ object VCardMapper {
         // kept as written (address and label, with its property). Added after every URL is read.
         val social = ArrayList<Any>()
         var nameParts: List<String> = emptyList()
+        // The main name's forms in other languages (FN and N with LANGUAGE, RFC 6350 §5.4), by language.
+        val altNames = LinkedHashMap<String, String>()
+        val altParts = HashMap<String, StructuredName>()
 
         // Organization units: ORG, TITLE and ROLE belong together when they share a group; ungrouped ones pair in order.
         class OrgUnit(val pos: Int, val slot: Int) { var org: Organization? = null; var title: Title? = null; var role: Role? = null }
@@ -756,10 +805,14 @@ object VCardMapper {
 
         for (p in props) {
             when (p) {
-                is FormattedName -> if (fn == null) {
-                    fn = p.value
-                    fnDerived = p.getParameter(X_DERIVED) != null
-                } else skip("FN")
+                is FormattedName -> when {
+                    fn == null -> {
+                        fn = p.value
+                        fnDerived = p.getParameter(X_DERIVED) != null
+                    }
+                    !p.parameters.language.isNullOrBlank() && !p.value.isNullOrBlank() -> altNames.putIfAbsent(p.parameters.language.trim(), p.value.trim())
+                    else -> skip("FN")
+                }
                 is StructuredName -> if (nameRow == null) {
                     nameRow = linkedMapOf<String, String>().apply {
                         p.given?.let { put(Col.D2, it) }
@@ -771,8 +824,18 @@ object VCardMapper {
                     namePrefs = p
                     sortAs = p.parameters.sortAs
                     nameParts = Rfc9554.parts(p)
-                } else skip("N")
-                is Nickname -> p.values.filter { it.isNotBlank() }.forEach { emit(Mime.NICKNAME, mutableMapOf(Col.D1 to it), p, Types.NICKNAME) }
+                } else if (!p.parameters.language.isNullOrBlank()) altParts.putIfAbsent(p.parameters.language.trim(), p) else skip("N")
+                is Nickname -> p.values.filter { it.isNotBlank() }.forEach { value ->
+                    val language = p.parameters.language?.trim()?.takeIf { it.isNotEmpty() }
+                    val label = labelOf(p)
+                    if (language != null && nativeNickname(label, value)) {
+                        val v = mutableMapOf(Col.D1 to value, Col.D2 to NativeNames.TYPE_CUSTOM, Col.D3 to (label ?: NativeNames.label(language)))
+                        v[NativeNames.LANGUAGE_COLUMN] = language
+                        emit(Mime.NICKNAME, v, p)
+                    } else {
+                        emit(Mime.NICKNAME, mutableMapOf(Col.D1 to value), p, Types.NICKNAME)
+                    }
+                }
                 is Telephone -> {
                     val number = p.text ?: p.uri?.let { u -> u.number + (u.extension?.let { ",$it" } ?: "") }
                     if (number.isNullOrBlank()) skip("TEL") else emit(Mime.PHONE, mutableMapOf(Col.D1 to number), p, Types.PHONE)
@@ -831,6 +894,8 @@ object VCardMapper {
                             ?.let { emit(Mime.PRONOUNS, mutableMapOf(Col.D1 to it), p) } ?: skip(name)
                         name == LANGUAGE -> unescapeRaw(value).trim().takeIf { it.isNotEmpty() }
                             ?.let { emit(Mime.LANGUAGE, mutableMapOf(Col.D1 to it, Col.D3 to CARD_LANGUAGE), p) } ?: skip(name)
+                        name == X_CITIZENSHIP -> unescapeRaw(value).trim().takeIf { it.isNotEmpty() }
+                            ?.let { emit(Mime.CITIZENSHIP, mutableMapOf(Col.D1 to it), p) } ?: skip(name)
                         name == X_CUSTOM -> {
                             val label = labelOf(p).orEmpty()
                             val text = unescapeRaw(value)
@@ -887,6 +952,19 @@ object VCardMapper {
                 }
                 else -> skip(scribes.getPropertyScribe(p)?.propertyName ?: p.javaClass.simpleName)
             }
+        }
+
+        // A name in another language that no nickname holds yet (a card from another app) becomes one.
+        val nicknames = rows.map { it.first }.filter { it.mimeType == Mime.NICKNAME }.mapNotNull { it[Col.D1]?.trim() }.toSet()
+        altNames.forEach { (language, value) ->
+            if (value in nicknames || value == fn?.trim()) return@forEach
+            val v = mutableMapOf(Col.D1 to value, Col.D2 to NativeNames.TYPE_CUSTOM, Col.D3 to NativeNames.label(language))
+            v[NativeNames.LANGUAGE_COLUMN] = language
+            altParts[language]?.let { n ->
+                n.given?.trim()?.takeIf { it.isNotEmpty() }?.let { v[NativeNames.GIVEN_COLUMN] = it }
+                n.family?.trim()?.takeIf { it.isNotEmpty() }?.let { v[NativeNames.FAMILY_COLUMN] = it }
+            }
+            emit(Mime.NICKNAME, v, null)
         }
 
         // A social profile that a URL already holds (Parley wrote profiles as labelled URLs) isn't added twice.
@@ -985,6 +1063,9 @@ object VCardMapper {
     }
 
     private val PLACEHOLDER = DataRow("", emptyMap())
+
+    /** A NICKNAME with LANGUAGE is the name in their language when labelled so, or unlabelled in another script. */
+    private fun nativeNickname(label: String?, value: String): Boolean = NativeNames.isLabel(label) || label == null && Scripts.isNonLatin(value)
 
     /** An RFC 9554 SOCIALPROFILE kept as written: the website row's columns and the property (for PREF and residuals). */
     private class SocialRow(val values: MutableMap<String, String>, val property: VCardProperty)

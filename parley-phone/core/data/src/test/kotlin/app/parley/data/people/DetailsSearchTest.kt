@@ -20,7 +20,7 @@ import org.junit.Test
 class DetailsSearchTest {
     private val details = ContactDetails(
         displayName = "Ana Lima", given = "Ana", family = "Lima", secondSurname = "Gonçalves", phoneticGiven = "Ah-na",
-        nickname = "Nana", pronouns = "she/her", language = "pt", company = "Acme", title = "Engineer", department = "Research",
+        nickname = "Nana", pronouns = "she/her", languages = listOf("pt"), company = "Acme", title = "Engineer", department = "Research",
         officeLocation = "Room 42", note = "Met in Porto", context = "Friend of Bruno's", pinnedNote = "Call after six",
         phones = listOf(DataItem(value = "+351 912 345 678")), emails = listOf(DataItem(value = "ana@example.org")),
         websites = listOf(DataItem(value = "https://ana.dev")), relations = listOf(DataItem(value = "Bruno", type = 13)),

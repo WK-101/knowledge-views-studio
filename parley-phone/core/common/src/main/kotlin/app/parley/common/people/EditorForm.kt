@@ -11,17 +11,19 @@ object EditorForm {
      * when the editor started showing only what a contact holds (plus name and phone), so a new contact is short.
      * Names are kept in saved state, so entries are only ever appended. PROFILE: social and professional profiles
      * (Instagram, LinkedIn…), kept as labelled website rows ([SocialProfiles]). CUSTOM_FIELD: label-and-value fields
-     * ([CustomFields]); LANGUAGE: the language to use with them ([Languages]).
+     * ([CustomFields]); LANGUAGE: the languages they speak ([Languages]); NATIVE_NAME: their name in their own language
+     * ([NativeNames]); CITIZENSHIP: the countries they are a citizen of ([Citizenship]).
      */
     enum class Kind {
         NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL, PROFILE,
-        CUSTOM_FIELD, LANGUAGE,
+        CUSTOM_FIELD, LANGUAGE, NATIVE_NAME, CITIZENSHIP,
     }
 
     /** The "Add" chips' order: the commonest kinds first, so the ones people want are visible without scrolling. */
     val chipOrder: List<Kind> = listOf(
         Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE,
-        Kind.CUSTOM_FIELD, Kind.LANGUAGE, Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS,
+        Kind.CUSTOM_FIELD, Kind.LANGUAGE, Kind.NATIVE_NAME, Kind.CITIZENSHIP, Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND,
+        Kind.NAME_DETAILS,
     )
 
     /** Kinds that hold several rows: their chip stays after the group is shown and adds another row. */

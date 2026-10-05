@@ -83,6 +83,8 @@ data class CallUi(
     val videoAsVoice: Boolean = false,
     /** The caller's pronouns ("she/her"), shown beside the name. */
     val pronouns: String? = null,
+    /** The caller's name in their own language ("Иван Петров"), a second line under the name; a name, so masked with it. */
+    val nativeName: String? = null,
     /** `elapsedRealtime` when this ringing call is answered automatically (0: it isn't); the screen shows Cancel. */
     val autoAnswerAt: Long = 0,
     /** L10: the subject the caller sent with the call (cleaned, plain text), when the network passes it on. */
@@ -171,7 +173,7 @@ data class CallUi(
  * This call as the lock screen shows it under [mode] (Settings › Privacy & security › Caller on the lock screen). Under
  * Name, the name without the notes ([withoutNotes]); under Name and notes, everything. Otherwise: the
  * name cut to its initials or replaced by [placeholder] ("Incoming call"), and nothing else that tells who it is: no
- * number, label, photo, pronouns, notes, subject, rule or label names ("Rang through: in Family", "Allowed by
+ * number, label, photo, pronouns, name in their language, notes, subject, rule or label names ("Rang through: in Family", "Allowed by
  * 'Plumber'") or why it rings quietly. A screening warning stays: it's about safety, not about who it is. Only what is
  * shown changes: the number stays for the actions (reply, block). Conference participants are masked one by one, also
  * when the conference itself has no name to mask. An emergency call is left as it is. Private contacts and discreet
@@ -194,6 +196,7 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         location = null,
         memory = null,
         pronouns = null,
+        nativeName = null,
         subject = null,
         numberMemory = null,
         rangThrough = null,

@@ -322,6 +322,8 @@ class CallNotifier internal constructor(
      * A call masked for the lock screen shows no number either (it stays in the call only for Reply and Block).
      */
     private fun subtitle(call: CallUi): String = listOfNotNull(
+        // Their name in their own language first, as on the call screen (gone with the name when masked).
+        call.nativeName?.takeIf { !call.lockMasked },
         NotificationPrivacy.shownLabel(call.label),
         call.number?.takeIf { call.name != null && !call.lockMasked },
         call.accountLabel,

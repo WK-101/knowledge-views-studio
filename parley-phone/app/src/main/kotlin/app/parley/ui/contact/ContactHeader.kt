@@ -79,6 +79,8 @@ internal fun ContactHeader(
             ) { ctx.show(ContactDialog.Photo) }
             // Press and hold the name to copy it (the name only, not the lines under it).
             HeaderName(d.displayName, Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true))
+            // Their name in their own language and script, right under it; it copies itself like the name.
+            if (!d.nativeName.isBlank) NativeNameLine(d.nativeName)
         }
         HeaderFactsLine(ctx)
         Text(

@@ -160,6 +160,12 @@
     <string name="detail_copy_link">Copy link</string>
     <string name="contact_page_sec_more">More</string>
     <string name="detail_language">Language</string>
+    <!-- The languages they speak, the first preferred. %1$s: "Russian, English". -->
+    <string name="detail_speaks">Speaks %1$s</string>
+    <string name="detail_languages">Languages</string>
+    <string name="detail_citizenship">Citizenship</string>
+    <!-- Read out for the name in their own language under the main name. %1$s: the language, %2$s: the name. -->
+    <string name="detail_native_name_desc">Name in %1$s: %2$s</string>
     <string name="detail_custom_field">Custom field</string>
     <string name="detail_second_surname">Second surname</string>
     <string name="detail_generation">Generation</string>

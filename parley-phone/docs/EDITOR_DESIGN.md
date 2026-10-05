@@ -295,9 +295,51 @@ the rest from the one line of chips.
   of the account it lands in. vCard: `itemN.X-PARLEY-CUSTOM:<value>` with `itemN.X-ABLabel:<label>`, the grouped-item
   form Apple and Parley already use for labels. The page lists them under **More**; Contacts search finds them
   ("Matched: custom field").
-- **Language** (chip "Language", one): typed as a name or a tag ("Spanish", "pt-BR"); the line under the field says what
-  is kept ("Saved as Spanish") and the save stores the BCP 47 tag (`Languages`). Parley's row; vCard `LANG` (RFC 6350,
-  with TYPE and PREF), or `LANGUAGE` (RFC 9554, the card's own language) for one read from that property.
+- **Languages** (chip "Languages", 6.2): the languages they speak in one field, in order ("Russian, English"; commas,
+  semicolons or slashes part them), the first the one to use with them. Each typed as a name or a tag; the line under
+  the field says what is kept ("Saved as Russian, English") and the save stores BCP 47 tags (`Languages`). One Parley
+  row per language, written again in place so the first row stays the first, the first marked primary when there are
+  two or more. vCard `LANG` (RFC 6350, with TYPE, and PREF=1, 2, 3… in order), or `LANGUAGE` (RFC 9554, the card's own
+  language) for one read from that property. The page says "Speaks Russian, English" under More; Contacts search and
+  the Language filter ("Speaks Russian") reach every language. Before 6.2 the editor kept one: a contact, private
+  contact or draft holding a single language reads as a list of one (`ContactDetailsJson.languages`,
+  `ContactDraftJson`), and the address book needed nothing (a row per language already).
+- **Name in their language** (6.2): the name in their own language and script beside the everyday one ("Иван Петров"
+  beside "Ivan Petrov", "王伟" beside "Wang Wei"). Under the name, offered by itself when it helps: a name typed in
+  another script gets **Add an English spelling** (the typed name becomes the name in their language, with the language
+  its script suggests, and the main name its Latin spelling from Android's ICU `Any-Latin; Latin-ASCII`, ready to edit);
+  a contact with a language gets **Add name in their language**. Otherwise the chip "Name in their language" adds it.
+  The row holds the name as they write it, its language (the script's guess offered as a chip, "Use Russian",
+  `Scripts.suggestLanguage`), and on request first and last name. **Storage** (`NativeNames`): the main name stays the
+  everyday one (StructuredName); the native name is a **Nickname row of the custom type labelled "Name in Russian"**
+  (DATA1 the name, DATA2 0, DATA3 the label), so it syncs with every account and other apps (Google Contacts, Samsung,
+  AOSP) show it as a labelled nickname without the main name changing. Parley adds the language tag in DATA4 and the
+  parts in DATA5 and DATA6, columns Nickname doesn't use; a sync adapter that keeps only the name and label still says
+  the language, which `NativeNames.languageOfLabel` reads back ("Name in Russian" → `ru`). So no Room table changed
+  (the plan's contact-meta copy of the tag wasn't needed: the row carries it to backups, cards and History & undo).
+  Parley reads such a row as the native name, never as the nickname. Private contacts keep it sealed with the details
+  and on the caller card (`CallerIdCopy.C_NATIVE_NAME`). **Shown**: on the page right under the name with its language
+  as a small caption (press and hold copies it, like the name); on the call screen and the incoming-call notification
+  as a second line under the name (a name, so the lock-screen rules mask it with the name). Not in the lists: a
+  "Show names in their own language" switch would take Settings past its ceiling of 147 settings (`SettingsSearchTest`),
+  so list rows keep their usual second line; search still finds the contact by it.
+  **Search**: both names, and each name in another script also by its Latin spelling, made once per contact when the
+  index is built (`ContactSearch.Builder.latin`, `Romanizer.latin`, cached by text): "ivan" finds Иван, "wang" finds
+  王伟, "王" finds it as typed ("Matched: name in their language"). Recall uses the same docs. The keypad matches a
+  name in another script by its Latin spelling too (CJK names keep their per-syllable readings). **vCard**: written as
+  RFC 6350 §5.4 alternatives, `FN;ALTID=1:Ivan Petrov` with `FN;ALTID=1;LANGUAGE=ru:Иван Петров` (and
+  `N;ALTID=1;LANGUAGE=ru` with the parts), and also as `itemN.NICKNAME;LANGUAGE=ru` with `itemN.X-ABLabel:Name in
+  Russian`, which Google Contacts and Apple Contacts import as a labelled nickname (a vCard 3.0 reader has no ALTID;
+  `X-PHONETIC-*` stays for pronunciation only). On import an alternative FN/N with `LANGUAGE` from another app makes
+  the native name unless a nickname already holds it, and a 3.0 `NICKNAME;LANGUAGE=el` in another script is one.
+  CSV: "Name in their language" and "Name language" columns.
+- **Citizenship** (chip "Citizenship", 6.2, never shown empty): the countries they are a citizen of, several for dual
+  citizenship, picked with the country picker and shown as chips ("Portugal ⊗"). Stored as ISO 3166 codes, one Parley
+  row each (`Mime.CITIZENSHIP`, `Citizenship`), shown by the country's name in the user's language under More on the
+  page. Personal data: never on the call screen, the lock screen or a notification; private contacts keep it sealed, and
+  it follows the private-contact and duress rules of the other details. The Contacts filters have a **Citizenship** group
+  beside Country ("Citizen of Portugal"); search finds it by code and name. vCard `X-PARLEY-CITIZENSHIP:PT`; CSV
+  "Citizenship".
 - **Name block**: **Phonetic middle name** joins the phonetic first and last names (Android's own column). A contact
   that has RFC 9554's **second surname** or **generation** shows them in the open block (after the last name and the
   suffix); others never see these lines. They are Parley's row (`Mime.NAME_PARTS`) and N's sixth and seventh components.
@@ -321,7 +363,7 @@ the rest from the one line of chips.
   (`IcuCalendars`, no library): the same month and day of that calendar, a missing leap month or Adar I falling to the
   ordinary month and a missing 30th to the 29th (`AltCalendars`). The page shows "Chinese lunar · next 17 Feb 2026",
   Birthdays sorts by it and the birthday reminder fires on it. Other apps see a yearly Gregorian date.
-- **Private and temporary contacts**: every field above is sealed with the details (`ContactDetailsJson`), kept in
+- **Private and temporary contacts**: every field above (the 6.2 ones too) is sealed with the details (`ContactDetailsJson`), kept in
   drafts (`ContactDraftJson`) and carried by Make private / Make visible.
 
 ## Order of rows (5.3.1)

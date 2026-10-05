@@ -1,6 +1,7 @@
 package app.parley.data
 
 import app.parley.common.people.HandleService
+import app.parley.common.people.NativeName
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,8 +28,9 @@ class ContactDetailsCodecTest {
         events = listOf(EventItem(15, "1815-12-10", 3, "Born", "gregorian")),
         groupIds = setOf(16), rawContacts = listOf(RawContactRef(17, AccountRef("t", "n"))), editRawId = 17, editRawVersion = 18,
         writableRawIds = listOf(17), readOnlyDataIds = setOf(19), handles = listOf(HandleItem(20, HandleService.MATRIX, "@ada:example.org", "x")),
-        context = "From the lab", pinnedNote = "Ask about engines", messengerPrefs = "prefs", languageId = 21, language = "en-GB",
-        customFields = listOf(CustomFieldItem(22, "Badge", "42", "mime")),
+        context = "From the lab", pinnedNote = "Ask about engines", messengerPrefs = "prefs", languageIds = listOf(21, 25),
+        languages = listOf("en-GB", "it"), customFields = listOf(CustomFieldItem(22, "Badge", "42", "mime")),
+        nativeNameId = 23, nativeName = NativeName("Ада Лавлейс", "Ада", "Лавлейс", "ru"), citizenshipIds = listOf(24), citizenships = listOf("GB", "IT"),
     )
 
     private val fields = ContactDetails::class.java.declaredFields.filterNot { Modifier.isStatic(it.modifiers) }.onEach { it.isAccessible = true }
@@ -48,7 +50,8 @@ class ContactDetailsCodecTest {
         // Device ids and raw-contact bookkeeping mean nothing for a private contact; the name is composed again.
         val notKept = setOf(
             "id", "lookupKey", "nameId", "namePartsId", "nicknameId", "pronounsId", "orgId", "noteId", "parleyRelations", "groupIds",
-            "rawContacts", "editRawId", "editRawVersion", "writableRawIds", "readOnlyDataIds", "languageId",
+            "rawContacts", "editRawId", "editRawVersion", "writableRawIds", "readOnlyDataIds", "languageIds",
+            "nativeNameId", "citizenshipIds",
         )
         val lost = fields.filter { it.name !in notKept && !sameIgnoringIds(it.get(full), it.get(back)) }.map { it.name }
         assertEquals("Fields the vault record drops", emptyList<String>(), lost)

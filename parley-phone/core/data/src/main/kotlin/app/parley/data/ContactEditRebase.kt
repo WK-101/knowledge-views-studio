@@ -11,6 +11,7 @@ import app.parley.common.people.ThreeWayMerge.Side
 object ContactEditRebase {
     enum class Field {
         NAME, NICKNAME, COMPANY, NOTE, PHONES, EMAILS, WEBSITES, RELATIONS, ADDRESSES, EVENTS, HANDLES, LABELS, PRONOUNS, LANGUAGE, CUSTOM_FIELDS,
+        NATIVE_NAME, CITIZENSHIP,
     }
 
     /** A field both sides changed: what each side holds, as text to show. */
@@ -38,8 +39,10 @@ object ContactEditRebase {
         Field.HANDLES -> d.handles.filter { it.value.isNotBlank() }.map { it.copy(id = null, value = t(it.value)) }
         Field.LABELS -> d.groupIds
         Field.PRONOUNS -> t(d.pronouns)
-        Field.LANGUAGE -> t(d.language)
+        Field.LANGUAGE -> d.languages.map(::t).filter { it.isNotEmpty() }
         Field.CUSTOM_FIELDS -> d.customFields.filterNot { it.isBlank }.map { t(it.label) to t(it.value) }
+        Field.NATIVE_NAME -> d.nativeName.let { listOf(it.shown, it.given, it.family, it.language).map(::t) }
+        Field.CITIZENSHIP -> d.citizenships.map(::t).filter { it.isNotEmpty() }
     }
 
     /** A field's content as one line of text for the merge choices. */
@@ -58,8 +61,10 @@ object ContactEditRebase {
         Field.HANDLES -> d.handles.map { t(it.value) }.filter { it.isNotEmpty() }.joinToString(", ")
         Field.LABELS -> d.groupIds.size.toString()
         Field.PRONOUNS -> t(d.pronouns)
-        Field.LANGUAGE -> t(d.language)
+        Field.LANGUAGE -> app.parley.common.people.Languages.join(d.languages)
         Field.CUSTOM_FIELDS -> d.customFields.filterNot { it.isBlank }.joinToString(", ") { app.parley.common.people.CustomFields.display(it.label, it.value) }
+        Field.NATIVE_NAME -> t(d.nativeName.shown)
+        Field.CITIZENSHIP -> d.citizenships.map(::t).filter { it.isNotEmpty() }.joinToString(", ")
     }
 
     private fun fields(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails) =
@@ -109,7 +114,9 @@ object ContactEditRebase {
         if (mineFor(Field.HANDLES)) out = out.copy(handles = ids(mine.handles, theirs.handles, { it.id }) { r, i -> r.copy(id = i) })
         if (mineFor(Field.LABELS)) out = out.copy(groupIds = mine.groupIds)
         if (mineFor(Field.PRONOUNS)) out = out.copy(pronouns = mine.pronouns)
-        if (mineFor(Field.LANGUAGE)) out = out.copy(language = mine.language)
+        if (mineFor(Field.LANGUAGE)) out = out.copy(languages = mine.languages)
+        if (mineFor(Field.NATIVE_NAME)) out = out.copy(nativeName = mine.nativeName)
+        if (mineFor(Field.CITIZENSHIP)) out = out.copy(citizenships = mine.citizenships)
         if (mineFor(Field.CUSTOM_FIELDS)) out = out.copy(customFields = ids(mine.customFields, theirs.customFields, { it.id }) { r, i -> r.copy(id = i) })
         return out
     }
@@ -133,7 +140,7 @@ object ContactEditRebase {
         return draft.copy(
             id = onto.id, lookupKey = onto.lookupKey, displayName = onto.displayName, photoUri = onto.photoUri,
             nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId, pronounsId = onto.pronounsId,
-            namePartsId = onto.namePartsId, languageId = onto.languageId,
+            namePartsId = onto.namePartsId, languageIds = onto.languageIds, nativeNameId = onto.nativeNameId, citizenshipIds = onto.citizenshipIds,
             customFields = ids(draft.customFields, onto.customFields, { it.id }, { t(it.label) to t(it.value) }) { r, i ->
                 r.copy(id = i, mime = i?.let { onto.customFields.firstOrNull { f -> f.id == it }?.mime })
             },
@@ -151,6 +158,6 @@ object ContactEditRebase {
     fun hasRowIds(d: ContactDetails): Boolean =
         listOf(d.phones, d.emails, d.websites, d.relations).any { l -> l.any { it.id != null } } ||
             d.addresses.any { it.id != null } || d.events.any { it.id != null } || d.handles.any { it.id != null } ||
-            d.customFields.any { it.id != null } ||
-            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.pronounsId, d.namePartsId, d.languageId, d.editRawId).any { it != null }
+            d.customFields.any { it.id != null } || d.languageIds.isNotEmpty() || d.citizenshipIds.isNotEmpty() ||
+            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.pronounsId, d.namePartsId, d.nativeNameId, d.editRawId).any { it != null }
 }

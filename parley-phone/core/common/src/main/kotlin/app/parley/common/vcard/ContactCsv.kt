@@ -1,5 +1,8 @@
 package app.parley.common.vcard
 
+import app.parley.common.people.Languages
+import app.parley.common.people.NativeName
+import app.parley.common.people.NativeNames
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -12,7 +15,8 @@ import java.io.Reader
 
 /**
  * Structured CSV for spreadsheets: fixed, human-readable columns (name parts, nickname, organisation, title,
- * department, numbered phone/e-mail/address groups, birthday, notes, labels). [CsvExports] writes Google's and
+ * department, numbered phone/e-mail/address groups, birthday, notes, labels, the name in their own language and its
+ * language, the languages they speak and their citizenship). [CsvExports] writes Google's and
  * Outlook's layouts too. It is an interchange format, not a backup:
  * only the fields above are included, and several notes are joined into one cell.
  *
@@ -25,7 +29,11 @@ object ContactCsv {
     private const val NOTE_SEPARATOR = "\n\n"
 
     private val BASE = listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title", "Department")
-    private val TAIL = listOf("Birthday", "Notes", "Groups")
+    private val TAIL = listOf("Birthday", "Notes", "Groups", NATIVE_NAME, NATIVE_LANGUAGE, LANGUAGES, CITIZENSHIP)
+    private const val NATIVE_NAME = "Name in their language"
+    private const val NATIVE_LANGUAGE = "Name language"
+    private const val LANGUAGES = "Languages"
+    private const val CITIZENSHIP = "Citizenship"
     private val ADDRESS_PARTS = listOf(
         "Street" to Col.D4, "PO Box" to Col.D5, "Neighborhood" to Col.D6, "City" to Col.D7,
         "Region" to Col.D8, "Postcode" to Col.D9, "Country" to Col.D10,
@@ -80,7 +88,7 @@ object ContactCsv {
         return buildList {
             add(name?.get(Col.D4).orEmpty()); add(name?.get(Col.D2).orEmpty()); add(name?.get(Col.D5).orEmpty())
             add(name?.get(Col.D3).orEmpty()); add(name?.get(Col.D6).orEmpty())
-            add(rows.filter { it.mimeType == Mime.NICKNAME }.mapNotNull { it[Col.D1] }.joinToString(", "))
+            add(nicknames(rows))
             add(org?.get(Col.D1).orEmpty()); add(org?.get(Col.D4).orEmpty()); add(org?.get(Col.D5).orEmpty())
             val phones = rows.filter { it.mimeType == Mime.PHONE }
             for (i in 0 until slots.phones) { val p = phones.getOrNull(i); add(p?.let { typeName(it, PHONE_TYPES) }.orEmpty()); add(p?.get(Col.D1).orEmpty()) }
@@ -99,8 +107,26 @@ object ContactCsv {
             add(rows.firstOrNull { it.mimeType == Mime.EVENT && it[Col.D2] == "3" }?.get(Col.D1).orEmpty())
             add(rows.filter { it.mimeType == Mime.NOTE }.mapNotNull { it[Col.D1] }.joinToString(NOTE_SEPARATOR))
             add(rows.filter { it.mimeType == Mime.GROUP }.mapNotNull { it[Col.GROUP_TITLE] }.joinToString(GROUP_SEPARATOR))
+            addAll(nameAndLanguageCells(rows))
         }
     }
+
+    /** The name in their language and its language, the languages and the citizenship ([TAIL]'s last four). */
+    private fun nameAndLanguageCells(rows: List<DataRow>): List<String> {
+        val nativeName = rows.firstOrNull(::native)?.let { r -> NativeNames.fromRow { r[it] } }
+        return listOf(
+            nativeName?.shown.orEmpty(),
+            nativeName?.language.orEmpty(),
+            rows.filter { it.mimeType == Mime.LANGUAGE }.mapNotNull { it[Col.D1] }.joinToString(", "),
+            rows.filter { it.mimeType == Mime.CITIZENSHIP }.mapNotNull { it[Col.D1] }.joinToString(", "),
+        )
+    }
+
+    /** The nicknames, without the name in their language (which has its own columns). */
+    private fun nicknames(rows: List<DataRow>): String =
+        rows.filter { it.mimeType == Mime.NICKNAME && !native(it) }.mapNotNull { it[Col.D1] }.joinToString(", ")
+
+    private fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow(r[Col.D2], r[Col.D3])
 
     private fun typeName(r: DataRow, names: Map<Int, String>): String {
         val t = r[Col.D2]
@@ -326,6 +352,12 @@ object ContactCsv {
                 cell("Birthday").takeIf { it.isNotEmpty() }?.let { put(Mime.EVENT, Col.D1 to VCardMapper.normalizeDate(it), Col.D2 to "3") }
                 cell("Notes").takeIf { it.isNotEmpty() }?.let { put(Mime.NOTE, Col.D1 to it) }
                 cell("Groups").split(GROUP_SEPARATOR.trim()).map { it.trim() }.filter { it.isNotEmpty() }.forEach { put(Mime.GROUP, Col.GROUP_TITLE to it) }
+                cell(NATIVE_NAME).takeIf { it.isNotEmpty() }?.let { n ->
+                    val v = NativeNames.rowValues(NativeName(full = n, language = cell(NATIVE_LANGUAGE)))
+                    rows += DataRow(Mime.NICKNAME, v.filterValues { !it.isNullOrEmpty() }.mapValues { it.value.orEmpty() })
+                }
+                Languages.split(cell(LANGUAGES)).forEach { put(Mime.LANGUAGE, Col.D1 to it) }
+                cell(CITIZENSHIP).split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { put(Mime.CITIZENSHIP, Col.D1 to it) }
                 if (rows.isEmpty()) continue
                 val record = ContactRecord(key = "", displayName = "", raws = listOf(RawRecord(null, null, rows = rows)))
                 val canonical = VCardMapper.canonical(record)

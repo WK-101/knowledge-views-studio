@@ -68,7 +68,7 @@ class ContactFieldsWriteTest {
     }
 
     private val ana = ContactDetails(
-        given = "Ana", family = "García", phoneticMiddle = "Mah-ree-ah", secondSurname = "López", generation = "Jr.", language = "Spanish",
+        given = "Ana", family = "García", phoneticMiddle = "Mah-ree-ah", secondSurname = "López", generation = "Jr.", languages = listOf("Spanish"),
         phones = listOf(DataItem(null, "+34 600 000 000", Phone.TYPE_MOBILE)),
         customFields = listOf(CustomFieldItem(label = "Shoe size", value = "38"), CustomFieldItem(label = "  ", value = " ")),
         events = listOf(EventItem(date = "1990-01-27", type = Event.TYPE_BIRTHDAY, calendar = AltCalendar.CHINESE.key)),
@@ -89,7 +89,7 @@ class ContactFieldsWriteTest {
         assertEquals("Mah-ree-ah", back.phoneticMiddle)
         assertEquals("López", back.secondSurname)
         assertEquals("Jr.", back.generation)
-        assertEquals("es", back.language)
+        assertEquals(listOf("es"), back.languages)
         assertEquals(listOf("Shoe size" to "38"), back.customFields.map { it.label to it.value })
         assertEquals(AltCalendar.CHINESE.key, back.events.single().calendar)
     }
@@ -139,7 +139,7 @@ class ContactFieldsWriteTest {
         repo.save(back, back, null, null, false)
         assertTrue(provider.writes.none { it.path.startsWith("data") })
         val cleared = back.copy(
-            customFields = emptyList(), secondSurname = "", generation = "", language = "", events = back.events.map { it.copy(calendar = null) },
+            customFields = emptyList(), secondSurname = "", generation = "", languages = emptyList(), events = back.events.map { it.copy(calendar = null) },
         )
         repo.save(back, cleared, null, null, false)
         assertTrue(rows(Mime.CUSTOM_FIELD).isEmpty())
@@ -181,8 +181,8 @@ class ContactFieldsWriteTest {
         val sealed = ContactDetailsJson.decode(ContactDetailsJson.encode(d))
         assertEquals(listOf("Shoe size" to "38"), sealed.customFields.map { it.label to it.value })
         assertEquals(
-            listOf(d.phoneticMiddle, d.secondSurname, d.generation, d.language),
-            listOf(sealed.phoneticMiddle, sealed.secondSurname, sealed.generation, sealed.language),
+            listOf(d.phoneticMiddle, d.secondSurname, d.generation, d.languages),
+            listOf(sealed.phoneticMiddle, sealed.secondSurname, sealed.generation, sealed.languages),
         )
         assertEquals("floor=3", sealed.addresses.single().parts)
         assertEquals(AltCalendar.CHINESE.key, sealed.events.single().calendar)
@@ -212,7 +212,7 @@ class ContactFieldsWriteTest {
         val d = RecordDetails.toDetails(record)
         assertEquals("Lu", d.phoneticMiddle)
         assertEquals("López", d.secondSurname)
-        assertEquals("es", d.language)
+        assertEquals(listOf("es"), d.languages)
         assertEquals("38", d.customFields.single().value)
         assertEquals("chinese", d.events.single().calendar)
         assertTrue("nothing the editor can't show", !RecordDetails.hasHiddenFields(record))

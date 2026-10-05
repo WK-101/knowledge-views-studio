@@ -4,6 +4,7 @@ import app.parley.common.AltCalendar
 import app.parley.common.people.AddressParts
 import app.parley.common.people.CustomFields
 import app.parley.common.people.Handles
+import app.parley.common.people.NativeNames
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -20,6 +21,7 @@ object RecordDetails {
     private val EDITABLE = setOf(
         Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION,
         Mime.POSTAL, Mime.EVENT, Mime.GROUP, Mime.NAME_PARTS, Mime.LANGUAGE, Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD,
+        Mime.CITIZENSHIP,
     )
 
     fun toDetails(record: ContactRecord): ContactDetails {
@@ -39,10 +41,17 @@ object RecordDetails {
             val parts = record.displayName.trim().split(Regex("\\s+"), limit = 2)
             d = d.copy(given = parts[0], family = parts.getOrElse(1) { "" })
         }
-        rows.firstOrNull { it.mimeType == Mime.NICKNAME }?.let { d = d.copy(nickname = s(it[Col.D1])) }
+        fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow(r[Col.D2], r[Col.D3])
+        rows.firstOrNull { it.mimeType == Mime.NICKNAME && !native(it) }?.let { d = d.copy(nickname = s(it[Col.D1])) }
+        rows.firstOrNull(::native)?.let { r -> d = d.copy(nativeName = NativeNames.fromRow { r[it] }) }
         rows.firstOrNull { it.mimeType == Mime.PRONOUNS }?.let { d = d.copy(pronouns = s(it[Col.D1])) }
         rows.firstOrNull { it.mimeType == Mime.NAME_PARTS }?.let { d = d.copy(secondSurname = s(it[Col.D1]), generation = s(it[Col.D2])) }
-        rows.firstOrNull { it.mimeType == Mime.LANGUAGE }?.let { d = d.copy(language = s(it[Col.D1])) }
+        // The languages in order, the one marked primary (a card's PREF=1) first.
+        val spoken = rows.filter { it.mimeType == Mime.LANGUAGE }.sortedByDescending { it.isPrimary }
+        d = d.copy(
+            languages = spoken.map { s(it[Col.D1]).trim() }.filter { it.isNotEmpty() }.distinct(),
+            citizenships = rows.filter { it.mimeType == Mime.CITIZENSHIP }.map { s(it[Col.D1]).trim() }.filter { it.isNotEmpty() }.distinct(),
+        )
         d = d.copy(
             customFields = rows.filter { CustomFields.isCustomField(it.mimeType) }
                 .map { CustomFieldItem(label = s(it[Col.D1]), value = s(it[Col.D2])) }.filterNot { it.isBlank },
@@ -102,7 +111,7 @@ object RecordDetails {
         add(Mime.NICKNAME, Col.D1 to d.nickname)
         add(Mime.PRONOUNS, Col.D1 to d.pronouns)
         add(Mime.NAME_PARTS, Col.D1 to d.secondSurname, Col.D2 to d.generation)
-        add(Mime.LANGUAGE, Col.D1 to d.language)
+        rows += namesAndLanguages(d)
         add(Mime.ORG, Col.D1 to d.company, Col.D4 to d.title, Col.D5 to d.department, Col.D6 to d.jobDescription, Col.D9 to d.officeLocation)
         add(Mime.NOTE, Col.D1 to d.note)
         fun items(mime: String, list: List<DataItem>) = list.filter { it.value.isNotBlank() }.forEach {
@@ -132,6 +141,19 @@ object RecordDetails {
             key = key, displayName = d.displayName.ifBlank { d.composedName.ifBlank { d.company } }, starred = d.starred,
             sendToVoicemail = d.sendToVoicemail, raws = listOf(RawRecord(null, null, rows = rows)),
         )
+    }
+
+    /** The name in their language, the languages (the first primary when several: a card writes PREF=1) and citizenship. */
+    private fun namesAndLanguages(d: ContactDetails): List<DataRow> = buildList {
+        val spoken = d.languages.map { it.trim() }.filter { it.isNotEmpty() }
+        spoken.forEachIndexed { i, l ->
+            val primary = i == 0 && spoken.size > 1
+            add(DataRow(Mime.LANGUAGE, mapOf(Col.D1 to l), isPrimary = primary, isSuperPrimary = primary))
+        }
+        d.citizenships.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(DataRow(Mime.CITIZENSHIP, mapOf(Col.D1 to it))) }
+        if (!d.nativeName.isBlank) {
+            add(DataRow(Mime.NICKNAME, NativeNames.rowValues(d.nativeName).filterValues { !it.isNullOrEmpty() }))
+        }
     }
 
     /** Whether [record] holds something the editor would drop (a photo, custom rows, labels). */
