@@ -17,7 +17,7 @@ object ContactDraftJson {
         putOpt("nameId", d.nameId); put("prefix", d.prefix); put("given", d.given); put("middle", d.middle); put("family", d.family); put("suffix", d.suffix)
         put("pg", d.phoneticGiven); put("pf", d.phoneticFamily); put("pm", d.phoneticMiddle)
         putOpt("namePartsId", d.namePartsId); put("sur2", d.secondSurname); put("gen", d.generation)
-        put("languageIds", longs(d.languageIds)); put("languages", JSONArray(d.languages))
+        put("languageIds", longs(d.languageIds)); put("languages", JSONArray(d.languages)); putOpt("languagePrimaryId", d.languagePrimaryId)
         put("citizenshipIds", longs(d.citizenshipIds)); put("citizenships", JSONArray(d.citizenships))
         putOpt("nativeNameId", d.nativeNameId)
         put("native", d.nativeName.let { JSONObject().put("full", it.full).put("given", it.given).put("family", it.family).put("language", it.language) })
@@ -65,6 +65,7 @@ object ContactDraftJson {
             // A draft saved before languages became a list held one "languageId" and "lang": a list of one.
             languageIds = o.optJSONArray("languageIds")?.let(::readLongs) ?: listOfNotNull(o.long("languageId")),
             languages = o.optJSONArray("languages")?.let(::readStrings) ?: o.optString("lang").takeIf { it.isNotBlank() }?.let { listOf(it) }.orEmpty(),
+            languagePrimaryId = o.long("languagePrimaryId"),
             citizenshipIds = readLongs(o.optJSONArray("citizenshipIds")), citizenships = readStrings(o.optJSONArray("citizenships")),
             nativeNameId = o.long("nativeNameId"),
             nativeName = o.optJSONObject("native")?.let {

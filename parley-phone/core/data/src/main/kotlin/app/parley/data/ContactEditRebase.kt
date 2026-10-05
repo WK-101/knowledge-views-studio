@@ -140,7 +140,8 @@ object ContactEditRebase {
         return draft.copy(
             id = onto.id, lookupKey = onto.lookupKey, displayName = onto.displayName, photoUri = onto.photoUri,
             nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId, pronounsId = onto.pronounsId,
-            namePartsId = onto.namePartsId, languageIds = onto.languageIds, nativeNameId = onto.nativeNameId, citizenshipIds = onto.citizenshipIds,
+            namePartsId = onto.namePartsId, languageIds = onto.languageIds, languagePrimaryId = onto.languagePrimaryId,
+            nativeNameId = onto.nativeNameId, citizenshipIds = onto.citizenshipIds,
             customFields = ids(draft.customFields, onto.customFields, { it.id }, { t(it.label) to t(it.value) }) { r, i ->
                 r.copy(id = i, mime = i?.let { onto.customFields.firstOrNull { f -> f.id == it }?.mime })
             },

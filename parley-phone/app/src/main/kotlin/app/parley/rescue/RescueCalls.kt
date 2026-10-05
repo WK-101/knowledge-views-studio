@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
+import android.provider.Settings
+import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.CallerHaptics
@@ -23,6 +25,7 @@ import app.parley.telecom.TelecomGraph
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +41,10 @@ import java.util.UUID
  *
  * The wait needs no permission. An inexact alarm ([AlarmManager.setAndAllowWhileIdle], no exact-alarm permission)
  * survives Parley being closed; for a short wait ([RescuePlan.keepsAwake]) Parley also keeps the phone awake and rings
- * on time itself. Whichever comes first rings it, once. A restart of the phone drops the wait.
+ * on time itself. Whichever comes first rings it, once. A restart of the phone drops the wait: Parley holds no
+ * permission to hear of restarts, so the call waiting is kept with the phone's boot count and dropped when read back
+ * after one ([RescuePlan.stillWaiting]), never shown as waiting when it can't ring. Within the same boot (Parley was
+ * updated or stopped, which also drops alarms) it is set again whenever it is read back.
  *
  * Kept in this phone's own preferences, never backed up: the call waiting, and the last choices on the screen. Nothing
  * about a rescue call that rang is kept anywhere.
@@ -49,6 +55,7 @@ object RescueCalls {
     private const val K_AT = "pending_at"
     private const val K_NAME = "pending_name"
     private const val K_NUMBER = "pending_number"
+    private const val K_BOOT = "pending_boot"
     private const val K_LAST_NAME = "last_name"
     private const val K_LAST_NUMBER = "last_number"
     private const val K_LAST_WHEN = "last_when"
@@ -73,23 +80,80 @@ object RescueCalls {
     /** What setting it up did. */
     enum class Outcome { RINGING, WAITING, REAL_CALL }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // The timer only waits, so it needs no immediate dispatch (and follows the main thread tests put in place).
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _pending = MutableStateFlow<RescueRequest?>(null)
     private var loaded = false
     private var timer: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    /** The id being rung right now: the alarm and the timer may both come for it, and it rings once. Main thread. */
+    private var ringing: String? = null
+
+    /** A call waiting was dropped as it was read back ([RescuePlan.stillWaiting]); the screen says so once. */
+    private var dropped = false
+
+    /** The wall clock; tests drive it with virtual time. */
+    @VisibleForTesting
+    internal var clock: () -> Long = System::currentTimeMillis
+
+    /** Android's boot count (-1 when unknown); it needs no permission. Tests replace it. */
+    @VisibleForTesting
+    internal var bootCount: (Context) -> Int = { c ->
+        runCatching { Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
+    }
+
+    /** Who the call shows, looked up off the main thread; tests replace it, so the ringing itself is real. */
+    @VisibleForTesting
+    internal var lookUp: suspend (Context, RescueRequest, String?) -> RescueCaller = { app, r, clip ->
+        withContext(Dispatchers.IO) { caller(app, app.container, r, clip) }
+    }
+
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** The call waiting to ring, if any (read from this phone's preferences the first time). */
+    /**
+     * The call waiting to ring, if any (read from this phone's preferences the first time). One that can no longer
+     * ring (the phone restarted since, or its time is long past) is dropped as it is read; one that can has its alarm
+     * set again, since an update or a stop of Parley drops alarms too.
+     */
     fun pending(context: Context): StateFlow<RescueRequest?> {
         if (!loaded) {
             loaded = true
-            val p = prefs(context)
-            val id = p.getString(K_ID, null)
-            _pending.value = id?.let { RescueRequest(it, p.getString(K_NAME, null).orEmpty(), p.getString(K_NUMBER, null), p.getLong(K_AT, 0)) }
+            val app = context.applicationContext
+            val p = prefs(app)
+            val r = p.getString(K_ID, null)?.let { RescueRequest(it, p.getString(K_NAME, null).orEmpty(), p.getString(K_NUMBER, null), p.getLong(K_AT, 0)) }
+            when {
+                r == null -> Unit
+                RescuePlan.stillWaiting(r, p.getInt(K_BOOT, -1), bootCount(app), clock()) -> {
+                    _pending.value = r
+                    setAlarm(app, r)
+                }
+                else -> {
+                    clear(app)
+                    dropped = true
+                }
+            }
         }
         return _pending.asStateFlow()
+    }
+
+    /**
+     * For the screen as it opens: drops a call waiting that can no longer ring and sets the alarm of one that can.
+     * True when a call that was waiting was dropped (here or as it was read back), so the screen can say none is.
+     */
+    fun refresh(context: Context): Boolean {
+        val app = context.applicationContext
+        pending(app)
+        val r = _pending.value
+        if (r != null) {
+            if (RescuePlan.stillWaiting(r, bootCount(app), bootCount(app), clock())) {
+                setAlarm(app, r)
+            } else {
+                cancel(app)
+                dropped = true
+            }
+        }
+        return dropped.also { dropped = false }
     }
 
     fun choices(context: Context): Choices {
@@ -116,7 +180,7 @@ object RescueCalls {
     }
 
     /** Rings now, or sets the call to ring later (replacing one already waiting). */
-    suspend fun set(context: Context, c: Choices, nowMillis: Long = System.currentTimeMillis()): Outcome {
+    suspend fun set(context: Context, c: Choices, nowMillis: Long = clock()): Outcome {
         val app = context.applicationContext
         saveChoices(app, c)
         cancel(app)
@@ -137,25 +201,35 @@ object RescueCalls {
         if (p != null) alarmManager(app)?.cancel(alarmIntent(app, p.id))
     }
 
-    /** An alarm or the in-app timer for [id] came: rings it once, if it is still the call waiting and not too late. */
-    suspend fun due(context: Context, id: String, nowMillis: Long = System.currentTimeMillis()) {
+    /**
+     * An alarm or the in-app timer for [id] came: rings it once, if it is still the call waiting and not too late.
+     * The call waiting is cleared only once the ringing has started (or a real call kept it from ringing), and the
+     * ringing can't be cancelled midway: clearing it never stops the call it is starting.
+     */
+    suspend fun due(context: Context, id: String, nowMillis: Long = clock()): Unit = withContext(Dispatchers.Main.immediate) {
         val app = context.applicationContext
-        val p = withContext(Dispatchers.Main.immediate) { pending(app).value }
+        val p = pending(app).value
         when (RescuePlan.onAlarm(p, id, nowMillis)) {
-            RescuePlan.Due.RING -> {
-                clear(app)
-                p?.let { ring(app, it) }
+            RescuePlan.Due.RING -> if (p != null && ringing != id) {
+                ringing = id
+                try {
+                    withContext(NonCancellable) { ring(app, p) }
+                } finally {
+                    ringing = null
+                    if (_pending.value?.id == id) clear(app)
+                    alarmManager(app)?.cancel(alarmIntent(app, id))
+                }
             }
             RescuePlan.Due.EARLY -> p?.let { setAlarm(app, it) }
             RescuePlan.Due.STALE -> clear(app)
             RescuePlan.Due.GONE -> Unit
         }
+        Unit
     }
 
     /** Rings [request] now; false when a real call is up (it always wins, and nothing rings). */
     private suspend fun ring(app: Context, request: RescueRequest): Boolean {
-        val choices = choices(app)
-        val who = withContext(Dispatchers.IO) { caller(app, app.container, request, choices.clip) }
+        val who = lookUp(app, request, choices(app).clip)
         return withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who) }
     }
 
@@ -194,6 +268,7 @@ object RescueCalls {
             putLong(K_AT, r.atMillis)
             putString(K_NAME, r.name)
             putString(K_NUMBER, r.number)
+            putInt(K_BOOT, bootCount(app))
         }
         _pending.value = r
     }
@@ -207,6 +282,7 @@ object RescueCalls {
             remove(K_AT)
             remove(K_NAME)
             remove(K_NUMBER)
+            remove(K_BOOT)
         }
         _pending.value = null
     }
@@ -223,6 +299,8 @@ object RescueCalls {
         }
         timer = scope.launch {
             delay(delayMs)
+            // From here on this timer is the ringing itself: clearing the call waiting must not cancel it.
+            if (timer === coroutineContext[Job]) timer = null
             due(app, r.id)
         }
     }
@@ -245,6 +323,18 @@ object RescueCalls {
         Intent(app, RescueAlarmReceiver::class.java).putExtra(EXTRA_ID, id),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
+
+    /** As if Parley's process had just started: the call waiting is read back from storage next time. */
+    @VisibleForTesting
+    internal fun forgetForTest() {
+        timer?.cancel()
+        timer = null
+        releaseWakeLock()
+        loaded = false
+        dropped = false
+        ringing = null
+        _pending.value = null
+    }
 
     /** 18:00 until another time is chosen. */
     private const val DEFAULT_MINUTE = 18 * 60

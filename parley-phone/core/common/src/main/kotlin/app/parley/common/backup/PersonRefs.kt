@@ -4,6 +4,7 @@ import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitScope
+import app.parley.common.people.ContactRef
 
 /**
  * How backup sections name a contact so it can be found on another phone, where lookup keys differ: the lookup key,
@@ -11,7 +12,14 @@ import app.parley.common.calltime.LimitScope
  */
 data class PersonRef(val key: String, val name: String? = null, val phones: Set<String> = emptySet())
 
-class PersonRefs(private val contacts: List<ContactSummary>) {
+class PersonRefs(
+    private val contacts: List<ContactSummary>,
+    /**
+     * Archived contacts' keys in the backup → their keys here ([app.parley.common.people.Archive.restoredKeys]). An
+     * archived key is resolved through this alone: never by name or number in the address book.
+     */
+    private val archived: Map<String, String> = emptyMap(),
+) {
     private val byKey = contacts.associateBy { it.lookupKey }
 
     /** The reference written for [lookupKey]: key alone when it isn't a current contact. */
@@ -22,12 +30,16 @@ class PersonRefs(private val contacts: List<ContactSummary>) {
 
     /** The contact here: same lookup key, else a shared number, else the only contact with that name. */
     fun resolve(ref: PersonRef): ContactSummary? {
+        if (ContactRef.isArchivedKey(ref.key)) return archived[ref.key]?.let { archivedHere(it) }
         byKey[ref.key]?.let { return it }
         if (ref.phones.isNotEmpty()) contacts.firstOrNull { c -> c.phones.any { PhoneIdentity.portableKey(it.number) in ref.phones } }?.let { return it }
         val name = ref.name?.takeIf { it.isNotBlank() } ?: return null
         return contacts.filter { it.displayName == name }.singleOrNull()
     }
 }
+
+/** An archived contact here, as a backup section writes to it: its Parley key, and no contact id (0 names none). */
+fun archivedHere(key: String): ContactSummary = ContactSummary(0, key, "", null, false, emptyList())
 
 /** Call-time settings from a backup, with contact keys moved to this phone's contacts. */
 object CallTimeRestore {

@@ -256,6 +256,11 @@ object PersistentStores {
             "app_lock_state", StoreKind.FILES, StorePolicy.Secret("Whether a duress unlock is hiding things"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
+        // "Lock private contacts" holds until the next unlock in Parley, even when Parley is closed meanwhile.
+        PersistentStore(
+            "vault_locked", StoreKind.FILES, local("Whether private contacts were locked until the next unlock in Parley"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         PersistentStore(
             "number_memory", StoreKind.FILES,
             local("Keyed-hash index of what this phone knows about numbers, rebuilt from the stores it indexes"),

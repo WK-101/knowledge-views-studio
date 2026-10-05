@@ -798,7 +798,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 /** The draft as a new contact: no contact, name, note or row ids of the one it was made from. */
 private fun ContactDetails.asNewContact(): ContactDetails =
     copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, pronounsId = null, orgId = null, noteId = null, namePartsId = null,
-        languageIds = emptyList(), nativeNameId = null, citizenshipIds = emptyList())
+        languageIds = emptyList(), languagePrimaryId = null, nativeNameId = null, citizenshipIds = emptyList())
         .withoutRowIds()
 
 /** The draft as new rows only (for saving it as a new contact). */

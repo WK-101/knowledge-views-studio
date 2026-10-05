@@ -5,6 +5,7 @@ import app.parley.common.circle.CarriedInteraction
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Interactions
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.KeySweep
 import app.parley.common.people.MetaRekey
@@ -273,6 +274,7 @@ class ContactKeys(
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isParleyOnlyKey(k)) keys[k] = id }
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            catching { extras()?.chapterKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             runCatching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()
                 ?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
@@ -335,6 +337,8 @@ class ContactKeys(
         runCatching { backgrounds().move(from, to) }
         runCatching { originals()?.move(from, to) }
         runCatching { extras()?.dndRekey(from, to) }
+        // Who was in a label at its chapter's start stays known as such.
+        catching { extras()?.chapterRekey(from, to, toId) }
         // The haptic caller ID and auto-answer (into the vault entry when [to] is a private contact's key).
         runCatching { extras()?.choiceRekey(from, to) }
         runCatching { cardLinks()?.rekey(from, to) }

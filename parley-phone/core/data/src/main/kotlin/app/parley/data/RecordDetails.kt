@@ -41,7 +41,7 @@ object RecordDetails {
             val parts = record.displayName.trim().split(Regex("\\s+"), limit = 2)
             d = d.copy(given = parts[0], family = parts.getOrElse(1) { "" })
         }
-        fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow(r[Col.D2], r[Col.D3])
+        fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow({ r[it] }, record.displayName.ifBlank { d.composedName })
         rows.firstOrNull { it.mimeType == Mime.NICKNAME && !native(it) }?.let { d = d.copy(nickname = s(it[Col.D1])) }
         rows.firstOrNull(::native)?.let { r -> d = d.copy(nativeName = NativeNames.fromRow { r[it] }) }
         rows.firstOrNull { it.mimeType == Mime.PRONOUNS }?.let { d = d.copy(pronouns = s(it[Col.D1])) }

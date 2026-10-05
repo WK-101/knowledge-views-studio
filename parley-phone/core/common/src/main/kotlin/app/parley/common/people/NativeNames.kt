@@ -55,11 +55,35 @@ object NativeNames {
         return if (Languages.isTag(stored)) stored else ""
     }
 
-    /** Whether a nickname row of [type] (DATA2) and [label] (DATA3) is a name in the person's language. */
-    fun isRow(type: String?, label: String?): Boolean = type?.trim() == TYPE_CUSTOM && isLabel(label)
+    /** Whether [label] is exactly one Parley writes: "Name in" a language it knows, or "Name in their language". */
+    fun isExactLabel(label: String?): Boolean {
+        val l = label?.trim().orEmpty()
+        if (l.equals(LABEL_UNKNOWN, ignoreCase = true)) return true
+        val language = languageOfLabel(l)
+        return language.isNotEmpty() && l.equals(label(language), ignoreCase = true)
+    }
+
+    /**
+     * Whether a nickname row of [type] (DATA2), [label] (DATA3), [language] ([LANGUAGE_COLUMN]) and [value] (DATA1) is
+     * a name in the person's language. Parley's own marker says so: the language tag, which Nickname doesn't use.
+     * Without it (an account whose sync keeps only the name and label) the label must be exactly Parley's and the
+     * name in another script than the main name [mainName] (unknown: any script but Latin). Anything else, such as a
+     * nickname the person labelled "Name in school", stays a nickname.
+     */
+    fun isRow(type: String?, label: String?, language: String?, value: String?, mainName: String? = null): Boolean {
+        if (type?.trim() != TYPE_CUSTOM || !isLabel(label)) return false
+        if (!language.isNullOrBlank()) return true
+        if (!isExactLabel(label)) return false
+        val script = Scripts.of(value.orEmpty()) ?: return false
+        val main = mainName?.let(Scripts::of)
+        return if (main != null) script != main else script != Character.UnicodeScript.LATIN
+    }
+
+    /** [isRow] for a row read by column ([get]: column → value). */
+    fun isRow(get: (String) -> String?, mainName: String? = null): Boolean = isRow(get(Col.D2), get(Col.D3), get(LANGUAGE_COLUMN), get(Col.D1), mainName)
 
     /** Whether data row [mime] with [get] (column → value) is a name in the person's language. */
-    fun isRow(mime: String, get: (String) -> String?): Boolean = mime == Mime.NICKNAME && isRow(get(Col.D2), get(Col.D3))
+    fun isRow(mime: String, get: (String) -> String?, mainName: String? = null): Boolean = mime == Mime.NICKNAME && isRow(get, mainName)
 
     /** The name a native-name row holds; its language from [LANGUAGE_COLUMN], else from the label. */
     fun fromRow(get: (String) -> String?): NativeName = NativeName(

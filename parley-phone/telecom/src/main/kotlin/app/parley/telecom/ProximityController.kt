@@ -9,6 +9,12 @@ import app.parley.common.calls.ScreenAtEar
  * switches it off (broken sensors, listening with the phone in a pocket) or keeps it for answered calls only, so the
  * screen stays on while an outgoing call is dialled ([ScreenAtEar]).
  */
+/** Settings › Calls › "Turn the screen off at your ear", read from memory (real calls and rescue calls alike). */
+internal fun screenAtEarMode(): ScreenAtEar.Mode = runCatching {
+    val d = TelecomGraph.dependencies
+    ScreenAtEar.mode(d.proximityEnabled(), d.proximityOnceAnswered())
+}.getOrDefault(ScreenAtEar.Mode.DURING_CALLS)
+
 class ProximityController(context: Context) {
     private val pm = context.getSystemService(PowerManager::class.java)
     private val lock: PowerManager.WakeLock? =

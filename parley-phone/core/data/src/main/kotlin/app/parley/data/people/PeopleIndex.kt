@@ -21,6 +21,7 @@ import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
+import app.parley.common.people.Latinizer
 import app.parley.data.messaging.Romanizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -101,7 +102,7 @@ class PeopleIndex(
         .flowOn(Dispatchers.IO)
         .stateIn(scope, started, PeopleIndexData())
 
-    private class Acc(id: Long, region: String?) {
+    private class Acc(id: Long, region: String?, latin: Latinizer) {
         var company = ""
         var title = ""
         var nickname = ""
@@ -111,7 +112,7 @@ class PeopleIndex(
         var deceased = false
 
         // Names in other scripts are searched by their Latin spelling too, made here once per contact.
-        val search = ContactSearch.Builder(id, region, latin = Romanizer)
+        val search = ContactSearch.Builder(id, region, latin = latin)
 
         /** One data row of the contact: what the lists show from it, and everything the search looks at. */
         fun row(mime: String, get: (String) -> String?, titles: Map<Long, String>) {
@@ -217,7 +218,9 @@ class PeopleIndex(
     /** The entries of contacts [ids] (everyone when null). */
     private fun read(ids: List<Long>?, region: String?, titles: Map<Long, String>): Map<Long, Entry> {
         val byId = HashMap<Long, Acc>()
-        fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region) }
+        // Each name spelled once for this whole build, however many contacts it has.
+        val latin = Romanizer.forIndex()
+        fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region, latin) }
         val only = ids?.let { " AND ${RawContacts.CONTACT_ID} IN (${it.joinToString(",")})" }.orEmpty()
 
         val rawProjection = arrayOf(RawContacts.CONTACT_ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME)

@@ -139,7 +139,7 @@ object ContactCsv {
     private fun nicknames(rows: List<DataRow>): String =
         rows.filter { it.mimeType == Mime.NICKNAME && !native(it) }.mapNotNull { it[Col.D1] }.joinToString(", ")
 
-    private fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow(r[Col.D2], r[Col.D3])
+    private fun native(r: DataRow) = r.mimeType == Mime.NICKNAME && NativeNames.isRow({ r[it] })
 
     private fun typeName(r: DataRow, names: Map<Int, String>): String {
         val t = r[Col.D2]
@@ -375,7 +375,9 @@ object ContactCsv {
                 val record = ContactRecord(key = "", displayName = "", raws = listOf(RawRecord(null, null, rows = rows)))
                 val canonical = VCardMapper.canonical(record)
                 report.cardsParsed++
-                onRecord(ParsedCard(line, canonical, raw))
+                // Parley's own flag: the import archives the contact again, as for a vCard ([CardNotes.archived]).
+                val notes = if (cell(ARCHIVED) == "1") CardNotes(archived = true) else null
+                onRecord(ParsedCard(line, canonical, raw, notes))
             } catch (e: Exception) {
                 report.fail(line, "Could not read this line: ${e.message ?: e.javaClass.simpleName}", raw)
             }

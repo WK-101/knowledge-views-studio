@@ -122,6 +122,12 @@ object Chapters {
     /** Whether this phone decides about a label's chapter: any label of its own, and a shared one only on its owner's phone. */
     fun decidesHere(shared: Boolean, owner: Boolean?): Boolean = !shared || owner == true
 
+    /**
+     * Whether it is known now which phone decides ([owner] null: a shared label's owner can't be told right now). Only
+     * then is the ending marked as told; otherwise the next check asks again, so the owner's phone isn't left silent.
+     */
+    fun decisionKnown(shared: Boolean, owner: Boolean?): Boolean = !shared || owner != null
+
     /** The members who joined during [chapter]: in the label now, and neither their key nor their id was there at its start. */
     fun joinedDuring(chapter: Chapter, members: List<Member>): List<Member> =
         if (!chapter.membersKnown) emptyList() else members.filter { it.key !in chapter.beforeKeys && it.id !in chapter.beforeIds }
@@ -152,6 +158,18 @@ object Chapters {
     }
 
     fun deleted(map: Map<String, Chapter>, titles: Set<String>): Map<String, Chapter> = map.filterKeys { it !in titles }
+
+    /** Every key a chapter remembers from its start, for the key sweep to follow. */
+    fun keys(map: Map<String, Chapter>): Set<String> = map.values.flatMapTo(HashSet()) { it.beforeKeys }
+
+    /**
+     * A contact's key moved ([from] → [to], now contact [toId]): someone who was in the label at a chapter's start is
+     * still known as such after a re-link, a sync or a move, so the end never offers to archive them as new.
+     */
+    fun rekeyed(map: Map<String, Chapter>, from: String, to: String, toId: Long?): Map<String, Chapter> =
+        map.mapValues { (_, c) ->
+            if (from !in c.beforeKeys) c else c.copy(beforeKeys = c.beforeKeys - from + to, beforeIds = toId?.let { c.beforeIds + it } ?: c.beforeIds)
+        }
 
     /** For a backup: dates only. Who was in the label is this phone's keys, which mean nothing on another one. */
     fun forBackup(map: Map<String, Chapter>): Map<String, Chapter> =

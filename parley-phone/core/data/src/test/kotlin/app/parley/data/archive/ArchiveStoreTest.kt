@@ -166,6 +166,58 @@ class ArchiveStoreTest {
         assertEquals(1, c.archive.all().size)
     }
 
+    @Test fun a_backup_brings_back_what_parley_keeps_about_archived_contacts() = runBlocking {
+        val (id, key) = ada()
+        val note = "Ask about the engine\n[ ] Bring the plans"
+        c.meta.setMeta(ContactMetaEntity(key, pinnedNote = note, reachOutDays = 14, contactId = id))
+        c.archive.archive(id)
+        val oldKey = c.archive.all().single().parleyKey
+        c.backup.setupKeys(passphrase.toCharArray())
+        assertTrue(c.backup.backupNow(scheduled = false, target = Uri.fromFile(file)).ok)
+
+        // A new phone where someone else is archived already: Ada comes back under another id than in the backup.
+        c.scope.cancel()
+        withContext(Dispatchers.IO) { c.db.clearAllTables() }
+        c.db.close()
+        File(app.filesDir, "archive").deleteRecursively()
+        c = DataContainer(app)
+        val boDetails = ContactDetails(given = "Bo", phones = listOf(DataItem(null, "+44 20 7946 0999", Phone.TYPE_MOBILE)))
+        val bo = c.contacts.save(null, boDetails, null, null, false)!!.contactId!!
+        c.archive.archive(bo)
+        val boKey = c.archive.all().single().parleyKey
+        assertEquals("the backup's id names Bo here", oldKey, boKey)
+
+        val opened = c.backup.open(Uri.fromFile(file), Unlock.Passphrase(passphrase.toCharArray()))
+        val result = c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+        assertEquals("every archived entry found its person", 0, result.unmatched)
+        val adaKey = c.archive.all().single { it.name == "Ada Lovelace" }.parleyKey
+        assertTrue(adaKey != oldKey)
+        // The note for calls with its agenda, the Circle and the logged moment follow Ada, not the id.
+        assertEquals(note, c.meta.meta(adaKey)?.pinnedNote)
+        assertEquals(14, c.meta.meta(adaKey)?.reachOutDays)
+        assertEquals("Coffee in town", c.circle.interactions.interactionsFor(adaKey).single().note)
+        assertNull("nothing of Ada's lands on Bo", c.meta.meta(boKey)?.pinnedNote)
+        assertTrue(c.circle.interactions.interactionsFor(boKey).isEmpty())
+        // Restored again: still one of each.
+        c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+        assertEquals(2, c.archive.all().size)
+        assertEquals(1, c.circle.interactions.interactionsFor(adaKey).size)
+    }
+
+    @Test fun when_the_address_book_refuses_nothing_is_archived() = runBlocking {
+        val (id, key) = ada()
+        provider.refuseRawDeletes = true
+        assertNull(c.archive.archive(id))
+        assertTrue("not both archived and in the address book", c.archive.all().isEmpty())
+        assertTrue(File(app.filesDir, "archive").listFiles().orEmpty().isEmpty())
+        assertNotNull(c.contacts.details(id))
+        assertEquals("Ask about the engine", c.meta.meta(key)?.pinnedNote)
+        // A retry once it works archives one copy.
+        provider.refuseRawDeletes = false
+        assertNotNull(c.archive.archive(id))
+        assertEquals(1, c.archive.all().size)
+    }
+
     @Test fun the_record_codec_keeps_photos() {
         val photo = ByteArray(300) { it.toByte() }
         val r = ContactRecord("k", "Ada", raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.PHOTO, emptyMap(), blob = photo)))))

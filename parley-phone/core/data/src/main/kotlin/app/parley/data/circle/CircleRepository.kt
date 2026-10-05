@@ -24,6 +24,7 @@ import app.parley.common.circle.Promises
 import app.parley.common.circle.YearlyEvents
 import app.parley.common.history.Period
 import app.parley.common.history.CallLogIndex
+import app.parley.common.backup.archivedHere
 import app.parley.data.backup.BackupExtras
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
@@ -60,6 +61,8 @@ class CircleRepository(
     private val freshContacts: suspend () -> List<ContactSummary>? = { null },
     /** Read-modify-write of contact_meta rows runs in one transaction here, so no newer edit is overwritten. */
     private val db: RoomDatabase? = null,
+    /** A backup's archived keys → the same archived people's keys here (archived contacts are restored first). */
+    private val archivedKeys: suspend (Map<String, String>) -> Map<String, String> = { emptyMap() },
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -406,11 +409,15 @@ class CircleRepository(
             if (values.keys.none { it == X_MEMBERS || it == X_INTERACTIONS || it == X_YEARLY }) return 0
             val contacts = contactsNow()
             val byKey = contacts.associateBy { it.lookupKey }
+            val archived = archivedKeys(values)
             var unmatched = 0
 
-            // Lookup keys differ on another phone: fall back to a shared number, then to the same name.
+            // Lookup keys differ on another phone: fall back to a shared number, then to the same name. An archived
+            // contact's rhythm, moments and dates go to the same archived person here, found by the archive alone.
             fun resolve(o: JSONObject): ContactSummary? {
-                byKey[o.optString("k")]?.let { return it }
+                val k = o.optString("k")
+                if (ContactRef.isArchivedKey(k)) return archived[k]?.let(::archivedHere).also { if (it == null) unmatched++ }
+                byKey[k]?.let { return it }
                 val phones = o.optJSONArray("p")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
                 val name = o.optString("n")
                 return (

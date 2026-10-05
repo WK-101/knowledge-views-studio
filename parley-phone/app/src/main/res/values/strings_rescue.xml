@@ -34,6 +34,7 @@
     <string name="rescue_pending_late">%1$s calls at about %2$s. Android may ring it a few minutes late.</string>
     <string name="rescue_pending_nobody">A rescue call</string>
     <string name="rescue_cancel">Cancel it</string>
+    <string name="rescue_none_waiting">No rescue call is waiting. The phone restarted or its time passed, so set it again if you need it.</string>
     <string name="rescue_real_call">You\'re on a call, so nothing rang.</string>
     <string name="rescue_facts">It isn\'t a call: nothing is dialled, and it isn\'t kept in Recents, notes, statistics or backups. A real call always comes first and ends it. It follows your ring and vibrate switch, and rings even with Do Not Disturb on, as far as Android allows.</string>
 

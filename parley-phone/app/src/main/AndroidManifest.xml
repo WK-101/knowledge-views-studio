@@ -145,12 +145,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.APP_CONTACTS" />
             </intent-filter>
-            <!-- A long press on one of Parley's Quick Settings tiles: the Situation tile's opens Rescue call, the others
-                 open Parley (IntentRoutes). -->
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
             <!-- Static launcher shortcut "Message a number". -->
             <meta-data
                 android:name="android.app.shortcuts"
@@ -291,6 +285,20 @@
             android:name=".InternalEntry"
             android:exported="false"
             android:targetActivity=".MainActivity" />
+
+        <!-- A long press on one of Parley's Quick Settings tiles (Android sends it for every tile of the app): the
+             Situation tile's opens Rescue call, every other tile's opens App info as before. Shows nothing itself. -->
+        <activity
+            android:name=".situations.TileLongPressActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Parley as the system contact picker (other apps choose contacts, numbers, e-mails, addresses). -->
         <activity

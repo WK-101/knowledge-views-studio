@@ -64,6 +64,46 @@ class NamesLanguagesWriteTest {
 
     private fun rows(mime: String) = provider.rows("data").filter { it["mimetype"] == mime }
 
+    @Test fun anotherAppsPrimaryLanguageAndLeftoverRowsAreReadAndPutRight() = runBlocking {
+        val id = repo.save(null, ivan, AccountRef(null, null), null, false)!!.contactId!!
+        val written = rows(Mime.LANGUAGE)
+        val raw = written.first()["raw_contact_id"].toString()
+        // Another app (or a card with PREF=1 on its second language) marks English primary, and leaves a repeated row
+        // and a blank one behind.
+        val cr = app.contentResolver
+        fun language(value: String) = cr.insert(
+            android.provider.ContactsContract.Data.CONTENT_URI,
+            android.content.ContentValues().apply { put("raw_contact_id", raw); put("mimetype", Mime.LANGUAGE); put("data1", value) },
+        )
+        language("ru")
+        language(" ")
+        written.forEach { r ->
+            val v = android.content.ContentValues().apply { put("is_primary", if (r["data1"] == "en") 1 else 0) }
+            val uri = android.content.ContentUris.withAppendedId(android.provider.ContactsContract.Data.CONTENT_URI, r["_id"].toString().toLong())
+            cr.update(uri, v, null, null)
+        }
+        val back = repo.editable(id)!!
+        // The editor shows what the card and an export show: the primary one first, each once.
+        assertEquals(listOf("en", "ru"), back.languages)
+        assertEquals(listOf("en", "ru"), repo.details(id)!!.languages)
+        // Any save removes the leftovers; English stays the primary one.
+        repo.save(back, back.copy(nickname = "Vanechka"), null, null, false)
+        val now = rows(Mime.LANGUAGE)
+        assertEquals(setOf("en", "ru"), now.map { it["data1"] }.toSet())
+        assertEquals(2, now.size)
+        assertEquals("en", now.single { it["is_primary"].toString() == "1" }["data1"])
+        // Moved first in the editor, Russian becomes the primary one.
+        val moved = repo.editable(id)!!
+        repo.save(moved, moved.copy(languages = listOf("ru", "en")), null, null, false)
+        assertEquals("ru", rows(Mime.LANGUAGE).single { it["is_primary"].toString() == "1" }["data1"])
+        assertEquals(listOf("ru", "en"), repo.editable(id)!!.languages)
+        // Removing every language leaves no copy behind to come back.
+        val again = repo.editable(id)!!
+        repo.save(again, again.copy(languages = emptyList()), null, null, false)
+        assertTrue(rows(Mime.LANGUAGE).isEmpty())
+        assertTrue(repo.editable(id)!!.languages.isEmpty())
+    }
+
     @Test fun theNativeNameIsALabelledNicknameBesideTheEverydayName() = runBlocking {
         val id = repo.save(null, ivan, AccountRef(null, null), null, false)!!.contactId
         // What other apps see: the main name unchanged, and a nickname labelled "Name in Russian".
@@ -151,6 +191,11 @@ class NamesLanguagesWriteTest {
         assertTrue(Romanizer.latin("김민준").orEmpty().lowercase().replace(" ", "").startsWith("gim"))
         assertNull("accented Latin needs no spelling", Romanizer.latin("José Ñúñez"))
         assertEquals("Ivan Petrov", Romanizer.spelling("иван петров"))
+        // An index build spells each name once for the whole build, as many as it has, and the same way.
+        val build = Romanizer.forIndex()
+        listOf("Γιώργος", "王伟", "Иван Петров").forEach { assertEquals(Romanizer.latin(it), build.latin(it)) }
+        assertEquals("Ivan Petrov", build.latin("Иван Петров"))
+        assertNull(build.latin("Ivan"))
     }
 
     @Test fun aPrivateContactIsFoundByEitherNameAndBySpelling() {
@@ -160,6 +205,6 @@ class NamesLanguagesWriteTest {
         assertEquals(ContactSearch.Field.NATIVE_NAME, ContactSearch.match("王", doc))
         assertEquals(ContactSearch.Field.NATIVE_NAME, ContactSearch.match("wang", doc))
         assertEquals(ContactSearch.Field.CITIZENSHIP, ContactSearch.match("germany", doc))
-        assertTrue(NativeNames.isRow("0", NativeNames.label("ru")))
+        assertTrue(NativeNames.isRow("0", NativeNames.label("ru"), "ru", "Иван"))
     }
 }

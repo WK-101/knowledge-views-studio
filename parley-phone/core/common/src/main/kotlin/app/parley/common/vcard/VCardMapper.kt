@@ -453,7 +453,7 @@ object VCardMapper {
         // Without a name row the display name is derived (company, number...); say so, so no name row is invented.
         if (nameRow == null) fn.addParameter(X_DERIVED, "1")
         // The name in their own language: the main name's alternatives in that language (RFC 6350 §5.4).
-        val natives = rows.filter { it.mimeType == Mime.NICKNAME && NativeNames.isRow(it[Col.D2], it[Col.D3]) }
+        val natives = rows.filter { r -> r.mimeType == Mime.NICKNAME && NativeNames.isRow({ r[it] }, c.displayName) }
             .map { r -> NativeNames.fromRow { r[it] } }.filter { it.language.isNotEmpty() && it.shown.isNotEmpty() }
         if (natives.isNotEmpty()) {
             fn.parameters.altId = NAME_ALTID
@@ -511,7 +511,7 @@ object VCardMapper {
                     val p = Nickname().also { it.values += v.getValue(Col.D1) }
                     add(p)
                     // A name in their language says which (its parts ride along as Parley's parameters).
-                    val language = v[NativeNames.LANGUAGE_COLUMN]?.takeIf { NativeNames.isRow(v[Col.D2], v[Col.D3]) }
+                    val language = v[NativeNames.LANGUAGE_COLUMN]?.takeIf { NativeNames.isRow({ v[it] }) }
                     language?.let { p.parameters.language = it }
                     finish(p, r, typed(p, Types.NICKNAME, v) + Col.D1 + listOfNotNull(NativeNames.LANGUAGE_COLUMN.takeIf { language != null }))
                 }

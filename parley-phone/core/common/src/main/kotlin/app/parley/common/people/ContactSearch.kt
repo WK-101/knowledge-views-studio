@@ -340,7 +340,7 @@ object ContactSearch {
                     phonetic(get(Col.D7), get(Col.D8), get(Col.D9))
                 }
                 Mime.NAME_PARTS -> name(get(Col.D1), get(Col.D2))
-                Mime.NICKNAME -> if (NativeNames.isRow(get(Col.D2), get(Col.D3))) {
+                Mime.NICKNAME -> if (NativeNames.isRow(get)) {
                     nativeName(get(Col.D1), get(NativeNames.GIVEN_COLUMN), get(NativeNames.FAMILY_COLUMN))
                 } else {
                     nickname(get(Col.D1))

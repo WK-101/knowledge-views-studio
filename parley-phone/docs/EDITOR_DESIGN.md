@@ -299,7 +299,10 @@ the rest from the one line of chips.
   semicolons or slashes part them), the first the one to use with them. Each typed as a name or a tag; the line under
   the field says what is kept ("Saved as Russian, English") and the save stores BCP 47 tags (`Languages`). One Parley
   row per language, written again in place so the first row stays the first, the first marked primary when there are
-  two or more. vCard `LANG` (RFC 6350, with TYPE, and PREF=1, 2, 3… in order), or `LANGUAGE` (RFC 9554, the card's own
+  two or more. The editor reads them the way the page and exports do: the row marked primary first (another app, or a
+  card with `PREF=1` on its second language, may have marked another), each language once (`Languages.read`). A save
+  marks the first primary again when it isn't, and removes blank or repeated rows, so a removed language never comes
+  back from a leftover copy. vCard `LANG` (RFC 6350, with TYPE, and PREF=1, 2, 3… in order), or `LANGUAGE` (RFC 9554, the card's own
   language) for one read from that property. The page says "Speaks Russian, English" under More; Contacts search and
   the Language filter ("Speaks Russian") reach every language. Before 6.2 the editor kept one: a contact, private
   contact or draft holding a single language reads as a list of one (`ContactDetailsJson.languages`,
@@ -317,7 +320,10 @@ the rest from the one line of chips.
   parts in DATA5 and DATA6, columns Nickname doesn't use; a sync adapter that keeps only the name and label still says
   the language, which `NativeNames.languageOfLabel` reads back ("Name in Russian" → `ru`). So no Room table changed
   (the plan's contact-meta copy of the tag wasn't needed: the row carries it to backups, cards and History & undo).
-  Parley reads such a row as the native name, never as the nickname. Private contacts keep it sealed with the details
+  Parley reads such a row as the native name, never as the nickname, only when it carries Parley's language tag
+  (DATA4), or, for a sync that dropped it, the label is exactly Parley's ("Name in" a language Parley knows, or "Name
+  in their language") on a name in another script than the main one (`NativeNames.isRow`). A nickname the person
+  labelled "Name in school", or "Name in Russian" on a name in the main name's own script, stays a nickname. Private contacts keep it sealed with the details
   and on the caller card (`CallerIdCopy.C_NATIVE_NAME`). **Shown**: on the page right under the name with its language
   as a small caption (press and hold copies it, like the name); on the call screen and the incoming-call notification
   as a second line under the name (a name, so the lock-screen rules mask it with the name). Not in the lists: a

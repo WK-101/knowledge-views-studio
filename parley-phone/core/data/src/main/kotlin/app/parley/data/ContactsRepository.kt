@@ -41,6 +41,7 @@ import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
 import app.parley.common.AltCalendar
 import app.parley.common.people.Handles
+import app.parley.common.people.Languages
 import app.parley.common.people.NativeNames
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
@@ -475,7 +476,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             val cols = listOf(Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6)
             generateSequence { if (c.moveToNext()) c else null }
                 .map { row -> cols.associateWith { row.getString(cols.indexOf(it)) } }
-                .firstOrNull { NativeNames.isRow(it[Data.DATA2], it[Data.DATA3]) }
+                .firstOrNull { v -> NativeNames.isRow({ v[it] }) }
                 ?.let { v -> NativeNames.fromRow { v[it] }.shown.ifEmpty { null } }
         }
 
@@ -605,11 +606,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val groups = HashSet<Long>()
         val customs = ArrayList<CustomFieldItem>()
         val dataIds = ArrayList<Long>()
+        val languageRows = ArrayList<Languages.Row>()
         cr.safeQuery(
             Data.CONTENT_URI,
             arrayOf(
                 Data._ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6,
-                Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.IS_SUPER_PRIMARY, Data.DATA11, Data.DATA14,
+                Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.IS_SUPER_PRIMARY, Data.DATA11, Data.DATA14, Data.IS_PRIMARY,
             ),
             if (forEdit) "${Data.RAW_CONTACT_ID}=?" else "${Data.CONTACT_ID}=?",
             arrayOf(if (forEdit) target!!.id.toString() else contactId.toString()),
@@ -626,7 +628,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                         phoneticGiven = s(8), phoneticFamily = s(10), phoneticMiddle = s(9),
                     )
                     // A nickname labelled "Name in Russian" is the name in their language, not a nickname (NativeNames).
-                    Nickname.CONTENT_ITEM_TYPE -> if (NativeNames.isRow(c.getString(3), c.getString(4))) {
+                    Nickname.CONTENT_ITEM_TYPE -> if (NativeNames.isRow(c.getString(3), c.getString(4), c.getString(5), c.getString(2))) {
                         if (base.nativeNameId == null) {
                             val cols = mapOf(Data.DATA1 to 2, Data.DATA3 to 4, Data.DATA4 to 5, Data.DATA5 to 6, Data.DATA6 to 7)
                             base = base.copy(nativeNameId = id, nativeName = NativeNames.fromRow { col -> cols[col]?.let { c.getString(it) } })
@@ -637,10 +639,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     Mime.PRONOUNS -> if (base.pronounsId == null) base = base.copy(pronounsId = id, pronouns = s(2))
                     // Parley's rows for RFC 9554's name parts and the language, and custom fields (ExtraRows).
                     Mime.NAME_PARTS -> if (base.namePartsId == null) base = base.copy(namePartsId = id, secondSurname = s(2), generation = s(3))
-                    // One row per language, in the order written (the editor writes the one to use with them first).
-                    Mime.LANGUAGE -> if (s(2).isNotBlank() && base.languages.none { it.equals(s(2).trim(), ignoreCase = true) }) {
-                        base = base.copy(languageIds = base.languageIds + id, languages = base.languages + s(2).trim())
-                    }
+                    // One row per language, in the order written (the editor writes the one to use with them first);
+                    // ordered and cleaned once all are read (Languages.read).
+                    Mime.LANGUAGE -> languageRows += Languages.Row(id, s(2), c.getInt(15) != 0)
                     Mime.CITIZENSHIP -> if (s(2).isNotBlank() && s(2).trim() !in base.citizenships) {
                         base = base.copy(citizenshipIds = base.citizenshipIds + id, citizenships = base.citizenships + s(2).trim())
                     }
@@ -669,7 +670,11 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 }
             }
         }
+        val spoken = Languages.read(languageRows)
         base.copy(
+            // Leftover rows are the edited copy's own only when editing one; across copies they are each copy's.
+            languageIds = if (forEdit) spoken.ids else spoken.ids.take(spoken.values.size), languages = spoken.values,
+            languagePrimaryId = spoken.primaryId,
             phones = if (forEdit) phones else phones.distinctBy { PhoneIdentity.key(it.value, PhoneEnv.countryIso(context)) + it.type },
             emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
             handles = if (forEdit) handles else handles.distinctBy { it.service to it.value.trim().lowercase() },

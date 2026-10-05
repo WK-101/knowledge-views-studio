@@ -61,10 +61,10 @@ class NativeNameVCardTest {
         val card = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Giorgos\r\nN:;Giorgos;;;\r\nNICKNAME;LANGUAGE=el:Γιώργος\r\nNICKNAME:Gio\r\nEND:VCARD\r\n"
         val r = VCardStream.readAll(card).first.single()
         val rows = r.rows(Mime.NICKNAME)
-        val native = rows.single { NativeNames.isRow(it[Col.D2], it[Col.D3]) }
+        val native = rows.single { NativeNames.isRow({ c -> it[c] }) }
         assertEquals("Γιώργος", native[Col.D1])
         assertEquals("el", NativeNames.fromRow { native[it] }.language)
-        assertEquals("Gio", rows.single { !NativeNames.isRow(it[Col.D2], it[Col.D3]) }[Col.D1])
+        assertEquals("Gio", rows.single { !NativeNames.isRow({ c -> it[c] }) }[Col.D1])
     }
 
     @Test fun several_languages_keep_their_order_with_pref() {
@@ -101,8 +101,8 @@ class NativeNameVCardTest {
         val csv = ContactCsv.writeAll(listOf(r))
         val back = ContactCsv.readAll(csv).first.single()
         // The nickname column holds the nickname only; the native name has its own columns.
-        assertEquals(listOf("Vanya"), back.rows(Mime.NICKNAME).filter { !NativeNames.isRow(it[Col.D2], it[Col.D3]) }.map { it[Col.D1] })
-        val n = back.rows(Mime.NICKNAME).single { NativeNames.isRow(it[Col.D2], it[Col.D3]) }
+        assertEquals(listOf("Vanya"), back.rows(Mime.NICKNAME).filter { !NativeNames.isRow({ c -> it[c] }) }.map { it[Col.D1] })
+        val n = back.rows(Mime.NICKNAME).single { NativeNames.isRow({ c -> it[c] }) }
         assertEquals("Иван Петров", n[Col.D1])
         assertEquals("ru", NativeNames.fromRow { n[it] }.language)
         assertEquals(listOf("ru", "en"), back.rows(Mime.LANGUAGE).map { it[Col.D1] })

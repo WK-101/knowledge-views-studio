@@ -189,7 +189,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
      */
     private suspend fun archivedCaller(number: String, region: String, last: String?): CallerDisplay? {
         val card = catching { c.archive.lookup(number, region) }.getOrNull() ?: return null
-        val note = catching { c.meta.meta(card.parleyKey)?.pinnedNote }.getOrNull()
+        // The agenda's items have their card of their own (AgendaStore finds the archived contact too).
+        val note = catching { Agenda.withoutItems(c.meta.meta(card.parleyKey)?.pinnedNote) }.getOrNull()
         val subtitle = if (card.company.isBlank()) app.getString(R.string.archive_caller) else app.getString(R.string.archive_caller_at, card.company)
         return CallerDisplay(card.name, null, null, null, null, note, last, subtitle = subtitle)
     }

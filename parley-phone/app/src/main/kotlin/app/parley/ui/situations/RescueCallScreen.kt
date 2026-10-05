@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +85,8 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
     var picking by rememberSaveable { mutableStateOf(false) }
     var timeOpen by rememberSaveable { mutableStateOf(false) }
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }
+    // A call set before the phone restarted, or long past its time, can't ring: say so rather than show it waiting.
+    LaunchedEffect(Unit) { if (RescueCalls.refresh(context)) notice = R.string.rescue_none_waiting }
     fun update(c: RescueCalls.Choices) {
         choices = c
         RescueCalls.saveChoices(context, c)

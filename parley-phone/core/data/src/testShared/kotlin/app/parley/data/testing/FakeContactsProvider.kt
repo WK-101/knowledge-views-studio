@@ -50,8 +50,14 @@ class FakeContactsProvider : ContentProvider() {
             if (++sinceYield >= MAX_OPS_BETWEEN_YIELDS) throw OperationApplicationException("Too many content provider operations between yield points")
             if (i > 0 && op.isYieldAllowed) sinceYield = 0
         }
+        if (refuseRawDeletes && operations.any { it.isDelete && it.uri.pathSegments.firstOrNull() == "raw_contacts" }) {
+            throw OperationApplicationException("A raw contact can't be deleted now")
+        }
         return super.applyBatch(operations)
     }
+
+    /** While true, a batch deleting raw contacts fails whole, as a provider refusing a read-only copy does. */
+    @Volatile var refuseRawDeletes = false
 
     /**
      * When set, a new raw contact (without aggregation disabled) joins this contact, as Android's aggregator joins a

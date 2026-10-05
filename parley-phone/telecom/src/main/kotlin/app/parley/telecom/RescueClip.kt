@@ -36,10 +36,11 @@ internal class RescueClip(private val context: Context) {
                 )
                 setDataSource(context, Uri.parse(uri))
                 setOnPreparedListener { it.start() }
-                // Played once; the call goes on in silence afterwards.
-                setOnCompletionListener { releasePlayer() }
+                // Played once; the call goes on in silence afterwards, and the phone's audio mode goes back at once
+                // (not when the call ends, which may be an hour later): other apps' sound isn't held up meanwhile.
+                setOnCompletionListener { this@RescueClip.stop() }
                 setOnErrorListener { _, _, _ ->
-                    releasePlayer()
+                    this@RescueClip.stop()
                     true
                 }
                 prepareAsync()

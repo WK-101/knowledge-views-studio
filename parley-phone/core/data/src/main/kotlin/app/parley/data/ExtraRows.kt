@@ -48,14 +48,17 @@ internal object ExtraRows {
     /**
      * The languages they speak, one row each in order: the rows read are written again in place (so the first stays
      * the first row), extra ones added, and left-over ones removed. With two or more, the first is marked primary,
-     * which a card writes as `PREF=1`. An untouched value isn't rewritten, even one another app stored as a name.
+     * which a card writes as `PREF=1`: the rows are written again when the first isn't the one marked so (another app
+     * or a card marked another). An untouched value isn't rewritten, even one another app stored as a name. Blank and
+     * repeated rows read after the languages ([ContactDetails.languageIds]) are removed.
      */
     private fun languages(original: ContactDetails?, edited: ContactDetails, w: Writer) {
         val typed = edited.languages.map(::t).filter { it.isNotEmpty() }
         val stored = typed.map { Languages.toStored(it) }
         val ids = original?.languageIds.orEmpty()
         val before = original?.languages.orEmpty().map(::t)
-        val primaryChanged = (before.size >= 2) != (stored.size >= 2)
+        val primaryChanged = (before.size >= 2) != (stored.size >= 2) ||
+            (stored.size >= 2 && original != null && original.languagePrimaryId != ids.firstOrNull())
         stored.forEachIndexed { i, tag ->
             val v = ContentValues().apply {
                 put(Data.DATA1, tag)

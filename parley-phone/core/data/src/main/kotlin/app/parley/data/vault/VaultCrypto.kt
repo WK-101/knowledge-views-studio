@@ -15,6 +15,8 @@ import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.UserNotAuthenticatedException
 import android.util.Log
 import app.parley.common.Hex
+import androidx.annotation.VisibleForTesting
+import java.io.File
 import java.security.InvalidAlgorithmParameterException
 import java.security.InvalidKeyException
 import java.security.KeyStore
@@ -129,10 +131,39 @@ object VaultCrypto {
 
     /**
      * "Lock private contacts": the person locked them again, so details neither open nor seal (as if the key needed a
-     * fresh unlock) until their next unlock in Parley, even inside the phone's own 5-minute window. Memory only, like
-     * the window itself; nothing changes in the Keystore. See [VaultRepository.lockAll].
+     * fresh unlock) until their next unlock in Parley, even inside the phone's own 5-minute window. Kept in a file of
+     * this phone's that is never backed up ([LOCKED_FILE]), so Parley being closed or stopped by Android doesn't undo
+     * it; nothing changes in the Keystore. See [VaultRepository.lockAll].
      */
-    @Volatile var lockedByPerson = false
+    var lockedByPerson: Boolean
+        get() {
+            if (!lockedRead) appContext?.let { ctx -> lockedNow = lockedFile(ctx).exists(); lockedRead = true }
+            return lockedNow
+        }
+        set(value) {
+            lockedNow = value
+            appContext?.let { ctx ->
+                lockedRead = true
+                runCatching { lockedFile(ctx).let { f -> if (value) f.createNewFile() else f.delete() } }
+            }
+        }
+
+    @Volatile private var lockedNow = false
+
+    @Volatile private var lockedRead = false
+
+    /** The file whose presence says private contacts were locked by the person (in `no_backup`, never exported). */
+    const val LOCKED_FILE = "vault_locked"
+
+    // Named as written for the storage registry's check (PersistentStores), the same as [LOCKED_FILE].
+    private fun lockedFile(ctx: Context) = File(ctx.noBackupFilesDir, "vault_locked")
+
+    /** As if Parley's process had just started: [lockedByPerson] is read from its file again. */
+    @VisibleForTesting
+    fun forgetLockForTest() {
+        lockedRead = false
+        lockedNow = false
+    }
 
     /** Parley declines to use the detail key now ([detailLocked] or [lockedByPerson]). */
     private fun refused() = detailLocked || lockedByPerson

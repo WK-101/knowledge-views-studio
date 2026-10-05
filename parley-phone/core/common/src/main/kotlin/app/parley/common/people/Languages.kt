@@ -60,4 +60,26 @@ object Languages {
     /** How [stored] languages are shown together: "Russian, English" (the first is the preferred one). */
     fun displayList(stored: List<String>, userLocale: Locale = Locale.getDefault()): String =
         stored.map { display(it, userLocale) }.filter { it.isNotEmpty() }.distinct().joinToString(", ")
+
+    /** One language row as read: its row [id], [value] and whether it is marked primary. */
+    data class Row(val id: Long, val value: String, val primary: Boolean)
+
+    /**
+     * The language rows of a contact as the editor takes them: [values] in order (the row marked primary first, as a
+     * card and the contact's page show them, then by row), [ids] one per value in that order followed by the ids of
+     * blank or repeated rows (a save removes those, so a removed language doesn't come back from a leftover copy),
+     * and [primaryId] the row marked primary (null: none, which a save puts right).
+     */
+    data class Read(val ids: List<Long>, val values: List<String>, val primaryId: Long?)
+
+    fun read(rows: List<Row>): Read {
+        val ordered = rows.sortedByDescending { it.primary }
+        val kept = ArrayList<Row>()
+        val left = ArrayList<Long>()
+        for (r in ordered) {
+            val v = r.value.trim()
+            if (v.isEmpty() || kept.any { it.value.trim().equals(v, ignoreCase = true) }) left += r.id else kept += r
+        }
+        return Read(kept.map { it.id } + left, kept.map { it.value.trim() }, rows.firstOrNull { it.primary }?.id)
+    }
 }
