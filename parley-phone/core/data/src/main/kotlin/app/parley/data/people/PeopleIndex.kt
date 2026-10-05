@@ -72,12 +72,6 @@ class PeopleIndex(
 ) {
     private val cr = context.contentResolver
 
-    // The list, and the loads that found changed rows without changing the list (it isn't sent again then).
-    val data: StateFlow<PeopleIndexData> = combine(contacts.contacts, contacts.rowsChanged) { list, _ -> list }
-        .map { if (it == null) PeopleIndexData() else update(it) }
-        .flowOn(Dispatchers.IO)
-        .stateIn(scope, started, PeopleIndexData())
-
     /** What the last build read, so the next one reads only what changed. */
     private class Built(
         val list: List<ContactSummary>,
@@ -98,6 +92,14 @@ class PeopleIndex(
 
     @Volatile internal var lastUpdate = UpdateStats(false, 0)
         private set
+
+    // The list, and the loads that found changed rows without changing the list (it isn't sent again then). Declared
+    // after the state an update keeps: an eager start can run the first update on another thread before the
+    // constructor reaches later initializers, which would then wipe what it built.
+    val data: StateFlow<PeopleIndexData> = combine(contacts.contacts, contacts.rowsChanged) { list, _ -> list }
+        .map { if (it == null) PeopleIndexData() else update(it) }
+        .flowOn(Dispatchers.IO)
+        .stateIn(scope, started, PeopleIndexData())
 
     private class Acc(id: Long, region: String?) {
         var company = ""

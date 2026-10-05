@@ -203,9 +203,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
 
     /**
+     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
+     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
+     */
+    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
+
+    /**
      * Every private contact from its caller-ID copy (the sealed details stay in the database, see VaultCallerRow); null
      * until the first listing has been opened, so Parley's lists can wait for it instead of showing everyone else first
-     * and the private contacts a moment later.
+     * and the private contacts a moment later. Declared after what a listing uses: an eager start can list on another
+     * thread before the constructor reaches later initializers.
      */
     val listing: StateFlow<List<VaultSummary>?> = dao.callerRows()
         .map { list -> summarizeAll(list).sortedBy { it.name.lowercase() } }
@@ -223,12 +230,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .map { list -> list.mapNotNull { callSeal.opened(it) }.also { callSeal.resealOlder(list, scope, dao::resealPrivateCall) } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, emptyList())
-
-    /**
-     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
-     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
-     */
-    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
 
     private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
 

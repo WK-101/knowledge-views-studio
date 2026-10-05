@@ -53,8 +53,6 @@ class PeopleIndexSearchTest {
     @Before fun setUp() {
         shadowOf(app).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
         provider = FakeContactsProvider.install()
-        repo = ContactsRepository(app, scope)
-        repo.beforeChange = { _, _ -> listOf(1L) }
         fun rows(sql: String) = provider.exec("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < $COUNT) $sql")
         rows("INSERT INTO raw_contacts (_id, contact_id, last_updated) SELECT i, i, 1 FROM n")
         rows(
@@ -76,6 +74,10 @@ class PeopleIndexSearchTest {
             "INSERT INTO data (raw_contact_id, mimetype, data1, data2) " +
                 "SELECT i, '${Event.CONTENT_ITEM_TYPE}', '1980-' || printf('%02d', 1 + i % 12) || '-10', 3 FROM n",
         )
+        // Only now: the repository starts reading at once, and these raw inserts send no change notification, so a
+        // read racing the inserts above would keep a half-filled address book for good.
+        repo = ContactsRepository(app, scope)
+        repo.beforeChange = { _, _ -> listOf(1L) }
     }
 
     @After fun tearDown() = scope.cancel()
@@ -119,12 +121,9 @@ class PeopleIndexSearchTest {
         }
         assertNull(index.data.value.search[added])
         app.contentResolver.notifyChange(Contacts.CONTENT_URI, null)
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (index.data.value.search[added] == null && System.currentTimeMillis() < deadline) {
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(20)
-        }
-        val doc = index.data.value.search[added]
+        // The observer runs on the main looper; once it has, the reload and the index update finish off the main thread.
+        shadowOf(Looper.getMainLooper()).idle()
+        val doc = runBlocking { withTimeout(TIMEOUT_MS) { index.data.first { it.search[added] != null } } }.search[added]
         assertEquals(ContactSearch.Field.ADDRESS, doc?.let { ContactSearch.match("lyon", it) })
         assertEquals(ContactSearch.Field.NAME, ContactSearch.match("zelie", doc!!))
         // Only the changed contact was read again; everyone else kept their entry.

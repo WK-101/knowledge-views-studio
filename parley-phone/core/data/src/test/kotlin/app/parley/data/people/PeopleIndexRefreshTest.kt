@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -44,13 +45,15 @@ class PeopleIndexRefreshTest {
     @Before fun setUp() {
         shadowOf(app).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
         provider = FakeContactsProvider.install()
-        repo = ContactsRepository(app, scope)
         fun rows(sql: String) = provider.exec("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < $COUNT) $sql")
         rows("INSERT INTO raw_contacts (_id, contact_id, last_updated) SELECT i, i, 1 FROM n")
         rows("INSERT INTO data (raw_contact_id, mimetype, data1) SELECT i, '${StructuredName.CONTENT_ITEM_TYPE}', 'Person ' || i FROM n")
         rows("INSERT INTO data (raw_contact_id, mimetype, data1, data2) SELECT i, '${Phone.CONTENT_ITEM_TYPE}', '+1 555 ' || printf('%07d', i), 2 FROM n")
         rows("INSERT INTO data (raw_contact_id, mimetype, data1) SELECT i, '${Organization.CONTENT_ITEM_TYPE}', 'Acme' FROM n")
         provider.exec("INSERT INTO groups (_id, title) VALUES (7, 'Choir')")
+        // Only now: the repository starts reading at once, and these raw inserts send no change notification, so a
+        // read racing them would keep a partial address book (and a label added later would rebuild the whole index).
+        repo = ContactsRepository(app, scope)
     }
 
     @After fun tearDown() = scope.cancel()
@@ -69,12 +72,10 @@ class PeopleIndexRefreshTest {
     /** Tells the index the address book changed and waits until [ready] holds for it. */
     private fun changedUntil(what: String, index: PeopleIndex, ready: (PeopleIndexData) -> Boolean) {
         app.contentResolver.notifyChange(Contacts.CONTENT_URI, null)
-        val deadline = System.currentTimeMillis() + TIMEOUT_MS
-        while (!ready(index.data.value) && System.currentTimeMillis() < deadline) {
-            shadowOf(Looper.getMainLooper()).idle()
-            Thread.sleep(20)
-        }
-        assertTrue("$what reached the index", ready(index.data.value))
+        // The observer runs on the main looper; once it has, the reload and the index update finish off the main thread.
+        shadowOf(Looper.getMainLooper()).idle()
+        val reached = runBlocking { withTimeoutOrNull(TIMEOUT_MS) { index.data.first(ready) } }
+        assertTrue("$what reached the index", reached != null)
         // One contact's rows read again, not the whole address book.
         assertTrue("$what: ${index.lastUpdate}", index.lastUpdate.incremental && index.lastUpdate.read in 1..2)
     }

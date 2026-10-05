@@ -66,13 +66,15 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * Observes a content URI; emits Unit on start and on each change.
+ *
+ * The start value is sent only once the observer is registered: sent before, the first read could finish and a change
+ * land before the observer existed, and that change would never be read.
  *
  * Registering fails with a SecurityException while the permission is missing. When [retry] is given, each of
  * its emissions (e.g. a refresh after the permission was granted) tries to register again, so the flow starts
@@ -91,6 +93,7 @@ fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = call
         false
     }
     var registered = register()
+    trySend(Unit)
     val retrying = retry?.let { r ->
         launch {
             r.collect {
@@ -105,7 +108,7 @@ fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = call
         retrying?.cancel()
         if (registered) unregisterContentObserver(observer)
     }
-}.onStart { emit(Unit) }.conflate()
+}.conflate()
 
 /** How long the address book must be quiet after a change before it is read again. */
 private const val CHANGE_QUIET_MS = 750L
@@ -165,28 +168,6 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         return kept
     }
 
-    /** Bumped after permission changes so observers reload. */
-    private val reload = MutableStateFlow(0)
-
-    // A sync adapter or a bulk edit sends a burst of change notifications: the first load is immediate, later ones
-    // wait until the burst has been quiet for a moment, so one sync means one reload rather than dozens.
-    private val contactChanges = cr.changes(Contacts.CONTENT_URI, retry = reload).debounceAfterFirst(CHANGE_QUIET_MS)
-
-    val contacts: StateFlow<List<ContactSummary>?> = combine(contactChanges, reload) { _, _ -> }
-        .map { loadAll() }
-        .flowOn(Dispatchers.IO)
-        .stateIn(scope, started, null)
-
-    fun refresh() {
-        reload.value++
-    }
-
-    /**
-     * Reads the contact list now, straight from the provider (the [contacts] snapshot only catches up after an
-     * asynchronous reload), e.g. right after a restore inserted contacts.
-     */
-    suspend fun loadNow(): List<ContactSummary> = withContext(Dispatchers.IO) { loadAll() }
-
     /** The last list, by id, with each contact's last-updated time: the base an incremental reload patches. */
     private class Loaded(val region: String?, val byId: Map<Long, Pair<Long, ContactSummary>>)
 
@@ -212,6 +193,30 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     @Volatile internal var lastLoad = LoadStats(false, 0)
         private set
+
+    /** Bumped after permission changes so observers reload. */
+    private val reload = MutableStateFlow(0)
+
+    // A sync adapter or a bulk edit sends a burst of change notifications: the first load is immediate, later ones
+    // wait until the burst has been quiet for a moment, so one sync means one reload rather than dozens.
+    private val contactChanges = cr.changes(Contacts.CONTENT_URI, retry = reload).debounceAfterFirst(CHANGE_QUIET_MS)
+
+    // Everything a load touches is declared above this list: an eager start can run the first load on another
+    // thread before the constructor reaches later initializers, which would find them unset or reset them.
+    val contacts: StateFlow<List<ContactSummary>?> = combine(contactChanges, reload) { _, _ -> }
+        .map { loadAll() }
+        .flowOn(Dispatchers.IO)
+        .stateIn(scope, started, null)
+
+    fun refresh() {
+        reload.value++
+    }
+
+    /**
+     * Reads the contact list now, straight from the provider (the [contacts] snapshot only catches up after an
+     * asynchronous reload), e.g. right after a restore inserted contacts.
+     */
+    suspend fun loadNow(): List<ContactSummary> = withContext(Dispatchers.IO) { loadAll() }
 
     /**
      * The contact list. After the first load only contacts whose last-updated time moved are read again (a light
