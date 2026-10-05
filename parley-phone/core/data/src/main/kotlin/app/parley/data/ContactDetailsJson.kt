@@ -1,6 +1,7 @@
 package app.parley.data
 
 import app.parley.common.people.HandleService
+import app.parley.common.people.NativeName
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -40,7 +41,12 @@ object ContactDetailsJson {
         if (d.phoneticMiddle.isNotBlank()) put("pm", d.phoneticMiddle)
         if (d.secondSurname.isNotBlank()) put("sur2", d.secondSurname)
         if (d.generation.isNotBlank()) put("gen", d.generation)
-        if (d.language.isNotBlank()) put("lang", d.language)
+        // The languages, in order; one older entry held a single "lang", which decode still reads as a list of one.
+        d.languages.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { put("langs", JSONArray(it)) }
+        if (d.citizenships.any { it.isNotBlank() }) put("cit", JSONArray(d.citizenships.filter { it.isNotBlank() }))
+        d.nativeName.takeIf { !it.isBlank }?.let { n ->
+            put("nn", JSONObject().put("f", n.full).put("g", n.given).put("k", n.family).put("l", n.language))
+        }
         if (d.customFields.any { !it.isBlank }) {
             put("cf", JSONArray().apply { d.customFields.filterNot { it.isBlank }.forEach { put(JSONObject().put("l", it.label).put("v", it.value)) } })
         }
@@ -80,12 +86,21 @@ object ContactDetailsJson {
             }.orEmpty(),
             context = str("ctx"), pinnedNote = str("pin"), messengerPrefs = str("mp"), sendToVoicemail = o.optBoolean("vm"),
             pronouns = str("pn"), department = str("dept"), officeLocation = str("office"), jobDescription = str("jobd"),
-            phoneticMiddle = str("pm"), secondSurname = str("sur2"), generation = str("gen"), language = str("lang"),
+            phoneticMiddle = str("pm"), secondSurname = str("sur2"), generation = str("gen"), languages = languages(o),
+            citizenships = strings(o.optJSONArray("cit")),
+            nativeName = o.optJSONObject("nn")?.let { NativeName(it.optString("f"), it.optString("g"), it.optString("k"), it.optString("l")) } ?: NativeName(),
             customFields = o.optJSONArray("cf")?.let { a ->
                 (0 until a.length()).map { i -> a.getJSONObject(i).let { CustomFieldItem(label = it.optString("l"), value = it.optString("v")) } }
             }.orEmpty(),
         ).let { it.copy(displayName = it.composedName.ifBlank { it.company.ifBlank { it.phones.firstOrNull()?.value.orEmpty() } }) }
     }
+
+    /** The languages: the list, or the single language an older entry kept. */
+    internal fun languages(o: JSONObject): List<String> =
+        o.optJSONArray("langs")?.let(::strings) ?: o.optString("lang", "").trim().takeIf { it.isNotEmpty() }?.let { listOf(it) }.orEmpty()
+
+    private fun strings(a: JSONArray?): List<String> =
+        a?.let { (0 until it.length()).map { i -> it.optString(i).trim() }.filter { s -> s.isNotEmpty() } }.orEmpty()
 
     private fun items(list: List<DataItem>) = JSONArray().apply { list.filter { it.value.isNotBlank() }.forEach { put(JSONObject().put("v", it.value).put("t", it.type).put("l", it.label ?: "").put("p", it.isPrimary)) } }
 

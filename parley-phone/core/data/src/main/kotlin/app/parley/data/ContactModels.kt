@@ -3,6 +3,7 @@ package app.parley.data
 import app.parley.common.people.ContactText
 import app.parley.common.people.Handle
 import app.parley.common.people.HandleService
+import app.parley.common.people.NativeName
 import app.parley.common.record.AccountKinds
 
 /** One editable multi-value row (phone, e-mail, website). [id] is null for rows not yet saved. */
@@ -173,10 +174,22 @@ data class ContactDetails(
     val pinnedNote: String = "",
     /** Private contacts only: their [app.parley.common.people.MessengerPrefs], encoded. */
     val messengerPrefs: String = "",
-    /** The language to use with them ([app.parley.common.record.Mime.LANGUAGE]): a BCP 47 tag, or the name as typed. */
-    val languageId: Long? = null,
-    val language: String = "",
+    /**
+     * The languages they speak ([app.parley.common.record.Mime.LANGUAGE], one row each), in order: the first is the one
+     * to use with them. Each a BCP 47 tag, or the name as typed. [languageIds] are the rows read, in the same order.
+     */
+    val languageIds: List<Long> = emptyList(),
+    val languages: List<String> = emptyList(),
     val customFields: List<CustomFieldItem> = emptyList(),
+    /**
+     * Their name in their own language and script ([app.parley.common.people.NativeNames]: a labelled nickname row in the
+     * address book, kept apart from [nickname]).
+     */
+    val nativeNameId: Long? = null,
+    val nativeName: NativeName = NativeName(),
+    /** The countries they are a citizen of ([app.parley.common.record.Mime.CITIZENSHIP]), ISO codes in order; [citizenshipIds] the rows read. */
+    val citizenshipIds: List<Long> = emptyList(),
+    val citizenships: List<String> = emptyList(),
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()

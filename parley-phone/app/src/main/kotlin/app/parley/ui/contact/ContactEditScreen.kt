@@ -110,9 +110,12 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.people.EditorForm
+import app.parley.common.people.NativeName
+import app.parley.messaging.CountryPickerDialog
 import app.parley.common.people.PhoneTypes
 import app.parley.data.CustomFieldItem
 import androidx.compose.material.icons.automirrored.rounded.ShortText
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Translate
 import app.parley.common.people.HandleService
 import app.parley.common.people.Handles
@@ -174,6 +177,7 @@ private const val KEY_NOTE = -3L
 private const val KEY_COMPANY = -4L
 private const val KEY_CONTEXT = -5L
 private const val KEY_LANGUAGE = -6L
+private const val KEY_NATIVE = -7L
 
 /** Phones, e-mails and websites share one row layout; this says how each differs. */
 private class MultiKind(
@@ -278,6 +282,8 @@ fun ContactEditScreen(
     var mapLinkFor by rememberSaveable { mutableStateOf<Int?>(null) }
     // "Add a profile": the service list; and which website rows are profiles, decided once per row.
     var pickProfile by rememberSaveable { mutableStateOf(false) }
+    // "Add a country" for citizenship: the country picker.
+    var pickCountry by rememberSaveable { mutableStateOf(false) }
     val profileRows = remember { HashMap<Long, Boolean>() }
     // A new contact starts with the keyboard on First name, once (not again after rotation).
     var autoFocused by rememberSaveable { mutableStateOf(false) }
@@ -422,6 +428,8 @@ fun ContactEditScreen(
                 EditorForm.Kind.WHEN_THEY_CALL -> focusKey = KEY_CONTEXT
                 EditorForm.Kind.CUSTOM_FIELD -> addRow(G_CUSTOM, cur.customFields.size) { it.copy(customFields = it.customFields + CustomFieldItem()) }
                 EditorForm.Kind.LANGUAGE -> focusKey = KEY_LANGUAGE
+                EditorForm.Kind.NATIVE_NAME -> focusKey = KEY_NATIVE
+                EditorForm.Kind.CITIZENSHIP -> pickCountry = true
                 EditorForm.Kind.LABELS, EditorForm.Kind.CALL_BACKGROUND -> Unit
             }
         }
@@ -503,6 +511,28 @@ fun ContactEditScreen(
                     canToggle = !meCard && !nameDetailsFilled,
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                 )
+                // Their name in their own language, under the name; offered when the name is in another script or
+                // they have a language, else in the "Add" chips.
+                if (EditorForm.Kind.NATIVE_NAME in shownKinds) {
+                    NativeNameRow(
+                        d.nativeName, lockedRow(d.nativeNameId), fr(KEY_NATIVE),
+                        onChange = { n -> update { it.copy(nativeName = n) } },
+                        onRemove = {
+                            editor.revealed = editor.revealed - EditorForm.Kind.NATIVE_NAME
+                            update { it.copy(nativeName = NativeName()) }
+                        },
+                    )
+                } else if (!meCard) {
+                    NativeNameOffer(
+                        d.composedName, d.languages.isNotEmpty(),
+                        onSpell = {
+                            editor.revealed = editor.revealed + EditorForm.Kind.NATIVE_NAME
+                            update(::withEnglishSpelling)
+                            focusKey = KEY_FIRST
+                        },
+                        onAdd = { addKind(EditorForm.Kind.NATIVE_NAME) },
+                    )
+                }
                 if (isVault && shownPhoto != null) {
                     Text(
                         stringResource(R.string.edit_private_photo), style = MaterialTheme.typography.bodySmall,
@@ -518,7 +548,7 @@ fun ContactEditScreen(
             keyIndex.clear()
             var n = base
             // The name fields live in the header item (index 0) when it's part of this list.
-            if (base == 1) { keyIndex[KEY_FIRST] = 0; keyIndex[KEY_NICK] = 0 }
+            if (base == 1) { keyIndex[KEY_FIRST] = 0; keyIndex[KEY_NICK] = 0; keyIndex[KEY_NATIVE] = 0 }
             fun put(key: Any, content: @Composable LazyItemScope.() -> Unit) {
                 keyIndex[key] = n++
                 item(key = key) { content() }
@@ -732,9 +762,18 @@ fun ContactEditScreen(
             if (EditorForm.Kind.LANGUAGE in shownKinds) {
                 keyIndex[KEY_LANGUAGE] = n
                 put("language") {
-                    LanguageRow(d.language, lockedRow(d.languageId), fr(KEY_LANGUAGE), Icons.Rounded.Translate, Modifier.animateItem()) { v ->
-                        update { it.copy(language = v) }
+                    LanguagesRow(d.languages, d.languageIds.any { lockedRow(it) }, fr(KEY_LANGUAGE), Icons.Rounded.Translate, Modifier.animateItem()) { v ->
+                        update { it.copy(languages = v) }
                     }
+                }
+            }
+
+            if (EditorForm.Kind.CITIZENSHIP in shownKinds) {
+                put("citizenship") {
+                    CitizenshipRow(
+                        d.citizenships, d.citizenshipIds.any { lockedRow(it) }, Modifier.animateItem(), onAdd = { pickCountry = true },
+                        onRemove = { code -> update { it.copy(citizenships = it.citizenships - code) } },
+                    )
                 }
             }
 
@@ -821,6 +860,13 @@ fun ContactEditScreen(
                 }
             }
         }
+        if (pickCountry) {
+            CountryPickerDialog(null, onDismiss = { pickCountry = false }) { code ->
+                pickCountry = false
+                editor.revealed = editor.revealed + EditorForm.Kind.CITIZENSHIP
+                update { if (code in it.citizenships) it else it.copy(citizenships = it.citizenships + code) }
+            }
+        }
         mapLinkFor?.let { i ->
             MapLinkDialog(onDismiss = { mapLinkFor = null }) { place ->
                 mapLinkFor = null
@@ -905,7 +951,9 @@ private fun shownKinds(
         show(EditorForm.Kind.RELATION, d.relations.isNotEmpty())
         show(EditorForm.Kind.NOTE, d.note.isNotBlank())
         show(EditorForm.Kind.CUSTOM_FIELD, d.customFields.isNotEmpty())
-        show(EditorForm.Kind.LANGUAGE, d.language.isNotBlank())
+        show(EditorForm.Kind.LANGUAGE, d.languages.any { it.isNotBlank() })
+        show(EditorForm.Kind.NATIVE_NAME, !d.nativeName.isBlank)
+        show(EditorForm.Kind.CITIZENSHIP, d.citizenships.isNotEmpty())
         if (hasLabels) show(EditorForm.Kind.LABELS, d.groupIds.isNotEmpty())
         if (isVault) show(EditorForm.Kind.WHEN_THEY_CALL, d.context.isNotBlank() || d.pinnedNote.isNotBlank())
         if (lookup != null) show(EditorForm.Kind.CALL_BACKGROUND, hasBackground || bgChange != BackgroundChange.None)
@@ -944,6 +992,8 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.NAME_DETAILS -> Icons.Rounded.Badge
     EditorForm.Kind.CUSTOM_FIELD -> Icons.AutoMirrored.Rounded.ShortText
     EditorForm.Kind.LANGUAGE -> Icons.Rounded.Translate
+    EditorForm.Kind.NATIVE_NAME -> Icons.Rounded.Translate
+    EditorForm.Kind.CITIZENSHIP -> Icons.Rounded.Flag
 }
 
 @Suppress("CyclomaticComplexMethod") // One label per kind.
@@ -963,7 +1013,9 @@ private fun kindLabel(k: EditorForm.Kind): Int = when (k) {
     EditorForm.Kind.CALL_BACKGROUND -> R.string.ppl_bg_title
     EditorForm.Kind.NAME_DETAILS -> R.string.edit_name_details
     EditorForm.Kind.CUSTOM_FIELD -> R.string.edit_custom_field
-    EditorForm.Kind.LANGUAGE -> R.string.edit_language
+    EditorForm.Kind.LANGUAGE -> R.string.edit_languages
+    EditorForm.Kind.NATIVE_NAME -> R.string.edit_native_name
+    EditorForm.Kind.CITIZENSHIP -> R.string.edit_citizenship
 }
 
 /** The account's labels as chips. */

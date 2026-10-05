@@ -34,6 +34,7 @@ object SettingsText {
         "name_order" to Triple(R.string.set_name_order_title, R.string.set_name_order_summary, R.string.set_name_order_kw),
         "second_line" to Triple(R.string.set_second_line_title, R.string.set_second_line_summary, R.string.set_second_line_kw),
         "prefer_nickname" to Triple(R.string.set_prefer_nickname_title, R.string.set_prefer_nickname_summary, R.string.set_prefer_nickname_kw),
+        "native_names" to Triple(R.string.set_native_names_title, R.string.set_native_names_summary, R.string.set_native_names_kw),
         "swipe_actions" to Triple(R.string.set_swipe_actions_title, R.string.set_swipe_actions_summary, R.string.set_swipe_actions_kw),
         "avatar_style" to Triple(R.string.set_avatar_style_title, R.string.set_avatar_style_summary, R.string.set_avatar_style_kw),
         "reset_tips" to Triple(R.string.set_reset_tips_title, R.string.set_reset_tips_summary, R.string.set_reset_tips_kw),

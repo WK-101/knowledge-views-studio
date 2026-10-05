@@ -103,6 +103,8 @@ private fun fieldLabel(f: Field): String = stringResource(
         Field.PRONOUNS -> R.string.edit_pronouns
         Field.LANGUAGE -> R.string.edit_language
         Field.CUSTOM_FIELDS -> R.string.edit_custom_fields
+        Field.NATIVE_NAME -> R.string.edit_native_name
+        Field.CITIZENSHIP -> R.string.edit_citizenship
     },
 )
 

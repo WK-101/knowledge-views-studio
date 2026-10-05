@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.people.HandleLink
 import app.parley.common.people.Handles
+import app.parley.common.people.Languages
+import app.parley.common.people.NativeName
 import app.parley.common.people.RelationshipStatus
 import app.parley.data.HandleItem
 import app.parley.ui.Clipboard
@@ -125,6 +127,41 @@ fun HeaderName(name: String, modifier: Modifier = Modifier) {
             }
             .semantics { onLongClick(label = copyLabel) { Clipboard.copy(context, name); true } },
     )
+}
+
+/**
+ * The name in their own language under the header's name ("Иван Петров"), with its language as a small caption
+ * ("Russian"). Press and hold to copy it, like the name. The text is selectable for TalkBack as one line.
+ */
+@Composable
+internal fun NativeNameLine(name: NativeName) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val copyLabel = stringResource(R.string.main_copy)
+    val text = name.shown
+    val language = remember(name.language) { name.language.takeIf { it.isNotBlank() }?.let { Languages.display(it) }.orEmpty() }
+    val desc = if (language.isEmpty()) text else stringResource(R.string.detail_native_name_desc, language, text)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(top = Spacing.xxs)
+            .pointerInput(text) {
+                detectTapGestures(onLongPress = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    Clipboard.copy(context, text)
+                })
+            }
+            .semantics(mergeDescendants = true) {
+                contentDescription = desc
+                onLongClick(label = copyLabel) { Clipboard.copy(context, text); true }
+            },
+    ) {
+        // The script decides the direction (Arabic and Hebrew names read right to left in any layout).
+        Text(text, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        if (language.isNotEmpty()) {
+            Text(language, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+    }
 }
 
 /** A header line that opens something ("Married to Sam" opens Sam). */

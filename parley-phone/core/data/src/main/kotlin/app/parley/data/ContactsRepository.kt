@@ -41,6 +41,7 @@ import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
 import app.parley.common.AltCalendar
 import app.parley.common.people.Handles
+import app.parley.common.people.NativeNames
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
@@ -460,6 +461,19 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             out
         }.orEmpty()
 
+    /** The contact's name in their own language ([NativeNames]: a labelled nickname row), for the call screen; null when none. */
+    fun nativeNameOf(contactId: Long): String? =
+        cr.safeQuery(
+            Data.CONTENT_URI, arrayOf(Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6),
+            "${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), Nickname.CONTENT_ITEM_TYPE), Data._ID,
+        )?.use { c ->
+            val cols = listOf(Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6)
+            generateSequence { if (c.moveToNext()) c else null }
+                .map { row -> cols.associateWith { row.getString(cols.indexOf(it)) } }
+                .firstOrNull { NativeNames.isRow(it[Data.DATA2], it[Data.DATA3]) }
+                ?.let { v -> NativeNames.fromRow { v[it] }.shown.ifEmpty { null } }
+        }
+
     /** (company, job title) of [contactId]'s first organization row, or null. */
     /** The contact's pronouns (Parley's row, [Mime.PRONOUNS]), for the call screen; null when it has none. */
     fun pronounsOf(contactId: Long): String? =
@@ -606,11 +620,25 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                         nameId = id, given = s(3), family = s(4), prefix = s(5), middle = s(6), suffix = s(7),
                         phoneticGiven = s(8), phoneticFamily = s(10), phoneticMiddle = s(9),
                     )
-                    Nickname.CONTENT_ITEM_TYPE -> if (base.nicknameId == null) base = base.copy(nicknameId = id, nickname = s(2))
+                    // A nickname labelled "Name in Russian" is the name in their language, not a nickname (NativeNames).
+                    Nickname.CONTENT_ITEM_TYPE -> if (NativeNames.isRow(c.getString(3), c.getString(4))) {
+                        if (base.nativeNameId == null) {
+                            val cols = mapOf(Data.DATA1 to 2, Data.DATA3 to 4, Data.DATA4 to 5, Data.DATA5 to 6, Data.DATA6 to 7)
+                            base = base.copy(nativeNameId = id, nativeName = NativeNames.fromRow { col -> cols[col]?.let { c.getString(it) } })
+                        }
+                    } else if (base.nicknameId == null) {
+                        base = base.copy(nicknameId = id, nickname = s(2))
+                    }
                     Mime.PRONOUNS -> if (base.pronounsId == null) base = base.copy(pronounsId = id, pronouns = s(2))
                     // Parley's rows for RFC 9554's name parts and the language, and custom fields (ExtraRows).
                     Mime.NAME_PARTS -> if (base.namePartsId == null) base = base.copy(namePartsId = id, secondSurname = s(2), generation = s(3))
-                    Mime.LANGUAGE -> if (base.languageId == null) base = base.copy(languageId = id, language = s(2))
+                    // One row per language, in the order written (the editor writes the one to use with them first).
+                    Mime.LANGUAGE -> if (s(2).isNotBlank() && base.languages.none { it.equals(s(2).trim(), ignoreCase = true) }) {
+                        base = base.copy(languageIds = base.languageIds + id, languages = base.languages + s(2).trim())
+                    }
+                    Mime.CITIZENSHIP -> if (s(2).isNotBlank() && s(2).trim() !in base.citizenships) {
+                        base = base.copy(citizenshipIds = base.citizenshipIds + id, citizenships = base.citizenships + s(2).trim())
+                    }
                     Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD -> customs += CustomFieldItem(id, s(2), s(3), c.getString(1))
                     Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) {
                         base = base.copy(orgId = id, company = s(2), title = s(5), department = s(6), jobDescription = s(7), officeLocation = s(10))
@@ -1342,6 +1370,7 @@ private val FIELD_NAMES: Map<String, String> = mapOf(
     Mime.PRONOUNS to "Pronouns",
     Mime.NAME_PARTS to "Name",
     Mime.LANGUAGE to "Language",
+    Mime.CITIZENSHIP to "Citizenship",
     Mime.CUSTOM_FIELD to "Custom fields",
     Mime.GOOGLE_CUSTOM_FIELD to "Custom fields",
     Organization.CONTENT_ITEM_TYPE to "Company",

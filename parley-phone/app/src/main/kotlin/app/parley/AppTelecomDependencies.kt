@@ -135,12 +135,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // Job and company under the name.
                 val org = async { c.contacts.organization(it.contactId) }
                 val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
+                val nativeName = async { runCatching { c.contacts.nativeNameOf(it.contactId) }.getOrNull() }
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
                 val memory = async { it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() } }
                 val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
                 val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
-                CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await()) to choices.await()
+                CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await()) to choices.await()
             }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
             val photo = showsPhoto(it.lookupKey)
@@ -152,6 +153,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 memory = parts.memory,
                 memoryPrompt = cfg.memoryPrompt,
                 pronouns = parts.pronouns,
+                nativeName = parts.nativeName,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
                 favourite = it.starred,
             )
@@ -168,7 +170,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),
                 card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
-                pronouns = card?.pronouns, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
+                pronouns = card?.pronouns, nativeName = card?.nativeName, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
                 favourite = info.starred,
                 // Its own ringtone reaches Parley's ringer through screening already.
             )
@@ -183,6 +185,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val memory: CallerMemory?,
         /** The "Family, Given" name, read only when names show last name first. */
         val alternative: String?,
+        /** Their name in their own language. */
+        val nativeName: String? = null,
     )
 
     /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */

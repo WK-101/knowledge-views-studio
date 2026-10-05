@@ -151,6 +151,7 @@ import app.parley.ui.people.AvatarStyleSetting
 import app.parley.ui.people.CrashReportsRow
 import app.parley.ui.people.ExportAccountRow
 import app.parley.ui.people.PeopleRoutes
+import app.parley.ui.people.NativeNamesRow
 import app.parley.ui.people.PreferNicknameRow
 import app.parley.ui.people.SecondLineRow
 import app.parley.ui.people.SwipeSettings
@@ -205,6 +206,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
         item("avatar_style") { AvatarStyleSetting(vm) }
         item("second_line") { SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
         item("prefer_nickname") { PreferNicknameRow(vm, Icons.Rounded.Badge) }
+        item("native_names") { NativeNamesRow(vm, Icons.Rounded.Translate) }
     }
 }
 

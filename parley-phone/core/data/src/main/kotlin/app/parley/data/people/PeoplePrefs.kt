@@ -29,6 +29,8 @@ import org.json.JSONObject
 data class PeopleSettings(
     val secondLine: SecondLineMode = SecondLineMode.NONE,
     val preferNickname: Boolean = false,
+    /** Lists show a contact's name in their own language under their name, when one is saved ([app.parley.common.people.PersonExtra.nativeName]). */
+    val nativeNames: Boolean = false,
     val favoriteSort: FavoriteSort = FavoriteSort.CUSTOM,
     /** Custom favourites order, as lookup keys. */
     val favoriteOrder: List<String> = emptyList(),
@@ -94,6 +96,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         return PeopleSettings(
             secondLine = this[K.secondLine]?.let { v -> SecondLineMode.entries.firstOrNull { it.name == v } } ?: d.secondLine,
             preferNickname = this[K.nickname] ?: d.preferNickname,
+            nativeNames = this[K.nativeNames] ?: d.nativeNames,
             favoriteSort = this[K.favSort]?.let { v -> FavoriteSort.entries.firstOrNull { it.name == v } } ?: d.favoriteSort,
             favoriteOrder = this[K.favOrder]?.split(SEP)?.filter { it.isNotEmpty() } ?: d.favoriteOrder,
             favoriteColumns = this[K.columns] ?: d.favoriteColumns,
@@ -118,6 +121,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
     private fun MutablePreferences.write(s: PeopleSettings) {
         this[K.secondLine] = s.secondLine.name
         this[K.nickname] = s.preferNickname
+        this[K.nativeNames] = s.nativeNames
         this[K.favSort] = s.favoriteSort.name
         this[K.favOrder] = s.favoriteOrder.joinToString(SEP)
         this[K.columns] = s.favoriteColumns
@@ -137,6 +141,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
     private object K {
         val secondLine = stringPreferencesKey("second_line")
         val nickname = booleanPreferencesKey("prefer_nickname")
+        val nativeNames = booleanPreferencesKey("native_names")
         val favSort = stringPreferencesKey("favorite_sort")
         val favOrder = stringPreferencesKey("favorite_order")
         val columns = intPreferencesKey("favorite_columns")

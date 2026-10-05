@@ -72,7 +72,7 @@ internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext)
 internal fun AboutSections(sections: PageSections, ctx: ContactPageContext) {
     DatesSection(sections, ctx)
     AboutSection(sections, ctx)
-    // Custom fields, the language, RFC 9554's name and address parts.
+    // Custom fields, the languages and citizenship, RFC 9554's name and address parts.
     val d = ctx.d
     val resources = LocalResources.current
     val more = remember(d) { moreFacts(resources, d) }

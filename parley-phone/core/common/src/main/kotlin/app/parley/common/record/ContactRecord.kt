@@ -104,10 +104,16 @@ object Mime {
      */
     const val LANGUAGE = "vnd.android.cursor.item/vnd.parley.language"
 
+    /**
+     * A country the person is a citizen of: DATA1 its ISO 3166 code ("PT"), one row per country (dual citizenship is
+     * two rows). Personal data: shown on the contact page only, never on call screens ([app.parley.common.people.Citizenship]).
+     */
+    const val CITIZENSHIP = "vnd.android.cursor.item/vnd.parley.citizenship"
+
     /** Kinds Parley shows/edits; everything else is preserved but read-only. */
     val CORE = setOf(
         NAME, PHONE, EMAIL, POSTAL, ORG, NICKNAME, NOTE, WEBSITE, EVENT, IM, RELATION, SIP, PHOTO, GROUP, PRONOUNS,
-        CUSTOM_FIELD, GOOGLE_CUSTOM_FIELD, NAME_PARTS, LANGUAGE,
+        CUSTOM_FIELD, GOOGLE_CUSTOM_FIELD, NAME_PARTS, LANGUAGE, CITIZENSHIP,
     )
 }
 

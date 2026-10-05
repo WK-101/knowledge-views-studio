@@ -3,6 +3,27 @@ package app.parley.ui.contact
 import android.content.res.Resources
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import app.parley.common.people.Citizenship
+import app.parley.common.people.NativeName
+import app.parley.common.people.Scripts
+import app.parley.ui.ParleyShapes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -34,14 +55,16 @@ import app.parley.common.AltCalendar
 import app.parley.common.people.AddressParts
 import app.parley.common.people.Languages
 import app.parley.common.people.PhoneTypes
+import app.parley.data.ContactDetails
 import app.parley.data.CustomFieldItem
+import app.parley.data.messaging.Romanizer
 import app.parley.ui.FormRow
 import app.parley.ui.FormTokens
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.formFieldShape
 
-// The editor's rarer fields (custom fields, the language, Android's other phone types, the calendar a date follows,
+// The editor's rarer fields (custom fields, the languages, the name in their language, citizenship, Android's other phone types, the calendar a date follows,
 // RFC 9554's address parts), kept apart from ContactEditScreen. See docs/EDITOR_DESIGN.md, "More fields".
 
 /** One custom field: its label and its value as two lines of one block, and "⊖". */
@@ -73,19 +96,133 @@ internal fun CustomFieldRow(
     }
 }
 
-/** The language to use with them: typed as a name or a tag; what will be stored is said under it. */
+/**
+ * The languages they speak, in one field ("Russian, English"): typed as names or tags, the first the one to use with
+ * them. What will be stored is said under it. The text is kept as typed while it is being edited (a trailing comma
+ * stays), and the list follows it.
+ */
 @Composable
-internal fun LanguageRow(value: String, locked: Boolean, focus: FocusRequester, icon: ImageVector, modifier: Modifier, onChange: (String) -> Unit) {
+internal fun LanguagesRow(values: List<String>, locked: Boolean, focus: FocusRequester, icon: ImageVector, modifier: Modifier, onChange: (List<String>) -> Unit) {
+    var text by rememberSaveable { mutableStateOf(Languages.join(values)) }
+    // Changed elsewhere (a merge, a paste): show the new list.
+    if (Languages.split(text) != values) text = Languages.join(values)
     // Matching a name scans every ISO language: only again when the text changes, not on every recomposition.
-    val stored = remember(value) { Languages.toStored(value) }
-    val shown = remember(stored) { Languages.display(stored) }
-    val support = if (value.isNotBlank() && shown != value.trim()) stringResource(R.string.edit_language_saved_as, shown)
-    else stringResource(R.string.edit_language_hint)
-    FormRow(icon, stringResource(R.string.edit_language), modifier.padding(bottom = FormTokens.groupGap)) {
+    val shown = remember(text) { Languages.displayList(Languages.toStoredList(Languages.split(text))) }
+    val support = if (text.isNotBlank() && shown != Languages.join(Languages.split(text))) stringResource(R.string.edit_language_saved_as, shown)
+    else stringResource(R.string.edit_languages_hint)
+    FormRow(icon, stringResource(R.string.edit_languages), modifier.padding(bottom = FormTokens.groupGap)) {
         EditorField(
-            stringResource(R.string.edit_language), value, shape = formFieldShape(0, 1), cap = KeyboardCapitalization.Words,
+            stringResource(R.string.edit_languages), text, shape = formFieldShape(0, 1), cap = KeyboardCapitalization.Words,
             locked = locked, focus = focus, support = support,
-        ) { onChange(it) }
+        ) {
+            text = it
+            onChange(Languages.split(it))
+        }
+    }
+}
+
+/**
+ * The name in their own language, under the name: the name as they write it, its language (with the one its script
+ * suggests offered as a chip), and on request its first and last name. "⊖" removes it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun NativeNameRow(name: NativeName, locked: Boolean, focus: FocusRequester, onChange: (NativeName) -> Unit, onRemove: () -> Unit) {
+    var parts by rememberSaveable { mutableStateOf(false) }
+    val showParts = parts || name.given.isNotBlank() || name.family.isNotBlank()
+    val lines = if (showParts) 4 else 2
+    val stored = remember(name.language) { Languages.toStored(name.language) }
+    val languageShown = remember(stored) { Languages.display(stored) }
+    val suggested = remember(name.full, name.given, name.family) { Scripts.suggestLanguage(name.shown) }
+    FormRow(
+        Icons.Rounded.Translate, stringResource(R.string.edit_native_name), Modifier.padding(top = FormTokens.groupGap),
+        end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_native_name), onRemove) } } else null,
+    ) {
+        EditorField(
+            stringResource(R.string.edit_native_name_full), name.full, shape = formFieldShape(0, lines), cap = KeyboardCapitalization.Words,
+            locked = locked, focus = focus, support = stringResource(R.string.edit_native_name_hint),
+        ) { onChange(name.copy(full = it)) }
+        if (showParts) {
+            Spacer(Modifier.height(FormTokens.segmentGap))
+            EditorField(
+                stringResource(R.string.edit_native_name_given), name.given, shape = formFieldShape(1, lines), cap = KeyboardCapitalization.Words, locked = locked,
+            ) { onChange(name.copy(given = it)) }
+            Spacer(Modifier.height(FormTokens.segmentGap))
+            EditorField(
+                stringResource(R.string.edit_native_name_family), name.family, shape = formFieldShape(2, lines), cap = KeyboardCapitalization.Words, locked = locked,
+            ) { onChange(name.copy(family = it)) }
+        }
+        Spacer(Modifier.height(FormTokens.segmentGap))
+        EditorField(
+            stringResource(R.string.edit_native_language), name.language, shape = formFieldShape(lines - 1, lines), cap = KeyboardCapitalization.Words,
+            locked = locked,
+            support = if (name.language.isNotBlank() && languageShown != name.language.trim()) stringResource(R.string.edit_language_saved_as, languageShown) else null,
+        ) { onChange(name.copy(language = it)) }
+        val offer = suggested?.takeIf { !locked && name.language.isBlank() }
+        if (offer != null || (!showParts && !locked)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                offer?.let { tag ->
+                    AssistChip(
+                        onClick = { onChange(name.copy(language = tag)) },
+                        label = { Text(stringResource(R.string.edit_native_language_use, Languages.display(tag))) },
+                        shape = ParleyShapes.pill,
+                    )
+                }
+                if (!showParts && !locked) {
+                    AssistChip(onClick = { parts = true }, label = { Text(stringResource(R.string.edit_native_name_parts)) }, shape = ParleyShapes.pill)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Under the name, when it helps: "Add an English spelling" for a name typed in another script (the typed name becomes
+ * the name in their language, and the main name its Latin spelling, ready to edit), or "Add name in their language"
+ * when they have a language. Nothing otherwise: the "Add" chips still offer the field.
+ */
+@Composable
+internal fun NativeNameOffer(composedName: String, hasLanguages: Boolean, onSpell: () -> Unit, onAdd: () -> Unit) {
+    val nonLatin = remember(composedName) { Scripts.isNonLatin(composedName) }
+    if (!nonLatin && !hasLanguages) return
+    Box(Modifier.padding(start = FormTokens.gutter - 12.dp, top = 4.dp)) {
+        if (nonLatin) {
+            TextButton(onSpell, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.edit_english_spelling)) }
+        } else {
+            TextButton(onAdd, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.edit_native_name_offer)) }
+        }
+    }
+}
+
+/**
+ * The countries they are a citizen of, as chips (each removes itself), and "Add a country" with the country picker.
+ * Stored as ISO codes, shown by name. Never shown on a call screen, which the line under it says.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun CitizenshipRow(codes: List<String>, locked: Boolean, modifier: Modifier, onAdd: () -> Unit, onRemove: (String) -> Unit) {
+    FormRow(Icons.Rounded.Flag, stringResource(R.string.edit_citizenship), modifier.padding(bottom = FormTokens.groupGap)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(min = FormTokens.fieldHeight)) {
+            codes.forEach { code ->
+                val country = Citizenship.display(code)
+                val remove = stringResource(R.string.edit_remove_citizenship, country)
+                InputChip(
+                    selected = false, enabled = !locked, onClick = { onRemove(code) }, label = { Text(country) },
+                    trailingIcon = { Icon(Icons.Rounded.Close, remove, Modifier.size(InputChipDefaults.IconSize)) },
+                    shape = ParleyShapes.pill,
+                )
+            }
+            if (!locked) {
+                AssistChip(
+                    onClick = onAdd, label = { Text(stringResource(R.string.edit_citizenship_add)) },
+                    leadingIcon = { Icon(Icons.Rounded.Add, null, Modifier.size(AssistChipDefaults.IconSize)) }, shape = ParleyShapes.pill,
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.edit_citizenship_hint), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+        )
     }
 }
 
@@ -156,3 +293,17 @@ internal fun calendarName(res: Resources, c: AltCalendar?): String = res.getStri
 /** "Chinese lunar calendar" for a date kept by another calendar; null for a Gregorian one. */
 internal fun calendarLine(res: Resources, key: String?): String? =
     AltCalendar.byKey(key)?.let { res.getString(R.string.edit_calendar_named, calendarName(res, it)) }
+
+/**
+ * "Add an English spelling": the name typed in another script becomes the name in their language (with the language
+ * its script suggests), and each part of the main name its Latin spelling ("Иван" → "Ivan"), ready to edit.
+ */
+internal fun withEnglishSpelling(d: ContactDetails): ContactDetails {
+    fun spell(s: String) = if (Scripts.hasNonLatin(s)) Romanizer.spelling(s.trim()) ?: s else s
+    val language = Scripts.suggestLanguage(d.composedName).orEmpty()
+    val parts = NativeName(given = listOf(d.given, d.middle).filter { it.isNotBlank() }.joinToString(" ").trim(), family = d.family.trim(), language = language)
+    val native = parts.copy(full = parts.shown.ifEmpty { d.composedName })
+    return d.copy(
+        nativeName = native, prefix = spell(d.prefix), given = spell(d.given), middle = spell(d.middle), family = spell(d.family), suffix = spell(d.suffix),
+    )
+}

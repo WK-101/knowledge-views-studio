@@ -87,6 +87,7 @@ internal class CallUiMapper(
             wifi = d.hasProperty(Call.Details.PROPERTY_WIFI),
             videoAsVoice = s.videoOffered || incomingVideo(d),
             pronouns = found?.pronouns,
+            nativeName = found?.nativeName,
             autoAnswerAt = if (state == CallState.RINGING) s.autoAnswerAt else 0,
             subject = s.subject,
             urgent = s.urgent,

@@ -7,6 +7,7 @@ import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.common.people.ContactListSearch
 import app.parley.common.people.ContactSearch
+import app.parley.data.messaging.Romanizer
 import app.parley.common.people.Facet
 import app.parley.common.people.FacetChoice
 import app.parley.common.people.FacetChoices
@@ -127,7 +128,7 @@ class PeopleUi(
         contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, docs,
     ) { list, d ->
         list?.map { ct ->
-            val doc = d[ct.id] ?: ContactSearch.Builder(ct.id, countryIso).apply {
+            val doc = d[ct.id] ?: ContactSearch.Builder(ct.id, countryIso, latin = Romanizer).apply {
                 // A shown name that is really a number or an email isn't a name ("No name" filter).
                 if (ct.displayName.any { it.isLetter() } && '@' !in ct.displayName) name(ct.displayName) else shownName(ct.displayName)
                 ct.phones.forEach { number(it.number) }
@@ -236,7 +237,7 @@ class PeopleUi(
 
     /** Second line for each visible contact (collisions among visible names are resolved automatically). */
     val secondLines: StateFlow<Map<Long, String>> = combine(filtered, index, settings) { list, idx, s ->
-        SecondLines.compute(list.orEmpty(), idx.extras, s.secondLine) { Format.number(it, countryIso) }
+        SecondLines.compute(list.orEmpty(), idx.extras, s.secondLine, { Format.number(it, countryIso) }, nativeNames = s.nativeNames)
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Calls per contact over the loaded call history (for "Most called"). */

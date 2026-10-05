@@ -61,10 +61,13 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     val layout: StateFlow<KeypadLayout> = c.messaging.keypadLayoutChoice.map { c.messaging.effectiveLayout(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), c.messaging.effectiveLayout())
 
-    private fun keypadEntry(contact: ContactSummary, layout: KeypadLayout) = DialSearch.Entry(
-        contact,
-        T9.Encoded(contact.displayName, layout, Romanizer.syllables(contact.displayName), Romanizer.phonetic(contact.phoneticName)),
-    )
+    private fun keypadEntry(contact: ContactSummary, layout: KeypadLayout): DialSearch.Entry {
+        val syllables = Romanizer.syllables(contact.displayName)
+        // A name in another script (Cyrillic, Greek, Arabic…) is also found by its Latin spelling ("4826" finds Иван);
+        // Chinese, Japanese and Korean names go by their syllables instead. Spellings are cached, so this runs once a name.
+        val phonetic = Romanizer.phonetic(contact.phoneticName) ?: if (syllables == null) Romanizer.latin(contact.displayName) else null
+        return DialSearch.Entry(contact, T9.Encoded(contact.displayName, layout, syllables, phonetic))
+    }
 
     private val encoded = combine(directory.contacts, layout) { list, layout -> list.orEmpty().map { keypadEntry(it, layout) } }
         .flowOn(Dispatchers.Default)

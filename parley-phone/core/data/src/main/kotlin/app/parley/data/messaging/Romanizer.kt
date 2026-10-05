@@ -1,6 +1,8 @@
 package app.parley.data.messaging
 
 import android.icu.text.Transliterator
+import app.parley.common.people.Latinizer
+import app.parley.common.people.Scripts
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -10,14 +12,18 @@ import java.util.concurrent.ConcurrentHashMap
  * Each character is romanised on its own ("张三" → ["zhang", "san"]) and cached, so building the keypad index for
  * thousands of contacts transliterates each distinct character once. Characters with several readings get ICU's
  * most common one; the contact's phonetic name covers the rest.
+ *
+ * It also spells whole names of any script in Latin letters ([latin]: "Иван Петров" → "Ivan Petrov"), for the search
+ * index, the keypad and the editor's "Add an English spelling".
  */
-object Romanizer {
+object Romanizer : Latinizer {
     private val han by lazy { create("Han-Latin; Latin-ASCII") }
     private val hangul by lazy { create("Hangul-Latin; Latin-ASCII") }
     private val hiragana by lazy { create("Hiragana-Latin; Latin-ASCII") }
     private val katakana by lazy { create("Katakana-Latin; Latin-ASCII") }
     private val any by lazy { create("Any-Latin; Latin-ASCII") }
     private val cache = ConcurrentHashMap<Char, String>()
+    private val spelled = ConcurrentHashMap<String, String>()
 
     private fun create(id: String): Transliterator? = try {
         Transliterator.getInstance(id)
@@ -46,6 +52,30 @@ object Romanizer {
         if (n.all { it.code < 0x250 }) return n
         return transliterate(any, n)?.trim()?.takeIf { it.isNotEmpty() }
     }
+
+    /**
+     * [text] in Latin letters (ICU's Any-Latin, then plain ASCII: "Иван" → "Ivan", "Γιώργος" → "Giorgos", "王伟" →
+     * "wang wei"), or null when it has nothing outside the Latin script. Cached by text, so rebuilding the search
+     * index transliterates each name once.
+     */
+    override fun latin(text: String): String? {
+        val t = text.trim()
+        if (t.isEmpty() || !Scripts.hasNonLatin(t)) return null
+        spelled[t]?.let { return it.ifEmpty { null } }
+        val out = transliterate(any, t)?.replace(SPACES, " ")?.trim().orEmpty()
+        if (spelled.size > SPELLED_MAX) spelled.clear()
+        spelled[t] = out
+        return out.ifEmpty { null }
+    }
+
+    /**
+     * A name's Latin spelling as a person would write it: each word capitalised ("Иван петров" → "Ivan Petrov"), for the
+     * editor's suggestion; null when there is nothing to spell.
+     */
+    fun spelling(text: String): String? = latin(text)?.split(' ')?.joinToString(" ") { w -> w.replaceFirstChar { it.titlecase() } }
+
+    private const val SPELLED_MAX = 20_000
+    private val SPACES = Regex("\\s+")
 
     private fun transliterate(t: Transliterator?, s: String): String? = t?.let { synchronized(it) { runCatching { it.transliterate(s) }.getOrNull() } }
 

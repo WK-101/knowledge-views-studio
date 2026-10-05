@@ -108,6 +108,30 @@
     <string name="edit_language">Language</string>
     <string name="edit_language_hint">The language to use with them, like Spanish or pt-BR</string>
     <string name="edit_language_saved_as">Saved as %1$s</string>
+    <!-- Several languages in one field, in order: the first is the one to use with them. -->
+    <string name="edit_languages">Languages</string>
+    <string name="edit_languages_hint">The languages they speak, like Russian, English. The first is the one to use with them</string>
+    <!-- The name in their own language and script ("Иван Петров" beside "Ivan Petrov"), kept beside the everyday name. -->
+    <string name="edit_native_name">Name in their language</string>
+    <string name="edit_native_name_full">Name as they write it</string>
+    <string name="edit_native_name_hint">Shown under their name, like Иван Петров or 王伟</string>
+    <string name="edit_native_name_given">First name in their language</string>
+    <string name="edit_native_name_family">Last name in their language</string>
+    <string name="edit_native_name_parts">Add first and last name</string>
+    <string name="edit_native_language">Its language</string>
+    <!-- %1$s: the language the name's script suggests ("Russian"). -->
+    <string name="edit_native_language_use">Use %1$s</string>
+    <string name="edit_remove_native_name">Remove name in their language</string>
+    <!-- Offered under the name when it is in another script, or when the contact has a language. -->
+    <string name="edit_native_name_offer">Add name in their language</string>
+    <!-- Offered when the name was typed in another script: the typed name moves to "Name in their language" and the
+         main name becomes its Latin spelling, which they can edit. -->
+    <string name="edit_english_spelling">Add an English spelling</string>
+    <string name="edit_citizenship">Citizenship</string>
+    <string name="edit_citizenship_add">Add a country</string>
+    <string name="edit_citizenship_hint">Only shown on their page, never on the call screen</string>
+    <!-- %1$s: a country ("Portugal"). -->
+    <string name="edit_remove_citizenship">Remove %1$s</string>
     <string name="edit_phone_more_types">More types…</string>
     <string name="edit_phone_types_title">Number type</string>
     <string name="edit_calendar">Calendar</string>

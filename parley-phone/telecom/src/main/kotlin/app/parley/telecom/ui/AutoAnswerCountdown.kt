@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.common.calls.AutoAnswer
 import app.parley.telecom.CallManager
@@ -89,6 +91,15 @@ internal fun AutoAnswerCountdown(call: CallUi) {
 }
 
 private const val TICK_MS = 200L
+
+/** The caller's name in their own language ("Иван Петров") under their name on the call screen. */
+@Composable
+internal fun CallerNativeName(name: String) {
+    Text(
+        name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+    )
+}
 
 /** The caller's pronouns ("she/her") under their name on the call screen, quiet like the lines below it. */
 @Composable

@@ -87,6 +87,8 @@ private fun fieldValueLabel(facet: Facet, key: String, choices: List<FacetChoice
     return when (facet) {
         Facet.BIRTHDAY_MONTH -> stringResource(R.string.cs_birthday_in, monthName(key))
         Facet.CUSTOM_LABEL -> stringResource(R.string.cs_custom_value, display)
+        Facet.LANGUAGE -> stringResource(R.string.cs_speaks, display)
+        Facet.CITIZENSHIP -> stringResource(R.string.cs_citizen_of, display)
         Facet.HAS -> stringResource(
             when (key) {
                 ContactFacets.HAS_EMAIL -> R.string.cs_has_email
@@ -106,7 +108,7 @@ private fun monthName(key: String): String =
 
 /**
  * Every filter of the Contacts list in one sheet: private and temporary, labels and account (the same filters as the
- * row's chips), and the fields (country, city, company, birthday month, relation, language, custom field, what a
+ * row's chips), and the fields (country, citizenship, city, company, birthday month, relation, language, custom field, what a
  * contact has or is missing). Only values some contact has are offered. Changes apply at once.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,6 +129,7 @@ private fun ContactFilterSheet(vm: AppViewModel, vaultHidden: Boolean, onDismiss
             KeptGroup(vm, vaultHidden)
             LabelAndAccountGroups(vm)
             ValueGroup(stringResource(R.string.cs_group_country), Facet.COUNTRY, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.cs_group_citizenship), Facet.CITIZENSHIP, choices, fields::has, ::toggle)
             ValueGroup(stringResource(R.string.cs_group_place), Facet.PLACE, choices, fields::has, ::toggle)
             ValueGroup(stringResource(R.string.cs_group_company), Facet.COMPANY, choices, fields::has, ::toggle)
             BirthdayGroup(choices[Facet.BIRTHDAY_MONTH].orEmpty(), fields::has, ::toggle)

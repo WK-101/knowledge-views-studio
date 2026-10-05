@@ -108,6 +108,8 @@ data class VaultCallerCard(
     val photoUri: String?,
     /** "she/her", shown beside the name. */
     val pronouns: String? = null,
+    /** Their name in their own language ("Иван Петров"), under the name. */
+    val nativeName: String? = null,
 )
 
 data class PrivateCall(
@@ -550,6 +552,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.context.trim().ifEmpty { null }?.let { put("ctx", it) }
                     shown.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
                     shown.pronouns.trim().ifEmpty { null }?.let { put(C_PRONOUNS, it) }
+                    shown.nativeName.shown.ifEmpty { null }?.let { put(CallerIdCopy.C_NATIVE_NAME, it) }
                 }
                 // When it was last saved, so the newest of two entries sharing a number wins.
                 .put("u", System.currentTimeMillis())
@@ -903,6 +906,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             VaultCallerCard(
                 o.optString("name"), o.optString("sub").ifEmpty { null }, o.optString("ctx").ifEmpty { null },
                 o.optString("note").ifEmpty { null }, photoUri(id), pronouns = o.optString(C_PRONOUNS).ifEmpty { null },
+                nativeName = o.optString(CallerIdCopy.C_NATIVE_NAME).ifEmpty { null },
             )
         }.getOrNull()
     }

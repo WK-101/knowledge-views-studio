@@ -45,6 +45,8 @@ data class CallerDisplay(
     val memoryPrompt: Boolean = false,
     /** "she/her", shown beside the name. */
     val pronouns: String? = null,
+    /** Their name in their own language ("Иван Петров"), shown as a second line under the name. */
+    val nativeName: String? = null,
     /** The caller's haptic caller ID ([app.parley.common.calls.CallerHaptics] spec): their own, else a label's. */
     val vibration: String? = null,
     /** The person, or one of their labels, is chosen for auto-answer. */

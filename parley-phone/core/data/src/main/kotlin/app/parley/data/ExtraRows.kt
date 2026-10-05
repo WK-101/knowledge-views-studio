@@ -4,14 +4,17 @@ import android.content.ContentValues
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.Data
 import app.parley.common.AltCalendar
+import app.parley.common.people.Citizenship
 import app.parley.common.people.CustomFields
 import app.parley.common.people.Languages
+import app.parley.common.people.NativeName
+import app.parley.common.people.NativeNames
 import app.parley.common.record.Mime
 
 /**
- * The editor's rows beyond Android's usual kinds, for [ContactsRepository.save]: RFC 9554's name parts and the
- * language (Parley's rows), custom fields (Google's kind in a Google account, Parley's elsewhere) and dates with the
- * calendar they recur by. Like the rest of a save, only rows that really changed are written.
+ * The editor's rows beyond Android's usual kinds, for [ContactsRepository.save]: RFC 9554's name parts, the
+ * languages and citizenship (Parley's rows), the name in their own language (a labelled nickname row), custom fields
+ * (Google's kind in a Google account, Parley's elsewhere) and dates with the calendar they recur by. Like the rest of a save, only rows that really changed are written.
  */
 internal object ExtraRows {
     class Writer(
@@ -36,13 +39,64 @@ internal object ExtraRows {
             original != null && t(original.secondSurname) == t(edited.secondSurname) && t(original.generation) == t(edited.generation), w,
         )
         // A language's name as typed ("Spanish") is kept as its tag ("es"), which other apps and cards read.
-        val language = Languages.toStored(edited.language)
-        single(
-            original?.languageId, Mime.LANGUAGE, language.isBlank(), ContentValues().apply { put(Data.DATA1, language) },
-            // An untouched value isn't rewritten, even one another app stored as a name.
-            original != null && (t(original.language) == t(edited.language) || t(original.language) == language), w,
-        )
+        languages(original, edited, w)
+        citizenships(original, edited, w)
+        nativeName(original, edited, w)
         customFields(original?.customFields.orEmpty(), edited.customFields, accountType, w)
+    }
+
+    /**
+     * The languages they speak, one row each in order: the rows read are written again in place (so the first stays
+     * the first row), extra ones added, and left-over ones removed. With two or more, the first is marked primary,
+     * which a card writes as `PREF=1`. An untouched value isn't rewritten, even one another app stored as a name.
+     */
+    private fun languages(original: ContactDetails?, edited: ContactDetails, w: Writer) {
+        val typed = edited.languages.map(::t).filter { it.isNotEmpty() }
+        val stored = typed.map { Languages.toStored(it) }
+        val ids = original?.languageIds.orEmpty()
+        val before = original?.languages.orEmpty().map(::t)
+        val primaryChanged = (before.size >= 2) != (stored.size >= 2)
+        stored.forEachIndexed { i, tag ->
+            val v = ContentValues().apply {
+                put(Data.DATA1, tag)
+                if (stored.size >= 2) put(Data.IS_PRIMARY, if (i == 0) 1 else 0) else put(Data.IS_PRIMARY, 0)
+            }
+            val id = ids.getOrNull(i)
+            val same = before.getOrNull(i).let { it != null && (it == typed[i] || it == tag) }
+            when {
+                id == null -> w.insert(Mime.LANGUAGE, v)
+                !same || primaryChanged -> w.update(id, Mime.LANGUAGE, v)
+            }
+        }
+        ids.drop(stored.size).forEach { w.delete(it, Mime.LANGUAGE) }
+    }
+
+    /** The countries they are a citizen of, one row each (ISO codes), written like [languages]. */
+    private fun citizenships(original: ContactDetails?, edited: ContactDetails, w: Writer) {
+        val codes = edited.citizenships.mapNotNull { Citizenship.toCode(it) ?: t(it).ifEmpty { null } }.distinct()
+        val ids = original?.citizenshipIds.orEmpty()
+        val before = original?.citizenships.orEmpty().map(::t)
+        codes.forEachIndexed { i, code ->
+            val id = ids.getOrNull(i)
+            val v = ContentValues().apply { put(Data.DATA1, code) }
+            when {
+                id == null -> w.insert(Mime.CITIZENSHIP, v)
+                before.getOrNull(i) != code -> w.update(id, Mime.CITIZENSHIP, v)
+            }
+        }
+        ids.drop(codes.size).forEach { w.delete(it, Mime.CITIZENSHIP) }
+    }
+
+    /**
+     * The name in their own language: a nickname row labelled "Name in Russian" ([NativeNames]), so it syncs and other
+     * apps show it, while the main name stays the everyday one.
+     */
+    private fun nativeName(original: ContactDetails?, edited: ContactDetails, w: Writer) {
+        val n = edited.nativeName
+        val before = original?.nativeName
+        fun key(x: NativeName?) = x?.let { listOf(t(it.shown), t(it.given), t(it.family), Languages.toStored(it.language)) }
+        val values = ContentValues().apply { NativeNames.rowValues(n).forEach { (k, v) -> put(k, v) } }
+        single(original?.nativeNameId, Mime.NICKNAME, n.isBlank, values, original != null && key(before) == key(n), w)
     }
 
     private fun single(id: Long?, mime: String, blank: Boolean, values: ContentValues, same: Boolean, w: Writer) {

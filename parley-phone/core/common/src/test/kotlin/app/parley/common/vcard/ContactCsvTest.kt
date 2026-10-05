@@ -28,7 +28,9 @@ class ContactCsvTest {
         val h = ContactCsv.header(ContactCsv.Slots(2, 1, 1))
         assertEquals(listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title", "Department"), h.take(9))
         assertEquals(listOf("Phone 1 Type", "Phone 1 Value", "Phone 2 Type", "Phone 2 Value", "Email 1 Type", "Email 1 Value"), h.subList(9, 15))
-        assertEquals(listOf("Birthday", "Notes", "Groups"), h.takeLast(3))
+        assertEquals(
+            listOf("Birthday", "Notes", "Groups", "Name in their language", "Name language", "Languages", "Citizenship"), h.takeLast(7),
+        )
     }
 
     @Test fun export_then_import_keeps_every_csv_field() {
