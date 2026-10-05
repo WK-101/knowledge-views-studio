@@ -58,16 +58,19 @@ class MenusTest {
         assertEquals(MenuEntry.Action(ContactMenu.Action.BLOCK_NUMBERS), top[2])
         assertEquals(MenuEntry.Action(ContactMenu.Action.DELETE), top.last())
         assertEquals(listOf(MenuGroup.SHARE, MenuGroup.PRIVACY, MenuGroup.MORE), top.filterIsInstance<MenuEntry.Group<*>>().map { it.group })
-        // 16 actions (with Remind me to call and Keep a case file) in 7 entries; Version history is under More….
+        // 17 actions (with Remind me to call, Keep a case file and Archive) in 7 entries; Version history is under More….
         assertEquals(7, top.size)
-        assertEquals(16, actions(top).size)
+        assertEquals(17, actions(top).size)
         assertEquals(MenuEntry.Action(ContactMenu.Action.CASE_FILE), top[4])
-        // With a case file on the page, its card opens it: 15 actions in 6 entries.
+        // With a case file on the page, its card opens it: 16 actions in 6 entries.
         assertEquals(6, ContactMenu.build(ContactMenu.Facts(linked = true, caseShown = true)).size)
         val more = top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.MORE }
         assertTrue(ContactMenu.Action.VERSION_HISTORY in more.actions)
         // A blocked number: Unblock in Block's place.
         assertEquals(MenuEntry.Action(ContactMenu.Action.UNBLOCK_NUMBERS), ContactMenu.build(ContactMenu.Facts(blocked = true))[2])
+        // Archive is under Privacy… for a device contact; a private one is out of other apps already.
+        assertTrue(ContactMenu.Action.ARCHIVE in top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.PRIVACY }.actions)
+        assertTrue(ContactMenu.Action.ARCHIVE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
         // A private contact offers Make visible instead of Make private.
         assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
         assertTrue(ContactMenu.Action.MAKE_PRIVATE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))

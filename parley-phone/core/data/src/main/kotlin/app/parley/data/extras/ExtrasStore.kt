@@ -11,6 +11,8 @@ import app.parley.common.backup.PersonRefs
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
 import app.parley.common.extras.DndStars
+import app.parley.common.people.Chapter
+import app.parley.common.people.Chapters
 import app.parley.common.people.ContactRef
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
@@ -34,7 +36,7 @@ import java.util.Locale
 
 /**
  * Extras kept in their own small store (like the Circle's config): X2 the last "Who's in…" city, X3 label
- * policies, X4 the simple-mode setup. All of it travels in the encrypted backup ([backupExtras]).
+ * policies and chapters (labels with an end), X4 the simple-mode setup. All of it travels in the encrypted backup ([backupExtras]).
  */
 class ExtrasStore(private val c: DataContainer) {
     private val prefs = c.appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -60,6 +62,7 @@ class ExtrasStore(private val c: DataContainer) {
      */
     suspend fun labelsRenamed(renames: Map<String, String>) {
         updatePolicies { LabelPolicies.renamed(it, renames) }
+        updateChapters { Chapters.renamed(it, renames) }
         val dnd = dndLabels()
         applyRelease(DndStars.renamed(_dndStars.value, renames, dnd))
     }
@@ -67,7 +70,23 @@ class ExtrasStore(private val c: DataContainer) {
     /** Labels were deleted: their policies go, and the contacts Parley starred only for them are unstarred. */
     suspend fun labelsDeleted(titles: Set<String>) {
         updatePolicies { LabelPolicies.deleted(it, titles) }
+        updateChapters { Chapters.deleted(it, titles) }
         applyRelease(DndStars.release(_dndStars.value, titles))
+    }
+
+    // --- Chapters: labels with an end ---
+
+    private val _chapters = MutableStateFlow(Chapters.decode(prefs.getString(K_CHAPTERS, null)))
+
+    /** Labels (by title) given an end for a period of life ([Chapter]). */
+    val chapters: StateFlow<Map<String, Chapter>> = _chapters.asStateFlow()
+
+    @Synchronized
+    fun updateChapters(f: (Map<String, Chapter>) -> Map<String, Chapter>) {
+        val next = f(_chapters.value)
+        if (next == _chapters.value) return
+        _chapters.value = next
+        prefs.edit().apply { if (next.isEmpty()) remove(K_CHAPTERS) else putString(K_CHAPTERS, Chapters.encode(next)) }.apply()
     }
 
     // --- A person's haptic caller ID and auto-answer ---
@@ -390,6 +409,8 @@ class ExtrasStore(private val c: DataContainer) {
             // People by name and number: lookup keys mean nothing on another phone (the simple home resolves them).
             put(X_SIMPLE, SimpleSetup.encode(_simple.value.copy(people = _simple.value.people.map { it.copy(lookupKey = null) })))
             lastTripCity?.let { put(X_TRIP, it) }
+            // Chapters' dates; who was in each label at its start is this phone's own.
+            if (_chapters.value.isNotEmpty()) put(X_CHAPTERS, Chapters.encode(Chapters.forBackup(_chapters.value)))
             // Device contacts' vibration and auto-answer travel with the contacts ([callerChoicesBackup]).
         }
 
@@ -403,6 +424,7 @@ class ExtrasStore(private val c: DataContainer) {
             values[X_DND_STARS]?.let { v -> updateDndStars { current -> DndStars.merge(current, DndStars.decode(v)) } }
             values[X_SIMPLE]?.let { v -> updateSimple { SimpleSetup.decode(v) } }
             values[X_TRIP]?.let { lastTripCity = it }
+            values[X_CHAPTERS]?.let { v -> updateChapters { current -> Chapters.merge(current, Chapters.decode(v)) } }
         }
     }
 
@@ -461,6 +483,7 @@ class ExtrasStore(private val c: DataContainer) {
         private const val K_SWAP = "handshake_swap"
         private const val K_DND_STARS = "dnd_stars_v1"
         private const val K_CALLER_CHOICES = "caller_choices_v1"
+        private const val K_CHAPTERS = "label_chapters"
 
         /** Read from older backups only (choices by lookup key). */
         private const val X_CALLER_CHOICES = "${BackupExtras.PREFIX}extras.callerChoices"
@@ -469,5 +492,6 @@ class ExtrasStore(private val c: DataContainer) {
         private const val X_SIMPLE = "${BackupExtras.PREFIX}extras.simple"
         private const val X_TRIP = "${BackupExtras.PREFIX}extras.tripCity"
         private const val X_DND_STARS = "${BackupExtras.PREFIX}extras.dndStars"
+        private const val X_CHAPTERS = "${BackupExtras.PREFIX}extras.chapters"
     }
 }

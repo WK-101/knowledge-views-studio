@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chapters: a label with an end, for a period of life. When it ends, Parley asks once what to do. -->
+    <string name="chapter_give_end">Give it an end</string>
+    <string name="chapter_give_end_text">For a period of life: a move, a hospital stay, a trip, a project. When it ends, Parley asks what to do with it.</string>
+    <string name="chapter_ends_on">Ends on %1$s</string>
+    <string name="chapter_last_day">Last day today</string>
+    <plurals name="chapter_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <plurals name="chapter_weeks_left">
+        <item quantity="one">%d week left</item>
+        <item quantity="other">%d weeks left</item>
+    </plurals>
+    <plurals name="chapter_months_left">
+        <item quantity="one">%d month left</item>
+        <item quantity="other">%d months left</item>
+    </plurals>
+    <string name="chapter_ended_short">Chapter ended</string>
+    <string name="chapter_change_end">Change the end</string>
+    <string name="chapter_end_now">End now</string>
+    <string name="chapter_remove_end">No end</string>
+    <string name="chapter_owner_only">Only the phone that started this shared label can give it an end.</string>
+    <string name="chapter_set_title">When does this chapter end?</string>
+    <string name="chapter_on_date">On a date</string>
+    <string name="chapter_pick_date">Pick a date</string>
+    <string name="chapter_after">After</string>
+    <string name="chapter_count">How many</string>
+    <string name="chapter_weeks">Weeks</string>
+    <string name="chapter_months">Months</string>
+    <string name="chapter_set">Set the end</string>
+    <string name="chapter_ended_title">“%1$s” has ended</string>
+    <string name="chapter_ended_text">What would you like to do with it? Nothing changes until you choose.</string>
+    <string name="chapter_keep">Keep the label as it is</string>
+    <plurals name="chapter_archive_added">
+        <item quantity="one">Archive the %d contact added for it</item>
+        <item quantity="other">Archive the %d contacts added for it</item>
+    </plurals>
+    <string name="chapter_remove_label">Remove the label (contacts stay)</string>
+    <plurals name="chapter_delete_temporary">
+        <item quantity="one">Delete the %d temporary contact made for it</item>
+        <item quantity="other">Delete the %d temporary contacts made for it</item>
+    </plurals>
+    <string name="chapter_kept">“%1$s” stays as it is</string>
+    <string name="chapter_notice_public">A chapter has ended</string>
+    <plurals name="chapter_notice_title">
+        <item quantity="one">%d chapter has ended</item>
+        <item quantity="other">%d chapters have ended</item>
+    </plurals>
+    <string name="chapter_notice_one">“%1$s” has ended</string>
+    <string name="chapter_notice_text">Open the label to choose what to do. Nothing changes until you do.</string>
+    <string name="chapter_in_list">%1$s · %2$s</string>
+</resources>

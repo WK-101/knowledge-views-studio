@@ -38,7 +38,7 @@ object ContactMenu {
         REMIND_TO_CALL,
         SHARE_FILE, SHOW_QR, SHARE_ENCRYPTED_QR,
         BLOCK_NUMBERS, UNBLOCK_NUMBERS,
-        MAKE_PRIVATE, MAKE_VISIBLE, DELETE_AUTOMATICALLY,
+        MAKE_PRIVATE, MAKE_VISIBLE, DELETE_AUTOMATICALLY, ARCHIVE,
         LOG_CHAT_OR_VISIT, CASE_FILE, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, SET_RINGTONE, ALLOW_SIMILAR_NUMBERS, SEPARATE,
         DELETE,
     }
@@ -67,7 +67,11 @@ object ContactMenu {
         add(Action.REMIND_TO_CALL, f.hasNumbers)
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
-        group(MenuGroup.PRIVACY, listOf(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY))?.let(::add)
+        // Archive: out of the lists and other apps, still named on calls (a private contact is out of other apps already).
+        group(
+            MenuGroup.PRIVACY,
+            listOfNotNull(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY, Action.ARCHIVE.takeIf { !f.isPrivate }),
+        )?.let(::add)
         // Any contact can have a case file (a bank saved under a person's name, a landlord): the seventh place at most.
         add(Action.CASE_FILE, f.hasNumbers && !f.caseShown)
         group(

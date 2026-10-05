@@ -93,6 +93,8 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         val offHours: OffHours,
         /** Contacts Parley had starred for these labels' "Allow through Do Not Disturb" (key → those labels). */
         val dndStars: Map<String, Set<String>> = emptyMap(),
+        /** The labels' chapters (an end given to them). */
+        val chapters: Map<String, app.parley.common.people.Chapter> = emptyMap(),
     )
 
     /** Everything that names [titles] now (read before they're deleted). */
@@ -105,6 +107,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
             safeWords = c.familySafety.storedSafeWords(titles),
             offHours = c.settings.current().screening.offHours,
             dndStars = c.extras.dndStars.value.mapValues { (_, l) -> l.intersect(titles) }.filterValues { it.isNotEmpty() },
+            chapters = LabelRefs.entriesOf(c.extras.chapters.value, titles),
         )
     }
 
@@ -115,6 +118,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.calling.update { LabelRefs.undoDeleteLimits(it, snapshot.limits) }
         prefs.update { it.copy(labelRingtones = LabelRefs.undoDeleteEntries(it.labelRingtones, snapshot.ringtones)) }
         c.extras.updatePolicies { LabelRefs.undoDeleteEntries(it, snapshot.policies) }
+        c.extras.updateChapters { LabelRefs.undoDeleteEntries(it, snapshot.chapters) }
         // Members starred for a label that lets people through Do Not Disturb are starred again, or the policy would
         // read "on" while Do Not Disturb silences them.
         val dnd = c.extras.policies.value.filterValues { it.allowThroughDnd }.keys

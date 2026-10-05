@@ -138,6 +138,23 @@ class ContactRecordStore(private val context: Context) {
     fun read(contactId: Long, fullPhoto: Boolean = true): ContactRecord? = readAll(listOf(contactId), fullPhoto).firstOrNull()
 
     /**
+     * [read] for a contact leaving the address book whole (into the vault or the archive): a full-resolution photo can be
+     * several MB, so one larger than [MAX_KEPT_PHOTO] is kept as its thumbnail and the stored copy stays small.
+     */
+    fun readCapped(contactId: Long): ContactRecord? {
+        val r = read(contactId, fullPhoto = true) ?: return null
+        val big = r.raws.any { raw -> raw.rows.any { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > MAX_KEPT_PHOTO } }
+        if (!big) return r
+        val thumbs = read(contactId, fullPhoto = false)?.raws.orEmpty().associateBy { it.rawId }
+        return r.copy(
+            raws = r.raws.map { raw ->
+                val thumb = thumbs[raw.rawId]?.rows?.firstOrNull { it.mimeType == Mime.PHOTO }
+                raw.copy(rows = raw.rows.mapNotNull { row -> if (row.mimeType == Mime.PHOTO && (row.blob?.size ?: 0) > MAX_KEPT_PHOTO) thumb else row })
+            },
+        )
+    }
+
+    /**
      * A contact as far as change detection needs it: its key, raw contacts and a [token] made of their
      * RawContacts.VERSION values. The provider bumps a raw contact's version on every change to it or its data, so
      * an unchanged token means the contact's content is unchanged (a relink changes the raw ids, so the token too).
@@ -764,6 +781,9 @@ class ContactRecordStore(private val context: Context) {
 
         /** Contacts read per query. */
         const val BATCH = 100
+
+        /** The largest photo a contact moved out of the address book keeps at full size ([readCapped]). */
+        const val MAX_KEPT_PHOTO = 512 * 1024
 
         /** Keeps each applyBatch well under the 1 MB binder transaction limit. */
         const val MAX_BATCH_BYTES = 400L * 1024

@@ -37,6 +37,27 @@ ContactVariants(storage, expiresAt) (what it is)
 - **Variants combine.** A private contact can be temporary and so can a device contact. Future variants (a work-profile
   contact, a SIM contact: read-only) fit the same shape: another storage, or another attribute.
 
+### Archived contacts
+
+An archived contact is out of Android's address book, so out of every list, search, picker and widget and out of
+other apps, and kept whole by Parley (`ArchiveStore`, core/data; rules in `Archive`, core/common). Unlike a private
+contact nothing is locked: its files in `files/archive` are sealed with the small-records key, which needs no unlock,
+so the call path names it while the phone is locked.
+
+- **Archive** (contact page › ⋮ › Privacy…, and a chapter's end) reads the lossless record the way Make private does
+  (`ContactRecordStore.readCapped`), keeps it, then removes the contact from the address book (`purgeForVault`), and
+  re-keys what Parley keeps about the person to `parley-archived:<id>` (`ContactRef.archivedKey`), a key the key sweep
+  never resolves through the address book. A temporary contact archived stops expiring.
+- **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"), missed-call
+  notifications, Recents, a number's history, Recall ("Archived contacts"), and screening, which counts an archived
+  caller as a saved contact. Hide private contacts and a duress session treat it like any saved contact.
+- **Unarchive** (Contacts › ⋮ › Archived) inserts the record back into the accounts it came from; when one of them
+  isn't on the phone now, the user picks an account (`Archive.target`). What Parley kept follows it to the new key.
+- **Backups** carry each archived contact (card and record, photos included) in the encrypted backup, restored with
+  the contacts and never twice; **exports** include archived contacts, a vCard with `X-PARLEY-ARCHIVED:1` (archived
+  again on import), Parley's CSV with an Archived column, Google's CSV with an "Archived" label.
+- A private contact has no Archive: it is out of other apps already.
+
 ### What stays where for a private contact
 
 | What | Where | Readable while the vault is locked? |

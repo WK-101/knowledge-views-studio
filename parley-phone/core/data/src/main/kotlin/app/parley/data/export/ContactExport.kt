@@ -43,9 +43,9 @@ import kotlin.coroutines.coroutineContext
 /**
  * Getting everything out in open formats: vCard 4.0 (plain, or encrypted with a passphrase, [SealedVCard]), CSV in
  * Parley's, Google's or Outlook's columns, or the notes alone as plain text. Private contacts go in only when asked
- * ([Choice.includePrivate]); Parley's notes about each person ride along as vCard properties of Parley's own and a
- * readable NOTE ([CardNotes]). The other way, [VCardIO] reads such a file back: private contacts land private again,
- * with their notes ([NotesSink]).
+ * ([Choice.includePrivate]); archived contacts always do, flagged as archived. Parley's notes about each person ride
+ * along as vCard properties of Parley's own and a readable NOTE ([CardNotes]). The other way, [VCardIO] reads such a
+ * file back: private contacts land private again and archived ones archived, with their notes ([NotesSink]).
  */
 class ContactExport(private val context: Context, private val c: DataContainer) : VCardIO.NotesSink {
     enum class Format(val mime: String, val fileName: String) {
@@ -118,7 +118,9 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
         val privates = privatesFor(choice)
         val notes = if (choice.includeNotes && choice.format.carriesNotes) Notes.read(c) else Notes.NONE
         val ids = c.contacts.snapshot().map { it.id }
-        val run = Run(ids.size + privates.size, progress)
+        // Archived contacts go in like any saved contact, flagged as archived (they come back archived).
+        val archived = catching { c.archive.recordsForExport() }.getOrDefault(emptyList())
+        val run = Run(ids.size + privates.size + archived.size, progress)
         val out = context.contentResolver.openOutputStream(target, "wt") ?: run {
             discard(context, target)
             return VCardIO.ExportResult(0, listOf(context.getString(R.string.data_file_write_failed)))
@@ -128,12 +130,14 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
         val people = sequence {
             for (r in c.records.readAll(ids, fullPhoto = photos)) yield(Person(r.withoutMessengers(), notes.of(r.key, r)))
         }
-        val rest = suspend { privatePeople(privates, choice, notes, photos, run) }
+        val rest = suspend {
+            privatePeople(privates, choice, notes, photos, run) + archived.map { r -> Person(r, notes.of(r.key, r).copy(archived = true)) }
+        }
         val written = out.use { raw ->
             val csv = choice.format.csv
             when {
                 choice.format == Format.NOTES_TEXT -> writeNotes(raw, people, rest(), words, run)
-                csv != null -> writeCsv(raw, csv, people, rest(), run)
+                csv != null -> writeCsv(raw, csv, people, rest(), run, archived.mapTo(HashSet()) { it.key })
                 else -> writeCards(if (sealed) SealedVCard.seal(raw, passphrase!!) else raw, people, rest, words, run)
             }
         }
@@ -188,12 +192,12 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
             n
         }
 
-    private fun writeCsv(raw: OutputStream, format: CsvFormat, people: Sequence<Person>, privates: List<Person>, run: Run): Int {
+    private fun writeCsv(raw: OutputStream, format: CsvFormat, people: Sequence<Person>, privates: List<Person>, run: Run, archived: Set<String>): Int {
         // CSV has no photos: every record fits in memory, as in VCardIO.exportCsv.
         val records = ArrayList<ContactRecord>(run.total)
         people.forEach { records += it.record; run.step() }
         privates.forEach { records += it.record }
-        writer(raw).use { CsvExports.write(format, records, it, c.records.groupTitles()) }
+        writer(raw).use { CsvExports.write(format, records, it, c.records.groupTitles(), archived = archived) }
         return records.size
     }
 
@@ -283,6 +287,8 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
     override suspend fun saveNotes(contactId: Long, notes: CardNotes) {
         val key = c.contacts.lookupKeyOf(contactId) ?: return
         attach(key, contactId, notes)
+        // A card exported archived is archived again, its notes with it (they follow the contact to the archive).
+        if (notes.archived) catching { c.archive.archive(contactId) }
     }
 
     private suspend fun attach(key: String, contactId: Long?, notes: CardNotes) {

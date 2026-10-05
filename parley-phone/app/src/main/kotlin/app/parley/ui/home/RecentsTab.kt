@@ -400,14 +400,16 @@ fun RecentRow(
                     VideoCallMark(contentDescription = stringResource(R.string.recents_video_call))
                 }
                 Spacer(Modifier.width(6.dp))
-                val location = rememberNumberLocation(g.number, countryIso, enabled = g.contact == null && g.vaultId == null && !g.hidden)
+                // A saved, private or archived caller has a name: no place name under it.
+                val saved = g.contact != null || g.vaultId != null || g.archivedName != null
+                val location = rememberNumberLocation(g.number, countryIso, enabled = !saved && !g.hidden)
                 val shownNumber = remember(e.number, countryIso) { Bidi.ltr(Format.number(e.number, countryIso)) }
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p ->
                             Format.phoneType(context.resources, p.type, p.label)
-                        } else if (!g.hidden && g.contact == null && g.cachedName != null) shownNumber else null,
+                        } else if (!g.hidden && g.contact == null && (g.archivedName ?: g.cachedName) != null) shownNumber else null,
                     e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
@@ -482,7 +484,7 @@ private fun RecentCard(shape: Shape?, place: ListSections.Place, content: @Compo
 
 /** The row's title; a number (no name) stays left to right in right-to-left languages. */
 private val RecentGroup.shownTitle: String
-    get() = if (contact == null && cachedName.isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
+    get() = if (contact == null && (archivedName ?: cachedName).isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
 
 /** The icon of a call type, in its fixed call colour (never the wallpaper colours). */
 @Composable

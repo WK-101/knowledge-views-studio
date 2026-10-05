@@ -77,6 +77,8 @@ import app.parley.ui.startOrSay
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.sync.shared.SharedLabelSection
 import app.parley.ui.home.ContactRow
+import app.parley.ui.people.chapters.ChapterSection
+import app.parley.ui.people.chapters.chapterLeft
 import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
 import androidx.activity.ComponentActivity
@@ -114,6 +116,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
+    val chapters by vm.c.extras.chapters.collectAsStateWithLifecycle()
+    val now = remember(chapters) { System.currentTimeMillis() }
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
@@ -192,7 +196,10 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                     headlineContent = { Text(l.title) },
                     supportingContent = {
                         (idx.labelCounts[l.title] ?: 0).let { n ->
-                            Text(pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel }))
+                            val count = pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })
+                            // A chapter says what is left of it beside the count.
+                            val left = chapters[l.title]?.let { chapterLeft(res, it, now) }
+                            Text(if (left == null) count else stringResource(R.string.chapter_in_list, count, left))
                         }
                     },
                     trailingContent = if (merging) null else ({
@@ -482,6 +489,15 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         )
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
+            // A chapter: an end for a period of life, and the one question when it comes.
+            item {
+                ChapterSection(vm, current, members) {
+                    scope.launch {
+                        deleteLabelWithUndo(vm, current)
+                        back()
+                    }
+                }
+            }
             item {
                 val name = tone?.let { u ->
                     if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)

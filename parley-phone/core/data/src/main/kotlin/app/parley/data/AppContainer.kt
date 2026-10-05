@@ -118,6 +118,8 @@ class DataContainer(context: Context) {
             .also { s ->
                 s.situationsWatching = { situations.watching() }
                 s.beforeScreen = { situations.lookBriefly(CallScreener.SITUATION_LOOK_MS) }
+                // An archived contact is a saved contact to screening (never an "unknown caller").
+                s.archivedCaller = { n, iso -> archive.lookup(n, iso) != null }
             }
             // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->
@@ -230,6 +232,9 @@ class DataContainer(context: Context) {
     /** Open exports (vCard, encrypted vCard, CSV, notes as text) with private contacts and notes when asked. */
     val contactExport by lazy { app.parley.data.export.ContactExport(appContext, this) }
 
+    /** Archived contacts: out of the address book, kept by Parley, still named when they call. */
+    val archive by lazy { app.parley.data.archive.ArchiveStore(this) }
+
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault: VaultRepository by lazy {
@@ -315,6 +320,7 @@ class DataContainer(context: Context) {
             toCall.backupExtras,
             menus.backupExtras,
             cases.backupExtras,
+            archive.backupExtras,
             FamilySafetyBackup({ familySafety }) { PhoneEnv.countryIso(appContext) },
             CallSwitchesBackup({ driveProfile }, { roaming }),
             // Last: what a Situation on at backup time had replaced is put back over the sections restored before it.

@@ -48,7 +48,7 @@ class VaultMoves(
      * (`ContactKeys.rekey`), so they stay on its page rather than being sealed away until "Make visible".
      */
     suspend fun moveIn(contactId: Long, shown: ContactDetails, carryInteractions: Boolean = true): MovedIn = withContext(Dispatchers.IO) {
-        val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
+        val record = records.readCapped(contactId)?.withoutMessengers()
             ?: error("Couldn't read the whole contact, so it wasn't moved")
         // Read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
         val carried = shown.lookupKey.takeIf { it.isNotEmpty() && carryInteractions }?.let { key ->
@@ -162,22 +162,7 @@ class VaultMoves(
         MovedOut.Done(newId, inserted.distinct(), redirectedTo)
     }
 
-    /** A full-resolution photo can be several MB; keep the vault row small by using the thumbnail then. */
-    private fun capPhoto(contactId: Long, r: ContactRecord): ContactRecord {
-        val big = r.raws.any { raw -> raw.rows.any { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > MAX_PHOTO } }
-        if (!big) return r
-        val thumbs = records.read(contactId, fullPhoto = false)?.raws.orEmpty().associateBy { it.rawId }
-        return r.copy(
-            raws = r.raws.map { raw ->
-                val thumb = thumbs[raw.rawId]?.rows?.firstOrNull { it.mimeType == Mime.PHOTO }
-                raw.copy(rows = raw.rows.mapNotNull { row -> if (row.mimeType == Mime.PHOTO && (row.blob?.size ?: 0) > MAX_PHOTO) thumb else row })
-            },
-        )
-    }
-
     companion object {
-        private const val MAX_PHOTO = 512 * 1024
-
         /**
          * [original] (the restored contact, with row ids) changed to the edited vault [d]: single fields are taken
          * from [d]; list rows keep their id when [d] still has the same value, others are added or removed.

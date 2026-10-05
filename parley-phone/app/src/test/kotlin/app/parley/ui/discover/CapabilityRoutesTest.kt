@@ -121,6 +121,7 @@ class CapabilityRoutesTest {
             "$UI.history.HistoryRoutes.Case" to "an organisation's case file, from its card on the contact or number page",
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
+            "$UI.people.PeopleRoutes.Archived" to "Contacts › ⋮ › Archived (archived contacts are out of the lists by design)",
             "$UI.people.PeopleRoutes.Diagnostics" to "Settings › About",
             "$UI.people.PeopleRoutes.EditRaw" to "one account's copy of a contact",
             "$UI.people.PeopleRoutes.Label" to "a label's page",

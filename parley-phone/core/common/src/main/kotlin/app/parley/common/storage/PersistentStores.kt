@@ -90,6 +90,7 @@ object PersistentStores {
         const val CALL_SWITCHES = "call_switches"
         const val SITUATIONS = "situations"
         const val CASE_FILES = "case_files"
+        const val ARCHIVE = "archive"
 
         /** Generated caller ringtones: their audio files, as optional archive files (BackupArchiveWriter.writeFiles). */
         const val TUNES = "tunes"
@@ -204,6 +205,8 @@ object PersistentStores {
         PersistentStore("timemachine", StoreKind.FILES, local("Contact history of this phone, kept 180 days"), location = PersistentStore.FILES),
         PersistentStore("vault_photos", StoreKind.FILES, StorePolicy.BackedUpWithVault, Sections.VAULT, PersistentStore.FILES),
         PersistentStore("call_backgrounds", StoreKind.FILES, backedUp, Sections.PEOPLE, PersistentStore.FILES),
+        // Archived contacts: out of the address book, kept whole (sealed) and restored with the contacts.
+        PersistentStore("archive", StoreKind.FILES, backedUp, Sections.ARCHIVE, PersistentStore.FILES),
         PersistentStore("contact_photos", StoreKind.FILES, backedUp, Sections.PEOPLE, PersistentStore.FILES),
         PersistentStore(
             "vault_photo_originals", StoreKind.FILES,

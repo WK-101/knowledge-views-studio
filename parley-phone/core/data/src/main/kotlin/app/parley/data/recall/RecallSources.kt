@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 /**
  * What Recall searches besides the contact list, read from Parley's own stores when a search asks for it: notes for
  * calls, Circle notes (and the promises in them), notes written after calls, case files, contacts deleted in Parley,
- * the snapshots' gone contacts and the chats opened from Parley. Everything is opened in memory only, for as long as the
+ * the snapshots' gone contacts, archived contacts and the chats opened from Parley. Everything is opened in memory only, for as long as the
  * search is open; nothing is indexed or written.
  *
  * Private contacts' notes, calls and deleted copies are read only when [Access.privateShown]: the vault is unlocked,
@@ -37,6 +37,8 @@ class RecallSources(private val c: DataContainer) {
         val snapshots: List<RecallCorpus.Gone> = emptyList(),
         val messaged: List<RecallCorpus.Messaged> = emptyList(),
         val cases: List<RecallCorpus.Case> = emptyList(),
+        /** Archived contacts, by name and number (they are out of the contact list Recall searches too). */
+        val archived: List<RecallCorpus.Gone> = emptyList(),
     )
 
     val region: String get() = PhoneEnv.countryIso(c.appContext)
@@ -63,6 +65,7 @@ class RecallSources(private val c: DataContainer) {
                 m.number?.takeIf { it.isNotBlank() }?.let { RecallCorpus.Messaged(it, m.label, m.at) }
             },
             cases = safely { cases(access) }.orEmpty(),
+            archived = safely { c.archive.all().map { a -> RecallCorpus.Gone(a.name, a.numbers, a.archivedAt, a.id.toString()) } }.orEmpty(),
         )
         withoutPrivate(stored, hidden)
     }

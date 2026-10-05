@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Delete
@@ -111,6 +112,8 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
         ContactMenu.Action.MAKE_PRIVATE -> ctx.show(ContactDialog.ConfirmMakePrivate)
         ContactMenu.Action.MAKE_VISIBLE -> ctx.show(ContactDialog.ConfirmMakeVisible)
         ContactMenu.Action.DELETE_AUTOMATICALLY -> ctx.show(ContactDialog.Expiry)
+        // Out of the lists and other apps, still named on calls (asks first).
+        ContactMenu.Action.ARCHIVE -> ctx.show(ContactDialog.ConfirmArchive)
         ContactMenu.Action.LOG_CHAT_OR_VISIT -> ctx.show(ContactDialog.LogInteraction)
         // The case card then shows on the page; the case file fills with the next call.
         ContactMenu.Action.CASE_FILE -> keepCaseFile(ctx)
@@ -144,6 +147,7 @@ private fun contactMenuLabel(a: ContactMenu.Action, temporary: Boolean): MenuLab
     ContactMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
     ContactMenu.Action.DELETE_AUTOMATICALLY ->
         MenuLabel(stringResource(if (temporary) R.string.detail_change_expiry else R.string.contact_make_temporary), Icons.Rounded.Timer)
+    ContactMenu.Action.ARCHIVE -> MenuLabel(stringResource(R.string.archive_action), Icons.Rounded.Archive)
     ContactMenu.Action.LOG_CHAT_OR_VISIT -> MenuLabel(stringResource(R.string.circle_log_interaction), Icons.Rounded.Handshake)
     ContactMenu.Action.CASE_FILE -> MenuLabel(stringResource(R.string.case_keep), Icons.Rounded.FolderOpen)
     ContactMenu.Action.ADD_TO_HOME_SCREEN -> MenuLabel(stringResource(R.string.detail_add_home), Icons.Rounded.AddToHomeScreen)

@@ -180,7 +180,18 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 favourite = info.starred,
                 // Its own ringtone reaches Parley's ringer through screening already.
             )
-        }
+        } ?: archivedCaller(number, PhoneEnv.countryIso(app, accountId), last)
+    }
+
+    /**
+     * An archived contact: out of the address book, still named here (and on the lock screen as the call screen's rules
+     * allow), with its note for calls, which waits under its archived key.
+     */
+    private suspend fun archivedCaller(number: String, region: String, last: String?): CallerDisplay? {
+        val card = catching { c.archive.lookup(number, region) }.getOrNull() ?: return null
+        val note = catching { c.meta.meta(card.parleyKey)?.pinnedNote }.getOrNull()
+        val subtitle = if (card.company.isBlank()) app.getString(R.string.archive_caller) else app.getString(R.string.archive_caller_at, card.company)
+        return CallerDisplay(card.name, null, null, null, null, note, last, subtitle = subtitle)
     }
 
     /** What [callerInfo] reads beside the contact lookup. */
@@ -220,9 +231,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun driveProfile(): DriveProfileConfig = c.driveProfile.config.value
 
-    /** I11: a contact or a private contact (discreet mode or not); only the yes or no reaches the call path. */
+    /** I11: a contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
     override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
-        c.contacts.lookup(number) != null || c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) != null
+        c.contacts.lookup(number) != null || c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) != null ||
+            catching { c.archive.lookup(number, PhoneEnv.countryIso(app, accountId)) != null }.getOrDefault(false)
     }
 
     /**

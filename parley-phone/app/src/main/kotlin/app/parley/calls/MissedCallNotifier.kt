@@ -25,6 +25,7 @@ import app.parley.R
 import app.parley.blocking.BlockFlow
 import app.parley.blocking.BlockingText
 import app.parley.common.NotificationChannels
+import app.parley.common.catching
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.NotificationPrivacy
@@ -203,8 +204,10 @@ object MissedCallNotifier {
         val number = caller.number.takeIf { !caller.hidden && it.isNotBlank() }
         val contact = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         val vaultName = if (contact == null && number != null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
+        // An archived contact is named like any saved one.
+        val archivedName = if (contact == null && vaultName == null && number != null) catching { c.archive.lookup(number)?.name }.getOrNull() else null
         // A private contact's name never shows in discreet mode.
-        val name = NotificationPrivacy.missedCallName(contact?.name, vaultName, hideVault, number)
+        val name = NotificationPrivacy.missedCallName(contact?.name ?: archivedName, vaultName, hideVault, number)
             ?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
@@ -224,7 +227,7 @@ object MissedCallNotifier {
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
         val inboxLine = (if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name) + sep + time + (sim?.let { sep + it } ?: "")
         // Discreet mode: "Block" depends on phone contacts only, so its absence never reveals a private contact.
-        return Shown(name, line, why, inboxLine, photo, isContact = contact != null || (vaultName != null && !hideVault))
+        return Shown(name, line, why, inboxLine, photo, isContact = contact != null || archivedName != null || (vaultName != null && !hideVault))
     }
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */

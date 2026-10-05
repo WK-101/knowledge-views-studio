@@ -165,6 +165,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 step("due temporary contacts") { DueTemporaries.check(c, now) }
                 emptyList()
             }
+            // Chapters that ended (labels given an end) are asked about once; nothing changes until the user answers.
+            step("chapters") { ChapterNotices.check(c, now) }
             // Deleted private contacts are kept sealed for 30 days ("Recently deleted"), then go for good.
             step("private trash") { c.privateTrash.purge(now); true }
             // 3. Private call history

@@ -74,6 +74,12 @@ class SharedLabels(
 
     fun forTitle(title: String): SharedLabelState? = _states.value.firstOrNull { it.title == title }
 
+    /**
+     * Whether this phone owns shared label [title]: it started it, or took it over at a key change (its anchor). Null
+     * when the label isn't shared, or this phone's key can't be read now. Only the owner's phone decides a chapter's end.
+     */
+    fun isOwner(title: String): Boolean? = forTitle(title)?.let { s -> identity.publicKey()?.contentEquals(s.anchor) }
+
     private fun signer(): MemberSigner? {
         val key = identity.publicKey() ?: return null
         return object : MemberSigner {

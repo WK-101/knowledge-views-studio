@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -65,6 +66,7 @@ import app.parley.ui.Destination
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Routes
+import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.Spacing
 import app.parley.ui.avatarSize
 import app.parley.ui.calls.ToCallRoutes
@@ -168,6 +170,7 @@ private fun GroupHeader(g: RecallGroup) {
 
 private fun groupLabel(s: RecallSource): Int = when (s) {
     RecallSource.CONTACT -> R.string.recall_group_contacts
+    RecallSource.ARCHIVED -> R.string.recall_group_archived
     RecallSource.CALL -> R.string.recall_group_calls
     RecallSource.AGENDA -> R.string.agenda_title
     RecallSource.PROMISE -> R.string.recall_group_promises
@@ -284,10 +287,12 @@ private fun restoreAction(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod") // One icon per group.
 private fun Leading(hit: RecallHit) {
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
     when (hit.source) {
         RecallSource.CONTACT -> Avatar(hit.title, null, avatarSize())
+        RecallSource.ARCHIVED -> Icon(Icons.Rounded.Archive, null, tint = tint)
         RecallSource.CALL -> CallTypeIcon(hit.callType ?: CallType.UNKNOWN, durationSec = hit.durationSec)
         RecallSource.AGENDA -> Icon(Icons.Rounded.Checklist, null, tint = tint)
         RecallSource.PROMISE -> Icon(Icons.Rounded.CheckBoxOutlineBlank, null, tint = tint)
@@ -311,6 +316,7 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
     fun plain(vararg parts: String?) = AnnotatedString(parts.filterNot { it.isNullOrBlank() }.joinToString(sep))
     return when (hit.source) {
         RecallSource.CONTACT -> hit.field?.let { AnnotatedString(matchHint(res, it)) }
+        RecallSource.ARCHIVED -> plain(stringResource(R.string.recall_archived_on, dayText(hit.at)), number)
         RecallSource.CALL -> AnnotatedString(callLine(context, hit, sep))
         RecallSource.AGENDA, RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
         RecallSource.NOTE, RecallSource.CALL_NOTE -> noteLine(context, hit, sep)
@@ -358,10 +364,13 @@ private fun highlighted(text: String, marks: List<IntRange>, ltr: Boolean = fals
 }
 
 /** Where a result opens: the contact, the number's history, the note's page, History & undo or To call. */
+@Suppress("CyclomaticComplexMethod") // One target per group.
 private fun targetOf(vm: AppViewModel, hit: RecallHit): Destination? {
     val number = hit.number?.takeIf { it.isNotBlank() }
     return when (hit.source) {
         RecallSource.CONTACT -> hit.contactId?.let(Routes::contact)
+        // An archived contact's calls, by its number; the Archived list when it has none.
+        RecallSource.ARCHIVED -> number?.let(Routes::history) ?: PeopleRoutes.Archived
         // A call with a private contact opens their page; any other, the number's calls and notes.
         RecallSource.CALL -> hit.contactId?.takeIf { it < 0 }?.let(Routes::contact) ?: number?.let(Routes::history)
         RecallSource.AGENDA, RecallSource.PROMISE, RecallSource.NOTE -> hit.ref?.let { noteTarget(vm, it) } ?: number?.let(Routes::history)

@@ -60,6 +60,8 @@ sealed interface ContactDialog {
 
     data object ConfirmMakeVisible : ContactDialog
 
+    data object ConfirmArchive : ContactDialog
+
     data class SimFor(val number: String) : ContactDialog
 
     /** "Message or call on…" for [number] (empty: the default number). */
@@ -78,7 +80,7 @@ sealed interface ContactDialog {
     companion object {
         private val objects: List<ContactDialog> = listOf(
             None, Menu, ConfirmDelete, DeleteWithoutCopy, Qr, PrivateQrWarning, SecureQr, Photo, Expiry, AddToHomeScreen, Rhythm,
-            CopyToSim, EditNote, AddAgenda, LogInteraction, RemindToCall, ConfirmMakePrivate, ConfirmMakeVisible,
+            CopyToSim, EditNote, AddAgenda, LogInteraction, RemindToCall, ConfirmMakePrivate, ConfirmMakeVisible, ConfirmArchive,
         )
 
         /** Writes a dialog as a list of plain values (bundle-safe); `null` for one that closes on rotation. */

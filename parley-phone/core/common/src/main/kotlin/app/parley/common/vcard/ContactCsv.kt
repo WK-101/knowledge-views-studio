@@ -26,6 +26,9 @@ import java.io.Reader
  */
 object ContactCsv {
     const val GROUP_SEPARATOR = " ::: "
+
+    /** The last column when a file holds archived contacts: "1" for an archived one (Parley's flag, read back as such). */
+    const val ARCHIVED = "Archived"
     private const val NOTE_SEPARATOR = "\n\n"
 
     private val BASE = listOf("Prefix", "Given", "Middle", "Family", "Suffix", "Nickname", "Organization", "Title", "Department")
@@ -71,12 +74,22 @@ object ContactCsv {
         addAll(TAIL)
     }
 
-    /** Writes a header line and one line per record. The UTF-8 BOM helps spreadsheet apps detect the encoding. */
-    fun write(records: List<ContactRecord>, out: Appendable, groupTitles: Map<Long, String> = emptyMap(), withBom: Boolean = true) {
+    /**
+     * Writes a header line and one line per record. The UTF-8 BOM helps spreadsheet apps detect the encoding. Records
+     * whose key is in [archived] are archived contacts: the file then ends with an [ARCHIVED] column saying which.
+     */
+    fun write(
+        records: List<ContactRecord>,
+        out: Appendable,
+        groupTitles: Map<Long, String> = emptyMap(),
+        withBom: Boolean = true,
+        archived: Set<String> = emptySet(),
+    ) {
         val slots = slotsFor(records.map { VCardMapper.canonical(it, groupTitles) })
+        val flag = records.any { it.key in archived }
         if (withBom) out.append('\uFEFF')
-        writeLine(out, header(slots))
-        records.forEach { writeLine(out, row(it, slots, groupTitles)) }
+        writeLine(out, header(slots) + listOfNotNull(ARCHIVED.takeIf { flag }))
+        records.forEach { writeLine(out, row(it, slots, groupTitles) + listOfNotNull((if (it.key in archived) "1" else "").takeIf { flag })) }
     }
 
     /** The cells of one record, in [header] order (unescaped). */
@@ -306,7 +319,7 @@ object ContactCsv {
         val header = lines.next().map { it.trim() }
         val idx = HashMap<String, Int>()
         header.forEachIndexed { i, h -> idx.putIfAbsent(h.lowercase(), i) }
-        val known = header(Slots(99, 99, 99)).map { it.lowercase() }.toSet()
+        val known = (header(Slots(99, 99, 99)) + ARCHIVED).map { it.lowercase() }.toSet()
         val unknownCols = header.filter { it.isNotEmpty() && it.lowercase() !in known }
         var line = 1
         while (lines.hasNext()) {

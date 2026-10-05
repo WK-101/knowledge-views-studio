@@ -17,6 +17,7 @@ import java.time.format.DateTimeParseException
  *
  * Properties (values are vCard text; times are RFC 3339 instants in UTC in the `X-WHEN` parameter):
  * - `X-PARLEY-PRIVATE:1`: a private contact; Parley imports it as private again.
+ * - `X-PARLEY-ARCHIVED:1`: an archived contact; Parley imports it and archives it again.
  * - `X-PARLEY-NOTE-FOR-CALLS:<text>`: the note shown when they call.
  * - `X-PARLEY-CONTEXT:<text>`: a private contact's "who is this" line.
  * - `X-PARLEY-KEEP-IN-TOUCH:<days>`: in the Circle, every so many days.
@@ -35,6 +36,7 @@ data class CardNotes(
     val callNotes: List<CallNote> = emptyList(),
     val moments: List<Moment> = emptyList(),
     val promises: List<String> = emptyList(),
+    val archived: Boolean = false,
 ) {
     /** A note on a call: [line] is the number's line key ("+4420…", call notes are kept by line), [time] the call's. */
     data class CallNote(val line: String, val time: Long, val text: String)
@@ -44,7 +46,7 @@ data class CardNotes(
 
     /** Nothing beyond the card (a private contact still says so). */
     val isEmpty: Boolean
-        get() = !private && forCalls.isBlank() && context.isBlank() && keepInTouchDays == null && callNotes.isEmpty() && moments.isEmpty() &&
+        get() = !private && !archived && forCalls.isBlank() && context.isBlank() && keepInTouchDays == null && callNotes.isEmpty() && moments.isEmpty() &&
             promises.isEmpty()
 
     /**
@@ -55,7 +57,7 @@ data class CardNotes(
      * without a country code.
      */
     fun forImport(record: ContactRecord, fromSealed: Boolean, region: String?): CardNotes {
-        if (!fromSealed) return CardNotes(private = private)
+        if (!fromSealed) return CardNotes(private = private, archived = archived)
         val own = record.raws.flatMap { it.rows }.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1] }
             .flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
         return copy(callNotes = callNotes.filter { it.line in own })
@@ -88,6 +90,7 @@ data class CardNotes(
 
     companion object {
         const val X_PRIVATE = "X-PARLEY-PRIVATE"
+        const val X_ARCHIVED = "X-PARLEY-ARCHIVED"
         const val X_FOR_CALLS = "X-PARLEY-NOTE-FOR-CALLS"
         const val X_CONTEXT = "X-PARLEY-CONTEXT"
         const val X_KEEP_IN_TOUCH = "X-PARLEY-KEEP-IN-TOUCH"
@@ -102,16 +105,18 @@ data class CardNotes(
         /** Moment kinds as written ([Moment.kind]). */
         val KINDS = setOf("meet", "message", "video", "other")
 
-        private val NAMES = setOf(X_PRIVATE, X_FOR_CALLS, X_CONTEXT, X_KEEP_IN_TOUCH, X_CALL_NOTE, X_MOMENT, X_PROMISE)
+        private val NAMES = setOf(X_PRIVATE, X_ARCHIVED, X_FOR_CALLS, X_CONTEXT, X_KEEP_IN_TOUCH, X_CALL_NOTE, X_MOMENT, X_PROMISE)
 
         /** A file's notes are bounded like its cards: a crafted card can't make thousands of notes. */
         private const val MAX_DATED = 5_000
         private const val MAX_DAYS = 3_650
 
         /** Adds [notes] to [card], with [summary] (from [CardNotes.summary]) as a readable NOTE when it isn't empty. */
+        @Suppress("CyclomaticComplexMethod") // One property at a time.
         fun write(card: VCard, notes: CardNotes, summary: String? = null) {
             fun raw(name: String, value: String) = RawProperty(name, VCardMapper.escapeRaw(value)).also { card.addProperty(it) }
             if (notes.private) raw(X_PRIVATE, "1")
+            if (notes.archived) raw(X_ARCHIVED, "1")
             if (notes.forCalls.isNotBlank()) raw(X_FOR_CALLS, notes.forCalls)
             if (notes.context.isNotBlank()) raw(X_CONTEXT, notes.context)
             notes.keepInTouchDays?.let { raw(X_KEEP_IN_TOUCH, it.toString()) }
@@ -150,6 +155,7 @@ data class CardNotes(
             }
             return CardNotes(
                 private = first(X_PRIVATE).trim() == "1",
+                archived = first(X_ARCHIVED).trim() == "1",
                 forCalls = first(X_FOR_CALLS),
                 context = first(X_CONTEXT),
                 keepInTouchDays = first(X_KEEP_IN_TOUCH).trim().toIntOrNull()?.takeIf { it in 1..MAX_DAYS },
