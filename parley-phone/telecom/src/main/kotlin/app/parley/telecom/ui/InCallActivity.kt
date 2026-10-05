@@ -105,8 +105,9 @@ class InCallActivity : ComponentActivity() {
                 if (calls.isEmpty() && !keepEnded) {
                     // The post-call card for an unknown number stays a little longer, and for good once touched.
                     val last = lastEnded()
-                    // So does the "Blocked · Undo" card after Block & decline.
-                    val lingers = last?.postCallCard == true || last?.memoryCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
+                    // So do the "Blocked · Undo" card after Block & decline and "Did you cover these?".
+                    val lingers = last?.postCallCard == true || last?.memoryCard == true ||
+                        (last != null && CallManager.declineBlock.value?.callId == last.id) || CallAgendas.asksAfter(last)
                     // A dropped call keeps "Call again" at hand for a few seconds.
                     delay(if (last?.drop != null) DROPPED_MS else if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
                     if (liveCalls().isEmpty() && !keepEnded) finishAndRemoveTask()

@@ -36,6 +36,18 @@ internal class RescueCallTest : CallPathTest() {
             writes += "redial $number"
             return null
         }
+        override suspend fun agendaFor(number: String, accountId: String?): CallerAgenda? {
+            writes += "agenda read"
+            return CallerAgenda(listOf("Ask about the invoice"))
+        }
+        override suspend fun setAgendaDone(number: String, accountId: String?, text: String, done: Boolean): Boolean {
+            writes += "agenda tick"
+            return true
+        }
+        override suspend fun addAgendaItem(number: String, accountId: String?, text: String): AgendaAdded {
+            writes += "agenda add"
+            return AgendaAdded.ADDED
+        }
         override suspend fun blockForDecline(number: String): Long? {
             writes += "block"
             return null
@@ -132,6 +144,17 @@ internal class RescueCallTest : CallPathTest() {
         assertTrue(deps.usage.isEmpty() && deps.quality.isEmpty() && deps.ringFacts.isEmpty() && deps.ended.isEmpty() && deps.menuKeys.isEmpty())
         assertTrue("nothing reached Telecom", telecom.sent.isEmpty())
         assertNull("no real call was placed and the messaging app never opened", shadowOf(context).nextStartedActivity?.takeIf { it.action != null })
+    }
+
+    @Test fun the_agenda_is_never_offered_or_kept_for_it() {
+        val c = start()
+        assertFalse("no agenda card, no add, no \"Did you cover these?\"", app.parley.telecom.ui.agendaApplies(c))
+        CallManager.answer(c.id)
+        assertFalse(app.parley.telecom.ui.agendaApplies(rescue()))
+        CallManager.hangup(c.id)
+        assertFalse(app.parley.telecom.ui.CallAgendas.asksAfter(RescueCall.state.value?.ended))
+        assertTrue(app.parley.telecom.ui.CallAgendas.calls.keys.none { RescueCall.owns(it) })
+        assertTrue(recording.writes.none { it.startsWith("agenda") })
     }
 
     @Test fun a_reply_declines_it_without_sending_or_opening_anything() {

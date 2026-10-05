@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.common.circle.Agenda
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.SystemClock
@@ -548,7 +549,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
                     shown.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
                     shown.context.trim().ifEmpty { null }?.let { put("ctx", it) }
-                    shown.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
+                    // Without the agenda's items: they are read from the sealed details, only once unlocked.
+                    Agenda.withoutItems(shown.pinnedNote)?.let { put("note", it) }
                     shown.pronouns.trim().ifEmpty { null }?.let { put(C_PRONOUNS, it) }
                 }
                 // When it was last saved, so the newest of two entries sharing a number wins.

@@ -46,6 +46,7 @@ import app.parley.ui.circle.LogInteractionDialog
 import app.parley.ui.circle.PreCallPeekSheet
 import app.parley.ui.cases.CaseCard
 import app.parley.ui.circle.PromiseNoteField
+import app.parley.ui.circle.AgendaAddDialog
 import app.parley.ui.circle.RhythmDialog
 import app.parley.ui.common.Format
 import app.parley.ui.menus.CallReasonFlow
@@ -74,6 +75,13 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
         ContactDialog.SecureQr -> SecureQrDialog(ctx.vm, if (ctx.isPrivate) d.copy(id = 0, lookupKey = "") else d, ctx.isPrivate, close)
         ContactDialog.CopyToSim -> CopyToSimDialog(ctx.vm, d, close)
         ContactDialog.EditNote -> EditNoteDialog(ctx)
+        // What is typed for a private contact stays out of saved state (see ContactDialog.PrivateSaver).
+        ContactDialog.AddAgenda -> AgendaAddDialog(
+            name = d.given.ifBlank { d.displayName },
+            onAdd = { text -> close(); ctx.page.addAgendaItem(text) },
+            onDismiss = close,
+            keepOnRotation = !ctx.isPrivate,
+        )
         ContactDialog.Rhythm -> RhythmDialog(ctx.vm, d, ctx.contactId, ctx.ui.meta, close)
         is ContactDialog.CallReason -> CallReasonFlow(ctx.vm, dialog.target, close)
         is ContactDialog.Peek -> PreCallPeekSheet(
