@@ -264,17 +264,18 @@ class ContactKeys(
             val rows = meta.allMetaNow()
             val bg = runCatching { backgrounds() }.getOrNull()
             val keys = LinkedHashMap<String, Long?>()
-            // Private contacts' keys are never looked up in the address book (a namesake must not take their data).
-            rows.forEach { if (!ContactRef.isPrivateKey(it.lookupKey)) keys[it.lookupKey] = it.contactId }
-            bg?.indexedKeys()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
-            bg?.photoChoiceKeys()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            // Private and archived contacts' keys are never looked up in the address book (a namesake must not take their data).
+            rows.forEach { if (!ContactRef.isParleyOnlyKey(it.lookupKey)) keys[it.lookupKey] = it.contactId }
+            bg?.indexedKeys()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            bg?.photoChoiceKeys()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             // With the contact id they were logged with, so a key change without a shared segment (a rename of a
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
-            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isPrivateKey(k)) keys[k] = id }
-            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isParleyOnlyKey(k)) keys[k] = id }
+            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()
+                ?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
             if (snapshot == lastSweep) return@withLock settled
@@ -401,8 +402,8 @@ class ContactKeys(
             if (links.isEmpty()) continue
             var changed = false
             val updated = links.mapValues { (_, l) ->
-                // A link to a private contact follows it by its own key (re-keyed with it), never through the address book.
-                if (ContactRef.isPrivateKey(l.lookupKey)) return@mapValues l
+                // A link to a private or archived contact follows it by its own key (re-keyed with it), never through the address book.
+                if (ContactRef.isParleyOnlyKey(l.lookupKey)) return@mapValues l
                 val now = resolve(l.lookupKey, l.contactId, current)
                     ?.takeIf { (id, key) -> key == l.lookupKey || MetaRekey.plausible(l.lookupKey, key, l.contactId, id) }
                 if (now != null && (now.second != l.lookupKey || now.first != l.contactId)) { changed = true; RelationLinks.Link(now.second, now.first) } else l

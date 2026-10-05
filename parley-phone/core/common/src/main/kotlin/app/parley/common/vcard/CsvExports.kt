@@ -16,10 +16,24 @@ enum class CsvFormat { PARLEY, GOOGLE, OUTLOOK }
  * handle in Google) is left out, which is why Parley's own CSV and vCard stay the lossless choices.
  */
 object CsvExports {
-    fun write(format: CsvFormat, records: List<ContactRecord>, out: Appendable, groupTitles: Map<Long, String> = emptyMap(), withBom: Boolean = true) {
+    /**
+     * Writes [records] in [format]. Those whose key is in [archived] are archived contacts: Parley's layout says so in
+     * its own column, Google's with an "Archived" label; Outlook's has no place for it.
+     */
+    fun write(
+        format: CsvFormat,
+        records: List<ContactRecord>,
+        out: Appendable,
+        groupTitles: Map<Long, String> = emptyMap(),
+        withBom: Boolean = true,
+        archived: Set<String> = emptySet(),
+    ) {
         when (format) {
-            CsvFormat.PARLEY -> ContactCsv.write(records, out, groupTitles, withBom)
-            CsvFormat.GOOGLE -> table(Google.header(records.map { canonical(it, groupTitles) }), records.map { Google.row(it, groupTitles) }, out, withBom)
+            CsvFormat.PARLEY -> ContactCsv.write(records, out, groupTitles, withBom, archived)
+            CsvFormat.GOOGLE -> table(
+                Google.header(records.map { canonical(it, groupTitles) }),
+                records.map { r -> Google.row(r, groupTitles).let { if (r.key in archived) Google.archived(it) else it } }, out, withBom,
+            )
             CsvFormat.OUTLOOK -> table(Outlook.HEADER, records.map { Outlook.row(canonical(it, groupTitles)) }, out, withBom)
         }
     }
@@ -66,6 +80,11 @@ object CsvExports {
         )
         private val ADDRESS = listOf("Label", "Formatted", "Street", "City", "PO Box", "Region", "Postal Code", "Country", "Extended Address")
         private const val MY_CONTACTS = "* myContacts"
+        private const val ARCHIVED_LABEL = "Archived"
+
+        /** [row] of an archived contact: with an "Archived" label. */
+        fun archived(row: Map<String, String>): Map<String, String> =
+            row + ("Labels" to listOfNotNull(row["Labels"]?.takeIf { it.isNotEmpty() }, ARCHIVED_LABEL).joinToString(ContactCsv.GROUP_SEPARATOR))
         private const val STARRED = "* starred"
 
         private fun count(records: List<ContactRecord>, min: Int, pick: (List<DataRow>) -> Int) = maxOf(min, records.maxOfOrNull { pick(it.rows()) } ?: 0)

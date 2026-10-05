@@ -13,6 +13,9 @@ enum class RecallSource {
     /** A contact found by what is left of the query ("plumber" of "plumber march"). */
     CONTACT,
 
+    /** An archived contact: out of the lists, still Parley's (by name and number). */
+    ARCHIVED,
+
     /** A call in Parley's copy of calls (Android's call log, the archive, calls with private contacts). */
     CALL,
 
@@ -61,6 +64,8 @@ class RecallCorpus(
     val cases: List<Case> = emptyList(),
     /** The phone's country, for numbers written nationally. */
     val region: String? = null,
+    /** Archived contacts ([Gone.ref]: the archive id). */
+    val archived: List<Gone> = emptyList(),
 ) {
     /** A note: pinned on a contact, a Circle note, or one written after a call (then [number] and no [ownerKey]). */
     data class Note(
@@ -194,6 +199,7 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
     }
     private val deletedDocs = corpus.deleted.map(::goneDoc)
     private val snapshotDocs = corpus.snapshots.map(::goneDoc)
+    private val archivedDocs = corpus.archived.map(::goneDoc)
     private val caseDocs = corpus.cases.mapIndexed { i, k ->
         ContactSearch.Builder(i.toLong(), corpus.region).apply {
             name(k.name)
@@ -258,6 +264,10 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
         out[RecallSource.DELETED] = gone.filterNot { it.private }
         out[RecallSource.DELETED_PRIVATE] = gone.filter { it.private }.map { it.copy(source = RecallSource.DELETED_PRIVATE) }
         out[RecallSource.SNAPSHOT] = gone(query, corpus.snapshots, snapshotDocs).map { it.copy(source = RecallSource.SNAPSHOT) }
+        // Archived contacts answer words, whenever they were archived: a date asks about calls and notes, not them.
+        if (!q.isEmpty) {
+            out[RecallSource.ARCHIVED] = gone(query.copy(dates = null), corpus.archived, archivedDocs).map { it.copy(source = RecallSource.ARCHIVED) }
+        }
         return out
     }
 

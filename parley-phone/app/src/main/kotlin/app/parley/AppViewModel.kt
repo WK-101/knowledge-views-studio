@@ -75,9 +75,12 @@ data class RecentGroup(
     val vaultId: Long? = null,
     /** Localised "Private number" / "Unknown", for a row with neither a name nor a number. */
     val fallbackTitle: String = "",
+    /** The name of the archived contact the number belongs to (out of the address book, still named here). */
+    val archivedName: String? = null,
 ) {
     val latest: CallEntry get() = calls.first()
-    val title: String get() = contact?.displayName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { fallbackTitle }
+    val title: String
+        get() = contact?.displayName ?: archivedName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { fallbackTitle }
 }
 
 /** One keypad result row (see [app.parley.common.DialHit]). */

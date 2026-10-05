@@ -71,6 +71,10 @@ object NotificationIds {
     const val TAG_SYNC_WATCHDOG = "sync_watchdog"
     const val SYNC_WATCHDOG_ID = 0
 
+    /** Chapters that ended (labels given an end): one notice for all of them, asked once each. */
+    const val TAG_CHAPTERS = "chapters"
+    const val CHAPTERS_ID = 0
+
     /** Once: the notes folder export that kept a folder up to date was replaced by Export contacts. */
     const val TAG_FOLDER_EXPORT = "folder_export"
     const val FOLDER_EXPORT_ID = 0
@@ -103,7 +107,7 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
@@ -167,6 +171,9 @@ object NotificationRequests {
     /** The due-temporaries buttons: plus the decision's ordinal. */
     const val TEMPORARY_DUE_ACTION = 610
 
+    /** "A chapter has ended": opens its label (or Labels, for several). */
+    const val CHAPTER_ENDED = 620
+
     const val JOB_OPEN = 700
 
     /** A finished job's file: plus the job id modulo [JOB_FILES]. */
@@ -188,6 +195,7 @@ object NotificationRequests {
         NotificationIds.Range("to-call", TO_CALL_OPEN, 3),
         NotificationIds.Range("notices", BACKUP_FAILED, 7),
         NotificationIds.Range("temporary.due", TEMPORARY_DUE_ACTION, 3),
+        NotificationIds.Range("chapter", CHAPTER_ENDED, 1),
         NotificationIds.Range("job.open", JOB_OPEN, 1),
         NotificationIds.Range("job.file", JOB_FILE, JOB_FILES),
     )

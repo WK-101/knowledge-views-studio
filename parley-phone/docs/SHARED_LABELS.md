@@ -339,6 +339,15 @@ apps to share it", and the label page says how many private members stay on this
 label is always an address-book contact (it can be made private afterwards: it then leaves the share, which is a
 tombstone for the others).
 
+## Chapters and archived contacts
+
+A shared label can be given an end (a chapter, [GLOSSARY.md](GLOSSARY.md)) only on the phone that owns it: the
+anchor, who started it or took it over at a key change (`SharedLabels.isOwner`). The others' label page says so and
+their phones never ask. The chapter itself stays on the owner's phone (nothing new goes in the folder); what the owner
+then chooses goes through the usual paths and syncs as any change does: a member archived or deleted leaves the
+share (a tombstone for the others, kept in their History & undo), and removing the label stops its sync. An archived
+contact is out of the address book, so it is never shared while archived; Unarchive brings it back into the label.
+
 ## Limits
 
 - Made for family-sized labels (hundreds of contacts, not tens of thousands): each run reads the label's members. At

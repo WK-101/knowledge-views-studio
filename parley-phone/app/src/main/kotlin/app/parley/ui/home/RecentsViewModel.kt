@@ -10,6 +10,8 @@ import app.parley.common.CallPolicy
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.people.Archive
+import app.parley.common.people.ArchivedCard
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.TextSearch
@@ -156,11 +158,17 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     // The call-list layout travels with the calls, so Recents regroups when it changes.
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
 
+    /** Archived contacts by line: out of the address book, still named in Recents. */
+    private val archivedIndex = c.archive.cards.map { Archive.index(it, countryIso) }
+
+    // Who the numbers belong to beside the address book: private contacts (by line key) and archived ones.
+    private val savedElsewhere = combine(vaultByKey, archivedIndex) { v, a -> v to a }
+
     val groups: StateFlow<List<RecentGroup>?> = combine(
-        callsAndLayout, directory.numberIndex, filter, query.debounce(80), vaultByKey,
-    ) { (calls, layout), index, filter, q, vaults ->
+        callsAndLayout, directory.numberIndex, filter, query.debounce(80), savedElsewhere,
+    ) { (calls, layout), index, filter, q, (vaults, archived) ->
         calls?.let {
-            group(it, index, filter, q, layout, vaults.keys).map { g ->
+            group(it, index, filter, q, layout, vaults.keys, archived).map { g ->
                 if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g
             }
         }
@@ -229,9 +237,12 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     }
 
     /** Whether the chip [filter] keeps call [e]: by its type, or by who called (Unknown, Contacts). */
-    private fun chipKeeps(filter: RecentFilter, e: CallEntry, index: PhoneIdentity.LineMap<ContactSummary>, vaultKeys: Set<String>): Boolean {
-        // Who called: a contact, a private contact (their calls in Parley's history, or their number), or nobody known.
-        fun isContact() = e.id < 0 || index[e.number] != null || PhoneIdentity.key(e.number, countryIso) in vaultKeys
+    private fun chipKeeps(
+        filter: RecentFilter, e: CallEntry, index: PhoneIdentity.LineMap<ContactSummary>, vaultKeys: Set<String>,
+        archived: PhoneIdentity.LineMap<ArchivedCard>?,
+    ): Boolean {
+        // Who called: a contact, a private or archived contact (their calls in Parley's history, or their number), or nobody known.
+        fun isContact() = e.id < 0 || index[e.number] != null || PhoneIdentity.key(e.number, countryIso) in vaultKeys || archived?.get(e.number) != null
         val hidden = e.presentationHidden || e.number.isBlank()
         return when (filter) {
             RecentFilter.UNKNOWN -> RecentsCallers.matches(RecentsCallers.Who.UNKNOWN, isContact(), hidden)
@@ -254,8 +265,9 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
         layout: RecentsLayout = RecentsLayout.GROUPED,
         vaultKeys: Set<String> = emptySet(),
+        archived: PhoneIdentity.LineMap<ArchivedCard>? = null,
     ): List<RecentGroup> {
-        val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys) }
+        val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys, archived) }
         fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
         val tz = TimeZone.getDefault()
         val privateNumber = c.appContext.getString(R.string.main_private_number)
@@ -265,9 +277,11 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         val grouped = rows.map { list ->
             val e = list.first()
             val key = keyOf(e)
+            val contact = if (key == "hidden") null else index[e.number]
             RecentGroup(
-                key + ":" + e.id, e.number, if (key == "hidden") null else index[e.number], e.cachedName, list, key == "hidden",
+                key + ":" + e.id, e.number, contact, e.cachedName, list, key == "hidden",
                 fallbackTitle = if (key == "hidden") privateNumber else unknown,
+                archivedName = if (contact == null && key != "hidden") archived?.get(e.number)?.name else null,
             )
         }
         if (q.isBlank()) return grouped

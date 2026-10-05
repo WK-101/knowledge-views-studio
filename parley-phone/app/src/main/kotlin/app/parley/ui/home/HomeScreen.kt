@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Speed
@@ -357,6 +358,9 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
+            // Archived contacts are out of the list: this is where they are, once there are some.
+            val archived = vm.c.archive.cards.collectAsStateWithLifecycle().value
+            if (archived.isNotEmpty()) MenuItem(stringResource(R.string.archive_title_screen), Icons.Rounded.Archive) { go(PeopleRoutes.Archived) }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {

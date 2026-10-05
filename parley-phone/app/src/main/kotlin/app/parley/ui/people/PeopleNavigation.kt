@@ -44,11 +44,14 @@ object PeopleRoutes {
     /** My card › "Changed my number" (I14). */
     @Serializable data object NewNumber : Destination
 
+    /** Contacts › ⋮ › Archived: contacts out of the lists and other apps, with Unarchive. */
+    @Serializable data object Archived : Destination
+
     fun label(title: String): Destination = Label(title)
     fun editRaw(contactId: Long, rawId: Long): Destination = EditRaw(contactId, rawId)
 }
 
-/** Labels, "Edit this copy", SIM import, who can see what, private names, diagnostics and My card. */
+/** Labels, "Edit this copy", SIM import, who can see what, private names, diagnostics, My card and the Archived list. */
 fun NavGraphBuilder.peopleGraph(nav: NavController) {
     val back: () -> Unit = { nav.popBackStack() }
     val open: (Destination) -> Unit = { r -> nav.navigate(r) }
@@ -70,6 +73,7 @@ fun NavGraphBuilder.peopleGraph(nav: NavController) {
     composable<PeopleRoutes.Me> { MeCardScreen(appVm(), back, open) }
     composable<PeopleRoutes.SharedWith> { SharedWithScreen(appVm(), back) }
     composable<PeopleRoutes.NewNumber> { NewNumberScreen(appVm(), back) }
+    composable<PeopleRoutes.Archived> { app.parley.ui.people.archive.ArchivedScreen(appVm(), back, open) }
     composable<PeopleRoutes.MeEdit> {
         ContactEditScreen(appVm(), contactId = null, prefillName = "", prefillPhone = "", prefillEmail = "", addPhone = "", meCard = true, done = { back() })
     }

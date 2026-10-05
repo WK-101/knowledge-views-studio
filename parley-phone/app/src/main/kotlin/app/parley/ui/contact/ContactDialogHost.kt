@@ -106,6 +106,9 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
         ContactDialog.ConfirmDelete, ContactDialog.DeleteWithoutCopy -> DeleteDialogs(ctx, dialog)
         ContactDialog.ConfirmMakePrivate -> MakePrivateDialog(ctx)
         ContactDialog.ConfirmMakeVisible -> MakeVisibleDialog(ctx)
+        ContactDialog.ConfirmArchive -> app.parley.ui.people.archive.ArchiveContactDialog(
+            ctx.vm, ctx.contactId, d.given.ifBlank { d.displayName }, onDismiss = close, onArchived = ctx.back,
+        )
         ContactDialog.PrivateQrWarning -> ConfirmDialog(
             title = stringResource(R.string.contact_private_qr_title),
             text = stringResource(R.string.contact_private_qr_body),

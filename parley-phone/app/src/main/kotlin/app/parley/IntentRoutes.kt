@@ -75,7 +75,7 @@ object IntentRoutes {
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
-            ACTION_EXPORT_CONTACTS,
+            ACTION_EXPORT_CONTACTS, ACTION_OPEN_LABEL,
         )
     }
 
@@ -123,6 +123,10 @@ object IntentRoutes {
 
     /** Temporary contacts are due to be deleted and wait for your answer (its notification). */
     const val ACTION_OPEN_TEMPORARY = "app.parley.OPEN_TEMPORARY"
+
+    /** A label's page ([EXTRA_LABEL]: its title), or Labels without one: where an ended chapter asks what to do. */
+    const val ACTION_OPEN_LABEL = "app.parley.OPEN_LABEL"
+    const val EXTRA_LABEL = "label"
 
     /** Contacts went missing (the sync watchdog's notification): the card waits in the Contact health check. */
     const val ACTION_OPEN_HEALTH = "app.parley.OPEN_HEALTH"
@@ -227,6 +231,8 @@ object IntentRoutes {
             ACTION_OPEN_SYNC -> go(NavEvent.Route(Routes.Sync))
             ACTION_EXPORT_CONTACTS -> go(NavEvent.Route(Routes.Export()))
             ACTION_OPEN_TEMPORARY -> go(NavEvent.Route(Routes.Temporary))
+            ACTION_OPEN_LABEL ->
+                go(NavEvent.Route(intent.getStringExtra(EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let(PeopleRoutes::label) ?: PeopleRoutes.Labels))
             ACTION_OPEN_HEALTH -> go(NavEvent.Route(Routes.Health))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))

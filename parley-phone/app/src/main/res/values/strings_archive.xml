@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Archive: a contact out of the lists and other apps, kept by Parley and still named on calls. -->
+    <string name="archive_action">Archive</string>
+    <string name="archive_title">Archive %1$s?</string>
+    <string name="archive_body">They leave your contact lists, search, widgets and other apps. Parley still names their calls and finds them when you search everything. You can bring them back from Contacts › ⋮ › Archived.</string>
+    <string name="archive_done">%1$s is archived</string>
+    <string name="archive_done_synced">%1$s is archived. Other apps lose it after the account\'s next sync.</string>
+    <string name="archive_failed">Couldn\'t archive this contact. Nothing changed.</string>
+    <string name="archive_caller">Archived contact</string>
+    <string name="archive_caller_at">Archived · %1$s</string>
+    <string name="archive_title_screen">Archived</string>
+    <string name="archive_intro">Out of your lists and other apps. Parley still names their calls.</string>
+    <string name="archive_empty_title">Nothing archived</string>
+    <string name="archive_empty_text">Archive someone from their page (⋮ › Privacy…) to keep them without filling your lists.</string>
+    <string name="archive_row_when">Archived %1$s</string>
+    <string name="archive_unarchive">Unarchive</string>
+    <string name="archive_unarchive_for">Unarchive %1$s</string>
+    <string name="archive_unarchived">%1$s is back in your contacts</string>
+    <string name="archive_unarchived_in">%1$s is back in your contacts, saved in %2$s</string>
+    <string name="archive_unarchive_failed">Couldn\'t put this contact back. It stays archived.</string>
+    <string name="archive_choose_account_title">Where should %1$s go?</string>
+    <string name="archive_choose_account_text">The account they were saved in (%1$s) isn\'t on this phone now.</string>
+    <string name="archive_put_back">Put back</string>
+    <plurals name="archive_n_done">
+        <item quantity="one">%d contact archived. Find it in Contacts › ⋮ › Archived.</item>
+        <item quantity="other">%d contacts archived. Find them in Contacts › ⋮ › Archived.</item>
+    </plurals>
+    <string name="recall_group_archived">Archived contacts</string>
+    <string name="recall_archived_on">Archived %1$s</string>
+</resources>

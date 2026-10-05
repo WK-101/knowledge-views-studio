@@ -106,6 +106,10 @@ class CallScreener(
     @Volatile
     var beforeScreen: (suspend () -> Unit)? = null
 
+    /** Whether a number is an archived contact's: they count as saved contacts here, as everywhere. Set by the container. */
+    @Volatile
+    var archivedCaller: suspend (number: String, iso: String) -> Boolean = { _, _ -> false }
+
     private val effects = object : ScreeningEffects {
         override fun onScreened(facts: IncomingCallFacts, result: ScreeningResult) = Unit
     }
@@ -304,6 +308,8 @@ class CallScreener(
         val live = replayHistory == null
         val contactLookups = if (knownContact == null) parts.map { p -> async(io) { contactLookup(p) } } else emptyList()
         val vaultLookups = if (knownContact == null) parts.map { p -> async(io) { vaultLookup(p, iso) } } else emptyList()
+        val archivedLookups =
+            if (knownContact == null) parts.map { p -> async(io) { catching { archivedCaller(p, iso) }.getOrDefault(false) } } else emptyList()
         val maybeUnknown = knownContact != true
         // Only an unknown caller needs these. They run beside this scope, not in it: a contact's call is answered
         // without waiting for them (a pack index being parsed, a call-log query), and they are dropped then.
@@ -321,7 +327,7 @@ class CallScreener(
         val inVault = vaultLookups.awaitAll()
         var lookupFailed = false
         val isContact = knownContact ?: run {
-            val yes = inContacts.any { it is ContactAnswer.Found } || inVault.any { it?.hit != null }
+            val yes = inContacts.any { it is ContactAnswer.Found } || inVault.any { it?.hit != null } || archivedLookups.awaitAll().any { it }
             lookupFailed = !yes && (inContacts.any { it is ContactAnswer.Unknown } || inVault.any { it == null })
             yes || lookupFailed
         }

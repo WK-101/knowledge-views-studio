@@ -93,6 +93,7 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.LocalSnackbar
 import app.parley.ui.ScreenSnackbarHost
+import app.parley.common.people.Archive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +120,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
         value = catching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
     }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
-    val title = contact?.displayName ?: Format.number(number, vm.countryIso)
+    // An archived contact's calls are still theirs: named here too.
+    val archived by vm.c.archive.cards.collectAsStateWithLifecycle()
+    val archivedName = remember(archived, number) { if (contact == null) Archive.index(archived, vm.countryIso)[number]?.name else null }
+    val title = contact?.displayName ?: archivedName ?: Format.number(number, vm.countryIso)
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }

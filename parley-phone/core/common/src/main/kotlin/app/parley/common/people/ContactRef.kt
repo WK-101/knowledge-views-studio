@@ -54,6 +54,21 @@ sealed interface ContactRef {
         /** Whether [key] is a private contact's Parley key: such keys must never be looked up in the address book. */
         fun isPrivateKey(key: String?): Boolean = key != null && key.startsWith(PRIVATE_KEY_PREFIX)
 
+        /**
+         * Keys of archived contacts start with this: what Parley keeps about an archived contact waits under it while
+         * the contact is out of the address book, and is never resolved there either ([isParleyOnlyKey]).
+         */
+        const val ARCHIVED_KEY_PREFIX = "parley-archived:"
+
+        /** The Parley key of archived contact [archiveId]. */
+        fun archivedKey(archiveId: Long): String = ARCHIVED_KEY_PREFIX + archiveId
+
+        /** Whether [key] is an archived contact's Parley key. */
+        fun isArchivedKey(key: String?): Boolean = key != null && key.startsWith(ARCHIVED_KEY_PREFIX)
+
+        /** A key only Parley knows (a private or an archived contact's): never looked up in the address book. */
+        fun isParleyOnlyKey(key: String?): Boolean = isPrivateKey(key) || isArchivedKey(key)
+
         /** The vault id of a private contact's Parley key, or null for any other key. */
         fun vaultIdOf(key: String?): Long? =
             key?.takeIf { isPrivateKey(it) }?.removePrefix(PRIVATE_KEY_PREFIX)?.toLongOrNull()?.takeIf { it > 0 }
