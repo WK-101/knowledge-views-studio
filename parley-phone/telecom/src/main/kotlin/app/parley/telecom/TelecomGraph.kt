@@ -371,6 +371,30 @@ interface CaseFileHooks {
     suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = false
 }
 
+/**
+ * The agenda on the call screen: things to talk about with the person on the line ([app.parley.common.circle.Agenda]).
+ * Read off the main thread once the call screen is up; a failure shows nothing. Never for emergency calls.
+ */
+interface AgendaHooks {
+    /** The open items for [number], or null when there are none to show (or they can't be read now). */
+    suspend fun agendaFor(number: String, accountId: String?): CallerAgenda? = null
+
+    /** Ticks the item reading [text] off ([done]) or opens it again; false when nothing changed. */
+    suspend fun setAgendaDone(number: String, accountId: String?, text: String, done: Boolean): Boolean = false
+
+    /** Adds [text] to [number]'s agenda (for next time). */
+    suspend fun addAgendaItem(number: String, accountId: String?, text: String): AgendaAdded = AgendaAdded.FAILED
+}
+
+/**
+ * What to talk about with a caller. [items]: the open ones, in the order written. [textOnLockScreen]: the user lets notes
+ * show on the lock screen. [privateContact]: the caller is a private contact (nothing of it shows while locked).
+ */
+data class CallerAgenda(val items: List<String>, val textOnLockScreen: Boolean = false, val privateContact: Boolean = false)
+
+/** What adding an item did, for the line the call screen says back. */
+enum class AgendaAdded { ADDED, ALREADY, LOCKED, FAILED }
+
 /** A label's safe-word question, for the in-call card. */
 data class SafeWordPrompt(val label: String, val question: String)
 
@@ -382,7 +406,7 @@ data class HelperUi(val name: String, val number: String)
  * for its part). Implemented by the app module so that this module never depends on data or feature code.
  */
 interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks,
-    MenuMemoryHooks, CaseFileHooks
+    MenuMemoryHooks, CaseFileHooks, AgendaHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, UNBLOCK, REPORT, NUMBER_MEMORY, SAVE, ADD_TO_CONTACT }

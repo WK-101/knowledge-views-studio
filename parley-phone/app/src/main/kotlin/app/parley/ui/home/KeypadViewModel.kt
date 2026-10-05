@@ -151,12 +151,16 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     /** "Save for a while": a temporary contact for [number]; [onResult] gets null when it couldn't be saved. */
     fun saveTemporary(number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean, onResult: (TemporaryContacts.Saved?) -> Unit) {
         viewModelScope.launch {
-            val saved = suspendRunCatching {
-                TemporaryContacts.save(c, name, number, days, private = !visible, purgeHistory = deleteHistory)
-            }.getOrNull()
-            onResult(saved)
+            onResult(suspendRunCatching { saveTemporaryNow(number, name, days, deleteHistory, visible) }.getOrNull())
         }
     }
+
+    /**
+     * [saveTemporary] as a call: throws [app.parley.data.vault.VaultCrypto.LockedException] when a private one needs the
+     * private contacts unlocked first (the keypad asks, then saves again).
+     */
+    suspend fun saveTemporaryNow(number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): TemporaryContacts.Saved? =
+        TemporaryContacts.save(c, name, number, days, private = !visible, purgeHistory = deleteHistory)
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L

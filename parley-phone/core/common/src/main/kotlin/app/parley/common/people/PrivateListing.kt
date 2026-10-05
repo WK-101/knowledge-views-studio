@@ -22,6 +22,19 @@ object PrivateListing {
             starred = starred, phones = numbers.mapIndexed { i, n -> PhoneEntry(n, MOBILE, null, isPrimary = i == 0 && numbers.size > 1) },
         )
 
+    /**
+     * Parley's lists as one, from the address book's [device] rows and the [private] rows (each null while it is still
+     * loading): null until both are there, so the list first appears whole, never without its private contacts and
+     * then with them a moment later, rows moving under the finger. While private contacts are [hidden] they aren't
+     * waited for.
+     */
+    fun whole(device: List<ContactSummary>?, private: List<ContactSummary>?, hidden: Boolean, compare: Comparator<String>): List<ContactSummary>? = when {
+        device == null -> null
+        hidden -> device
+        private == null -> null
+        else -> merge(device, private, compare)
+    }
+
     /** Whether a list row is a private contact. */
     fun isPrivate(row: ContactSummary): Boolean = row.id < 0
 

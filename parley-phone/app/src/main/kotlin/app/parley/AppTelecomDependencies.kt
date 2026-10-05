@@ -29,6 +29,9 @@ import app.parley.telecom.CallManager
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
 import app.parley.common.circle.Promises
+import app.parley.common.circle.Agenda
+import app.parley.calls.AgendaBridge
+import app.parley.telecom.AgendaHooks
 import app.parley.data.circle.CircleRepository
 import app.parley.calls.PrivateCallLogSweep
 import app.parley.calls.ToCallReminders
@@ -101,7 +104,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     // I6: menu memory lives in its own bridge.
     MenuMemoryHooks by MenuMemoryBridge(app, c),
     // Case files too.
-    CaseFileHooks by CaseFileBridge(app, c) {
+    CaseFileHooks by CaseFileBridge(app, c),
+    // And the agenda (things to talk about).
+    AgendaHooks by AgendaBridge(app, c) {
     private companion object {
         /** After the last call ends, this long before the full app loads. */
         const val CALL_SETTLE_MS = 10_000L
@@ -131,7 +136,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // The extra reads run side by side, so they stay well inside the call path's lookup time (a timeout there
             // treats a contact as unknown).
             val (parts, choices) = coroutineScope {
-                val note = async { it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote } }
+                // The agenda's items have a card of their own, with their own lock-screen rules.
+                val note = async { it.lookupKey?.let { k -> Agenda.withoutItems(c.meta.meta(k)?.pinnedNote) } }
                 // Job and company under the name.
                 val org = async { c.contacts.organization(it.contactId) }
                 val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
@@ -168,7 +174,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             CallerDisplay(
                 // "Show names as" last name first, as for the address book's contacts above.
                 NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),
-                card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
+                card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, Agenda.withoutItems(card?.note), last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
                 pronouns = card?.pronouns, nativeName = card?.nativeName, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
                 favourite = info.starred,

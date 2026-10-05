@@ -2,6 +2,9 @@ package app.parley.ui.contact
 
 import app.parley.common.people.ContactRef
 import androidx.compose.ui.platform.LocalContext
+import app.parley.security.AppLock
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import app.parley.common.photo.OriginalPhoto
 import android.text.format.Formatter
 import android.content.res.Resources
@@ -251,12 +254,21 @@ fun ContactEditScreen(
     val editor: EditorViewModel = screenViewModel()
     LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId, meCard)) }
     val latestDone by rememberUpdatedState(done)
+    val activity = LocalActivity.current as? ComponentActivity
     LaunchedEffect(editor) {
         editor.events.collect { e ->
             when (e) {
                 is EditorEvent.Message -> vm.toast(e.text)
                 is EditorEvent.Done -> latestDone(e.savedId)
                 is EditorEvent.Mirrored -> e.undo?.let { vm.offerUndo(e.text, it) } ?: vm.toast(e.text)
+                // Private contacts are locked: their unlock, then the open or the save goes on with every edit kept.
+                is EditorEvent.Unlock -> {
+                    if (activity == null) {
+                        editor.unlockDeclined(e.step)
+                    } else {
+                        AppLock.authenticateForVault(activity) { ok -> if (ok) editor.unlocked(e.step) else editor.unlockDeclined(e.step) }
+                    }
+                }
             }
         }
     }

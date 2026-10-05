@@ -581,6 +581,9 @@ interface VaultDao {
     @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts")
     suspend fun callerRowsNow(): List<VaultCallerRow>
 
+    @Query("SELECT COUNT(*) FROM vault_contacts")
+    suspend fun count(): Int
+
     @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts WHERE id = :id")
     suspend fun callerRow(id: Long): VaultCallerRow?
 
