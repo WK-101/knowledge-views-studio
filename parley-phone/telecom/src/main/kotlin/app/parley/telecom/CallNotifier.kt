@@ -476,7 +476,8 @@ class CallNotifier internal constructor(
                 },
             )
             nm.createNotificationChannel(
-                NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) },
+                NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW)
+                    .apply { setSound(null, null) },
             )
         }
 

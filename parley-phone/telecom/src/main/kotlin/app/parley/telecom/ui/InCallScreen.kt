@@ -406,7 +406,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     // I11: "Drive profile on" while the marked car is connected.
     DriveStatusLine(primary, keypadOpen = s.keypadOpen)
     // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
-    if (primary != null && primary.state != CallState.RINGING && !primary.simulated) {
+    if (primary != null && primary.showsCallCards) {
         FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
         // L3: an RTT request to answer, or the way back into the RTT conversation.
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)

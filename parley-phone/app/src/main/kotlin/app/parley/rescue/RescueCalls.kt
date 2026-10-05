@@ -9,6 +9,7 @@ import android.os.PowerManager
 import androidx.core.content.edit
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.CallerHaptics
+import app.parley.common.catching
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
@@ -167,9 +168,14 @@ object RescueCalls {
         val number = r.number?.takeIf { it.isNotBlank() } ?: return RescueCaller(name = RescuePlan.shownName(r.name, null), clip = clip)
         val shown = suspendRunCatching { TelecomGraph.dependencies.callerInfo(number, null) }.getOrNull()
         val hidesPrivate = suspendRunCatching { c.settings.current().hideVault }.getOrDefault(true)
-        val tone = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
-            ?: if (hidesPrivate) null else suspendRunCatching { c.vault.lookup(number, PhoneEnv.countryIso(app))?.second?.customRingtone }.getOrNull()
-            ?: runCatching { c.people.ringtoneForNumber(number) }.getOrNull()
+        // Their own tone (a contact's, or a private contact's unless those are hidden), else their label's.
+        val own = catching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
+        val privateTone = if (own != null || hidesPrivate) {
+            null
+        } else {
+            suspendRunCatching { c.vault.lookup(number, PhoneEnv.countryIso(app))?.second?.customRingtone }.getOrNull()
+        }
+        val tone = own ?: privateTone ?: catching { c.people.ringtoneForNumber(number) }.getOrNull()
         val pattern = shown?.vibration?.let(CallerHaptics::decode)?.let { CallerHaptics.repeating(it, shown.name) }
         // Nobody found for the number: the name typed, unless "Hide private contacts" hides who it is (a real call
         // from them would show the number only).

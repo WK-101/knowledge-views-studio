@@ -130,6 +130,9 @@ data class CallUi(
     val simHint: String?
         get() = accountLabel?.let { l -> listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }
 
+    /** The helper and RTT cards under the caller: an answered call, never a rescue call (which has neither). */
+    val showsCallCards: Boolean get() = state != CallState.RINGING && !simulated
+
     /** "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
     val canBlockAndDecline: Boolean
         get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank() && !blockingDecline && !simulated

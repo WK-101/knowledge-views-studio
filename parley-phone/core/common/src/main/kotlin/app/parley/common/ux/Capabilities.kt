@@ -211,7 +211,7 @@ object CapabilityCatalog {
             "rtt", "tty", "text", "deaf", "hard of hearing", "accessibility", since = "4.7"),
         setting("voicemail", CALLS, "Voicemail", "Listen in Recents while Parley is your phone app; hold 1 to call it", "voicemail",
             "voicemail", "visual voicemail", "messages").copy(action = CapabilityAction.VOICEMAIL),
-        screen("rescue_call", CALLS, "Rescue call", "A call that looks real, to help you leave somewhere", AppScreen.RESCUE_CALL,
+        screen("rescue_call", CALLS, "Rescue call", "A call that looks real, to help you leave", AppScreen.RESCUE_CALL,
             "fake call", "excuse", "escape", "leave", "safety", "date", since = "6.2"),
         screen("speed_dial", CALLS, "Speed dial", "Hold 2 to 9 on the keypad to call someone", AppScreen.SPEED_DIAL,
             "speed dial", "shortcut", "one touch", "keypad"),

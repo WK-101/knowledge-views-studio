@@ -38,6 +38,8 @@ import app.parley.telecom.forLockScreen
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.R
 import app.parley.telecom.RescueCall
+import app.parley.telecom.RescueState
+import app.parley.telecom.AudioUi
 import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
@@ -75,17 +77,10 @@ class InCallActivity : ComponentActivity() {
         val deps = TelecomGraph.dependencies
         setContent {
             val look by deps.appearance.collectAsStateWithLifecycle()
-            val realCalls by CallManager.state.collectAsStateWithLifecycle()
-            val realAudio by CallManager.audio.collectAsStateWithLifecycle()
-            val realEnded by CallManager.lastEnded.collectAsStateWithLifecycle()
-            val realBlock by CallManager.declineBlock.collectAsStateWithLifecycle()
-            val rescueState by RescueCall.state.collectAsStateWithLifecycle()
-            // A rescue call shows on this same screen while no real call is up; a real call makes it give way at once.
-            val rescue = rescueState?.takeIf { realCalls.isEmpty() }
-            val calls = rescue?.let { listOfNotNull(it.call) } ?: realCalls
-            val audio = rescue?.audio ?: realAudio
-            val ended = if (rescue != null) rescue.ended else realEnded
-            val declineBlock = realBlock.takeIf { rescue == null }
+            val shownNow = collectShown()
+            val (calls, audio, ended) = shownNow
+            val declineBlock = shownNow.declineBlock
+            val rescue = shownNow.rescue
             var keypad by remember { mutableStateOf(showDialpad) }
             // "Hide screen content" covers the call screen too.
             LaunchedEffect(look.secureScreen, look.loaded) { applySecure(look) }
@@ -161,6 +156,20 @@ class InCallActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /** What the screen shows: the real calls, or a rescue call while no real call is up (a real one makes it give way). */
+    private data class Shown(val calls: List<CallUi>, val audio: AudioUi, val ended: CallUi?, val declineBlock: DeclineBlock?, val rescue: RescueState?)
+
+    @Composable
+    private fun collectShown(): Shown {
+        val realCalls by CallManager.state.collectAsStateWithLifecycle()
+        val realAudio by CallManager.audio.collectAsStateWithLifecycle()
+        val realEnded by CallManager.lastEnded.collectAsStateWithLifecycle()
+        val realBlock by CallManager.declineBlock.collectAsStateWithLifecycle()
+        val rescueState by RescueCall.state.collectAsStateWithLifecycle()
+        val rescue = rescueState?.takeIf { realCalls.isEmpty() } ?: return Shown(realCalls, realAudio, realEnded, realBlock, null)
+        return Shown(listOfNotNull(rescue.call), rescue.audio, rescue.ended, null, rescue)
     }
 
     /** The calls this screen shows: Telecom's, else a rescue call's. */
