@@ -224,8 +224,8 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
             // Saving privately while private contacts are locked: their unlock first; cancelled, nothing is saved yet
             // and the list stays as it is.
             val private = dest is BulkDestination.Private || dest is BulkDestination.Temporary && dest.private
-            val activity = context as? ComponentActivity
-            if (private && activity != null && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() } && !AppLock.unlockVault(activity)) {
+            val activity = (context as? ComponentActivity)?.takeIf { private }
+            if (activity != null && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() } && !AppLock.unlockVault(activity)) {
                 progress = null
                 return@launch
             }

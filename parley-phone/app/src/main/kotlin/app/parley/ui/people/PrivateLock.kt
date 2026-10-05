@@ -22,7 +22,7 @@ import app.parley.ui.ParleyListItem
  */
 @Composable
 fun privateContactsUnlocked(vm: AppViewModel): Boolean {
-    val unlocked by vm.c.vault.unlocked.collectAsStateWithLifecycle()
+    val unlocked by vm.c.vault.lock.unlocked.collectAsStateWithLifecycle()
     val listed by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
     return unlocked && !hidden && listed.isNotEmpty()

@@ -207,7 +207,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         // I21: after a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
         val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
         // "Lock private contacts" ([app.parley.data.vault.VaultRepository.lockAll]) reads the entry again: locked now.
-        return combine(entry, reloads, hiding, c.vault.locks) { s, _, hidden, _ -> s.takeUnless { hidden } }.transformLatest { summary ->
+        return combine(entry, reloads, hiding, c.vault.lock.locks) { s, _, hidden, _ -> s.takeUnless { hidden } }.transformLatest { summary ->
             if (summary == null) {
                 emit(Loaded(null, emptyList(), emptyList(), r))
                 return@transformLatest

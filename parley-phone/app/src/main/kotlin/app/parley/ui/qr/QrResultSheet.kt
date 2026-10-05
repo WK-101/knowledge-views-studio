@@ -423,15 +423,12 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
                 number = Bidi.ltr(number), suggestedName = QrText.shown(name, 80, false).ifBlank { number },
                 onDismiss = { temporary = false },
             ) { n, days, deleteHistory, visible ->
-                temporary = false
                 scope.launch {
+                    // Private contacts locked: their unlock first; cancelled, the question stays with what was typed.
                     val saved = try {
                         TemporaryContactActions.save(vm, number, n, days, deleteHistory, visible, context as? ComponentActivity)
-                    } catch (_: VaultUnlockDeclined) {
-                        // The unlock was cancelled: nothing saved, and the question again.
-                        temporary = true
-                        return@launch
-                    }
+                    } catch (_: VaultUnlockDeclined) { return@launch }
+                    temporary = false
                     if (saved != null) {
                         vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))
                         onDismiss()

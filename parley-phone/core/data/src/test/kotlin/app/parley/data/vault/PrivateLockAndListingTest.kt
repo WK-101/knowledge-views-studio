@@ -95,16 +95,16 @@ class PrivateLockAndListingTest {
         val id = person("Ana", "+351 21 000 0001")
         c.vault.forgetOpened()
         assertEquals("Ana", c.vault.details(id)!!.given)
-        assertTrue("opening details counts as unlocked", c.vault.unlocked.value)
+        assertTrue("opening details counts as unlocked", c.vault.lock.unlocked.value)
         val forgets = c.vault.forgets.value
-        val locks = c.vault.locks.value
+        val locks = c.vault.lock.locks.value
 
         c.vault.lockAll()
-        assertFalse(c.vault.unlocked.value)
+        assertFalse(c.vault.lock.unlocked.value)
         assertTrue(VaultCrypto.detailNeedsUnlock())
         // What was opened is forgotten (the page and the search follow these), and nothing opens from memory.
         assertEquals(forgets + 1, c.vault.forgets.value)
-        assertEquals(locks + 1, c.vault.locks.value)
+        assertEquals(locks + 1, c.vault.lock.locks.value)
         assertLocked { c.vault.details(id) }
         // Saving waits for the unlock too: nothing is written.
         assertLocked { person("Grace", "+1 202 555 0100") }
@@ -115,7 +115,7 @@ class PrivateLockAndListingTest {
         // The next unlock in Parley ends it.
         c.vault.unlockedByPerson()
         assertFalse(VaultCrypto.detailNeedsUnlock())
-        assertTrue(c.vault.unlocked.value)
+        assertTrue(c.vault.lock.unlocked.value)
         assertEquals("Ana", c.vault.details(id)!!.given)
         person("Grace", "+1 202 555 0100")
         assertEquals(2, c.vault.summariesNow().size)

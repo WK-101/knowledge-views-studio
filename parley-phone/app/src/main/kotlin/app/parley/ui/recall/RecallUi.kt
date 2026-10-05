@@ -86,7 +86,7 @@ class RecallUi(
     private val privacy: Flow<Privacy> = combine(
         settings.map { it.hideVault }.distinctUntilChanged(), AppLock.locked, c.vault.forgets, reloads,
         // Asked again once the private listing has loaded (a search right after a cold start) and at each unlock or lock.
-        combine(c.vault.listing.map { it.orEmpty().isNotEmpty() }, c.vault.unlocked, ::Pair).distinctUntilChanged(),
+        combine(c.vault.listing.map { it.orEmpty().isNotEmpty() }, c.vault.lock.unlocked, ::Pair).distinctUntilChanged(),
     ) { hidden, locked, _, _, (hasPrivate, _) ->
         if (hidden || locked) {
             Privacy(shown = false, locked = false)

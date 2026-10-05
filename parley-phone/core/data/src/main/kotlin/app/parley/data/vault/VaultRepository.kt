@@ -42,12 +42,9 @@ import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -332,47 +329,15 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** Forgets every opened detail (the app lock locked, the screen went off, or a test). */
     fun forgetOpened() {
         openedMain.clear()
-        synchronized(unlockedLock) {
-            relock?.cancel()
-            unlockedNow.value = false
-        }
+        lock.forgotten()
         forgetCount.value++
     }
 
-    private val unlockedNow = MutableStateFlow(false)
-    private val unlockedLock = Any()
-    private var relock: Job? = null
-
-    /**
-     * Private contacts' details are open now as far as Parley can tell: unlocked in Parley or opened lately, and not
-     * locked or forgotten since. It ends with the key's own window ([UNLOCKED_MS]). "Lock private contacts" shows while
-     * it holds.
-     */
-    val unlocked: StateFlow<Boolean> = unlockedNow.asStateFlow()
-
-    private val lockCount = MutableStateFlow(0)
-
-    /** Counts [lockAll] calls: an open private contact's page and editor follow it. */
-    val locks: StateFlow<Int> = lockCount.asStateFlow()
-
-    /** Details were just opened, or the person unlocked them: [unlocked] for the key's window from now. */
-    fun noteUnlocked() {
-        if (VaultCrypto.lockedByPerson || VaultCrypto.detailLocked) return
-        synchronized(unlockedLock) {
-            unlockedNow.value = true
-            relock?.cancel()
-            relock = scope.launch {
-                delay(UNLOCKED_MS)
-                unlockedNow.value = false
-            }
-        }
-    }
+    /** Whether private contacts are unlocked now, and "Lock private contacts" ([VaultLock]). */
+    val lock = VaultLock(scope)
 
     /** The person's unlock in Parley succeeded: an earlier [lockAll] no longer holds. */
-    fun unlockedByPerson() {
-        VaultCrypto.lockedByPerson = false
-        noteUnlocked()
-    }
+    fun unlockedByPerson() = lock.unlockedByPerson()
 
     /**
      * "Lock private contacts": their details lock again at once, whatever time the key's own window has left. Opened
@@ -380,11 +345,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * opens or seals details until the next unlock in Parley ([unlockedByPerson]). Names and numbers stay listed, as
      * they are while locked (the caller-ID copy needs no unlock); discreet mode is what hides them.
      */
-    fun lockAll() {
-        VaultCrypto.lockedByPerson = true
-        forgetOpened()
-        lockCount.value++
-    }
+    fun lockAll() = lock.lockAll(::forgetOpened)
 
     private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
 
@@ -397,7 +358,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val now = SystemClock.elapsedRealtime()
         openedMain[e.id]?.let { o -> if (o.blob.contentEquals(e.detailBlob) && now - o.at < OPENED_MS && !deviceLocked()) return o.details }
         val text = String(VaultCrypto.openDetailMain(e.detailBlob))
-        noteUnlocked()
+        lock.noteUnlocked()
         val d = ContactDetailsJson.decode(text)
         val blob = if (VaultCrypto.isParts(e.detailBlob)) {
             e.detailBlob
@@ -1172,9 +1133,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
         /** How long opened details stay in memory: short, and only while the phone is unlocked (see openMain). */
         const val OPENED_MS = 60_000L
-
-        /** The detail key's window after an unlock (VaultCrypto's AUTH_SECONDS): how long [unlocked] holds. */
-        const val UNLOCKED_MS = 300_000L
 
         /** Caller-ID copies opened by several workers from this many on, and how many workers. */
         const val OPEN_TOGETHER_FROM = 16

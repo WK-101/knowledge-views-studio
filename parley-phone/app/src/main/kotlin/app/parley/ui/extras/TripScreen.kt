@@ -74,7 +74,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     // Everyone Parley lists, private contacts included while they are shown (discreet mode hides them here too).
     val contacts by vm.everyone.collectAsStateWithLifecycle()
     val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
-    val unlocked by vm.c.vault.unlocked.collectAsStateWithLifecycle()
+    val unlocked by vm.c.vault.lock.unlocked.collectAsStateWithLifecycle()
     val data by produceState<ExtrasStore.TripData?>(null, contacts, hidden, unlocked) {
         value = runCatching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
     }
