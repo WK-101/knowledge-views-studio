@@ -453,7 +453,6 @@
     <string name="edit_relation">Relation</string>
     <string name="edit_notes">Notes</string>
     <string name="edit_name_details">Name details</string>
-    <string name="edit_unlock_first">Unlock the private contact first</string>
     <string name="edit_add_name_first">Add a name or a number first</string>
     <string name="edit_nothing_left">Nothing left to save. Delete the contact instead.</string>
     <string name="edit_photo_failed">Couldn\'t use that photo</string>

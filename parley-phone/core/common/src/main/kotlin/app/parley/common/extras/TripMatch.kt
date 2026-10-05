@@ -26,6 +26,13 @@ object TripMatch {
         val best: Reason get() = Reason.entries.first { it in reasons }
     }
 
+    /**
+     * Who the city scope looks at: the address book's [device] people, and the [private] ones only while private
+     * contacts are listed ([privateShown]: discreet mode off, no duress unlock hiding them), as in the rest of search.
+     */
+    fun people(device: List<Person>, private: List<Person>, privateShown: Boolean): List<Person> =
+        if (privateShown && private.isNotEmpty()) device + private else device
+
     /** Lower case, no accents, punctuation as spaces, single spaces: "São  Paulo," → "sao paulo". */
     fun normalize(text: String): String =
         TextSearch.normalize(text).map { if (it.isLetterOrDigit()) it else ' ' }.joinToString("").split(' ').filter { it.isNotEmpty() }.joinToString(" ")

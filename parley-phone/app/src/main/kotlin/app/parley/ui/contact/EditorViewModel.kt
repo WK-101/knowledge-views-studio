@@ -72,11 +72,26 @@ data class EditConflict(
     val conflicts: List<ContactEditRebase.Conflict>,
 )
 
+/** What the editor was doing when it needed private contacts unlocked ([EditorEvent.Unlock]). */
+enum class UnlockStep {
+    /** Opening a private contact (or an edit of one kept while the process was stopped): nothing typed yet. */
+    OPEN,
+
+    /** Saving: the draft is kept as it is whatever the answer. */
+    SAVE,
+}
+
 sealed interface EditorEvent {
     data class Message(val text: String) : EditorEvent
 
     /** Leave the editor; [savedId] is the saved contact (negative: a private one), or null when nothing was saved. */
     data class Done(val savedId: Long?) : EditorEvent
+
+    /**
+     * Private contacts are locked: ask for their unlock, then call [EditorViewModel.unlocked] (or
+     * [EditorViewModel.unlockDeclined]) with [step], which says what was waiting for it.
+     */
+    data class Unlock(val step: UnlockStep) : EditorEvent
 
     /** Saving changed relations on other contacts too: say so, with Undo when [undo] is set. */
     data class Mirrored(val text: String, val undo: (suspend () -> Unit)?) : EditorEvent
@@ -311,9 +326,28 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         return copy(parleyRelations = ParleyRelationRows.decode(stored))
     }
 
+    /**
+     * The private contact (or its kept edit) can't be opened while private contacts are locked: their unlock is asked
+     * for, and the editor opens once it succeeds ([unlocked]) or leaves quietly when it is cancelled.
+     */
     private suspend fun leaveLocked() {
-        eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_unlock_first)))
-        eventChannel.send(EditorEvent.Done(null))
+        eventChannel.send(EditorEvent.Unlock(UnlockStep.OPEN))
+    }
+
+    /** Private contacts were unlocked for [step]: the contact opens, or the save runs again with the draft as it is. */
+    fun unlocked(step: UnlockStep) {
+        when (step) {
+            UnlockStep.OPEN -> {
+                started = false
+                start(args)
+            }
+            UnlockStep.SAVE -> save()
+        }
+    }
+
+    /** The unlock was cancelled: an editor that couldn't open leaves; one that was saving stays open with every edit. */
+    fun unlockDeclined(step: UnlockStep) {
+        if (step == UnlockStep.OPEN) eventChannel.trySend(EditorEvent.Done(null))
     }
 
     fun update(f: (ContactDetails) -> ContactDetails) {
@@ -452,6 +486,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             }
             when (outcome) {
                 is SaveContactUseCase.Outcome.Failed -> eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_save_failed, outcome.message)))
+                // Not an error: the unlock is asked for, and the save runs again with the same draft.
+                SaveContactUseCase.Outcome.Locked -> eventChannel.send(EditorEvent.Unlock(UnlockStep.SAVE))
                 is SaveContactUseCase.Outcome.ChangedElsewhere -> {
                     val theirs = outcome.theirs
                     conflict = EditConflict(base, e, theirs, theirs?.let { ContactEditRebase.conflicts(base, e, it) }.orEmpty())

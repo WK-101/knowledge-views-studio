@@ -303,6 +303,21 @@ class VCardIO(
         }
     }
 
+    /**
+     * Whether the file holds a card marked private (an open export with private contacts), so the import can ask for
+     * the private contacts' unlock before it starts instead of reporting those cards as not imported. One streaming
+     * pass, no parsing; false when the file can't be read.
+     */
+    suspend fun holdsPrivate(source: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            cr.openInputStream(source)?.use { input ->
+                VCardStream.reader(input).buffered().useLines { lines -> lines.any { it.trimStart().startsWith(CardNotes.X_PRIVATE, ignoreCase = true) } }
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /** Counts BEGIN:VCARD lines so progress can show a total. Cheap: one streaming pass, no parsing. */
     private fun countCards(source: Uri): Int = try {
         cr.openInputStream(source)?.use { input ->
