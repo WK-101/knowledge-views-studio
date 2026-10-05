@@ -1,5 +1,8 @@
 package app.parley.messaging
 
+import app.parley.ui.temporary.TemporaryContactActions
+import app.parley.security.VaultUnlockDeclined
+import androidx.activity.ComponentActivity
 import android.content.res.Resources
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -57,10 +60,17 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
     }
     asking?.let { (chat, suggested) ->
         TemporaryNameDialog(suggested, onDismiss = { asking = null }) { name, visible ->
-            asking = null
             scope.launch {
                 val c = context.container
-                val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(c, chat.number, name, private = !visible) }.getOrNull() }
+                // Private contacts locked: their unlock first; cancelled, the question stays with what was typed.
+                val saved = try {
+                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) {
+                        withContext(Dispatchers.IO) { TemporaryContact.save(c, chat.number, name, private = !visible) }
+                    }
+                } catch (_: VaultUnlockDeclined) {
+                    return@launch
+                }
+                asking = null
                 val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.msg_open) })
                 if (saved != null && r == SnackbarResult.ActionPerformed) if (saved.private) openPrivate(saved.id) else openContact(saved.id)
             }

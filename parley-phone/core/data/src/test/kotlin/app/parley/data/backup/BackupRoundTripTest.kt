@@ -17,6 +17,7 @@ import app.parley.common.storage.PersistentStores
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
+import app.parley.data.circle.AgendaStore
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.testing.FakeAndroidKeyStore
@@ -145,6 +146,29 @@ class BackupRoundTripTest {
         val met = c.circle.interactions.interactionsFor(restored.lookupKey).single()
         assertEquals("Tea at the Royal Society", met.note)
         assertEquals(InteractionType.MEET, met.type)
+    }
+
+    /** The agenda is no store of its own: it comes back with the note for calls and a number's notes. */
+    @Test fun theAgendaComesBackWithItsNotes() = runBlocking {
+        seed()
+        val ada = c.agenda.targetFor("+44 20 7946 0000")!!
+        assertEquals(AgendaStore.Added.ADDED, c.agenda.add(ada, "Ask about the engine"))
+        c.agenda.add(ada, "The loan")
+        c.agenda.setDone(ada, "The loan", true)
+        val number = c.agenda.targetFor("+44 20 7946 0999")!!
+        assertEquals(AgendaStore.Added.ADDED, c.agenda.add(number, "Quote for the boiler"))
+        c.backup.setupKeys(passphrase.toCharArray())
+        assertTrue(c.backup.backupNow(scheduled = false, target = Uri.fromFile(file)).ok)
+        assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains("Ask about the engine"))
+
+        wipe()
+        val opened = c.backup.open(Uri.fromFile(file), Unlock.Passphrase(passphrase.toCharArray()))
+        c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+
+        val restored = c.agenda.targetFor("+44 20 7946 0000")!!
+        // Open items come back open, ticked ones ticked.
+        assertEquals(listOf("Ask about the engine"), c.agenda.open(restored))
+        assertEquals(listOf("Quote for the boiler"), c.agenda.open(c.agenda.targetFor("+44 20 7946 0999")!!))
     }
 
     @Test fun aRestoreRunTwiceAddsNothingTwice() = runBlocking {

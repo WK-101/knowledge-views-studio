@@ -1,5 +1,8 @@
 package app.parley.messaging
 
+import app.parley.ui.temporary.TemporaryContactActions
+import app.parley.security.VaultUnlockDeclined
+import androidx.activity.ComponentActivity
 import android.os.Build
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -659,7 +662,14 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                 // Checked again right before saving: never a second copy of a contact or a private person's number.
                 val unknown = withContext(Dispatchers.IO) { runCatching { ChatThenDecide.stillUnknown(c, number) && (e164 == null || ChatThenDecide.stillUnknown(c, e164)) }.getOrDefault(false) }
                 if (!unknown) return@launch toast(res.getString(R.string.reach_save_already_known))
-                val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(c, e164 ?: number, name, private = !visible) }.getOrNull() }
+                // Private contacts locked: their unlock first; cancelled, nothing is saved and nothing said.
+                val saved = try {
+                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) {
+                        withContext(Dispatchers.IO) { TemporaryContact.save(c, e164 ?: number, name, private = !visible) }
+                    }
+                } catch (_: VaultUnlockDeclined) {
+                    return@launch
+                }
                 toast(TemporaryContact.savedMessage(res, saved))
             }
         }

@@ -1,6 +1,19 @@
 package app.parley.ui.contact
 
 import android.provider.ContactsContract
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.semantics.Role
+import app.parley.common.circle.Agenda
+import app.parley.common.circle.Promises
+import app.parley.data.circle.CircleRepository
+import app.parley.ui.SegmentedGroupScope
+import app.parley.ui.circle.tickPromise
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,14 +68,15 @@ import java.time.ZoneId
 internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext) {
     val d = ctx.d
     val memory = ctx.ui.memory
-    val stayHasNews = ctx.inCircle || ctx.goodTime != null || memory.promises.isNotEmpty()
+    // The agenda's items show with the note for calls.
+    val stayHasNews = ctx.inCircle || ctx.goodTime != null || memory.owed.isNotEmpty()
     if (d.lookupKey.isEmpty() || !stayHasNews) return
     sections.add(ContactSection.STAY, sectionTitle(LocalResources.current, ContactSection.STAY), ctx.lastTalked) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             StayInTouchCard(ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false) {
                 ctx.show(ContactDialog.Rhythm)
             }
-            if (memory.promises.isNotEmpty()) PromisesCard(ctx.vm, d.lookupKey, memory)
+            if (memory.owed.isNotEmpty()) PromisesCard(ctx.vm, d.lookupKey, memory)
         }
     }
 }
@@ -204,20 +218,31 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
     }
 }
 
+/**
+ * The note for calls and the agenda kept in it: the note without its items, then the things to talk about (each ticked
+ * off with one tap) and "Add something to talk about". A private contact's are read only while it is open.
+ */
 @Composable
 private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext) {
     val resources = LocalResources.current
     val context = LocalContext.current
-    val note = ctx.ui.meta?.pinnedNote
-    val summary = note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.contact_page_no_note) }
+    val full = ctx.ui.meta?.pinnedNote
+    val note = Agenda.withoutItems(full)
+    val agenda = ctx.ui.memory.agenda
+    val canAdd = ctx.d.lookupKey.isNotEmpty() && (!ctx.isPrivate || ctx.ui.access == PrivateAccess.OPEN)
+    val summary = note?.lineSequence()?.firstOrNull()?.takeIf { it.isNotBlank() } ?: when {
+        agenda.isNotEmpty() -> resources.getQuantityString(R.plurals.agenda_count, agenda.size, agenda.size)
+        else -> resources.getString(R.string.contact_page_no_note)
+    }
+    val scope = rememberCoroutineScope()
     sections.addRows(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), summary) {
         item {
             InfoRow(
-                // Tap edits it; press and hold copies it, like the page's other facts.
+                // Tap edits it (items too); press and hold copies it, like the page's other facts.
                 modifier = Modifier.combinedClickable(
                     onClick = { ctx.show(ContactDialog.EditNote) },
-                    onLongClick = note?.let { n -> { Clipboard.copy(context, n) } },
-                    onLongClickLabel = note?.let { stringResource(R.string.main_copy) },
+                    onLongClick = full?.let { n -> { Clipboard.copy(context, n) } },
+                    onLongClickLabel = full?.let { stringResource(R.string.main_copy) },
                 ),
                 leading = {
                     val cs = MaterialTheme.colorScheme
@@ -227,6 +252,37 @@ private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext)
                 supporting = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
             )
         }
+        agendaRows(ctx, agenda, canAdd) { n, p -> scope.launch { tickPromise(ctx.vm, ctx.d.lookupKey, n, p, true) } }
+    }
+}
+
+/** The agenda's items, each ticked off with one tap ([onTick]), then "Add something to talk about" when [canAdd]. */
+private fun SegmentedGroupScope.agendaRows(
+    ctx: ContactPageContext,
+    agenda: List<Pair<CircleRepository.PersonNote, Promises.Item>>,
+    canAdd: Boolean,
+    onTick: (CircleRepository.PersonNote, Promises.Item) -> Unit,
+) {
+    agenda.forEachIndexed { i, (n, p) ->
+        item {
+            InfoRow(
+                modifier = Modifier.toggleable(value = false, role = Role.Checkbox) { onTick(n, p) },
+                leading = { if (i == 0) Icon(Icons.Rounded.Checklist, null) },
+                headline = { Text(p.text) },
+                supporting = if (i == 0) ({ Text(stringResource(R.string.agenda_title)) }) else null,
+                trailing = { Checkbox(checked = false, onCheckedChange = null, modifier = Modifier.padding(end = Spacing.m)) },
+            )
+        }
+    }
+    if (!canAdd) return
+    item {
+        InfoRow(
+            modifier = Modifier.clickable { ctx.show(ContactDialog.AddAgenda) },
+            leading = { if (agenda.isEmpty()) Icon(Icons.Rounded.Checklist, null) },
+            headline = { Text(stringResource(R.string.agenda_add)) },
+            supporting = { Text(stringResource(R.string.agenda_add_hint)) },
+            trailing = { Icon(Icons.Rounded.Add, null, Modifier.padding(end = Spacing.m)) },
+        )
     }
 }
 

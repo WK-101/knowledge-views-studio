@@ -40,6 +40,7 @@ import app.parley.data.calls.DriveProfileRepository
 import app.parley.data.calls.RoamingRepository
 import app.parley.data.calltime.CallUsageLedger
 import app.parley.data.calltime.CallingRepository
+import app.parley.data.circle.AgendaStore
 import app.parley.data.circle.CircleRepository
 import app.parley.data.circle.InteractionStore
 import app.parley.data.db.AppDatabase
@@ -361,6 +362,9 @@ class DataContainer(context: Context) {
             index = { history.index }, contactsFlow = { contacts.contacts }, freshContacts = { contacts.loadNow() }, db = db,
         )
     }
+
+    /** Things to talk about with someone: items of their note for calls (a number's notes when it isn't saved). */
+    val agenda by lazy { AgendaStore(this) }
 
     /** Contacts as the screens show them and the number → contact index, shared by the view models. */
     val directory by lazy { ContactDirectory(contacts, settings, PhoneEnv.countryIso(appContext), scope) }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.FamilyRestroom
@@ -207,6 +208,8 @@ internal fun CallMoreSheet(
     onDismiss: () -> Unit,
     onNote: () -> Unit,
     onOpenContact: (() -> Unit)?,
+    /** "Add something to talk about" next time (a number that isn't hidden; never an emergency call). */
+    onAgenda: (() -> Unit)? = null,
     /** Copy the number (not for a hidden number). */
     onCopyNumber: (() -> Unit)? = null,
     /** I10 "I'm on hold" (a connected call not already in hold mode). */
@@ -239,6 +242,15 @@ internal fun CallMoreSheet(
             colors = rowColors(),
             modifier = Modifier.clickable { onDismiss(); onNote() },
         )
+        if (onAgenda != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.incall_agenda_add)) },
+                supportingContent = { Text(stringResource(R.string.incall_agenda_add_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.Checklist, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onAgenda() },
+            )
+        }
         if (onOpenContact != null) {
             ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.incall_open_contact)) },

@@ -23,6 +23,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.rememberCoroutineScope
+import app.parley.ui.temporary.TemporaryContactActions
+import app.parley.security.VaultUnlockDeclined
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -611,8 +614,14 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
             suggestedName = TemporaryContact.suggestedName(n, null, vm.countryIso.uppercase()),
             onDismiss = { saveTemporary = null },
         ) { name, days, deleteHistory, visible ->
-            saveTemporary = null
-            keypad.saveTemporary(n, name, days, deleteHistory, visible) { saved ->
+            scope.launch {
+                // Private contacts locked: their unlock first; cancelled, the dialog stays with what was typed.
+                val saved = try {
+                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) { keypad.saveTemporaryNow(n, name, days, deleteHistory, visible) }
+                } catch (_: VaultUnlockDeclined) {
+                    return@launch
+                }
+                saveTemporary = null
                 if (saved != null) {
                     field.clearText()
                     vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))

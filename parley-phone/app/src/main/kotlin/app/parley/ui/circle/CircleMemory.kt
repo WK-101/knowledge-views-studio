@@ -1,6 +1,8 @@
 package app.parley.ui.circle
 
+import app.parley.calls.AgendaTicks
 import app.parley.calls.ExpectedCallHints
+import app.parley.data.circle.AgendaTarget
 import android.app.Application
 import android.content.res.Resources
 import android.text.format.DateFormat
@@ -71,8 +73,14 @@ data class PersonMemory(val notes: List<PersonNote> = emptyList()) {
     /** The newest dated note (the pinned note shows on its own). */
     val lastNote: PersonNote? get() = notes.firstOrNull { it.source != NoteSource.PINNED }
 
-    /** Open promises, newest note first. */
+    /** Open promises, newest note first (the agenda's items last, with the note for calls). */
     val promises: List<Pair<PersonNote, Promises.Item>> get() = notes.flatMap { n -> Promises.open(n.text).map { n to it } }
+
+    /** The agenda: things to talk about, the open items of the note for calls ([app.parley.common.circle.Agenda]). */
+    val agenda: List<Pair<PersonNote, Promises.Item>> get() = promises.filter { it.first.source == NoteSource.PINNED }
+
+    /** Open promises in the other notes (call notes, logged chats and visits). */
+    val owed: List<Pair<PersonNote, Promises.Item>> get() = promises.filter { it.first.source != NoteSource.PINNED }
 }
 
 /** Loads [lookupKey]'s notes, again whenever one of [keys] changes (call notes, interactions, contact meta). */
@@ -104,9 +112,18 @@ fun PromiseNoteField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, 
     )
 }
 
-/** Ticks a promise off (or back on), with Undo. */
+/**
+ * Ticks a promise off (or back on), with Undo. The note for calls holds the agenda: its items are ticked by their text
+ * where that note is kept (a private contact's is inside its sealed entry, not in Parley's table).
+ */
 suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, item: Promises.Item, done: Boolean) {
     val res = vm.getApplication<Application>().resources
+    val agenda = if (note.source == NoteSource.PINNED) AgendaTarget.forKey(lookupKey) else null
+    if (agenda != null) {
+        if (!AgendaTicks.setDone(vm.c, agenda, item.text, done)) return
+        if (done) CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) { AgendaTicks.setDone(vm.c, agenda, item.text, false) })
+        return
+    }
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
     // I7: a promise of a call that is done no longer lets anyone ring through.
     runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, note) }
@@ -119,10 +136,13 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
     }
 }
 
-/** The open promises on the contact's page, each with a box to tick off. Nothing shows without any. */
+/**
+ * The open promises on the contact's page, each with a box to tick off. Nothing shows without any. The agenda's items
+ * (the note for calls) show with that note instead.
+ */
 @Composable
 fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
-    val promises = memory.promises
+    val promises = memory.owed
     if (promises.isEmpty()) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -169,8 +189,8 @@ fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countr
 fun hasPeek(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote != null || memory.promises.isNotEmpty() || goodTime != null
 
 /**
- * The pre-call peek before dialling from a contact's page: a good time to call, the last note and the open
- * promises (tick them off right here), an organisation's case file, then Call. It can be turned off from the sheet or in Settings.
+ * The pre-call peek before dialling from a contact's page: a good time to call, the last note, the things to talk about
+ * and the open promises (tick them off right here), an organisation's case file, then Call. It can be turned off from the sheet or in Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,12 +229,15 @@ fun PreCallPeekSheet(
                     supportingContent = { Text(sourceText(res, n) { Format.fullDate(context, it) }) },
                 )
             }
-            memory.promises.forEach { (note, p) ->
+            // Things to talk about first: this call is the time for them.
+            (memory.agenda + memory.owed).forEach { (note, p) ->
                 ParleyListItem(
                     colors = clearRow,
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
-                    supportingContent = { Text(stringResource(R.string.circle_open_promise)) },
+                    supportingContent = {
+                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.agenda_item_label else R.string.circle_open_promise))
+                    },
                 )
             }
             Row(

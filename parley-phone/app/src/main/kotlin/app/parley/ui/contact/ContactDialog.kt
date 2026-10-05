@@ -46,6 +46,9 @@ sealed interface ContactDialog {
 
     data object EditNote : ContactDialog
 
+    /** "Add something to talk about" (an item of the note for calls). */
+    data object AddAgenda : ContactDialog
+
     data object LogInteraction : ContactDialog
 
     /** A logged chat or visit, by id, opened to change it. */
@@ -75,7 +78,7 @@ sealed interface ContactDialog {
     companion object {
         private val objects: List<ContactDialog> = listOf(
             None, Menu, ConfirmDelete, DeleteWithoutCopy, Qr, PrivateQrWarning, SecureQr, Photo, Expiry, AddToHomeScreen, Rhythm,
-            CopyToSim, EditNote, LogInteraction, RemindToCall, ConfirmMakePrivate, ConfirmMakeVisible,
+            CopyToSim, EditNote, AddAgenda, LogInteraction, RemindToCall, ConfirmMakePrivate, ConfirmMakeVisible,
         )
 
         /** Writes a dialog as a list of plain values (bundle-safe); `null` for one that closes on rotation. */

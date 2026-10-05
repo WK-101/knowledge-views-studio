@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.data.vault.VaultCrypto
 import android.net.Uri
 import app.parley.jobs.UserErrorText
 import app.parley.R
@@ -81,6 +82,9 @@ class SaveContactUseCase(private val c: DataContainer) {
 
         data class Failed(val message: String) : Outcome
 
+        /** Private contacts are locked: nothing was written. The editor asks for their unlock and saves again. */
+        data object Locked : Outcome
+
         /**
          * Another app or a sync changed the contact since the editor loaded it, so nothing was written. [theirs] is
          * the contact as it is now (null when it is gone).
@@ -108,10 +112,7 @@ class SaveContactUseCase(private val c: DataContainer) {
                 r.toVault -> saveVault(r, notes)
                 else -> saveContact(r, notes, mirrors)
             }
-        }.getOrElse { e ->
-            if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
-            return Outcome.Failed(UserErrorText.of(c.appContext, e))
-        } ?: return Outcome.NotSaved
+        }.getOrElse { e -> return failed(e, r) } ?: return Outcome.NotSaved
         // A photo the camera app took for this contact has been copied where it belongs.
         ContactCamera.forget(c.appContext, r.photo)
         // The expiry picked in the editor; the vault's was written with the contact itself.
@@ -122,6 +123,13 @@ class SaveContactUseCase(private val c: DataContainer) {
         val key = r.original?.lookupKey
         val askKeep = expiry == null && !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
         return Outcome.Saved(id, key.takeIf { askKeep }, notes, mirrors.firstOrNull()?.takeUnless { it.isEmpty })
+    }
+
+    /** What a save that threw [e] tells the editor. */
+    private suspend fun failed(e: Throwable, r: Request): Outcome = when (e) {
+        is ContactChangedElsewhereException -> Outcome.ChangedElsewhere(reload(r.original))
+        is VaultCrypto.LockedException -> Outcome.Locked
+        else -> Outcome.Failed(UserErrorText.of(c.appContext, e))
     }
 
     /** The copy the editor was editing, as it is now. */

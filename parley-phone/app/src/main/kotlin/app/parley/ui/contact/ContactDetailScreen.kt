@@ -92,6 +92,7 @@ import app.parley.ui.menus.MenuShortcutsBlock
 import app.parley.ui.cases.CaseCard
 import app.parley.ui.cases.CaseOwner
 import app.parley.ui.cases.rememberCaseShown
+import app.parley.ui.people.LockPrivateRow
 import app.parley.ui.people.cards.CardUpdateBanner
 import app.parley.ui.screenViewModel
 import java.time.LocalDate
@@ -368,6 +369,8 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
     if (ui.access != PrivateAccess.OPEN && ui.access != PrivateAccess.OPENING) {
         item(key = "access") { PrivateAccessRow(ui.access, onUnlock = unlock, onRetry = ctx.page::reload, onKeep = ctx.page::keepWhatIsLeft) }
     }
+    // Unlocked: one tap locks every private contact again (this page then shows its locked state).
+    if (ui.isPrivate && ui.access == PrivateAccess.OPEN) item(key = "private_lock") { LockPrivateRow(vm) }
 }
 
 /** At a glance under the name: last talked, the next date when it's close, open promises. */
@@ -375,7 +378,7 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
 private fun glanceText(ctx: ContactPageContext): String {
     val talkedAt = ctx.ui.history.firstOrNull { it.durationSec > 0 }?.date
     val resources = LocalResources.current
-    val promises = ctx.ui.memory.promises.size
+    val promises = ctx.ui.memory.owed.size
     val glance = remember(talkedAt, ctx.dated, promises, ctx.today) { ContactGlance.facts(talkedAt, ctx.dated.map { it.second }, ctx.today, promises) }
     return glance.joinToString(stringResource(R.string.main_separator)) { f ->
         when (f) {

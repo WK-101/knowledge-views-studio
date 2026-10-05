@@ -86,6 +86,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.cases.CaseCard
+import app.parley.ui.circle.NumberAgendaBlock
 import app.parley.ui.cases.CaseOwner
 import app.parley.ui.Spacing
 import app.parley.ui.DataL10n
@@ -237,6 +238,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 val owner = CaseOwner(title, numbers, privateNumber != false, contact?.lookupKey)
                 CaseCard(vm, owner, open, Modifier.padding(vertical = Spacing.s))
             }
+            // Things to talk about with whoever this number is, shown again when you call or they call.
+            item(key = "agenda") { NumberAgendaBlock(vm, number, contact?.displayName, notes) }
             item { ReputationHistoryLine(vm, number, isContact = contact != null) }
             item { ScreeningHistorySection(vm, number, contact?.displayName) }
             item { RingFactsHistorySection(vm, number) }
