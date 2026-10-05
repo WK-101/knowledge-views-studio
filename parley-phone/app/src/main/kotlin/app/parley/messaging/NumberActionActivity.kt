@@ -25,6 +25,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.Checklist
+import app.parley.common.circle.Agenda
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.key
@@ -108,7 +110,8 @@ import androidx.compose.ui.semantics.semantics
  * screens (missed-call notification, in-call screen).
  *
  * Nothing starts without a tap: several numbers show a picker, and every action is a button. The text is only used
- * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
+ * to find numbers and is never stored, unless the user adds it as something to talk about with someone. This
+ * activity doesn't handle `tel:` links (the keypad does).
  */
 class NumberActionActivity : LockedActivity() {
     // A sheet over another app: other apps' overlays can't cover its buttons.
@@ -122,6 +125,9 @@ class NumberActionActivity : LockedActivity() {
 
         /** "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
         data object Enter : Stage
+
+        /** Shared text to talk about with someone: pick who. */
+        data object AgendaPick : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
         /** [raw] is the number as written in the text, re-read when the user picks another country. */
         data class Actions(val number: String, val raw: String? = null) : Stage
@@ -158,6 +164,9 @@ class NumberActionActivity : LockedActivity() {
 
     /** Shared text that is more than a number or a map link (a signature, a profile): offered as a new contact. */
     private var contactText by mutableStateOf<String?>(null)
+
+    /** The selected or shared text, offered as something to talk about (kept only if the user adds it). */
+    private var agendaText by mutableStateOf<String?>(null)
     private var leftForChat = false
     /** Nothing shows while this is true: the lock engaged again while the sheet was open. */
     private var hidden by mutableStateOf(false)
@@ -285,6 +294,7 @@ class NumberActionActivity : LockedActivity() {
     private fun initialStage(intent: Intent): Stage {
         sourceText = null
         contactText = null
+        agendaText = null
         contactCheck?.cancel()
         val text = when (intent.action) {
             MessageNumber.ACTION -> return Stage.Enter
@@ -303,6 +313,8 @@ class NumberActionActivity : LockedActivity() {
         val found = NumberText.find(text, region)
         if (found.size > 1) sourceText = text
         offerContactLater(text, region)
+        // What the text says besides its number: something to talk about.
+        agendaText = if (found.size > 1) null else Agenda.clean(found.singleOrNull()?.let { text.replace(it.raw, " ") } ?: text)
         return when (found.size) {
             0 -> MapLinks.parse(text)?.takeIf { it.hasCoordinates || it.needsNetwork || it.service != MapLinks.Service.OTHER }?.let { Stage.Place(it) }
                 ?: Stage.NoNumber
@@ -333,6 +345,7 @@ class NumberActionActivity : LockedActivity() {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
+    @Suppress("CyclomaticComplexMethod") // One branch per stage.
     private fun Sheet() {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         pendingCall?.let { p ->
@@ -351,11 +364,20 @@ class NumberActionActivity : LockedActivity() {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                         Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
+                        if (agendaText != null) {
+                            ParleyListItem(
+                                headlineContent = { Text(stringResource(R.string.agenda_share_row)) },
+                                supportingContent = { Text(stringResource(R.string.agenda_share_row_body)) },
+                                leadingContent = { Icon(Icons.Rounded.Checklist, null) },
+                                modifier = Modifier.clickable { stage = Stage.AgendaPick },
+                            )
+                        }
                         MakeContactRow()
                         TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }
                     is Stage.Place -> PlaceActions(s.place)
                     Stage.Enter -> EnterNumber()
+                    Stage.AgendaPick -> AgendaPick(container, agendaText.orEmpty(), ::finish)
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
                     is Stage.Message -> ReachSheetContent(ReachTarget.Number(s.number, s.accountId), onCall = callAction()) { app -> afterLaunch(app != null) }
@@ -629,6 +651,7 @@ class NumberActionActivity : LockedActivity() {
                     modifier = Modifier.clickable { askTemporary = true },
                 )
             }
+            agendaText?.let { AgendaNumberRow(container, it, number, contactName, ::finish) }
             MakeContactRow()
         }
         if (askTemporary) {

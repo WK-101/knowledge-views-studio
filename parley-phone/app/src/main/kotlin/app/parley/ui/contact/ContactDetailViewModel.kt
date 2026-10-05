@@ -26,6 +26,7 @@ import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.MessengerAction
 import app.parley.data.Messengers
+import app.parley.data.circle.CircleRepository
 import app.parley.data.circle.Interaction
 import app.parley.data.circle.InteractionStore
 import app.parley.data.db.CallNoteEntity
@@ -38,6 +39,7 @@ import app.parley.data.people.RelationFromOther
 import app.parley.data.people.RelationsFromOthers
 import java.time.ZoneId
 import app.parley.ui.circle.PersonMemory
+import app.parley.ui.circle.addToAgenda
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -279,8 +281,15 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private val personal = combine(meta, interactions, notes, temporary) { m, i, n, t -> Personal(m, i, n, t) }
 
     // The person's notes, re-read when any of their sources changes.
-    private val memory = combine(lookupKey, numberKeys, personal) { k, keys, _ -> k to keys }
-        .mapLatest { (k, keys) -> PersonMemory(suspendRunCatching { c.circle.notesFor(k, keys) }.getOrDefault(emptyList())) }
+    private val memory = combine(lookupKey, numberKeys, personal) { k, keys, p -> Triple(k, keys, p.meta?.pinnedNote) }
+        .mapLatest { (k, keys, pinned) ->
+            val notes = suspendRunCatching { c.circle.notesFor(k, keys) }.getOrDefault(emptyList())
+            // A private contact's note for calls (and with it its agenda) is in its sealed entry, read for the page
+            // only while it is open: [meta] has it then.
+            val sealed = pinned?.takeIf { ContactRef.isPrivateKey(k) && it.isNotBlank() }
+                ?.let { CircleRepository.PersonNote(CircleRepository.NoteSource.PINNED, 0, 0, it) }
+            PersonMemory(notes + listOfNotNull(sealed))
+        }
 
     val state: StateFlow<ContactDetailUiState> = combine(loaded, personal, history, c.prefs.numberSims, memory) { l, p, h, sims, mem ->
         if (l == null) {
@@ -463,6 +472,12 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         // Circle's dialog (which writes the same row) never loses an update.
         c.meta.ensureMeta(key, id)
         c.meta.setPinnedNote(key, id, text.trim().ifEmpty { null })
+    }
+
+    /** Adds [text] to the things to talk about with them (an item of their note for calls). */
+    fun addAgendaItem(text: String) = launch {
+        val target = c.agenda.targetFor(id, current?.lookupKey) ?: return@launch
+        say(addToAgenda(c, target, text))
     }
 
     fun setMessengerPrefs(p: MessengerPrefs) = launch {

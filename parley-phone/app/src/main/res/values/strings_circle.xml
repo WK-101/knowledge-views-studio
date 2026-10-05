@@ -188,10 +188,10 @@
     <string name="set_circle_memory_prompt_summary">A note and a follow-up reminder after calls with your contacts</string>
     <string name="set_circle_memory_prompt_kw">note, notes, remember, promise, follow up, after call, post-call, memory</string>
     <string name="set_circle_memory_lock_title">Notes on the lock screen</string>
-    <string name="set_circle_memory_lock_summary">Show the last note and promises on the incoming-call screen while the phone is locked</string>
-    <string name="set_circle_memory_lock_kw">lock screen, note, promise, incoming, privacy</string>
+    <string name="set_circle_memory_lock_summary">Show the last note, promises and things to talk about on the call screen while the phone is locked</string>
+    <string name="set_circle_memory_lock_kw">lock screen, note, promise, agenda, talk about, incoming, privacy</string>
     <string name="set_circle_peek_title">Peek before calling</string>
-    <string name="set_circle_peek_summary">The last note, promises and a good time to call, before you call from a contact\'s page</string>
+    <string name="set_circle_peek_summary">The last note, things to talk about, promises and a good time to call, before you call from a contact\'s page</string>
     <string name="set_circle_peek_kw">peek, before calling, note, promise, good time, local time, time zone</string>
     <string name="set_circle_people_card_title">People card in Call insights</string>
     <string name="set_circle_people_card_summary">Reach in your Circle, open loops and your year, in Call insights</string>

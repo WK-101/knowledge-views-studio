@@ -375,7 +375,7 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
 private fun glanceText(ctx: ContactPageContext): String {
     val talkedAt = ctx.ui.history.firstOrNull { it.durationSec > 0 }?.date
     val resources = LocalResources.current
-    val promises = ctx.ui.memory.promises.size
+    val promises = ctx.ui.memory.owed.size
     val glance = remember(talkedAt, ctx.dated, promises, ctx.today) { ContactGlance.facts(talkedAt, ctx.dated.map { it.second }, ctx.today, promises) }
     return glance.joinToString(stringResource(R.string.main_separator)) { f ->
         when (f) {
