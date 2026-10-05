@@ -5,6 +5,16 @@ import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import app.parley.data.circle.AgendaTarget
+import app.parley.ui.circle.AgendaAddDialog
+import app.parley.ui.circle.addToAgenda
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -29,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -161,6 +172,7 @@ private fun groupLabel(s: RecallSource): Int = when (s) {
     RecallSource.CONTACT -> R.string.recall_group_contacts
     RecallSource.ARCHIVED -> R.string.recall_group_archived
     RecallSource.CALL -> R.string.recall_group_calls
+    RecallSource.AGENDA -> R.string.agenda_title
     RecallSource.PROMISE -> R.string.recall_group_promises
     RecallSource.NOTE -> R.string.recall_group_notes
     RecallSource.CALL_NOTE -> R.string.recall_group_call_notes
@@ -172,7 +184,11 @@ private fun groupLabel(s: RecallSource): Int = when (s) {
     RecallSource.REMEMBERED -> R.string.recall_group_remembered
 }
 
-/** One result: its title and line with the matched words in bold, and a tap that opens where it lives. */
+/**
+ * One result: its title and line with the matched words in bold, and a tap that opens where it lives. Press and hold
+ * adds something to talk about with whoever it is about.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> Unit) {
     val context = LocalContext.current
@@ -187,13 +203,58 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
     val line = supporting(context, vm, hit)
     val restore = restoreAction(vm, hit, open, context, scope, activity)
     val openLabel = stringResource(R.string.recall_open_hint)
+    // Press and hold: something to talk about with whoever the result is about.
+    val res = LocalResources.current
+    var adding by remember { mutableStateOf(false) }
+    if (adding) {
+        AgendaAddDialog(
+            name = hit.title.takeIf { it.isNotBlank() && hit.source == RecallSource.CONTACT },
+            keepOnRotation = !hit.private,
+            onAdd = { text ->
+                adding = false
+                scope.launch {
+                    val said = agendaTargetOf(vm, hit)?.let { addToAgenda(vm.c, it, text) } ?: R.string.agenda_add_failed
+                    vm.toast(res.getString(said))
+                }
+            },
+            onDismiss = { adding = false },
+        )
+    }
+    val addLabel = stringResource(R.string.recall_add_agenda)
     ParleyListItem(
-        modifier = if (target != null) Modifier.clickable(onClickLabel = openLabel) { open(target) } else Modifier,
+        modifier = when {
+            offersAgenda(hit) -> Modifier.combinedClickable(
+                onClickLabel = openLabel.takeIf { target != null },
+                onClick = { target?.let(open) },
+                onLongClickLabel = addLabel,
+                onLongClick = { adding = true },
+            )
+            target != null -> Modifier.clickable(onClickLabel = openLabel) { open(target) }
+            else -> Modifier
+        },
         leadingContent = { Leading(hit) },
         headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = line?.let { l -> { Text(l, maxLines = if (hit.source in LONG_LINES) 3 else 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = restore?.let { r -> { TextButton(r) { Text(stringResource(R.string.number_memory_restore)) } } },
     )
+}
+
+/** Whether a long press can add to the agenda of whoever [hit] is about: a contact, a note's owner, a number. */
+private fun offersAgenda(hit: RecallHit): Boolean = when (hit.source) {
+    RecallSource.CONTACT -> hit.contactId != null
+    RecallSource.AGENDA, RecallSource.PROMISE, RecallSource.NOTE -> hit.ref != null || !hit.number.isNullOrBlank()
+    // Gone: there is nobody to talk to under that name now.
+    RecallSource.DELETED, RecallSource.DELETED_PRIVATE, RecallSource.SNAPSHOT -> false
+    else -> !hit.number.isNullOrBlank()
+}
+
+/** Whose agenda [offersAgenda] adds to, read when the item is added. */
+private suspend fun agendaTargetOf(vm: AppViewModel, hit: RecallHit): AgendaTarget? = when (hit.source) {
+    RecallSource.CONTACT -> hit.contactId?.let { id -> vm.c.agenda.targetFor(id, vm.c.contacts.contacts.value?.firstOrNull { it.id == id }?.lookupKey) }
+    RecallSource.AGENDA, RecallSource.PROMISE, RecallSource.NOTE ->
+        hit.ref?.let(AgendaTarget::forKey) ?: hit.number?.takeIf { it.isNotBlank() }?.let { vm.c.agenda.targetFor(it) }
+    RecallSource.DELETED, RecallSource.DELETED_PRIVATE, RecallSource.SNAPSHOT -> null
+    else -> hit.number?.takeIf { it.isNotBlank() }?.let { vm.c.agenda.targetFor(it) }
 }
 
 /** Notes show more of themselves. */
@@ -226,12 +287,14 @@ private fun restoreAction(
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod") // One icon per group.
 private fun Leading(hit: RecallHit) {
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
     when (hit.source) {
         RecallSource.CONTACT -> Avatar(hit.title, null, avatarSize())
         RecallSource.ARCHIVED -> Icon(Icons.Rounded.Archive, null, tint = tint)
         RecallSource.CALL -> CallTypeIcon(hit.callType ?: CallType.UNKNOWN, durationSec = hit.durationSec)
+        RecallSource.AGENDA -> Icon(Icons.Rounded.Checklist, null, tint = tint)
         RecallSource.PROMISE -> Icon(Icons.Rounded.CheckBoxOutlineBlank, null, tint = tint)
         RecallSource.NOTE -> Icon(Icons.AutoMirrored.Rounded.Notes, null, tint = tint)
         RecallSource.CALL_NOTE -> Icon(Icons.Rounded.EditNote, null, tint = tint)
@@ -255,7 +318,7 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
         RecallSource.CONTACT -> hit.field?.let { AnnotatedString(matchHint(res, it)) }
         RecallSource.ARCHIVED -> plain(stringResource(R.string.recall_archived_on, dayText(hit.at)), number)
         RecallSource.CALL -> AnnotatedString(callLine(context, hit, sep))
-        RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
+        RecallSource.AGENDA, RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
         RecallSource.NOTE, RecallSource.CALL_NOTE -> noteLine(context, hit, sep)
         RecallSource.CASE_FILE -> plain(stringResource(R.string.recall_case_line, Format.shortWhen(context, hit.at)), number)
         RecallSource.MESSAGED -> plain(stringResource(R.string.recall_messaged_on, hit.detail, Format.shortWhen(context, hit.at)))
@@ -310,7 +373,7 @@ private fun targetOf(vm: AppViewModel, hit: RecallHit): Destination? {
         RecallSource.ARCHIVED -> number?.let(Routes::history) ?: PeopleRoutes.Archived
         // A call with a private contact opens their page; any other, the number's calls and notes.
         RecallSource.CALL -> hit.contactId?.takeIf { it < 0 }?.let(Routes::contact) ?: number?.let(Routes::history)
-        RecallSource.PROMISE, RecallSource.NOTE -> hit.ref?.let { noteTarget(vm, it) } ?: number?.let(Routes::history)
+        RecallSource.AGENDA, RecallSource.PROMISE, RecallSource.NOTE -> hit.ref?.let { noteTarget(vm, it) } ?: number?.let(Routes::history)
         RecallSource.CALL_NOTE, RecallSource.MESSAGED -> number?.let(Routes::history)
         RecallSource.CASE_FILE -> hit.ref?.let { HistoryRoutes.Case(it) }
         RecallSource.DELETED, RecallSource.DELETED_PRIVATE -> Routes.journal(HistoryTab.CONTACTS)

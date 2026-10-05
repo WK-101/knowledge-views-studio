@@ -174,4 +174,12 @@
     <string name="detail_open_person">Open</string>
     <string name="detail_relation_from_them">%1$s · From their contact</string>
     <string name="detail_relation_parley_only">%1$s · Kept in Parley only</string>
+    <!-- The contact's labels under the name, and locking private contacts again. -->
+    <string name="ctl_label_open">Open the label</string>
+    <string name="ctl_label_shared">%1$s, shared label</string>
+    <string name="ctl_label_not_added">Couldn\'t add to %1$s</string>
+    <string name="ctl_no_label_for_contact">No label can hold this contact yet: labels belong to an account, and this contact isn\'t saved in one that has labels.</string>
+    <string name="pl_lock">Lock private contacts</string>
+    <string name="pl_unlocked_sub">Their details show until you lock them or a few minutes pass</string>
+    <string name="pl_locked">Private contacts locked</string>
 </resources>

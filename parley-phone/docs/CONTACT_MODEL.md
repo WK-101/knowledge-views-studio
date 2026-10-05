@@ -269,8 +269,18 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
 
 ## Security (unchanged)
 
-- The vault's locking is unchanged: `VaultCrypto.LockedException` shows "Unlock to see all details" in the page, and the
-  editor leaves as before when locked.
+- The vault's locking is unchanged: `VaultCrypto.LockedException` shows "Unlock to see all details" in the page. The
+  editor, and every other way of saving a private contact (keypad, a number's page, QR codes, add several, a chat,
+  import), asks for the unlock instead and then saves with the edits kept; a cancelled unlock saves nothing and says
+  nothing (6.2).
+- **Lock private contacts** (6.2): the Contacts top bar's open lock, a row on an unlocked private contact's page, and
+  hiding them from the Quick Settings tile lock every private contact's details again at once
+  (`VaultRepository.lockAll`): opened details are forgotten and `VaultCrypto.lockedByPerson` refuses to open or seal
+  any until the next unlock in Parley, even inside the key's own 5-minute window. Names and numbers stay listed (the
+  caller-ID copy needs no unlock); "Hide private contacts" is what takes them out of sight. Kept in memory, like the
+  window itself; it is not the app lock.
+- Parley's lists wait for the private listing (`VaultRepository.listing`, null until opened, caller-ID copies opened
+  by a few workers at once) before their first showing, so private contacts never pop in after the others (6.2).
 - Caller ID, the private call history, missed-call notifications and the lock screen use the same caller-ID copy as
   before; discreet mode ("Hide private contacts") still hides private contacts everywhere, including the merged lists.
 - After a duress unlock (5.0, [SECURITY_MODEL.md](SECURITY_MODEL.md#duress-unlock)) discreet mode is forced on, a

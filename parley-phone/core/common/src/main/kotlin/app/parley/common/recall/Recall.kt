@@ -19,6 +19,9 @@ enum class RecallSource {
     /** A call in Parley's copy of calls (Android's call log, the archive, calls with private contacts). */
     CALL,
 
+    /** Something to talk about: an open item of a note for calls ([app.parley.common.circle.Agenda]). */
+    AGENDA,
+
     /** An open promise (a `[ ]` line of a note). */
     PROMISE,
 
@@ -273,23 +276,29 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
 
     /** Notes, promises and notes after calls that answer [query], into [out] by source. */
     private fun notes(query: RecallQuery, out: MutableMap<RecallSource, List<RecallHit>>) {
+        val agenda = ArrayList<RecallHit>()
         val promises = ArrayList<RecallHit>()
         val notes = ArrayList<RecallHit>()
         val callNotes = ArrayList<RecallHit>()
         corpus.notes.forEachIndexed { i, n ->
             val hit = noteHit(query, n, noteDocs[i]) ?: return@forEachIndexed
             when (hit.source) {
+                RecallSource.AGENDA -> agenda += hit
                 RecallSource.PROMISE -> promises += hit
                 RecallSource.CALL_NOTE -> callNotes += hit
                 else -> notes += hit
             }
         }
+        out[RecallSource.AGENDA] = agenda
         out[RecallSource.PROMISE] = promises
         out[RecallSource.NOTE] = notes
         out[RecallSource.CALL_NOTE] = callNotes
     }
 
-    /** [n] as a hit: a promise when an open one holds the words, else the note; null when it doesn't answer [query]. */
+    /**
+     * [n] as a hit: a promise when an open one holds the words (an item to talk about when it is in a note for calls),
+     * else the note; null when it doesn't answer [query].
+     */
     private fun noteHit(query: RecallQuery, n: RecallCorpus.Note, doc: ContactSearch.Doc): RecallHit? {
         val q = query.search
         // A date asks for dated things (a pinned note has none); words alone find undated ones too.
@@ -303,8 +312,9 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
         val title = n.ownerName ?: n.number.orEmpty()
         val promise = Promises.open(n.text).firstOrNull { p -> q.isEmpty || RecallText.containsAll(q, p.text) }
         if (promise != null) {
+            val source = if (n.kind == RecallCorpus.Note.Kind.PINNED) RecallSource.AGENDA else RecallSource.PROMISE
             return RecallHit(
-                RecallSource.PROMISE, title, promise.text, n.at, n.number, ref = n.ownerKey, private = n.private, score = score + RecallRanking.BONUS,
+                source, title, promise.text, n.at, n.number, ref = n.ownerKey, private = n.private, score = score + RecallRanking.BONUS,
             )
         }
         return RecallHit(

@@ -85,12 +85,13 @@ class RecallUi(
     /** May private contacts' calls, notes and deleted copies be searched now? (Asked off the main thread.) */
     private val privacy: Flow<Privacy> = combine(
         settings.map { it.hideVault }.distinctUntilChanged(), AppLock.locked, c.vault.forgets, reloads,
-    ) { hidden, locked, _, _ ->
+        // Asked again once the private listing has loaded (a search right after a cold start) and at each unlock or lock.
+        combine(c.vault.listing.map { it.orEmpty().isNotEmpty() }, c.vault.lock.unlocked, ::Pair).distinctUntilChanged(),
+    ) { hidden, locked, _, _, (hasPrivate, _) ->
         if (hidden || locked) {
             Privacy(shown = false, locked = false)
         } else {
             val needsUnlock = withContext(Dispatchers.IO) { catching { VaultCrypto.detailNeedsUnlock() }.getOrDefault(true) }
-            val hasPrivate = c.vault.contacts.value.isNotEmpty()
             Privacy(shown = hasPrivate && !needsUnlock, locked = hasPrivate && needsUnlock)
         }
     }.distinctUntilChanged()

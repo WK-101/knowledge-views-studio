@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.common.circle.Agenda
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.SystemClock
@@ -42,6 +43,9 @@ import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -196,11 +200,22 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             VaultCallChoices.any = v
         }
 
-    // Caller-ID copies only: the sealed details stay in the database (see VaultCallerRow).
-    val contacts: StateFlow<List<VaultSummary>> = dao.callerRows()
-        .map { list -> list.mapNotNull { summarize(it) }.sortedBy { it.name.lowercase() } }
+    /**
+     * Every private contact from its caller-ID copy (the sealed details stay in the database, see VaultCallerRow); null
+     * until the first listing has been opened, so Parley's lists can wait for it instead of showing everyone else first
+     * and the private contacts a moment later.
+     */
+    val listing: StateFlow<List<VaultSummary>?> = dao.callerRows()
+        .map { list -> summarizeAll(list).sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
+        .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, null)
+
+    /** [listing], empty until it has loaded. */
+    val contacts: StateFlow<List<VaultSummary>> = listing.map { it.orEmpty() }
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, emptyList())
+
+    /** Private contacts stored, counted without opening anything (cheap: a cold start asks before the listing is open). */
+    suspend fun countNow(): Int = withContext(Dispatchers.IO) { dao.count() }
 
     val privateCalls: StateFlow<List<PrivateCall>> = dao.privateCalls()
         .map { list -> list.mapNotNull { callSeal.opened(it) }.also { callSeal.resealOlder(list, scope, dao::resealPrivateCall) } }
@@ -214,6 +229,20 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
 
     private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
+
+    /**
+     * Each row's summary. A cold start opens every caller-ID copy once, each a Keystore operation of a few
+     * milliseconds: the ones not opened yet are opened by a few workers at once, so hundreds of private contacts take
+     * a fraction of the time one after the other would. Later listings open only the copies that changed.
+     */
+    private suspend fun summarizeAll(rows: List<VaultCallerRow>): List<VaultSummary> {
+        val fresh = rows.filter { r -> summaries[r.id]?.first?.contentEquals(r.callerIdBlob) != true }
+        if (fresh.size >= OPEN_TOGETHER_FROM) {
+            val per = (fresh.size + OPENERS - 1) / OPENERS
+            coroutineScope { fresh.chunked(per).map { chunk -> async(Dispatchers.IO) { chunk.forEach { summarize(it) } } }.awaitAll() }
+        }
+        return rows.mapNotNull { summarize(it) }
+    }
 
     private fun summarize(e: VaultCallerRow): VaultSummary? {
         summaries[e.id]?.let { (blob, s) -> if (blob.contentEquals(e.callerIdBlob)) return s.copy(expiresAt = e.expiresAt) }
@@ -301,8 +330,23 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** Forgets every opened detail (the app lock locked, the screen went off, or a test). */
     fun forgetOpened() {
         openedMain.clear()
+        lock.forgotten()
         forgetCount.value++
     }
+
+    /** Whether private contacts are unlocked now, and "Lock private contacts" ([VaultLock]). */
+    val lock = VaultLock(scope)
+
+    /** The person's unlock in Parley succeeded: an earlier [lockAll] no longer holds. */
+    fun unlockedByPerson() = lock.unlockedByPerson()
+
+    /**
+     * "Lock private contacts": their details lock again at once, whatever time the key's own window has left. Opened
+     * details are forgotten (pages, the Contacts search's private details, everything made from them), and nothing
+     * opens or seals details until the next unlock in Parley ([unlockedByPerson]). Names and numbers stay listed, as
+     * they are while locked (the caller-ID copy needs no unlock); discreet mode is what hides them.
+     */
+    fun lockAll() = lock.lockAll(::forgetOpened)
 
     private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
 
@@ -315,6 +359,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val now = SystemClock.elapsedRealtime()
         openedMain[e.id]?.let { o -> if (o.blob.contentEquals(e.detailBlob) && now - o.at < OPENED_MS && !deviceLocked()) return o.details }
         val text = String(VaultCrypto.openDetailMain(e.detailBlob))
+        lock.noteUnlocked()
         val d = ContactDetailsJson.decode(text)
         val blob = if (VaultCrypto.isParts(e.detailBlob)) {
             e.detailBlob
@@ -548,7 +593,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
                     shown.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
                     shown.context.trim().ifEmpty { null }?.let { put("ctx", it) }
-                    shown.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
+                    // Without the agenda's items: they are read from the sealed details, only once unlocked.
+                    Agenda.withoutItems(shown.pinnedNote)?.let { put("note", it) }
                     shown.pronouns.trim().ifEmpty { null }?.let { put(C_PRONOUNS, it) }
                 }
                 // When it was last saved, so the newest of two entries sharing a number wins.
@@ -1089,5 +1135,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
         /** How long opened details stay in memory: short, and only while the phone is unlocked (see openMain). */
         const val OPENED_MS = 60_000L
+
+        /** Caller-ID copies opened by several workers from this many on, and how many workers. */
+        const val OPEN_TOGETHER_FROM = 16
+        const val OPENERS = 4
     }
 }

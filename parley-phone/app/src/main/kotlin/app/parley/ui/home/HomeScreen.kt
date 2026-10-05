@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.people.LockPrivateButton
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -316,6 +317,8 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
         StartTab.CONTACTS -> {
             // Scan QR is in the add button's menu.
             IconButton({ open(PeopleRoutes.Labels) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
+            // Private contacts unlocked: lock them all again (not the app lock below).
+            LockPrivateButton(vm)
             // Lock Parley now, without waiting for the timeout.
             if (appLock) IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         }

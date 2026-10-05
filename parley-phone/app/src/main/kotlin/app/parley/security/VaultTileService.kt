@@ -49,7 +49,11 @@ class VaultTileService : TileService() {
         container.scope.launch {
             val next = !container.settings.current().shownHidden()
             container.settings.update { it.copy(hideVault = next) }
-            if (next) AppLock.lockNow()
+            if (next) {
+                // Hidden means locked too: their details close until the next unlock, as with "Lock private contacts".
+                container.vault.lockAll()
+                AppLock.lockNow()
+            }
             render(next)
         }
     }

@@ -124,6 +124,7 @@ import app.parley.messaging.CsvImportRequest
 import app.parley.messaging.MessagingInbox
 import app.parley.messaging.MessagingRoutes
 import app.parley.security.AppLock
+import app.parley.data.vault.VaultCrypto
 import app.parley.ui.CallColors
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
@@ -386,6 +387,12 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             if (vm.c.vcards.isSealed(uri)) {
                 sealedUri = uri
                 return@launch
+            }
+            // Cards marked private go into private contacts: unlocked first, so none is left out for being locked.
+            // Cancelled, the import still runs and says which ones it couldn't bring in.
+            val activity = context as? ComponentActivity
+            if (activity != null && vm.c.vcards.holdsPrivate(uri) && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() }) {
+                AppLock.unlockVault(activity)
             }
             val count = vm.c.vcards.estimateCount(uri)
             backupFirst.ask(count, BackupNudge.LARGE_IMPORT) {

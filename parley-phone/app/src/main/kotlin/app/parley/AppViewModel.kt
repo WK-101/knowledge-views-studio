@@ -241,16 +241,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * query ([app.parley.data.ContactDirectory]) never contains private contacts.
      */
     val everyone: StateFlow<List<ContactSummary>?> = combine(
-        contacts, c.vault.contacts, settings.map { Triple(it.hideVault, it.sortByFirstName, it.showNamesLastFirst) }.distinctUntilChanged(),
+        contacts, c.vault.listing, settings.map { Triple(it.hideVault, it.sortByFirstName, it.showNamesLastFirst) }.distinctUntilChanged(),
     ) { list, vault, (hidden, byFirst, lastFirst) ->
-        if (list == null || hidden || vault.isEmpty()) return@combine list
         val compare = privateOrder
         // "Sort by" and "Show names as" apply to private contacts as to the address book's: same headers, same rail.
-        val rows = NameOrder.apply(
-            vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) },
-            byFirst, lastFirst, compare,
-        )
-        PrivateListing.merge(list, rows, compare)
+        val rows = if (list == null || hidden || vault == null) {
+            null
+        } else {
+            val rows = vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) }
+            NameOrder.apply(rows, byFirst, lastFirst, compare)
+        }
+        // Not before the private contacts are listed too (vault null while they load): the list appears whole.
+        PrivateListing.whole(list, if (vault == null) null else rows.orEmpty(), hidden, compare)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */

@@ -21,6 +21,7 @@ import app.parley.common.extras.SimpleSetup
 import app.parley.common.extras.TripMatch
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
+import app.parley.data.vault.VaultCrypto
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.RestorePart
 import app.parley.data.backup.toJson
@@ -357,11 +358,42 @@ class ExtrasStore(private val c: DataContainer) {
             }
         }
         val locales = listOf(Locale.getDefault(), Locale.ENGLISH).distinctBy { it.language }
+        fun numberPlaces(numbers: List<String>) = numbers.flatMap { n -> locales.mapNotNull { l -> NumberInfo.location(n, countryIso, l) } }.distinct()
         val people = contacts.map { s ->
-            val numberPlaces = s.phones.flatMap { p -> locales.mapNotNull { l -> NumberInfo.location(p.number, countryIso, l) } }.distinct()
-            TripMatch.Person(s.id, s.displayName, places[s.id].orEmpty(), notes[s.id].orEmpty(), numberPlaces)
+            TripMatch.Person(s.id, s.displayName, places[s.id].orEmpty(), notes[s.id].orEmpty(), numberPlaces(s.phones.map { it.number }))
         }
-        TripData(people, cities)
+        // Private contacts too, while they are listed (discreet mode and a duress unlock hide them, failing closed).
+        val privateShown = !c.settings.hidesPrivateNames()
+        val private = if (privateShown) privatePeople(cities, ::numberPlaces) else emptyList()
+        TripData(TripMatch.people(people, private, privateShown), cities)
+    }
+
+    /**
+     * Private contacts for "Who's in…", by their list ids: their numbers' places always (the caller-ID copy needs no
+     * unlock), their addresses and notes while their details are open (unlocked); the cities of those addresses join
+     * [cities]. Nothing is opened once private contacts turn out to be locked.
+     */
+    private suspend fun privatePeople(cities: MutableList<String>, numberPlaces: (List<String>) -> List<String>): List<TripMatch.Person> {
+        var locked = false
+        return catching { c.vault.summariesNow() }.getOrDefault(emptyList()).map { v ->
+            val d = if (locked) {
+                null
+            } else {
+                try {
+                    c.vault.details(v.id)
+                } catch (_: VaultCrypto.LockedException) {
+                    locked = true
+                    null
+                } catch (_: VaultCrypto.KeyUnavailableException) {
+                    null
+                }
+            }
+            val places = d?.addresses.orEmpty().flatMap { a ->
+                a.city.trim().takeIf { it.isNotEmpty() }?.let { cities += it }
+                listOf(a.city, a.region, a.country, a.formatted).filter { it.isNotBlank() }
+            }
+            TripMatch.Person(ContactRef.Private(v.id).navId, v.name, places, d?.note.orEmpty(), numberPlaces(v.numbers))
+        }
     }
 
     // --- Backup (inside the encrypted backup's settings section) ---

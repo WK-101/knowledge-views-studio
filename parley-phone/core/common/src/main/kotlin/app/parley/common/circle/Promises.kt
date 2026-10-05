@@ -25,6 +25,9 @@ object Promises {
 
     fun open(note: String?): List<Item> = parse(note).filterNot { it.done }
 
+    /** Whether [line] is a promise line (a box, ticked or not, even with nothing after it yet). */
+    fun isBoxLine(line: String): Boolean = box.containsMatchIn(line)
+
     /** [note] with the box on [line] set to [done]; unchanged when that line isn't a promise. */
     fun setDone(note: String, line: Int, done: Boolean): String {
         val lines = note.lines().toMutableList()
