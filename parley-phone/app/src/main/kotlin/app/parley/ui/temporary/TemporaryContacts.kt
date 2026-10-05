@@ -57,6 +57,11 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.data.TemporaryContacts
+import kotlinx.coroutines.CancellationException
+import app.parley.security.withVaultUnlock
+import app.parley.security.VaultUnlockDeclined
+import app.parley.data.vault.VaultCrypto
+import androidx.activity.ComponentActivity
 import app.parley.common.people.ContactRef
 import app.parley.common.people.TemporaryDue
 import app.parley.work.DueTemporaries
@@ -158,10 +163,31 @@ private fun DueCard(count: Int, onDecide: (TemporaryDue.Decision) -> Unit) {
  * use): private (vault) by default, or a phone-only contact when the user asks for it to be visible to other apps.
  */
 object TemporaryContactActions {
-    suspend fun save(vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): TemporaryContacts.Saved? =
-        runCatching {
-            TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
-        }.getOrNull()
+    /** [saveUnlocking] of a temporary contact for [number]. */
+    suspend fun save(
+        vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean, activity: ComponentActivity?,
+    ): TemporaryContacts.Saved? = saveUnlocking(activity) {
+        TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
+    }
+
+    /**
+     * Runs [save] (a temporary contact from a dialog: the keypad, a number's page, a QR code, a chat). A private one
+     * asks for the private contacts' unlock while they are locked, then is saved; null when it couldn't be saved.
+     * Throws [VaultUnlockDeclined] when the unlock is cancelled: nothing was saved, the dialog stays with what was
+     * typed, and no error is shown.
+     */
+    suspend fun saveUnlocking(activity: ComponentActivity?, save: suspend () -> TemporaryContacts.Saved?): TemporaryContacts.Saved? =
+        withVaultUnlock(activity) {
+            try {
+                save()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: VaultCrypto.LockedException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
 
     /** Visible ones go through [app.parley.data.people.TemporaryContactStore]; private ones are vault entries with an expiry. */
     suspend fun extend(vm: AppViewModel, item: TemporaryItem, days: Int) {

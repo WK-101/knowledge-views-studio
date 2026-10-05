@@ -1,5 +1,7 @@
 package app.parley.messaging
 
+import app.parley.ui.temporary.TemporaryContactActions
+import app.parley.security.VaultUnlockDeclined
 import app.parley.security.LockedActivity
 import android.Manifest
 import androidx.annotation.VisibleForTesting
@@ -656,8 +658,7 @@ class NumberActionActivity : LockedActivity() {
         }
         if (askTemporary) {
             TemporaryNameDialog(TemporaryContact.suggestedName(number, null, region), onDismiss = { askTemporary = false }) { name, visible ->
-                askTemporary = false
-                scope.launch { saveTemporary(e164 ?: number, name, visible) }
+                scope.launch { if (saveTemporary(e164 ?: number, name, visible)) askTemporary = false }
             }
         }
         if (pickCountry) {
@@ -689,10 +690,18 @@ class NumberActionActivity : LockedActivity() {
         ) { name, visible -> scope.launch { saveTemporary(s.number, name, visible) } }
     }
 
-    private suspend fun saveTemporary(number: String, name: String, visible: Boolean) {
-        val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name, private = !visible) }.getOrNull() }
+    /** False when the private contacts' unlock was cancelled: nothing saved, and the question stays. */
+    private suspend fun saveTemporary(number: String, name: String, visible: Boolean): Boolean {
+        val saved = try {
+            TemporaryContactActions.saveUnlocking(this) {
+                withContext(Dispatchers.IO) { TemporaryContact.save(container, number, name, private = !visible) }
+            }
+        } catch (_: VaultUnlockDeclined) {
+            return false
+        }
         showMessage(this, TemporaryContact.savedMessage(resources, saved))
         finish()
+        return true
     }
 
     /**
