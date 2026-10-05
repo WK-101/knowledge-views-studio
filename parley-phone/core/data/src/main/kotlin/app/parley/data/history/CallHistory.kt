@@ -203,23 +203,6 @@ class CallHistory(
 
     suspend fun awaitCalls(): List<CallEntry>? = withTimeoutOrNull(30_000) { calls.filterNotNull().first() }
 
-    init {
-        // Not in a process started for a call, a worker or a widget: decrypting the archive and a full catch-up would
-        // compete with call screening. Workers sync explicitly; the rest waits for the UI or a settled call.
-        scope.launch(Dispatchers.IO) {
-            gate.await()
-            val s = prefs.current()
-            runCatching { reload() }
-            if (s.archiveEnabled) {
-                val stale = System.currentTimeMillis() - s.lastFullSync > TimeUnit.HOURS.toMillis(6)
-                runCatching { sync(full = stale) }
-            }
-            cr.changes(Calls.CONTENT_URI).debounce(1500).collect {
-                if (prefs.current().archiveEnabled) runCatching { sync(full = false) }
-            }
-        }
-    }
-
     // ------------------------------------------------------------------ archive
 
     /** Opens a sealed value; a damaged row gives null, but key problems are passed on (they aren't the row's fault). */
@@ -959,6 +942,25 @@ class CallHistory(
     private fun encode(r: CallLogRecord): String = ArchivedCalls.encode(r)
 
     private fun decode(s: String): CallLogRecord = ArchivedCalls.decode(s)
+
+    // Last in the class: the upkeep below runs on another thread at once when the full app has started, and must find
+    // every property initialized.
+    init {
+        // Not in a process started for a call, a worker or a widget: decrypting the archive and a full catch-up would
+        // compete with call screening. Workers sync explicitly; the rest waits for the UI or a settled call.
+        scope.launch(Dispatchers.IO) {
+            gate.await()
+            val s = prefs.current()
+            runCatching { reload() }
+            if (s.archiveEnabled) {
+                val stale = System.currentTimeMillis() - s.lastFullSync > TimeUnit.HOURS.toMillis(6)
+                runCatching { sync(full = stale) }
+            }
+            cr.changes(Calls.CONTENT_URI).debounce(1500).collect {
+                if (prefs.current().archiveEnabled) runCatching { sync(full = false) }
+            }
+        }
+    }
 
     companion object {
         private const val TAG = "CallHistory"

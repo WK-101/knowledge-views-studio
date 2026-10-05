@@ -196,7 +196,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             VaultCallChoices.any = v
         }
 
-    // Caller-ID copies only: the sealed details stay in the database (see VaultCallerRow).
+    /**
+     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
+     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
+     */
+    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
+
+    // Caller-ID copies only: the sealed details stay in the database (see VaultCallerRow). Declared after what a
+    // listing uses: an eager start can list on another thread before the constructor reaches later initializers.
     val contacts: StateFlow<List<VaultSummary>> = dao.callerRows()
         .map { list -> list.mapNotNull { summarize(it) }.sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
@@ -206,12 +213,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .map { list -> list.mapNotNull { callSeal.opened(it) }.also { callSeal.resealOlder(list, scope, dao::resealPrivateCall) } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, emptyList())
-
-    /**
-     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
-     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
-     */
-    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
 
     private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
 
