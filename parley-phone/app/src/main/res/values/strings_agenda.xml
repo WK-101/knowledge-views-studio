@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agenda_title">To talk about</string>
+    <string name="agenda_add">Add something to talk about</string>
+    <string name="agenda_add_hint">Shows when you call them or they call you</string>
+    <string name="agenda_add_title">Something to talk about</string>
+    <string name="agenda_add_title_with">Something to talk about with %1$s</string>
+    <string name="agenda_add_placeholder">Ask about the trip</string>
+    <string name="agenda_add_save">Add</string>
+    <string name="agenda_added">Added. It shows when you next talk.</string>
+    <string name="agenda_already">That\'s already on the list</string>
+    <string name="agenda_add_failed">Couldn\'t add that. Try again.</string>
+    <string name="agenda_unlock_first">Unlock private contacts to add to theirs</string>
+    <plurals name="agenda_count">
+        <item quantity="one">%1$d thing to talk about</item>
+        <item quantity="other">%1$d things to talk about</item>
+    </plurals>
+    <string name="agenda_item_label">To talk about</string>
+    <string name="agenda_number_hint">Kept with this number\'s notes. It shows when you call it or it calls you.</string>
+    <string name="agenda_share_row">Add to talk about with…</string>
+    <string name="agenda_share_row_body">Pick who, and it shows when you next talk</string>
+    <string name="agenda_share_number_row">Add to talk about with this number</string>
+    <string name="agenda_share_pick_title">Talk about this with…</string>
+    <string name="agenda_share_search">Name</string>
+    <string name="agenda_share_none">No contacts match</string>
+    <string name="recall_add_agenda">Add something to talk about</string>
+</resources>

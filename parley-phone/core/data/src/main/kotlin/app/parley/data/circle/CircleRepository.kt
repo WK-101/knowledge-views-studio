@@ -9,6 +9,7 @@ import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import app.parley.common.CallType
+import app.parley.common.catching
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.InteractionChannel
@@ -26,6 +27,7 @@ import app.parley.common.history.CallLogIndex
 import app.parley.data.backup.BackupExtras
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
+import app.parley.data.security.SealedMetaDao
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -295,6 +297,26 @@ class CircleRepository(
                     NoteSource.LOGGED -> interactions.setNote(note.id, next)
                     NoteSource.PINNED -> meta.meta(lookupKey)?.let { meta.setMeta(it.copy(pinnedNote = next)) }
                 }
+                true
+            }
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Changes [lookupKey]'s note for calls as it is now (the agenda's items live there), in one transaction so nothing
+     * written meanwhile is lost; the row is made when missing. False when nothing changed, or when the stored note
+     * can't be opened right now (it is never replaced unseen).
+     */
+    suspend fun editPinnedNote(lookupKey: String, contactId: Long?, change: (String?) -> String?): Boolean = withContext(Dispatchers.IO) {
+        if (lookupKey.isEmpty()) return@withContext false
+        catching {
+            tx {
+                if ((meta as? SealedMetaDao)?.unreadableNote(lookupKey) != null) return@tx false
+                val m = meta.meta(lookupKey)
+                val now = m?.pinnedNote
+                val next = change(now)?.takeIf { it.isNotBlank() }
+                if (next == now) return@tx false
+                meta.setMeta((m ?: ContactMetaEntity(lookupKey)).copy(pinnedNote = next, contactId = contactId ?: m?.contactId))
                 true
             }
         }.getOrDefault(false)

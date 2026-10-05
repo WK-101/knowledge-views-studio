@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="incall_agenda_title">To talk about</string>
+    <plurals name="incall_agenda_count">
+        <item quantity="one">%1$d thing to talk about</item>
+        <item quantity="other">%1$d things to talk about</item>
+    </plurals>
+    <string name="incall_agenda_unlock_to_see">Unlock to see them</string>
+    <plurals name="incall_agenda_show_all">
+        <item quantity="one">Show %1$d more</item>
+        <item quantity="other">Show %1$d more</item>
+    </plurals>
+    <string name="incall_agenda_show_less">Show less</string>
+    <string name="incall_agenda_tick_failed">Couldn\'t tick that off. Try again from their page.</string>
+    <string name="incall_agenda_after_title">Did you cover these?</string>
+    <string name="incall_agenda_after_body">Tick what you talked about. The rest stays for next time.</string>
+    <string name="incall_agenda_after_keep">Keep for next time</string>
+    <string name="incall_agenda_after_all">All covered</string>
+    <string name="incall_agenda_add">Add something to talk about</string>
+    <string name="incall_agenda_add_explainer">For next time you speak</string>
+    <string name="incall_agenda_add_title">Something to talk about</string>
+    <string name="incall_agenda_add_placeholder">Ask about the trip</string>
+    <string name="incall_agenda_add_save">Add</string>
+    <string name="incall_agenda_added">Added for next time</string>
+    <string name="incall_agenda_already">That\'s already on the list</string>
+    <string name="incall_agenda_locked">Unlock private contacts in Parley to add to theirs</string>
+    <string name="incall_agenda_add_failed">Couldn\'t add that. Try again from their page.</string>
+</resources>

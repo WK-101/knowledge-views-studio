@@ -121,9 +121,11 @@ class RecallEngineTest {
     }
 
     @Test fun promisesAndNotesAndCallNotes() {
-        val promise = run("invoice").group(RecallSource.PROMISE)!!.hits.single()
+        // A promise in the note for calls is something to talk about: its own group.
+        val promise = run("invoice").group(RecallSource.AGENDA)!!.hits.single()
         assertEquals("send the invoice to the bank", promise.detail)
         assertEquals("k1", promise.ref)
+        assertNull(run("invoice").group(RecallSource.PROMISE))
         val boiler = run("boiler")
         assertEquals("k1", boiler.group(RecallSource.NOTE)!!.hits.single().ref)
         val callNote = boiler.group(RecallSource.CALL_NOTE)!!.hits.single()
@@ -132,6 +134,15 @@ class RecallEngineTest {
         // A note found by its date alone; the pinned note has none.
         val march = run("garden march")
         assertEquals("Azul Bank", march.group(RecallSource.NOTE)!!.hits.single().title)
+    }
+
+    @Test fun aPromiseInAnotherNoteStaysAPromise() {
+        val note = RecallCorpus.Note(RecallCorpus.Note.Kind.CIRCLE, "[ ] lend the ladder", "k2", "Azul Bank", null, at(2026, 3, 10))
+        val withCircle = RecallEngine(RecallCorpus(notes = listOf(note), region = "PT"), zone)
+        val q = RecallQuery.parse("ladder", today, java.util.Locale.UK)
+        val r = RecallRanking.merge(q, withCircle.search(q, contactOf), limit = 10, region = "PT")
+        assertEquals("lend the ladder", r.group(RecallSource.PROMISE)!!.hits.single().detail)
+        assertNull(r.group(RecallSource.AGENDA))
     }
 
     @Test fun aContactBothDeletedAndInTheSnapshotsShowsOnceAsDeleted() {

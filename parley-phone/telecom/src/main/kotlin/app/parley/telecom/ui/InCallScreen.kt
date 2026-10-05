@@ -136,6 +136,9 @@ private class InCallSheets {
     var more by mutableStateOf(false)
     var noteFor by mutableStateOf<String?>(null)
 
+    /** "Add something to talk about" for this call. */
+    var agendaFor by mutableStateOf<String?>(null)
+
     /** "Check it's really them" for this call (live, or just ended from the post-call card). */
     var verifyFor by mutableStateOf<CallUi?>(null)
 
@@ -401,6 +404,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         poster = poster,
     )
     NeverCallsYouNotice(s, sheets, a)
+    AgendaUnderCaller(s)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     // I11: "Drive profile on" while the marked car is connected.
@@ -412,6 +416,13 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
     }
     Spacer(Modifier.height(Spacing.l))
+}
+
+/** The agenda: things to talk about with them, for the call in front (not over the keypad). */
+@Composable
+private fun AgendaUnderCaller(s: ScreenState) {
+    val primary = s.primary?.takeIf { it.id == s.shown?.id } ?: return
+    if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m))
 }
 
 /** "This number never calls you" for the call in front: Check it's really them and the scam sheet, while it lasts. */
@@ -465,6 +476,11 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
                 )
             // "Blocked and declined", with Undo.
             s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })
+            // "Did you cover these?": the agenda's items not ticked off during the call. The cards below follow it.
+            ended != null && CallAgendas.asksAfter(ended) -> AgendaAfterCallCard(
+                ended, onTouched = { a.onPostCall(PostCallChoice.Touched) },
+                onAnswered = { if (!ended.postCallCard && !ended.memoryCard) a.onPostCall(PostCallChoice.Done) },
+            )
             // Block, save, message or report an unknown number right after the call.
             ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = a.onPostCall)
             // "Anything to remember?" after a call with a contact (opt-in).
@@ -831,6 +847,7 @@ private fun InCallDialogs(
 ) {
     val primary = s.primary
     sheets.noteFor?.let { id -> NoteDialog(id) { sheets.noteFor = null } }
+    AgendaDialog(s, sheets)
     val postDial = primary?.postDialWait
     if (postDial != null) {
         ConfirmDialog(
@@ -858,6 +875,14 @@ private fun InCallDialogs(
     s.live.firstOrNull { it.id == sheets.replyFor && it.state == CallState.RINGING }?.let { ReplySheet(it, quickReplies) { sheets.replyFor = null } }
     val conference = s.live.firstOrNull { it.isConference }
     if (sheets.manage && conference != null) ConferenceSheet(conference) { sheets.manage = false }
+}
+
+/** More › "Add something to talk about", for the call it was opened on (also once that call has ended). */
+@Composable
+private fun AgendaDialog(s: ScreenState, sheets: InCallSheets) {
+    val id = sheets.agendaFor ?: return
+    val call = s.live.firstOrNull { it.id == id } ?: s.shown?.takeIf { it.id == id }
+    if (call != null) AgendaAddDialog(call) { sheets.agendaFor = null } else LaunchedEffect(id) { sheets.agendaFor = null }
 }
 
 /** L3: the RTT conversation; it stays open (and can still be saved) when the call ends under it. */
@@ -900,6 +925,8 @@ private fun MoreSheet(
         controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
         onDismiss = { sheets.more = false },
         onNote = { sheets.noteFor = primary.id },
+        // Written to the person's own notes: asked for after the unlock while the phone is locked.
+        onAgenda = if (agendaApplies(primary)) ({ onUnlock { sheets.agendaFor = primary.id } }) else null,
         onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
         // A call masked on the lock screen copies its number only once the phone is unlocked.
         onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n ->
