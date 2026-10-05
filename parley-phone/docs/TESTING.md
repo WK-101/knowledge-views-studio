@@ -2627,7 +2627,6 @@ Automated: `FamilyShieldTest` (a blocked number marked then withdrawn stays with
 7. **Stopped stays stopped.** Back up, then on Northwind's case screen tap Stop keeping this case file. Restore that backup with contacts: no card comes back. ⋮ › Keep a case file starts it empty, with none of the old reference numbers.
 8. **Shield on a cold start.** With the shield on and a warning received, reboot the phone and have the warned number call before opening Parley: the warning still shows (or the call is silenced or declined as set). If the first read fails, the next call warns.
 
-
 ## 41. Signature, third wave (6.2)
 
 ### 41.3 Agenda
@@ -2648,6 +2647,20 @@ Set up: Parley as the phone app; a contact "Ana" with a number you can call from
 13. **Duress.** After a duress unlock, no items show anywhere (page, peek, call screen, Recall); one added during the session doesn't replace them, and after the real PIN they are back as they were.
 14. **Backup.** Back up, clear Parley's data, restore with contacts: Ana's items come back open (ticked ones ticked), and the plumber's with its notes.
 15. **Looks.** Rows and boxes are at least 48 dp; TalkBack reads each item as a checkbox ("Ask about the trip, not checked"), the card's heading as a heading; the card animates open and closed with a spring (still with animations off); dark, AMOLED, large fonts, landscape, tablets and right to left read well.
+
+### 41.4 Rescue call
+Automated: `RescuePlanTest` (now and in 1, 5 or 15 minutes, a time later today or tomorrow across a clock change, an alarm rings only the call still waiting and only once, a late alarm rings nothing, only short waits keep the phone awake, a real call always wins) (core:common); `RescueCallTest` (it rings on the call screen without being a call, offers nothing that would call, block or keep, answer counts the time, hang up leaves nothing; no call log, note, archive, statistic, case file or menu memory is written through any action, a reply never sends or opens anything; a real call arriving ends it whether ringing or answered, it never starts during a real call or another phone app's, unanswered it stops ringing with no missed call; the Hang up tile, mute and speaker) (telecom, Robolectric); `RescueCallsTest` (one inexact alarm, never an alarm clock; a new one replaces the old, whose alarm rings nothing; cancel leaves nothing; a very late alarm rings nothing) (app, Robolectric).
+Set up: Parley as the phone app, a contact "Ana" with a ringtone of her own and a haptic caller ID (Settings for this contact), a second phone to call from.
+1. **Where it is.** Settings › Calls › Situations shows "Rescue call" under the Situations; Tools › Calls that work better lists it (under "New in 6.2" too); a long press on Parley's launcher icon offers "Rescue call"; a long press on the Situation tile in Quick Settings opens it. The home screen shows nothing of it.
+2. **Now.** Type "Mum", choose Now, tap Ring now: a heads-up "Mum · Incoming call" with Decline and Answer appears, with the phone's ringtone and vibration (as your ring and vibrate switch says). Answer: Parley's call screen with the running time, Mute, Keypad, Speaker; More has no Add note, no "Check it's really them", no helper and no call time. Hang up: "Call ended", then the screen closes. Recents, Ana's history, Call insights, Recall and the call log of the system Phone app show nothing.
+3. **A contact.** Choose a contact › Ana, In 1 minute, Set the call: the banner says "Ana calls at …". Lock the phone and put it away: after about a minute it rings full screen with Ana's photo, her own ringtone and her vibration rhythm. Decline: nothing is left, no missed-call notification.
+4. **Later.** At a time, pick a time two or three minutes ahead, Set the call: the banner says "calls at about …. Android may ring it a few minutes late." Close Parley from Recents: it still rings (perhaps a little late). Set another and tap Cancel it: nothing rings.
+5. **A real call wins.** Set a rescue call for in 1 minute and, while it rings, call the phone from the second phone: the rescue call disappears at once and the real call rings on the same screen; answer and hang up as usual. Answer a rescue call and get a real call meanwhile: the same. During a real call, Ring now says "You're on a call, so nothing rang."; a rescue call due during a real call rings nothing.
+6. **Silent, vibrate, Do Not Disturb.** On vibrate it only vibrates; on silent only the screen shows. With Do Not Disturb on it still opens and rings as far as Android lets the ring stream play (some phones keep it quiet).
+7. **Sound at your ear.** Sound at your ear › pick a short audio file; ring now and answer: it plays once from the earpiece (Speaker moves it to the speaker); with Use silence nothing plays. The microphone is never used. Delete or move the file: the call stays silent.
+8. **Unanswered.** Let it ring: after about 45 seconds it stops, with no missed call anywhere.
+9. **Privacy.** With Settings › Privacy & security › Caller on the lock screen set to Initials, a rescue call from Ana on the locked phone shows her initials, like a real call. With Hide private contacts on, a rescue call from a private contact shows only the number. Back up and restore: no rescue call or its choices come back.
+10. **Looks.** The screen's rows and button are at least 48 dp; TalkBack reads the When choices as radio buttons and the contact's "Use a name instead"; landscape, right to left, dark, AMOLED and large fonts read well.
 
 ## 42. Owner corrections (6.2)
 

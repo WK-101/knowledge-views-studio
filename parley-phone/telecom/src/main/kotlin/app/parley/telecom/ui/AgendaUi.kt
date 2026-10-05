@@ -67,8 +67,12 @@ import kotlinx.coroutines.withContext
 /** Ticks and additions outlive the card that started them (the call may end meanwhile). */
 private val agendaScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
 
-/** A call the agenda applies to: a number that isn't hidden, never an emergency call or a conference. */
-internal fun agendaApplies(call: CallUi): Boolean = !call.hidden && !call.isEmergency && !call.isConference && !call.number.isNullOrBlank()
+/**
+ * A call the agenda applies to: a number that isn't hidden, never an emergency call, a conference or a rescue call
+ * (which reads, ticks and adds nothing).
+ */
+internal fun agendaApplies(call: CallUi): Boolean =
+    !call.hidden && !call.isEmergency && !call.isConference && !call.simulated && !call.number.isNullOrBlank()
 
 /**
  * The agenda of each call on the screen, from when it was read to after the call ends ("Did you cover these?").

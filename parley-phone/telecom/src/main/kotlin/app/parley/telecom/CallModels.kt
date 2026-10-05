@@ -119,6 +119,11 @@ data class CallUi(
     val neverCallsYou: Boolean = false,
     /** After a dropped call: "Calls to Ana drop less on SIM 2", offered once per suggestion (set on the ended call only). */
     val simTip: SimTip? = null,
+    /**
+     * A rescue call ([RescueCall]): shown like a call but not one. Nothing that would place a call, write a note or
+     * reach the network is offered for it, and nothing about it is kept.
+     */
+    val simulated: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -127,46 +132,49 @@ data class CallUi(
     val simHint: String?
         get() = accountLabel?.let { l -> listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }
 
+    /** The helper and RTT cards under the caller: an answered call, never a rescue call (which has neither). */
+    val showsCallCards: Boolean get() = state != CallState.RINGING && !simulated
+
     /** "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
     val canBlockAndDecline: Boolean
-        get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank() && !blockingDecline
+        get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank() && !blockingDecline && !simulated
 
     /** After a call that connected with a contact, "Anything to remember?" (opt-in). */
     val memoryCard: Boolean
-        get() = memoryPrompt && !noContact && !hidden && !isEmergency && connectTimeMillis > 0 && !number.isNullOrBlank()
+        get() = memoryPrompt && !noContact && !hidden && !isEmergency && connectTimeMillis > 0 && !number.isNullOrBlank() && !simulated
 
     /** "Call again" after a drop: a number to call, never an emergency call. */
     val canCallAgain: Boolean
-        get() = drop != null && !hidden && !isEmergency && !number.isNullOrBlank()
+        get() = drop != null && !hidden && !isEmergency && !number.isNullOrBlank() && !simulated
 
     /** I3 "Check it's really them": a live, connected or ringing call that isn't an emergency call. */
     val canVerify: Boolean
-        get() = isLive && !isEmergency && !isConference && state != CallState.SELECT_ACCOUNT
+        get() = isLive && !isEmergency && !isConference && state != CallState.SELECT_ACCOUNT && !simulated
 
     /** I10 "I'm on hold" can start: a connected, active call. */
     val canHoldMode: Boolean
-        get() = state == CallState.ACTIVE && !isEmergency && holdModeSince == 0L
+        get() = state == CallState.ACTIVE && !isEmergency && holdModeSince == 0L && !simulated
 
     /** "Send to another number" on a ringing call the network can deflect. */
-    val canDeflect: Boolean get() = handOff?.let(CallHandOff::deflectOffered) == true
+    val canDeflect: Boolean get() = !simulated && handOff?.let(CallHandOff::deflectOffered) == true
 
     /**
      * "Is this a scam?" under More: a live call from a number that isn't saved (a hidden one too), or a saved
      * organisation that never calls you; never an emergency call.
      */
     val scamCheckOffered: Boolean
-        get() = ScamCheck.offered(
+        get() = !simulated && ScamCheck.offered(
             isLive, savedCaller, lookedUp = noContact, hidden = hidden, emergency = isEmergency, conference = isConference,
             neverCallsYou = neverCallsYou,
         )
 
     /** The "This number never calls you" notice: a live, non-emergency call while the flag holds. */
     val neverCallsYouNotice: Boolean
-        get() = neverCallsYou && isLive && !isEmergency && !isConference && !hidden
+        get() = neverCallsYou && isLive && !isEmergency && !isConference && !hidden && !simulated
 
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean
-        get() = noContact && !hidden && !isEmergency && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
+        get() = noContact && !hidden && !isEmergency && !simulated && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
 }
 
 /**

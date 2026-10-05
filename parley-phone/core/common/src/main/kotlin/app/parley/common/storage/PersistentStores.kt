@@ -168,6 +168,10 @@ object PersistentStores {
         PersistentStore("markdown_export", StoreKind.PREFS, local("The folder of the notes export earlier versions had; removed by the daily maintenance")),
         PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
+        PersistentStore(
+            "rescue_call", StoreKind.PREFS,
+            local("A rescue call waiting to ring and the last choices on its screen: this phone's moment, never backed up"),
+        ),
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
         PersistentStore("private_call_sweep", StoreKind.PREFS, local("A private contact's call that may still be in the system call log")),
         // Kept by number, not by contact: it follows a contact made private or visible without re-keying.

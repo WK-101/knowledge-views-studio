@@ -29,6 +29,7 @@ import app.parley.ui.settings.settingRoute
 import app.parley.ui.settings.CallsRoutes
 import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.sync.shared.SharedLabelRoutes
+import app.parley.ui.situations.SituationRoutes
 import kotlinx.serialization.Serializable
 
 /** "What Parley can do" and "Coming from another phone?". */
@@ -95,6 +96,7 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.SPEED_DIAL -> Routes.SpeedDial
     AppScreen.SHARED_LABELS -> SharedLabelRoutes.All
     AppScreen.PRIVATE_NAMES -> PeopleRoutes.PrivateNames
+    AppScreen.RESCUE_CALL -> SituationRoutes.RescueCall
     // Tabs, handled by capabilityEvent; Home is where they live.
     AppScreen.CIRCLE, AppScreen.KEYPAD -> Routes.Home
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rescue call: a believable call on Parley's call screen, to leave a situation. Not a real call. -->
+<resources>
+    <string name="rescue_title">Rescue call</string>
+    <string name="rescue_intro">A call that looks real, on Parley\'s call screen, to help you leave somewhere. Answer it and talk; nobody is on the line.</string>
+
+    <string name="rescue_who">Who calls</string>
+    <string name="rescue_name_label">Name</string>
+    <string name="rescue_name_hint">Mum</string>
+    <string name="rescue_choose_contact">Choose a contact</string>
+    <string name="rescue_choose_contact_sub">Their photo, ringtone and vibration, as when they call</string>
+    <string name="rescue_contact_remove">Use a name instead</string>
+    <string name="rescue_contact_picker_title">Who calls?</string>
+    <string name="rescue_no_contacts">No contacts with a number yet</string>
+
+    <string name="rescue_when">When</string>
+    <string name="rescue_when_now">Now</string>
+    <string name="rescue_when_1">In 1 minute</string>
+    <string name="rescue_when_5">In 5 minutes</string>
+    <string name="rescue_when_15">In 15 minutes</string>
+    <string name="rescue_when_time">At a time</string>
+    <string name="rescue_when_time_sub">At %1$s · Android may ring it a few minutes late</string>
+    <string name="rescue_time_title">Ring at</string>
+
+    <string name="rescue_after">After you answer</string>
+    <string name="rescue_sound">Sound at your ear</string>
+    <string name="rescue_sound_none">Silence</string>
+    <string name="rescue_sound_off">Use silence</string>
+    <string name="rescue_sound_failed">That file can\'t be used. Silence it is.</string>
+
+    <string name="rescue_ring_now">Ring now</string>
+    <string name="rescue_set">Set the call</string>
+    <string name="rescue_pending">%1$s calls at %2$s</string>
+    <string name="rescue_pending_late">%1$s calls at about %2$s. Android may ring it a few minutes late.</string>
+    <string name="rescue_pending_nobody">A rescue call</string>
+    <string name="rescue_cancel">Cancel it</string>
+    <string name="rescue_real_call">You\'re on a call, so nothing rang.</string>
+    <string name="rescue_facts">It isn\'t a call: nothing is dialled, and it isn\'t kept in Recents, notes, statistics or backups. A real call always comes first and ends it. It follows your ring and vibrate switch, and rings even with Do Not Disturb on, as far as Android allows.</string>
+
+    <string name="rescue_row_sub">A call that looks real, to help you leave</string>
+    <string name="shortcut_rescue_short">Rescue call</string>
+    <string name="shortcut_rescue_long">Set up a rescue call</string>
+</resources>

@@ -14,6 +14,10 @@ object NotificationIds {
     const val CALL_INCOMING = 4711
     const val MISSED_SUMMARY = 4712
     const val CALL_ONGOING = 4713
+
+    /** A rescue call (no real call): ringing, then answered. Ids of their own, so a real call's are never touched. */
+    const val RESCUE_INCOMING = 4714
+    const val RESCUE_ONGOING = 4715
     const val MISSED_CHILD_BASE = 4720
     const val MISSED_CHILD_COUNT = MissedCalls.MAX_CHILDREN
 
@@ -93,6 +97,7 @@ object NotificationIds {
         Range("call.incoming", CALL_INCOMING, 1),
         Range("missed.summary", MISSED_SUMMARY, 1),
         Range("call.ongoing", CALL_ONGOING, 1),
+        Range("rescue", RESCUE_INCOMING, 2),
         Range("missed.child", MISSED_CHILD_BASE, MISSED_CHILD_COUNT),
         Range("screen.blocked", SCREEN_BLOCKED, 1),
         Range("screen.likely", SCREEN_LIKELY_SPAM, 1),
@@ -134,6 +139,13 @@ object NotificationRequests {
     const val PIP_MUTE = 220
     const val PIP_HANG_UP = 221
     const val PIP_HOLD_END = 222
+
+    /** A rescue call's notification: opens its call screen, answers, declines, hangs up; and its alarm. */
+    const val RESCUE_OPEN = 230
+    const val RESCUE_ANSWER = 231
+    const val RESCUE_DECLINE = 232
+    const val RESCUE_HANG_UP = 233
+    const val RESCUE_ALARM = 234
 
     const val MISSED_OPEN = 300
     const val MISSED_CLEAR = 301
@@ -178,6 +190,7 @@ object NotificationRequests {
         NotificationIds.Range("call.dismiss", CALL_DISMISS, 100),
         NotificationIds.Range("call.ask-decline", CALL_ASK_DECLINE, 20),
         NotificationIds.Range("pip", PIP_MUTE, 3),
+        NotificationIds.Range("rescue", RESCUE_OPEN, 5),
         NotificationIds.Range("missed", MISSED_OPEN, 3),
         NotificationIds.Range("missed.dismiss", MISSED_DISMISS, MissedCalls.MAX_CHILDREN),
         NotificationIds.Range("missed.call-back", MISSED_CALL_BACK, MissedCalls.MAX_CHILDREN),

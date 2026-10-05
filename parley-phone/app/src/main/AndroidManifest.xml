@@ -145,6 +145,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.APP_CONTACTS" />
             </intent-filter>
+            <!-- A long press on one of Parley's Quick Settings tiles: the Situation tile's opens Rescue call, the others
+                 open Parley (IntentRoutes). -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!-- Static launcher shortcut "Message a number". -->
             <meta-data
                 android:name="android.app.shortcuts"
@@ -492,6 +498,10 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <!-- A rescue call's inexact alarm (no exact-alarm permission): only Parley's own PendingIntent reaches it. -->
+        <receiver
+            android:name=".rescue.RescueAlarmReceiver"
+            android:exported="false" />
         <!-- Situations' time windows: the clock was set or the time zone changed (no permission needed). -->
         <receiver
             android:name=".situations.SituationClockReceiver"
