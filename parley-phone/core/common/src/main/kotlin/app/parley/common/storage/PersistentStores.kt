@@ -175,7 +175,7 @@ object PersistentStores {
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
         PersistentStore(
             "rescue_call", StoreKind.PREFS,
-            local("A rescue call waiting to ring and the last choices on its screen: this phone's moment, never backed up"),
+            local("A rescue call waiting to ring and the last choices on its screen (who calls sealed): this phone's moment, never backed up"),
         ),
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
         PersistentStore("private_call_sweep", StoreKind.PREFS, local("A private contact's call that may still be in the system call log")),

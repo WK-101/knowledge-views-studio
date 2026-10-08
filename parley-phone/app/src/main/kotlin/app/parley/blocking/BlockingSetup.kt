@@ -12,7 +12,7 @@ object BlockingSetup {
     /** Main thread, cheap: nothing here touches the disk. */
     fun install(context: Context, c: DataContainer) {
         val appContext = context.applicationContext
-        c.onScreened = { e -> BlockingNotifier.onScreened(appContext, e) }
+        c.onScreened = { e -> BlockingNotifier.onScreened(appContext, c, e) }
     }
 
     /**

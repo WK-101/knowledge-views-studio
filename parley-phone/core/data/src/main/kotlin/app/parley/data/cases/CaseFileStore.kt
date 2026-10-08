@@ -172,7 +172,8 @@ class CaseFileStore internal constructor(
 
     /**
      * Inside the encrypted backup, restored with the contacts: every case file but private contacts', with its
-     * reference numbers opened (the next phone seals them with its own key).
+     * reference numbers opened (the next phone seals them with its own key). A backup made while a duress unlock hides
+     * things has none, as the screens show none then (notes, promises and reference numbers are what it hides).
      */
     val backupExtras: BackupExtras = object : BackupExtras {
         override val section = "case files"
@@ -180,6 +181,7 @@ class CaseFileStore internal constructor(
         override val restoreWith = RestorePart.CONTACTS
 
         override suspend fun export(): Map<String, String> {
+            if (Concealment.hides(Concealed.NOTES)) return emptyMap()
             val s = load()
             check(available) { "Case files can't be read right now" }
             if (s.cases.isEmpty()) return emptyMap()

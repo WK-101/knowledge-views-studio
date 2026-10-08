@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.VisibleForTesting
@@ -19,6 +20,8 @@ import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.security.Concealment
+import app.parley.data.security.RecordCrypto
 import app.parley.telecom.RescueCall
 import app.parley.telecom.RescueCaller
 import app.parley.telecom.TelecomGraph
@@ -28,9 +31,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -46,8 +51,13 @@ import java.util.UUID
  * after one ([RescuePlan.stillWaiting]), never shown as waiting when it can't ring. Within the same boot (Parley was
  * updated or stopped, which also drops alarms) it is set again whenever it is read back.
  *
- * Kept in this phone's own preferences, never backed up: the call waiting, and the last choices on the screen. Nothing
- * about a rescue call that rang is kept anywhere.
+ * Kept in this phone's own preferences, never backed up: the call waiting, and the last choices on the screen. Who
+ * calls (the name, the number) and the sound are sealed with the small-records key, never stored as plain text; values an
+ * older version stored plain are sealed the first time they are read. Nothing about a rescue call that rang is kept
+ * anywhere.
+ *
+ * A duress unlock hides it ([hiding]): the screen shows no call waiting and none of the last choices, and what is chosen
+ * meanwhile isn't remembered. A call that was waiting still rings at its time: someone may be counting on it.
  */
 object RescueCalls {
     private const val PREFS = "rescue_call"
@@ -62,6 +72,9 @@ object RescueCalls {
     private const val K_LAST_MINUTE = "last_minute"
     private const val K_CLIP = "clip"
     private const val K_CLIP_NAME = "clip_name"
+
+    /** What says who calls, or what is heard: sealed at rest. */
+    private val SEALED = listOf(K_NAME, K_NUMBER, K_LAST_NAME, K_LAST_NUMBER, K_CLIP, K_CLIP_NAME)
     internal const val EXTRA_ID = "rescue_id"
 
     /** A wake lock is held at most this much past the time, should ringing take a moment. */
@@ -109,7 +122,41 @@ object RescueCalls {
         withContext(Dispatchers.IO) { caller(app, app.container, r, clip) }
     }
 
-    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    /** Whether a duress unlock hides things now; tests replace it. */
+    @VisibleForTesting
+    internal var hiding: () -> Boolean = { Concealment.hiding }
+
+    /** Seals a value with the small-records key; null when it can't be sealed right now. Tests replace it. */
+    @VisibleForTesting
+    internal var seal: (Context, String) -> String? = { app, text -> RecordCrypto.get(app).let { c -> c.sealText(text)?.takeIf(c::isSealed) } }
+
+    /** Values stored plain by an older version were looked at (this process). */
+    private var migrated = false
+
+    private fun prefs(context: Context): SharedPreferences {
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!migrated) {
+            migrated = true
+            sealPlain(context.applicationContext, p)
+        }
+        return p
+    }
+
+    /** Seals what an older version stored plain; a value that can't be sealed yet stays as it is until the next start. */
+    private fun sealPlain(app: Context, p: SharedPreferences) {
+        val crypto = RecordCrypto.get(app)
+        val plain = SEALED.mapNotNull { k -> p.getString(k, null)?.takeIf { it.isNotEmpty() && !crypto.isSealed(it) }?.let { k to it } }
+        if (plain.isEmpty()) return
+        p.edit { plain.forEach { (k, v) -> seal(app, v)?.let { putString(k, it) } } }
+    }
+
+    /** [value] sealed into [key]; nothing at all when it can't be sealed now (never plain). */
+    private fun SharedPreferences.Editor.putSealed(app: Context, key: String, value: String?) {
+        val sealed = value?.takeIf { it.isNotEmpty() }?.let { seal(app, it) }
+        if (sealed == null) remove(key) else putString(key, sealed)
+    }
+
+    private fun SharedPreferences.opened(app: Context, key: String): String? = RecordCrypto.get(app).openText(getString(key, null))
 
     /**
      * The call waiting to ring, if any (read from this phone's preferences the first time). One that can no longer
@@ -121,7 +168,7 @@ object RescueCalls {
             loaded = true
             val app = context.applicationContext
             val p = prefs(app)
-            val r = p.getString(K_ID, null)?.let { RescueRequest(it, p.getString(K_NAME, null).orEmpty(), p.getString(K_NUMBER, null), p.getLong(K_AT, 0)) }
+            val r = p.getString(K_ID, null)?.let { RescueRequest(it, p.opened(app, K_NAME).orEmpty(), p.opened(app, K_NUMBER), p.getLong(K_AT, 0)) }
             when {
                 r == null -> Unit
                 RescuePlan.stillWaiting(r, p.getInt(K_BOOT, -1), bootCount(app), clock()) -> {
@@ -136,6 +183,13 @@ object RescueCalls {
         }
         return _pending.asStateFlow()
     }
+
+    /**
+     * The call waiting as the screen may show it: none while a duress unlock hides things (it still rings, see
+     * [RescueCalls]).
+     */
+    fun shown(context: Context): Flow<RescueRequest?> =
+        combine(pending(context), Concealment.state) { p, _ -> p.takeUnless { hiding() } }
 
     /**
      * For the screen as it opens: drops a call waiting that can no longer ring and sets the alarm of one that can.
@@ -153,40 +207,51 @@ object RescueCalls {
                 dropped = true
             }
         }
-        return dropped.also { dropped = false }
+        // While hiding, "none is waiting" would tell that one was.
+        return (dropped && !hiding()).also { dropped = false }
     }
 
+    /** The last choices on the screen; the plain defaults while a duress unlock hides things. */
     fun choices(context: Context): Choices {
-        val p = prefs(context)
+        if (hiding()) return Choices()
+        val app = context.applicationContext
+        val p = prefs(app)
         return Choices(
-            name = p.getString(K_LAST_NAME, null).orEmpty(),
-            number = p.getString(K_LAST_NUMBER, null),
+            name = p.opened(app, K_LAST_NAME).orEmpty(),
+            number = p.opened(app, K_LAST_NUMBER),
             whenChoice = p.getString(K_LAST_WHEN, null)?.let { w -> RescueWhen.entries.firstOrNull { it.name == w } } ?: RescueWhen.IN_1,
             minuteOfDay = p.getInt(K_LAST_MINUTE, DEFAULT_MINUTE),
-            clip = p.getString(K_CLIP, null),
-            clipName = p.getString(K_CLIP_NAME, null),
+            clip = p.opened(app, K_CLIP),
+            clipName = p.opened(app, K_CLIP_NAME),
         )
     }
 
+    /** Remembers [c] for next time; not while a duress unlock hides things (the stored ones stay as they were). */
     fun saveChoices(context: Context, c: Choices) {
-        prefs(context).edit {
-            putString(K_LAST_NAME, c.name)
-            putString(K_LAST_NUMBER, c.number)
+        if (hiding()) return
+        val app = context.applicationContext
+        prefs(app).edit {
+            putSealed(app, K_LAST_NAME, c.name)
+            putSealed(app, K_LAST_NUMBER, c.number)
             putString(K_LAST_WHEN, c.whenChoice.name)
             putInt(K_LAST_MINUTE, c.minuteOfDay)
-            putString(K_CLIP, c.clip)
-            putString(K_CLIP_NAME, c.clipName)
+            putSealed(app, K_CLIP, c.clip)
+            putSealed(app, K_CLIP_NAME, c.clipName)
         }
     }
 
-    /** Rings now, or sets the call to ring later (replacing one already waiting). */
+    /**
+     * Rings now, or sets the call to ring later (replacing one already waiting). While a duress unlock hides things,
+     * ringing now leaves the hidden call waiting as it was.
+     */
     suspend fun set(context: Context, c: Choices, nowMillis: Long = clock()): Outcome {
         val app = context.applicationContext
         saveChoices(app, c)
-        cancel(app)
+        val now = c.whenChoice == RescueWhen.NOW
+        if (!now || !hiding()) cancel(app)
         val name = RescuePlan.shownName(c.name, null).orEmpty()
         val request = RescueRequest(UUID.randomUUID().toString(), name, c.number, RescuePlan.fireAt(c.whenChoice, nowMillis, c.minuteOfDay))
-        if (c.whenChoice == RescueWhen.NOW) return if (ring(app, request)) Outcome.RINGING else Outcome.REAL_CALL
+        if (now) return if (ring(app, request, c.clip)) Outcome.RINGING else Outcome.REAL_CALL
         store(app, request)
         wait(app, request, nowMillis)
         return Outcome.WAITING
@@ -227,9 +292,12 @@ object RescueCalls {
         Unit
     }
 
-    /** Rings [request] now; false when a real call is up (it always wins, and nothing rings). */
-    private suspend fun ring(app: Context, request: RescueRequest): Boolean {
-        val who = lookUp(app, request, choices(app).clip)
+    /**
+     * Rings [request] now; false when a real call is up (it always wins, and nothing rings). [clip]: the sound chosen
+     * with it, else the remembered one (read even while hiding: the call is the same whatever shows).
+     */
+    private suspend fun ring(app: Context, request: RescueRequest, clip: String? = storedClip(app)): Boolean {
+        val who = lookUp(app, request, clip)
         return withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who) }
     }
 
@@ -261,13 +329,19 @@ object RescueCalls {
         )
     }
 
+    private fun storedClip(app: Context): String? = prefs(app).opened(app, K_CLIP)
+
+    /**
+     * Stores the call waiting. Who calls is sealed, or left out when it can't be sealed now: the call then shows who it
+     * is only while Parley stays open, and still rings at its time.
+     */
     private fun store(app: Context, r: RescueRequest) {
         pending(app)
         prefs(app).edit {
             putString(K_ID, r.id)
             putLong(K_AT, r.atMillis)
-            putString(K_NAME, r.name)
-            putString(K_NUMBER, r.number)
+            putSealed(app, K_NAME, r.name)
+            putSealed(app, K_NUMBER, r.number)
             putInt(K_BOOT, bootCount(app))
         }
         _pending.value = r
@@ -331,6 +405,7 @@ object RescueCalls {
         timer = null
         releaseWakeLock()
         loaded = false
+        migrated = false
         dropped = false
         ringing = null
         _pending.value = null

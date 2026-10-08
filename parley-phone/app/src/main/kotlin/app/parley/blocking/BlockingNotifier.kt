@@ -1,5 +1,6 @@
 package app.parley.blocking
 
+import android.app.KeyguardManager
 import android.os.Build
 import app.parley.common.BlockAction
 import app.parley.common.PhoneIdentity
@@ -19,6 +20,12 @@ import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.NotificationPrivacy
+import app.parley.calls.NoticeCaller
+import app.parley.common.calls.LockScreenCaller
+import app.parley.common.catching
+import app.parley.common.suspendRunCatching
+import app.parley.data.DataContainer
 import app.parley.common.NotificationRequests
 import app.parley.common.NotifyLevel
 import app.parley.common.VerdictKind
@@ -27,6 +34,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.ScreenedCall
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -69,8 +77,10 @@ object BlockingNotifier {
         )
     }
 
-    fun onScreened(context: Context, e: ScreenedCall) {
-        runCatching { post(context, e) }
+    /** Posts what screening decided, off the call path: finding who called may open the private contacts' key. */
+    fun onScreened(context: Context, c: DataContainer, e: ScreenedCall) {
+        val app = context.applicationContext
+        c.scope.launch(Dispatchers.IO) { suspendRunCatching { post(app, c, e) } }
     }
 
     private fun level(e: ScreenedCall, default: NotifyLevel): NotifyLevel {
@@ -78,73 +88,133 @@ object BlockingNotifier {
         return if (own != NotifyLevel.DEFAULT) own else default
     }
 
-    private fun post(context: Context, e: ScreenedCall) {
-        val s = e.settings
+    /**
+     * The notification for [e], or null when there is none. Who called is found as for a missed call ([NoticeCaller]):
+     * a private contact is named only while private contacts show, and while the phone is [locked] the name follows
+     * "Caller on the lock screen". The lock screen's own version names nobody and shows no number. When the settings
+     * can't be read, private contacts count as hidden and the lock screen shows nothing about the caller.
+     */
+    internal suspend fun build(context: Context, c: DataContainer, e: ScreenedCall, locked: Boolean): Built? {
         val number = e.request.number?.takeIf { it.isNotBlank() && !e.request.hidden }
-        val who = e.contactName ?: number?.let { bidiLtr(Format.number(it, PhoneEnv.countryIso(context))) } ?: context.getString(R.string.blk_private_number)
+        val region = PhoneEnv.countryIso(context, e.request.simId)
+        val hideVault = c.settings.hidesPrivateNames()
+        val lockScreen = suspendRunCatching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NONE)
+        val found = NoticeCaller.find(c, number, region, hideVault)
+        // Screening knew the caller as one of yours, but the notice may not name them: a private contact while private
+        // contacts are hidden, or one whose status couldn't be read. Their notice reads like a stranger's, without the
+        // rule that caught them (it can name their label) and without the quiet-hours reply only contacts get.
+        val unnamed = e.isContact && !found.isContact
+        val shownNumber = number?.let { bidiLtr(Format.number(it, region)) } ?: context.getString(R.string.blk_private_number)
+        val who = NotificationPrivacy.screenedCallName(found.savedName, found.vaultName, hideVault, found.network, shownNumber, lockScreen, locked)
         val decision = e.result.decision
-        val nm = NotificationManagerCompat.from(context)
-        if (!nm.areNotificationsEnabled()) return
-        channels(context)
+        val quietHours = decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS
+        val replies = e.isContact && !unnamed && e.settings.busyReply
+        if (quietHours && replies && number != null) return quietHoursReply(context, e, number, who)
+        return screened(context, e, number, who, unnamed)
+    }
 
-        // Someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
-        if (decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS && e.isContact && s.busyReply && number != null) {
-            val id = NotificationIds.screenBusy(PhoneIdentity.key(number, null))
-            val reply = PendingIntent.getActivity(
-                context, id, BlockingActions.replyIntent(number, s.busyReplyText).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-            val b = NotificationCompat.Builder(context, CH_BUSY)
-                .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-                .setContentTitle(context.getString(R.string.blk_n_quiet_hours_title, who))
-                .setContentText(context.getString(R.string.blk_n_reply_text, s.busyReplyText))
-                .setContentIntent(reply)
-                .setAutoCancel(true)
-                .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-                .addAction(0, context.getString(R.string.blk_n_reply), reply)
-            notify(nm, id, b)
-            return
-        }
+    /** Someone you know was silenced by off hours: a one-tap reply through the SMS app. */
+    private fun quietHoursReply(context: Context, e: ScreenedCall, number: String, who: String?): Built {
+        val s = e.settings
+        val id = NotificationIds.screenBusy(PhoneIdentity.key(number, null))
+        val reply = PendingIntent.getActivity(
+            context, id, BlockingActions.replyIntent(number, s.busyReplyText).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val plain = context.getString(R.string.blk_n_quiet_hours_plain)
+        val b = NotificationCompat.Builder(context, CH_BUSY)
+            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
+            .setContentTitle(who?.let { context.getString(R.string.blk_n_quiet_hours_title, it) } ?: plain)
+            .setContentText(context.getString(R.string.blk_n_reply_text, s.busyReplyText))
+            .setContentIntent(reply)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+            .addAction(0, context.getString(R.string.blk_n_reply), reply)
+            .private(context, CH_BUSY, app.parley.ui.R.drawable.ic_stat_missed, plain, NotificationCompat.CATEGORY_MISSED_CALL)
+        return Built(id, b)
+    }
 
-        val kind = e.result.verdict?.kind
-        val (channel, lvl) = when {
-            decision is Decision.Block && decision.reason == BlockReason.LIST -> CH_REPORTED to level(e, s.notifyReported)
-            decision is Decision.Block -> CH_BLOCKED to level(e, s.notifyBlocked)
-            kind == VerdictKind.LIKELY_SPAM -> CH_LIKELY_SPAM to level(e, s.notifyLikelySpam)
-            else -> return
-        }
-        if (lvl == NotifyLevel.NONE) return
+    /** Blocked, silenced, reported or likely spam; null when the level says nothing ([unnamed]: see [build]). */
+    private fun screened(context: Context, e: ScreenedCall, number: String?, who: String?, unnamed: Boolean): Built? {
+        val decision = e.result.decision
+        val (channel, lvl) = channelOf(e) ?: return null
+        if (lvl == NotifyLevel.NONE) return null
         val blocked = decision is Decision.Block
-        val title = when {
-            !blocked -> context.getString(R.string.blk_n_likely_title, who)
-            (decision as Decision.Block).action == BlockAction.SILENCE -> context.getString(R.string.blk_n_silenced_title, who)
-            else -> context.getString(R.string.blk_n_blocked_title, who)
+        val (named, plain) = when {
+            !blocked -> R.string.blk_n_likely_title to R.string.blk_n_likely_plain
+            (decision as Decision.Block).action == BlockAction.SILENCE -> R.string.blk_n_silenced_title to R.string.blk_n_silenced_plain
+            else -> R.string.blk_n_blocked_title to R.string.blk_n_blocked_plain
         }
         val open = PendingIntent.getActivity(
             context, NotificationRequests.SCREEN_OPEN,
             IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BLOCKING).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val id = if (blocked) ID_BLOCKED else ID_LIKELY
+        val icon = app.parley.ui.R.drawable.ic_stat_block
+        val why = if (unnamed) null else BlockingText.verdict(context, e.result.verdict?.text)
         val b = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(title)
-            .setContentText(BlockingText.verdict(context, e.result.verdict?.text) ?: "")
+            .setSmallIcon(icon)
+            .setContentTitle(who?.let { context.getString(named, it) } ?: context.getString(plain))
+            .setContentText(why.orEmpty())
             .setContentIntent(open)
             .setAutoCancel(true)
             .setSilent(lvl == NotifyLevel.QUIET)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setTimeoutAfter(if (blocked) 0 else 10 * 60_000L)
-        if (blocked && number != null) {
+            .private(context, channel, icon, context.getString(plain), NotificationCompat.CATEGORY_STATUS)
+        if (blocked) addBlockedActions(context, e, number, b)
+        return Built(if (blocked) ID_BLOCKED else ID_LIKELY, b)
+    }
+
+    /** The channel for [e] and how loud, or null when nothing is said about it. */
+    private fun channelOf(e: ScreenedCall): Pair<String, NotifyLevel>? {
+        val s = e.settings
+        val decision = e.result.decision
+        return when {
+            decision is Decision.Block && decision.reason == BlockReason.LIST -> CH_REPORTED to level(e, s.notifyReported)
+            decision is Decision.Block -> CH_BLOCKED to level(e, s.notifyBlocked)
+            e.result.verdict?.kind == VerdictKind.LIKELY_SPAM -> CH_LIKELY_SPAM to level(e, s.notifyLikelySpam)
+            else -> null
+        }
+    }
+
+    /** "Not spam" (with a number) and "Expecting a call" (unless already on). */
+    private fun addBlockedActions(context: Context, e: ScreenedCall, number: String?, b: NotificationCompat.Builder) {
+        if (number != null) {
             val notSpam = context.getString(R.string.blk_not_spam)
             val pack = e.result.listHit?.packId
             b.addAction(action(context, notSpam, BlockingActionReceiver.ACTION_NOT_SPAM, number, pack, NotificationRequests.SCREEN_NOT_SPAM))
         }
-        if (blocked && !s.snoozeActive(System.currentTimeMillis())) {
+        if (!e.settings.snoozeActive(System.currentTimeMillis())) {
             val snooze = context.getString(R.string.blk_n_expecting_1h)
             b.addAction(action(context, snooze, BlockingActionReceiver.ACTION_SNOOZE, null, null, NotificationRequests.SCREEN_SNOOZE))
         }
-        notify(nm, id, b)
+    }
+
+    /** A notification to post: its id and its builder. */
+    internal class Built(val id: Int, val builder: NotificationCompat.Builder)
+
+    private suspend fun post(context: Context, c: DataContainer, e: ScreenedCall) {
+        val nm = NotificationManagerCompat.from(context)
+        if (!nm.areNotificationsEnabled()) return
+        channels(context)
+        val built = build(context, c, e, keyguardLocked(context)) ?: return
+        notify(nm, built.id, built.builder)
+    }
+
+    /** Whether the phone is locked now; when it can't be told, it counts as locked. */
+    private fun keyguardLocked(context: Context): Boolean =
+        catching { context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked }.getOrNull() ?: true
+
+    /**
+     * Full text only after unlocking: a lock screen that hides sensitive content shows [publicTitle] alone (no name,
+     * no number); never mirrored to a watch.
+     */
+    private fun NotificationCompat.Builder.private(context: Context, channel: String, icon: Int, publicTitle: String, category: String) = apply {
+        val public = NotificationCompat.Builder(context, channel).setSmallIcon(icon).setContentTitle(publicTitle).setCategory(category).build()
+        setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        setPublicVersion(public)
+        setLocalOnly(true)
     }
 
     private fun notify(nm: NotificationManagerCompat, id: Int, b: NotificationCompat.Builder) {

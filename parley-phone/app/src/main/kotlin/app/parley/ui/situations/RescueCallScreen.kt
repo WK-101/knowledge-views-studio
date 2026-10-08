@@ -55,6 +55,7 @@ import app.parley.common.TextSearch
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
+import app.parley.data.security.Concealment
 import app.parley.rescue.RescueCalls
 import app.parley.ui.Banner
 import app.parley.ui.Bidi
@@ -74,14 +75,17 @@ import java.util.Calendar
 /**
  * Rescue call's screen: who calls (a name, or a contact, whose call shows as theirs would), when, and a sound to hear
  * once answered. Reached from Calls › Situations, Tools, the launcher shortcut and a long press on the Situation tile;
- * never from the home screen. The choices are remembered on this phone only.
+ * never from the home screen. The choices are remembered on this phone only; a duress unlock hides them and the call
+ * waiting ([RescueCalls]).
  */
 @Composable
 fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pending by remember { RescueCalls.pending(context) }.collectAsStateWithLifecycle()
-    var choices by remember { mutableStateOf(RescueCalls.choices(context)) }
+    // While a duress unlock hides things: no call waiting and none of the last choices (the waiting call still rings).
+    val pending by remember { RescueCalls.shown(context) }.collectAsStateWithLifecycle(null)
+    val duress by Concealment.state.collectAsStateWithLifecycle()
+    var choices by remember(duress.hiding) { mutableStateOf(RescueCalls.choices(context)) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var timeOpen by rememberSaveable { mutableStateOf(false) }
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }

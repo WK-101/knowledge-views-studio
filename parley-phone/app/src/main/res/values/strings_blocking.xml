@@ -690,6 +690,11 @@
     <string name="blk_n_likely_title">Likely spam: %1$s</string>
     <string name="blk_n_silenced_title">Silenced call from %1$s</string>
     <string name="blk_n_blocked_title">Blocked call from %1$s</string>
+    <!-- The same notices with nobody named: on the lock screen, or when the caller may not be shown there. -->
+    <string name="blk_n_quiet_hours_plain">A call during quiet hours</string>
+    <string name="blk_n_likely_plain">Likely spam call</string>
+    <string name="blk_n_silenced_plain">Silenced call</string>
+    <string name="blk_n_blocked_plain">Blocked call</string>
     <string name="blk_n_expecting_1h">Expecting a call (1 h)</string>
     <string name="blk_tile_on">Unknown callers ring · %1$s</string>
     <string name="blk_tile_on_cd">Expecting a call, %1$s left</string>

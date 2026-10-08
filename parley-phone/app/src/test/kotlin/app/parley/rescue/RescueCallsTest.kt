@@ -2,14 +2,18 @@ package app.parley.rescue
 
 import android.app.AlarmManager
 import android.app.Application
+import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueWhen
+import app.parley.data.security.RecordCrypto
+import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.telecom.CallState
 import app.parley.telecom.RescueCall
 import app.parley.telecom.RescueCaller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -17,6 +21,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -39,8 +44,17 @@ class RescueCallsTest {
     private val realClock = RescueCalls.clock
     private val realBoot = RescueCalls.bootCount
     private val realLookUp = RescueCalls.lookUp
+    private val realHiding = RescueCalls.hiding
+    private val realSeal = RescueCalls.seal
+    private val prefs get() = context.getSharedPreferences("rescue_call", Context.MODE_PRIVATE)
+
+    @Before fun keys() {
+        FakeAndroidKeyStore.install()
+    }
 
     @After fun clear() {
+        RescueCalls.hiding = realHiding
+        RescueCalls.seal = realSeal
         RescueCalls.cancel(context)
         RescueCall.yieldToRealCall()
         RescueCalls.clock = realClock
@@ -172,5 +186,70 @@ class RescueCallsTest {
         assertEquals("+15550001111", c.number)
         assertEquals(RescueWhen.IN_15, c.whenChoice)
         assertEquals(7 * 60, c.minuteOfDay)
+    }
+
+    @Test fun who_calls_is_sealed_at_rest() = runTest {
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", number = "+15550001111", whenChoice = RescueWhen.IN_15, clipName = "Kitchen.m4a"))
+        val crypto = RecordCrypto.get(context)
+        val stored = prefs.all.values.filterIsInstance<String>()
+        assertFalse(stored.any { it.contains("Mum") || it.contains("5550001111") || it.contains("Kitchen") })
+        listOf("pending_name", "pending_number", "last_name", "last_number", "clip_name").forEach { k ->
+            assertTrue(k, crypto.isSealed(prefs.getString(k, null)))
+        }
+        // Read back after a restart of Parley: the same call and the same choices.
+        RescueCalls.forgetForTest()
+        assertEquals("Mum", RescueCalls.pending(context).value?.name)
+        assertEquals("+15550001111", RescueCalls.pending(context).value?.number)
+        assertEquals("Kitchen.m4a", RescueCalls.choices(context).clipName)
+    }
+
+    @Test fun values_an_older_version_stored_plain_are_sealed_once_read() {
+        prefs.edit().clear()
+            .putString("pending_id", "old").putLong("pending_at", System.currentTimeMillis() + 10 * 60_000L)
+            .putString("pending_name", "Mum").putString("pending_number", "+15550001111")
+            .putString("last_name", "Mum").putString("last_number", "+15550001111").commit()
+        RescueCalls.forgetForTest()
+        val c = RescueCalls.choices(context)
+        assertEquals("Mum", c.name)
+        assertEquals("+15550001111", c.number)
+        val crypto = RecordCrypto.get(context)
+        listOf("pending_name", "pending_number", "last_name", "last_number").forEach { k -> assertTrue(k, crypto.isSealed(prefs.getString(k, null))) }
+        assertEquals("Mum", RescueCalls.pending(context).value?.name)
+    }
+
+    @Test fun nothing_is_stored_plain_when_sealing_fails() = runTest {
+        RescueCalls.seal = { _, _ -> null }
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", number = "+15550001111", whenChoice = RescueWhen.IN_15))
+        assertFalse(prefs.all.values.any { it.toString().contains("Mum") || it.toString().contains("5550001111") })
+        // It still waits, and rings at its time.
+        assertEquals("Mum", RescueCalls.pending(context).value?.name)
+        assertEquals(1, alarms.scheduledAlarms.size)
+    }
+
+    @Test fun a_duress_unlock_shows_nothing_waiting_and_no_last_choices_but_the_call_still_rings() = onVirtualTime { lookups ->
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", number = "+15550001111", whenChoice = RescueWhen.IN_5))
+        val waiting = RescueCalls.pending(context).value!!
+        RescueCalls.hiding = { true }
+        assertNull(RescueCalls.shown(context).first())
+        assertEquals(RescueCalls.Choices(), RescueCalls.choices(context))
+        // What is typed meanwhile isn't remembered, and the stored choices stay as they were.
+        RescueCalls.saveChoices(context, RescueCalls.Choices(name = "Sam"))
+        // Ringing another one now leaves the hidden one waiting.
+        RescueCalls.set(context, RescueCalls.Choices(name = "Sam", whenChoice = RescueWhen.NOW))
+        RescueCall.yieldToRealCall()
+        runCurrent()
+        assertEquals(waiting, RescueCalls.pending(context).value)
+        assertEquals(1, alarms.scheduledAlarms.size)
+        // Opening the screen again says nothing about it either.
+        assertFalse(RescueCalls.refresh(context))
+        // At its time it rings as planned.
+        advanceTimeBy(5 * 60_000L + 1)
+        runCurrent()
+        assertEquals(CallState.RINGING, RescueCall.state.value?.call?.state)
+        assertEquals("Mum", RescueCall.state.value?.call?.name)
+        assertEquals(2, lookups())
+        // Once the real PIN ends the hiding, the last choices are the ones made before it.
+        RescueCalls.hiding = { false }
+        assertEquals("Mum", RescueCalls.choices(context).name)
     }
 }

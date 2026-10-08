@@ -1,7 +1,5 @@
 package app.parley.calls
 
-import app.parley.common.calls.LockScreenCaller
-import app.parley.common.calls.NetworkName
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -27,10 +25,8 @@ import app.parley.R
 import app.parley.blocking.BlockFlow
 import app.parley.blocking.BlockingText
 import app.parley.common.NotificationChannels
-import app.parley.common.catching
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
-import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.DndState
 import app.parley.common.calls.MissedCall
@@ -209,27 +205,13 @@ object MissedCallNotifier {
         screened: List<BlockedCallEntity>,
     ): Shown {
         val number = caller.number.takeIf { !caller.hidden && it.isNotBlank() }
-        val contact = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         // The country of the SIM the call came in on reads a national number as that SIM does.
         val simRegion = PhoneEnv.countryIso(context, caller.accountId)
-        // A lookup that fails says nothing about who it is: no private name, and no network name either (below).
-        val vaultHit = if (contact == null && number != null) catching { c.vault.lookup(number, simRegion) } else Result.success(null)
-        val vaultName = vaultHit.getOrNull()?.second?.name
-        // An archived contact is named like any saved one.
-        val archivedName = if (contact == null && vaultName == null && number != null) catching { c.archive.lookup(number)?.name }.getOrNull() else null
-        // A number nobody saved and known not to be a private contact's (whatever discreet mode says): the name the
-        // network sent, where the lock-screen rule shows callers' names in full.
-        val isPrivate = if (vaultHit.isFailure) null else vaultHit.getOrNull() != null
-        val remember = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
-        val network = if (number != null && NetworkName.mayShow(remember, saved = contact != null || archivedName != null, private = isPrivate)) {
-            val lockScreen = catching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
-            NetworkName.inNotification(catching { c.networkNames.latest(number, simRegion)?.name }.getOrNull(), lockScreen)
-        } else {
-            null
-        }
-        // A private contact's name never shows in discreet mode.
-        val name = (NotificationPrivacy.missedCallName(contact?.name ?: archivedName, vaultName, hideVault, null) ?: network ?: number)
-            ?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
+        // Who it is, found as for every call notification (a private contact's name never shows in discreet mode).
+        val who = NoticeCaller.find(c, number, simRegion, hideVault)
+        val contact = who.contact
+        val network = who.network
+        val name = (who.name ?: number)?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
         val sep = context.getString(R.string.main_separator)
@@ -253,7 +235,7 @@ object MissedCallNotifier {
         val inboxLine = inboxLine(counted, tag, time, sim, sep)
         val taggedTitle = taggedTitle(name, tag, sep)
         // Discreet mode: "Block" depends on phone contacts only, so its absence never reveals a private contact.
-        return Shown(name, taggedTitle, line, why, inboxLine, photo, isContact = contact != null || archivedName != null || (vaultName != null && !hideVault))
+        return Shown(name, taggedTitle, line, why, inboxLine, photo, isContact = who.isContact)
     }
 
     /**

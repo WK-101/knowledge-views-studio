@@ -140,4 +140,17 @@ class CaseFileStoreTest {
         assertTrue(crypto.isSealed(ref.value))
         assertEquals("CLM-1", fresh.openReference(ref))
     }
+
+    @Test fun a_backup_made_during_a_duress_unlock_carries_no_case_files() = runBlocking {
+        val s = store()
+        s.keep("Bank", bank)
+        assertTrue(s.addReference("Bank", "Claim", "CLM-1", typed = false))
+        Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.DURESS, false))
+        val values = s.backupExtras.export()
+        assertTrue(values.isEmpty())
+        // Nothing stored changed, and the real PIN brings them back into the next backup.
+        Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.NORMAL, false))
+        val after = CaseFiles.decode(s.backupExtras.export().values.single())
+        assertEquals("CLM-1", after.cases.single().references.single().value)
+    }
 }
