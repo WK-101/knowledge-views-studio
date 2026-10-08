@@ -13,10 +13,12 @@ import app.parley.common.Verification
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.NetworkName
 import app.parley.common.catching
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -53,6 +55,8 @@ class ParleyCallScreeningService : CallScreeningService() {
             }
         }.getOrDefault(Verification.NOT_VERIFIED)
         scope.launch {
+            // Cancelled mid-screening (the service is going away): still answer, letting the call ring.
+            coroutineContext.job.invokeOnCompletion { if (it is CancellationException) allow(details) }
             val response = catching {
                 // No SIM here: Android never gives the screening service the phone account. A decision that depends on
                 // a SIM-limited allow rule comes back as an allow marked "deferred", and CallManager screens again.
