@@ -241,6 +241,12 @@ interface CallRecordHooks {
     fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
 
     /**
+     * The network sent [name] (already [app.parley.common.calls.NetworkName.clean]ed) with an incoming call from
+     * [number] at [at], on [accountId]'s SIM. The app keeps it only when the number isn't saved (nor private).
+     */
+    fun onNetworkName(number: String, name: String, accountId: String?, at: Long) {}
+
+    /**
      * A connected, non-emergency call ended after [durationSec] seconds of talk: recorded in the call-usage ledger that
      * allowances count (it survives a cleared call log and includes private contacts' calls).
      */
@@ -294,7 +300,7 @@ interface UiHooks {
     fun contactIntent(context: Context, contactId: Long?, number: String?): Intent
 
     /** An intent into the app for a post-call action on an unknown number, or null when not available. */
-    fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent? = null
+    fun postCallIntent(context: Context, action: PostCallAction, number: String, name: String? = null): Intent? = null
 
     /** Vibrate on connect, disconnect, swap, merge and limit warnings. */
     fun callHaptics(): Boolean = true

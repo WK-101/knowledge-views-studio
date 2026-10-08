@@ -145,6 +145,10 @@ object PersistentStores {
         PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Sealed with this phone's call-history key; kept 60 days")),
         PersistentStore("parley_call_quality", StoreKind.PREFS, local("Call quality facts, sealed with this phone's call-history key; kept 60 days")),
         PersistentStore(
+            "parley_network_names", StoreKind.PREFS,
+            local("Names the network sent for numbers that aren't saved, sealed with this phone's call-history key; like number memory, not in backups"),
+        ),
+        PersistentStore(
             "parley_number_advice", StoreKind.PREFS,
             local("Answers to \"seems out of service\" and SIM suggestions, keyed by this phone's call-history key"),
         ),

@@ -2,7 +2,7 @@ package app.parley.ui.circle
 
 import androidx.compose.foundation.layout.Box
 import app.parley.ui.PersonRow
-import app.parley.ui.contact.PrivateBadge
+import app.parley.ui.PrivateBadge
 import app.parley.ui.Destination
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable

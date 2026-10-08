@@ -169,6 +169,9 @@ object IntentRoutes {
     const val EXTRA_CONTACT_ID = "contact_id"
     const val EXTRA_NUMBER = "number"
 
+    /** A name to start from (the post-call card's "Save": the name the network sent). */
+    const val EXTRA_NAME = "name"
+
     /** The raw contact an Edit link names (`content://com.android.contacts/raw_contacts/12`); null for a contact link. */
     fun rawContactId(uri: Uri): Long? {
         val seg = uri.pathSegments
@@ -308,7 +311,7 @@ object IntentRoutes {
                 when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
                     "BLOCK" -> IntentTarget(block = number)
                     "UNBLOCK" -> IntentTarget(unblock = number)
-                    "SAVE" -> go(NavEvent.Route(Routes.edit(phone = number)))
+                    "SAVE" -> go(NavEvent.Route(Routes.edit(name = intent.getStringExtra(EXTRA_NAME)?.takeIf { it.isNotBlank() }, phone = number)))
                     "ADD_TO_CONTACT" -> go(NavEvent.Route(Routes.pick(number)))
                     "REPORT" -> IntentTarget(report = number)
                     // I1: the number's history, where what Parley remembers about it offers its action.

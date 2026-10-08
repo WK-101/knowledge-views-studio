@@ -60,8 +60,8 @@ sealed interface PostCallChoice {
     /** The number is blocked already (an outgoing call to it, or it was blocked meanwhile). */
     data class Unblock(val number: String) : PostCallChoice
 
-    /** Save as a new contact, in the app's editor. */
-    data class Save(val number: String) : PostCallChoice
+    /** Save as a new contact, in the app's editor ([name]: the network's name for the number, to start from). */
+    data class Save(val number: String, val name: String? = null) : PostCallChoice
 
     /** Add the number to a contact you already have. */
     data class AddToContact(val number: String) : PostCallChoice
@@ -125,7 +125,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Saving is what most people do after a first call: a plain contact first, the private week as an option.
-                Action(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_save)) { onChoice(PostCallChoice.Save(number)) }
+                Action(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_save)) { onChoice(PostCallChoice.Save(number, call.networkName)) }
                 Action(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { onChoice(PostCallChoice.AddToContact(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
                 // L1: call them back later, from the To call list (saved without unlocking, like a note).
@@ -152,7 +152,10 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
         }
     }
     if (saving) {
-        var name by remember { mutableStateOf(runCatching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number)) }
+        // The network's name for the number, when it sent one; else a name made from the number and where it's from.
+        var name by remember {
+            mutableStateOf(call.networkName ?: runCatching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number))
+        }
         ConfirmDialog(
             title = stringResource(R.string.postcall_save_title),
             text = null,

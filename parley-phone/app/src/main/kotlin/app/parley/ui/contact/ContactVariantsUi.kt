@@ -1,14 +1,11 @@
 package app.parley.ui.contact
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Timer
@@ -32,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -44,23 +40,6 @@ import app.parley.common.people.VariantChip
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.Spacing
 import app.parley.ui.common.Format
-
-/**
- * The small lock on a private contact's photo in lists (Contacts, Favourites, the Circle, keypad results): the one
- * sign in a list that other apps can't see them. TalkBack reads "Private contact".
- */
-@Composable
-fun PrivateBadge(modifier: Modifier = Modifier) {
-    Box(
-        modifier.size(18.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Rounded.Lock, stringResource(R.string.contact_private_badge),
-            Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-    }
-}
 
 /**
  * The header's status chips, each one short line: "Private" and "Temporary · 5 days left". The long form ("hidden from

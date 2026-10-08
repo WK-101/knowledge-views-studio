@@ -86,6 +86,22 @@ class SealedLineStore<T>(
         store(next, l.unread)
     }
 
+    /**
+     * Replaces [number]'s rows with what [change] makes of them (newest first), in one write; nothing is written
+     * without the key. For stores that keep a few facts per line rather than one per call.
+     */
+    @Synchronized
+    fun update(number: String?, now: Long = System.currentTimeMillis(), change: (List<T>) -> List<T>) {
+        val k = keyOf(number) ?: return
+        val l = loaded() ?: return
+        val mine = l.rows.filter { it.key == k }.map { it.facts }.sortedByDescending(startedAt)
+        val next = (change(mine).map { Row(k, it) } + l.rows.filterNot { it.key == k })
+            .filter { now - startedAt(it.facts) < keepDays * DAY_MS }
+            .sortedByDescending { startedAt(it.facts) }
+            .take(maxRows)
+        store(next, l.unread)
+    }
+
     /** Adds rows already keyed (moved from an older format); false when they couldn't be sealed. */
     @Synchronized
     fun merge(keyed: List<Pair<String, T>>): Boolean {

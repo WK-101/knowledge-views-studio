@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import app.parley.common.calls.NetworkName
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -77,10 +78,24 @@ data class RecentGroup(
     val fallbackTitle: String = "",
     /** The name of the archived contact the number belongs to (out of the address book, still named here). */
     val archivedName: String? = null,
+    /**
+     * The name the network last sent with this number's calls, for a number nobody saved (never a private contact's);
+     * shown with a "From the network" tag.
+     */
+    val networkName: String? = null,
+    /** The name the network sent before [networkName], when it changed. */
+    val networkNameBefore: String? = null,
 ) {
     val latest: CallEntry get() = calls.first()
-    val title: String
-        get() = contact?.displayName ?: archivedName ?: cachedName?.takeIf { it.isNotBlank() } ?: number.ifBlank { fallbackTitle }
+
+    /** The saved name, else the name the call log kept, else the network's, else the number (see [NetworkName.shown]). */
+    private val shown: NetworkName.Shown?
+        get() = NetworkName.shown(contact?.displayName ?: archivedName ?: cachedName?.takeIf { it.isNotBlank() }, networkName.takeIf { !hidden }, number)
+
+    val title: String get() = shown?.text ?: fallbackTitle
+
+    /** The title is the network's name, not a saved one. */
+    val fromNetwork: Boolean get() = shown?.source == NetworkName.Source.NETWORK
 }
 
 /** One keypad result row (see [app.parley.common.DialHit]). */

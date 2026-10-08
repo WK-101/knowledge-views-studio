@@ -108,6 +108,11 @@ data class CallUi(
     val driving: Boolean = false,
     /** The caller is one of your contacts or private contacts (not just a name the network sent with the call). */
     val savedCaller: Boolean = false,
+    /**
+     * The name the network sent (cleaned), for a caller the lookup found no contact for: the post-call card starts
+     * "Save" with it. Null for a saved or private caller and a hidden number.
+     */
+    val networkName: String? = null,
     /** Shown on the lock screen with less about the caller ([forLockScreen]): [name] stands in, the number stays out of sight. */
     val lockMasked: Boolean = false,
     /** What the network lets this call do: send it on to another number while it rings ([CallHandOff]). */

@@ -1,7 +1,7 @@
 package app.parley.ui.home
 
 import androidx.compose.foundation.layout.Box
-import app.parley.ui.contact.PrivateBadge
+import app.parley.ui.PrivateBadge
 import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable

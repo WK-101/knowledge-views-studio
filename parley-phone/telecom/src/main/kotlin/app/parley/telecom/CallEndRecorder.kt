@@ -17,6 +17,7 @@ import app.parley.common.calls.DropKind
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EndFacts
 import app.parley.common.calls.FailureKind
+import app.parley.common.calls.NetworkName
 import app.parley.common.calls.RingEnd
 import app.parley.common.calls.RingFacts
 
@@ -129,7 +130,22 @@ internal class CallEndRecorder(
                 deps().onCallUsage(ended.number.takeIf { !ended.hidden }, call.details.accountHandle?.id, ended.incoming, ended.connectTimeMillis, talkedSec)
             }
         }
+        rememberNetworkName(call, ended, s)
         runCatching { deps().onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
+    }
+
+    /**
+     * The name the network sent with an incoming call (answered, missed, declined or blocked by Parley), for Recents and
+     * the number's page afterwards: the call log has no place for it. The app keeps it only for a number that isn't saved.
+     */
+    private fun rememberNetworkName(call: Call, ended: CallUi, s: CallSession) {
+        val number = ended.number?.takeIf { ended.incoming && !ended.hidden && it.isNotBlank() && !ended.isEmergency } ?: return
+        val d = call.details
+        val name = s.networkName
+            ?: NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
+            ?: return
+        val at = s.startedAt.takeIf { it > 0 } ?: System.currentTimeMillis()
+        runCatching { deps().onNetworkName(number, name, d.accountHandle?.id ?: ended.accountId, at) }
     }
 
     /**

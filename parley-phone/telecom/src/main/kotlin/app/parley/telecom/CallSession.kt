@@ -122,6 +122,12 @@ internal class CallSession(val id: String) {
     /** The call came in as a video call; Parley answers it audio-only, and the call screen says so. */
     var videoOffered = false
 
+    /**
+     * The name the network sent with the call, cleaned ([app.parley.common.calls.NetworkName.clean]); some networks
+     * send it late, so it is read again as the call's details change, and kept when the call ends.
+     */
+    var networkName: String? = null
+
     /** The SIM's name, remembered while connected. */
     var simLabel: String? = null
 

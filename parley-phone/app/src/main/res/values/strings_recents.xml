@@ -88,4 +88,8 @@
         <item quantity="other">%1$d unknown callers today</item>
     </plurals>
     <string name="recents_unknown_today_none">No unknown callers today</string>
+    <!-- The name the mobile network sent with a call from a number you haven't saved (caller name presentation). -->
+    <string name="network_name_tag">From the network</string>
+    <string name="recents_legend_network_name_meaning">The name the mobile network showed when they called. It isn\'t a name you saved, so check before you trust it.</string>
+    <string name="network_name_before">The network showed %1$s before</string>
 </resources>
