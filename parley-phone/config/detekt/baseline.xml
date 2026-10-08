@@ -5,7 +5,6 @@
     <ID>AnnotationOnSeparateLine:SimRepository.kt$SimRepository$@Suppress("DEPRECATION") info.number?.ifBlank { null }</ID>
     <ID>CommentWrapping:ContactsRepositoryWriteTest.kt$ContactsRepositoryWriteTest$/* UserInfo.FLAG_MANAGED_PROFILE */</ID>
     <ID>CommentWrapping:FakeContactsProvider.kt$FakeContactsProvider$/* past the enterprise id base */</ID>
-    <ID>ComplexCondition:BlockingNotifier.kt$BlockingNotifier$decision is Decision.Block &amp;&amp; decision.reason == BlockReason.OFF_HOURS &amp;&amp; e.isContact &amp;&amp; s.busyReply &amp;&amp; number != null</ID>
     <ID>ComplexCondition:CallClock.kt$CallClock$c.state == CallState.ACTIVE &amp;&amp; connected.add(c.id) &amp;&amp; !CallManager.wasAnsweredByUser(c.id) &amp;&amp; runCatching { TelecomGraph.dependencies.connectHaptic() }.getOrDefault(true)</ID>
     <ID>ComplexCondition:CallClock.kt$CallClock$running &amp;&amp; !c.isEmergency &amp;&amp; c.connectTimeMillis &gt; 0 &amp;&amp; book[c.id] == null &amp;&amp; plan != null &amp;&amp; !plan.isEmpty &amp;&amp; c.id !in endedByLimit</ID>
     <ID>ComplexCondition:CallCsvImport.kt$CallCsvImport$h.size &gt;= LOGGER_HEADER.size &amp;&amp; LOGGER_HEADER.indices.all { i -&gt; h[i] == LOGGER_HEADER[i] || (LOGGER_HEADER[i] == "formatted_number" &amp;&amp; h[i] == "formattedNumber") }</ID>
@@ -55,7 +54,6 @@
     <ID>CyclomaticComplexMethod:BackupScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BirthdaysScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BirthdaysScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BlockingDialogs.kt$@Composable private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:BlockingNotifier.kt$BlockingNotifier$private fun post(context: Context, e: ScreenedCall)</ID>
     <ID>CyclomaticComplexMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:BlockingText.kt$BlockingText$fun result(context: Context, check: String, result: String): String</ID>
     <ID>CyclomaticComplexMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>

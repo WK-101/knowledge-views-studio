@@ -32,7 +32,7 @@ Parley whenever the phone is on, including while it is locked.
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
-| Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
+| Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots, who a rescue call shows (name, number, sound) | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
 | Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`), a software key wrapped by a Keystore key; hints and the archive's per-number tally: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
@@ -245,6 +245,13 @@ on the call screen. And, beyond discreet mode (`Concealed`):
 - **Family safe words**: none shows, not even which labels have one. One set during the hiding shows as set; one set
   for a label that already has one shows instead of it, in memory, and never replaces it (see below).
 - **My card › Shared with**: every entry, not only private contacts' (who you gave your number to can matter as much).
+- **Rescue call**: the screen shows no call waiting (no time, no caller, no Cancel) and none of the last choices; what
+  is chosen during the hiding isn't remembered. A call that was waiting still rings at its time.
+- **Case files**: none shows, and a backup made during the hiding carries none (their notes, promises and reference
+  numbers).
+- **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as
+  their number, without the rule that caught them or the quiet-hours reply. Every such notification also has a
+  lock-screen version with no name and no number, and follows "Caller on the lock screen" while the phone is locked.
 - **Private contacts' own ringtones**: a private caller rings with the ringtone for everyone else. Their "send to
   voicemail", labels and the screening rules still apply, so nobody who was kept out rings through.
 - **Private contacts' details**, with "Keep private details locked" (on by default): the vault's detail key refuses to
