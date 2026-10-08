@@ -289,6 +289,22 @@ All are offline, need no new permission and add no settings row (each is an acti
 | D11 | **Case files on by default for organisations?** SECURITY notes that per-organisation opt-in would be more private | **Keep on** (it is disclosed, sealed, capped at 100 cases, and Queue memory needs it). Add "Stop keeping case files for all" to the Case files list |
 | D12 | **X9 and X11** | Drop X9 as a feature; defer X11 until after Phase B (§7) |
 
+**Owner decisions (8 Oct 2026):**
+- **D1:** the settings limit may be raised as needed.
+- **D2:** the two privacy fixes go into 6.2.2: blocked-call notifications and the Rescue call screen under duress.
+- **D3:** the key stays where it is. The owner keeps copies and Claude keeps a copy to build signed APKs. The certificate must not change.
+- **D4:** the owner runs the device tests.
+- **D5:** yes.
+- **D6:** yes.
+- **D7:** keep archived photos whole, at full size.
+- **D8:** keep area-name data in the app.
+- **D9:** yes.
+- **D10:** yes.
+- **D11:** yes.
+- **D12:** yes.
+
+Work on 6.3 starts only after the owner confirms 6.2.2.
+
 **Decisions already made, respected throughout:** keep all Recents style combinations; the current "Lock private contacts" behaviour is fine (SECURITY S3-06 not planned); the network name's visibility is optional (a setting, off by default, in 6.2.2); compressed dex (round 2); NFC and video skipped; Phase B deferred; English only.
 
 ## 9. The plan
