@@ -1,7 +1,9 @@
 package app.parley.common.calls
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NetworkNameTest {
@@ -82,5 +84,45 @@ class NetworkNameTest {
         // A private contact's number: nothing is written, and a name kept before it became private goes.
         assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = false, private = true))
         assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = true, private = true))
+        // Private contacts that couldn't be checked count as private.
+        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = false, private = null))
+    }
+
+    @Test fun a_name_shows_only_for_a_number_known_not_to_be_private() {
+        assertTrue(NetworkName.mayShow(saved = false, private = false))
+        assertFalse(NetworkName.mayShow(saved = true, private = false))
+        assertFalse(NetworkName.mayShow(saved = false, private = true))
+        // A private lookup that failed: no name (fail closed).
+        assertFalse(NetworkName.mayShow(saved = false, private = null))
+    }
+
+    @Test fun invisible_and_direction_characters_are_dropped() {
+        // Right-to-left override, isolates, zero-width space and joiner, a byte-order mark.
+        assertEquals("Ravi Kumar", NetworkName.clean("Ravi\u200B Ku\u200Dmar\uFEFF", allowed))
+        assertEquals("SBI Bank", NetworkName.clean("\u202ESBI\u202C Bank\u2066\u2069", allowed))
+        assertEquals("Ravi Kumar", NetworkName.clean("Ravi\tKumar\u0007", allowed))
+        assertEquals("Ravi Kumar", NetworkName.clean("Ravi\u00A0\u2028Kumar", allowed))
+        assertNull(NetworkName.clean("\u202E\u200B", allowed))
+        // Names in other scripts are left as they are.
+        assertEquals("राम शर्मा", NetworkName.clean("राम शर्मा", allowed))
+    }
+
+    @Test fun a_us_city_and_state_is_not_a_name() {
+        listOf("NEW YORK NY", "CHICAGO IL", "ST. LOUIS MO", "SAN JOSE   CA", "SPAM?", "Spam!").forEach { assertNull(it, NetworkName.clean(it, allowed)) }
+        // A name in capitals that doesn't end in a state, or one written in mixed case, stays.
+        assertEquals("RAVI KUMAR", NetworkName.clean("RAVI KUMAR", allowed))
+        assertEquals("SHARMA TRADERS", NetworkName.clean("SHARMA TRADERS", allowed))
+        assertEquals("Ana Ng", NetworkName.clean("Ana Ng", allowed))
+        assertEquals("Paul Ca", NetworkName.clean("Paul Ca", allowed))
+        assertEquals("CA", NetworkName.clean("CA", allowed))
+    }
+
+    @Test fun a_line_is_read_with_the_sims_country() {
+        // A national number on a French SIM is the same line as the number in full.
+        assertEquals("+33612345678", NetworkName.line("06 12 34 56 78", "FR"))
+        assertEquals(NetworkName.line("+33 6 12 34 56 78", "FR"), NetworkName.line("0612345678", "FR"))
+        // Without the SIM's country, the number stays as it is (read later with the phone's).
+        assertEquals("0612345678", NetworkName.line("0612345678", null))
+        assertEquals("0612345678", NetworkName.line("0612345678", ""))
     }
 }

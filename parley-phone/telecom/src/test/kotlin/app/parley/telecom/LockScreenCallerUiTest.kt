@@ -66,6 +66,15 @@ class LockScreenCallerUiTest {
         assertTrue(unknown.lockMasked)
     }
 
+    @Test fun nothing_holds_back_the_networks_name_for_the_post_call_card() {
+        val unknown = call(name = "Ravi Kumar", saved = false).copy(networkName = "Ravi Kumar")
+        val masked = unknown.forLockScreen(LockScreenCaller.NONE, "Incoming call")
+        assertEquals("Incoming call", masked.title)
+        assertNull(masked.networkName)
+        // Initials leave an unknown caller as the call screen shows them.
+        assertEquals("Ravi Kumar", unknown.forLockScreen(LockScreenCaller.INITIALS, "Incoming call").networkName)
+    }
+
     @Test fun an_unknown_number_keeps_its_number_under_initials() {
         val c = call(name = null)
         assertSame(c, c.forLockScreen(LockScreenCaller.INITIALS, "Incoming call"))

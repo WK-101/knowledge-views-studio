@@ -70,10 +70,11 @@ class RecallCorpus(
     /** Archived contacts ([Gone.ref]: the archive id). */
     val archived: List<Gone> = emptyList(),
     /**
-     * The name the network last sent for a number that isn't saved (see [app.parley.common.calls.NetworkName]), or
-     * null; never asked for a call with a private contact.
+     * The name the network last sent for a number that isn't saved (see [app.parley.common.calls.NetworkName]), by the
+     * call's number and SIM (its phone account, which reads a national number), or null; never asked for a call with
+     * a private contact.
      */
-    val networkName: (String) -> String? = { null },
+    val networkName: (number: String, accountId: String?) -> String? = { _, _ -> null },
 ) {
     /** A note: pinned on a contact, a Circle note, or one written after a call (then [number] and no [ownerKey]). */
     data class Note(
@@ -231,7 +232,7 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
     private val named = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val callerDocs = java.util.concurrent.ConcurrentHashMap<String, ContactSearch.Doc>()
 
-    /** The network's name per number ("" for none), asked once per number. */
+    /** The network's name per number and SIM ("" for none), asked once each. */
     private val networkNames = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun callerDoc(number: String, shown: String?): ContactSearch.Doc = callerDocs.getOrPut(number + "\u0000" + shown.orEmpty()) {
@@ -407,7 +408,8 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
         /** A number nobody saved: the name the network sent with its calls (never for a private contact's call). */
         private fun networkNameOf(call: CallEntry): String? {
             if (call.id < 0 || call.number.isBlank()) return null
-            return networkNames.getOrPut(call.number) { corpus.networkName(call.number).orEmpty() }.ifEmpty { null }
+            val asked = call.accountId.orEmpty() + "\n" + call.number
+            return networkNames.getOrPut(asked) { corpus.networkName(call.number, call.accountId).orEmpty() }.ifEmpty { null }
         }
 
         /** The hits among [calls], at most [limit] (newest first, as given). */

@@ -18,6 +18,12 @@ object Bidi {
      */
     fun ltr(text: String): String = BidiFormatter.getInstance().unicodeWrap(text, TextDirectionHeuristicsCompat.LTR)
 
+    /**
+     * [text] (a name from outside, such as one the network sent) in a first-strong isolate: it reads in its own
+     * direction, and no direction character in it reaches the text around it.
+     */
+    fun isolate(text: String): String = "\u2068$text\u2069"
+
     /** Nullable convenience for [ltr]. */
     fun ltrOrNull(text: String?): String? = text?.let(::ltr)
 }

@@ -96,10 +96,14 @@ class RecallSources(private val c: DataContainer) {
      * The name the network last sent per number, for calls from numbers nobody saved: never for a private contact's
      * number (whether private contacts may show or not); none when the private numbers can't be read.
      */
-    suspend fun networkNames(): (String) -> String? = withContext(Dispatchers.IO) {
-        val privateNumbers = safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) } ?: return@withContext { _: String -> null }
-        val read = safely { c.networkNames.reader { it in privateNumbers } } ?: return@withContext { _: String -> null }
-        val names: (String) -> String? = { n -> NetworkName.latest(read(n))?.name }
+    suspend fun networkNames(): (String, String?) -> String? = withContext(Dispatchers.IO) {
+        val none = { _: String, _: String? -> null }
+        val privateNumbers = safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) } ?: return@withContext none
+        val read = safely { c.networkNames.reader { it in privateNumbers } } ?: return@withContext none
+        // Asked as the call's SIM reads the number, as it was written.
+        val names: (String, String?) -> String? = { n, account ->
+            NetworkName.latest(read(NetworkName.line(n, PhoneEnv.countryIso(c.appContext, account))))?.name
+        }
         names
     }
 

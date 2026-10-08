@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import app.parley.ui.Bidi
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalResources
@@ -207,7 +208,12 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
             dismissLabel = stringResource(R.string.set_cancel),
             content = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    unknown.take(MAX_LISTED).forEach { g -> Text("• " + bidiLtrIfNumber(g.title) + if (g.title != g.number) " (${bidiLtr(g.number)})" else "") }
+                    // A name the network sent says so: it isn't one you saved.
+                    val fromNetwork = stringResource(R.string.main_separator) + stringResource(R.string.network_name_tag)
+                    unknown.take(MAX_LISTED).forEach { g ->
+                        val name = if (g.fromNetwork) Bidi.isolate(g.title) else bidiLtrIfNumber(g.title)
+                        Text("• " + name + (if (g.title != g.number) " (${bidiLtr(g.number)})" else "") + (if (g.fromNetwork) fromNetwork else ""))
+                    }
                     if (unknown.size > MAX_LISTED) (unknown.size - MAX_LISTED).let { Text(pluralStringResource(R.plurals.set_and_more, it, it)) }
                     if (people.isNotEmpty()) {
                         Text(

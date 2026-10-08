@@ -212,6 +212,8 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         nativeName = null,
         subject = null,
         numberMemory = null,
+        // The post-call card's "Save privately" starts from it, without unlocking.
+        networkName = null,
         rangThrough = null,
         rangThroughUnlocked = null,
         verdict = verdict.takeIf { verdictWarn },

@@ -69,11 +69,20 @@ class SealedLineStore<T>(
     private fun loaded(): Loaded<T>? {
         cache?.let { return it }
         val l = read(prefs.getString(rowsKey, null)) ?: return null
+        // Rows past [keepDays] go when they're read, not only on the next write (which may never come).
+        val now = System.currentTimeMillis()
+        if (l.rows.any { !kept(it.facts, now) }) {
+            val fresh = l.rows.filter { kept(it.facts, now) }
+            if (store(fresh, l.unread)) return cache ?: Loaded(fresh, l.unread)
+        }
         if (l.unread.isEmpty()) cache = l
         return l
     }
 
-    private fun rows(): List<Row<T>> = loaded()?.rows.orEmpty()
+    private fun kept(facts: T, now: Long): Boolean = now - startedAt(facts) < keepDays * DAY_MS
+
+    /** The rows still within [keepDays] at [now] (the cache may hold one that expired since it was read). */
+    private fun rows(now: Long): List<Row<T>> = loaded()?.rows.orEmpty().filter { kept(it.facts, now) }
 
     @Synchronized
     fun add(number: String?, facts: T, now: Long = System.currentTimeMillis()) {
@@ -90,9 +99,13 @@ class SealedLineStore<T>(
      * Replaces [number]'s rows with what [change] makes of them (newest first), in one write; nothing is written
      * without the key. For stores that keep a few facts per line rather than one per call.
      */
-    @Synchronized
     fun update(number: String?, now: Long = System.currentTimeMillis(), change: (List<T>) -> List<T>) {
-        val k = keyOf(number) ?: return
+        updateKey(keyOf(number) ?: return, now, change)
+    }
+
+    /** [update] for rows already keyed ([all]'s keys): put back from a copy set aside. */
+    @Synchronized
+    fun updateKey(k: String, now: Long = System.currentTimeMillis(), change: (List<T>) -> List<T>) {
         val l = loaded() ?: return
         val mine = l.rows.filter { it.key == k }.map { it.facts }.sortedByDescending(startedAt)
         val next = (change(mine).map { Row(k, it) } + l.rows.filterNot { it.key == k })
@@ -109,14 +122,15 @@ class SealedLineStore<T>(
         return store((l.rows + keyed.map { Row(it.first, it.second) }).sortedByDescending { startedAt(it.facts) }.take(maxRows), l.unread)
     }
 
-    /** Facts for [number], newest first. */
-    fun forNumber(number: String?): List<T> {
+    /** Facts for [number], newest first; none older than [keepDays] at [now]. */
+    fun forNumber(number: String?, now: Long = System.currentTimeMillis()): List<T> {
         val k = keyOf(number) ?: return emptyList()
-        return rows().filter { it.key == k }.map { it.facts }.sortedByDescending(startedAt)
+        return rows(now).filter { it.key == k }.map { it.facts }.sortedByDescending(startedAt)
     }
 
-    /** Every row as (line key, facts), newest first. */
-    fun all(): List<Pair<String, T>> = rows().map { it.key to it.facts }.sortedByDescending { startedAt(it.second) }
+    /** Every row as (line key, facts), newest first; none older than [keepDays] at [now]. */
+    fun all(now: Long = System.currentTimeMillis()): List<Pair<String, T>> =
+        rows(now).map { it.key to it.facts }.sortedByDescending { startedAt(it.second) }
 
     /**
      * Forgets [number]'s facts: those of the calls at [dates] (call-log dates, matched by [near]), or all of them when

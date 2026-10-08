@@ -83,8 +83,6 @@ data class RecentGroup(
      * shown with a "From the network" tag.
      */
     val networkName: String? = null,
-    /** The name the network sent before [networkName], when it changed. */
-    val networkNameBefore: String? = null,
 ) {
     val latest: CallEntry get() = calls.first()
 

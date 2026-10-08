@@ -1,6 +1,7 @@
 package app.parley.common.calls
 
 import app.parley.common.Codecs
+import app.parley.common.PhoneIdentity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -25,7 +26,8 @@ data class NetworkNameSeen(
 
 /**
  * The network's caller name: which names are worth keeping, how a new one joins what was kept, and where it shows.
- * Saved names always win; a private contact's number never gets one (the stores check before writing).
+ * Saved names always win. A private contact's number gets none written ([keep]), loses one kept while it was unknown
+ * when it becomes private (the vault tells the store), and never shows one ([mayShow]).
  */
 object NetworkName {
     /** `TelecomManager.PRESENTATION_ALLOWED`: the only presentation whose name may be shown. */
@@ -53,12 +55,50 @@ object NetworkName {
      */
     fun clean(raw: CharSequence?, presentation: Int): String? {
         if (presentation != PRESENTATION_ALLOWED || raw == null) return null
-        val name = raw.toString().replace(SPACES, " ").trim().trim { it in EDGE }.trim()
+        val name = visible(raw).replace(SPACES, " ").trim().trim { it in EDGE }.trim()
         if (name.isEmpty() || name.none { it.isLetter() }) return null
         if (name.count { it.isDigit() } > MAX_DIGITS) return null
-        if (fold(name) in PLACEHOLDERS) return null
+        if (fold(name) in PLACEHOLDERS || cityAndState(name)) return null
         return if (name.length <= MAX_LENGTH) name else name.take(MAX_LENGTH - 1).trimEnd() + "…"
     }
+
+    /**
+     * [raw] without what doesn't show: direction overrides and isolates (a spoofed name could turn the rest of a row
+     * around), zero-width and other format characters are dropped; control characters and other spaces become spaces.
+     */
+    private fun visible(raw: CharSequence): String = buildString {
+        raw.toString().codePoints().forEach { cp ->
+            when {
+                Character.getType(cp) == Character.FORMAT.toInt() -> Unit
+                Character.isISOControl(cp) || Character.isWhitespace(cp) || Character.isSpaceChar(cp) -> append(' ')
+                else -> appendCodePoint(cp)
+            }
+        }
+    }
+
+    /**
+     * A US network's stand-in for a mobile caller's name: the city and state it was registered in, in capitals
+     * ("NEW YORK NY", "ST. LOUIS MO"). A name in capitals that ends in a state's two letters is taken for one.
+     */
+    private fun cityAndState(name: String): Boolean {
+        if (name.any { it.isLowerCase() || it.isDigit() }) return false
+        val words = name.split(' ').filter { it.isNotEmpty() }
+        return words.size >= 2 && words.last() in US_STATES
+    }
+
+    /**
+     * The line a name is kept under: [number] read with the country of the SIM the call came in on ([simRegion]),
+     * so "0612 345678" on a French SIM is the same line as "+33 6 12 34 56 78" from a contact; the number as it is
+     * when that country isn't known or the number can't be read with it (the phone's country then applies).
+     */
+    fun line(number: String, simRegion: String?): String =
+        simRegion?.takeIf { it.isNotBlank() }?.let { PhoneIdentity.e164(number, it) } ?: number
+
+    /**
+     * Whether the network's name may show for a number: nobody saved it ([saved]), and it is known not to be a private
+     * contact's ([private]). Null [private]: the private contacts couldn't be checked, which counts as private.
+     */
+    fun mayShow(saved: Boolean, private: Boolean?): Boolean = !saved && private == false
 
     /** Whether two names are the same name (case and spacing aside). */
     fun same(a: String, b: String): Boolean = fold(a) == fold(b)
@@ -79,6 +119,21 @@ object NetworkName {
         return (listOf(seen) + history.filterNot { same(it.name, name) }).sortedByDescending { it.lastSeen }.take(HISTORY)
     }
 
+    /**
+     * [history] (newest first) with [seen] put back (an undone delete): a name kept meanwhile keeps the newer of the two
+     * SIMs and the wider span of times. At most [HISTORY] names are kept.
+     */
+    fun merge(history: List<NetworkNameSeen>, seen: NetworkNameSeen): List<NetworkNameSeen> {
+        val earlier = history.firstOrNull { same(it.name, seen.name) }
+        val merged = if (earlier == null) {
+            seen
+        } else {
+            (if (earlier.lastSeen >= seen.lastSeen) earlier else seen)
+                .copy(firstSeen = minOf(earlier.firstSeen, seen.firstSeen), lastSeen = maxOf(earlier.lastSeen, seen.lastSeen))
+        }
+        return (listOf(merged) + history.filterNot { same(it.name, seen.name) }).sortedByDescending { it.lastSeen }.take(HISTORY)
+    }
+
     /** The name the network sent last. */
     fun latest(history: List<NetworkNameSeen>): NetworkNameSeen? = history.maxByOrNull { it.lastSeen }
 
@@ -93,10 +148,11 @@ object NetworkName {
 
     /**
      * A name is kept only for a number nobody saved ([saved]: a contact or an archived contact). A private contact's
-     * number gets nothing written, and loses a name kept before it became private.
+     * number gets nothing written, and loses any name still kept for it. Null [private]: the private contacts couldn't
+     * be checked, which counts as private.
      */
-    fun keep(saved: Boolean, private: Boolean): Keep = when {
-        private -> Keep.FORGET
+    fun keep(saved: Boolean, private: Boolean?): Keep = when {
+        private != false -> Keep.FORGET
         saved -> Keep.SKIP
         else -> Keep.RECORD
     }
@@ -129,7 +185,7 @@ object NetworkName {
         s.lowercase(Locale.ROOT).map { if (it.isLetterOrDigit()) it else ' ' }.joinToString("").replace(SPACES, " ").trim()
 
     private val SPACES = Regex("\\s+")
-    private const val EDGE = "-–—.,;:*·/\\|\"'()[]<>"
+    private const val EDGE = "-–—.,;:*·/\\|\"'()[]<>?!"
 
     /** What networks and phones send in place of a name (folded, see [fold]). */
     private val PLACEHOLDERS = setOf(
@@ -141,5 +197,12 @@ object NetworkName {
         "blocked number", "withheld", "number withheld", "caller id withheld", "payphone", "pay phone", "toll free",
         "toll free call", "caller", "incoming call", "na", "n a", "null", "none", "voicemail", "emergency",
         "spam", "spam risk", "scam likely", "potential spam", "suspected spam", "telemarketer",
+    )
+
+    /** The states, district and territories a US network's "CITY ST" stand-in ends in. */
+    private val US_STATES = setOf(
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
+        "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA",
+        "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR", "GU", "VI", "AS", "MP",
     )
 }

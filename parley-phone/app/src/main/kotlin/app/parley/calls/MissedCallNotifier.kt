@@ -93,6 +93,8 @@ object MissedCallNotifier {
         val grouped = shown.size > 1
         val screened = runCatching { c.blocks.screenedSince((callers.minOf { it.first }) - 15 * 60_000L) }.getOrDefault(emptyList())
         val nmc = NotificationManagerCompat.from(context)
+        // The name the network sent with a call that just ended is still being written: wait for it (briefly).
+        NetworkNames.settle()
         val details = shown.map { caller -> describe(context, c, caller, hideVault, simLabels, screened) }
 
         shown.forEachIndexed { i, caller ->
@@ -177,7 +179,7 @@ object MissedCallNotifier {
             val summary = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
                 .setContentTitle(title)
-                .setContentText(details.joinToString(", ") { it.title })
+                .setContentText(details.joinToString(", ") { it.taggedTitle })
                 .setStyle(inbox.setBigContentTitle(title))
                 .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
                 .setContentIntent(openRecents(context))
@@ -197,7 +199,10 @@ object MissedCallNotifier {
         scheduleReAlert(context, c, callers.first().latest, reAlert)
     }
 
-    private class Shown(val title: String, val line: String, val why: String?, val inboxLine: String, val photo: Bitmap?, val isContact: Boolean)
+    /** [taggedTitle]: the title, with "From the network" when it is the network's name (where the line doesn't say so). */
+    private class Shown(
+        val title: String, val taggedTitle: String, val line: String, val why: String?, val inboxLine: String, val photo: Bitmap?, val isContact: Boolean,
+    )
 
     private suspend fun describe(
         context: Context, c: DataContainer, caller: MissedCaller, hideVault: Boolean, simLabels: Map<String, String>,
@@ -205,15 +210,19 @@ object MissedCallNotifier {
     ): Shown {
         val number = caller.number.takeIf { !caller.hidden && it.isNotBlank() }
         val contact = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
-        val vaultName = if (contact == null && number != null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
+        // The country of the SIM the call came in on reads a national number as that SIM does.
+        val simRegion = PhoneEnv.countryIso(context, caller.accountId)
+        // A lookup that fails says nothing about who it is: no private name, and no network name either (below).
+        val vaultHit = if (contact == null && number != null) catching { c.vault.lookup(number, simRegion) } else Result.success(null)
+        val vaultName = vaultHit.getOrNull()?.second?.name
         // An archived contact is named like any saved one.
         val archivedName = if (contact == null && vaultName == null && number != null) catching { c.archive.lookup(number)?.name }.getOrNull() else null
-        // A number nobody saved (nor a private contact, whatever discreet mode says): the name the network sent, where
-        // the lock-screen rule shows callers' names in full.
-        val unsaved = contact == null && vaultName == null && archivedName == null
-        val network = if (unsaved && number != null) {
+        // A number nobody saved and known not to be a private contact's (whatever discreet mode says): the name the
+        // network sent, where the lock-screen rule shows callers' names in full.
+        val isPrivate = if (vaultHit.isFailure) null else vaultHit.getOrNull() != null
+        val network = if (number != null && NetworkName.mayShow(saved = contact != null || archivedName != null, private = isPrivate)) {
             val lockScreen = catching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
-            NetworkName.inNotification(catching { c.networkNames.latest(number)?.name }.getOrNull(), lockScreen)
+            NetworkName.inNotification(catching { c.networkNames.latest(number, simRegion)?.name }.getOrNull(), lockScreen)
         } else {
             null
         }
@@ -223,12 +232,13 @@ object MissedCallNotifier {
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
         val sep = context.getString(R.string.main_separator)
+        val tag = network?.let { context.getString(R.string.network_name_tag) }
         val first = if (caller.count > 1) context.resources.getQuantityString(R.plurals.missed_count_last, caller.count, caller.count, time) else context.getString(R.string.missed_one_at, time)
         // A name from the network says so, beside the time: it isn't one you saved.
-        val line = listOfNotNull(first, sim, network?.let { context.getString(R.string.network_name_tag) }).joinToString(sep)
+        val line = listOfNotNull(first, sim, tag).joinToString(sep)
         // "Why didn't it ring?": Parley's own reason first (a silence rule), then the ringer's state.
         val verdict = number?.let { n ->
-            val iso = PhoneEnv.countryIso(context, caller.accountId)
+            val iso = simRegion
             screened.firstOrNull { e ->
                 !e.allowed && e.action == "SILENCE" && e.number != null && abs(e.time - caller.latest) < 5 * 60_000L &&
                     PhoneIdentity.same(e.number, n, iso)
@@ -237,10 +247,23 @@ object MissedCallNotifier {
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
         val why = RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
-        val inboxLine = (if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name) + sep + time + (sim?.let { sep + it } ?: "")
+        val counted = if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name
+        // The grouped summary's lines and its collapsed text say it too.
+        val inboxLine = inboxLine(counted, tag, time, sim, sep)
+        val taggedTitle = taggedTitle(name, tag, sep)
         // Discreet mode: "Block" depends on phone contacts only, so its absence never reveals a private contact.
-        return Shown(name, line, why, inboxLine, photo, isContact = contact != null || archivedName != null || (vaultName != null && !hideVault))
+        return Shown(name, taggedTitle, line, why, inboxLine, photo, isContact = contact != null || archivedName != null || (vaultName != null && !hideVault))
     }
+
+    /**
+     * A caller's line in the grouped summary: the name (with the count), "From the network" ([tag]) when the name is
+     * the network's, the time and the SIM.
+     */
+    internal fun inboxLine(counted: String, tag: String?, time: String, sim: String?, sep: String): String =
+        listOfNotNull(counted, tag, time, sim).joinToString(sep)
+
+    /** A caller's name in the collapsed summary ("Ravi Kumar · From the network, +91 98…"). */
+    internal fun taggedTitle(name: String, tag: String?, sep: String): String = listOfNotNull(name, tag).joinToString(sep)
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     private fun unseenMissed(context: Context): List<MissedCall> = try {

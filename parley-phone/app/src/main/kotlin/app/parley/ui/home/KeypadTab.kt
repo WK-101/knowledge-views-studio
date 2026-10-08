@@ -149,6 +149,7 @@ import app.parley.common.calls.PressOrder
 import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
 import app.parley.ui.Avatar
+import app.parley.ui.PrivateMarked
 import app.parley.ui.MatchStyle
 import app.parley.ui.Routes
 import app.parley.ui.keypadKey
@@ -896,7 +897,8 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
     }
     ParleyListItem(
         modifier = modifier.clickable(onClick = onClick),
-        leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, avatarSize()) },
+        // A private contact (negative id): the lock on the photo, as in Contacts.
+        leadingContent = { PrivateMarked((c?.id ?: 0L) < 0) { Avatar(c?.displayName ?: r.number, c?.photoUri, avatarSize()) } },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
             else Text(shown)

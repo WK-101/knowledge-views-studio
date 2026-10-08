@@ -2,6 +2,7 @@ package app.parley.ui.home
 
 import app.parley.ui.PrivateMarked
 import app.parley.ui.calls.NetworkNameTag
+import app.parley.ui.calls.networkNameSpoken
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
@@ -453,14 +454,16 @@ fun RecentRow(
           }
         },
         trailingContent = {
+            // TalkBack says when the name is the network's ("Call Ravi Kumar, name from the network").
+            val who = networkNameSpoken(g.title, g.fromNetwork)
             if (tapCalls) {
-                IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.home_recent_details, g.title)) }
+                IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.home_recent_details, who)) }
             } else if (!g.hidden && g.number.isNotBlank()) {
                 if (RecentsMark.CALL_BACK in marks) {
-                    CallBackPill(g.title, onCall)
+                    CallBackPill(who, onCall)
                 } else {
                     IconButton(onClick = onCall) {
-                        Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, who), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -498,10 +501,14 @@ private fun RecentCard(shape: Shape?, place: ListSections.Place, content: @Compo
     ) { content() }
 }
 
-/** The row's title; a number (no name) stays left to right in right-to-left languages. */
+/**
+ * The row's title; a number (no name) stays left to right in right-to-left languages, and a name the network sent is
+ * isolated, so nothing in it can turn the rest of the row around.
+ */
 private val RecentGroup.shownTitle: String
     get() {
-        val named = contact != null || !(archivedName ?: cachedName).isNullOrBlank() || fromNetwork
+        if (fromNetwork) return Bidi.isolate(title)
+        val named = contact != null || !(archivedName ?: cachedName).isNullOrBlank()
         return if (!named && number.isNotBlank()) Bidi.ltr(title) else title
     }
 
@@ -604,11 +611,16 @@ private fun RecentActionsSheet(
         return
     }
     ParleySheet(onDismissRequest = onDismiss) {
-        Text(
-            g.shownTitle,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
-        )
+        Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                g.shownTitle,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
+            )
+            // A name the network sent says so here too: it isn't one you saved.
+            if (g.fromNetwork) NetworkNameTag(Modifier.padding(start = 6.dp))
+        }
         val quick = RecentMenu.quick(facts)
         if (quick.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s), horizontalArrangement = Arrangement.SpaceEvenly) {
