@@ -446,9 +446,16 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     // ---- Blocking & screening ----
 
-    override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome =
+    override suspend fun screenCall(
+        number: String?,
+        hidden: Boolean,
+        verification: Verification,
+        accountId: String?,
+        callerName: String?,
+        callerNamePresentation: Int,
+    ): ScreenOutcome =
         withContext(Dispatchers.IO) {
-            val r = c.screener.screenCall(ScreenRequest(number, hidden, verification, accountId, callerName))
+            val r = c.screener.screenCall(ScreenRequest(number, hidden, verification, accountId, callerName, callerNamePresentation))
             ScreenOutcome(
                 decision = r.decision,
                 // A sales line silenced from your calls: its own quiet line on the call screen says so.

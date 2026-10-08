@@ -69,4 +69,13 @@ class NotificationPrivacyTest {
             assertEquals(screened(lockScreen = mode, locked = true), screened(vault = "Dr Rahman", hideVault = true, lockScreen = mode, locked = true))
         }
     }
+
+    @Test fun a_screened_calls_reason_follows_the_lock_screen_rule() {
+        val why = "Blocked by rule 'Block Arjun's new number'"
+        assertEquals(why, NotificationPrivacy.screenedCallReason(why, unnamed = false, LockScreenCaller.NAME, locked = true))
+        assertEquals(why, NotificationPrivacy.screenedCallReason(why, unnamed = false, LockScreenCaller.NONE, locked = false))
+        assertNull(NotificationPrivacy.screenedCallReason(why, unnamed = false, LockScreenCaller.NONE, locked = true))
+        assertNull(NotificationPrivacy.screenedCallReason(why, unnamed = false, LockScreenCaller.INITIALS, locked = true))
+        assertNull(NotificationPrivacy.screenedCallReason(why, unnamed = true, LockScreenCaller.NAME, locked = false))
+    }
 }

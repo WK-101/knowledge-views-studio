@@ -136,7 +136,8 @@ internal class CallEndRecorder(
 
     /**
      * The name the network sent with an incoming call (answered, missed, declined or blocked by Parley), for Recents and
-     * the number's page afterwards: the call log has no place for it. The app keeps it only for a number that isn't saved.
+     * the number's page afterwards: the call log has no place for it. The app keeps it only while "Remember names from the
+     * network" is on (for an unsaved number, a contact's or an archived contact's), never for a private contact's.
      */
     private fun rememberNetworkName(call: Call, ended: CallUi, s: CallSession) {
         val number = ended.number?.takeIf { ended.incoming && !ended.hidden && it.isNotBlank() && !ended.isEmergency } ?: return

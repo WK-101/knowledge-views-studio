@@ -682,6 +682,13 @@ interface BlockDao {
     @Query("UPDATE blocked_calls SET callerName = :name WHERE id = :id AND callerName = :old")
     suspend fun resealCallerName(id: Long, old: String, name: String)
 
+    /** Forgets the network's caller names kept with screened calls ("Remember names from the network" turned off). */
+    @Query("UPDATE blocked_calls SET callerName = NULL WHERE callerName IS NOT NULL")
+    suspend fun clearCallerNames()
+
+    @Query("SELECT EXISTS(SELECT 1 FROM blocked_calls WHERE callerName IS NOT NULL)")
+    suspend fun hasCallerNames(): Boolean
+
     @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
     fun blockedCalls(): Flow<List<BlockedCallEntity>>
 

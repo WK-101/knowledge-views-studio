@@ -155,4 +155,23 @@ class NetworkNameStoreTest {
         store.setAside("+919812300009", emptyList(), batch = now, now = now)
         assertEquals(listOf("aside_$now"), prefs.all.keys.filter { it.startsWith("aside_") })
     }
+
+    @Test fun names_count_as_kept_when_only_set_aside_or_unreadable() {
+        val store = NetworkNameStore(context, keys)
+        assertFalse(store.hasAny())
+        store.record("+919812300002", "Ravi Kumar", now, null, "IN", now)
+        // Only the copy kept for an undo is left: Delete would still remove it, so it counts.
+        store.setAside("+919812300002", emptyList(), batch = now, now = now)
+        assertNull(store.latest("+919812300002"))
+        assertTrue(store.hasAny())
+        store.clear()
+        assertFalse(store.hasAny())
+        // Rows that can't be opened right now are still kept names.
+        store.record("+919812300009", "Sita Devi", now, null, "IN", now)
+        keys.broken = true
+        assertTrue(NetworkNameStore(context, keys).hasAny())
+        keys.broken = false
+        store.clear()
+        assertFalse(store.hasAny())
+    }
 }

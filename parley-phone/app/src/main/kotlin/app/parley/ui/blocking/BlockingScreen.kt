@@ -601,7 +601,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             val shown = log.take(100)
             itemsIndexed(shown, key = { _, e -> "l" + e.id }) { i, e ->
                 // The log as one segmented group.
-                BlockingCard(segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e) }
+                BlockingCard(segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e, networkNames = settings.rememberNetworkNames) }
             }
         }
     }
@@ -656,7 +656,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
 
 /** Expandable blocked-log row: the stored trace, plus "Not spam", allow for a day, report, delete. */
 @Composable
-private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
+private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity, networkNames: Boolean) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -671,7 +671,8 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
                         Format.fullDate(context, e.time),
                         BlockingText.verdict(context, e.verdict) ?: legacyReason(e.reason),
                         BlockingText.actionLower(context, e.action).takeIf { e.action != "ALLOW" },
-                        e.callerName,
+                        // The network's name, kept with the entry, shows only while names from the network are remembered.
+                        e.callerName.takeIf { networkNames },
                     ).joinToString(" · "),
                 )
             },

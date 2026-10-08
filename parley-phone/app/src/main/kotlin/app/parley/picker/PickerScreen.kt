@@ -1,6 +1,7 @@
 package app.parley.picker
 
 import app.parley.common.people.AlphabetIndex
+import app.parley.common.people.Collation
 import app.parley.ui.AlphabetIndexDefaults
 import app.parley.ui.AlphabetIndexRail
 import android.content.ContentUris
@@ -71,7 +72,10 @@ fun PickerScreen(
     var query by remember { mutableStateOf("") }
     val selected = remember { mutableStateListOf<Pick>() }
     val items by produceState<List<Pick>?>(null, kind) {
-        value = withContext(Dispatchers.IO) { loadPicks(context, kind, res) }.filter { it.contactId != excludeContactId }
+        // Sorted and grouped by the same key, with the Contacts list's collation, so each letter of the index is one block.
+        value = withContext(Dispatchers.IO) {
+            AlphabetIndex.grouped(loadPicks(context, kind, res).filter { it.contactId != excludeContactId }, Collation.Order()) { it.title }
+        }
     }
     val shown = items.orEmpty().filter { TextSearch.matches(query, it.title, listOfNotNull(it.subtitle), listOfNotNull(it.subtitle)) }
 
@@ -152,8 +156,8 @@ private fun PickerSearchField(query: String, onChange: (String) -> Unit) {
 }
 
 /**
- * The A–Z index while nothing is typed, from the first pick on (the search field is row 0); the rows are sorted by
- * name. Empty for a short list or a search.
+ * The A–Z index while nothing is typed, from the first pick on (the search field is row 0); the rows are in
+ * [AlphabetIndex.grouped] order. Empty for a short list or a search.
  */
 private fun pickIndex(shown: List<Pick>, query: String): List<AlphabetIndex.Entry> = if (query.isBlank() && shown.size > AlphabetIndex.MIN_ITEMS) {
     AlphabetIndex.entries(AlphabetIndex.sectionsOf(shown.map { it.title }, offset = 1))

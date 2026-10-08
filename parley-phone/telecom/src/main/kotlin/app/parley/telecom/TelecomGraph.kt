@@ -170,9 +170,16 @@ interface ScreeningHooks {
 
     /**
      * Screening with everything the call path knows: the SIM's phone-account id (null on the screening service,
-     * which never gets one) and the network caller name.
+     * which never gets one) and the network caller name with its presentation (`TelecomManager.PRESENTATION_*`).
      */
-    suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome
+    suspend fun screenCall(
+        number: String?,
+        hidden: Boolean,
+        verification: Verification,
+        accountId: String?,
+        callerName: String?,
+        callerNamePresentation: Int,
+    ): ScreenOutcome
 
     /** Rules limited to one SIM exist, so an earlier decision made without the SIM must be re-checked. */
     fun simRulesActive(): Boolean = false

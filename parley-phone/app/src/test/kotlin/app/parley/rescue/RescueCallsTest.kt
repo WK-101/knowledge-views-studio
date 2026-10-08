@@ -46,6 +46,7 @@ class RescueCallsTest {
     private val realLookUp = RescueCalls.lookUp
     private val realHiding = RescueCalls.hiding
     private val realSeal = RescueCalls.seal
+    private val realIo = RescueCalls.io
     private val prefs get() = context.getSharedPreferences("rescue_call", Context.MODE_PRIVATE)
 
     @Before fun keys() {
@@ -60,6 +61,7 @@ class RescueCallsTest {
         RescueCalls.clock = realClock
         RescueCalls.bootCount = realBoot
         RescueCalls.lookUp = realLookUp
+        RescueCalls.io = realIo
         RescueCalls.forgetForTest()
     }
 
@@ -67,10 +69,11 @@ class RescueCallsTest {
     private fun onVirtualTime(block: suspend kotlinx.coroutines.test.TestScope.(lookups: () -> Int) -> Unit) {
         val main = StandardTestDispatcher()
         Dispatchers.setMain(main)
+        RescueCalls.io = main
         val base = 1_790_000_000_000L
         var n = 0
         RescueCalls.clock = { base + main.scheduler.currentTime }
-        RescueCalls.lookUp = { _, r, clip -> n++; RescueCaller(name = r.name, clip = clip) }
+        RescueCalls.lookUp = { _, r, clip -> n++; rung += r.name to clip; RescueCaller(name = r.name, clip = clip) }
         try {
             runTest(main) {
                 block { n }
@@ -81,6 +84,9 @@ class RescueCallsTest {
             Dispatchers.resetMain()
         }
     }
+
+    /** Who rang, and with which sound, in order. */
+    private val rung = mutableListOf<Pair<String, String?>>()
 
     @Test fun a_short_wait_rings_on_time_from_parleys_own_timer() = onVirtualTime { lookups ->
         RescueCalls.set(context, RescueCalls.Choices(name = "Mum", whenChoice = RescueWhen.IN_1))
@@ -252,4 +258,81 @@ class RescueCallsTest {
         RescueCalls.hiding = { false }
         assertEquals("Mum", RescueCalls.choices(context).name)
     }
+
+    @Test fun a_call_for_later_rings_with_the_sound_it_was_set_with() = onVirtualTime { _ ->
+        RescueCalls.saveChoices(context, RescueCalls.Choices(name = "Mum", clip = "content://sounds/before"))
+        RescueCalls.hiding = { true }
+        // Set during the hiding with another sound: the remembered choices stay as they were, the call keeps its own.
+        RescueCalls.set(context, RescueCalls.Choices(name = "Sam", whenChoice = RescueWhen.IN_5, clip = "content://sounds/come-home"))
+        assertEquals("content://sounds/before", prefsClip())
+        advanceTimeBy(5 * 60_000L + 1)
+        runCurrent()
+        assertEquals(listOf("Sam" to "content://sounds/come-home"), rung)
+    }
+
+    @Test fun a_call_waiting_keeps_its_sound_sealed_through_a_restart_of_parley() = onVirtualTime { _ ->
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", whenChoice = RescueWhen.IN_15, clip = "content://sounds/mum"))
+        assertTrue(RecordCrypto.get(context).isSealed(prefs.getString("pending_clip", null)))
+        // Another sound chosen afterwards is for the next call, not this one.
+        RescueCalls.saveChoices(context, RescueCalls.Choices(name = "Mum", clip = "content://sounds/other"))
+        assertTrue(RescueCalls.clipInUse("content://sounds/mum"))
+        RescueCalls.forgetForTest()
+        val p = RescueCalls.pending(context).value!!
+        RescueCalls.due(context, p.id, p.atMillis)
+        runCurrent()
+        assertEquals(listOf("Mum" to "content://sounds/mum"), rung)
+    }
+
+    @Test fun a_call_waiting_from_before_its_sound_was_kept_rings_with_the_remembered_one() = onVirtualTime { _ ->
+        RescueCalls.saveChoices(context, RescueCalls.Choices(name = "Mum", clip = "content://sounds/remembered"))
+        prefs.edit().putString("pending_id", "old").putString("pending_name", "Mum").putLong("pending_at", RescueCalls.clock() + 60_000L).commit()
+        RescueCalls.forgetForTest()
+        RescueCalls.due(context, "old", RescueCalls.clock() + 60_000L)
+        runCurrent()
+        assertEquals(listOf("Mum" to "content://sounds/remembered"), rung)
+    }
+
+    @Test fun a_call_set_for_later_while_hiding_waits_beside_the_hidden_one() = onVirtualTime { _ ->
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", whenChoice = RescueWhen.IN_15, clip = "content://sounds/mum"))
+        val hidden = RescueCalls.pending(context).value!!
+        RescueCalls.hiding = { true }
+        RescueCalls.set(context, RescueCalls.Choices(name = "Sam", whenChoice = RescueWhen.IN_5))
+        // Nothing set during the hiding replaces the hidden call; the screen shows only the new one.
+        assertEquals(hidden, RescueCalls.pending(context).value)
+        val beside = RescueCalls.second(context).value!!
+        assertEquals("Sam", beside.name)
+        assertEquals(beside, RescueCalls.shown(context).first())
+        assertEquals(2, alarms.scheduledAlarms.size)
+        // Another for later replaces only the one set during the hiding.
+        RescueCalls.set(context, RescueCalls.Choices(name = "Alex", whenChoice = RescueWhen.IN_1))
+        assertEquals(hidden, RescueCalls.pending(context).value)
+        assertEquals("Alex", RescueCalls.second(context).value!!.name)
+        assertEquals(2, alarms.scheduledAlarms.size)
+        // Both ring at their times, each as it was set.
+        advanceTimeBy(15 * 60_000L + 1)
+        runCurrent()
+        assertEquals(listOf("Alex" to null, "Mum" to "content://sounds/mum"), rung)
+    }
+
+    @Test fun cancel_while_hiding_cancels_only_what_was_set_then() = onVirtualTime { _ ->
+        RescueCalls.set(context, RescueCalls.Choices(name = "Mum", whenChoice = RescueWhen.IN_15))
+        val hidden = RescueCalls.pending(context).value!!
+        RescueCalls.hiding = { true }
+        RescueCalls.set(context, RescueCalls.Choices(name = "Sam", whenChoice = RescueWhen.IN_5))
+        RescueCalls.cancel(context)
+        assertNull(RescueCalls.second(context).value)
+        assertEquals(hidden, RescueCalls.pending(context).value)
+        assertEquals(1, alarms.scheduledAlarms.size)
+        // Outside the hiding, setting another replaces every call waiting.
+        RescueCalls.set(context, RescueCalls.Choices(name = "Sam", whenChoice = RescueWhen.IN_5))
+        RescueCalls.hiding = { false }
+        RescueCalls.set(context, RescueCalls.Choices(name = "Kim", whenChoice = RescueWhen.IN_5))
+        assertEquals("Kim", RescueCalls.pending(context).value!!.name)
+        assertNull(RescueCalls.second(context).value)
+        assertEquals(1, alarms.scheduledAlarms.size)
+        // Nothing left to ring once the test's virtual time runs out.
+        RescueCalls.cancel(context)
+    }
+
+    private fun prefsClip(): String? = RecordCrypto.get(context).openText(prefs.getString("clip", null))
 }

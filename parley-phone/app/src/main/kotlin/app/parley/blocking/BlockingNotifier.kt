@@ -22,7 +22,6 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
 import app.parley.calls.NoticeCaller
-import app.parley.common.calls.LockScreenCaller
 import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
@@ -77,10 +76,36 @@ object BlockingNotifier {
         )
     }
 
-    /** Posts what screening decided, off the call path: finding who called may open the private contacts' key. */
+    /**
+     * Posts what screening decided, off the call path: finding who called may open the private contacts' key. Calls
+     * share a notification, and finding the first can take longer than the next: each is numbered as it arrives, and
+     * one found after a newer one was posted is dropped ([PostOrder]).
+     */
     fun onScreened(context: Context, c: DataContainer, e: ScreenedCall) {
         val app = context.applicationContext
-        c.scope.launch(Dispatchers.IO) { suspendRunCatching { post(app, c, e) } }
+        val turn = order.next()
+        c.scope.launch(Dispatchers.IO) { suspendRunCatching { post(app, c, e, turn) } }
+    }
+
+    private val order = PostOrder()
+
+    /** Notices posted in the order their calls arrived: an older one never replaces a newer one under the same id. */
+    internal class PostOrder {
+        private var issued = 0L
+        private val posted = HashMap<Int, Long>()
+
+        /** The next call's number, in arrival order. */
+        @Synchronized
+        fun next(): Long = ++issued
+
+        /** Whether the notice of call [turn] may be posted as [id] now (nothing newer was); runs [post] if so, in order. */
+        @Synchronized
+        fun claim(id: Int, turn: Long, post: () -> Unit): Boolean {
+            if ((posted[id] ?: 0L) > turn) return false
+            posted[id] = turn
+            post()
+            return true
+        }
     }
 
     private fun level(e: ScreenedCall, default: NotifyLevel): NotifyLevel {
@@ -98,7 +123,7 @@ object BlockingNotifier {
         val number = e.request.number?.takeIf { it.isNotBlank() && !e.request.hidden }
         val region = PhoneEnv.countryIso(context, e.request.simId)
         val hideVault = c.settings.hidesPrivateNames()
-        val lockScreen = suspendRunCatching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NONE)
+        val lockScreen = NoticeCaller.lockScreenRule { c.settings.current().lockScreenCaller }
         val found = NoticeCaller.find(c, number, region, hideVault)
         // Screening knew the caller as one of yours, but the notice may not name them: a private contact while private
         // contacts are hidden, or one whose status couldn't be read. Their notice reads like a stranger's, without the
@@ -110,7 +135,8 @@ object BlockingNotifier {
         val quietHours = decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS
         val replies = e.isContact && !unnamed && e.settings.busyReply
         if (quietHours && replies && number != null) return quietHoursReply(context, e, number, who)
-        return screened(context, e, number, who, unnamed)
+        val why = NotificationPrivacy.screenedCallReason(BlockingText.verdict(context, e.result.verdict?.text), unnamed, lockScreen, locked)
+        return screened(context, e, number, who, why)
     }
 
     /** Someone you know was silenced by off hours: a one-tap reply through the SMS app. */
@@ -134,8 +160,8 @@ object BlockingNotifier {
         return Built(id, b)
     }
 
-    /** Blocked, silenced, reported or likely spam; null when the level says nothing ([unnamed]: see [build]). */
-    private fun screened(context: Context, e: ScreenedCall, number: String?, who: String?, unnamed: Boolean): Built? {
+    /** Blocked, silenced, reported or likely spam, with the reason it may give ([why]: see [build]); null when the level says nothing. */
+    private fun screened(context: Context, e: ScreenedCall, number: String?, who: String?, why: String?): Built? {
         val decision = e.result.decision
         val (channel, lvl) = channelOf(e) ?: return null
         if (lvl == NotifyLevel.NONE) return null
@@ -151,7 +177,6 @@ object BlockingNotifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val icon = app.parley.ui.R.drawable.ic_stat_block
-        val why = if (unnamed) null else BlockingText.verdict(context, e.result.verdict?.text)
         val b = NotificationCompat.Builder(context, channel)
             .setSmallIcon(icon)
             .setContentTitle(who?.let { context.getString(named, it) } ?: context.getString(plain))
@@ -194,12 +219,12 @@ object BlockingNotifier {
     /** A notification to post: its id and its builder. */
     internal class Built(val id: Int, val builder: NotificationCompat.Builder)
 
-    private suspend fun post(context: Context, c: DataContainer, e: ScreenedCall) {
+    private suspend fun post(context: Context, c: DataContainer, e: ScreenedCall, turn: Long) {
         val nm = NotificationManagerCompat.from(context)
         if (!nm.areNotificationsEnabled()) return
         channels(context)
         val built = build(context, c, e, keyguardLocked(context)) ?: return
-        notify(nm, built.id, built.builder)
+        order.claim(built.id, turn) { notify(nm, built.id, built.builder) }
     }
 
     /** Whether the phone is locked now; when it can't be told, it counts as locked. */

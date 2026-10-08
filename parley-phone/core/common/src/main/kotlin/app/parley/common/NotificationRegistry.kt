@@ -151,6 +151,9 @@ object NotificationRequests {
     const val RESCUE_HANG_UP = 233
     const val RESCUE_ALARM = 234
 
+    /** The alarm of a second rescue call waiting beside the first ([app.parley.common.calls.RescuePlan.Slot]). */
+    const val RESCUE_ALARM_SECOND = 235
+
     const val MISSED_OPEN = 300
     const val MISSED_CLEAR = 301
     const val MISSED_REALERT = 302

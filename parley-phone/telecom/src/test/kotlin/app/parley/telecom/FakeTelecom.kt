@@ -170,7 +170,14 @@ internal class FakeDependencies : TelecomDependencies {
 
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = contacts[number]
     override fun screeningActive() = screen != null
-    override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome {
+    override suspend fun screenCall(
+        number: String?,
+        hidden: Boolean,
+        verification: Verification,
+        accountId: String?,
+        callerName: String?,
+        callerNamePresentation: Int,
+    ): ScreenOutcome {
         screened++
         if (screenDelayMs > 0) delay(screenDelayMs)
         if (screenFails) error("screening failed")

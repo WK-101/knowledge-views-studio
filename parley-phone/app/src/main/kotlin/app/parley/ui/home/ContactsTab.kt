@@ -132,9 +132,11 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val layout = settings.homeLayout
     val showFavorites = showMe && layout.favoritesInContacts
     val showCircle = showFavorites && layout.circleHost == StartTab.CONTACTS
-    val leading = listOf(showMe, showFavorites, showCircle).count { it }
-    // Item 0 is the group chips row, then "My card", the favourites and the Circle.
-    val sections = remember(rows, leading) { ListSections.firstRows(rows, 1 + leading) }
+    // Searching or filtering while private contacts' details are locked: a card says so, with the unlock.
+    val lockedShown = privateLocked && (query.isNotBlank() || !filter.fields.isEmpty)
+    // Item 0 is the group chips row, then that card, "My card", the favourites and the Circle.
+    val lead = AlphabetIndex.Lead(privateLocked = lockedShown, me = showMe, favourites = showFavorites, circle = showCircle)
+    val sections = remember(rows, lead) { ListSections.firstRows(rows, lead.rows) }
     val count = remember(rows) { rows.count { it is ListSections.Row.Item } }
     // Private contacts listed among the others have negative ids.
     val privateShown = remember(rows) { rows.count { it is ListSections.Row.Item && it.item.id < 0 } }
@@ -146,9 +148,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     // favourites or the Circle); "★" leads it when the favourites are in Contacts and jumps to them.
     val byName = peopleSettings.contactSort == ContactSort.NAME
     val indexed = query.isBlank() && count > AlphabetIndex.MIN_ITEMS && byName
-    val favIndex = 1 + (if (showMe) 1 else 0)
-    val indexEntries = remember(sections, showFavorites, favIndex) {
-        AlphabetIndex.entries(sections.entries.map { it.key to it.value }, favouritesAt = favIndex.takeIf { showFavorites })
+    val indexEntries = remember(sections, lead) {
+        AlphabetIndex.entries(sections.entries.map { it.key to it.value }, favouritesAt = lead.favouritesAt)
     }
     val indexStart = sections.values.firstOrNull() ?: -1
     // The index's own lane: the rows beside it end where it starts, so it never covers their call and message buttons.
@@ -157,8 +158,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item(key = "groups") { chips() }
-            // Searching or filtering while private contacts' details are locked: say so, with the unlock.
-            if (privateLocked && (query.isNotBlank() || !filter.fields.isEmpty)) item(key = "private-locked") { PrivateSearchLocked(vm) }
+            if (lockedShown) item(key = "private-locked") { PrivateSearchLocked(vm) }
             if (showMe) item(key = "me") { MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
             if (showCircle) item(key = "circle") { CircleFavoritesSection(vm, open, "") }

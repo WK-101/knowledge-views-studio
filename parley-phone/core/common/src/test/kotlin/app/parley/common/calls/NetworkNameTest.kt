@@ -172,4 +172,74 @@ class NetworkNameTest {
         assertEquals("0612345678", NetworkName.line("0612345678", null))
         assertEquals("0612345678", NetworkName.line("0612345678", ""))
     }
+
+    @Test fun indic_vowel_signs_belong_to_their_letters() {
+        // Devanagari: Ram and Rama differ only in where the vowel sign is.
+        assertTrue(NetworkName.differs("राम", "रमा"))
+        assertFalse(NetworkName.same("राम", "रमा"))
+        assertTrue(NetworkName.same("राम  कुमार", "राम कुमार."))
+        assertFalse(NetworkName.differs("राम कुमार", "राम"))
+        assertFalse(NetworkName.differs("राम कुमार", "कुमार राम"))
+        // Tamil: Kamala and Kamal (a vowel sign against a virama).
+        assertTrue(NetworkName.differs("கமலா", "கமல்"))
+        assertFalse(NetworkName.differs("கமலா தேவி", "கமலா"))
+        // Bengali: Suman is not a shortening of Sumana (the next letter's vowel sign isn't a word boundary).
+        assertTrue(NetworkName.differs("সুমনা", "সুমন"))
+        assertTrue(NetworkName.differs("রাম", "রমা"))
+        assertFalse(NetworkName.differs("সুমনা দাস", "সুমনা"))
+        // A zero-width joiner shapes the letters; it isn't part of the name.
+        assertTrue(NetworkName.same("क्\u200Dष", "क्ष"))
+    }
+
+    @Test fun folding_is_unicode_aware() {
+        assertEquals("jose nunez", NetworkName.fold("JOSÉ  NÚÑEZ!"))
+        // Full-width letters and ligatures are the plain ones.
+        assertEquals("rahul", NetworkName.fold("ＲＡＨＵＬ"))
+        assertEquals("fiona", NetworkName.fold("ﬁona"))
+        assertEquals("strasse", NetworkName.fold("STRAßE"))
+        assertEquals("елена", NetworkName.fold("ЁЛЕНА"))
+        assertEquals("राम", NetworkName.fold("राम"))
+    }
+
+    @Test fun words_compare_whole_or_from_their_start() {
+        assertTrue(NetworkName.differs("Natalie", "ALI"))
+        assertTrue(NetworkName.differs("Johnathan Smith", "NATHAN SMITH"))
+        assertTrue(NetworkName.differs("Mariana Lopez", "ANA LOPEZ"))
+        // Joined only where one side is a single word.
+        assertFalse(NetworkName.differs("Rahul Sharma", "RAHULSHARMA"))
+        assertFalse(NetworkName.differs("RahulSharma", "RAHUL SHARMA"))
+        assertTrue(NetworkName.differs("Ana Belle", "Anab Elle"))
+    }
+
+    @Test fun titles_are_not_differences() {
+        assertFalse(NetworkName.differs("Anita Rao", "MRS ANITA RAO"))
+        assertFalse(NetworkName.differs("Dr Mehta", "MEHTA"))
+        assertFalse(NetworkName.differs("Shri Ram Kumar", "RAM KUMAR"))
+        assertFalse(NetworkName.differs("Anita Rao", "SMT. ANITA RAO"))
+        assertTrue(NetworkName.differs("Anita Rao", "MRS SUNITA RAO"))
+    }
+
+    @Test fun a_saved_name_of_only_emoji_shows_the_network_line() {
+        assertTrue(NetworkName.differs("🍕", "RAHUL SHARMA"))
+        assertEquals("RAHUL SHARMA", NetworkName.underSaved("🍕", "RAHUL SHARMA", NetworkName.Gate(enabled = true)))
+        assertFalse(NetworkName.differs("🍕", "🍕"))
+    }
+
+    @Test fun the_screening_log_keeps_a_name_only_while_names_are_remembered() {
+        assertNull(NetworkName.loggable(false, "RAHUL KUMAR", allowed))
+        assertEquals("RAHUL KUMAR", NetworkName.loggable(true, "RAHUL KUMAR", allowed))
+        // Restricted, unknown, or a placeholder: nothing.
+        assertNull(NetworkName.loggable(true, "RAHUL KUMAR", 2))
+        assertNull(NetworkName.loggable(true, "RAHUL KUMAR", 0))
+        assertNull(NetworkName.loggable(true, "WIRELESS CALLER", allowed))
+    }
+
+    @Test fun turning_names_off_asks_about_kept_ones_only_while_still_off() {
+        assertTrue(NetworkName.askToDelete(kept = true, stillOff = true))
+        assertFalse(NetworkName.askToDelete(kept = false, stillOff = true))
+        // Couldn't tell: ask, so the choice isn't lost.
+        assertTrue(NetworkName.askToDelete(kept = null, stillOff = true))
+        // Turned back on meanwhile: no question.
+        assertFalse(NetworkName.askToDelete(kept = true, stillOff = false))
+    }
 }

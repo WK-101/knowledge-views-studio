@@ -69,7 +69,9 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.rowColors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 /**
@@ -85,15 +87,21 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
     // While a duress unlock hides things: no call waiting and none of the last choices (the waiting call still rings).
     val pending by remember { RescueCalls.shown(context) }.collectAsStateWithLifecycle(null)
     val duress by Concealment.state.collectAsStateWithLifecycle()
-    var choices by remember(duress.hiding) { mutableStateOf(RescueCalls.choices(context)) }
+    // The stored choices are sealed: opened off the main thread, and only if nothing was changed meanwhile.
+    var choices by remember(duress.hiding) { mutableStateOf(RescueCalls.Choices()) }
+    LaunchedEffect(duress.hiding) {
+        val stored = withContext(Dispatchers.IO) { RescueCalls.choices(context) }
+        if (choices == RescueCalls.Choices()) choices = stored
+    }
     var picking by rememberSaveable { mutableStateOf(false) }
     var timeOpen by rememberSaveable { mutableStateOf(false) }
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }
     // A call set before the phone restarted, or long past its time, can't ring: say so rather than show it waiting.
-    LaunchedEffect(Unit) { if (RescueCalls.refresh(context)) notice = R.string.rescue_none_waiting }
+    LaunchedEffect(Unit) { if (withContext(Dispatchers.IO) { RescueCalls.refresh(context) }) notice = R.string.rescue_none_waiting }
     fun update(c: RescueCalls.Choices) {
         choices = c
-        RescueCalls.saveChoices(context, c)
+        // Sealed, off the main thread, one write after another.
+        scope.launch(saving) { RescueCalls.saveChoices(context, c) }
     }
     val pickSound = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -273,8 +281,12 @@ private fun keepSound(context: Context, uri: Uri, previous: String?): String? {
     }.getOrNull() ?: uri.lastPathSegment.orEmpty()
 }
 
+/** Writes the choices in the order they were made. */
+private val saving = Dispatchers.IO.limitedParallelism(1)
+
+/** Lets go of the sound, unless a call waiting will play it once answered. */
 private fun releaseSound(context: Context, uri: String?) {
-    uri ?: return
+    if (uri == null || RescueCalls.clipInUse(uri)) return
     runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
 }
 

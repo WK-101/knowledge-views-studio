@@ -173,4 +173,32 @@ class BlockingNoticePrivacyTest {
         assertFalse(n.said(), n.said().contains("Clinic") || n.said().contains(name))
         assertPublicNamesNobody(n, private)
     }
+
+    @Test fun the_rule_that_caught_a_call_stays_off_the_lock_screen_unless_names_show() = runBlocking {
+        c.settings.update { it.copy(lockScreenCaller = LockScreenCaller.NONE) }
+        assertFalse(notice(silenced(stranger), locked = true).second.said().contains("Doctors"))
+        assertTrue(notice(silenced(stranger), locked = false).second.said().contains("Doctors"))
+        c.settings.update { it.copy(lockScreenCaller = LockScreenCaller.INITIALS) }
+        assertFalse(notice(silenced(stranger), locked = true).second.said().contains("Doctors"))
+        c.settings.update { it.copy(lockScreenCaller = LockScreenCaller.NAME) }
+        assertTrue(notice(silenced(stranger), locked = true).second.said().contains("Doctors"))
+    }
+
+    @Test fun the_lock_screen_rule_fails_closed() = runBlocking {
+        assertEquals(LockScreenCaller.NONE, app.parley.calls.NoticeCaller.lockScreenRule { error("unreadable") })
+        assertEquals(LockScreenCaller.NAME, app.parley.calls.NoticeCaller.lockScreenRule { LockScreenCaller.NAME })
+    }
+
+    @Test fun an_older_notice_never_replaces_a_newer_one() {
+        val order = BlockingNotifier.PostOrder()
+        val first = order.next()
+        val second = order.next()
+        val posted = mutableListOf<Long>()
+        // The second call's notice is found first and posted; the first one's, found later, is dropped.
+        assertTrue(order.claim(BlockingNotifier.ID_BLOCKED, second) { posted += second })
+        assertFalse(order.claim(BlockingNotifier.ID_BLOCKED, first) { posted += first })
+        // Another notification id keeps its own order.
+        assertTrue(order.claim(BlockingNotifier.ID_LIKELY, first) { posted += first })
+        assertEquals(listOf(second, first), posted)
+    }
 }
