@@ -118,7 +118,6 @@
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$override fun query(uri: Uri, projection: Array&lt;out String&gt;?, selection: String?, selectionArgs: Array&lt;out String&gt;?, sortOrder: String?): Cursor?</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array&lt;out String&gt;?): Int</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$private fun phoneLookup(number: String, projection: Array&lt;out String&gt;?, work: Boolean): Cursor</ID>
-    <ID>CyclomaticComplexMethod:FastScrollRail.kt$@Composable fun FastScrollRail(letters: List&lt;String&gt;, current: Int, modifier: Modifier = Modifier, onPick: (Int) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (Destination) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
     <ID>CyclomaticComplexMethod:HandleText.kt$HandleText$fun hint(res: Resources, s: HandleService): String</ID>
     <ID>CyclomaticComplexMethod:Handles.kt$Handles$fun fromIm(protocol: Int?, customProtocol: String?): HandleService</ID>
@@ -274,7 +273,6 @@
     <ID>LongMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>LongMethod:CsvMappingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CsvMappingScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:DetailPeople.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -&gt; Unit, onChanged: (Long?) -&gt; Unit)</ID>
-    <ID>LongMethod:FastScrollRail.kt$@Composable fun FastScrollRail(letters: List&lt;String&gt;, current: Int, modifier: Modifier = Modifier, onPick: (Int) -&gt; Unit)</ID>
     <ID>LongMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (Destination) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
     <ID>LongMethod:HealthScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HealthScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (Destination) -&gt; Unit, )</ID>
@@ -341,7 +339,6 @@
     <ID>LoopWithTooManyJumpStatements:CsvPackConverter.kt$CsvPackConverter$for</ID>
     <ID>LoopWithTooManyJumpStatements:DialSearch.kt$DialSearch$for</ID>
     <ID>LoopWithTooManyJumpStatements:FakeContactsProvider.kt$FakeContactsProvider$while</ID>
-    <ID>LoopWithTooManyJumpStatements:FastScrollRail.kt$while</ID>
     <ID>LoopWithTooManyJumpStatements:FolderSync.kt$FolderSync$for</ID>
     <ID>LoopWithTooManyJumpStatements:HealthScanner.kt$HealthScanner$while</ID>
     <ID>LoopWithTooManyJumpStatements:KeypadKey.kt$while</ID>

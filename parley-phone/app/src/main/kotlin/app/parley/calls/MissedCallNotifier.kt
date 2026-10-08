@@ -220,7 +220,8 @@ object MissedCallNotifier {
         // A number nobody saved and known not to be a private contact's (whatever discreet mode says): the name the
         // network sent, where the lock-screen rule shows callers' names in full.
         val isPrivate = if (vaultHit.isFailure) null else vaultHit.getOrNull() != null
-        val network = if (number != null && NetworkName.mayShow(saved = contact != null || archivedName != null, private = isPrivate)) {
+        val remember = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
+        val network = if (number != null && NetworkName.mayShow(remember, saved = contact != null || archivedName != null, private = isPrivate)) {
             val lockScreen = catching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
             NetworkName.inNotification(catching { c.networkNames.latest(number, simRegion)?.name }.getOrNull(), lockScreen)
         } else {

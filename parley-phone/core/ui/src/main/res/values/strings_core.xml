@@ -12,4 +12,8 @@
     <string name="ui_copied">Copied</string>
     <!-- TalkBack name of the lock on a private contact's photo in lists. -->
     <string name="ui_private_contact">Private contact</string>
+    <!-- The A–Z index beside alphabetical lists: its TalkBack name and actions. -->
+    <string name="ui_index">Alphabet index</string>
+    <string name="ui_index_next">Next letter</string>
+    <string name="ui_index_previous">Previous letter</string>
 </resources>

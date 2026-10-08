@@ -39,6 +39,7 @@ class SettingsSearchTest {
             "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
             "call_helpers" to SettingPlace.HELPERS, "phone_menus" to SettingPlace.PHONE_MENUS,
             "call_time" to SettingPlace.CALLS_SITUATIONS, "situations" to SettingPlace.CALLS_SITUATIONS,
+            "network_names" to SettingPlace.CALLS_ANSWERING,
         ).forEach { (key, place) -> assertEquals(key, place, SettingsCatalog[key].place) }
         // The Call time category dissolved into Calls › Situations; its settings are Calls' now.
         listOf("call_time", "ct_reminders", "ct_limits", "ct_supervised").forEach { assertEquals(it, SettingsCategory.CALLS, SettingsCatalog[it].category) }
@@ -165,7 +166,10 @@ class SettingsSearchTest {
          * Settings holds preferences only, so 11 tool launchers became links to Tools (with Scan QR, Coming from another
          * phone? and Tools itself), Sales lines and Vibrate during calls each became one choice, and "Let apps show
          * private names" went with the lookup provider. 6.0's Situations took the drive profile's entry, so the count held.
+         * 6.2.2 raised it to 148 for "Remember names from the network" (network_names), off by default: the owner asked
+         * for it as its own switch, and no caller-ID setting holds it honestly (the contact photo, the lock-screen rule
+         * and the ringtone for unknown callers are each about something else).
          */
-        const val SETTINGS_CEILING = 147
+        const val SETTINGS_CEILING = 148
     }
 }

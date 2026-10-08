@@ -2772,3 +2772,38 @@ Same setup as 43.1: a SIM whose network sends caller names, a second phone not s
 8. **TalkBack.** On a Recents row with a network name, the call button reads "Call Ravi Kumar, name from the network" (or "Details for …", "Call back …" with those settings). In Recents ⋮ › "What do the colours mean?", the Private contact and From the network lines are each read once.
 9. **Odd names.** A US carrier's "NEW YORK NY" (or "SPAM?") shows as the number, no tag. A name with right-to-left characters keeps the rest of the row in order (Arabic or Hebrew system language too).
 10. **Dual SIM abroad.** With a second SIM from another country, a call on it from a number written nationally keeps its name; the number's page, Recents and the notification show it, and a contact saved with the number in full (+country code) replaces it.
+
+## 44. Owner corrections (6.2.2)
+
+### 44.1 Names from the network are optional (off by default)
+Automated: `NetworkNameTest` (kept only while the setting is on, for saved numbers too; a private contact's number forgets, on or off; nothing shows in place of a name while off) and `SettingsSearchTest` (`network_names` on Calls › Answering; ceiling 148) (core:common); `NetworkNameSettingTest` (off on a new phone and after an upgrade, whose kept names stay; nothing written while off; on is kept; Delete clears, Keep for later leaves them) (core:data, Robolectric); `HubAndRemindersRoutesTest` (the row is keyed on its page) (app).
+Setup: a SIM whose network sends caller names (India's CNAP, a US carrier's caller name) and a second phone whose name the network shows.
+1. **New install.** Settings › Calls › Answering: "Remember names from the network" is off, and its summary says what it keeps, where it shows and that networks can get it wrong and callers can fake it. Call from the second phone (not saved): the call screen shows the name Android passes, as before; after hanging up, Recents, the number's page and the missed-call notification show the number, with no "From the network" tag.
+2. **Turn it on.** Call again: Recents shows the name with its tag (as in 43.1).
+3. **Turn it off.** Switch it off: "Delete the names already kept?" asks, with Delete and Keep for later. Keep for later: Recents shows the number at once; turn it on again and the name is back. Turn it off and choose Delete: "Names from the network deleted"; turning it on again shows the number until the network sends the name again. With no names kept, turning it off asks nothing.
+4. **Upgrade.** Install 6.2.1, receive a call that keeps a name, then install this build over it: the setting is off, Recents shows the number, and turning the setting on shows the old name again (nothing was deleted).
+5. **Search.** Settings search "network name", "caller name" or "CNAP" finds the row and opens Calls › Answering on it.
+
+### 44.2 The network's name under a saved name
+Automated: `NetworkNameTest` (a different name: "RAHUL SHARMA", "R Sharma", "Rahul S.", "RS" and "Sharma" are the same as "Rahul Sharma"; "Rahul Kumar" differs; the line shows only while on, never with the name masked on the lock screen, and for a private contact only while its name may show) (core:common); `LockScreenCallerUiTest` (Initials and Nothing drop the line with the name; Name and Name and notes keep it) (telecom).
+Setup: the setting on; save the second phone as "Plumber" (the network sends another name).
+1. **Call screen.** Call from the second phone: under "Plumber" a small line reads "Network: …" (the network's name), below the name in their own language if any; it stays while the call is answered. TalkBack reads "The network shows the name …". With the keypad open, it is hidden with the other lines.
+2. **Same name.** Rename the contact to the network's name in other capitals, or to its initials and surname: no line.
+3. **Number's page.** Recents › the call › the number's page: "Network: …" under "Plumber", above the number. Recents rows show only "Plumber" (no line, no tag), so the list stays calm.
+4. **Lock screen.** Lock the phone with Caller on the lock screen set to Name: the line shows. Set it to Initials or Nothing: the initials or "Incoming call" show, and no line.
+5. **Private and duress.** Make the contact private: with Hide private contacts off, the call screen shows the private name and the line; nothing is kept after the call (the number's page has no line, and Recents shows no network name). Turn on Hide private contacts, or open Parley with the duress PIN: the call shows the number only, with no line.
+6. **Off.** Turn the setting off: the call screen and the number's page show no line.
+7. **Not a verdict.** A saved organisation that never calls you still gets "This number never calls you" as before; the line doesn't change it.
+
+### 44.3 The A–Z index
+Automated: `AlphabetIndexTest` (entries only from the sections present; mixed scripts in list order, a script with hundreds of starting characters sampled; "★" only with favourites in Contacts; dots on a short screen; hidden while chips, My card and favourites have the screen, then below the first header and later the pinned one; held under the finger; first rows of a list without headers) and `FastScrollTest` (core:common).
+Setup: more than 30 contacts sorted by first name, some starting with digits, some in another script (Cyrillic or Chinese).
+1. **Not over the top rows.** Open Contacts at the top: no index beside the chips row or My card. Scroll until the "A" header is in the upper part of the screen: the index fades in below it, on the end edge. Scroll further: it sits right below the pinned letter header.
+2. **Combined with favourites.** Settings › Layout & gestures › show favourites in Contacts (and the Circle with them): at the top there's no index over the favourites or the Circle; it appears with the letters and starts with "★". Drag to "★": the list jumps to the favourites, and the index stays under the finger until you lift it, then fades.
+3. **Drag.** Drag along the index: a large letter in a bubble beside the finger, a light tick per letter, the list follows. Right to left: the index is on the left, the bubble to its right.
+4. **Row buttons.** Settings › Contacts › show call and message buttons on rows: with the index showing, both buttons can be tapped and none sits under the index. At the top of the list (no index), taps at the end of a row reach the row.
+5. **Short screen and large fonts.** Landscape, split screen, or display size and font at their largest: the index shows letters with dots between them, and dragging still reaches every letter. In a very short window it doesn't show.
+6. **Scripts.** Cyrillic names show their letters after Z; many Chinese names give a dozen entries, not hundreds; "#" sits where the list puts it.
+7. **TalkBack.** Focus the index: "Alphabet index, A". Swipe up or down to move by letter; the actions menu has "Next letter" and "Previous letter".
+8. **Elsewhere.** The same index (more than 30 rows, nothing typed in search) shows in the "Add to contact" picker, the picker another app opens (choose a contact, a number or an email) and a label with more than 30 members. The rows' checkboxes and ⋮ stay clear of it. Typing in search hides it.
+9. **Wide screen.** On a tablet or unfolded phone with the list beside a contact, the index is at the end of the list pane.

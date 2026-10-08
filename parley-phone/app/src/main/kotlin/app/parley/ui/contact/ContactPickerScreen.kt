@@ -1,6 +1,8 @@
 package app.parley.ui.contact
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,6 +20,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.TextSearch
+import app.parley.common.people.AlphabetIndex
+import app.parley.ui.AlphabetIndexDefaults
+import app.parley.ui.AlphabetIndexRail
 import app.parley.ui.home.ContactRow
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -30,11 +35,23 @@ fun ContactPickerScreen(vm: AppViewModel, back: () -> Unit, onPick: (Long) -> Un
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.picker_add_to_contact), onBack = back)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
-            item {
-                OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))
+        val shown = all.orEmpty().filter { TextSearch.matches(q, it.displayName) }
+        // The A–Z index while nothing is typed, from the first contact on (the search field is row 0).
+        val indexed = q.isBlank() && shown.size > AlphabetIndex.MIN_ITEMS
+        val entries = remember(shown, indexed) {
+            if (indexed) AlphabetIndex.entries(AlphabetIndex.sectionsOf(shown.map { it.sortName }, offset = 1)) else emptyList()
+        }
+        val state = rememberLazyListState()
+        Box(Modifier.padding(p)) {
+            LazyColumn(state = state) {
+                item {
+                    OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))
+                }
+                items(shown, key = { it.id }) { c ->
+                    Box(Modifier.padding(end = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp)) { ContactRow(c) { onPick(c.id) } }
+                }
             }
-            items(all.orEmpty().filter { TextSearch.matches(q, it.displayName) }, key = { it.id }) { c -> ContactRow(c) { onPick(c.id) } }
+            if (indexed) AlphabetIndexRail(state, entries, start = 1, headers = false)
         }
     }
 }

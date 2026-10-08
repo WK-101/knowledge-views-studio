@@ -10,21 +10,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The names the network sent, for the lists that show numbers (Recents, Recall): a reader per change of the store or
- * of the private contacts. A private contact's number never gets one, whether discreet mode is on or not; the reader
+ * The names the network sent, for the lists that show numbers (Recents, Recall): a reader per change of the store, of
+ * the private contacts or of "Remember names from the network" (off: no names, though any kept before stay on the
+ * phone until deleted). A private contact's number never gets one, whether discreet mode is on or not; the reader
  * waits for the private contacts to be listed, so it never shows one first.
  */
 object NetworkNames {
     /** Number → the names the network sent for it, newest first (empty for none). Ask with [line]. */
     fun readers(c: DataContainer): Flow<(String) -> List<NetworkNameSeen>> =
-        combine(c.networkNames.version, c.vault.listing.filterNotNull()) { _, vault ->
+        combine(
+            c.networkNames.version, c.vault.listing.filterNotNull(), c.settings.settings.map { it.rememberNetworkNames }.distinctUntilChanged(),
+        ) { _, vault, on ->
+            if (!on) return@combine NONE
             val privateNumbers = PhoneIdentity.LineSet(vault.flatMap { it.numbers }, PhoneEnv.countryIso(c.appContext))
             runCatching { c.networkNames.reader { it in privateNumbers } }.getOrElse { { _: String -> emptyList() } }
         }.flowOn(Dispatchers.IO)

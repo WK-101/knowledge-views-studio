@@ -1,5 +1,8 @@
 package app.parley.ui.people
 
+import app.parley.common.people.AlphabetIndex
+import app.parley.ui.AlphabetIndexDefaults
+import app.parley.ui.AlphabetIndexRail
 import app.parley.ui.Destination
 import app.parley.common.catching
 import app.parley.jobs.UserErrorText
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -488,67 +492,79 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             scrollBehavior = barTint,
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
-            // A chapter: an end for a period of life, and the one question when it comes.
-            item {
-                ChapterSection(vm, current, members) {
-                    scope.launch {
-                        deleteLabelWithUndo(vm, current)
-                        back()
+        // The A–Z index beside a long list of members, from the first member on (the rows above it are the label's
+        // own settings: MEMBERS_START of them).
+        val indexed = members.size > AlphabetIndex.MIN_ITEMS
+        val indexEntries = remember(members, indexed) {
+            if (indexed) AlphabetIndex.entries(AlphabetIndex.sectionsOf(members.map { it.sortName }, offset = MEMBERS_START)) else emptyList()
+        }
+        val listState = rememberLazyListState()
+        Box(Modifier.padding(p)) {
+            LazyColumn(state = listState) {
+                // A chapter: an end for a period of life, and the one question when it comes.
+                item {
+                    ChapterSection(vm, current, members) {
+                        scope.launch {
+                            deleteLabelWithUndo(vm, current)
+                            back()
+                        }
+                    }
+                }
+                item {
+                    val name = tone?.let { u ->
+                        if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
+                        else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+                    }
+                    ParleyListItem(
+                        modifier = Modifier.clickable(onClick = ::pickTone),
+                        leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
+                        headlineContent = {
+                            Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
+                        },
+                        supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
+                        trailingContent = {
+                            if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
+                                Text(stringResource(R.string.lbl_reset))
+                            }
+                        },
+                    )
+                }
+                // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.
+                item {
+                    CallerTuneRow(current, stringResource(R.string.caller_tune_label_summary)) { uri ->
+                        vm.people.update { it.copy(labelRingtones = it.labelRingtones + (current to uri.toString())) }
+                        vm.toast(res.getString(R.string.caller_tune_set, current))
+                    }
+                }
+                // SIM, Circle rhythm and Do Not Disturb for this label.
+                item { LabelPolicySection(vm, current, members) }
+                // I4: the label's safe word (asks who it is before showing or changing it).
+                item { SafeWordSection(vm, current) }
+                // Shared with other people's phones: status, members and who changed what.
+                item { SharedLabelSection(vm, current, open) }
+                item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
+                if (members.isEmpty()) item {
+                    Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
+                }
+                items(members, key = { it.id }) { c ->
+                    var rowMenu by remember { mutableStateOf(false) }
+                    // No selection here: the row's actions are its trailing ⋮, never a long-press. Its own lane beside the index.
+                    Box(Modifier.padding(end = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp)) {
+                        ContactRow(c, menu = {
+                            Box {
+                                IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
+                                DropdownMenu(rowMenu, { rowMenu = false }) {
+                                    DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
+                                        rowMenu = false
+                                        scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
+                                    })
+                                }
+                            }
+                        }) { open(Routes.contact(c.id)) }
                     }
                 }
             }
-            item {
-                val name = tone?.let { u ->
-                    if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
-                    else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
-                }
-                ParleyListItem(
-                    modifier = Modifier.clickable(onClick = ::pickTone),
-                    leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
-                    headlineContent = {
-                        Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
-                    },
-                    supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
-                    trailingContent = {
-                        if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
-                            Text(stringResource(R.string.lbl_reset))
-                        }
-                    },
-                )
-            }
-            // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.
-            item {
-                CallerTuneRow(current, stringResource(R.string.caller_tune_label_summary)) { uri ->
-                    vm.people.update { it.copy(labelRingtones = it.labelRingtones + (current to uri.toString())) }
-                    vm.toast(res.getString(R.string.caller_tune_set, current))
-                }
-            }
-            // SIM, Circle rhythm and Do Not Disturb for this label.
-            item { LabelPolicySection(vm, current, members) }
-            // I4: the label's safe word (asks who it is before showing or changing it).
-            item { SafeWordSection(vm, current) }
-            // Shared with other people's phones: status, members and who changed what.
-            item { SharedLabelSection(vm, current, open) }
-            item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
-            if (members.isEmpty()) item {
-                Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-            }
-            items(members, key = { it.id }) { c ->
-                var rowMenu by remember { mutableStateOf(false) }
-                // No selection here: the row's actions are its trailing ⋮, never a long-press.
-                ContactRow(c, menu = {
-                    Box {
-                        IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
-                        DropdownMenu(rowMenu, { rowMenu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
-                                rowMenu = false
-                                scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
-                            })
-                        }
-                    }
-                }) { open(Routes.contact(c.id)) }
-            }
+            if (indexed) AlphabetIndexRail(listState, indexEntries, start = MEMBERS_START, headers = false)
         }
     }
     if (renaming) RenameLabelDialog(vm, current, onDismiss = { renaming = false }) { current = it }
@@ -587,3 +603,6 @@ private suspend fun deleteLabelWithUndo(vm: AppViewModel, title: String) {
         said != null -> vm.toast(said)
     }
 }
+
+/** The rows of a label's page above its members: chapter, ringtone, caller tune, policies, safe word, sharing, count. */
+private const val MEMBERS_START = 7

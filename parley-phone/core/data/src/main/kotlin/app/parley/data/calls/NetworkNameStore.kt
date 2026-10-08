@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The names the network sent with calls from numbers that aren't saved (see [NetworkName]): the latest and up to two
+ * The names the network sent with calls (see [NetworkName]): the latest and up to two
  * before it per number, with when, the SIM and the country. The call log has no column for them, so Parley keeps
  * them beside its call-history archive, in a [SealedLineStore] like ring facts: keyed by the archive's fingerprint of
  * the line, sealed with its key, on this phone only (not in backups, like number memory, which is rebuilt rather than
@@ -18,8 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
  * A national number is kept under its line as the SIM the call came in on reads it ([NetworkName.line]): pass that
  * SIM's country as `simRegion` when it is known, the same way for reading as for writing.
  *
- * The callers check that the number isn't a contact, a private or an archived contact before [record]; the screens
- * check again before showing (a number saved later shows its saved name).
+ * Names are written only while Settings › Calls › Answering › "Remember names from the network" is on, for numbers
+ * nobody saved and for contacts' numbers (shown under the saved name when it is a different one), never for a private
+ * contact's: the callers check before [record] ([NetworkName.keep]); the screens check the setting and the number again
+ * before showing (a number saved later shows its saved name). Turning the setting off asks whether to [clear] them.
  */
 class NetworkNameStore private constructor(context: Context, private val keys: SealedLineStore.KeySource) {
     constructor(context: Context, history: () -> CallHistory) : this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) })
@@ -118,6 +120,9 @@ class NetworkNameStore private constructor(context: Context, private val keys: S
         val old = prefs.all.keys.filter { k -> k.startsWith(ASIDE) && k.removePrefix(ASIDE).toLongOrNull()?.let { now - it > ASIDE_MS } != false }
         if (old.isNotEmpty()) prefs.edit().apply { old.forEach { remove(it) } }.apply()
     }
+
+    /** Whether any name is kept (turning the setting off asks about them only then). */
+    fun hasAny(): Boolean = store.all().isNotEmpty()
 
     fun clear() {
         val asides = prefs.all.keys.filter { it.startsWith(ASIDE) }

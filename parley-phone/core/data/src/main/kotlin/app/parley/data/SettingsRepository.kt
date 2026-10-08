@@ -248,6 +248,8 @@ class SettingsRepository internal constructor(
             lockScreenCaller = enumOr(this[K.lockScreenCaller], d.lockScreenCaller),
             showCallerPhoto = this[K.showCallerPhoto] ?: d.showCallerPhoto,
             answerWithRtt = this[K.answerWithRtt] ?: d.answerWithRtt,
+            // Absent before the setting existed: off, as for a new phone.
+            rememberNetworkNames = this[K.rememberNetworkNames] ?: d.rememberNetworkNames,
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
             rememberRecentsFilter = this[K.rememberRecentsFilter] ?: d.rememberRecentsFilter,
             recentsFilter = this[K.recentsFilter] ?: d.recentsFilter,
@@ -302,6 +304,7 @@ class SettingsRepository internal constructor(
         this[K.lockScreenCaller] = s.lockScreenCaller.name
         this[K.showCallerPhoto] = s.showCallerPhoto
         this[K.answerWithRtt] = s.answerWithRtt
+        this[K.rememberNetworkNames] = s.rememberNetworkNames
         this[K.surfaces] = s.surfaces.encode()
         this[K.rememberRecentsFilter] = s.rememberRecentsFilter
         this[K.recentsFilter] = s.recentsFilter
@@ -355,6 +358,7 @@ class SettingsRepository internal constructor(
         val callBackground = stringPreferencesKey("call_background")
         val lockScreenCaller = stringPreferencesKey("lock_screen_caller")
         val showCallerPhoto = booleanPreferencesKey("show_caller_photo")
+        val rememberNetworkNames = booleanPreferencesKey("remember_network_names")
         val answerWithRtt = booleanPreferencesKey("answer_with_rtt")
         val surfaces = stringPreferencesKey("surface_layout")
         val rememberRecentsFilter = booleanPreferencesKey("remember_recents_filter")

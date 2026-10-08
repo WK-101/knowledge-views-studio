@@ -9,6 +9,9 @@ import app.parley.common.CallType
 import app.parley.common.catching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.produceState
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
@@ -134,13 +137,16 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // An archived contact's calls are still theirs: named here too.
     val archived by vm.c.archive.cards.collectAsStateWithLifecycle()
     val archivedName = remember(archived, number) { if (contact == null) Archive.index(archived, vm.countryIso)[number]?.name else null }
-    // A number nobody saved: the name the network sent with its calls (never a private contact's number), with the
-    // one before it when it changed. Read again when the store changes (a call just ended).
+    // The name the network sent with its calls (never a private contact's number), while "Remember names from the
+    // network" is on: for a number nobody saved it stands for the name, with the one before it when it changed; under a
+    // saved name it is a small second line when it is a different name. Read again when the store changes (a call just
+    // ended) or the setting does.
+    val namesOn by remember(vm) { vm.settings.map { it.rememberNetworkNames }.distinctUntilChanged() }.collectAsStateWithLifecycle(false)
     val networkVersion by vm.c.networkNames.version.collectAsStateWithLifecycle()
     // Read as the SIM of the number's latest call reads it, as the name was written.
     val account = history.firstOrNull()?.accountId
-    val networkNames by produceState(emptyList<NetworkNameSeen>(), number, contact, archivedName, privateNumber, networkVersion, account) {
-        value = if (contact != null || archivedName != null || privateNumber != false) {
+    val kept by produceState(emptyList<NetworkNameSeen>(), number, namesOn, privateNumber, networkVersion, account) {
+        value = if (!namesOn || privateNumber != false) {
             emptyList()
         } else {
             withContext(Dispatchers.IO) {
@@ -148,7 +154,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             }
         }
     }
+    val savedName = contact?.displayName ?: archivedName
+    val networkNames = if (savedName == null) kept else emptyList()
     val networkName = NetworkName.latest(networkNames)?.name
+    val networkUnder = NetworkName.underSaved(savedName, NetworkName.latest(kept)?.name, NetworkName.Gate(enabled = namesOn))
     val title = contact?.displayName ?: archivedName ?: networkName ?: Format.number(number, vm.countryIso)
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
@@ -209,6 +218,14 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     // A name the network sent is isolated: nothing in it turns the page's text around.
                     val shownTitle = if (contact == null && archivedName == null && networkName != null) Bidi.isolate(title) else title
                     Text(shownTitle, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
+                    // Under a saved name: what the network calls them, when that is a different name (not a verdict).
+                    networkUnder?.let { n ->
+                        Text(
+                            stringResource(R.string.network_name_under, Bidi.isolate(n)),
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spacing.xxs),
+                        )
+                    }
                     if (contact == null && archivedName == null && networkName != null) {
                         NetworkNameTag(Modifier.padding(top = Spacing.xs))
                         NetworkName.before(networkNames)?.let { earlier ->

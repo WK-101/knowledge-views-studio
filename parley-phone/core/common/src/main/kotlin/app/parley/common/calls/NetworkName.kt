@@ -4,6 +4,7 @@ import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.text.Normalizer
 import java.util.Locale
 
 /**
@@ -26,8 +27,11 @@ data class NetworkNameSeen(
 
 /**
  * The network's caller name: which names are worth keeping, how a new one joins what was kept, and where it shows.
- * Saved names always win. A private contact's number gets none written ([keep]), loses one kept while it was unknown
- * when it becomes private (the vault tells the store), and never shows one ([mayShow]).
+ * Nothing is kept or shown after a call unless Settings › Calls › Answering › "Remember names from the network" is
+ * on (off by default, also for phones that kept names before the setting existed). Saved names always win; under a
+ * saved name the network's shows only as a quiet second line, and only when it is a different name ([underSaved]).
+ * A private contact's number gets none written ([keep]), loses one kept while it was unknown when it becomes private
+ * (the vault tells the store), and never shows one in place of a name ([mayShow]).
  */
 object NetworkName {
     /** `TelecomManager.PRESENTATION_ALLOWED`: the only presentation whose name may be shown. */
@@ -95,10 +99,11 @@ object NetworkName {
         simRegion?.takeIf { it.isNotBlank() }?.let { PhoneIdentity.e164(number, it) } ?: number
 
     /**
-     * Whether the network's name may show for a number: nobody saved it ([saved]), and it is known not to be a private
-     * contact's ([private]). Null [private]: the private contacts couldn't be checked, which counts as private.
+     * Whether the network's name may show in place of a name for a number: names from the network are remembered
+     * ([enabled]), nobody saved the number ([saved]), and it is known not to be a private contact's ([private]). Null
+     * [private]: the private contacts couldn't be checked, which counts as private.
      */
-    fun mayShow(saved: Boolean, private: Boolean?): Boolean = !saved && private == false
+    fun mayShow(enabled: Boolean, saved: Boolean, private: Boolean?): Boolean = enabled && !saved && private == false
 
     /** Whether two names are the same name (case and spacing aside). */
     fun same(a: String, b: String): Boolean = fold(a) == fold(b)
@@ -147,15 +152,70 @@ object NetworkName {
     enum class Keep { RECORD, SKIP, FORGET }
 
     /**
-     * A name is kept only for a number nobody saved ([saved]: a contact or an archived contact). A private contact's
-     * number gets nothing written, and loses any name still kept for it. Null [private]: the private contacts couldn't
-     * be checked, which counts as private.
+     * A name is kept only while names from the network are remembered ([enabled]): for a number nobody saved, and for a
+     * contact's or an archived contact's number too, whose name may then show under the saved one. A private contact's
+     * number gets nothing written, and loses any name still kept for it (whether remembering is on or not). Null
+     * [private]: the private contacts couldn't be checked, which counts as private.
      */
-    fun keep(saved: Boolean, private: Boolean?): Keep = when {
+    fun keep(enabled: Boolean, private: Boolean?): Keep = when {
         private != false -> Keep.FORGET
-        saved -> Keep.SKIP
+        !enabled -> Keep.SKIP
         else -> Keep.RECORD
     }
+
+    /**
+     * Whether [network] is a different name from [saved], not just the same one written otherwise: case, spacing,
+     * accents and punctuation aside, in any order, and not merely part of it ("Sharma"), its initials ("R Sharma",
+     * "RS") or a shortening of its words ("Rahul S."). "Rahul Kumar" for a contact saved as "Rahul Sharma" differs.
+     */
+    fun differs(saved: String, network: String): Boolean {
+        val s = words(saved)
+        val n = words(network)
+        if (n.isEmpty() || s.isEmpty()) return false
+        val sJoined = s.joinToString("")
+        val nJoined = n.joinToString("")
+        if (sJoined == nJoined || sJoined.contains(nJoined)) return false
+        // "RS" for "Rahul Sharma": the saved name's initials run together.
+        if (n.size == 1 && n[0].length > 1 && n[0] == s.joinToString("") { it.take(1) }) return false
+        // Every word of the network's name is a saved word, or the start of one (an initial, "Sh"), each used once.
+        val left = s.toMutableList()
+        for (w in n.sortedByDescending { it.length }) {
+            val hit = left.firstOrNull { it == w } ?: left.firstOrNull { it.startsWith(w) } ?: return true
+            left.remove(hit)
+        }
+        return false
+    }
+
+    /** What decides whether the network's name may show under a saved name on a screen. */
+    data class Gate(
+        /** "Remember names from the network" is on. */
+        val enabled: Boolean,
+        /** The caller is a private contact. */
+        val privateContact: Boolean = false,
+        /** Private contacts' names are hidden here (Hide private contacts, a duress session, a locked vault). */
+        val privateNamesHidden: Boolean = false,
+        /** The lock-screen rule hides the caller's name here (Initials or Nothing while the phone is locked). */
+        val nameMasked: Boolean = false,
+    ) {
+        /** The saved name itself doesn't show here, or names from the network aren't wanted. */
+        val holdsBack: Boolean get() = !enabled || nameMasked || (privateContact && privateNamesHidden)
+    }
+
+    /**
+     * The network's name to show as a small second line under [savedName] ("Network: Rahul S."), or null: only while
+     * names are remembered, where the saved name itself shows in full (never for a hidden private contact or a masked
+     * name), and only when it is a different name ([differs]). It says what the network sent, not who is calling.
+     */
+    fun underSaved(savedName: String?, networkName: String?, gate: Gate): String? {
+        if (gate.holdsBack) return null
+        if (savedName.isNullOrBlank() || networkName.isNullOrBlank()) return null
+        return networkName.takeIf { differs(savedName, it) }
+    }
+
+    /** [s] as words to compare: accents folded, lower case, letters and digits only. */
+    private fun words(s: String): List<String> =
+        fold(Normalizer.normalize(s, Normalizer.Form.NFD).filterNot { Character.getType(it) == Character.NON_SPACING_MARK.toInt() })
+            .split(' ').filter { it.isNotEmpty() }
 
     /** Where a shown name comes from. */
     enum class Source { SAVED, NETWORK, NUMBER }

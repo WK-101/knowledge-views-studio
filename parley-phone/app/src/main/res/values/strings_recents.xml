@@ -93,5 +93,7 @@
     <!-- TalkBack: a name the network sent, in a label such as "Call %1$s". -->
     <string name="network_name_spoken">%1$s, name from the network</string>
     <string name="recents_legend_network_name_meaning">The name the mobile network showed when they called. It isn\'t a name you saved, so check before you trust it.</string>
+    <!-- Under a saved name on a number's page: the name the mobile network showed for it, when it is a different one. -->
+    <string name="network_name_under">Network: %1$s</string>
     <string name="network_name_before">The network showed %1$s before</string>
 </resources>

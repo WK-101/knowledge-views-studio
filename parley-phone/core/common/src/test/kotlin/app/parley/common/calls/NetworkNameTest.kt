@@ -78,22 +78,69 @@ class NetworkNameTest {
         assertNull(NetworkName.inNotification(null, LockScreenCaller.NAME))
     }
 
-    @Test fun only_numbers_nobody_saved_keep_a_name() {
-        assertEquals(NetworkName.Keep.RECORD, NetworkName.keep(saved = false, private = false))
-        assertEquals(NetworkName.Keep.SKIP, NetworkName.keep(saved = true, private = false))
-        // A private contact's number: nothing is written, and a name kept before it became private goes.
-        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = false, private = true))
-        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = true, private = true))
+    @Test fun names_are_kept_only_while_remembering_is_on() {
+        // On: kept for unknown and saved numbers alike (a saved contact's shows under the saved name).
+        assertEquals(NetworkName.Keep.RECORD, NetworkName.keep(enabled = true, private = false))
+        // Off (the default, also after upgrading): nothing is written.
+        assertEquals(NetworkName.Keep.SKIP, NetworkName.keep(enabled = false, private = false))
+        // A private contact's number: nothing is written, and a name kept before it became private goes, on or off.
+        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(enabled = true, private = true))
+        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(enabled = false, private = true))
         // Private contacts that couldn't be checked count as private.
-        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(saved = false, private = null))
+        assertEquals(NetworkName.Keep.FORGET, NetworkName.keep(enabled = true, private = null))
     }
 
     @Test fun a_name_shows_only_for_a_number_known_not_to_be_private() {
-        assertTrue(NetworkName.mayShow(saved = false, private = false))
-        assertFalse(NetworkName.mayShow(saved = true, private = false))
-        assertFalse(NetworkName.mayShow(saved = false, private = true))
+        assertTrue(NetworkName.mayShow(enabled = true, saved = false, private = false))
+        assertFalse(NetworkName.mayShow(enabled = true, saved = true, private = false))
+        assertFalse(NetworkName.mayShow(enabled = true, saved = false, private = true))
         // A private lookup that failed: no name (fail closed).
-        assertFalse(NetworkName.mayShow(saved = false, private = null))
+        assertFalse(NetworkName.mayShow(enabled = true, saved = false, private = null))
+        // Off: names kept before (an upgrade from a version without the setting) stay unseen.
+        assertFalse(NetworkName.mayShow(enabled = false, saved = false, private = false))
+    }
+
+    @Test fun a_different_name_is_one_that_is_not_the_saved_name_written_otherwise() {
+        val saved = "Rahul Sharma"
+        // The same name: case, spacing, accents, punctuation and order aside.
+        assertFalse(NetworkName.differs(saved, "RAHUL SHARMA"))
+        assertFalse(NetworkName.differs(saved, "  rahul   sharma. "))
+        assertFalse(NetworkName.differs(saved, "Sharma Rahul"))
+        assertFalse(NetworkName.differs("José Núñez", "JOSE NUNEZ"))
+        // Initials, a shortening or part of it.
+        assertFalse(NetworkName.differs(saved, "R Sharma"))
+        assertFalse(NetworkName.differs(saved, "R. Sharma"))
+        assertFalse(NetworkName.differs(saved, "Rahul S."))
+        assertFalse(NetworkName.differs(saved, "RS"))
+        assertFalse(NetworkName.differs(saved, "Sharma"))
+        // Another name.
+        assertTrue(NetworkName.differs(saved, "Rahul Kumar"))
+        assertTrue(NetworkName.differs("Plumber", "Rahul S."))
+        assertTrue(NetworkName.differs("Mum", "SUNITA SHARMA"))
+        // A shortening only counts against a word it starts: "K" isn't an initial of "Rahul Sharma".
+        assertTrue(NetworkName.differs(saved, "K Sharma"))
+        // Nothing to compare.
+        assertFalse(NetworkName.differs(saved, " . "))
+    }
+
+    @Test fun under_a_saved_name_only_where_the_saved_name_shows() {
+        val on = NetworkName.Gate(enabled = true)
+        assertEquals("Rahul Kumar", NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", on))
+        // The same name is not repeated.
+        assertNull(NetworkName.underSaved("Rahul Sharma", "RAHUL SHARMA", on))
+        assertNull(NetworkName.underSaved("Rahul Sharma", "R Sharma", on))
+        // Off: never.
+        assertNull(NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", NetworkName.Gate(enabled = false)))
+        // The lock screen hides the name (Initials or Nothing): its network name goes with it.
+        assertNull(NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", on.copy(nameMasked = true)))
+        // A private contact: only while its own name may show (not with Hide private contacts or a duress session).
+        assertEquals("Rahul Kumar", NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", on.copy(privateContact = true)))
+        assertNull(NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", on.copy(privateContact = true, privateNamesHidden = true)))
+        // Hiding private contacts says nothing about a contact that isn't one.
+        assertEquals("Rahul Kumar", NetworkName.underSaved("Rahul Sharma", "Rahul Kumar", on.copy(privateNamesHidden = true)))
+        // No saved name (an unknown caller shows the network's name as the name instead), or no network name.
+        assertNull(NetworkName.underSaved(null, "Rahul Kumar", on))
+        assertNull(NetworkName.underSaved("Rahul Sharma", null, on))
     }
 
     @Test fun invisible_and_direction_characters_are_dropped() {

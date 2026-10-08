@@ -29,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import app.parley.common.recall.RecallSource
@@ -47,7 +46,9 @@ import app.parley.common.ContactSummary
 import app.parley.common.StartTab
 import app.parley.common.homeLayout
 import app.parley.common.people.ContactsFooter
-import app.parley.common.people.FastScroll
+import app.parley.common.people.AlphabetIndex
+import app.parley.ui.AlphabetIndexDefaults
+import app.parley.ui.AlphabetIndexRail
 import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
 import app.parley.ui.circle.CircleFavoritesSection
@@ -66,7 +67,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import app.parley.ui.PrivateBadge
 import app.parley.ui.avatarSize
-import kotlinx.coroutines.launch
 import app.parley.common.ux.ListSections
 import app.parley.common.people.ContactSort
 import app.parley.ui.people.ContactSortSheet
@@ -125,8 +125,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
         return
     }
     val state = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    // Build (index of first item for each section) for the fast-scroll rail.
+    // Build (index of first item for each section) for the A–Z index.
     // "My card" leads the list when nothing is being searched or filtered.
     val showMe = query.isBlank() && filter.isEmpty && !selectingAny
     // The favourites (and the Circle, when it moved with them) under "My card", while not searching.
@@ -143,8 +142,17 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val runs = remember(rows) { ListSections.runs(rows) }
     val rowActions = settings.contactRowActions
     val swipe = peopleSettings.swipe
-    // The A–Z rail belongs to the name order only.
+    // The A–Z index belongs to the name order only, beside the alphabetical part (never over the chips, My card, the
+    // favourites or the Circle); "★" leads it when the favourites are in Contacts and jumps to them.
     val byName = peopleSettings.contactSort == ContactSort.NAME
+    val indexed = query.isBlank() && count > AlphabetIndex.MIN_ITEMS && byName
+    val favIndex = 1 + (if (showMe) 1 else 0)
+    val indexEntries = remember(sections, showFavorites, favIndex) {
+        AlphabetIndex.entries(sections.entries.map { it.key to it.value }, favouritesAt = favIndex.takeIf { showFavorites })
+    }
+    val indexStart = sections.values.firstOrNull() ?: -1
+    // The index's own lane: the rows beside it end where it starts, so it never covers their call and message buttons.
+    val laneEnd = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
@@ -204,33 +212,36 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                         }
                     }
                     val number = remember(c) { (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number }
-                    // Opt-in swipe actions (never while selecting).
-                    SwipeActionRow(
-                        if (!selecting) swipe else swipe.copy(enabled = false),
-                        hasNumber = number != null, canDelete = true, listState = state,
-                        onAction = { a ->
-                            when (a) {
-                                SwipeAction.CALL -> number?.let { vm.requestCall(it, c.displayName) }
-                                SwipeAction.MESSAGE -> quick.message(c)
-                                SwipeAction.MESSAGE_ON -> quick.message(c, ask = true)
-                                SwipeAction.BLOCK -> blockWithUndo(vm, c.phones.map { it.number })
-                                SwipeAction.DELETE -> vm.deleteContacts(listOf(c.id))
-                                SwipeAction.NONE -> Unit
-                            }
-                        },
-                    ) {
-                        ContactRow(
-                            c,
-                            secondLine = secondLine,
-                            actions = rowActions && !selecting,
-                            onCall = { n -> vm.requestCall(n, c.displayName) },
-                            selected = selected,
-                            selectionMode = selecting,
-                            // Private contacts are selected like any (SelectionBar leaves them out of what would copy them out).
-                            onLongClick = { vm.toggleSelection(c.id) },
-                            onMessage = { n -> quick.message(c, n) },
-                            isCompany = isCompany,
-                        ) { if (selectionState.value.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                    // Its own lane beside the A–Z index.
+                    Box(Modifier.padding(end = laneEnd)) {
+                        // Opt-in swipe actions (never while selecting).
+                        SwipeActionRow(
+                            if (!selecting) swipe else swipe.copy(enabled = false),
+                            hasNumber = number != null, canDelete = true, listState = state,
+                            onAction = { a ->
+                                when (a) {
+                                    SwipeAction.CALL -> number?.let { vm.requestCall(it, c.displayName) }
+                                    SwipeAction.MESSAGE -> quick.message(c)
+                                    SwipeAction.MESSAGE_ON -> quick.message(c, ask = true)
+                                    SwipeAction.BLOCK -> blockWithUndo(vm, c.phones.map { it.number })
+                                    SwipeAction.DELETE -> vm.deleteContacts(listOf(c.id))
+                                    SwipeAction.NONE -> Unit
+                                }
+                            },
+                        ) {
+                            ContactRow(
+                                c,
+                                secondLine = secondLine,
+                                actions = rowActions && !selecting,
+                                onCall = { n -> vm.requestCall(n, c.displayName) },
+                                selected = selected,
+                                selectionMode = selecting,
+                                // Private contacts are selected like any (SelectionBar leaves them out of what would copy them out).
+                                onLongClick = { vm.toggleSelection(c.id) },
+                                onMessage = { n -> quick.message(c, n) },
+                                isCompany = isCompany,
+                            ) { if (selectionState.value.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                        }
                     }
                 }
             }
@@ -242,16 +253,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             ContactsFooter.line(count, query, filter, private = privateShown, privateList = privateOnly)
                 ?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
         }
-        if (query.isBlank() && count > 30 && byName) {
-            // "★" jumps to the favourites when they're at the top of Contacts.
-            val favIndex = 1 + (if (showMe) 1 else 0)
-            val letters = remember(sections, showFavorites) { (if (showFavorites) listOf(FAVOURITES_MARK) else emptyList()) + sections.keys }
-            val starts = remember(sections, showFavorites, favIndex) { (if (showFavorites) listOf(favIndex) else emptyList()) + sections.values }
-            val atTop by remember(starts) { derivedStateOf { FastScroll.sectionAt(state.firstVisibleItemIndex, starts).coerceAtLeast(0) } }
-            FastScrollRail(letters, atTop, Modifier.align(Alignment.CenterEnd)) { i ->
-                starts.getOrNull(i)?.let { scope.launch { state.scrollToItem(it) } }
-            }
-        }
+        if (indexed) AlphabetIndexRail(state, indexEntries, indexStart)
         quickHost()
     }
     ContactSortSheet(vm)
@@ -339,6 +341,3 @@ private fun PrivateSearchLocked(vm: AppViewModel) {
         onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.people.privateSearch.retry() } } },
     )
 }
-
-/** The rail entry for the favourites section. */
-private const val FAVOURITES_MARK = "\u2605"

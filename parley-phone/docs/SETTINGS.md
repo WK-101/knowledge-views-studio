@@ -42,7 +42,7 @@ Calls is a short list: the default phone app, one row for each of its four pages
 ### Calls › Answering (`SettingPlace.CALLS_ANSWERING`)
 | Group | Settings |
 |---|---|
-| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Show contact photo on the call screen `caller_photo` |
+| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Show contact photo on the call screen `caller_photo` · Remember names from the network `network_names` |
 | Advanced | Call screen background `call_background` · Flip to silence `flip_to_silence` (off; turning the phone face down while it rings stops the sound, never declines) |
 | Advanced › Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Advanced › Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
@@ -70,6 +70,8 @@ The Situations themselves, then screens of their own for particular calls; searc
 | — | Phone menus `phone_menus` ↗ (in it: Remember menu keys `menu_memory`) · Reminders & limits `call_time` ↗ (in it: Talk-time reminders `ct_reminders`, Call time limits `ct_limits`, Supervised mode `ct_supervised`) |
 
 **Show contact photo on the call screen** (`caller_photo`, on by default): off shows the caller's initial on their colour instead of the photo, and no call-screen picture, on the incoming and ongoing screen and in the picture-in-picture window. Each contact (private ones too) can override it in Settings for this contact › Photo on the call screen: *Default*, *Show* or *Hide*.
+
+**Remember names from the network** (`network_names`, off by default): the name your mobile network shows for a caller (India's CNAP, a US carrier's caller name) is kept after the call, on this phone only, and shown in Recents, on the number's page, in Search everything and in the missed-call notification for a number you haven't saved, with the "From the network" tag; under a saved contact's name it shows as a small "Network: …" line on the call screen and the number's page when it is a different name (not just the saved name in capitals, its initials or part of it). The summary says networks can get it wrong and callers can fake it: it is never a verdict on who is calling. Off: Parley neither keeps nor shows these names after a call; the call screen still shows what Android passes while the call rings, as before. Turning it off asks **Delete the names already kept?** (*Delete* · *Keep for later*), only when some are kept. A phone upgraded from 6.2.1 starts with it off too, and its kept names stay untouched until the user deletes them (here, or with Delete all Parley data) or turns it on. A private contact's number never gets one, on or off; the lock-screen rule and Hide private contacts (and a duress session) hide it wherever they hide the name.
 
 **Answer with RTT** (`answer_rtt`, off by default): when you answer a call on a SIM that offers RTT (real-time text), Parley asks the network to switch the call to RTT once it's connected and opens the conversation. RTT works only where the carrier supports it (mostly in the US, on 4G and Wi-Fi calling) and the other phone does too; where no SIM offers it, the row says so. Without this setting, More › Switch to RTT does the same during any call that offers it, and a request from the other person always asks first. **TTY and RTT settings** opens Android's call accessibility page (`TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS`), where some phones need RTT turned on before carriers offer it. See [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#47-rtt-and-the-call-quality-diary).
 
@@ -200,6 +202,10 @@ Each page shows what most people set once or change often, and folds the rest un
 | Calls, Calls › SIMs & carrier, Calls › Situations, Reminders, Notifications & device, About | Nothing | Already a short list of links, each one needed when it is needed |
 
 `SettingsSearchTest` keeps every page at 12 basic rows or fewer, and `AdvancedGroupsTest` checks that what a page folds and what the catalog marks advanced agree.
+
+## Changes in 6.2.2
+
+- **Remember names from the network** (`network_names`, Calls › Answering, off by default). The owner asked for this switch, and no caller-ID setting could hold it honestly as an option (the contact photo, the lock-screen rule and the ringtone for unknown callers are each about something else), so the settings budget went from 147 to 148, recorded in `SettingsSearchTest`.
 
 ## Changes in 6.0
 
