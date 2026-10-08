@@ -89,6 +89,12 @@ data class AppSettings(
     /** L3: ask to switch answered calls to RTT (real-time text) where the SIM supports it. */
     val answerWithRtt: Boolean = false,
     /**
+     * Keep the name the mobile network shows for a caller after the call, for Recents, the number's page and under a
+     * saved name ([app.parley.common.calls.NetworkName]). Off by default, also for a phone that kept names before
+     * the setting existed (those stay put until the user turns it on or deletes them).
+     */
+    val rememberNetworkNames: Boolean = false,
+    /**
      * Never stored. Set only while a duress unlock's hiding is on (see [app.parley.common.security.DuressPolicy]): the
      * safety switches as the settings screens show them, while [hideVault] above is forced on for everything else.
      */

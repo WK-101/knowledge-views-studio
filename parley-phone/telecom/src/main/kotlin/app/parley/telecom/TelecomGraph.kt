@@ -58,6 +58,11 @@ data class CallerDisplay(
     val ownRingtone: String? = null,
     /** A favourite (starred contact, or a private contact with Parley's star): the drive profile may answer it. */
     val favourite: Boolean = false,
+    /**
+     * "Remember names from the network" is on and this caller's name may show (the app leaves it off for a private
+     * contact that discreet mode or a duress session hides): the name the network sends may show under [name].
+     */
+    val networkNameUnder: Boolean = false,
 )
 
 /**

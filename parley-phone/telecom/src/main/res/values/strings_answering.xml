@@ -9,4 +9,8 @@
     <string name="call_auto_answer_cancel_desc">Don\'t answer automatically</string>
     <!-- The incoming-call notification's button while the countdown runs (a heads-up, with no call screen showing). -->
     <string name="notif_auto_answer_cancel">Don\'t auto-answer</string>
+    <!-- Under a saved caller's name on the call screen: the name the mobile network sent with the call, when it is a different one. -->
+    <string name="call_network_name_under">Network: %1$s</string>
+    <!-- TalkBack for the line above. -->
+    <string name="call_network_name_under_spoken">The network shows the name %1$s</string>
 </resources>

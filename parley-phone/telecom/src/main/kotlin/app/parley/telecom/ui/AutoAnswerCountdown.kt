@@ -40,6 +40,7 @@ import app.parley.common.calls.AutoAnswer
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
+import app.parley.ui.Bidi
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
@@ -99,6 +100,21 @@ internal fun CallerNativeName(name: String?) {
     Text(
         name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/**
+ * The name the network sent, under a saved caller's name ("Network: Rahul S."), when it is a different one: small and
+ * quiet, below the name in their own language. Isolated, so a name written right to left can't turn the line around.
+ */
+@Composable
+internal fun CallerNetworkName(name: String?) {
+    if (name == null) return
+    val spoken = stringResource(R.string.call_network_name_under_spoken, name)
+    Text(
+        stringResource(R.string.call_network_name_under, Bidi.isolate(name)), style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = Spacing.xxs).semantics { contentDescription = spoken },
     )
 }
 

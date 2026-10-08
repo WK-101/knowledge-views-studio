@@ -75,6 +75,16 @@ class LockScreenCallerUiTest {
         assertEquals("Ravi Kumar", unknown.forLockScreen(LockScreenCaller.INITIALS, "Incoming call").networkName)
     }
 
+    @Test fun the_networks_name_under_a_saved_name_goes_wherever_the_name_goes() {
+        val saved = call(name = "Rahul Sharma").copy(networkNameUnderSaved = "Rahul Kumar")
+        // The name shows in full: so does the line under it.
+        assertEquals("Rahul Kumar", saved.forLockScreen(LockScreenCaller.NAME, "Incoming call").networkNameUnderSaved)
+        assertEquals("Rahul Kumar", saved.forLockScreen(LockScreenCaller.NAME_AND_NOTES, "Incoming call").networkNameUnderSaved)
+        // Initials or Nothing hide the name: never the network's name beside them.
+        assertNull(saved.forLockScreen(LockScreenCaller.INITIALS, "Incoming call").networkNameUnderSaved)
+        assertNull(saved.forLockScreen(LockScreenCaller.NONE, "Incoming call").networkNameUnderSaved)
+    }
+
     @Test fun an_unknown_number_keeps_its_number_under_initials() {
         val c = call(name = null)
         assertSame(c, c.forLockScreen(LockScreenCaller.INITIALS, "Incoming call"))

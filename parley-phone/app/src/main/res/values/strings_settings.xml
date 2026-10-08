@@ -90,6 +90,14 @@
     <string name="set_lock_screen_caller_none">Just \"Incoming call\"</string>
     <string name="set_caller_photo_title">Show contact photo on the call screen</string>
     <string name="set_caller_photo_summary">The photo and call-screen picture. Each contact can override it in Settings for this contact.</string>
+    <string name="set_network_names_title">Remember names from the network</string>
+    <string name="set_network_names_summary">The name your mobile network shows for a caller, kept after the call and shown in Recents, on the number\'s page and under a saved name when it\'s different. Networks can get it wrong, and callers can fake it.</string>
+    <string name="set_network_names_kw">network name, caller name, caller ID, CNAP, carrier name, name from the network, unknown caller name, spoof</string>
+    <string name="set_network_names_off_title">Delete the names already kept?</string>
+    <string name="set_network_names_off_text">Parley won\'t keep or show names from the network now. The ones it kept stay on this phone only, until you delete them or turn this on again.</string>
+    <string name="set_network_names_delete">Delete</string>
+    <string name="set_network_names_keep">Keep for later</string>
+    <string name="set_network_names_deleted">Names from the network deleted</string>
     <string name="set_caller_photo_kw">photo, picture, avatar, image, caller, call screen, incoming screen, hide photo</string>
     <string name="set_confirm_call_title">Confirm before calling</string>
     <string name="set_confirm_call_summary">Avoids accidental calls from lists and search</string>

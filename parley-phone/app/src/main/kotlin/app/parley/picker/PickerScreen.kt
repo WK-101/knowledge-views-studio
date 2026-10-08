@@ -1,5 +1,8 @@
 package app.parley.picker
 
+import app.parley.common.people.AlphabetIndex
+import app.parley.ui.AlphabetIndexDefaults
+import app.parley.ui.AlphabetIndexRail
 import android.content.ContentUris
 import android.content.Context
 import android.content.res.Resources
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -101,14 +105,10 @@ fun PickerScreen(
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
                 return@Box
             }
-            LazyColumn(Modifier.fillMaxSize()) {
-                item {
-                    OutlinedTextField(
-                        query, { query = it }, placeholder = { Text(stringResource(R.string.picker_search)) }, singleLine = true,
-                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
+            val entries = remember(shown, query) { pickIndex(shown, query) }
+            val listState = rememberLazyListState()
+            LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                item { PickerSearchField(query) { query = it } }
                 // A search with no result can be cleared; an empty list just says so.
                 if (shown.isEmpty()) item {
                     if (query.isNotBlank()) {
@@ -123,7 +123,7 @@ fun PickerScreen(
                 items(shown, key = { it.uri.toString() }) { pick ->
                     val checked = pick in selected
                     ParleyListItem(
-                        modifier = Modifier.clickable {
+                        modifier = Modifier.padding(end = if (entries.isEmpty()) 0.dp else AlphabetIndexDefaults.RowEndPadding).clickable {
                             if (multiple) {
                                 if (checked) selected.remove(pick) else selected.add(pick)
                             } else {
@@ -137,8 +137,28 @@ fun PickerScreen(
                     )
                 }
             }
+            AlphabetIndexRail(listState, entries, start = 1, headers = false)
         }
     }
+}
+
+@Composable
+private fun PickerSearchField(query: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        query, onChange, placeholder = { Text(stringResource(R.string.picker_search)) }, singleLine = true,
+        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+/**
+ * The A–Z index while nothing is typed, from the first pick on (the search field is row 0); the rows are sorted by
+ * name. Empty for a short list or a search.
+ */
+private fun pickIndex(shown: List<Pick>, query: String): List<AlphabetIndex.Entry> = if (query.isBlank() && shown.size > AlphabetIndex.MIN_ITEMS) {
+    AlphabetIndex.entries(AlphabetIndex.sectionsOf(shown.map { it.title }, offset = 1))
+} else {
+    emptyList()
 }
 
 private fun loadPicks(context: Context, kind: PickKind, res: Resources): List<Pick> {

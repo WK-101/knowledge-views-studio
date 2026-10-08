@@ -256,7 +256,6 @@
     <string name="contacts_no_filter_match">No contacts match this filter</string>
     <string name="contacts_none">No contacts</string>
     <string name="contacts_selected">Selected</string>
-    <string name="contacts_alphabet_index">Alphabet index</string>
 
     <!-- Contacts selection bar -->
     <plurals name="sel_exported">

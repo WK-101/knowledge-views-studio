@@ -164,6 +164,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 nativeName = parts.nativeName,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
                 favourite = it.starred,
+                networkNameUnder = networkNamesOn(),
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
@@ -181,6 +182,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 pronouns = card?.pronouns, nativeName = card?.nativeName, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
                 favourite = info.starred,
                 // Its own ringtone reaches Parley's ringer through screening already.
+                // Reached only while its name may show (discreet mode and a duress session returned above).
+                networkNameUnder = networkNamesOn(),
             )
         } ?: archivedCaller(number, PhoneEnv.countryIso(app, accountId), last)
     }
@@ -194,8 +197,14 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         // The agenda's items have their card of their own (AgendaStore finds the archived contact too).
         val note = catching { Agenda.withoutItems(c.meta.meta(card.parleyKey)?.pinnedNote) }.getOrNull()
         val subtitle = if (card.company.isBlank()) app.getString(R.string.archive_caller) else app.getString(R.string.archive_caller_at, card.company)
-        return CallerDisplay(card.name, null, null, null, null, note, last, subtitle = subtitle)
+        return CallerDisplay(card.name, null, null, null, null, note, last, subtitle = subtitle, networkNameUnder = networkNamesOn())
     }
+
+    /**
+     * Settings › Calls › Answering › "Remember names from the network", for the call screen's line under a saved name:
+     * read from the store (the process may have just been woken by this call), off when it can't be read.
+     */
+    private suspend fun networkNamesOn(): Boolean = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
 
     /** What [callerInfo] reads beside the contact lookup. */
     private data class CallerParts(
@@ -631,19 +640,21 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     /**
-     * The network's name for a call: kept only for a number that is no contact, private contact or archived contact.
-     * A private contact's number has none written, and loses any still kept for it (one kept while it was unknown is
-     * also forgotten when it becomes private: see the vault's hook in the container); private contacts that can't be
-     * checked count as private. The missed-call notification waits for this write ([NetworkNames.track]).
+     * The network's name for a call: kept only while Settings › Calls › Answering › "Remember names from the network"
+     * is on (off by default), for a number nobody saved and for a contact's or an archived contact's number (shown
+     * under the saved name when it differs). A private contact's number has none written, and loses any still kept for
+     * it, whether the setting is on or not (one kept while it was unknown is also forgotten when it becomes private:
+     * see the vault's hook in the container); private contacts that can't be checked count as private. The setting is
+     * read from the store, not memory: a call can wake the process before the settings are loaded. The missed-call
+     * notification waits for this write ([NetworkNames.track]).
      */
     override fun onNetworkName(number: String, name: String, accountId: String?, at: Long) {
         val job = c.scope.launch(Dispatchers.IO) {
             catching {
+                val enabled = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
                 val region = PhoneEnv.countryIso(app, accountId)
                 val private = catching { c.vault.lookup(number, region) != null }.getOrNull()
-                val saved = private == false &&
-                    (c.contacts.lookup(number) != null || catching { c.archive.lookup(number, region) != null }.getOrDefault(true))
-                when (NetworkName.keep(saved, private)) {
+                when (NetworkName.keep(enabled, private)) {
                     NetworkName.Keep.RECORD -> c.networkNames.record(number, name, at, accountId, region)
                     NetworkName.Keep.FORGET -> c.networkNames.forget(number, listOf(region))
                     NetworkName.Keep.SKIP -> Unit

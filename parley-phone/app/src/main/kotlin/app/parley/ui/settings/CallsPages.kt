@@ -38,6 +38,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.AnswerGesture
 import app.parley.common.SettingPlace
+import app.parley.common.catching
 import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.calls.DefaultAppNote
@@ -55,6 +56,15 @@ import app.parley.ui.situations.canAdd
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalResources
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.SwitchRow
+import kotlinx.coroutines.launch
 
 /**
  * Settings › Calls' own pages, so the Calls page itself stays a short list. [place] is where Settings search finds
@@ -146,6 +156,7 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
             )
         }
         switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
+        item("network_names") { NetworkNamesRow(vm) }
     }
     AdvancedSection {
         SegmentedGroup {
@@ -160,6 +171,40 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
         CallerRingGroup(vm, open)
         // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
         RttSettingsGroup(vm)
+    }
+}
+
+/**
+ * "Remember names from the network" (off by default). Turning it off stops keeping and showing them at once, then asks
+ * about the names already kept, if there are any: Delete, or Keep for later (also what dismissing the question does).
+ */
+@Composable
+private fun NetworkNamesRow(vm: AppViewModel) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val set = rememberSettingsSetter(vm)
+    val scope = rememberCoroutineScope()
+    val res = LocalResources.current
+    var askDelete by remember { mutableStateOf(false) }
+    SwitchRow(settingTitle("network_names"), settingSummary("network_names"), s.rememberNetworkNames, Icons.Rounded.Badge) { on ->
+        set { it.copy(rememberNetworkNames = on) }
+        if (!on) scope.launch { askDelete = withContext(Dispatchers.IO) { catching { vm.c.networkNames.hasAny() }.getOrDefault(false) } }
+    }
+    if (askDelete) {
+        ConfirmDialog(
+            title = stringResource(R.string.set_network_names_off_title),
+            text = stringResource(R.string.set_network_names_off_text),
+            confirmLabel = stringResource(R.string.set_network_names_delete),
+            dismissLabel = stringResource(R.string.set_network_names_keep),
+            destructive = true,
+            onConfirm = {
+                askDelete = false
+                scope.launch {
+                    withContext(Dispatchers.IO) { catching { vm.c.networkNames.clear() } }
+                    vm.toast(res.getString(R.string.set_network_names_deleted))
+                }
+            },
+            onDismiss = { askDelete = false },
+        )
     }
 }
 

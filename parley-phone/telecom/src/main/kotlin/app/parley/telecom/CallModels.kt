@@ -113,6 +113,12 @@ data class CallUi(
      * "Save" with it. Null for a saved or private caller and a hidden number.
      */
     val networkName: String? = null,
+    /**
+     * The name the network sent, as a small line under a saved caller's name ("Network: Rahul S."): only while
+     * "Remember names from the network" is on, where the saved name shows, and when it is a different name
+     * ([app.parley.common.calls.NetworkName.underSaved]). What the network says, not a verdict on who is calling.
+     */
+    val networkNameUnderSaved: String? = null,
     /** Shown on the lock screen with less about the caller ([forLockScreen]): [name] stands in, the number stays out of sight. */
     val lockMasked: Boolean = false,
     /** What the network lets this call do: send it on to another number while it rings ([CallHandOff]). */
@@ -214,6 +220,8 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         numberMemory = null,
         // The post-call card's "Save privately" starts from it, without unlocking.
         networkName = null,
+        // A name, so masked with the name.
+        networkNameUnderSaved = null,
         rangThrough = null,
         rangThroughUnlocked = null,
         verdict = verdict.takeIf { verdictWarn },

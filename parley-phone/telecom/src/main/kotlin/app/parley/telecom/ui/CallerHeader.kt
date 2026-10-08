@@ -127,6 +127,8 @@ internal fun CallerHeader(
         CallerName(call, compact, poster, onOpenContact)
         // Their name in their own language, as a second line under the name.
         CallerNativeName(call.nativeName.takeUnless { compact })
+        // The name the network sent, when it differs from the saved one (the setting is on and the name may show).
+        CallerNetworkName(call.networkNameUnderSaved.takeUnless { compact })
         // The caller's pronouns, right under the name.
         call.pronouns?.let { CallerPronouns(it) }
         SecondaryLine(call)

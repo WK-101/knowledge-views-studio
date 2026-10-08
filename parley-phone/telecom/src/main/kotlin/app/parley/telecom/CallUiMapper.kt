@@ -100,6 +100,7 @@ internal class CallUiMapper(
             handOff = handOffFacts(call),
             neverCallsYou = neverCalls(s, call, number, hidden),
             networkName = networkNameOf(s, found, d, hidden),
+            networkNameUnderSaved = networkNameUnderSaved(s, found, hidden),
         ).withRangThrough(s)
     }
 
@@ -113,6 +114,14 @@ internal class CallUiMapper(
     /** The network's name, for a caller nobody saved (nor a private contact, even one discreet mode hides). */
     private fun networkNameOf(s: CallSession, found: CallerDisplay?, d: Call.Details, hidden: Boolean): String? =
         s.networkName.takeIf { !hidden && !savedCaller(found, d) && !s.savedPrivately }
+
+    /**
+     * The network's name under a saved caller's name, when the app allowed it for this caller ([CallerDisplay.networkNameUnder]:
+     * the setting is on and the name may show) and it is a different name. The lock screen masks it with the name.
+     */
+    private fun networkNameUnderSaved(s: CallSession, found: CallerDisplay?, hidden: Boolean): String? =
+        found?.takeIf { it.networkNameUnder && !hidden && !s.savedPrivately }
+            ?.let { NetworkName.underSaved(it.name, s.networkName, NetworkName.Gate(enabled = true)) }
 
     /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
     private fun savedCaller(found: CallerDisplay?, d: Call.Details): Boolean = found != null || d.contactDisplayNameCompat() != null

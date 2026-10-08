@@ -153,6 +153,9 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_ANSWERING, "answer_gesture", C),
         at(SettingPlace.CALLS_ANSWERING, "call_background", C),
         at(SettingPlace.CALLS_ANSWERING, "caller_photo", C),
+        // Off by default: the name the mobile network shows for callers, kept after the call (Recents, the number's
+        // page, under a saved name when it differs). The owner asked for it as a setting of its own.
+        at(SettingPlace.CALLS_ANSWERING, "network_names", C),
         // Accessibility: RTT, where the carrier supports it. Its group also links Android's TTY and RTT settings, which
         // this entry's words find.
         at(SettingPlace.CALLS_ANSWERING, "answer_rtt", C),

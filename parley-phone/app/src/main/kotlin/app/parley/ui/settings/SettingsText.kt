@@ -42,6 +42,7 @@ object SettingsText {
         "answer_gesture" to Triple(R.string.set_answer_gesture_title, R.string.set_answer_gesture_summary, R.string.set_answer_gesture_kw),
         "call_background" to Triple(R.string.set_call_background_title, R.string.set_call_background_summary, R.string.set_call_background_kw),
         "caller_photo" to Triple(R.string.set_caller_photo_title, R.string.set_caller_photo_summary, R.string.set_caller_photo_kw),
+        "network_names" to Triple(R.string.set_network_names_title, R.string.set_network_names_summary, R.string.set_network_names_kw),
         "confirm_call" to Triple(R.string.set_confirm_call_title, R.string.set_confirm_call_summary, R.string.set_confirm_call_kw),
         "call_haptics" to Triple(R.string.set_call_haptics_title, R.string.set_call_haptics_summary, R.string.set_call_haptics_kw),
         "unknown_ringtone" to Triple(R.string.set_unknown_ringtone_title, R.string.set_unknown_ringtone_summary, R.string.set_unknown_ringtone_kw),
