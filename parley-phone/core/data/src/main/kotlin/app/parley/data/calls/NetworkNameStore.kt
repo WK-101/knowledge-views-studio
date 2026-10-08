@@ -121,8 +121,12 @@ class NetworkNameStore private constructor(context: Context, private val keys: S
         if (old.isNotEmpty()) prefs.edit().apply { old.forEach { remove(it) } }.apply()
     }
 
-    /** Whether any name is kept (turning the setting off asks about them only then). */
-    fun hasAny(): Boolean = store.all().isNotEmpty()
+    /**
+     * Whether any name may be kept (turning the setting off asks about them only then): rows on disk, readable or not,
+     * and the copies set aside for an undo count too, since [clear] would remove them.
+     */
+    fun hasAny(): Boolean =
+        !prefs.getString(KEY_ROWS, null).isNullOrBlank() || prefs.all.keys.any { it.startsWith(ASIDE) } || store.all().isNotEmpty()
 
     fun clear() {
         val asides = prefs.all.keys.filter { it.startsWith(ASIDE) }

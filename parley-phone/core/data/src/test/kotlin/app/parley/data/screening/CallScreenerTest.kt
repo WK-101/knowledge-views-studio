@@ -164,4 +164,28 @@ class CallScreenerTest {
         assertEquals(AllowReason.CONTACT, screen("+1 202 555 0100").allowedBy)
         assertTrue(screen("+1 202 555 0143").blocked)
     }
+
+    private fun loggedName(number: String, name: String, presentation: Int = 1): String? = runBlocking {
+        c.screener.screenCall(ScreenRequest(number, false, callerName = name, callerNamePresentation = presentation))
+        withTimeout(5_000) { while (c.blocks.screenedSince(0).none { it.number == number }) delay(20) }
+        c.blocks.screenedSince(0).first { it.number == number }.callerName
+    }
+
+    @Test fun theScreeningLogKeepsTheNetworksNameOnlyWhileNamesAreRemembered() {
+        // Off (the default): the call is logged, its name isn't.
+        assertEquals(null, loggedName("+1 202 555 0161", "RAHUL KUMAR"))
+        runBlocking { c.settings.update { it.copy(rememberNetworkNames = true) } }
+        assertEquals("RAHUL KUMAR", loggedName("+1 202 555 0162", "RAHUL KUMAR."))
+        // A restricted name or a placeholder isn't kept either.
+        assertEquals(null, loggedName("+1 202 555 0163", "RAHUL KUMAR", presentation = 2))
+        assertEquals(null, loggedName("+1 202 555 0164", "WIRELESS CALLER"))
+        // Delete (turning the setting off) clears the names kept with the calls; the calls stay.
+        runBlocking {
+            assertTrue(c.blocks.hasCallerNames())
+            c.blocks.clearCallerNames()
+            assertFalse(c.blocks.hasCallerNames())
+            assertEquals(4, c.blocks.screenedSince(0).size)
+            assertTrue(c.blocks.screenedSince(0).all { it.callerName == null })
+        }
+    }
 }

@@ -39,7 +39,14 @@ class CallCollaboratorsTest {
     ) : ScreeningHooks, CallPolicyHooks {
         var screened = 0
         override fun screeningActive() = active
-        override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome {
+        override suspend fun screenCall(
+            number: String?,
+            hidden: Boolean,
+            verification: Verification,
+            accountId: String?,
+            callerName: String?,
+            callerNamePresentation: Int,
+        ): ScreenOutcome {
             screened++
             delay(delayMs)
             return outcome ?: error("screening failed")
@@ -73,7 +80,8 @@ class CallCollaboratorsTest {
     private val none = ScreeningCoordinator.Earlier(null, null)
 
     private fun start(hooks: Hooks, host: Host, session: CallSession = CallSession("c1"), earlier: ScreeningCoordinator.Earlier = none): CallSession {
-        ScreeningCoordinator(scope) { hooks }.start(session, "+15551234567", hidden = false, Verification.NOT_VERIFIED, null, earlier, host)
+        val name = ScreeningCoordinator.CallerName(null, 0)
+        ScreeningCoordinator(scope) { hooks }.start(session, "+15551234567", hidden = false, Verification.NOT_VERIFIED, name, earlier, host)
         return session
     }
 

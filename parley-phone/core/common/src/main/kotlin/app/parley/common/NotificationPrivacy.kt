@@ -45,6 +45,15 @@ object NotificationPrivacy {
         return if (locked && lockScreen.masks(saved = false)) null else other
     }
 
+    /**
+     * The rule or verdict a notice about a screened call gives as its reason ([reason]: "Blocked by rule 'Block
+     * Arjun's new number'"), or null. Rule titles are your own words and often name people: none for a caller the
+     * notice may not name ([unnamed]), and none while the phone is [locked] unless "Caller on the lock screen" shows
+     * names in full ([lockScreen]).
+     */
+    fun screenedCallReason(reason: String?, unnamed: Boolean, lockScreen: LockScreenCaller, locked: Boolean): String? =
+        reason?.takeUnless { unnamed || (locked && !lockScreen.showsName) }
+
     /** A number label that may be shown in a call notification ("Mobile", "Work"), or null. */
     fun shownLabel(label: String?): String? = label?.takeUnless { it.isBlank() || isVaultLabel(it) }
 

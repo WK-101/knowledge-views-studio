@@ -245,8 +245,10 @@ on the call screen. And, beyond discreet mode (`Concealed`):
 - **Family safe words**: none shows, not even which labels have one. One set during the hiding shows as set; one set
   for a label that already has one shows instead of it, in memory, and never replaces it (see below).
 - **My card › Shared with**: every entry, not only private contacts' (who you gave your number to can matter as much).
-- **Rescue call**: the screen shows no call waiting (no time, no caller, no Cancel) and none of the last choices; what
-  is chosen during the hiding isn't remembered. A call that was waiting still rings at its time.
+- **Rescue call**: the screen shows no call that was waiting (no time, no caller, no Cancel) and none of the last
+  choices; what is chosen during the hiding isn't remembered. A call that was waiting still rings at its time, with the
+  caller and sound it was set with: nothing set during the hiding replaces or cancels it. A call set for later during
+  the hiding waits beside it, and is the only one the screen shows and can cancel then; each rings as it was set.
 - **Case files**: none shows, and a backup made during the hiding carries none (their notes, promises and reference
   numbers).
 - **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as

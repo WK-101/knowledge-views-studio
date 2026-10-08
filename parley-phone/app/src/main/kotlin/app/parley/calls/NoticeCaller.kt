@@ -4,6 +4,7 @@ import app.parley.common.NotificationPrivacy
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.NetworkName
 import app.parley.common.catching
+import app.parley.common.suspendRunCatching
 import app.parley.data.CallerInfo
 import app.parley.data.DataContainer
 
@@ -37,6 +38,13 @@ internal class NoticeCaller(
     val isContact: Boolean get() = contact != null || savedName != null || (vaultName != null && !hideVault)
 
     companion object {
+        /**
+         * "Caller on the lock screen" as call notifications read it: when the settings can't be read, "Nothing", so a
+         * notification never shows more than the rule would.
+         */
+        suspend fun lockScreenRule(read: suspend () -> LockScreenCaller): LockScreenCaller =
+            suspendRunCatching { read() }.getOrDefault(LockScreenCaller.NONE)
+
         /** Finds who [number] (null: a hidden number) is; [simRegion] reads a national number as the SIM it came on. */
         suspend fun find(c: DataContainer, number: String?, simRegion: String?, hideVault: Boolean): NoticeCaller {
             val contact = number?.let { catching { c.contacts.lookup(it) }.getOrNull() }
@@ -49,7 +57,7 @@ internal class NoticeCaller(
             val isPrivate = if (vaultHit.isFailure) null else vaultHit.getOrNull() != null
             val remember = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
             val network = if (number != null && NetworkName.mayShow(remember, saved = contact != null || archivedName != null, private = isPrivate)) {
-                val lockScreen = catching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+                val lockScreen = lockScreenRule { c.settings.current().lockScreenCaller }
                 NetworkName.inNotification(catching { c.networkNames.latest(number, simRegion)?.name }.getOrNull(), lockScreen)
             } else {
                 null

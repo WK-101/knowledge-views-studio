@@ -81,6 +81,18 @@ object NetworkName {
     }
 
     /**
+     * The network's name a stored record of the call (the screening log) may keep: none while names from the network
+     * aren't remembered ([enabled]), else what [clean] keeps of [raw] sent with [presentation].
+     */
+    fun loggable(enabled: Boolean, raw: CharSequence?, presentation: Int): String? = if (enabled) clean(raw, presentation) else null
+
+    /**
+     * Whether turning "Remember names from the network" off asks about the names already kept: only while it is still
+     * off ([stillOff]), and when names are kept or that couldn't be read ([kept] null), so the choice is never lost.
+     */
+    fun askToDelete(kept: Boolean?, stillOff: Boolean): Boolean = stillOff && kept != false
+
+    /**
      * A US network's stand-in for a mobile caller's name: the city and state it was registered in, in capitals
      * ("NEW YORK NY", "ST. LOUIS MO"). A name in capitals that ends in a state's two letters is taken for one.
      */
@@ -165,26 +177,42 @@ object NetworkName {
 
     /**
      * Whether [network] is a different name from [saved], not just the same one written otherwise: case, spacing,
-     * accents and punctuation aside, in any order, and not merely part of it ("Sharma"), its initials ("R Sharma",
-     * "RS") or a shortening of its words ("Rahul S."). "Rahul Kumar" for a contact saved as "Rahul Sharma" differs.
+     * Latin accents, punctuation and a title ("Mrs", "Dr", "Shri") aside, in any order, and not merely some of its
+     * words ("Sharma"), its initials ("R Sharma", "RS") or a shortening of its words ("Rahul S."). Words are compared
+     * whole or from their start, never from inside one: "Ali" isn't "Natalie", "Nathan Smith" isn't "Johnathan Smith".
+     * A saved name with nothing to compare (only emoji) differs from any name. "Rahul Kumar" under "Rahul Sharma" differs.
      */
     fun differs(saved: String, network: String): Boolean {
-        val s = words(saved)
-        val n = words(network)
-        if (n.isEmpty() || s.isEmpty()) return false
-        val sJoined = s.joinToString("")
-        val nJoined = n.joinToString("")
-        if (sJoined == nJoined || sJoined.contains(nJoined)) return false
+        val n = withoutTitles(words(network))
+        if (n.isEmpty()) return false
+        val s = withoutTitles(words(saved))
+        if (s.isEmpty()) return true
+        // "RahulSharma" for "Rahul Sharma": the same letters with the spaces gone, where one side is a single word.
+        if ((s.size == 1 || n.size == 1) && s.joinToString("") == n.joinToString("")) return false
         // "RS" for "Rahul Sharma": the saved name's initials run together.
         if (n.size == 1 && n[0].length > 1 && n[0] == s.joinToString("") { it.take(1) }) return false
         // Every word of the network's name is a saved word, or the start of one (an initial, "Sh"), each used once.
         val left = s.toMutableList()
         for (w in n.sortedByDescending { it.length }) {
-            val hit = left.firstOrNull { it == w } ?: left.firstOrNull { it.startsWith(w) } ?: return true
+            val hit = left.firstOrNull { it == w } ?: left.firstOrNull { startsWord(it, w) } ?: return true
             left.remove(hit)
         }
         return false
     }
+
+    /**
+     * Whether [part] is the start of [word] and ends where a letter does: not before a vowel sign or other mark that
+     * belongs to the letter before it ("সুমন" is not the start of "সুমনা"), nor after a virama that joins it to the next.
+     */
+    private fun startsWord(word: String, part: String): Boolean {
+        if (part.isEmpty() || part.length >= word.length || !word.startsWith(part)) return false
+        val next = word.codePointAt(part.length)
+        val last = part.codePointBefore(part.length)
+        return !isMark(next) && last !in VIRAMAS
+    }
+
+    /** [w] without the titles in front of or among its words, unless nothing else is left. */
+    private fun withoutTitles(w: List<String>): List<String> = w.filterNot { it in TITLES }.ifEmpty { w }
 
     /** What decides whether the network's name may show under a saved name on a screen. */
     data class Gate(
@@ -212,10 +240,8 @@ object NetworkName {
         return networkName.takeIf { differs(savedName, it) }
     }
 
-    /** [s] as words to compare: accents folded, lower case, letters and digits only. */
-    private fun words(s: String): List<String> =
-        fold(Normalizer.normalize(s, Normalizer.Form.NFD).filterNot { Character.getType(it) == Character.NON_SPACING_MARK.toInt() })
-            .split(' ').filter { it.isNotEmpty() }
+    /** [s] as words to compare ([fold]). */
+    private fun words(s: String): List<String> = fold(s).split(' ').filter { it.isNotEmpty() }
 
     /** Where a shown name comes from. */
     enum class Source { SAVED, NETWORK, NUMBER }
@@ -240,9 +266,53 @@ object NetworkName {
      */
     fun inNotification(networkName: String?, lockScreen: LockScreenCaller): String? = networkName?.takeIf { it.isNotBlank() && lockScreen.showsName }
 
-    /** Lower case, letters and digits only, single spaces: "WIRELESS  CALLER." and "Wireless caller" fold alike. */
-    private fun fold(s: String): String =
-        s.lowercase(Locale.ROOT).map { if (it.isLetterOrDigit()) it else ' ' }.joinToString("").replace(SPACES, " ").trim()
+    /**
+     * A name as it is compared: compatibility forms made plain (NFKC: full-width letters, ligatures), case folded,
+     * Latin, Greek and Cyrillic accents dropped ("José" is "Jose"), and words of letters, digits and the marks that
+     * belong to them, in single spaces. The vowel signs and viramas of Indic and other scripts are part of their letters
+     * and stay ("राम" and "रमा" are different names); joiners between them are dropped. "WIRELESS  CALLER." and
+     * "Wireless caller" fold alike.
+     */
+    internal fun fold(s: String): String {
+        val folded = Normalizer.normalize(s, Normalizer.Form.NFKC).uppercase(Locale.ROOT).lowercase(Locale.ROOT)
+        val out = StringBuilder(folded.length)
+        var script: Character.UnicodeScript? = null
+        Normalizer.normalize(folded, Normalizer.Form.NFD).codePoints().forEach { cp ->
+            val type = Character.getType(cp)
+            when {
+                // Zero-width joiners and the like shape a cluster; they aren't part of the name.
+                type == Character.FORMAT.toInt() -> Unit
+                isMark(cp) -> when {
+                    script == null -> out.append(' ')
+                    type == Character.NON_SPACING_MARK.toInt() && script in ACCENTED -> Unit
+                    else -> out.appendCodePoint(cp)
+                }
+                Character.isLetterOrDigit(cp) -> {
+                    script = Character.UnicodeScript.of(cp)
+                    out.appendCodePoint(cp)
+                }
+                else -> {
+                    script = null
+                    out.append(' ')
+                }
+            }
+        }
+        return Normalizer.normalize(out, Normalizer.Form.NFC).replace(SPACES, " ").trim()
+    }
+
+    private fun isMark(cp: Int): Boolean = when (Character.getType(cp)) {
+        Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt() -> true
+        else -> false
+    }
+
+    /** Scripts whose non-spacing marks are accents, dropped when names are compared. */
+    private val ACCENTED = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC)
+
+    /** Viramas of the Indic scripts: a letter before one joins the next, so a word can't be cut after it. */
+    private val VIRAMAS = setOf(0x094D, 0x09CD, 0x0A4D, 0x0ACD, 0x0B4D, 0x0BCD, 0x0C4D, 0x0CCD, 0x0D4D, 0x0DCA)
+
+    /** Titles a name may carry that don't make it another name (folded). */
+    private val TITLES = setOf("mr", "mrs", "ms", "dr", "shri", "smt", "sri", "kumari")
 
     private val SPACES = Regex("\\s+")
     private const val EDGE = "-–—.,;:*·/\\|\"'()[]<>?!"

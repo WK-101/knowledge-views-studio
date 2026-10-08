@@ -1,5 +1,6 @@
 package app.parley.telecom
 
+import app.parley.common.catching
 import android.os.Trace
 import app.parley.common.BlockAction
 import app.parley.common.Decision
@@ -40,7 +41,10 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
     fun applies(e: Earlier, hidden: Boolean): Boolean =
         reusable(e) != null || e.outcome != null || hidden || runCatching { hooks().screeningActive() }.getOrDefault(true)
 
-    fun start(session: CallSession, number: String?, hidden: Boolean, verification: Verification, callerName: String?, e: Earlier, host: Host) {
+    /** The name the network sent with a call, and how it was presented (`TelecomManager.PRESENTATION_*`). */
+    data class CallerName(val text: String?, val presentation: Int)
+
+    fun start(session: CallSession, number: String?, hidden: Boolean, verification: Verification, name: CallerName, e: Earlier, host: Host) {
         // No notification of any kind until the verdict (bounded by the timeout): a call that is then blocked must
         // never have shown a name or an Answer button.
         session.screening = true
@@ -48,7 +52,7 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
         scope.launch {
             Trace.beginAsyncSection(TRACE_SCREEN, session.id.hashCode())
             val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) {
-                runCatching { hooks().screenCall(number, hidden, verification, e.accountId, callerName) }.getOrNull()
+                catching { hooks().screenCall(number, hidden, verification, e.accountId, name.text, name.presentation) }.getOrNull()
             } ?: e.outcome
             Trace.endAsyncSection(TRACE_SCREEN, session.id.hashCode())
             val decision = outcome?.decision

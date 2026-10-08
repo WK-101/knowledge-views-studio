@@ -31,8 +31,8 @@ object AlphabetIndex {
     /**
      * The entries for a list whose sections are [sections] (each section's key with the lazy-list index of its first
      * row, in list order): only sections the list has, Latin letters one by one, "#" where the list puts it, and each
-     * other script kept as a run in list order, its letters one by one unless it has more than [MAX_PER_SCRIPT] (then
-     * [SAMPLED] of them, evenly spaced, the first included). [favouritesAt]: the favourites lead the list at this index,
+     * other script in list order, its letters one by one unless the whole list has more than [MAX_PER_SCRIPT] of them
+     * (then [SAMPLED] of them, evenly spaced, the first included). [favouritesAt]: the favourites lead the list at this index,
      * and "★" jumps there.
      */
     fun entries(sections: List<Pair<String, Int>>, favouritesAt: Int? = null): List<Entry> {
@@ -40,25 +40,34 @@ object AlphabetIndex {
         if (favouritesAt != null) out += Entry(FAVOURITES, favouritesAt)
         val seen = HashSet<String>()
         val unique = sections.filter { (key, _) -> key.isNotEmpty() && seen.add(key) }
-        var i = 0
-        while (i < unique.size) {
-            val script = scriptOf(unique[i].first)
-            var j = i
-            while (j < unique.size && scriptOf(unique[j].first) == script) j++
-            val run = unique.subList(i, j)
-            val kept = if (script == Character.UnicodeScript.LATIN || script == Character.UnicodeScript.COMMON || run.size <= MAX_PER_SCRIPT) {
-                run
+        // A script's letters are counted over the whole list, not run by run: Chinese and Japanese names sorted by
+        // reading can come in many short runs between Latin ones, and each would otherwise stay under the limit.
+        val kept = HashSet<String>()
+        unique.groupBy { scriptOf(it.first) }.forEach { (script, keys) ->
+            if (script == Character.UnicodeScript.LATIN || script == Character.UnicodeScript.COMMON || keys.size <= MAX_PER_SCRIPT) {
+                keys.forEach { kept += it.first }
             } else {
-                spread(run.size, SAMPLED).map { run[it] }
+                spread(keys.size, SAMPLED).forEach { kept += keys[it].first }
             }
-            kept.forEach { (key, at) -> out += Entry(key, at) }
-            i = j
         }
+        unique.forEach { (key, at) -> if (key in kept) out += Entry(key, at) }
         return out
     }
 
     /**
-     * The sections of a list without letter headers (a picker), sorted by name: each starting letter
+     * [list] in the order its index needs: sorted by [name] with the Contacts list's collation ([order]), then each
+     * starting letter ([ListSections.letterOf]) gathered into one run where the collation first reaches it. The sort
+     * and the grouping use the same key, so every letter is one block the index can reach (a reading-order sort of
+     * Chinese names, say, would otherwise split a letter into several).
+     */
+    fun <T> grouped(list: List<T>, order: Comparator<String>, name: (T) -> String): List<T> {
+        val groups = LinkedHashMap<String, MutableList<T>>()
+        Collation.sortedBy(list, order, name).forEach { groups.getOrPut(ListSections.letterOf(name(it))) { ArrayList() } += it }
+        return groups.values.flatten()
+    }
+
+    /**
+     * The sections of a list without letter headers (a picker), in [grouped] order: each starting letter
      * ([ListSections.letterOf] of [names]) with the lazy-list index of its first row, the rows starting at [offset].
      */
     fun sectionsOf(names: List<String>, offset: Int): List<Pair<String, Int>> {
@@ -130,6 +139,53 @@ object AlphabetIndex {
         }
         return if (viewport - top >= minHeight) Placement(true, top) else Placement.HIDDEN
     }
+
+    /**
+     * What leads the Contacts list, in order, above its alphabetical part: the chips row, the "private details locked"
+     * card, My card, the favourites and the Circle. The index's targets count every one of them shown.
+     */
+    data class Lead(
+        val privateLocked: Boolean = false,
+        val me: Boolean = false,
+        val favourites: Boolean = false,
+        val circle: Boolean = false,
+    ) {
+        /** Rows before the first letter (the chips row is always there). */
+        val rows: Int get() = 1 + listOf(privateLocked, me, favourites, circle).count { it }
+
+        /** The favourites' row, when shown. */
+        val favouritesAt: Int? get() = if (favourites) 1 + listOf(privateLocked, me).count { it } else null
+    }
+
+    /**
+     * The entries TalkBack's adjustable control steps through: all but a leading "★". Jumping to the favourites moves
+     * the list above its letters, where the index hides, and the control would vanish from under TalkBack's focus;
+     * the favourites are reached by heading navigation instead.
+     */
+    fun spoken(entries: List<Entry>): IntRange {
+        val from = if (entries.firstOrNull()?.label == FAVOURITES) 1 else 0
+        return from until entries.size
+    }
+
+    /** The largest letter on the index, in dp at the default font size; it grows with the font scale. */
+    const val LETTER_DP = 13f
+
+    /** A letter's height as a share of its row, so neighbours never touch. */
+    private const val LETTER_SHARE = 0.62f
+
+    /** The font scale the index follows at most (beyond it, rows stay this tall and more letters become dots). */
+    private const val MAX_FONT_SCALE = 2f
+
+    /** The smallest row a letter gets at [fontScale], from [minSlotDp] at the default size: larger fonts get fewer, larger rows. */
+    fun minSlot(minSlotDp: Float, fontScale: Float): Float = minSlotDp * fontScale.coerceIn(1f, MAX_FONT_SCALE)
+
+    /**
+     * A letter's size in dp for rows [rowDp] tall at [fontScale]: as large as the row allows, at most [LETTER_DP]
+     * scaled with the font, so a large font makes the index compact (dots between letters) instead of overlapping.
+     * Shown as sp, it is divided by the font scale again.
+     */
+    fun letterDp(rowDp: Float, fontScale: Float): Float =
+        (rowDp * LETTER_SHARE).coerceIn(0f, LETTER_DP * fontScale.coerceIn(1f, MAX_FONT_SCALE))
 
     /** [n] positions spread evenly over 0 until [count], the first and the last included. */
     private fun spread(count: Int, n: Int): List<Int> {

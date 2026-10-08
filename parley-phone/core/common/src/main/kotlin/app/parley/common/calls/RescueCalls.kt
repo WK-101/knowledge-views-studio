@@ -98,6 +98,32 @@ object RescuePlan {
     fun shownName(typed: String?, saved: String?): String? =
         typed?.trim()?.take(MAX_NAME)?.takeIf { it.isNotEmpty() } ?: saved?.trim()?.takeIf { it.isNotEmpty() }
 
+    /**
+     * Where a call waits. A duress unlock hides the call that was waiting ([FIRST]) and it still rings: one set while
+     * hiding waits beside it ([SECOND]), so nothing set then can cancel or replace the hidden one.
+     */
+    enum class Slot { FIRST, SECOND }
+
+    /** Where a call set later goes: beside the hidden one while a duress unlock hides things. */
+    fun slotFor(hiding: Boolean): Slot = if (hiding) Slot.SECOND else Slot.FIRST
+
+    /**
+     * The calls waiting that setting another one ([ringsNow] or later) replaces. Outside a duress session the screen
+     * speaks for every call waiting, so any new choice replaces them all; while hiding, only one set later replaces
+     * the one set earlier while hiding, and the hidden call is never touched.
+     */
+    fun replaces(hiding: Boolean, ringsNow: Boolean): Set<Slot> = when {
+        !hiding -> setOf(Slot.FIRST, Slot.SECOND)
+        ringsNow -> emptySet()
+        else -> setOf(Slot.SECOND)
+    }
+
+    /** What "Cancel" on the screen cancels: everything waiting, or while hiding only what was set while hiding. */
+    fun cancels(hiding: Boolean): Set<Slot> = if (hiding) setOf(Slot.SECOND) else setOf(Slot.FIRST, Slot.SECOND)
+
+    /** The call the screen shows as waiting: while hiding only one set while hiding; otherwise the first, else the other. */
+    fun <T> shown(hiding: Boolean, first: T?, second: T?): T? = if (hiding) second else first ?: second
+
     /** An alarm may come a moment early (batched): ringing this much before the time counts as on time. */
     private const val EARLY_MS = 30_000L
     private const val MINUTES_A_DAY = 24 * 60

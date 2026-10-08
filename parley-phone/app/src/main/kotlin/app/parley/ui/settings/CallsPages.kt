@@ -38,6 +38,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.AnswerGesture
 import app.parley.common.SettingPlace
+import app.parley.common.calls.NetworkName
 import app.parley.common.catching
 import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.DefaultAppFeature
@@ -177,6 +178,9 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
 /**
  * "Remember names from the network" (off by default). Turning it off stops keeping and showing them at once, then asks
  * about the names already kept, if there are any: Delete, or Keep for later (also what dismissing the question does).
+ * The names kept are the store's (with the copies set aside for an undo) and those kept with screened calls in the
+ * blocking log; Delete clears both. When they can't be read the question is asked anyway, and it is not asked once the
+ * setting is back on.
  */
 @Composable
 private fun NetworkNamesRow(vm: AppViewModel) {
@@ -185,9 +189,23 @@ private fun NetworkNamesRow(vm: AppViewModel) {
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     var askDelete by remember { mutableStateOf(false) }
+    // The latest choice made here: DataStore may not have the new value yet when the names have been looked at.
+    var wantOn by remember { mutableStateOf<Boolean?>(null) }
     SwitchRow(settingTitle("network_names"), settingSummary("network_names"), s.rememberNetworkNames, Icons.Rounded.Badge) { on ->
+        wantOn = on
         set { it.copy(rememberNetworkNames = on) }
-        if (!on) scope.launch { askDelete = withContext(Dispatchers.IO) { catching { vm.c.networkNames.hasAny() }.getOrDefault(false) } }
+        if (on) {
+            askDelete = false
+        } else {
+            scope.launch {
+                val kept = withContext(Dispatchers.IO) {
+                    val store = catching { vm.c.networkNames.hasAny() }.getOrNull()
+                    val log = catching { vm.c.blocks.hasCallerNames() }.getOrNull()
+                    if (store == true || log == true) true else if (store == null || log == null) null else false
+                }
+                askDelete = NetworkName.askToDelete(kept, stillOff = wantOn == false)
+            }
+        }
     }
     if (askDelete) {
         ConfirmDialog(
@@ -198,9 +216,15 @@ private fun NetworkNamesRow(vm: AppViewModel) {
             destructive = true,
             onConfirm = {
                 askDelete = false
-                scope.launch {
-                    withContext(Dispatchers.IO) { catching { vm.c.networkNames.clear() } }
-                    vm.toast(res.getString(R.string.set_network_names_deleted))
+                // Turned back on while the question showed: the names are wanted again.
+                if (wantOn == false) {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            catching { vm.c.networkNames.clear() }
+                            catching { vm.c.blocks.clearCallerNames() }
+                        }
+                        vm.toast(res.getString(R.string.set_network_names_deleted))
+                    }
                 }
             },
             onDismiss = { askDelete = false },

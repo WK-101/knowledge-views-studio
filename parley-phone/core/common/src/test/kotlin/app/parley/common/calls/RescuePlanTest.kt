@@ -96,4 +96,24 @@ class RescuePlanTest {
         assertTrue(RescuePlan.stillWaiting(past, 7, 7, now))
         assertFalse(RescuePlan.stillWaiting(past, 7, 7, now + RescuePlan.STALE_MS))
     }
+
+    @Test fun a_call_set_while_hiding_never_touches_the_hidden_one() {
+        val first = RescuePlan.Slot.FIRST
+        val second = RescuePlan.Slot.SECOND
+        assertEquals(first, RescuePlan.slotFor(hiding = false))
+        assertEquals(second, RescuePlan.slotFor(hiding = true))
+        // Outside a duress session a new choice replaces every call waiting.
+        assertEquals(setOf(first, second), RescuePlan.replaces(hiding = false, ringsNow = false))
+        assertEquals(setOf(first, second), RescuePlan.replaces(hiding = false, ringsNow = true))
+        // While hiding: ringing now replaces nothing, a call for later only the one set while hiding.
+        assertEquals(emptySet<RescuePlan.Slot>(), RescuePlan.replaces(hiding = true, ringsNow = true))
+        assertEquals(setOf(second), RescuePlan.replaces(hiding = true, ringsNow = false))
+        assertEquals(setOf(second), RescuePlan.cancels(hiding = true))
+        assertEquals(setOf(first, second), RescuePlan.cancels(hiding = false))
+        // Shown: while hiding only what was set then; otherwise the first, else the other.
+        assertEquals("b", RescuePlan.shown(hiding = true, "a", "b"))
+        assertNull(RescuePlan.shown(hiding = true, "a", null))
+        assertEquals("a", RescuePlan.shown(hiding = false, "a", "b"))
+        assertEquals("b", RescuePlan.shown(hiding = false, null, "b"))
+    }
 }

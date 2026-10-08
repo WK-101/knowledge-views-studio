@@ -13,10 +13,12 @@ import app.parley.common.Verification
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.NetworkName
 import app.parley.common.catching
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -53,12 +55,17 @@ class ParleyCallScreeningService : CallScreeningService() {
             }
         }.getOrDefault(Verification.NOT_VERIFIED)
         scope.launch {
-            val response = runCatching {
+            // Cancelled mid-screening (the service is going away): still answer, letting the call ring.
+            coroutineContext.job.invokeOnCompletion { if (it is CancellationException) allow(details) }
+            val response = catching {
                 // No SIM here: Android never gives the screening service the phone account. A decision that depends on
                 // a SIM-limited allow rule comes back as an allow marked "deferred", and CallManager screens again.
                 val callerName = details.callerDisplayName?.takeIf { it.isNotBlank() }
+                val presentation = catching { details.callerDisplayNamePresentation }.getOrDefault(0)
                 val outcome = withTimeoutOrNull(3000) {
-                    runCatching { TelecomGraph.dependencies.screenCall(number, number.isNullOrBlank(), verification, null, callerName) }.getOrNull()
+                    catching {
+                        TelecomGraph.dependencies.screenCall(number, number.isNullOrBlank(), verification, null, callerName, presentation)
+                    }.getOrNull()
                 }
                 ScreeningGuard.remember(number, outcome ?: ScreenOutcome(Decision.Allow))
                 val decision = outcome?.decision
@@ -86,7 +93,8 @@ class ParleyCallScreeningService : CallScreeningService() {
 
     /**
      * A call turned away here never reaches the call screen (nor does any call while Parley isn't the phone app): the
-     * name the network sent with it is kept from here. The app keeps it only for a number nobody saved.
+     * name the network sent with it is kept from here. The app keeps it only while "Remember names from the network" is
+     * on (for an unsaved number, a contact's or an archived contact's), never for a private contact's.
      */
     private fun rememberNetworkName(details: Call.Details, number: String) {
         if (isPhoneApp() && !turnedAway(ScreeningGuard.recallOutcome(number))) return

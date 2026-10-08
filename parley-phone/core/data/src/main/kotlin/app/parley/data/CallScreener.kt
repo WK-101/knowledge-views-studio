@@ -4,6 +4,7 @@ import android.Manifest
 import app.parley.common.catching
 import app.parley.common.AllowReason
 import app.parley.common.calls.ExpectedWindow
+import app.parley.common.calls.NetworkName
 import app.parley.common.BlockAction
 import app.parley.common.BlockReason
 import app.parley.common.CallEntry
@@ -53,8 +54,13 @@ data class ScreenRequest(
     val hidden: Boolean,
     val verification: Verification = Verification.NOT_VERIFIED,
     val simId: String? = null,
-    /** Caller name sent by the network (CNAP). */
+    /** Caller name sent by the network (CNAP), as sent: "caller name contains" rules read it live. */
     val callerName: String? = null,
+    /**
+     * How the network presented [callerName] (`TelecomManager.PRESENTATION_*`). Unknown counts as not allowed, so the
+     * screening log never keeps a name the network marked restricted.
+     */
+    val callerNamePresentation: Int = 0,
 )
 
 /** A live screening result handed to the app (notifications) after Telecom already has its answer. */
@@ -517,7 +523,7 @@ class CallScreener(
         var logId: Long? = null
         if (shouldLog) {
             entry.logId?.let { blocks.deleteScreened(it) }
-            logId = blocks.logScreened(number, result, req.callerName, req.simId, now)
+            logId = blocks.logScreened(number, result, loggedName(req), req.simId, now)
             entry.logId = logId
         }
         result.rule?.takeIf { it.id > 0 && entry.hits.add(it.id) }?.let { blocks.recordHit(it.id, now) }
@@ -525,6 +531,15 @@ class CallScreener(
         if (result.deferredToSim) return@withLock
         val signature = "${result.decision}|${result.verdict?.kind}|${result.rule?.id}"
         if (entry.notified.add(signature)) onScreened?.invoke(ScreenedCall(req, result, g.facts.isContact, g.contactName, logId, s))
+    }
+
+    /**
+     * The network's name as the screening log may keep it: only while "Remember names from the network" is on (a
+     * settings read that fails counts as off), and only a name worth keeping ([NetworkName.clean]). Otherwise none.
+     */
+    private suspend fun loggedName(req: ScreenRequest): String? {
+        val on = catching { settings.current().rememberNetworkNames }.getOrDefault(false)
+        return NetworkName.loggable(on, req.callerName, req.callerNamePresentation)
     }
 
     companion object {

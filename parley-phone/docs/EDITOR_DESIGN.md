@@ -327,7 +327,7 @@ the rest from the one line of chips.
   and on the caller card (`CallerIdCopy.C_NATIVE_NAME`). **Shown**: on the page right under the name with its language
   as a small caption (press and hold copies it, like the name); on the call screen and the incoming-call notification
   as a second line under the name (a name, so the lock-screen rules mask it with the name). Not in the lists: a
-  "Show names in their own language" switch would take Settings past its ceiling of 147 settings (`SettingsSearchTest`),
+  "Show names in their own language" switch would take Settings past its ceiling of 148 settings (`SettingsSearchTest`),
   so list rows keep their usual second line; search still finds the contact by it.
   **Search**: both names, and each name in another script also by its Latin spelling, made once per contact when the
   index is built (`ContactSearch.Builder.latin`, `Romanizer.latin`, cached by text): "ivan" finds Иван, "wang" finds

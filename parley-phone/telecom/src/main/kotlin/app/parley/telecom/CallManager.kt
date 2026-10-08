@@ -282,7 +282,10 @@ object CallManager {
         if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency)) {
             val earlier = ScreeningCoordinator.Earlier(ScreeningGuard.recallOutcome(number), accountId)
             if (screening.applies(earlier, hidden)) {
-                val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
+                val callerName = ScreeningCoordinator.CallerName(
+                    call.details.callerDisplayName?.takeIf { it.isNotBlank() },
+                    runCatching { call.details.callerDisplayNamePresentation }.getOrDefault(0),
+                )
                 screening.start(s, number, hidden, verificationOf(call), callerName, earlier, screeningHost)
             }
         }

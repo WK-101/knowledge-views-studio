@@ -3,6 +3,7 @@ package app.parley.common.people
 import app.parley.common.people.AlphabetIndex.Placement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -88,5 +89,60 @@ class AlphabetIndexTest {
     @Test fun a_list_too_short_for_an_index_has_none() {
         assertFalse(AlphabetIndex.placement(10, 4, null, viewport = 150f, header = 40f, minHeight = 200f).shown)
         assertFalse(AlphabetIndex.placement(10, -1, null, viewport = 1000f, header = 40f, minHeight = 200f).shown)
+    }
+
+    @Test fun a_script_in_short_runs_is_sampled_over_the_whole_list() {
+        // Chinese names sorted by reading come between Latin ones, a few at a time: 30 runs of 3.
+        val sections = (0 until 30).flatMap { r ->
+            listOf(('A' + (r % 26)).toString() + r to r * 10) + (0 until 3).map { k -> String(Character.toChars(0x4E00 + r * 3 + k)) to r * 10 + 1 + k }
+        }
+        val han = AlphabetIndex.entries(sections).count { Character.UnicodeScript.of(it.label.codePointAt(0)) == Character.UnicodeScript.HAN }
+        assertEquals(AlphabetIndex.SAMPLED, han)
+    }
+
+    @Test fun pickers_group_by_the_key_they_sort_by() {
+        // A collation that sorts by something other than the first letter (a reading, a surname) would split letters.
+        val byLength = Comparator<String> { a, b -> a.length.compareTo(b.length).takeIf { it != 0 } ?: a.compareTo(b) }
+        val names = listOf("Bo", "Alexander", "Al", "Bartholomew", "Ann", "9 Lives")
+        val grouped = AlphabetIndex.grouped(names, byLength) { it }
+        assertEquals(listOf("Al", "Ann", "Alexander", "Bo", "Bartholomew", "9 Lives"), grouped)
+        val keys = AlphabetIndex.sectionsOf(grouped, offset = 1).map { it.first }
+        assertEquals(keys.distinct(), keys)
+        // With the Contacts list's collation, accents fold into their letter's block.
+        val french = Collation.Order(java.text.Collator.getInstance(java.util.Locale.FRENCH))
+        val accented = AlphabetIndex.grouped(listOf("Émile", "Zoé", "Eva", "Ali"), french) { it }
+        assertEquals(listOf("Ali", "Émile", "Eva", "Zoé"), accented)
+    }
+
+    @Test fun contacts_count_every_row_that_leads_the_list() {
+        assertEquals(1, AlphabetIndex.Lead().rows)
+        // Filtering with private details locked: the chips row and the locked card.
+        assertEquals(2, AlphabetIndex.Lead(privateLocked = true).rows)
+        val all = AlphabetIndex.Lead(privateLocked = true, me = true, favourites = true, circle = true)
+        assertEquals(5, all.rows)
+        assertEquals(3, all.favouritesAt)
+        assertEquals(2, AlphabetIndex.Lead(me = true, favourites = true).favouritesAt)
+        assertNull(AlphabetIndex.Lead(me = true).favouritesAt)
+    }
+
+    @Test fun talkback_steps_through_the_letters_not_the_star() {
+        val withStar = AlphabetIndex.entries(listOf("A" to 4, "B" to 9), favouritesAt = 2)
+        assertEquals(1..2, AlphabetIndex.spoken(withStar))
+        assertEquals(0..1, AlphabetIndex.spoken(AlphabetIndex.entries(listOf("A" to 4, "B" to 9))))
+        assertTrue(AlphabetIndex.spoken(emptyList()).isEmpty())
+    }
+
+    @Test fun large_fonts_make_rows_taller_and_letters_never_outgrow_them() {
+        assertEquals(14f, AlphabetIndex.minSlot(14f, 1f), 0.001f)
+        assertEquals(28f, AlphabetIndex.minSlot(14f, 2f), 0.001f)
+        assertEquals(28f, AlphabetIndex.minSlot(14f, 3f), 0.001f)
+        listOf(0.85f, 1f, 1.3f, 2f, 3f).forEach { scale ->
+            listOf(AlphabetIndex.minSlot(14f, scale), 20f, 40f).forEach { row ->
+                val letter = AlphabetIndex.letterDp(row, scale)
+                assertTrue("$letter in $row at $scale", letter < row)
+            }
+        }
+        assertEquals(AlphabetIndex.LETTER_DP, AlphabetIndex.letterDp(100f, 1f), 0.001f)
+        assertEquals(AlphabetIndex.LETTER_DP * 2, AlphabetIndex.letterDp(100f, 2f), 0.001f)
     }
 }

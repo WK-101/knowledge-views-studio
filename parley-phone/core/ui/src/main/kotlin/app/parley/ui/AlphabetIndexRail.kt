@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -34,7 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,6 +50,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -66,6 +66,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,31 +114,34 @@ fun BoxScope.AlphabetIndexRail(
     headers: Boolean = true,
 ) {
     if (entries.isEmpty()) return
-    val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val drag = remember { IndexDrag() }
+    // Scrolling changes the list's layout every frame: what follows reads it in derived states and in the layout
+    // phase, so the index recomposes only when it shows or hides, or its letter changes.
     val placement = rememberIndexPlacement(state, start, headers, drag)
+    val shown by remember(placement) { derivedStateOf { placement.value.shown } }
     val targets = remember(entries) { entries.map { it.target } }
     val current by remember(targets) { derivedStateOf { FastScroll.sectionAt(state.firstVisibleItemIndex, targets).coerceAtLeast(0) } }
     val latest by rememberUpdatedState(entries)
-    val jump: (Int) -> Unit = { i -> latest.getOrNull(i)?.let { e -> scope.launch { state.scrollToItem(e.target) } } }
+    val jump: (Int) -> Unit = remember(scope, state) { { i -> latest.getOrNull(i)?.let { e -> scope.launch { state.scrollToItem(e.target) } } } }
     // Kept for the fade-out, so the index doesn't jump to the top as it goes.
-    var lastTop by remember { mutableFloatStateOf(0f) }
-    val top = if (placement.shown) placement.top else lastTop
-    SideEffect { if (placement.shown) lastTop = placement.top }
-    val heightDp = with(density) { (state.layoutInfo.viewportSize.height - top).coerceAtLeast(0f).toDp() }
+    val lastTop = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(placement) { snapshotFlow { placement.value }.collect { if (it.shown) lastTop.floatValue = it.top } }
+    val top: () -> Float = remember(placement) { { placement.value.let { if (it.shown) it.top else lastTop.floatValue } } }
     val words = IndexWords(stringResource(R.string.ui_index), stringResource(R.string.ui_index_next), stringResource(R.string.ui_index_previous))
     val selected = if (drag.dragging && drag.touched >= 0) drag.touched else current
-    val latestPlacement by rememberUpdatedState(placement)
-    val onPick: (Int) -> Unit = { i ->
-        haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-        jump(i)
+    val onPick: (Int) -> Unit = remember(haptics, jump) {
+        { i ->
+            haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            jump(i)
+        }
     }
+    val railSize = remember(drag) { Modifier.onSizeChanged { drag.railHeight = it.height } }
 
     AnimatedVisibility(
-        placement.shown,
-        modifier = modifier.align(Alignment.TopEnd).offset { IntOffset(0, top.roundToInt()) },
+        shown,
+        modifier = modifier.align(Alignment.TopEnd).offset { IntOffset(0, top().roundToInt()) },
         enter = fadeIn(ParleyMotion.fastEffects()),
         exit = fadeOut(ParleyMotion.fastEffects()),
     ) {
@@ -145,16 +149,21 @@ fun BoxScope.AlphabetIndexRail(
             Modifier
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                 .width(AlphabetIndexDefaults.Lane)
-                .height(heightDp)
+                // From its top to the bottom of the list, measured in the layout phase.
+                .layout { measurable, constraints ->
+                    val h = constraints.constrainHeight((state.layoutInfo.viewportSize.height - top()).roundToInt().coerceAtLeast(0))
+                    val p = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                    layout(p.width, p.height) { p.place(0, 0) }
+                }
                 .indexSemantics(entries, selected, current, words, jump)
                 // Touches only while it shows: as it fades out, the rows under the lane are the rows' again.
-                .then(if (placement.shown) Modifier.indexDrag(drag, { latestPlacement }, { latest.size }, onPick) else Modifier),
+                .then(if (shown) Modifier.indexDrag(drag, { placement.value }, { latest.size }, onPick) else Modifier),
             contentAlignment = Alignment.TopEnd,
         ) {
-            IndexLetters(entries, selected, drag.dragging, Modifier.onSizeChanged { drag.railHeight = it.height })
+            IndexLetters(entries, selected, drag.dragging, railSize)
         }
     }
-    IndexBubble(entries.getOrNull(drag.touched)?.label, drag.dragging && drag.touched >= 0, top + drag.touchY, top + drag.railHeight.toFloat())
+    IndexBubble(entries.getOrNull(drag.touched)?.label, drag.dragging && drag.touched >= 0, { top() + drag.touchY }, { top() + drag.railHeight.toFloat() })
 }
 
 /** What a finger on the index is doing: shared by the drag, the letters, the bubble and where the index sits. */
@@ -176,7 +185,7 @@ private class IndexWords(val name: String, val next: String, val previous: Strin
  * (the pinned one is the same kind of row); a list without headers has none.
  */
 @Composable
-private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Boolean, drag: IndexDrag): AlphabetIndex.Placement {
+private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Boolean, drag: IndexDrag): State<AlphabetIndex.Placement> {
     val density = LocalDensity.current
     val minPx = with(density) { AlphabetIndexDefaults.MinHeight.toPx() }
     var headerPx by remember { mutableFloatStateOf(with(density) { 40.dp.toPx() }) }
@@ -188,7 +197,7 @@ private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Bo
         snapshotFlow { state.layoutInfo.visibleItemsInfo.firstOrNull { it.index == start }?.size }
             .collect { size -> if (size != null && size > 0) headerPx = size.toFloat() }
     }
-    val placement by remember(state, start) {
+    return remember(state, start) {
         derivedStateOf {
             val info = state.layoutInfo
             val first = info.visibleItemsInfo.firstOrNull { it.index == start }
@@ -200,23 +209,30 @@ private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Bo
             )
         }
     }
-    return placement
 }
 
-/** One adjustable control for TalkBack (swipe up or down), with Next and Previous letter, in place of the drag. */
+/**
+ * One adjustable control for TalkBack (swipe up or down), with Next and Previous letter, in place of the drag. It
+ * steps through the letters only ([AlphabetIndex.spoken]): "★" would scroll the list above them, where the index
+ * hides and TalkBack's focus would be lost.
+ */
 private fun Modifier.indexSemantics(entries: List<AlphabetIndex.Entry>, selected: Int, current: Int, words: IndexWords, jump: (Int) -> Unit): Modifier {
-    val n = entries.size
+    val range = AlphabetIndex.spoken(entries)
+    if (range.isEmpty()) return clearAndSetSemantics { contentDescription = words.name }
+    val first = range.first
+    val n = range.last - first + 1
+    val at = (selected - first).coerceIn(0, n - 1)
     return clearAndSetSemantics {
         contentDescription = words.name
-        stateDescription = entries.getOrNull(selected)?.label.orEmpty()
-        progressBarRangeInfo = ProgressBarRangeInfo(selected.toFloat(), 0f..(n - 1).coerceAtLeast(1).toFloat(), steps = (n - 2).coerceAtLeast(0))
+        stateDescription = entries.getOrNull(first + at)?.label.orEmpty()
+        progressBarRangeInfo = ProgressBarRangeInfo(at.toFloat(), 0f..(n - 1).coerceAtLeast(1).toFloat(), steps = (n - 2).coerceAtLeast(0))
         setProgress { v ->
-            jump(v.roundToInt().coerceIn(0, n - 1))
+            jump(first + v.roundToInt().coerceIn(0, n - 1))
             true
         }
         customActions = listOf(
-            CustomAccessibilityAction(words.next) { (current + 1).takeIf { it < n }?.let(jump) != null },
-            CustomAccessibilityAction(words.previous) { (current - 1).takeIf { it >= 0 }?.let(jump) != null },
+            CustomAccessibilityAction(words.next) { (current + 1).takeIf { it in range }?.let(jump) != null },
+            CustomAccessibilityAction(words.previous) { (current - 1).takeIf { it in range }?.let(jump) != null },
         )
     }
 }
@@ -258,10 +274,13 @@ private fun Modifier.indexDrag(drag: IndexDrag, placement: () -> AlphabetIndex.P
 private fun IndexLetters(entries: List<AlphabetIndex.Entry>, selected: Int, dragging: Boolean, modifier: Modifier) {
     val density = LocalDensity.current
     var height by remember { mutableIntStateOf(0) }
-    val slots = with(density) { (height / AlphabetIndexDefaults.MinSlot.toPx()).toInt() }
+    // Larger fonts get taller rows, so fewer letters with dots between them: never letters over each other.
+    val minSlotPx = AlphabetIndex.minSlot(AlphabetIndexDefaults.MinSlot.value, density.fontScale) * density.density
+    val slots = (height / minSlotPx).toInt()
     val shown = remember(entries.size, slots) { AlphabetIndex.compact(entries.size, slots.coerceAtLeast(1)) }
-    // As large as each row allows, whatever the font size: a large font must not make letters overlap.
-    val letterSp = with(density) { (height / shown.size.coerceAtLeast(1) * 0.62f).toSp().value }.coerceIn(8f, 13f)
+    // Sized in dp from the row, then shown in sp with the font scale taken out again, so it can't outgrow its row.
+    val rowDp = height / shown.size.coerceAtLeast(1) / density.density
+    val letterSp = AlphabetIndex.letterDp(rowDp, density.fontScale) / density.fontScale
     Column(
         modifier
             .padding(vertical = Spacing.xs, horizontal = Spacing.xxs)
@@ -306,21 +325,22 @@ private fun letterColour(on: Boolean, dragging: Boolean) = when {
 
 /**
  * The letter under the finger, large, beside the index's lane (its pointed corner towards the finger, clear of the
- * thumb). [touchY] and [bottom] are from the top of the list.
+ * thumb). [touchY] and [bottom] are from the top of the list, read as it is placed.
  */
 @Composable
-private fun BoxScope.IndexBubble(letter: String?, visible: Boolean, touchY: Float, bottom: Float) {
+private fun BoxScope.IndexBubble(letter: String?, visible: Boolean, touchY: () -> Float, bottom: () -> Float) {
     val density = LocalDensity.current
     val bubble = 72.dp
     val bubblePx = with(density) { bubble.toPx() }
     val gapPx = with(density) { Spacing.s.toPx() }
     val corner = if (LocalLayoutDirection.current == LayoutDirection.Rtl) TransformOrigin(0f, 1f) else TransformOrigin(1f, 1f)
     val lanePx = with(density) { AlphabetIndexDefaults.Lane.toPx() }
-    val top = FastScroll.bubbleTop(touchY, bottom, bubblePx)
     val fade = ParleyMotion.fastEffects<Float>()
     AnimatedVisibility(
         visible,
-        modifier = Modifier.align(Alignment.TopEnd).offset { IntOffset(-(lanePx + gapPx).roundToInt(), top.roundToInt()) },
+        modifier = Modifier.align(Alignment.TopEnd).offset {
+            IntOffset(-(lanePx + gapPx).roundToInt(), FastScroll.bubbleTop(touchY(), bottom(), bubblePx).roundToInt())
+        },
         enter = scaleIn(ParleyMotion.fastSpatial(), transformOrigin = corner) + fadeIn(ParleyMotion.fastEffects()),
         exit = scaleOut(ParleyMotion.fastEffects(), transformOrigin = corner) + fadeOut(ParleyMotion.fastEffects()),
     ) {

@@ -159,6 +159,12 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun clearBlockedLog() = dao.clearBlocked()
 
+    /** Forgets the network's names kept with screened calls; the calls themselves stay in the log. */
+    suspend fun clearCallerNames() = dao.clearCallerNames()
+
+    /** Whether any screened call still has the network's name kept with it. */
+    suspend fun hasCallerNames(): Boolean = dao.hasCallerNames()
+
     suspend fun lastBlocked(number: String): Long? = dao.lastBlocked(number)
 
     /** The key a verdict for [number] is filed under; [accountId] is the SIM of the call when known. */
