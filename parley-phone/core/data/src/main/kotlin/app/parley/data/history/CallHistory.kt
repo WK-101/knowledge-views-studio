@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import app.parley.common.catching
+import app.parley.common.suspendRunCatching
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
@@ -334,6 +335,17 @@ class CallHistory(
     @Volatile
     var onForget: ((number: String, dates: List<Long>?) -> Unit)? = null
 
+    /**
+     * Called after calls were deleted with undo [batch] (outside the history lock, so it may read [callsFor]): the
+     * numbers whose calls were deleted, for what is kept per number rather than per call. Set by the container.
+     */
+    @Volatile
+    var onDeleted: (suspend (numbers: List<String>, batch: Long) -> Unit)? = null
+
+    /** Called after a deleted [batch] was put back, with its numbers ([onDeleted]'s undo). Set by the container. */
+    @Volatile
+    var onUndone: (suspend (numbers: List<String>, batch: Long) -> Unit)? = null
+
     /** The archive's keyed fingerprint of [number]'s line, for small stores kept beside it (ring facts). */
     internal fun lineMac(number: String): String = personMac(number)
 
@@ -631,6 +643,7 @@ class CallHistory(
     suspend fun delete(entries: List<CallEntry>): Long? = withContext(Dispatchers.IO + NonCancellable) {
         val list = entries.filter { it.id > 0 }
         if (list.isEmpty()) return@withContext null
+        val numbers = list.filter { !it.presentationHidden && it.number.isNotBlank() }.map { it.number }.distinct()
         mutex.withLock {
             val now = System.currentTimeMillis()
             val batch = now
@@ -655,7 +668,7 @@ class CallHistory(
             list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
                 .forEach { (n, calls) -> runCatching { onForget?.invoke(n, calls.map { it.date }) } }
             batch
-        }
+        }.also { batch -> suspendRunCatching { onDeleted?.invoke(numbers, batch) } }
     }
 
     /**
@@ -785,6 +798,7 @@ class CallHistory(
             insertNew(fresh)
             reload()
         }
+        suspendRunCatching { onUndone?.invoke(trashed.mapNotNull { it.number?.takeIf(String::isNotBlank) }.distinct(), batchId) }
         dao.deleteBatch(batchId)
         return maxOf(n, trashed.size.takeIf { prefs.current().archiveEnabled } ?: 0)
     }

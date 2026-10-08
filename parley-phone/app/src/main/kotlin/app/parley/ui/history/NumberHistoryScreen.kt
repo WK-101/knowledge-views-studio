@@ -100,6 +100,8 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.LocalSnackbar
 import app.parley.ui.ScreenSnackbarHost
 import app.parley.common.people.Archive
+import app.parley.calls.NetworkNames
+import app.parley.ui.Bidi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,7 +122,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // L6: a private contact's menu shortcuts are on its own page (which hides them while the vault is locked); their
     // names may hold the private name, so they never show here. Unknown until checked, so hidden until then.
     var privateNumber by remember(number) { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(number) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
+    // Checked again when the private contacts change: a number made private while the page is open loses its
+    // network name at once.
+    val privateListing by vm.c.vault.listing.collectAsStateWithLifecycle()
+    LaunchedEffect(number, privateListing) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
     // A saved organisation's first call to you after you had only ever called them (their calls can be faked).
     val firstFromThem by produceState<Long?>(null, number, calls?.size) {
         value = catching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
@@ -132,11 +137,15 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // A number nobody saved: the name the network sent with its calls (never a private contact's number), with the
     // one before it when it changed. Read again when the store changes (a call just ended).
     val networkVersion by vm.c.networkNames.version.collectAsStateWithLifecycle()
-    val networkNames by produceState(emptyList<NetworkNameSeen>(), number, contact, archivedName, privateNumber, networkVersion) {
+    // Read as the SIM of the number's latest call reads it, as the name was written.
+    val account = history.firstOrNull()?.accountId
+    val networkNames by produceState(emptyList<NetworkNameSeen>(), number, contact, archivedName, privateNumber, networkVersion, account) {
         value = if (contact != null || archivedName != null || privateNumber != false) {
             emptyList()
         } else {
-            withContext(Dispatchers.IO) { catching { vm.c.networkNames.forNumber(number) }.getOrDefault(emptyList()) }
+            withContext(Dispatchers.IO) {
+                catching { vm.c.networkNames.forNumber(NetworkNames.line(context, number, account)) }.getOrDefault(emptyList())
+            }
         }
     }
     val networkName = NetworkName.latest(networkNames)?.name
@@ -148,7 +157,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     if (remindToCall) RemindToCallSheet(vm, number, contact?.displayName, onDismiss = { remindToCall = false })
     // The app's one snackbar, shown inside this screen's Scaffold.
     val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
-    if (exporting) ExportSheet(vm, history, subject = title) { exporting = false }
+    // An export is named after a saved name only: a file named after the network's name would read like a contact's.
+    if (exporting) ExportSheet(vm, history, subject = contact?.displayName ?: archivedName ?: Format.number(number, vm.countryIso)) { exporting = false }
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
             scope.launch {
@@ -196,7 +206,9 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(title, contact?.photoUri, 96.dp)
-                    Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
+                    // A name the network sent is isolated: nothing in it turns the page's text around.
+                    val shownTitle = if (contact == null && archivedName == null && networkName != null) Bidi.isolate(title) else title
+                    Text(shownTitle, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
                     if (contact == null && archivedName == null && networkName != null) {
                         NetworkNameTag(Modifier.padding(top = Spacing.xs))
                         NetworkName.before(networkNames)?.let { earlier ->

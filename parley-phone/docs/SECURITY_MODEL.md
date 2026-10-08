@@ -101,8 +101,10 @@ until then they stay readable. Backups contain the decrypted text inside the alr
   a plain export, and a backup made after a duress unlock leaves hidden ones out. A restore puts them beside what the
   phone has, and the phone's own wins (a safe word for the same label, a helper on the same line). What stays on the
   phone, on purpose, and the Backup screen says so: History & undo and Snapshots (this phone's own record of changes),
-  what Parley learned from calls (spam guesses, call quality, ring lengths: rebuilt), the drive profile's cars
-  (Bluetooth addresses of this phone's pairings), and every key, PIN and sync secret.
+  what Parley learned from calls (spam guesses, call quality, ring lengths: rebuilt), the names the network sent with
+  calls from numbers you haven't saved (other people's names: sealed with the call-history key, forgotten with the
+  number's last call or when it becomes a private contact's, and never written for a private contact's number), the
+  drive profile's cars (Bluetooth addresses of this phone's pairings), and every key, PIN and sync secret.
 
 ## Open export and the encrypted vCard
 

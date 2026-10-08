@@ -42,7 +42,7 @@ class RecallNetworkNameTest {
             call(-5, "+919812300003", at(9, 10)),
         ),
         region = "IN",
-        networkName = { n -> network.entries.firstOrNull { PhoneIdentity.same(it.key, n, "IN") }?.value },
+        networkName = { n, _ -> network.entries.firstOrNull { PhoneIdentity.same(it.key, n, "IN") }?.value },
     )
 
     private val contactOf: (String) -> Long? = { n -> if (PhoneIdentity.same(n, "+919812300001", "IN")) 1L else null }
@@ -72,10 +72,24 @@ class RecallNetworkNameTest {
     }
 
     @Test fun the_name_the_call_log_kept_wins_over_the_network() {
-        val logged = RecallCorpus(calls = listOf(call(4, "+919812300002", at(9, 1), name = "Plumber")), region = "IN", networkName = { "Ravi Kumar" })
+        val logged = RecallCorpus(calls = listOf(call(4, "+919812300002", at(9, 1), name = "Plumber")), region = "IN", networkName = { _, _ -> "Ravi Kumar" })
         val q = RecallQuery.parse("plumber", today, Locale.UK)
         val hit = RecallEngine(logged, ZoneOffset.UTC).search(q, { null })[RecallSource.CALL].orEmpty().single()
         assertEquals("Plumber", hit.title)
         assertFalse(hit.fromNetwork)
+    }
+
+    @Test fun the_name_is_asked_with_the_calls_sim() {
+        // A national number on a French SIM: only that SIM's reading of it finds the name.
+        val french = CallEntry(6, "0612345678", null, CallType.INCOMING, at(9, 2), 30, "sim-fr", isNew = false, presentationHidden = false)
+        val asked = ArrayList<Pair<String, String?>>()
+        val corpus = RecallCorpus(calls = listOf(french), region = "IN", networkName = { n, account ->
+            asked += n to account
+            if (account == "sim-fr") "Claire Martin" else null
+        })
+        val q = RecallQuery.parse("claire", today, Locale.UK)
+        val hit = RecallEngine(corpus, ZoneOffset.UTC).search(q, { null })[RecallSource.CALL].orEmpty().single()
+        assertEquals("Claire Martin", hit.title)
+        assertEquals(listOf("0612345678" to "sim-fr"), asked.distinct())
     }
 }

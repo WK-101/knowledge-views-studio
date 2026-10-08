@@ -268,6 +268,12 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         else -> true
     }
 
+    /** Each call's line for the network's names ([NetworkNames.line]), read once: lists regroup on every keystroke. */
+    private val lines = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun lineOf(e: CallEntry): String =
+        lines.getOrPut(e.accountId.orEmpty() + "\n" + e.number) { NetworkNames.line(c.appContext, e.number, e.accountId) }
+
     private fun group(
         calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
         layout: RecentsLayout = RecentsLayout.GROUPED,
@@ -289,13 +295,13 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
             val archivedName = if (contact == null && key != "hidden") archived?.get(e.number)?.name else null
             // A number nobody saved: what the network called it (never on a private contact's calls or number).
             val unsaved = contact == null && archivedName == null && e.id >= 0
-            val names = if (unsaved && key != "hidden" && key !in vaultKeys) network(e.number) else emptyList()
+            // Asked as the call's SIM reads the number, as it was written.
+            val names = if (unsaved && key != "hidden" && key !in vaultKeys) network(lineOf(e)) else emptyList()
             RecentGroup(
                 key + ":" + e.id, e.number, contact, e.cachedName, list, key == "hidden",
                 fallbackTitle = if (key == "hidden") privateNumber else unknown,
                 archivedName = archivedName,
                 networkName = NetworkName.latest(names)?.name,
-                networkNameBefore = NetworkName.before(names)?.name,
             )
         }
         if (q.isBlank()) return grouped

@@ -338,11 +338,27 @@ class DataContainer(context: Context) {
             h.onForget = { n, dates ->
                 ringFacts.forget(n, dates)
                 callQuality.forget(n, dates)
-                // A name is kept per number, not per call: deleting calls with it forgets the number's names.
-                networkNames.forget(n)
+                // Every call with the number went for good (an automatic purge, no undo): so do the network's names.
+                if (dates == null) networkNames.forget(n, simRegions())
+            }
+            // A name is kept per number, not per call: it goes with the number's last call, and an undo brings it back.
+            h.onDeleted = { numbers, batch ->
+                val regions = simRegions()
+                numbers.forEach { n -> if (networkNames.has(n, regions) && h.callsFor(n).isEmpty()) networkNames.setAside(n, regions, batch) }
+            }
+            h.onUndone = { numbers, batch ->
+                // Not for a number that became a private contact's meanwhile (or can't be checked now).
+                if (networkNames.putBack(batch)) {
+                    val regions = simRegions()
+                    numbers.forEach { n -> if (catching { vault.lookup(n) != null }.getOrDefault(true)) networkNames.forget(n, regions) }
+                }
             }
         }
     }
+
+    /** The countries of the SIMs in the phone (a national number may have come in on any of them). */
+    private fun simRegions(): List<String> =
+        catching { sims.accounts().mapNotNull { PhoneEnv.simCountry(appContext, it.id) } }.getOrDefault(emptyList()).distinct()
 
     /** "Delete all Parley data" (every store in [app.parley.common.storage.PersistentStores]). */
     val wipe by lazy { DataWipe(appContext, this) }
@@ -443,6 +459,27 @@ class DataContainer(context: Context) {
         scope.launch(warmDispatcher) {
             fullStart.await()
             numberMemory.follow()
+        }
+        scope.launch(warmDispatcher) {
+            fullStart.await()
+            forgetNetworkNamesOfPrivateNumbers()
+        }
+    }
+
+    /**
+     * A number that becomes a private contact's (saved privately, moved to private, a private contact gaining it, a
+     * deleted one put back) keeps nothing from when it was unknown: the network's names for it go. Every private
+     * number once when the app starts (what a call-only process, or a moment without the key, left), then each new one.
+     */
+    private suspend fun forgetNetworkNamesOfPrivateNumbers() {
+        var known = emptySet<String>()
+        vault.listing.filterNotNull().collect { list ->
+            val numbers = list.flatMap { it.numbers }.filter { it.isNotBlank() }.toSet()
+            val added = numbers - known
+            known = numbers
+            if (added.isEmpty()) return@collect
+            val regions = simRegions()
+            added.forEach { n -> catching { networkNames.forget(n, regions) } }
         }
     }
 }

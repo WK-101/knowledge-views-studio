@@ -5,6 +5,7 @@ import app.parley.ui.PrivateMarked
 import app.parley.ui.calls.NetworkNameTag
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
@@ -272,10 +273,13 @@ internal object RecentsLegend {
     }
 }
 
-/** The look of a legend line: the same badge, icon, chip or mark Recents draws in the style in use. */
+/**
+ * The look of a legend line: the same badge, icon, chip or mark Recents draws in the style in use. Only a picture:
+ * the line's words follow, so TalkBack doesn't read the mark's own description ("Private contact") before them.
+ */
 @Composable
-private fun LegendGlyph(entry: RecentsLegend.Entry) {
-    Box(Modifier.widthIn(min = 40.dp), contentAlignment = Alignment.Center) {
+internal fun LegendGlyph(entry: RecentsLegend.Entry) {
+    Box(Modifier.widthIn(min = 40.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         when (entry) {
             is RecentsLegend.Entry.Badge -> CallClassBadge(entry.cls, size = 32.dp)
             is RecentsLegend.Entry.TypeIcon -> CallTypeIcon(entry.type, size = 32.dp, describe = false)
