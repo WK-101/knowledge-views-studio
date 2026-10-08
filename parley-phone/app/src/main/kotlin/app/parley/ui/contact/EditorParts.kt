@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.PrivateBadge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable

@@ -1,5 +1,7 @@
 package app.parley.ui.home
 
+import app.parley.ui.PrivateMarked
+import app.parley.ui.calls.NetworkNameTag
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
@@ -331,11 +333,11 @@ fun RecentRow(
         RecentRowFacts(
             calls = g.calls.size, cls = cls, missed = missed, sequence = sequence.isNotEmpty(), unreturned = unreturned, hidden = g.hidden,
             video = e.video, private = g.vaultId != null, screening = badge != null, callButton = !tapCalls && !g.hidden && g.number.isNotBlank(),
+            network = g.fromNetwork,
         ),
         style,
     )
     val attention = RecentsMark.NOT_RETURNED in marks
-    val lock = if (RecentsMark.PRIVATE in marks) "$PRIVATE_MARK " else ""
     // In the Cards style the row takes its day card's colour.
     val base = if (style.cards) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface
     ParleyListItem(
@@ -352,17 +354,24 @@ fun RecentRow(
             else -> ListItemDefaults.colors(containerColor = base)
         },
         leadingContent = {
-            if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
+            // A private contact: the lock on the photo, as in Contacts.
+            PrivateMarked(RecentsMark.PRIVATE in marks) {
+                if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
+            }
         },
         headlineContent = {
             if (rich) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        lock + g.shownTitle,
+                        g.shownTitle,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (attention) FontWeight.Bold else null,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (RecentsMark.NETWORK_NAME in marks) {
+                        Spacer(Modifier.width(6.dp))
+                        NetworkNameTag()
+                    }
                     if (RecentsMark.COUNT in marks) {
                         Spacer(Modifier.width(6.dp))
                         CallCountChip(g.calls.size, cls)
@@ -370,11 +379,18 @@ fun RecentRow(
                 }
             } else {
                 val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
-                Text(
-                    lock + counted,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (RecentsMark.MISSED_NAME in marks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        counted,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (RecentsMark.MISSED_NAME in marks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (RecentsMark.NETWORK_NAME in marks) {
+                        Spacer(Modifier.width(6.dp))
+                        NetworkNameTag()
+                    }
+                }
             }
         },
         supportingContent = {
@@ -409,7 +425,7 @@ fun RecentRow(
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p ->
                             Format.phoneType(context.resources, p.type, p.label)
-                        } else if (!g.hidden && g.contact == null && (g.archivedName ?: g.cachedName) != null) shownNumber else null,
+                        } else if (!g.hidden && g.contact == null && (g.archivedName ?: g.cachedName ?: g.networkName) != null) shownNumber else null,
                     e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
@@ -484,7 +500,10 @@ private fun RecentCard(shape: Shape?, place: ListSections.Place, content: @Compo
 
 /** The row's title; a number (no name) stays left to right in right-to-left languages. */
 private val RecentGroup.shownTitle: String
-    get() = if (contact == null && (archivedName ?: cachedName).isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
+    get() {
+        val named = contact != null || !(archivedName ?: cachedName).isNullOrBlank() || fromNetwork
+        return if (!named && number.isNotBlank()) Bidi.ltr(title) else title
+    }
 
 /** The icon of a call type, in its fixed call colour (never the wallpaper colours). */
 @Composable

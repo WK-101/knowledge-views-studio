@@ -28,6 +28,7 @@ import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
+import app.parley.data.calls.NetworkNameStore
 import app.parley.data.calls.NumberAdviceStore
 import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
@@ -171,6 +172,9 @@ class DataContainer(context: Context) {
 
     /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
     val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
+
+    /** The names the network sent with calls from numbers that aren't saved (sealed, on this phone only). */
+    val networkNames: NetworkNameStore by lazy { NetworkNameStore(appContext) { history } }
 
     /** What was answered to "Numbers that seem out of service" and to SIM suggestions (by line key). */
     val numberAdvice: NumberAdviceStore by lazy { NumberAdviceStore(appContext) }
@@ -334,6 +338,8 @@ class DataContainer(context: Context) {
             h.onForget = { n, dates ->
                 ringFacts.forget(n, dates)
                 callQuality.forget(n, dates)
+                // A name is kept per number, not per call: deleting calls with it forgets the number's names.
+                networkNames.forget(n)
             }
         }
     }

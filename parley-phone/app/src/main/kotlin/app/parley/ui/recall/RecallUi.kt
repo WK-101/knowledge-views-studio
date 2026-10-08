@@ -110,7 +110,10 @@ class RecallUi(
             val access = RecallSources.Access(p.shown)
             val calls = sources.calls(access)
             val privateIds = if (p.shown) sources.privateIds() else null
-            val corpus = RecallCorpus(list.orEmpty(), calls, st.notes, st.deleted, st.snapshots, st.messaged, st.cases, sources.region, st.archived)
+            val corpus = RecallCorpus(
+                list.orEmpty(), calls, st.notes, st.deleted, st.snapshots, st.messaged, st.cases, sources.region, st.archived,
+                networkName = sources.networkNames(),
+            )
             Prepared(RecallEngine(corpus), p, sources.archiveWindowStart(calls), calls, privateIds)
         }.flowOn(Dispatchers.Default)
 

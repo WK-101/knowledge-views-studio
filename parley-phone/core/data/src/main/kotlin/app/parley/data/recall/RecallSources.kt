@@ -3,6 +3,7 @@ package app.parley.data.recall
 import android.util.Log
 import app.parley.common.CallEntry
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.NetworkName
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
@@ -90,6 +91,17 @@ class RecallSources(private val c: DataContainer) {
 
     /** Archived calls from [from] until [until], newest first, until [visit] says enough. */
     suspend fun archivedBetween(from: Long, until: Long, visit: (CallEntry) -> Boolean) = c.history.archivedBetween(from, until, visit)
+
+    /**
+     * The name the network last sent per number, for calls from numbers nobody saved: never for a private contact's
+     * number (whether private contacts may show or not); none when the private numbers can't be read.
+     */
+    suspend fun networkNames(): (String) -> String? = withContext(Dispatchers.IO) {
+        val privateNumbers = safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) } ?: return@withContext { _: String -> null }
+        val read = safely { c.networkNames.reader { it in privateNumbers } } ?: return@withContext { _: String -> null }
+        val names: (String) -> String? = { n -> NetworkName.latest(read(n))?.name }
+        names
+    }
 
     /** Number memory's hints for a number typed whole (the vault's and duress's rules applied by the store). */
     suspend fun remembered(number: String): List<MemoryHint> = c.numberMemory.hints(number, NumberMemory.Place.KEYPAD)

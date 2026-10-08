@@ -34,7 +34,7 @@ class RecentsLegendTest {
             add(
                 RecentRowFacts(
                     calls = calls, cls = cls, missed = cls == CallClass.MISSED || cls == CallClass.DECLINED, sequence = calls > 1,
-                    unreturned = unreturned, hidden = hidden, video = extra, private = extra, screening = extra, callButton = button,
+                    unreturned = unreturned, hidden = hidden, video = extra, private = extra, screening = extra, callButton = button, network = extra,
                 ),
             )
         }

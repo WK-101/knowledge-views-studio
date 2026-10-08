@@ -15,6 +15,9 @@ import app.parley.common.people.ArchivedCard
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.TextSearch
+import app.parley.calls.NetworkNames
+import app.parley.common.calls.NetworkName
+import app.parley.common.calls.NetworkNameSeen
 import app.parley.common.calls.RecentsCallers
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
@@ -41,6 +44,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -161,14 +165,17 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     /** Archived contacts by line: out of the address book, still named in Recents. */
     private val archivedIndex = c.archive.cards.map { Archive.index(it, countryIso) }
 
-    // Who the numbers belong to beside the address book: private contacts (by line key) and archived ones.
-    private val savedElsewhere = combine(vaultByKey, archivedIndex) { v, a -> v to a }
+    // Who the numbers belong to beside the address book: private contacts (by line key) and archived ones; and the
+    // names the network sent for the others.
+    private val savedElsewhere = combine(vaultByKey, archivedIndex, NetworkNames.readers(c).onStart { emit(NetworkNames.NONE) }) { v, a, n ->
+        Triple(v, a, n)
+    }
 
     val groups: StateFlow<List<RecentGroup>?> = combine(
         callsAndLayout, directory.numberIndex, filter, query.debounce(80), savedElsewhere,
-    ) { (calls, layout), index, filter, q, (vaults, archived) ->
+    ) { (calls, layout), index, filter, q, (vaults, archived, network) ->
         calls?.let {
-            group(it, index, filter, q, layout, vaults.keys, archived).map { g ->
+            group(it, index, filter, q, layout, vaults.keys, archived, network).map { g ->
                 if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g
             }
         }
@@ -266,6 +273,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         layout: RecentsLayout = RecentsLayout.GROUPED,
         vaultKeys: Set<String> = emptySet(),
         archived: PhoneIdentity.LineMap<ArchivedCard>? = null,
+        network: (String) -> List<NetworkNameSeen> = NetworkNames.NONE,
     ): List<RecentGroup> {
         val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys, archived) }
         fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
@@ -278,10 +286,16 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
             val e = list.first()
             val key = keyOf(e)
             val contact = if (key == "hidden") null else index[e.number]
+            val archivedName = if (contact == null && key != "hidden") archived?.get(e.number)?.name else null
+            // A number nobody saved: what the network called it (never on a private contact's calls or number).
+            val unsaved = contact == null && archivedName == null && e.id >= 0
+            val names = if (unsaved && key != "hidden" && key !in vaultKeys) network(e.number) else emptyList()
             RecentGroup(
                 key + ":" + e.id, e.number, contact, e.cachedName, list, key == "hidden",
                 fallbackTitle = if (key == "hidden") privateNumber else unknown,
-                archivedName = if (contact == null && key != "hidden") archived?.get(e.number)?.name else null,
+                archivedName = archivedName,
+                networkName = NetworkName.latest(names)?.name,
+                networkNameBefore = NetworkName.before(names)?.name,
             )
         }
         if (q.isBlank()) return grouped

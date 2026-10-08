@@ -1,5 +1,8 @@
 package app.parley.ui.home
 
+import app.parley.ui.Avatar
+import app.parley.ui.PrivateMarked
+import app.parley.ui.calls.NetworkNameTag
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Surface
@@ -65,6 +68,8 @@ internal data class RecentRowFacts(
     val screening: Boolean,
     /** The trailing button calls (rather than opening the details). */
     val callButton: Boolean,
+    /** The name shown is the one the network sent, not a saved one. */
+    val network: Boolean = false,
 )
 
 /**
@@ -87,6 +92,7 @@ internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Bo
     CALL_BACK(RecentsLegend.Section.ROWS, rich = true, simple = false),
     VIDEO(RecentsLegend.Section.ROWS, rich = true, simple = true),
     PRIVATE(RecentsLegend.Section.ROWS, rich = true, simple = true),
+    NETWORK_NAME(RecentsLegend.Section.ROWS, rich = true, simple = true),
     SCREENING(RecentsLegend.Section.ROWS, rich = true, simple = true),
     ;
 
@@ -102,6 +108,7 @@ internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Bo
             if (style.rich) addAll(richMarks(f, edge = ACCENT.shownIn(style))) else addAll(simpleMarks(f))
             if (f.video) add(VIDEO)
             if (f.private) add(PRIVATE)
+            if (f.network) add(NETWORK_NAME)
             if (f.screening) add(SCREENING)
         }
 
@@ -221,6 +228,7 @@ internal object RecentsLegend {
         RecentFilter.VOICEMAIL -> R.string.recents_legend_filter_voicemail
     }
 
+    @Suppress("CyclomaticComplexMethod") // One line per mark.
     @StringRes
     private fun markLabel(m: RecentsMark): Int = when (m) {
         RecentsMark.FILTER -> R.string.hist_filter
@@ -235,6 +243,7 @@ internal object RecentsLegend {
         RecentsMark.CALL_BACK -> R.string.recents_call_back
         RecentsMark.VIDEO -> R.string.recents_video_call
         RecentsMark.PRIVATE -> R.string.recents_legend_private
+        RecentsMark.NETWORK_NAME -> R.string.network_name_tag
         RecentsMark.SCREENING -> R.string.recents_legend_screening
     }
 
@@ -243,6 +252,7 @@ internal object RecentsLegend {
     private fun savedFilterMeaning(rich: Boolean): Int =
         if (rich) R.string.recents_legend_saved_filter_meaning else R.string.recents_legend_saved_filter_meaning_simple
 
+    @Suppress("CyclomaticComplexMethod") // One line per mark.
     @StringRes
     private fun markMeaning(m: RecentsMark, rich: Boolean): Int = when (m) {
         RecentsMark.FILTER -> R.string.recents_legend_filter_meaning
@@ -257,6 +267,7 @@ internal object RecentsLegend {
         RecentsMark.CALL_BACK -> R.string.recents_legend_call_back_meaning
         RecentsMark.VIDEO -> R.string.recents_legend_video_meaning
         RecentsMark.PRIVATE -> R.string.recents_legend_private_meaning
+        RecentsMark.NETWORK_NAME -> R.string.recents_legend_network_name_meaning
         RecentsMark.SCREENING -> R.string.recents_legend_screening_meaning
     }
 }
@@ -289,6 +300,7 @@ private fun SavedFilterGlyph(rich: Boolean, sample: String) {
 }
 
 @Composable
+@Suppress("CyclomaticComplexMethod") // One glyph per mark.
 private fun MarkGlyph(m: RecentsMark, rich: Boolean) {
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     val sample = stringResource(R.string.recents_legend_sample_name)
@@ -307,7 +319,9 @@ private fun MarkGlyph(m: RecentsMark, rich: Boolean) {
         RecentsMark.DURATION -> CallDurationBar(CallGlance.durationFraction(SAMPLE_TALK_SEC), CallClass.INCOMING)
         RecentsMark.CALL_BACK -> Icon(Icons.Rounded.Call, null, Modifier.size(20.dp), tint = missed)
         RecentsMark.VIDEO -> VideoCallMark(size = 20.dp)
-        RecentsMark.PRIVATE -> Text(PRIVATE_MARK, style = MaterialTheme.typography.titleMedium)
+        // The same lock as on a private contact's photo in Contacts, on a sample photo.
+        RecentsMark.PRIVATE -> PrivateMarked(true) { Avatar(sample, null, 32.dp) }
+        RecentsMark.NETWORK_NAME -> NetworkNameTag()
         RecentsMark.SCREENING -> Icon(Icons.Rounded.Shield, null, Modifier.size(20.dp), tint = quiet)
     }
 }
@@ -366,9 +380,6 @@ fun RecentsLegendHost() {
 fun VideoCallMark(modifier: Modifier = Modifier, size: Dp = 16.dp, contentDescription: String? = null) {
     Icon(Icons.Rounded.Videocam, contentDescription, modifier.size(size), tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
-/** The lock Recents puts before the name of a private contact. */
-internal const val PRIVATE_MARK = "🔒"
 
 private const val SAMPLE_COUNT = 3
 private const val SAMPLE_TALK_SEC = 240L

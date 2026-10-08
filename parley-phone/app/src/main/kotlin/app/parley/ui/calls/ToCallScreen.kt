@@ -3,6 +3,7 @@
 
 package app.parley.ui.calls
 
+import app.parley.ui.PrivateMarked
 import android.content.Context
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -201,8 +202,9 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
                 else -> open(Routes.history(r.number))
             }
         },
-        leadingContent = { Avatar(title, r.contact?.photoUri, avatarSize()) },
-        headlineContent = { Text((if (r.vaultId != null) "🔒 " else "") + title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        // A private contact: the lock on the photo, as in Contacts.
+        leadingContent = { PrivateMarked(r.vaultId != null) { Avatar(title, r.contact?.photoUri, avatarSize()) } },
+        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             Column {
                 Text(kindLine(context, e), maxLines = 1, overflow = TextOverflow.Ellipsis)

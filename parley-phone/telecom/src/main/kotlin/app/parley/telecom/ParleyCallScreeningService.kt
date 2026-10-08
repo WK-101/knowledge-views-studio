@@ -11,6 +11,8 @@ import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.Verification
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.NetworkName
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,10 +78,31 @@ class ParleyCallScreeningService : CallScreeningService() {
                 b.build()
             }.getOrElse { CallResponse.Builder().build() }
             respond(details, response)
+            if (!number.isNullOrBlank()) rememberNetworkName(details, number)
         }
     }
 
     private fun allow(details: Call.Details) = respond(details, CallResponse.Builder().build())
+
+    /**
+     * A call turned away here never reaches the call screen (nor does any call while Parley isn't the phone app): the
+     * name the network sent with it is kept from here. The app keeps it only for a number nobody saved.
+     */
+    private fun rememberNetworkName(details: Call.Details, number: String) {
+        if (isPhoneApp() && !turnedAway(ScreeningGuard.recallOutcome(number))) return
+        if (catching { details.handlePresentation }.getOrDefault(0) != TelecomManager.PRESENTATION_ALLOWED) return
+        val presentation = catching { details.callerDisplayNamePresentation }.getOrDefault(0)
+        val name = NetworkName.clean(catching { details.callerDisplayName }.getOrNull(), presentation) ?: return
+        val account = catching { details.accountHandle?.id }.getOrNull()
+        catching { TelecomGraph.dependencies.onNetworkName(number, name, account, System.currentTimeMillis()) }
+    }
+
+    /** Disallowed here (rejected), as [onScreenCall] answers: a private contact's "Send to voicemail" rings on silenced. */
+    private fun turnedAway(outcome: ScreenOutcome?): Boolean {
+        val decision = outcome?.decision as? Decision.Block ?: return false
+        if (outcome.deferredToSim) return false
+        return decision.action == BlockAction.REJECT && decision.reason != BlockReason.SEND_TO_VOICEMAIL
+    }
 
     /** Parley is the default phone app, so its in-call service gets every call this service lets through. */
     private fun isPhoneApp(): Boolean =

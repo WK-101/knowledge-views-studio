@@ -8,6 +8,7 @@ import app.parley.common.calls.CallHandOff
 import app.parley.common.calls.CallSubject
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
+import app.parley.common.calls.NetworkName
 
 /**
  * What the call screen, notifications and observers see of a call ([CallUi]), built from Telecom's details and what
@@ -98,6 +99,7 @@ internal class CallUiMapper(
             driving = drivingNow(state),
             handOff = handOffFacts(call),
             neverCallsYou = neverCalls(s, call, number, hidden),
+            networkName = networkNameOf(s, found, d, hidden),
         ).withRangThrough(s)
     }
 
@@ -107,6 +109,10 @@ internal class CallUiMapper(
         s.handedOff == HandOff.DEFLECTED -> texts.str(R.string.handoff_ended_deflected)
         else -> null
     }
+
+    /** The network's name, for a caller nobody saved (nor a private contact, even one discreet mode hides). */
+    private fun networkNameOf(s: CallSession, found: CallerDisplay?, d: Call.Details, hidden: Boolean): String? =
+        s.networkName.takeIf { !hidden && !savedCaller(found, d) && !s.savedPrivately }
 
     /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
     private fun savedCaller(found: CallerDisplay?, d: Call.Details): Boolean = found != null || d.contactDisplayNameCompat() != null
@@ -143,6 +149,11 @@ internal class CallUiMapper(
      */
     fun noteFacts(c: Call, s: CallSession, st: CallState) {
         val d = c.details
+        // The network's caller name, for an incoming call: kept as the latest one sent.
+        if (d.callDirection == Call.Details.DIRECTION_INCOMING) {
+            NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
+                ?.let { s.networkName = it }
+        }
         // Kept once seen: answering audio-only turns the call's video state off.
         if (incomingVideo(d)) s.videoOffered = true
         if (st == CallState.ACTIVE || st == CallState.HOLDING) {

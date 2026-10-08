@@ -1,9 +1,14 @@
 package app.parley.ui.history
 
+import app.parley.common.calls.NetworkName
+import app.parley.common.calls.NetworkNameSeen
+import app.parley.ui.calls.NetworkNameTag
 import app.parley.calls.ExpectedCallHints
 import app.parley.calls.NeverCallsYouFacts
 import app.parley.common.CallType
 import app.parley.common.catching
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.produceState
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
@@ -124,7 +129,18 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // An archived contact's calls are still theirs: named here too.
     val archived by vm.c.archive.cards.collectAsStateWithLifecycle()
     val archivedName = remember(archived, number) { if (contact == null) Archive.index(archived, vm.countryIso)[number]?.name else null }
-    val title = contact?.displayName ?: archivedName ?: Format.number(number, vm.countryIso)
+    // A number nobody saved: the name the network sent with its calls (never a private contact's number), with the
+    // one before it when it changed. Read again when the store changes (a call just ended).
+    val networkVersion by vm.c.networkNames.version.collectAsStateWithLifecycle()
+    val networkNames by produceState(emptyList<NetworkNameSeen>(), number, contact, archivedName, privateNumber, networkVersion) {
+        value = if (contact != null || archivedName != null || privateNumber != false) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.IO) { catching { vm.c.networkNames.forNumber(number) }.getOrDefault(emptyList()) }
+        }
+    }
+    val networkName = NetworkName.latest(networkNames)?.name
+    val title = contact?.displayName ?: archivedName ?: networkName ?: Format.number(number, vm.countryIso)
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }
@@ -181,7 +197,19 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(title, contact?.photoUri, 96.dp)
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-                    if (contact != null) Text(DataL10n.ltr(Format.number(number, vm.countryIso)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (contact == null && archivedName == null && networkName != null) {
+                        NetworkNameTag(Modifier.padding(top = Spacing.xs))
+                        NetworkName.before(networkNames)?.let { earlier ->
+                            Text(
+                                stringResource(R.string.network_name_before, earlier.name),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = Spacing.xs),
+                            )
+                        }
+                    }
+                    if (contact != null || networkName != null) {
+                        Text(DataL10n.ltr(Format.number(number, vm.countryIso)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     val where = rememberNumberLocation(number, vm.countryIso)
                     val flag = remember(number) { NumberInfo.flag(NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)

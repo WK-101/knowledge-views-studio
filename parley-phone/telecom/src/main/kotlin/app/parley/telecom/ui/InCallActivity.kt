@@ -357,7 +357,7 @@ class InCallActivity : ComponentActivity() {
             PostCallChoice.Done -> finishAndRemoveTask()
             is PostCallChoice.Block -> openApp { deps.postCallIntent(this, PostCallAction.BLOCK, choice.number) }
             is PostCallChoice.Unblock -> openApp { deps.postCallIntent(this, PostCallAction.UNBLOCK, choice.number) }
-            is PostCallChoice.Save -> openApp { deps.postCallIntent(this, PostCallAction.SAVE, choice.number) }
+            is PostCallChoice.Save -> openApp { deps.postCallIntent(this, PostCallAction.SAVE, choice.number, choice.name) }
             is PostCallChoice.AddToContact -> openApp { deps.postCallIntent(this, PostCallAction.ADD_TO_CONTACT, choice.number) }
             is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
             is PostCallChoice.NumberMemory -> openApp { deps.postCallIntent(this, PostCallAction.NUMBER_MEMORY, choice.number) }

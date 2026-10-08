@@ -62,6 +62,7 @@ import app.parley.telecom.NumberMemoryLine
 import app.parley.common.memory.NumberMemory
 import app.parley.ui.memory.NumberMemoryText
 import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.NetworkName
 import app.parley.common.calls.CallerPhoto
 import app.parley.common.people.ContactRef
 import app.parley.common.calls.RingFacts
@@ -620,12 +621,32 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.familySafety.helpers().map { h -> HelperUi(if (h.private && discreet) h.number else h.name, h.number) }
     }
 
-    override fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent =
+    override fun postCallIntent(context: Context, action: PostCallAction, number: String, name: String?): Intent =
         IntentRoutes.own(context)
             .setAction(MainActivity.ACTION_POST_CALL)
             .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, action.name)
             .putExtra(MainActivity.EXTRA_NUMBER, number)
+            .apply { if (!name.isNullOrBlank()) putExtra(IntentRoutes.EXTRA_NAME, name) }
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * The network's name for a call: kept only for a number that is no contact, private contact or archived contact
+     * (a private contact's number never has one written anywhere; one kept before it became private is forgotten).
+     */
+    override fun onNetworkName(number: String, name: String, accountId: String?, at: Long) {
+        c.scope.launch(Dispatchers.IO) {
+            catching {
+                val region = PhoneEnv.countryIso(app, accountId)
+                val private = c.vault.lookup(number, region) != null
+                val saved = !private && (c.contacts.lookup(number) != null || catching { c.archive.lookup(number, region) != null }.getOrDefault(true))
+                when (NetworkName.keep(saved, private)) {
+                    NetworkName.Keep.RECORD -> c.networkNames.record(number, name, at, accountId, region)
+                    NetworkName.Keep.FORGET -> c.networkNames.forget(number)
+                    NetworkName.Keep.SKIP -> Unit
+                }
+            }.onFailure { Log.w("Parley", "Network name not kept: ${it.javaClass.simpleName}") }
+        }
+    }
 
     override suspend fun isBlocked(number: String): Boolean = withContext(Dispatchers.IO) { BlockFlow.now(c, number).blocked }
 

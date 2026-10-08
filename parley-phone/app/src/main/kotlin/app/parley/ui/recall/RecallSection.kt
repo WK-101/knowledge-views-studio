@@ -1,5 +1,6 @@
 package app.parley.ui.recall
 
+import app.parley.ui.calls.NetworkNameTag
 import android.content.Context
 import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
@@ -16,6 +17,8 @@ import app.parley.ui.circle.AgendaAddDialog
 import app.parley.ui.circle.addToAgenda
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -233,10 +236,19 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
             else -> Modifier
         },
         leadingContent = { Leading(hit) },
-        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = { RecallTitle(title, hit.fromNetwork) },
         supportingContent = line?.let { l -> { Text(l, maxLines = if (hit.source in LONG_LINES) 3 else 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = restore?.let { r -> { TextButton(r) { Text(stringResource(R.string.number_memory_restore)) } } },
     )
+}
+
+/** A result's title; a name the network sent (not one you saved) says so. */
+@Composable
+private fun RecallTitle(title: AnnotatedString, fromNetwork: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        if (fromNetwork) NetworkNameTag(Modifier.padding(start = Spacing.s))
+    }
 }
 
 /** Whether a long press can add to the agenda of whoever [hit] is about: a contact, a note's owner, a number. */
@@ -317,7 +329,8 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
     return when (hit.source) {
         RecallSource.CONTACT -> hit.field?.let { AnnotatedString(matchHint(res, it)) }
         RecallSource.ARCHIVED -> plain(stringResource(R.string.recall_archived_on, dayText(hit.at)), number)
-        RecallSource.CALL -> AnnotatedString(callLine(context, hit, sep))
+        // A name from the network keeps its number in sight.
+        RecallSource.CALL -> AnnotatedString(listOfNotNull(callLine(context, hit, sep), number.takeIf { hit.fromNetwork }).joinToString(sep))
         RecallSource.AGENDA, RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
         RecallSource.NOTE, RecallSource.CALL_NOTE -> noteLine(context, hit, sep)
         RecallSource.CASE_FILE -> plain(stringResource(R.string.recall_case_line, Format.shortWhen(context, hit.at)), number)

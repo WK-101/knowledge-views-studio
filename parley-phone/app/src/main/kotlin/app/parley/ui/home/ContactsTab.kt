@@ -64,7 +64,7 @@ import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import app.parley.ui.contact.PrivateBadge
+import app.parley.ui.PrivateBadge
 import app.parley.ui.avatarSize
 import kotlinx.coroutines.launch
 import app.parley.common.ux.ListSections

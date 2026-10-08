@@ -1,5 +1,7 @@
 package app.parley.calls
 
+import app.parley.common.calls.LockScreenCaller
+import app.parley.common.calls.NetworkName
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -206,14 +208,24 @@ object MissedCallNotifier {
         val vaultName = if (contact == null && number != null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
         // An archived contact is named like any saved one.
         val archivedName = if (contact == null && vaultName == null && number != null) catching { c.archive.lookup(number)?.name }.getOrNull() else null
+        // A number nobody saved (nor a private contact, whatever discreet mode says): the name the network sent, where
+        // the lock-screen rule shows callers' names in full.
+        val unsaved = contact == null && vaultName == null && archivedName == null
+        val network = if (unsaved && number != null) {
+            val lockScreen = catching { c.settings.current().lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+            NetworkName.inNotification(catching { c.networkNames.latest(number)?.name }.getOrNull(), lockScreen)
+        } else {
+            null
+        }
         // A private contact's name never shows in discreet mode.
-        val name = NotificationPrivacy.missedCallName(contact?.name ?: archivedName, vaultName, hideVault, number)
+        val name = (NotificationPrivacy.missedCallName(contact?.name ?: archivedName, vaultName, hideVault, null) ?: network ?: number)
             ?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
         val sep = context.getString(R.string.main_separator)
         val first = if (caller.count > 1) context.resources.getQuantityString(R.plurals.missed_count_last, caller.count, caller.count, time) else context.getString(R.string.missed_one_at, time)
-        val line = listOfNotNull(first, sim).joinToString(sep)
+        // A name from the network says so, beside the time: it isn't one you saved.
+        val line = listOfNotNull(first, sim, network?.let { context.getString(R.string.network_name_tag) }).joinToString(sep)
         // "Why didn't it ring?": Parley's own reason first (a silence rule), then the ringer's state.
         val verdict = number?.let { n ->
             val iso = PhoneEnv.countryIso(context, caller.accountId)

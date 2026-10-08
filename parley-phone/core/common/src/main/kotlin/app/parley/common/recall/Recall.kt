@@ -69,6 +69,11 @@ class RecallCorpus(
     val region: String? = null,
     /** Archived contacts ([Gone.ref]: the archive id). */
     val archived: List<Gone> = emptyList(),
+    /**
+     * The name the network last sent for a number that isn't saved (see [app.parley.common.calls.NetworkName]), or
+     * null; never asked for a call with a private contact.
+     */
+    val networkName: (String) -> String? = { null },
 ) {
     /** A note: pinned on a contact, a Circle note, or one written after a call (then [number] and no [ownerKey]). */
     data class Note(
@@ -127,6 +132,8 @@ data class RecallHit(
     val field: ContactSearch.Field? = null,
     val memory: MemoryHint? = null,
     val private: Boolean = false,
+    /** [title] is the name the network sent with the caller's calls (not a saved name). */
+    val fromNetwork: Boolean = false,
     val titleMarks: List<IntRange> = emptyList(),
     val detailMarks: List<IntRange> = emptyList(),
     /** Higher is better: matched by name over another field over the date alone (see [RecallEngine]). */
@@ -223,6 +230,9 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
      */
     private val named = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val callerDocs = java.util.concurrent.ConcurrentHashMap<String, ContactSearch.Doc>()
+
+    /** The network's name per number ("" for none), asked once per number. */
+    private val networkNames = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private fun callerDoc(number: String, shown: String?): ContactSearch.Doc = callerDocs.getOrPut(number + "\u0000" + shown.orEmpty()) {
         ContactSearch.Builder(0, corpus.region).apply {
@@ -377,17 +387,27 @@ class RecallEngine(private val corpus: RecallCorpus, private val zone: ZoneId = 
         private fun who(call: CallEntry): RecallHit? {
             val id = call.number.takeIf { it.isNotBlank() }?.let { n -> named.getOrPut(n) { contactOf(n) ?: NOBODY }.takeIf { it != NOBODY } }
             val entry = id?.let { contactsById[it] }
-            val name = entry?.contact?.displayName ?: call.cachedName?.takeIf { it.isNotBlank() }
-            val title = name ?: call.number
-            if (q.isEmpty) return RecallHit(RecallSource.CALL, title, number = call.number, contactId = id, score = RecallRanking.BY_DATE)
+            val saved = entry?.contact?.displayName ?: call.cachedName?.takeIf { it.isNotBlank() }
+            val network = if (saved == null && entry == null) networkNameOf(call) else null
+            val title = saved ?: network ?: call.number
+            val fromNetwork = network != null
+            if (q.isEmpty) {
+                return RecallHit(RecallSource.CALL, title, number = call.number, contactId = id, fromNetwork = fromNetwork, score = RecallRanking.BY_DATE)
+            }
             // The caller's contact by every field ("plumber" in the company or a note), else the name shown and the number.
             val field = entry?.let { ContactSearch.match(q, it.doc, it.name) }
-                ?: ContactSearch.match(q, callerDoc(call.number, call.cachedName))
+                ?: ContactSearch.match(q, callerDoc(call.number, saved ?: network))
                 ?: return null
             return RecallHit(
                 RecallSource.CALL, title, number = call.number, contactId = id, field = field.takeIf(ContactSearch::explains),
-                private = call.id < 0, score = scoreOf(q, field),
+                private = call.id < 0, fromNetwork = fromNetwork, score = scoreOf(q, field),
             )
+        }
+
+        /** A number nobody saved: the name the network sent with its calls (never for a private contact's call). */
+        private fun networkNameOf(call: CallEntry): String? {
+            if (call.id < 0 || call.number.isBlank()) return null
+            return networkNames.getOrPut(call.number) { corpus.networkName(call.number).orEmpty() }.ifEmpty { null }
         }
 
         /** The hits among [calls], at most [limit] (newest first, as given). */
