@@ -60,7 +60,8 @@ class TemplateGallery private constructor(context: Context) {
 
     private suspend fun write(f: (TemplateGalleryState) -> TemplateGalleryState) = withContext(Dispatchers.IO) {
         val s = f(_state.value)
-        DurableFiles.writeText(file, s.encode())
+        // Throws when it can't be stored, so what is installed in memory never differs from what the next start reads.
+        DurableFiles.writeOrThrow(file, s.encode().toByteArray(Charsets.UTF_8))
         _state.value = s
     }
 

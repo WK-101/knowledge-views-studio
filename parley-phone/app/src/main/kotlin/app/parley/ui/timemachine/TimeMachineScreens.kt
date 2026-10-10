@@ -1,5 +1,6 @@
 package app.parley.ui.timemachine
 
+import app.parley.common.suspendRunCatching
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -95,7 +96,8 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     val versions by produceState<List<ContactVersion>?>(null, contactId) {
         value = withContext(Dispatchers.IO) {
             val key = vm.c.records.read(contactId, fullPhoto = false)?.key ?: return@withContext emptyList()
-            vm.c.timeMachine.snapshotIfDue(minIntervalMs = 0) // make "now" the newest version
+            // Make "now" the newest version; when it can't be stored (a full disk), the stored versions still show.
+            suspendRunCatching { vm.c.timeMachine.snapshotIfDue(minIntervalMs = 0) }
             vm.c.timeMachine.history(key).reversed()
         }
     }

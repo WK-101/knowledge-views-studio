@@ -19,6 +19,7 @@ import app.parley.common.sync.shared.ShieldMode
 import app.parley.data.sync.shared.SharedLabelEngine.UpdateResult
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -238,6 +239,47 @@ class FamilyShieldExchangeTest {
         assertTrue(store.outgoing().isEmpty())
         assertTrue(store.mine().isEmpty())
         assertTrue(store.outgoing().isEmpty())
+    }
+
+    /** Seals nothing until [ok]: the Keystore unavailable for a moment while a number is blocked. */
+    private class SealLater : StateSealer {
+        @Volatile var ok = false
+
+        override fun seal(text: String) = text.takeIf { ok }
+
+        override fun open(text: String) = text
+    }
+
+    @Test fun dont_share_holds_while_it_cant_be_stored_and_before_the_rule_exists() = runBlocking {
+        val rules = mutableListOf<String>()
+        val sealer = SealLater()
+        val dir = File(root, "private")
+        val store = FamilyShieldStore(dir, sealer, { rules.toList() })
+        // "Don't share" chosen, but the choice can't be stored yet.
+        assertFalse(store.keepPrivate(scam, "GB"))
+        // A sync looks at the rules before the block rule is written, and again after: never shared.
+        assertTrue(store.outgoing().isEmpty())
+        rules += scam
+        assertTrue(store.outgoing().isEmpty())
+        // Storage works again: the choice is stored with the next look, and a new process reads it.
+        sealer.ok = true
+        assertTrue(store.outgoing().isEmpty())
+        assertTrue(FamilyShieldStore(dir, sealer, { rules.toList() }).outgoing().isEmpty())
+    }
+
+    @Test fun own_verdicts_that_cant_be_opened_are_neither_shared_nor_written_over() = runBlocking {
+        val dir = File(root, "unopened")
+        assertTrue(FamilyShieldStore(dir, Plain, { emptyList() }).keepPrivate(scam, "GB"))
+        val stored = File(dir, "shield-own.sealed").readBytes()
+        val sealer = Flaky()
+        val store = FamilyShieldStore(dir, sealer, { listOf(scam, spam) })
+        assertTrue(store.outgoing().isEmpty())
+        assertTrue(store.mine().isEmpty())
+        assertFalse(store.withdraw(spam))
+        assertArrayEquals(stored, File(dir, "shield-own.sealed").readBytes())
+        // Once it opens: the blocked number is shared, the one kept private still isn't.
+        sealer.ok = true
+        assertEquals(listOf(spam), store.outgoing().map { it.e164 })
     }
 
     @Test fun the_state_keeps_the_shield_across_storage() = runBlocking {

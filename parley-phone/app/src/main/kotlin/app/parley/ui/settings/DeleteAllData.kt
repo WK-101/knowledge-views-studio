@@ -46,7 +46,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
-import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
@@ -170,7 +170,7 @@ private fun confirmWipe(
         if (inCall()) return show(WipeStep.Failed(context.getString(R.string.wipe_in_call)))
         // While a duress unlock hides things, private contacts don't exist as far as this screen can tell: no unlock is
         // asked for and nothing says they were left out (the backup leaves them out silently, see WipeJob).
-        if (!backupFirst || Concealment.hiding) return proceed(false)
+        if (!backupFirst || Privacy.duressOnly().hiding) return proceed(false)
         scope.launch {
             val hasPrivate = runCatching { vm.c.vault.summariesNow().isNotEmpty() }.getOrDefault(true)
             when {
@@ -208,7 +208,7 @@ private class WipeJob(
         show(WipeStep.Working(res.getString(R.string.wipe_deleting)))
         // While a duress unlock hides things nothing is deleted: the wipe would destroy what is hidden (SECURITY_MODEL,
         // "Everything here hides; nothing destroys"). It ends the way a wipe that can't start ends, after a while.
-        if (Concealment.hiding) {
+        if (Privacy.duressOnly().hiding) {
             delay(DECOY_MS)
             return show(WipeStep.Failed(res.getString(R.string.wipe_not_now)))
         }
@@ -233,7 +233,7 @@ private class WipeJob(
             !b.ok -> WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))
             b.failedSections.isNotEmpty() -> WipeStep.Failed(res.getString(R.string.wipe_backup_incomplete, b.message))
             // While hiding, the backup leaves private contacts out without a word (as every backup made then does).
-            !b.vaultIncluded && !withoutPrivate && !Concealment.hiding && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) ->
+            !b.vaultIncluded && !withoutPrivate && !Privacy.duressOnly().hiding && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) ->
                 WipeStep.VaultLocked
             else -> null
         }

@@ -80,7 +80,8 @@ class SpamListStore(context: Context) {
     private fun readState(): ListsState = runCatching { ListsState.decode(stateFile.takeIf { it.exists() }?.readText()) }.getOrDefault(ListsState())
 
     private fun writeState(s: ListsState) {
-        DurableFiles.writeText(stateFile, s.encode())
+        // Throws when it can't be stored, so the lists in memory never differ from what the next start reads.
+        DurableFiles.writeOrThrow(stateFile, s.encode().toByteArray(Charsets.UTF_8))
         _state.value = s
     }
 

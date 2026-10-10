@@ -122,4 +122,25 @@ class ParleyRulesTest {
         assertEquals(listOf(10, 19), lines)
         assertFalse(SuppressWithoutReason.hasReason("@Suppress(\"X\")\nfun f()", 0, 14))
     }
+
+    @Test fun a_raw_privacy_switch_read_is_reported_but_not_a_write_or_the_privacy_view() {
+        val code = """
+            fun a(s: AppSettings) = s.hideVault
+            fun b(s: AppSettings) = s.duress?.hideVault ?: false
+            fun c() = Concealment.hiding
+            fun d(s: AppSettings) = s.settings.value.lockScreenCaller
+            fun e(s: AppSettings) = s.copy(hideVault = true)
+            fun f(c: DataContainer) = c.privacy.memory().privateHidden
+        """.trimIndent()
+        val lines = lint(RawPrivacySwitch(), code).map { it.location.source.line }
+        assertEquals(listOf(1, 2, 3, 4), lines.distinct().sorted())
+    }
+
+    @Test fun a_bare_rename_is_reported() {
+        val code = """
+            fun a(f: File, g: File) = f.renameTo(g)
+            fun b(f: File, g: File) = DurableFiles.move(f, g)
+        """.trimIndent()
+        assertEquals(listOf(1), lint(RawRename(), code).map { it.location.source.line })
+    }
 }

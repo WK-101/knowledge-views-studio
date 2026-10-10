@@ -86,6 +86,7 @@ import app.parley.telecom.TelecomDependencies
 import app.parley.ui.common.Format
 import app.parley.ui.memory.NumberMemoryText
 import app.parley.work.HistoryWorker
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -247,10 +248,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun driveProfile(): DriveProfileConfig = c.driveProfile.config.value
 
-    /** A contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
+    /**
+     * A contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path.
+     * Throws when nobody was found but a lookup failed: the call path then treats the caller as possibly saved (in the
+     * car, "Silence unknown callers" lets them ring), never as a stranger.
+     */
     override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
-        val found = c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH)
-        found.contact != null || found.private != null || found.archived != null
+        c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH).savedOrUnknown ?: throw IOException("Couldn't tell whether the caller is saved")
     }
 
     /**

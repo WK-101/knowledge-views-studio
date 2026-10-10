@@ -116,7 +116,7 @@ parley:
       - '**/core/data/src/main/kotlin/app/parley/data/security/**'
       - '**/core/data/src/main/kotlin/app/parley/data/SettingsRepository.kt'
       - '**/core/data/src/main/kotlin/app/parley/data/people/Diagnostics.kt'
-      - '**/app/src/main/kotlin/app/parley/ui/settings/**'
+      - '**/app/src/main/kotlin/app/parley/ui/settings/SettingsPages.kt'
       - '**/app/src/main/kotlin/app/parley/security/AppLock.kt'
       - '**/app/src/main/kotlin/app/parley/security/VaultTileService.kt'
       - '**/app/src/main/kotlin/app/parley/security/PinConfirm.kt'

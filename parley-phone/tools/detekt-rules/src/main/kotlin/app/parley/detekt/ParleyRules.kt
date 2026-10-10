@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.psi.KtReferenceExpression
 import org.jetbrains.kotlin.psi.KtValueArgument
 import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
@@ -187,7 +188,7 @@ class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
  * "May private data show now?" has one answer: `PrivacyView` (core/common), built by core/data's `Privacy`. Feature
  * code that read the switches behind it picked its own mix of them, and the duress promise depended on every author
  * choosing right. Found without types, by name: reading `.hideVault` ("Hide private contacts") or `.lockScreenCaller`
- * ("Caller on the lock screen") off anything, and `Concealment.hiding`, `.hides(…)`, `.state` or `.phase`. Writing a
+ * ("Caller on the lock screen") off anything (a safe call `?.` too), and `Concealment.hiding`, `.hides(…)`, `.state` or `.phase`. Writing a
  * switch (`copy(hideVault = …)`) is a named argument, not a read, and isn't reported. The settings themselves, the
  * duress machinery and `Privacy` are excluded in the configuration.
  */
@@ -199,8 +200,9 @@ class RawPrivacySwitch(config: Config = Config.empty) : Rule(config) {
         Debt.TEN_MINS,
     )
 
-    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
-        super.visitDotQualifiedExpression(expression)
+    // Both `a.hideVault` and `a?.hideVault`: a safe call reads the switch just the same.
+    override fun visitQualifiedExpression(expression: KtQualifiedExpression) {
+        super.visitQualifiedExpression(expression)
         if (expression.getStrictParentOfType<KtImportDirective>() != null) return
         val selector = expression.selectorExpression ?: return
         val name = when (selector) {

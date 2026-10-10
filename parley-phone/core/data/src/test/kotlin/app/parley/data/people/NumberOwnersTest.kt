@@ -105,6 +105,16 @@ class NumberOwnersTest {
         assertEquals(Owner.Unknown, o.owner(strangerNumber, null, Use.SCREEN, shown))
     }
 
+    @Test fun a_failed_lookup_is_never_read_as_a_stranger_on_the_call_path() = runBlocking {
+        val o = owners()
+        assertEquals(true, o.find(contactNumber, null, Use.CALL_PATH).savedOrUnknown)
+        assertEquals(true, o.find(privateNumber, null, Use.CALL_PATH).savedOrUnknown)
+        assertEquals(true, o.find(archivedNumber, null, Use.CALL_PATH).savedOrUnknown)
+        assertEquals(false, o.find(strangerNumber, null, Use.CALL_PATH).savedOrUnknown)
+        // The private lookup failed (the Keystore busy): maybe saved, so "Silence unknown callers" must let it ring.
+        assertNull(o.find(failingNumber, null, Use.CALL_PATH).savedOrUnknown)
+    }
+
     @Test fun one_ring_finds_the_owner_once_for_a_minute() = runBlocking {
         val o = owners()
         val ring = Use.CALL_PATH
