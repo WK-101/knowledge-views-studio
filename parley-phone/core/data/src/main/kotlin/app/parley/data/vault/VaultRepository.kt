@@ -79,6 +79,8 @@ data class VaultSummary(
     val vibration: String? = null,
     /** Its calls are answered automatically when "For chosen people and labels" is on. */
     val autoAnswer: Boolean = false,
+    /** "They never call me": "This number never calls you" stays on for its numbers. */
+    val neverCalls: Boolean = false,
     /**
      * The caller-ID copy holds the star, labels, ringtone and "send to voicemail". False for an entry saved before
      * they were kept there and not seeded yet ([VaultRepository.seedCallerChoices]): the fields above are then only
@@ -610,6 +612,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
                     existingSummary?.vibration?.let { put(C_VIBRATION, it) }
                     if (existingSummary?.autoAnswer == true) put(C_AUTO_ANSWER, true)
+                    if (existingSummary?.neverCalls == true) put(CallerIdCopy.C_NEVER_CALLS, true)
                     // An edit keeps an archived contact archived (Unarchive is what lists it again).
                     existingSummary?.archivedAt?.let { put(CallerIdCopy.C_ARCHIVED, it) }
                 }
@@ -727,6 +730,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
             if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
             if (after.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
+            if (after.neverCalls) o.put(CallerIdCopy.C_NEVER_CALLS, true) else o.remove(CallerIdCopy.C_NEVER_CALLS)
             after.archivedAt?.let { o.put(CallerIdCopy.C_ARCHIVED, it) } ?: o.remove(CallerIdCopy.C_ARCHIVED)
             // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))

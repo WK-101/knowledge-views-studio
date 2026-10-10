@@ -38,6 +38,33 @@ class NeverCallsYouTest {
         assertTrue(shows(listOf(CallType.OUTGOING, CallType.OUTGOING, CallType.OUTGOING)))
     }
 
+    @Test fun a_call_you_said_wasnt_them_leaves_the_notice_armed() {
+        val calls = past(listOf(CallType.OUTGOING, CallType.INCOMING))
+        val scam = calls[1]
+        // Without the mark, the spoofed call disarms it.
+        assertFalse(NeverCallsYou.shows(number, line, listOf(bank), calls, kept, emergency = false))
+        // "It wasn't them", said ten minutes after that call began: it leaves the history the check reads.
+        val marked = NeverCallsYou.withoutDisowned(calls, listOf(scam.date + 10 * 60_000L))
+        assertEquals(listOf(calls[0]), marked)
+        assertTrue(NeverCallsYou.shows(number, line, listOf(bank), marked, kept, emergency = false))
+        // A mark leaves out only the call it was said about: not your own calls, not a call long before it.
+        assertEquals(calls, NeverCallsYou.withoutDisowned(calls, listOf(scam.date + 2 * DAY)))
+        val two = past(listOf(CallType.OUTGOING, CallType.INCOMING, CallType.MISSED))
+        assertEquals(two.take(2), NeverCallsYou.withoutDisowned(two, listOf(two[2].date + 60_000L)))
+    }
+
+    @Test fun they_never_call_me_keeps_the_notice_on() {
+        val mine = NeverCallsYou.SavedAs("Ana's school helpline", neverCalls = true)
+        val person = NeverCallsYou.SavedAs("Sam", neverCalls = true)
+        // Whatever the history shows, even for a contact that doesn't look like an organisation.
+        assertTrue(shows(listOf(CallType.OUTGOING, CallType.INCOMING), savedAs = listOf(mine)))
+        assertTrue(shows(emptyList(), savedAs = listOf(person), keptSince = null))
+        // A person sharing the line who may call still keeps it off; and never for a hidden or emergency call.
+        assertFalse(shows(listOf(CallType.OUTGOING), savedAs = listOf(person, ana)))
+        assertFalse(shows(emptyList(), savedAs = listOf(person), hidden = true))
+        assertFalse(shows(emptyList(), savedAs = listOf(person), emergency = true))
+    }
+
     @Test fun no_history_shows_nothing() {
         // A bank you saved but never called: nothing to compare with.
         assertFalse(shows(emptyList()))

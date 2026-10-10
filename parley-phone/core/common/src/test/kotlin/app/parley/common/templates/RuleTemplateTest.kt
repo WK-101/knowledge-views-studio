@@ -87,6 +87,23 @@ class RuleTemplateTest {
         assertEquals(before.blockNonContacts, invalid.settings!!.apply(before).blockNonContacts)
     }
 
+    @Test fun allow_by_name_rules_are_neither_installed_nor_shared() {
+        val t = RuleTemplate(
+            id = "shared.x", name = "x",
+            rules = listOf(
+                TemplateRule(kind = RuleKind.ALLOW, type = RuleType.CALLER_NAME, pattern = "Hospital"),
+                TemplateRule(kind = RuleKind.BLOCK, type = RuleType.CALLER_NAME, pattern = "Survey"),
+            ),
+        )
+        assertEquals(listOf("Survey"), RuleTemplates.toRules(t).map { it.pattern })
+        assertEquals(1, RuleTemplates.skippedNameAllows(t))
+        val mine = listOf(
+            BlockRule(pattern = "Hospital", type = RuleType.CALLER_NAME, kind = RuleKind.ALLOW),
+            BlockRule(pattern = "Survey", type = RuleType.CALLER_NAME),
+        )
+        assertEquals(listOf("Survey"), RuleTemplates.fromRules("shared.y", "y", "", mine, 1).rules.map { it.pattern })
+    }
+
     @Test fun rejects_bad_templates() {
         expectFailure { RuleTemplates.parse("not json") }
         expectFailure { RuleTemplates.parse("""{"id":"Bad Id","name":"x","rules":[{"type":"PREFIX","pattern":"+1900"}]}""") }

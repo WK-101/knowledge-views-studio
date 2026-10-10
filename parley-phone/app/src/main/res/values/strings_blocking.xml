@@ -872,4 +872,10 @@
         <item quantity="other">%1$d contacts affected</item>
     </plurals>
     <string name="blk_advanced">Advanced</string>
+    <string name="blk_name_allow_warning">The caller\'s side sets the name the network sends, so anyone can use it. This rule lets a call through only when the network has verified it. Name rules only block now.</string>
+    <string name="blk_name_allow_row">Only for calls the network verified: anyone can send any name</string>
+    <plurals name="blk_tpl_name_allow_skipped">
+        <item quantity="one">%1$d rule that would always allow a caller by their name is left out: anyone can send any name.</item>
+        <item quantity="other">%1$d rules that would always allow a caller by their name are left out: anyone can send any name.</item>
+    </plurals>
 </resources>

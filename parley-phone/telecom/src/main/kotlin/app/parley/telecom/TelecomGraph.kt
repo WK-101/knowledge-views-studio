@@ -139,6 +139,12 @@ interface CallerInfoSource {
      */
     suspend fun neverCallsYou(number: String, accountId: String?): Boolean = false
 
+    /**
+     * "It wasn't them", said on the "Is this a scam?" sheet of a call that showed "This number never calls you": that
+     * call is left out of the history the notice reads, so it stays on for the next call from the line.
+     */
+    suspend fun disownCall(number: String) = Unit
+
     /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number
 

@@ -117,6 +117,22 @@ class ExportedComponentsTest {
         assertEquals(MainActivity::class.java.name, alias.targetActivity)
     }
 
+    /**
+     * The tile long-press activity is exported, so whatever it is sent is untrusted: for any tile named (Parley's own,
+     * another app's, none) it hands on no internal action and never goes through Parley's own entry.
+     */
+    @Test fun the_tile_long_press_relays_no_internal_action() {
+        val tiles = listOf(
+            "app.parley.situations.SituationTileService", "app.parley.security.VaultTileService", "app.parley.telecom.HangUpTileService",
+        ).map { ComponentName(context, it) } + listOf(ComponentName("com.example", "app.parley.situations.SituationTileService"), null)
+        for (tile in tiles) {
+            val sent = android.content.Intent(IntentRoutes.QS_TILE_PREFERENCES).apply { tile?.let { putExtra(android.content.Intent.EXTRA_COMPONENT_NAME, it) } }
+            val out = IntentRoutes.tileLongPress(context, sent)
+            assertTrue("$tile: through Parley's own entry", !IntentRoutes.fromParley(out))
+            assertTrue("$tile: relays ${out.action}", out.action !in IntentRoutes.INTERNAL_ACTIONS)
+        }
+    }
+
     @Test fun parleys_own_providers_are_not_readable_by_other_apps() {
         for (name in listOf("app.parley.privatenames.VaultPhotoProvider", "androidx.core.content.FileProvider")) {
             val info = packageInfo().providers.orEmpty().firstOrNull { it.name == name } ?: continue

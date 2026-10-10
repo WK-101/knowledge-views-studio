@@ -203,8 +203,11 @@ object RuleTemplates {
     fun encode(t: RuleTemplate, prettyPrint: Boolean = false): String =
         (if (prettyPrint) pretty else json).encodeToString(RuleTemplate.serializer(), t)
 
-    /** The rules the template creates, ready to save. */
-    fun toRules(t: RuleTemplate): List<BlockRule> = t.rules.map { r ->
+    /**
+     * The rules the template creates, ready to save. An "Always allow: name contains…" rule is left out: the network's
+     * caller name is set by the caller's side, so name rules only block ([BlockRule.allowsByName], [skippedNameAllows]).
+     */
+    fun toRules(t: RuleTemplate): List<BlockRule> = t.rules.filterNot(::allowsByName).map { r ->
         BlockRule(
             pattern = r.pattern.trim(),
             type = r.type,
@@ -214,6 +217,11 @@ object RuleTemplates {
             note = r.note?.takeIf { it.isNotBlank() },
         )
     }
+
+    /** How many of [t]'s rules [toRules] leaves out because they would let a call through by its caller name. */
+    fun skippedNameAllows(t: RuleTemplate): Int = t.rules.count(::allowsByName)
+
+    private fun allowsByName(r: TemplateRule) = r.kind == RuleKind.ALLOW && r.type == RuleType.CALLER_NAME
 
     fun packId(t: RuleTemplate) = "template.${t.id}"
 
@@ -319,7 +327,7 @@ object RuleTemplates {
         author = author,
         version = version,
         description = "Rules shared from Parley",
-        rules = rules.filter { it.enabled && it.type != RuleType.LABEL && it.simId == null && it.expiresAt == null }.take(MAX_RULES).map { r ->
+        rules = rules.filter { it.enabled && it.type != RuleType.LABEL && !it.allowsByName && it.simId == null && it.expiresAt == null }.take(MAX_RULES).map { r ->
             TemplateRule(kind = r.kind, type = r.type, pattern = r.pattern, action = r.action, note = r.note, schedule = r.schedule)
         },
     )

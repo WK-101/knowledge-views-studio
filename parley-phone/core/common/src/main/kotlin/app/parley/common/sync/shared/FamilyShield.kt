@@ -30,8 +30,11 @@ data class OwnVerdict(val e164: String, val kind: ShieldKind, val at: Long)
 /** One of this phone's own verdicts as it keeps them: [fromRule] when a block rule gives it; [withdrawn] ones aren't shared. */
 data class ShieldOwn(val e164: String, val kind: ShieldKind, val at: Long, val fromRule: Boolean, val withdrawn: Boolean = false)
 
-/** What the members of one label said about one hashed number: the strongest kind, how many said so, the latest. */
-data class ShieldMatch(val kind: ShieldKind, val members: Int, val at: Long)
+/**
+ * What the members of one label said about one hashed number: the strongest kind, how many said so, the latest, and
+ * whether the label's anchor (who made it) is among them.
+ */
+data class ShieldMatch(val kind: ShieldKind, val members: Int, val at: Long, val anchor: Boolean = false)
 
 /** A call's number matched a verdict shared in [label] (its title on this phone), handled with [mode]. */
 data class FamilyHit(val label: String, val kind: ShieldKind, val members: Int, val mode: ShieldMode)
@@ -83,18 +86,36 @@ object FamilyShield {
 
     /**
      * Every member's verdicts ([byMember]: member key hash → their list) as one map by hash: the strongest kind any
-     * member gave, how many members said so, and the latest time. A member counts once per number.
+     * member gave, how many members said so, the latest time, and whether [anchorHex] (the label's anchor) said so. A
+     * member counts once per number. [byMember] holds only the label's members now: someone who left or was removed,
+     * or who held the label's key before it changed, isn't in it, so nothing they shared counts.
      */
-    fun merge(byMember: Map<String, List<ShieldVerdict>>): Map<String, ShieldMatch> {
+    fun merge(byMember: Map<String, List<ShieldVerdict>>, anchorHex: String? = null): Map<String, ShieldMatch> {
         val out = HashMap<String, ShieldMatch>()
-        for ((_, list) in byMember) {
+        for ((member, list) in byMember) {
+            val anchor = anchorHex != null && member == anchorHex
             for (v in list.distinctBy { it.hash }) {
                 val m = out[v.hash]
-                out[v.hash] = if (m == null) ShieldMatch(v.kind, 1, v.at) else ShieldMatch(minOf(m.kind, v.kind), m.members + 1, maxOf(m.at, v.at))
+                out[v.hash] = if (m == null) {
+                    ShieldMatch(v.kind, 1, v.at, anchor)
+                } else {
+                    ShieldMatch(minOf(m.kind, v.kind), m.members + 1, maxOf(m.at, v.at), m.anchor || anchor)
+                }
             }
         }
         return out
     }
+
+    /** Members who must agree before a label in Block mode blocks a number, unless its anchor said so. */
+    const val BLOCK_VOICES = 2
+
+    /**
+     * What a label set to [mode] does with [match]. Block needs two voices: [BLOCK_VOICES] members, or the anchor, so
+     * one member (or one stolen phone) can't make every phone in the family reject a number. With one voice it warns,
+     * as Warn mode does. Warn and Silence act on one.
+     */
+    fun modeFor(mode: ShieldMode, match: ShieldMatch): ShieldMode =
+        if (mode == ShieldMode.BLOCK && match.members < BLOCK_VOICES && !match.anchor) ShieldMode.WARN else mode
 
     /** Of several labels' hits for one call, the one that does most (the strongest mode, then the strongest kind). */
     fun strongest(hits: List<FamilyHit>): FamilyHit? = hits.maxWithOrNull(compareBy<FamilyHit> { it.mode }.thenByDescending { it.kind })
@@ -146,6 +167,13 @@ object FamilyShieldOwn {
         val hit = stored.lastOrNull { it.e164 == e164 } ?: return stored
         return stored.filter { it.e164 != e164 } + hit.copy(fromRule = true, withdrawn = true)
     }
+
+    /**
+     * [e164] about to be blocked with "Don't share" chosen on the Block question: remembered as a withdrawn rule entry
+     * before the rule is written, so the next look at the block rules never shares it, not even once.
+     */
+    fun keepPrivate(stored: List<ShieldOwn>, e164: String, now: Long): List<ShieldOwn> =
+        stored.filter { it.e164 != e164 } + ShieldOwn(e164, ShieldKind.BLOCKED, now, fromRule = true, withdrawn = true)
 
     /** Entries kept at most: own verdicts shared plus withdrawn ones. */
     private const val MAX_OWN = FamilyShield.MAX_VERDICTS * 2

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.FamilyRestroom
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Password
+import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Timer
@@ -54,6 +55,8 @@ internal class ScamCheckActions(
     val onReport: (() -> Unit)? = null,
     /** The post-call card offers Block and Report after hanging up (a visible number). */
     val blockReportNext: Boolean = false,
+    /** "It wasn't them": a call that showed "This number never calls you" was a spoofed caller ID. */
+    val onNotThem: (() -> Unit)? = null,
 )
 
 /**
@@ -90,6 +93,7 @@ internal fun ScamCheckSheet(live: Boolean, actions: ScamCheckActions, onDismiss:
         }
         actions.onBlock?.let { Way(Icons.Rounded.Block, R.string.scam_block, null, act(it)) }
         actions.onReport?.let { Way(Icons.Rounded.Flag, R.string.scam_report, null, act(it)) }
+        actions.onNotThem?.let { Way(Icons.Rounded.PersonOff, R.string.scam_not_them, R.string.scam_not_them_detail, act(it)) }
         Spacer(Modifier.height(Spacing.xl))
     }
 }

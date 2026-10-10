@@ -21,6 +21,9 @@ internal object CallerIdCopy {
     const val C_VOICEMAIL = "vm"
     const val C_VIBRATION = "vb"
     const val C_AUTO_ANSWER = "aa"
+
+    /** "They never call me" ([app.parley.common.extras.CallerChoice.neverCalls]). */
+    const val C_NEVER_CALLS = "nc"
     const val C_PRONOUNS = "pn"
 
     /** The name in their own language, shown under the name on the call screen like the name itself. */
@@ -38,7 +41,7 @@ internal object CallerIdCopy {
      * this" line, title, pronouns): all a kept listing ([PrivateSummaryCache]) holds.
      */
     private val SUMMARY_KEYS = listOf(
-        "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_SEEDED, C_NAME_ALT,
+        "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_NEVER_CALLS, C_SEEDED, C_NAME_ALT,
         C_REGION, C_COMPANY, C_ARCHIVED,
     )
 
@@ -54,6 +57,7 @@ internal object CallerIdCopy {
             starred = o.optBoolean(C_STAR, false), labels = labelsOf(o),
             ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
             vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
+            neverCalls = o.optBoolean(C_NEVER_CALLS, false),
             choicesKnown = o.has(C_SEEDED),
             nameAlt = alternativeOf(o),
             region = o.optString(C_REGION).ifEmpty { null },

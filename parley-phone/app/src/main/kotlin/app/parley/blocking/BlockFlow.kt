@@ -1,15 +1,16 @@
 package app.parley.blocking
 
+import androidx.annotation.VisibleForTesting
 import app.parley.common.BlockRule
 import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.common.blocking.BlockPlan
-import androidx.annotation.VisibleForTesting
+import app.parley.common.catching
+import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
-import app.parley.data.PhoneEnv
 import app.parley.data.Permissions
-import app.parley.common.suspendRunCatching
+import app.parley.data.PhoneEnv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -58,9 +59,9 @@ object BlockFlow {
      * Blocks [numbers] (a [note] goes on any rule written). Numbers already blocked are left as they are, emergency
      * numbers are never blocked. [keepAllows]: a block made without a question (a notification's Block) leaves the
      * number's "Always allow" rules alone rather than remove them unseen; a block that asked, or says so with Undo,
-     * lifts them.
+     * lifts them. [share] false: "Don't share" was chosen, so the family spam shield never shares the numbers.
      */
-    suspend fun block(c: DataContainer, numbers: List<String>, note: String? = null, keepAllows: Boolean = false): Done {
+    suspend fun block(c: DataContainer, numbers: List<String>, note: String? = null, keepAllows: Boolean = false, share: Boolean = true): Done {
         val undo = ArrayList<suspend () -> Unit>()
         val done = ArrayList<String>()
         val emergency = numbers.distinct().filter { it.isNotBlank() && withContext(Dispatchers.IO) { isEmergency(c, it) } }
@@ -79,6 +80,8 @@ object BlockFlow {
                 undo += { c.blocks.unblockNumber(n) }
             } else {
                 val iso = PhoneEnv.countryIso(c.appContext)
+                // "Don't share" on the Block question: kept out of the family spam shield before the rule exists.
+                if (!share) catching { c.familyShield.keepPrivate(n, iso) }
                 val id = c.blocks.saveRule(BlockRule(pattern = RuleTools.check(n, RuleType.EXACT, iso).pattern, type = RuleType.EXACT, note = note))
                 undo += { c.blocks.deleteRule(id) }
             }

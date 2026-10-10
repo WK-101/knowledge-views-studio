@@ -14,6 +14,11 @@
         <item quantity="one">Parley declines calls from this number. The rule is in Blocking &amp; screening.</item>
         <item quantity="other">Parley declines calls from these numbers. The rules are in Blocking &amp; screening.</item>
     </plurals>
+    <plurals name="blockflow_also_shared">
+        <item quantity="one">Also shared with %1$s, so they\'re warned if this number calls them.</item>
+        <item quantity="other">Also shared with %1$s, so they\'re warned if these numbers call them.</item>
+    </plurals>
+    <string name="blockflow_dont_share">Don\'t share</string>
     <string name="blockflow_lifts_allow">Its \"Always allow\" rule is removed.</string>
     <string name="blockflow_more_ways">More ways to block…</string>
     <string name="blockflow_already_title">Already blocked</string>

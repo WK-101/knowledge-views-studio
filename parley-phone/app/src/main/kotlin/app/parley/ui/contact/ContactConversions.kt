@@ -190,7 +190,7 @@ class ContactConversions(private val c: DataContainer) {
 
     /** Its vibration and auto-answer are Parley's own: they wait under the private key and follow the re-key. */
     private fun holdCallerChoices(privateKey: String, s: VaultSummary?) {
-        if (s != null) c.extras.holdForRekey(privateKey, CallerChoice(s.vibration, s.autoAnswer))
+        if (s != null) c.extras.holdForRekey(privateKey, CallerChoice(s.vibration, s.autoAnswer, s.neverCalls))
     }
 
     /** Runs [block] in the app's scope: the caller may stop waiting, the conversion still finishes. */

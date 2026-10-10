@@ -237,6 +237,10 @@ object TemplateText {
                 (r.schedule?.let { s -> " (" + Schedule.hm(s.startMinute) + "–" + Schedule.hm(s.endMinute) + ")" } ?: "") +
                 (r.note?.let { " · $it" } ?: "")
         }
+        // A shared template may carry "always allow" name rules: they aren't installed, and the preview says so.
+        RuleTemplates.skippedNameAllows(t).takeIf { it > 0 }?.let { n ->
+            out += context.resources.getQuantityString(R.plurals.blk_tpl_name_allow_skipped, n, n)
+        }
         t.warnList?.let { l ->
             val verb = if (l.mode == ListMode.BLOCK) R.string.blk_tpl_range_block else R.string.blk_tpl_range_warn
             l.ranges.forEach { r ->

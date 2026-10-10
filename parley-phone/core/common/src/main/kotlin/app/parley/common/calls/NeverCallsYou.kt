@@ -41,6 +41,8 @@ object NeverCallsYou {
         val labels: Set<String> = emptySet(),
         /** The number is saved with the "Company main" type. */
         val companyLine: Boolean = false,
+        /** "They never call me", chosen on the contact: the notice stays on whatever the history shows. */
+        val neverCalls: Boolean = false,
     )
 
     /**
@@ -80,8 +82,29 @@ object NeverCallsYou {
     ): Boolean {
         if (hidden || emergency || conference) return false
         if (number.isNullOrBlank() || line == null || EmergencyPolicy.isFallbackEmergencyNumber(number)) return false
-        if (savedAs.isEmpty() || !savedAs.all(::organisation)) return false
+        if (savedAs.isEmpty()) return false
+        // Your own word on the contact needs no history: the notice is armed for good.
+        if (savedAs.any { it.neverCalls } && savedAs.all { it.neverCalls || organisation(it) }) return true
+        if (!savedAs.all(::organisation)) return false
         return onlyYouCalled(past, keptSince)
+    }
+
+    /**
+     * How long after a call's start "It wasn't them" may still be said about it: the call itself and a while on the
+     * screens after it.
+     */
+    const val DISOWN_WINDOW_MS = 6 * 60 * 60 * 1000L
+
+    /**
+     * [past] without the calls you said weren't them ([disownedAt]: when "It wasn't them" was chosen). Each mark leaves
+     * out the latest call from the line that started up to [DISOWN_WINDOW_MS] before it: the call it was said about.
+     * So a spoofed call doesn't count as the organisation calling you, and the notice stays armed for the next one.
+     */
+    fun withoutDisowned(past: List<PastCall>, disownedAt: List<Long>): List<PastCall> {
+        if (disownedAt.isEmpty()) return past
+        val fromThem = past.filter { CallReputation.kindOf(it.type) != RepKind.OUTGOING }
+        val out = disownedAt.mapNotNull { at -> fromThem.filter { it.date in (at - DISOWN_WINDOW_MS)..at }.maxByOrNull { it.date } }.toSet()
+        return past.filterNot { it in out }
     }
 
     /**

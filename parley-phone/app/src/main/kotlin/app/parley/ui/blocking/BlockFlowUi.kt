@@ -3,14 +3,24 @@ package app.parley.ui.blocking
 import android.app.Application
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -23,6 +33,7 @@ import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.blocking.BlockPlan
 import app.parley.common.suspendRunCatching
+import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
@@ -42,10 +53,10 @@ fun askToBlock(numbers: List<String>, name: String? = null, note: String? = null
 }
 
 /** Blocks now (the question was asked, or a swipe or selection bar asked its own), with Undo on the snackbar. */
-fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null, note: String? = null) {
+fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null, note: String? = null, share: Boolean = true) {
     val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
-        val done = suspendRunCatching { BlockFlow.block(vm.c, numbers, note) }.getOrNull()
+        val done = suspendRunCatching { BlockFlow.block(vm.c, numbers, note, share = share) }.getOrNull()
         // What else happened, said with the result: emergency numbers left open, "Always allow" rules taken away.
         val notes = listOfNotNull(
             done?.emergency?.size?.takeIf { it > 0 && done.numbers.isNotEmpty() }?.let { res.getQuantityString(R.plurals.blockflow_emergency_left, it, it) },
@@ -125,10 +136,15 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
         val plans = suspendRunCatching { BlockFlow.plans(vm.c, x.numbers) }.getOrDefault(emptyList())
         value = plans to withContext(Dispatchers.IO) { x.numbers.isNotEmpty() && x.numbers.all { BlockFlow.isEmergency(vm.c, it) } }
     }
+    // The labels whose family spam shield shares numbers blocked one by one (a Parley rule, not Android's list).
+    val labelStates by vm.c.sharedLabels.states.collectAsStateWithLifecycle()
+    var share by rememberSaveable(x) { mutableStateOf(true) }
     val (p, emergencyOnly) = loaded ?: return
     val who = x.name ?: x.numbers.singleOrNull()?.let { Bidi.ltr(it) }
     if (p.isEmpty()) return NothingToBlockDialog(vm, x, who, emergencyOnly, dismiss)
     val count = p.size
+    val onSystem = p.all { it.where == BlockPlan.Where.SYSTEM_LIST }
+    val sharedWith = if (onSystem) emptyList() else labelStates.filter { it.shieldOn && SharedLabelMembership.syncs(it.membership) }.map { it.title }
     ConfirmDialog(
         title = if (count == 1 && who != null) {
             stringResource(R.string.blockflow_title_one, who)
@@ -137,17 +153,27 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
         },
         text = null,
         confirmLabel = stringResource(R.string.blk_block),
-        onConfirm = { dismiss(); blockWithUndo(vm, p.map { it.number }, x.name, x.note) },
+        onConfirm = { dismiss(); blockWithUndo(vm, p.map { it.number }, x.name, x.note, share = share || sharedWith.isEmpty()) },
         onDismiss = dismiss,
         dismissLabel = stringResource(R.string.main_cancel),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val onSystem = p.all { it.where == BlockPlan.Where.SYSTEM_LIST }
                 Text(pluralStringResource(if (onSystem) R.plurals.blockflow_system_list else R.plurals.blockflow_parley_rule, count))
                 if (p.any { it.liftAllows.isNotEmpty() }) {
                     Text(stringResource(R.string.blockflow_lifts_allow), style = MaterialTheme.typography.bodySmall)
                 }
                 if (!onSystem) DefaultAppNote(vm, DefaultAppFeature.BLOCKING, inset = false)
+                // Said at the moment of blocking, with a way out for this block only (no setting).
+                if (sharedWith.isNotEmpty()) {
+                    Text(pluralStringResource(R.plurals.blockflow_also_shared, count, sharedWith.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(!share, role = Role.Checkbox) { share = !it },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(!share, onCheckedChange = null)
+                        Text(stringResource(R.string.blockflow_dont_share), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
                 x.numbers.singleOrNull()?.let { n ->
                     TextButton({
                         dismiss()

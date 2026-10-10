@@ -1,7 +1,6 @@
 package app.parley.calls
 
 import android.provider.ContactsContract.CommonDataKinds.Phone
-import app.parley.common.CallEntry
 import app.parley.common.PhoneIdentity
 import app.parley.common.catching
 import app.parley.common.calls.NeverCallsYou
@@ -26,10 +25,13 @@ object NeverCallsYouFacts {
         val line = PhoneIdentity.e164(number, iso)
         if (emergency || line == null) return@withContext false
         val saved = savedFor(c, number, iso)
+        if (saved.owners.isEmpty()) return@withContext false
+        // "They never call me" on the contact: no history needed.
+        if (NeverCallsYou.shows(number, line, saved.owners, emptyList(), null, emergency = false)) return@withContext true
         // The history is read only for an organisation: most callers stop at the contact lookup.
-        if (saved.owners.isEmpty() || !saved.owners.all(NeverCallsYou::organisation)) return@withContext false
+        if (!saved.owners.all(NeverCallsYou::organisation)) return@withContext false
         val keptSince = keptSince(c, number) ?: return@withContext false
-        val past = pastCalls(c, number, saved.vaultId, iso).map { NeverCallsYou.PastCall(it.type, it.date) }
+        val past = pastCalls(c, number, saved.vaultId, iso)
         NeverCallsYou.shows(number, line, saved.owners, past, keptSince, emergency = false)
     }
 
@@ -41,7 +43,7 @@ object NeverCallsYouFacts {
         val saved = savedFor(c, number, iso)
         if (saved.owners.isEmpty() || !saved.owners.all(NeverCallsYou::organisation)) return@withContext null
         val keptSince = keptSince(c, number) ?: return@withContext null
-        NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId, iso), keptSince, CallEntry::date, CallEntry::type)?.date
+        NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId, iso), keptSince, NeverCallsYou.PastCall::date, NeverCallsYou.PastCall::type)?.date
     }
 
     /** Who a number is saved for when that is an organisation: the name to show, and whether it is a private contact's. */
@@ -69,33 +71,45 @@ object NeverCallsYouFacts {
     private class Saved(val owners: List<NeverCallsYou.SavedAs>, val vaultId: Long?)
 
     private suspend fun savedFor(c: DataContainer, number: String, iso: String): Saved {
+        // "They never call me" is read from memory, and a contact's key looked up only when someone chose it at all.
+        val neverCallKeys = c.extras.callerChoices.value.filterValues { it.neverCalls }.keys
         val contacts = catching { c.contacts.lookupAll(number) }.getOrDefault(emptyList()).map { o ->
             NeverCallsYou.SavedAs(
                 name = o.name,
                 company = catching { c.contacts.organization(o.contactId)?.first }.getOrNull().orEmpty(),
                 labels = catching { c.contacts.labelTitlesOf(o.contactId) }.getOrDefault(emptySet()),
                 companyLine = o.phoneType == Phone.TYPE_COMPANY_MAIN,
+                neverCalls = neverCallKeys.isNotEmpty() && catching { c.contacts.lookupKeyOf(o.contactId) }.getOrNull() in neverCallKeys,
             )
         }
         // Discreet mode: a private contact is a plain number everywhere, so it is no organisation here either.
         val private = if (c.settings.current().hideVault) null else catching { c.vault.lookup(number, iso) }.getOrNull()
         val privateOwner = private?.let { (id, info) ->
+            val summary = catching { c.vault.summary(id) }.getOrNull()
             NeverCallsYou.SavedAs(
                 name = info.name,
-                company = catching { c.vault.summary(id)?.company }.getOrNull().orEmpty(),
+                company = summary?.company.orEmpty(),
                 labels = catching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet()),
+                neverCalls = summary?.neverCalls == true,
             )
         }
         return Saved(contacts + listOfNotNull(privateOwner), private?.first)
     }
 
     /**
-     * Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls.
-     * [region] is the call's SIM's, so rows logged on that SIM in its own national format are matched too.
+     * Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls,
+     * without the calls you said weren't them ([app.parley.data.calls.DisownedCalls]). [region] is the call's SIM's, so
+     * rows logged on that SIM in its own national format are matched too.
      */
-    private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?, region: String): List<CallEntry> {
+    private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?, region: String): List<NeverCallsYou.PastCall> {
         val shared = c.history.callsFor(number, region = region)
         val private = vaultId?.let { id -> catching { c.vault.privateCallsOf(id) }.getOrDefault(emptyList()).map { CallHistory.privateEntry(it) } }
-        return shared + private.orEmpty()
+        val past = (shared + private.orEmpty()).map { NeverCallsYou.PastCall(it.type, it.date) }
+        return NeverCallsYou.withoutDisowned(past, catching { c.disownedCalls.forNumber(number) }.getOrDefault(emptyList()))
+    }
+
+    /** "It wasn't them": [number]'s latest call is left out of the history "This number never calls you" reads. */
+    suspend fun disown(c: DataContainer, number: String) {
+        withContext(Dispatchers.IO) { catching { c.disownedCalls.disown(number) } }
     }
 }

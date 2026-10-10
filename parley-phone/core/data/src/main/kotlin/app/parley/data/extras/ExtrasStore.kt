@@ -110,7 +110,7 @@ class ExtrasStore(private val c: DataContainer) {
         // Waiting here while a contact just made visible can't be read back yet (see ContactKeys.rekeyLater).
         _choices.value[key]?.let { return it }
         val s = runCatching { c.vault.summary(vaultId) }.getOrNull() ?: return CallerChoice()
-        return CallerChoice(s.vibration, s.autoAnswer)
+        return CallerChoice(s.vibration, s.autoAnswer, s.neverCalls)
     }
 
     /** Changes the choices of [key]; a private contact's are sealed in its caller-ID copy, like its ringtone. */
@@ -122,8 +122,8 @@ class ExtrasStore(private val c: DataContainer) {
             return
         }
         c.vault.updateCallerChoices(vaultId) { s ->
-            val n = f(CallerChoice(s.vibration, s.autoAnswer))
-            s.copy(vibration = n.vibration, autoAnswer = n.autoAnswer)
+            val n = f(CallerChoice(s.vibration, s.autoAnswer, s.neverCalls))
+            s.copy(vibration = n.vibration, autoAnswer = n.autoAnswer, neverCalls = n.neverCalls)
         }
     }
 
@@ -137,7 +137,10 @@ class ExtrasStore(private val c: DataContainer) {
         if (vaultId != null) {
             val written = runCatching {
                 c.vault.updateCallerChoices(vaultId) { s ->
-                    s.copy(vibration = s.vibration ?: moving.vibration, autoAnswer = s.autoAnswer || moving.autoAnswer)
+                    s.copy(
+                        vibration = s.vibration ?: moving.vibration, autoAnswer = s.autoAnswer || moving.autoAnswer,
+                        neverCalls = s.neverCalls || moving.neverCalls,
+                    )
                 }
             }.getOrDefault(false)
             if (written) updateChoices { it - from }
@@ -454,6 +457,7 @@ class ExtrasStore(private val c: DataContainer) {
                 val o = refs.ref(key).toJson()
                 choice.vibration?.let { o.put("v", it) }
                 if (choice.autoAnswer) o.put("a", true)
+                if (choice.neverCalls) o.put("n", true)
                 out.put(o)
             }
             return mapOf(X_CALLER_PEOPLE to out.toString())
@@ -468,7 +472,7 @@ class ExtrasStore(private val c: DataContainer) {
                 val a = runCatching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
                 (0 until a.length()).mapNotNull { i ->
                     val o = a.optJSONObject(i) ?: return@mapNotNull null
-                    CallerChoiceRestore.Entry(o.toPersonRef(), CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false)))
+                    CallerChoiceRestore.Entry(o.toPersonRef(), CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false)))
                 }
             } ?: values[X_CALLER_CHOICES]?.let { v ->
                 CallerChoices.decode(v).filterKeys { !ContactRef.isPrivateKey(it) }.map { (k, choice) -> CallerChoiceRestore.Entry(PersonRef(k), choice) }

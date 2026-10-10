@@ -7,6 +7,7 @@ import app.parley.common.sync.shared.FamilyShield
 import app.parley.common.sync.shared.OwnVerdict
 import app.parley.common.sync.shared.ShieldOwn
 import app.parley.common.sync.shared.FamilyShieldOwn
+import app.parley.common.sync.shared.SharedLabelFiles
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.sync.shared.ShieldKind
 import app.parley.common.sync.shared.ShieldMatch
@@ -54,7 +55,7 @@ class FamilyShieldStore(
 
     private fun set(states: List<SharedLabelState>, complete: Boolean) {
         index = states.filter { it.shieldOn && it.shieldIn.isNotEmpty() && SharedLabelMembership.syncs(it.membership) }.map { s ->
-            LabelIndex(s.title, s.shieldMode, FamilyShield.key(s.key, s.labelId), FamilyShield.merge(s.shieldIn))
+            LabelIndex(s.title, s.shieldMode, FamilyShield.key(s.key, s.labelId), FamilyShield.merge(s.shieldIn, SharedLabelFiles.keyHex(s.anchor)))
         }
         this.complete = complete
     }
@@ -88,7 +89,7 @@ class FamilyShieldStore(
         if (labels.isEmpty()) return null
         val e164 = canonical(number, region) ?: return null
         val hits = labels.mapNotNull { l ->
-            FamilyShield.hash(l.key, e164)?.let { l.matches[it] }?.let { m -> FamilyHit(l.title, m.kind, m.members, l.mode) }
+            FamilyShield.hash(l.key, e164)?.let { l.matches[it] }?.let { m -> FamilyHit(l.title, m.kind, m.members, FamilyShield.modeFor(l.mode, m)) }
         }
         return FamilyShield.strongest(hits)
     }
@@ -144,6 +145,14 @@ class FamilyShieldStore(
     /** Stops sharing [e164] (the number stays blocked here when it was). */
     suspend fun withdraw(e164: String): Boolean = mutex.withLock {
         withContext(Dispatchers.IO) { write(FamilyShieldOwn.withdraw(refreshed(), e164)) }
+    }
+
+    /** [number] is being blocked with "Don't share": never shared, though its block rule is (false: not a full number). */
+    suspend fun keepPrivate(number: String, region: String?): Boolean = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val e164 = canonical(number, region) ?: return@withContext false
+            write(FamilyShieldOwn.keepPrivate(read(), e164, clock()))
+        }
     }
 
     companion object {

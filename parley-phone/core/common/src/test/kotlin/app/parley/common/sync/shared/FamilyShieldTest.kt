@@ -105,6 +105,37 @@ class FamilyShieldTest {
         assertEquals(ShieldMatch(ShieldKind.SPAM_LIKELY, 1, 3), merged[h2])
     }
 
+    @Test fun block_mode_needs_two_voices_or_the_anchor() {
+        val h = FamilyShield.hash(key, number)!!
+        val one = FamilyShield.merge(mapOf("ana" to listOf(ShieldVerdict(h, ShieldKind.BLOCKED, 1))), anchorHex = "anchor")
+        assertEquals(ShieldMatch(ShieldKind.BLOCKED, 1, 1, anchor = false), one[h])
+        // One member (or one stolen phone) can't make every phone reject a number: it warns.
+        assertEquals(ShieldMode.WARN, FamilyShield.modeFor(ShieldMode.BLOCK, one.getValue(h)))
+        // Warn and Silence still act on one voice.
+        assertEquals(ShieldMode.WARN, FamilyShield.modeFor(ShieldMode.WARN, one.getValue(h)))
+        assertEquals(ShieldMode.SILENCE, FamilyShield.modeFor(ShieldMode.SILENCE, one.getValue(h)))
+        // Two members agree: it blocks.
+        val two = FamilyShield.merge(
+            mapOf("ana" to listOf(ShieldVerdict(h, ShieldKind.BLOCKED, 1)), "sam" to listOf(ShieldVerdict(h, ShieldKind.SCAM, 2))),
+            anchorHex = "anchor",
+        )
+        assertEquals(ShieldMode.BLOCK, FamilyShield.modeFor(ShieldMode.BLOCK, two.getValue(h)))
+        // The label's anchor alone: it blocks.
+        val anchor = FamilyShield.merge(mapOf("anchor" to listOf(ShieldVerdict(h, ShieldKind.BLOCKED, 1))), anchorHex = "anchor")
+        assertTrue(anchor.getValue(h).anchor)
+        assertEquals(ShieldMode.BLOCK, FamilyShield.modeFor(ShieldMode.BLOCK, anchor.getValue(h)))
+    }
+
+    @Test fun a_block_kept_private_is_never_shared() {
+        // "Don't share" on the Block question: remembered before the rule is written, so the rule never shares it.
+        var own = FamilyShieldOwn.keepPrivate(emptyList(), number, now = 100)
+        own = FamilyShieldOwn.withRules(own, setOf(number), now = 200)
+        assertTrue(own.single().withdrawn)
+        // Marking it a scam by hand later shares it after all, as any mark does.
+        own = FamilyShieldOwn.mark(own, number, ShieldKind.SCAM, now = 300)
+        assertFalse(own.single().withdrawn)
+    }
+
     @Test fun of_several_labels_the_one_that_does_most_wins() {
         val warn = FamilyHit("Family", ShieldKind.SCAM, 1, ShieldMode.WARN)
         val block = FamilyHit("School", ShieldKind.SPAM_LIKELY, 1, ShieldMode.BLOCK)

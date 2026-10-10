@@ -42,7 +42,8 @@ internal class CallUiMapper(
             state = state,
             number = number,
             hidden = hidden,
-            name = found?.name ?: d.contactDisplayNameCompat() ?: d.callerDisplayName?.takeIf { it.isNotBlank() },
+            // The network's name as it is kept (direction overrides, zero-width characters and placeholders gone), never raw.
+            name = found?.name ?: d.contactDisplayNameCompat() ?: networkName(d),
             savedCaller = savedCaller(found, d),
             label = found?.label,
             photoUri = found?.photoUri,
@@ -156,12 +157,14 @@ internal class CallUiMapper(
      * What a call reports while it goes on, kept for its facts: Wi-Fi calling, HD voice and the SIM while connected
      * (Telecom clears them as the call ends), and the caller's subject and priority, which some networks send late.
      */
+    private fun networkName(d: Call.Details): String? =
+        NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
+
     fun noteFacts(c: Call, s: CallSession, st: CallState) {
         val d = c.details
         // The network's caller name, for an incoming call: kept as the latest one sent.
         if (d.callDirection == Call.Details.DIRECTION_INCOMING) {
-            NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
-                ?.let { s.networkName = it }
+            networkName(d)?.let { s.networkName = it }
         }
         // Kept once seen: answering audio-only turns the call's video state off.
         if (incomingVideo(d)) s.videoOffered = true

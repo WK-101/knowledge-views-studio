@@ -31,7 +31,11 @@ object CallerChoiceRestore {
                 // Two entries for one contact here: the first wins field by field, like a rekey.
                 val key = m.first.lookupKey
                 val there = out[key]
-                out[key] = if (there == null) choice else CallerChoice(there.vibration ?: choice.vibration, there.autoAnswer || choice.autoAnswer)
+                out[key] = if (there == null) {
+                    choice
+                } else {
+                    CallerChoice(there.vibration ?: choice.vibration, there.autoAnswer || choice.autoAnswer, there.neverCalls || choice.neverCalls)
+                }
             }
         }
         return Result(out, unmatched)

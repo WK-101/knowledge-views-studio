@@ -28,6 +28,7 @@ import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
+import app.parley.data.calls.DisownedCalls
 import app.parley.data.calls.NetworkNameStore
 import app.parley.data.calls.NumberAdviceStore
 import app.parley.data.calls.ReputationStore
@@ -172,6 +173,9 @@ class DataContainer(context: Context) {
 
     /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
     val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
+
+    /** "It wasn't them" marks, read by "This number never calls you". */
+    val disownedCalls: DisownedCalls by lazy { DisownedCalls(appContext) { history } }
 
     /** The names the network sent with calls from numbers that aren't saved (sealed, on this phone only). */
     val networkNames: NetworkNameStore by lazy { NetworkNameStore(appContext) { history } }
@@ -341,7 +345,10 @@ class DataContainer(context: Context) {
                 ringFacts.forget(n, dates)
                 callQuality.forget(n, dates)
                 // Every call with the number went for good (an automatic purge, no undo): so do the network's names.
-                if (dates == null) networkNames.forget(n, simRegions())
+                if (dates == null) {
+                    networkNames.forget(n, simRegions())
+                    disownedCalls.forget(n)
+                }
             }
             // A name is kept per number, not per call: it goes with the number's last call, and an undo brings it back.
             h.onDeleted = { numbers, batch ->

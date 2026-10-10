@@ -694,6 +694,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** "This number never calls you": a saved organisation whose line you have only ever called. */
     override suspend fun neverCallsYou(number: String, accountId: String?): Boolean = NeverCallsYouFacts.shows(c, number, accountId)
 
+    override suspend fun disownCall(number: String) = NeverCallsYouFacts.disown(c, number)
+
     override fun suggestedName(number: String): String {
         val iso = PhoneEnv.countryIso(app)
         val shown = TemporaryContact.suggestedName(number, null, iso.uppercase())

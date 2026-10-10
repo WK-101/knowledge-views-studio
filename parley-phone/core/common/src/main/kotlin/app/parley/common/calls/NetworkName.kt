@@ -81,6 +81,17 @@ object NetworkName {
     }
 
     /**
+     * Whether the network's name [raw] contains [pattern] (a "name contains" rule), compared as names are compared
+     * ([fold]): format characters such as zero-width spaces dropped, case, accents and full-width forms ignored. Unlike
+     * [clean], placeholders still match ("Scam likely" is worth a block rule).
+     */
+    fun contains(raw: CharSequence?, pattern: String): Boolean {
+        if (raw == null) return false
+        val p = fold(pattern)
+        return p.isNotEmpty() && fold(raw.toString()).contains(p)
+    }
+
+    /**
      * The network's name a stored record of the call (the screening log) may keep: none while names from the network
      * aren't remembered ([enabled]), else what [clean] keeps of [raw] sent with [presentation].
      */

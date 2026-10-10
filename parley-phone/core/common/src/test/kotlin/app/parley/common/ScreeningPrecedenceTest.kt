@@ -255,6 +255,30 @@ class ScreeningPrecedenceTest {
         assertFalse(decide(facts().copy(lineType = LineType.MOBILE), listOf(voip)).blocked)
     }
 
+    @Test fun a_name_rule_matches_the_cleaned_name() {
+        val name = BlockRule(pattern = "survey", type = RuleType.CALLER_NAME)
+        // A zero-width space, a direction mark or full-width letters don't slip a name past a block rule.
+        assertTrue(decide(facts().copy(callerName = "Su\u200Brvey Co"), listOf(name)).blocked)
+        assertTrue(decide(facts().copy(callerName = "\u202ESURVEY"), listOf(name)).blocked)
+        assertTrue(decide(facts().copy(callerName = "ＳＵＲＶＥＹ"), listOf(name)).blocked)
+        // Placeholders still match: "Scam likely" is worth a block rule.
+        assertTrue(decide(facts().copy(callerName = "SCAM LIKELY"), listOf(BlockRule(pattern = "scam likely", type = RuleType.CALLER_NAME))).blocked)
+    }
+
+    @Test fun an_allow_by_name_rule_opens_the_door_only_for_a_verified_call() {
+        val allowName = BlockRule(id = 3, pattern = "Hospital", type = RuleType.CALLER_NAME, kind = RuleKind.ALLOW)
+        assertTrue(allowName.allowsByName)
+        val f = facts().copy(callerName = "City Hospital")
+        // Anyone can send "Hospital": unverified, the block rule still applies.
+        for (v in listOf(Verification.NOT_VERIFIED, Verification.FAILED)) {
+            assertTrue(v.name, decide(f.copy(verification = v), listOf(allowName, blockAll)).blocked)
+        }
+        assertEquals(AllowReason.RULE, decide(f.copy(verification = Verification.PASSED), listOf(allowName, blockAll)).allowedBy)
+        // Other allow rules don't depend on the verification.
+        assertEquals(AllowReason.RULE, decide(facts(), listOf(allowThis, blockAll)).allowedBy)
+        assertFalse(BlockRule(pattern = "x", type = RuleType.CALLER_NAME).allowsByName)
+    }
+
     @Test fun invalid_numbers_default_to_silence() {
         val s = ScreeningSettings(blockInvalid = true)
         val r = decide(facts().copy(validity = NumberValidity.INVALID), s = s)
