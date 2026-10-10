@@ -90,9 +90,16 @@ class SituationsController(
     /** Whether the triggers could change anything: one is on, or one can switch itself on. Memory only. */
     fun watching(): Boolean = _state.value.activeId != null || _list.value.any { it.automatic }
 
-    /** The next time a window starts or ends, or the Situation on now reaches its chosen end; null when neither. */
-    fun nextChange(now: Long = System.currentTimeMillis()): Long? =
-        Situations.nextChange(_list.value, now, java.time.ZoneId.systemDefault(), _state.value.until)
+    /**
+     * The next time a window starts or ends, the Situation on now reaches its chosen end, or one on by roaming is due a
+     * look; null when none.
+     */
+    fun nextChange(now: Long = System.currentTimeMillis()): Long? {
+        val edge = Situations.nextChange(_list.value, now, java.time.ZoneId.systemDefault(), _state.value.until)
+        // On because a SIM roams: look again within the hour, so it never stays on after coming home.
+        val roaming = Situations.roamingRecheck(_state.value, _list.value, now)
+        return listOfNotNull(edge, roaming).minOrNull()
+    }
 
     /**
      * Switches [id] on by hand; the one on before goes off first. It goes off by itself at [until] ("For 1 hour",

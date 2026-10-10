@@ -473,6 +473,44 @@ object Situations {
             .minOrNull()
     }
 
+    /**
+     * When to look again at a Situation on now because a SIM roams abroad ([DeviceTrigger.ROAMING]), or null. Android
+     * sends no broadcast without a permission when the phone is back on its home network (and coming home within the
+     * same time zone changes no clock), so while one is on by roaming the triggers are looked at again every
+     * [ROAMING_RECHECK_MS]: it goes off within the hour of coming home rather than staying on until the next call.
+     */
+    fun roamingRecheck(state: SituationState, list: List<Situation>, now: Long): Long? {
+        if (state.cause != SituationCause.DEVICE) return null
+        val on = state.activeId?.let { id -> list.firstOrNull { it.id == id } } ?: return null
+        return if (on.device == DeviceTrigger.ROAMING) now + ROAMING_RECHECK_MS else null
+    }
+
+    const val ROAMING_RECHECK_MS = 3_600_000L
+
+    /** When the notice says the Situation on now ends ([noticeEnd]). */
+    sealed interface NoticeEnd {
+        /** At this time of day ([minute] past midnight, in the phone's zone). */
+        data class At(val minute: Int) : NoticeEnd
+
+        /** When it is switched off by hand. */
+        data object WhenTurnedOff : NoticeEnd
+
+        /** When what switched it on goes (its device, or the SIM back home). */
+        data object WhileTriggered : NoticeEnd
+    }
+
+    /**
+     * What the silent notice says about [s]'s end while it is on with [state]: switched on by hand, its chosen end
+     * ([untilMinute], the time of day of [SituationState.until]) or when turned off; by its window, the window's end;
+     * by a device or roaming, while that lasts. Never "until you turn it off" for one that goes off by itself.
+     */
+    fun noticeEnd(state: SituationState, s: Situation, untilMinute: Int?): NoticeEnd = when (state.cause) {
+        SituationCause.MANUAL -> untilMinute?.takeIf { state.until != null }?.let { NoticeEnd.At(it) } ?: NoticeEnd.WhenTurnedOff
+        SituationCause.SCHEDULE -> s.schedule?.takeIf { it.startMinute != it.endMinute }
+            ?.let { NoticeEnd.At(it.endMinute % MINUTES_A_DAY) } ?: NoticeEnd.WhileTriggered
+        SituationCause.DEVICE -> NoticeEnd.WhileTriggered
+    }
+
     // ------------------------------------------------------------------ switched on by hand
 
     /** How long a Situation switched on by hand stays on: asked each time, never a setting. */

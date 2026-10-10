@@ -17,6 +17,8 @@ data class UxState(
     val seenTips: Set<String> = emptySet(),
     /** The last version code whose "What's new" card was seen, dismissed or skipped. */
     val whatsNewSeen: Int = 0,
+    /** That version's name ("6.4.0"), so the next card can name what became visible since; null before 6.4. */
+    val whatsNewSeenName: String? = null,
     /** Remind after this many days without a backup (14 or 30). */
     val backupReminderDays: Int = BackupNudge.REMINDER_DAYS.first(),
     /** The banner stays hidden until then (a dismissal snoozes, never silences for good). */
@@ -33,6 +35,7 @@ class UxPrefs(context: Context) {
     private fun load() = UxState(
         seenTips = Tips.decode(prefs.getString(K_TIPS, null)),
         whatsNewSeen = prefs.getInt(K_WHATS_NEW, 0),
+        whatsNewSeenName = prefs.getString(K_WHATS_NEW_NAME, null),
         backupReminderDays = BackupNudge.reminderDays(prefs.getInt(K_REMINDER_DAYS, 0)),
         backupSnoozedUntil = prefs.getLong(K_SNOOZED, 0),
         backupNotifiedAt = prefs.getLong(K_NOTIFIED, 0),
@@ -48,7 +51,7 @@ class UxPrefs(context: Context) {
     /** "Reset tips" shows every coach mark again. */
     fun resetTips() = edit { it.remove(K_TIPS) }
 
-    fun setWhatsNewSeen(version: Int) = edit { it.putInt(K_WHATS_NEW, version) }
+    fun setWhatsNewSeen(version: Int, name: String) = edit { it.putInt(K_WHATS_NEW, version).putString(K_WHATS_NEW_NAME, name) }
 
     fun setBackupReminderDays(days: Int) = edit { it.putInt(K_REMINDER_DAYS, BackupNudge.reminderDays(days)) }
 
@@ -63,6 +66,7 @@ class UxPrefs(context: Context) {
     private companion object {
         const val K_TIPS = "seen_tips"
         const val K_WHATS_NEW = "whats_new_seen"
+        const val K_WHATS_NEW_NAME = "whats_new_seen_name"
         const val K_REMINDER_DAYS = "backup_reminder_days"
         const val K_SNOOZED = "backup_snoozed_until"
         const val K_NOTIFIED = "backup_notified_at"

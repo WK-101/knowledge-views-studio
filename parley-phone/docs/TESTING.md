@@ -3194,3 +3194,12 @@ Automated: `SituationsTest` (the notice only while a Situation lets some people 
 1. Contact editor: new, edit, edit a copy, private, My card, paste details, a duplicate warning, every Add chip, move rows up and down, the profile, country and map-link pickers, discard and "changed elsewhere" questions, rotate mid-edit: all as in 6.3.
 2. Blocking & screening: presets with the week, the status card, the snooze chip and Stop, the emergency countdown, every section opening and closing (state kept on rotation), rules, the system list, likely spam suggestions and the log: all as in 6.3.
 
+
+### 47.19 Review fixes
+
+1. What's new after an update: install 6.3 (or 6.2), open it once and dismiss its card, then install this build over it. Home's card names what became visible in Tools since then: Search everything, Situations, Help & troubleshooting, Archived contacts and Case files (not only Help). Tools' "New in 6.4" group lists the same newly listed rows. Dismiss it; reopen Parley: no card.
+2. Fresh install of this build (uninstall first): home shows the short "What Parley can do" introduction, never a list of rows. Dismiss it, then install the next build over it: its card names only rows that came after this version.
+3. Lock-screen notes fold: on 6.3 set Privacy › Caller on the lock screen to *Name* and turn Calls › During calls › Notes on the lock screen on; give a contact a pinned note and a last note with a promise. Update to this build, lock the phone and have the contact call: the name shows, but no pinned note, "Who is this?", last call, last note or promise (nothing more than before; Caller on the lock screen still reads *Name*). Choose *Name and notes*: they show while locked. Restoring a 6.3 backup made with that switch on gives the same result after the next start.
+4. Travelling by roaming: make Travelling switch on abroad, travel (or use a SIM roaming abroad) so it turns on, then come back home within the same time zone and don't call or open Parley: within about an hour Travelling is off (home line, tile and notice).
+5. Situation notice wording: let Night switch on by its window: the notice says "until 07:00" (its window's end), not "until you turn it off". A Situation on because the car connected says it turns off by itself. Meeting switched on "For 1 hour" says the time; "Until I turn it off" says so.
+6. An archived private contact's page: "Kept as" reads Archived and there is no "Delete automatically" row; unarchive it and the row is back.

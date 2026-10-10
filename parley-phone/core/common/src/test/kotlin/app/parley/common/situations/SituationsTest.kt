@@ -441,6 +441,35 @@ class SituationsTest {
         assertEquals(Situations.Step.Off, Situations.plan(on.state, listOf(travelling), sigAt(at(14, 10))).step)
     }
 
+    @Test fun one_on_by_roaming_is_looked_at_again_within_the_hour_so_it_never_stays_on_at_home() {
+        val travelling = s(Situations.TRAVELLING).copy(device = DeviceTrigger.ROAMING)
+        val now = at(12, 10)
+        val on = Situations.turnOn(SituationState(), mine, travelling, SituationCause.DEVICE, now)
+        // No window and no chosen end: without the re-look nothing would wake it after coming home.
+        assertNull(Situations.nextChange(listOf(travelling), now, utc, on.state.until))
+        assertEquals(now + Situations.ROAMING_RECHECK_MS, Situations.roamingRecheck(on.state, listOf(travelling), now))
+        // Switched on by hand, or by another trigger, or off: no re-look needed.
+        val byHand = Situations.turnOn(SituationState(), mine, travelling, SituationCause.MANUAL, now)
+        assertNull(Situations.roamingRecheck(byHand.state, listOf(travelling), now))
+        val car = s(Situations.DRIVING).copy(device = DeviceTrigger.CAR)
+        assertNull(Situations.roamingRecheck(Situations.turnOn(SituationState(), mine, car, SituationCause.DEVICE, now).state, listOf(car), now))
+        assertNull(Situations.roamingRecheck(SituationState(), listOf(travelling), now))
+    }
+
+    @Test fun the_notice_never_says_until_turned_off_for_one_that_ends_by_itself() {
+        val night = s(Situations.NIGHT).copy(schedule = Situations.NIGHT_WINDOW)
+        val bySchedule = Situations.turnOn(SituationState(), mine, night, SituationCause.SCHEDULE, at(12, 23)).state
+        assertEquals(Situations.NoticeEnd.At(Situations.NIGHT_WINDOW.endMinute % 1440), Situations.noticeEnd(bySchedule, night, null))
+        val travelling = s(Situations.TRAVELLING).copy(device = DeviceTrigger.ROAMING)
+        val abroad = Situations.turnOn(SituationState(), mine, travelling, SituationCause.DEVICE, at(12, 10)).state
+        assertEquals(Situations.NoticeEnd.WhileTriggered, Situations.noticeEnd(abroad, travelling, null))
+        val meeting = s(Situations.MEETING)
+        val forAnHour = Situations.turnOn(SituationState(), mine, meeting, SituationCause.MANUAL, at(12, 10), until = at(12, 11)).state
+        assertEquals(Situations.NoticeEnd.At(11 * 60), Situations.noticeEnd(forAnHour, meeting, 11 * 60))
+        val byHand = Situations.turnOn(SituationState(), mine, meeting, SituationCause.MANUAL, at(12, 10)).state
+        assertEquals(Situations.NoticeEnd.WhenTurnedOff, Situations.noticeEnd(byHand, meeting, null))
+    }
+
     @Test fun the_notice_shows_only_while_a_situation_lets_some_people_ring() {
         assertTrue(Situations.silencesAnyone(s(Situations.MEETING)))
         assertTrue(Situations.silencesAnyone(s(Situations.NIGHT)))

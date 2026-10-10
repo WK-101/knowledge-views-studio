@@ -193,6 +193,8 @@ object SituationTriggers {
         } finally {
             workerRunning = false
             refreshTile(context)
+            // The change listener may not be wired yet in a process the job started: the notice follows here too.
+            SituationNotice.update(context.applicationContext, c.situations)
             schedule(context, c, fromWorker = true)
         }
     }

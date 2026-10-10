@@ -62,6 +62,9 @@ sealed interface CapabilityTarget {
 /**
  * One row. [title] and [summary] are the English reference texts (the app shows string resources keyed by [key],
  * search keeps matching these as well); [since] is the release that brought it ("4.6"), for the "New" mark.
+ * [listedIn] is the release whose Tools first showed the row, when that came later than the feature (6.x features
+ * that only got their row in 6.4): What's new and the "New in" group follow it, so an update names what became
+ * visible, not only what was built.
  * [featured] rows show without opening "More"; [action] makes the row a control rather than a link.
  */
 data class Capability(
@@ -74,7 +77,11 @@ data class Capability(
     val since: String? = null,
     val featured: Boolean = false,
     val action: CapabilityAction? = null,
-)
+    val listedIn: String? = null,
+) {
+    /** The release whose Tools first showed this row (null for rows Tools has always had). */
+    val listed: String? get() = listedIn ?: since
+}
 
 object CapabilityCatalog {
     private fun screen(key: String, job: Job, title: String, summary: String, s: AppScreen, vararg kw: String, since: String? = null) =
@@ -88,6 +95,12 @@ object CapabilityCatalog {
 
     /** This row shown before "More", and run in place when [action] is set. */
     private fun Capability.top(action: CapabilityAction? = null) = copy(featured = true, action = action)
+
+    /** A feature that shipped in [since] but only got its Tools row in [release]. */
+    private fun Capability.listedIn(release: String) = copy(listedIn = release)
+
+    /** The release that gave the 6.x features their rows ("Finished and findable"). */
+    private const val LISTED_6_4 = "6.4"
 
     private val SPAM = Job.STOP_SPAM
     private val LOSE = Job.NEVER_LOSE
@@ -116,7 +129,7 @@ object CapabilityCatalog {
         ),
         // Set on each shared label's page; the row says what it is and opens Shared labels.
         help("family_shield", SPAM, "Family spam shield", "Share block and scam verdicts through a family label you share", HelpTopic.FAMILY_SHIELD,
-            "family", "shield", "share", "verdict", "scam", since = "6.1"),
+            "family", "shield", "share", "verdict", "scam", since = "6.1").listedIn(LISTED_6_4),
         setting("expecting", SPAM, "Expecting a call", "Let unknown callers ring for a while, such as a delivery", "expecting_call",
             "delivery", "courier", "snooze").top(CapabilityAction.EXPECTING_CALL),
 
@@ -137,9 +150,9 @@ object CapabilityCatalog {
             "tidy", "clean up", "fix", "dead number", "radar", "disconnected").top(),
         // Recall: the question "who called in March?" starts in Recents, so the row opens Recents' search.
         screen("search_everything", LOSE, "Search everything", "Calls, notes, promises and old contacts, from words like plumber march",
-            AppScreen.SEARCH_EVERYTHING, "recall", "find", "who called", "notes", "promise", "deleted", since = "6.0").top(),
+            AppScreen.SEARCH_EVERYTHING, "recall", "find", "who called", "notes", "promise", "deleted", since = "6.0").top().listedIn(LISTED_6_4),
         screen("archived", LOSE, "Archived contacts", "Out of your address book and other apps, still named when they call", AppScreen.ARCHIVED,
-            "archive", "unarchive", "hidden", "old contacts", since = "6.2"),
+            "archive", "unarchive", "hidden", "old contacts", since = "6.2").listedIn(LISTED_6_4),
         screen("duplicates", LOSE, "Find & merge duplicates", "Contacts saved twice, merged with one undo", AppScreen.DUPLICATES,
             "merge", "duplicate", "dedupe"),
 
@@ -160,9 +173,9 @@ object CapabilityCatalog {
         screen("insights", TOUCH, "Call insights", "Talk time, top people and calls you didn't return", AppScreen.CALL_INSIGHTS,
             "statistics", "stats", "talk time"),
         help("chapters", TOUCH, "Chapters", "Give a label an end, such as a move or a hospital stay, and tidy up once", HelpTopic.CHAPTERS,
-            "chapter", "end", "label", "move", "hospital", "project", since = "6.2"),
+            "chapter", "end", "label", "move", "hospital", "project", since = "6.2").listedIn(LISTED_6_4),
         help("to_talk_about", TOUCH, "To talk about", "Things to bring up, shown when you next call them or they call", HelpTopic.TALK_ABOUT,
-            "agenda", "talk", "remember", "topics", since = "6.2"),
+            "agenda", "talk", "remember", "topics", since = "6.2").listedIn(LISTED_6_4),
         screen("shared_labels", TOUCH, "Shared labels", "Share a label like Family with its people, through your own folder", AppScreen.SHARED_LABELS,
             "family phonebook", "share", "syncthing", "nextcloud", "group", since = "5.0"),
 
@@ -223,7 +236,7 @@ object CapabilityCatalog {
             "headset", "bluetooth", "car", "hands-free").top(),
         // Situations took the drive profile's featured place: since 6.0 the car is part of the Driving Situation.
         setting("situations", CALLS, "Situations", "Driving, a meeting or night: one tap sets who may ring, and puts it back", "situations",
-            "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top(),
+            "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top().listedIn(LISTED_6_4),
         screen("drive_profile", CALLS, "Drive profile", "Your car for the Driving Situation: announce callers, answer chosen people", AppScreen.DRIVE_PROFILE,
             "car", "driving", "bluetooth", "android auto", "announce", since = "4.7"),
         screen("helpers", CALLS, "Add a helper to a call", "Someone you trust, joined in with one tap", AppScreen.HELPERS,
@@ -243,7 +256,7 @@ object CapabilityCatalog {
         setting("voicemail", CALLS, "Voicemail", "Listen in Recents while Parley is your phone app; hold 1 to call it", "voicemail",
             "voicemail", "visual voicemail", "messages").copy(action = CapabilityAction.VOICEMAIL),
         screen("case_files", CALLS, "Case files", "Banks and other services: calls, hold times and reference numbers", AppScreen.CASE_FILES,
-            "case", "complaint", "reference", "claim", "hold", "insurance", since = "6.1"),
+            "case", "complaint", "reference", "claim", "hold", "insurance", since = "6.1").listedIn(LISTED_6_4),
         screen("rescue_call", CALLS, "Rescue call", "A call that looks real, to help you leave", AppScreen.RESCUE_CALL,
             "fake call", "excuse", "escape", "leave", "safety", "date", since = "6.2"),
         screen("speed_dial", CALLS, "Speed dial", "Hold 2 to 9 on the keypad to call someone", AppScreen.SPEED_DIAL,
@@ -269,17 +282,44 @@ object CapabilityCatalog {
     /** The rows of [job] folded under "More". */
     fun more(job: Job): List<Capability> = forJob(job).filterNot { it.featured }
 
-    /** Rows that arrived in release [version] ("4.6", or "4.6.1": only major.minor counts). */
+    /** Rows Tools first showed in release [version] ("4.6", or "4.6.1": only major.minor counts). */
     fun newIn(version: String): List<Capability> {
         val release = majorMinor(version)
-        return rows.filter { it.since != null && it.since == release }
+        return rows.filter { it.listed == release }
     }
 
     /**
      * What the What's new card names for release [version]: up to [max] of its [newIn] rows, the featured ones first
      * (they are the release's headline), in catalog order otherwise.
      */
-    fun headline(version: String, max: Int = 3): List<Capability> = newIn(version).sortedByDescending { it.featured }.take(max)
+    fun headline(version: String, max: Int = 3): List<Capability> = rankForCard(newIn(version)).take(max)
+
+    /**
+     * What the What's new card names after an update from [lastSeen] (the last release whose card was seen; null when
+     * unknown) to [current]: up to [max] rows Tools showed for the first time in between, so someone coming from 6.3
+     * hears about Situations and Search everything, not only what 6.4 itself built. Featured rows come first, then
+     * rows with a screen of their own (a help-page row explains a feature that lives elsewhere), newest release first.
+     */
+    fun visibleSince(lastSeen: String?, current: String, max: Int = 5): List<Capability> {
+        val now = releaseOrder(current) ?: return emptyList()
+        val from = lastSeen?.let(::releaseOrder) ?: (now - 1)
+        val shown = rows.filter { r -> r.listed?.let(::releaseOrder)?.let { it in (from + 1)..now } == true }
+        return rankForCard(shown).take(max)
+    }
+
+    private fun rankForCard(rows: List<Capability>): List<Capability> = rows.sortedWith(
+        compareByDescending<Capability> { it.featured }
+            .thenBy { it.target is CapabilityTarget.Help }
+            .thenByDescending { it.listed?.let(::releaseOrder) ?: 0 },
+    )
+
+    /** "6.4" or "6.4.1-debug" → a number that orders releases (null when it isn't a version). */
+    fun releaseOrder(version: String): Int? {
+        val parts = majorMinor(version).split('.').map { it.toIntOrNull() ?: return null }
+        return parts.getOrNull(0)?.let { major -> major * RELEASE_STEP + (parts.getOrNull(1) ?: 0) }
+    }
+
+    private const val RELEASE_STEP = 1000
 
     /** "4.6.0-debug" → "4.6". */
     fun majorMinor(version: String): String = version.substringBefore('-').split('.').take(2).joinToString(".")

@@ -32,7 +32,6 @@ import app.parley.AppViewModel
 import app.parley.BuildConfigInfo
 import app.parley.R
 import app.parley.common.SettingsCategory
-import app.parley.common.ux.CapabilityCatalog
 import app.parley.common.ux.Tips
 import app.parley.common.ux.WhatsNew
 import app.parley.ui.Routes
@@ -48,8 +47,8 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
 /**
  * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
- * anything new arrives switched off. It names up to three of this release's Tools rows; the one link is Tools, which
- * lists them first.
+ * anything new arrives switched off. It names up to five Tools rows that became visible since the version seen last;
+ * the one link is Tools, which lists them first.
  * A fresh install gets a short "What Parley can do" introduction once instead ([IntroCard]).
  */
 @Composable
@@ -57,9 +56,10 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
     val context = LocalContext.current
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     val (version, fresh) = remember { versionInfo(context) }
+    val versionName = remember { BuildConfigInfo.versionName(context) }
     val decision = WhatsNew.decide(ux.whatsNewSeen, version, fresh)
     if (decision == WhatsNew.Decision.INTRO) {
-        IntroCard(modifier, open) { vm.c.ux.setWhatsNewSeen(version) }
+        IntroCard(modifier, open) { vm.c.ux.setWhatsNewSeen(version, versionName) }
         return
     }
     if (decision != WhatsNew.Decision.SHOW) return
@@ -67,7 +67,7 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
     val settings by vm.settings.collectAsStateWithLifecycle()
     val offerLayout = Tips.LAYOUT_OFFER !in ux.seenTips && !settings.surfaces.merged
     fun seen() {
-        vm.c.ux.setWhatsNewSeen(version)
+        vm.c.ux.setWhatsNewSeen(version, versionName)
         if (offerLayout) vm.c.ux.dismissTip(Tips.LAYOUT_OFFER)
     }
     Card(
@@ -78,11 +78,14 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
                 Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.ux_whats_new_title, BuildConfigInfo.versionName(context)), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.ux_whats_new_title, versionName), style = MaterialTheme.typography.titleSmall)
             }
             Text(stringResource(R.string.ux_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
-            // The release's headline rows by name, so an update says what it brought (Tools lists them first).
-            val named = remember { CapabilityCatalog.headline(BuildConfigInfo.versionName(context)) }.map { stringResource(CapabilityText.of(it).first) }
+            // What Tools started showing since the version seen last, by name, so an update from 6.3 names Situations
+            // and Search everything too, not only what this release built (Tools lists them first).
+            val named = remember(ux.whatsNewSeenName, ux.whatsNewSeen) {
+                WhatsNew.named(ux.whatsNewSeenName, ux.whatsNewSeen, versionName)
+            }.map { stringResource(CapabilityText.of(it).first) }
             if (named.isNotEmpty()) {
                 Text(
                     stringResource(R.string.discover_whats_new_named, named.joinToString(", ")),

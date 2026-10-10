@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import app.parley.common.people.KeptAs
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MusicNote
@@ -170,7 +171,10 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
         )
     }
     val temp = ctx.ui.temporary
-    if (temp == null) {
+    // An archived contact is kept until Unarchive: it never deletes itself, so "Delete automatically" waits for that
+    // (as it did under the old Privacy… menu).
+    val archived = ctx.isPrivate && ctx.vm.c.vault.contacts.value.firstOrNull { it.id == -ctx.contactId }?.archived == true
+    if (temp == null && KeptAs.of(ctx.isPrivate, archived).offersDeleteAutomatically) {
         item {
             val resources = LocalResources.current
             GroupDataRow(
@@ -178,7 +182,7 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
                 resources.getString(R.string.contact_make_temporary_summary), onClick = { ctx.show(ContactDialog.Expiry) },
             )
         }
-    } else {
+    } else if (temp != null) {
         item {
             val context = LocalContext.current
             val resources = LocalResources.current

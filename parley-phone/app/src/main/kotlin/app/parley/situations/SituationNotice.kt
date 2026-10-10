@@ -38,11 +38,11 @@ object SituationNotice {
             return
         }
         val name = SituationTriggers.name(context, on)
-        val until = sit.state.value.until
-        val text = if (until != null) {
-            context.getString(R.string.sit_notice_text_until, Schedule.hm(minuteOfDay(until)))
-        } else {
-            context.getString(R.string.sit_notice_text)
+        val state = sit.state.value
+        val text = when (val end = Situations.noticeEnd(state, on, state.until?.let(::minuteOfDay))) {
+            is Situations.NoticeEnd.At -> context.getString(R.string.sit_notice_text_until, Schedule.hm(end.minute))
+            Situations.NoticeEnd.WhenTurnedOff -> context.getString(R.string.sit_notice_text)
+            Situations.NoticeEnd.WhileTriggered -> context.getString(R.string.sit_notice_text_while)
         }
         val open = PrivateNotice.route(context, NotificationRequests.SITUATION_OPEN, IntentRoutes.ACTION_OPEN_SITUATIONS)
         val off = PendingIntent.getBroadcast(
