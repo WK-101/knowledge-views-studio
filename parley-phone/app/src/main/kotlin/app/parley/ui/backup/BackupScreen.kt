@@ -110,7 +110,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             val out = repo.backupNow(scheduled = false)
             busy = null
-            // Not after a duress unlock, when private contacts aren't there to skip (I21).
+            // Not after a duress unlock, when private contacts aren't there to skip.
             val skipped = out.ok && !out.vaultIncluded && vm.settings.value.duress == null && vm.c.vault.contacts.value.isNotEmpty()
             vm.toast(if (skipped) res.getString(R.string.bkp_vault_skipped, out.message) else out.message)
             refresh++
@@ -221,7 +221,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
                     headlineContent = { Text(stringResource(R.string.bkp_folder)) },
                     supportingContent = {
-                        // Where it lives, from its location only (P13): "Parley · On this phone only".
+                        // Where it lives, from its location only: "Parley · On this phone only".
                         val place = folderPlaceText(res, BackupSetupCheck.locate(state.folderUri))
                         Text(state.folderName?.let { name -> place?.let { "$name · $it" } ?: name } ?: stringResource(R.string.bkp_folder_none))
                     },

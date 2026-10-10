@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -25,6 +26,12 @@ import app.parley.jobs.UserJobs
 import app.parley.common.ux.BackupNudge
 import android.content.res.Resources
 import app.parley.common.vcard.ImportReport
+import app.parley.common.vcard.ImportGuard
+import app.parley.common.qr.ScannedCard
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.ui.res.pluralStringResource
+import app.parley.ui.Banner
 import app.parley.data.AccountRef
 import app.parley.ui.ParleyListItem
 import app.parley.ui.backup.rememberBackupFirst
@@ -40,10 +47,11 @@ import app.parley.ui.people.cards.rememberSignedCardText
 
 /**
  * Import a .vcf opened or shared from another app: choose the account, import, show the result. An encrypted vCard
- * asks for its passphrase first ([SealedImportDialog]).
+ * asks for its passphrase first ([SealedImportDialog]). A plain file says first what it will leave out
+ * ([ImportLeftOut]); [keep] are the flags ticked back on for a scanned card.
  */
 @Composable
-fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
+fun ImportVcfDialog(vm: AppViewModel, uri: Uri, keep: Set<ScannedCard.Flag> = emptySet(), onDone: () -> Unit) {
     var sealed by remember(uri) { mutableStateOf<Boolean?>(null) }
     // The passphrase, checked: the import wipes it, or the dialog when it closes without importing.
     var passphrase by remember(uri) { mutableStateOf<CharArray?>(null) }
@@ -52,12 +60,12 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         // A moment while the file's first bytes are read.
         sealed == null -> Unit
         sealed == true && passphrase == null -> SealedImportDialog(uri, onDismiss = onDone) { passphrase = it }
-        else -> ImportIntoDialog(vm, uri, passphrase, onDone)
+        else -> ImportIntoDialog(vm, uri, passphrase, keep, onDone)
     }
 }
 
 @Composable
-private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?, onDone: () -> Unit) {
+private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?, keep: Set<ScannedCard.Flag>, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
@@ -78,12 +86,9 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
     // A large file offers "Back up first?" before the import starts.
     val backupFirst = rememberBackupFirst(vm)
     // The decision waits for the count (the rows can't be tapped before it's in); a count that can't be taken asks.
-    var count by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(uri) {
-        count = catching { vm.c.vcards.estimateCount(uri) }.getOrElse { BackupNudge.LARGE_IMPORT }
-    }
+    val first by rememberFirstLook(vm, uri, encrypted = passphrase != null)
 
-    // A signed card (I14, e.g. someone's My card sent as a file): an update for the contact who has it, or a warning.
+    // A signed card (e.g. someone's My card sent as a file): an update for the contact who has it, or a warning.
     val signed by rememberSignedCardText(vm, uri)
 
     ParleyDialog(
@@ -100,7 +105,8 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
                     }
                     else -> {
                         CardArrivalNotes(vm, signed, onOpen = onDone)
-                        val known = count
+                        ImportLeftOut(first?.scan, keep)
+                        val known = first?.count
                         if (known == null) LinearProgressIndicator()
                         accounts.forEach { a ->
                             ParleyListItem(
@@ -122,6 +128,7 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
                                                     },
                                                     skipDuplicates = true,
                                                     passphrase = passphrase,
+                                                    keep = keep,
                                                 )
                                             } finally {
                                                 passphrase?.fill('\u0000')
@@ -150,3 +157,47 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
 private fun importedInto(res: Resources, r: ImportReport, chosen: AccountRef): String =
     r.savedInstead?.let { res.getString(R.string.import_into_account_instead, r.localizedSummary(res), it) }
         ?: res.getString(R.string.import_into_account, r.localizedSummary(res), chosen.displayLabel)
+
+/**
+ * Before a plain import: what it leaves out, because anyone can write such a file ([ImportGuard]), and how many cards
+ * become private contacts. Nothing when there is neither, or no [scan] yet.
+ */
+@Composable
+fun ImportLeftOut(scan: ImportGuard.Scan?, keep: Set<ScannedCard.Flag> = emptySet()) {
+    if (scan == null) return
+    val d = scan.dropped.without(keep)
+    val lines = buildList {
+        if (d.archived > 0) add(pluralStringResource(R.plurals.import_left_out_archived, d.archived, d.archived))
+        if (d.starred > 0) add(pluralStringResource(R.plurals.import_left_out_favourite, d.starred, d.starred))
+        if (d.voicemail > 0) add(pluralStringResource(R.plurals.import_left_out_voicemail, d.voicemail, d.voicemail))
+        if (d.ringtone > 0) add(pluralStringResource(R.plurals.import_left_out_ringtone, d.ringtone, d.ringtone))
+        if (d.otherApps > 0) add(pluralStringResource(R.plurals.import_left_out_other_apps, d.otherApps, d.otherApps))
+    }
+    val text = buildList {
+        if (lines.isNotEmpty()) {
+            add(stringResource(R.string.import_left_out))
+            lines.forEach { add("• $it") } // l10n-ok (bullet)
+            add(stringResource(R.string.import_left_out_why))
+        }
+        if (scan.private > 0) add(pluralStringResource(R.plurals.import_private_cards, scan.private, scan.private))
+    }
+    if (text.isNotEmpty()) Banner(text.joinToString("\n"), icon = Icons.Rounded.Shield)
+}
+
+/** The import's first look at a file: how many contacts (for "Back up first?") and, for a plain file, its [scan]. */
+private class FirstLook(val count: Int, val scan: ImportGuard.Scan?)
+
+/**
+ * A plain file's bounded first look ([ImportGuard.Scan]), which also says what the import will leave out; null until
+ * it is in. An [encrypted] file can't be counted before it is opened, and is Parley's own: no look, no "Back up first?".
+ * A count that can't be taken asks.
+ */
+@Composable
+private fun rememberFirstLook(vm: AppViewModel, uri: Uri, encrypted: Boolean) = produceState<FirstLook?>(null, uri, encrypted) {
+    value = if (encrypted) {
+        FirstLook(0, null)
+    } else {
+        val scan = catching { vm.c.vcards.preScan(uri) }.getOrNull()
+        FirstLook(scan?.let { if (it.capped) BackupNudge.LARGE_IMPORT.coerceAtLeast(it.entries) else it.entries } ?: BackupNudge.LARGE_IMPORT, scan)
+    }
+}

@@ -164,9 +164,9 @@ data class ContactMetaEntity(
     /** "Reach out every N days" nudge; null = off. */
     val reachOutDays: Int? = null,
     val lastNudgedAt: Long? = null,
-    /** Last known contact id, so the key can be re-resolved after it changes (v4, F8). */
+    /** Last known contact id, so the key can be re-resolved after it changes (v4). */
     val contactId: Long? = null,
-    /** Relation name -> related contact's lookup key ([app.parley.common.people.RelationLinks], v4, F23). */
+    /** Relation name -> related contact's lookup key ([app.parley.common.people.RelationLinks], v4). */
     val relationLinks: String? = null,
     /** Circle rhythm, JSON ([app.parley.common.circle.KeepRhythm]); null = every [reachOutDays] days (v5). */
     val rhythm: String? = null,
@@ -356,9 +356,6 @@ interface MetaDao {
 
     @Query("DELETE FROM journal_photos WHERE hash IN (:hashes)")
     suspend fun deleteJournalPhotos(hashes: List<String>)
-
-    @Query("DELETE FROM journal_photos")
-    suspend fun clearJournalPhotos()
 
     @Query("SELECT COALESCE(SUM(LENGTH(blob)), 0) FROM journal_photos")
     suspend fun journalPhotoBytes(): Long
@@ -614,10 +611,7 @@ interface VaultDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addNumbers(n: List<VaultNumberEntity>)
 
-    @Query("SELECT vaultId FROM vault_numbers WHERE hmac IN (:hmacs) LIMIT 1")
-    suspend fun findByHmac(hmacs: List<String>): Long?
-
-    /** Every vault entry with one of these number fingerprints (F15: the caller picks a deterministic winner). */
+    /** Every vault entry with one of these number fingerprints (the caller picks a deterministic winner). */
     @Query("SELECT DISTINCT vaultId FROM vault_numbers WHERE hmac IN (:hmacs)")
     suspend fun idsByHmac(hmacs: List<String>): List<Long>
 
@@ -692,7 +686,7 @@ interface BlockDao {
     @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
     fun blockedCalls(): Flow<List<BlockedCallEntity>>
 
-    /** Every stopped call since [since], uncapped (the weekly line counts them all, L5). */
+    /** Every stopped call since [since], uncapped (the weekly line counts them all). */
     @Query("SELECT * FROM blocked_calls WHERE allowed = 0 AND time >= :since ORDER BY time DESC")
     suspend fun blockedCallsSince(since: Long): List<BlockedCallEntity>
 
@@ -805,7 +799,7 @@ interface PrefsDao {
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
-    //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
+    //     links (round-4 data-safety fixes). Added columns only, all nullable or defaulted.
     // v5: interactions and the Circle rhythm column in contact metadata. A new table and a nullable
     //     column: nothing existing changes.
     // v7: the call-usage ledger (a new table), a nullable dedupe column with a unique index for private calls (old

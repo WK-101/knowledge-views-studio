@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * I2: "Looks like a sales line (your calls)", a quiet line under the status while an unknown number rings, with "Why?"
+ * "Looks like a sales line (your calls)", a quiet line under the status while an unknown number rings, with "Why?"
  * opening the reasons in place. Never a warning colour: it's what your own calls suggest, not a verdict.
  */
 @Composable
@@ -64,7 +64,7 @@ internal fun ReputationLine(call: CallUi, ended: Boolean, compact: Boolean) {
     val rep = call.reputation ?: return
     val res = LocalResources.current
     var open by rememberSaveable(call.id) { mutableStateOf(false) }
-    // P18: one line of explanation the first time the tag shows.
+    // One line of explanation the first time the tag shows.
     val firstTime = remember { runCatching { !TelecomGraph.dependencies.tipSeen(Tips.REPUTATION_TAG) }.getOrDefault(false) }
     LaunchedEffect(Unit) { if (firstTime) runCatching { TelecomGraph.dependencies.markTipSeen(Tips.REPUTATION_TAG) } }
     val reasons = remember(rep, res) { ReputationText.reasons(res, rep) }
@@ -127,7 +127,7 @@ private sealed interface RangeBlock {
 }
 
 /**
- * I2 on the post-call card, after a call that looked like a sales line: "Silence this range?" (L8: blocking is the
+ * On the post-call card, after a call that looked like a sales line: "Silence this range?" (blocking is the
  * explicit second choice, since a range holds strangers who may one day call for real) with the narrowest prefix
  * covering the related numbers from your calls and how many past calls it would have matched, then Undo. Nothing shows
  * when there's no range to offer (one number alone, or someone you know in the range).

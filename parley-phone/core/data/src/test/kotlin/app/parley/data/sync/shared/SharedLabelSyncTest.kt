@@ -421,7 +421,7 @@ class SharedLabelSyncTest {
         assertEquals(setOf(adaSid), a.unreadable.keys)
         assertNull(fileIn(a, adaSid))
         assertEquals("+44 20 7946 0000", phones(anaCard("Ada")))
-        // ...then Ana's copy goes back (M2), and a later edit of Ana's is published, not frozen.
+        // ...then Ana's copy goes back, and a later edit of Ana's is published, not frozen.
         clock += SharedLabelRules.CORRUPT_GRACE_MS
         anaEdit(ada) { it.copy(note = "Back") }
         a = runAna(a).state
@@ -431,7 +431,7 @@ class SharedLabelSyncTest {
     }
 
     @Test fun files_a_member_who_left_wrote_last_stay_readable() = runBlocking {
-        // M1, on a provider that gives no modified time or size (so content hashes stand in for stamps).
+        // On a provider that gives no modified time or size (so content hashes stand in for stamps).
         folder.noStamps = true
         var (a, s, ada) = shared()
         val adaSid = sidOf(a, ada)
@@ -459,7 +459,7 @@ class SharedLabelSyncTest {
     }
 
     @Test fun a_header_swapped_in_without_a_members_signature_is_not_followed() = runBlocking {
-        // M3: someone with folder access writes a header of their own, at a later epoch.
+        // Someone with folder access writes a header of their own, at a later epoch.
         val (a0, _, ada) = shared()
         val (forged, _) = SharedLabelCrypto.newHeader(a0.labelId, 7, "not the label's".toCharArray(), cheap)
         File(folder.dir, SharedLabelCrypto.HEADER_NAME).writeBytes(forged)
@@ -484,7 +484,7 @@ class SharedLabelSyncTest {
     }
 
     @Test fun junk_files_are_read_once_and_versions_far_ahead_never_freeze_a_contact() = runBlocking {
-        // L7: a member writes Ada at the largest version; junk files sit in the folder.
+        // A member writes Ada at the largest version; junk files sit in the folder.
         var (a, _, ada) = shared()
         val adaSid = sidOf(a, ada)
         plant(a.key, a.labelId, adaSid, sam, Long.MAX_VALUE, record("Ada", "+1 900 555 0666"))
@@ -505,7 +505,7 @@ class SharedLabelSyncTest {
     }
 
     @Test fun a_file_that_arrived_after_the_listing_is_written_in_place() = runBlocking {
-        // L7: creating it again would make "name (1)", which no other phone reads.
+        // Creating it again would make "name (1)", which no other phone reads.
         folder.renameOnCollision = true
         val f = SafLabelFolder(app, folder.treeUri)
         f.list()
@@ -517,7 +517,7 @@ class SharedLabelSyncTest {
     }
 
     @Test fun joining_never_lands_in_a_label_of_the_same_name() = runBlocking {
-        // M4: Ana has a "Family" label of her own; Sam shares one also called "Family" and invites her.
+        // Ana has a "Family" label of her own; Sam shares one also called "Family" and invites her.
         val family = c.contacts.createGroup("Family", AccountRef(null, null))!!
         anaAdd("Ada", "+44 20 7946 0000", family)
         samContacts.labels += "Family"

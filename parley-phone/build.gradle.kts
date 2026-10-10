@@ -143,6 +143,8 @@ dependencies {
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    // Parley's own rules are tested before they judge the code.
+    dependsOn(":tools:detekt-rules:test")
     jvmTarget = "17"
     reports {
         html.required.set(true)

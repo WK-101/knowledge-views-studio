@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** L5: once the converted number is taken, the dial guard's warnings are the ones for that number. */
+/** Once the converted number is taken, the dial guard's warnings are the ones for that number. */
 class AbroadWarningsTest {
     private val plan = AssistedDial.Plan("+19005550123", "+1 900-555-0123", "US", "MX", alsoLocal = false)
     private val premium = DialWarning("Premium-rate number", "Calls to this number can cost a lot per minute, on top of your plan.", severe = true)

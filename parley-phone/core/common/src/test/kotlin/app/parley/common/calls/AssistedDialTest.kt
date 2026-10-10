@@ -86,7 +86,7 @@ class AssistedDialTest {
     }
 
     @Test fun home_country_code_without_plus_is_converted() {
-        // L4: US numbers saved as "1 201 555 0123", dialled in Mexico.
+        // US numbers saved as "1 201 555 0123", dialled in Mexico.
         assertEquals("+12015550123", AssistedDial.convert("1 201 555 0123", sim("US", "MX"))?.dial)
         assertEquals("+12015550123", AssistedDial.convert("1-201-555-0123", sim("US", "MX"))?.dial)
         // Russian mobiles saved as "7 912 …" or with the trunk prefix "8 912 …", dialled in Germany.

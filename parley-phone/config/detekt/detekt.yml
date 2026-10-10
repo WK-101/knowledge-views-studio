@@ -102,3 +102,12 @@ parley:
   RunCatchingInSuspend:
     active: true
     excludes: ['**/test/**', '**/testShared/**', '**/tools/**']
+  # Private contacts are marked with core/ui's PrivateBadge or PrivateMarked, never a lock character or a list's own
+  # badge; the lists named here must use the shared one. String resources are checked by PrivateMarkTest.
+  PrivateMark:
+    active: true
+    includes: ['**/app/src/main/**', '**/telecom/src/main/**']
+    lists: ['ContactsTab.kt', 'FavoritesTab.kt', 'RecentsTab.kt', 'CircleTab.kt', 'ToCallScreen.kt', 'RecentsLegend.kt', 'KeypadTab.kt']
+  # Every @Suppress says why in a // comment on its line or just above it.
+  SuppressWithoutReason:
+    active: true

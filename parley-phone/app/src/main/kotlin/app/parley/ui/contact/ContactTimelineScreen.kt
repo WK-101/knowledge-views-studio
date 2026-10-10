@@ -97,7 +97,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val interactions by remember(dd?.lookupKey) { dd?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: flowOf(emptyList()) }
         .collectAsStateWithLifecycle(emptyList())
     val context = LocalContext.current
-    // The same calls as the contact page (F7: by E.164 with this phone's country).
+    // The same calls as the contact page (by E.164 with this phone's country).
     val history = remember(calls, dd?.phones) {
         val phones = dd?.phones.orEmpty()
         if (phones.isEmpty()) emptyList() else {

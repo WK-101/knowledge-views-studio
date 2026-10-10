@@ -18,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Signed cards arriving from outside (I14): a scanned QR code, a shared or opened .vcf file, pasted text. Each one is
+ * Signed cards arriving from outside: a scanned QR code, a shared or opened .vcf file, pasted text. Each one is
  * checked and matched to the contact it belongs to by its card id; a newer version from the same key waits on that
  * contact's page as an update the user reviews. Nothing about the contact changes here, and no card is linked to a
  * contact without the user saying so (H1): trust on first explicit link, the key pinned after that.
@@ -50,7 +50,7 @@ object CardInbox {
         /** The card was changed after it was signed. */
         data object Broken : Result
 
-        /** The signature couldn't be checked right now (L2): neither "verified" nor "changed". */
+        /** The signature couldn't be checked right now: neither "verified" nor "changed". */
         data object Unchecked : Result
 
         /** About a private contact while discreet mode hides them: nothing is said. */

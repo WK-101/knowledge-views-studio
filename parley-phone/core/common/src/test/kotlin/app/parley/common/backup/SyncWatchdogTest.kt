@@ -199,7 +199,7 @@ class SyncWatchdogTest {
         assertEquals(SyncWatchMemory(), SyncWatchMemory.decode(null))
     }
 
-    // M2: before a restore, contacts that came back by themselves are left out.
+    // Before a restore, contacts that came back by themselves are left out.
     @Test fun contactsThatCameBackAreNotRestoredTwice() {
         val ana = contact("k-ana", "Ana Lima", phone("+44 7700 900001"), sourceId = "src-ana")
         val bo = contact("k-bo", "Bo Chen", phone("+44 7700 900002"), sourceId = "src-bo")

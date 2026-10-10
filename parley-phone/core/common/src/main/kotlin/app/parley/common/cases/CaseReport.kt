@@ -41,7 +41,7 @@ object CaseReport {
      * The report's lines. [references] are the opened reference numbers, or null when the person didn't choose to
      * include them (then only how many were left out is said, [referenceCount]). [now] is when it is made.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // One argument per part of the report.
     fun build(
         name: String,
         numbers: List<String>,

@@ -83,7 +83,7 @@ import app.parley.common.extras.PendingSlot
 
 /**
  * Text shared to Parley for "Make a contact from this text", handed to the new contact's editor in memory only (like
- * "Save all…" hands its text to Add several numbers) and read once. L8: it is bound to the editor it was handed to
+ * "Save all…" hands its text to Add several numbers) and read once. It is bound to the editor it was handed to
  * (a random id in that route) and expires after a few minutes, so a later "paste" route, from Parley or another app,
  * never gets stale text.
  */

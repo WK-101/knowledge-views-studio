@@ -32,8 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,13 +81,6 @@ data class PersonMemory(val notes: List<PersonNote> = emptyList()) {
     val owed: List<Pair<PersonNote, Promises.Item>> get() = promises.filter { it.first.source != NoteSource.PINNED }
 }
 
-/** Loads [lookupKey]'s notes, again whenever one of [keys] changes (call notes, interactions, contact meta). */
-@Composable
-fun rememberPersonMemory(vm: AppViewModel, lookupKey: String, numberKeys: Set<String>, vararg keys: Any?): State<PersonMemory> =
-    produceState(PersonMemory(), lookupKey, numberKeys, *keys) {
-        value = PersonMemory(runCatching { vm.c.circle.notesFor(lookupKey, numberKeys) }.getOrDefault(emptyList()))
-    }
-
 /**
  * A note field with the checkbox button, which starts a promise line ("[ ] "), and a one-line hint explaining
  * the convention.
@@ -125,7 +116,7 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
         return
     }
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
-    // I7: a promise of a call that is done no longer lets anyone ring through.
+    // A promise of a call that is done no longer lets anyone ring through.
     runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, note) }
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
@@ -194,7 +185,7 @@ fun hasPeek(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote 
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Suppress("LongParameterList")
+@Suppress("LongParameterList") // A sheet's inputs and callbacks, each one used.
 fun PreCallPeekSheet(
     vm: AppViewModel,
     lookupKey: String,

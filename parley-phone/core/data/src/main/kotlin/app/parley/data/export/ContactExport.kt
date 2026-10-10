@@ -146,7 +146,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
     }
 
     /**
-     * The private contacts [choice] asks for: none after a duress unlock (I21: they don't exist as far as anything outside
+     * The private contacts [choice] asks for: none after a duress unlock (they don't exist as far as anything outside
      * can tell). Throws when they can't be opened now (a key lost for good still exports what's left).
      */
     private suspend fun privatesFor(choice: Choice): List<app.parley.data.vault.VaultSummary> {

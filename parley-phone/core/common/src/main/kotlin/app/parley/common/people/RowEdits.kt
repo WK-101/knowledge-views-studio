@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * Plans the provider writes for the editable rows of some data kinds (I1 handles: Im and SIP) so that an edit
+ * Plans the provider writes for the editable rows of some data kinds (handles: Im and SIP) so that an edit
  * touches only what changed and never a row of another kind: rows of kinds outside [plan]'s `kinds` are ignored
  * even when the edited list doesn't mention them, and rows the provider marks read-only are never changed.
  */

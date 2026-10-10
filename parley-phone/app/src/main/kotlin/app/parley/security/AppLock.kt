@@ -107,7 +107,7 @@ object AppLock {
      */
     private fun promptStatus(context: Context): Int {
         val bm = context.getSystemService(BiometricManager::class.java) ?: return BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // canAuthenticate() without authenticators is the only form on Android 10.
         return if (Build.VERSION.SDK_INT >= 30) bm.canAuthenticate(AUTHENTICATORS) else bm.canAuthenticate()
     }
 
@@ -187,7 +187,7 @@ object AppLock {
 
     /**
      * Runs when the lock itself engages (not when the screen only goes off): a duress session ends here, while what it
-     * hides stays hidden until the real Parley PIN (I21).
+     * hides stays hidden until the real Parley PIN.
      */
     @Volatile var onEngaged: (() -> Unit)? = null
 
@@ -215,7 +215,7 @@ object AppLock {
 
     /**
      * The fingerprint or screen lock succeeded. It opens Parley unless a Parley PIN is set: then only a PIN does, with
-     * or without a duress PIN (I21, M7: "use your fingerprint" would undo the duress PIN, and offering it only without
+     * or without a duress PIN ("use your fingerprint" would undo the duress PIN, and offering it only without
      * one would say which). [then] runs after the decision either way: the confirmation itself succeeded.
      */
     private fun unlockedByDevice(activity: ComponentActivity, then: () -> Unit) {
@@ -232,7 +232,7 @@ object AppLock {
     }
 
     /**
-     * I21: a PIN typed on the lock screen. The Parley PIN opens everything; the duress PIN opens a duress session, which
+     * A PIN typed on the lock screen. The Parley PIN opens everything; the duress PIN opens a duress session, which
      * looks the same. [onResult] gets the attempt (a wrong PIN, or how long to wait) after Parley has opened.
      */
     fun unlockWithPin(activity: ComponentActivity, pin: String, onResult: (AppPinStore.Attempt) -> Unit) {
@@ -331,7 +331,7 @@ object AppLock {
 
     /** The keyguard's own "confirm your PIN, pattern or password" screen. False when it can't be shown. */
     private fun confirmCredential(activity: ComponentActivity, title: String, onResult: (Boolean) -> Unit) {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The device-credential screen for phones without a biometric prompt credential option.
         val intent = activity.getSystemService(KeyguardManager::class.java)?.createConfirmDeviceCredentialIntent(title, null)
         if (intent == null) {
             onResult(false)
@@ -432,7 +432,7 @@ object VaultSession {
 fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = false, onUnlock: () -> Unit) {
     SensitiveScreen()
     val pins = LocalContext.current.container.appPin
-    // I21: whether a Parley PIN unlocks (null while the small record is read; nothing is offered until then).
+    // Whether a Parley PIN unlocks (null while the small record is read; nothing is offered until then).
     val pin by pins.summary.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { pins.load() }
     val handedOver by rememberUpdatedState(emergencyNumber)

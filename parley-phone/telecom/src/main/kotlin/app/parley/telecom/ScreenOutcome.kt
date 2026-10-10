@@ -32,14 +32,14 @@ data class ScreenOutcome(
     val ringtoneSource: RingtoneSource? = null,
     /** The rule or label named by [ringtoneSource]. */
     val ringtoneName: String? = null,
-    /** P1: why it rings although screening would otherwise have kept it quiet ("called twice in 3 min"). */
+    /** Why it rings although screening would otherwise have kept it quiet ("called twice in 3 min"). */
     val rangThrough: RangThrough? = null,
-    /** I2: the caller looks like a sales line from your own calls (the quiet tag and its "Why?"). */
+    /** The caller looks like a sales line from your own calls (the quiet tag and its "Why?"). */
     val reputation: Reputation? = null,
 )
 
 /**
- * "Ring loud" (merged A8/B24): raises the ring volume to the maximum for one call and puts it back afterwards.
+ * "Ring loud": raises the ring volume to the maximum for one call and puts it back afterwards.
  * The previous volume is written to disk *before* boosting, so a crash or a killed process never leaves the
  * phone stuck at full volume: the next call, or the next app start, restores it.
  *

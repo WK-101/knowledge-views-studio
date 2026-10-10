@@ -174,7 +174,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                     stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver,
                 ) { v -> store.updateSimple { it.copy(speakName = v) } }
             }
-            // I5: the people a big "Add my helper" button calls into a call.
+            // The people a big "Add my helper" button calls into a call.
             item("helpers") { SimpleHelpersRow(vm) { open(FamilyRoutes.Helpers) } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

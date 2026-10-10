@@ -79,7 +79,7 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
                     Tab(tab == t.ordinal, { tab = t.ordinal }, text = { Text(stringResource(t.label)) })
                 }
             }
-            // P18: what History & undo is for, once.
+            // What History & undo is for, once.
             CoachMark(Tips.CONCEPT_HISTORY_UNDO, stringResource(R.string.tip_concept_history_undo))
             when (HistoryTab.entries[tab]) {
                 HistoryTab.CONTACTS -> JournalList(vm, open, onShowSnapshots = { tab = HistoryTab.SNAPSHOTS.ordinal }, Modifier.fillMaxSize())

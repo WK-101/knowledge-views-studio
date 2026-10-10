@@ -22,4 +22,15 @@ kotlin {
 
 dependencies {
     compileOnly(libs.detekt.api)
+    // The rules' tests parse Kotlin with detekt's own parser (already used by the detekt task), no extra test library.
+    testImplementation(libs.detekt.api)
+    testImplementation(libs.detekt.parser)
+    testImplementation(libs.junit)
+}
+
+// detekt runs the rules with its own Kotlin (2.0), so the tests do too.
+configurations.matching { it.name.startsWith("test") }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-compiler")) useVersion("2.0.21")
+    }
 }

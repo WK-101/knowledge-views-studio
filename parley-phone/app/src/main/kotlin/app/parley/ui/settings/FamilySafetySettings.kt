@@ -21,7 +21,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.family.ExpectedHintsDialog
 import app.parley.ui.family.FamilyRoutes
 
-/** Settings › Calls › Family safety: the helpers "Add my helper" can call into a call (I5). */
+/** Settings › Calls › Family safety: the helpers "Add my helper" can call into a call. */
 @Composable
 internal fun FamilySafetyCallsGroup(vm: AppViewModel, open: (Destination) -> Unit) {
     val summary by vm.c.familySafety.summary.collectAsStateWithLifecycle()
@@ -32,7 +32,7 @@ internal fun FamilySafetyCallsGroup(vm: AppViewModel, open: (Destination) -> Uni
     }
 }
 
-/** Settings › Privacy & security › Family safety: where the safe words are (I4). */
+/** Settings › Privacy & security › Family safety: where the safe words are. */
 @Composable
 internal fun FamilySafetyPrivacyGroup(open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_family_safety)) {
@@ -40,7 +40,7 @@ internal fun FamilySafetyPrivacyGroup(open: (Destination) -> Unit) {
     }
 }
 
-/** Settings › Blocking & spam › "Expecting a call from your notes" (I7): "Off", or the kinds that are on. */
+/** Settings › Blocking & spam › "Expecting a call from your notes": "Off", or the kinds that are on. */
 @Composable
 internal fun ExpectedHintsRow(vm: AppViewModel) {
     val summary by vm.c.familySafety.summary.collectAsStateWithLifecycle()

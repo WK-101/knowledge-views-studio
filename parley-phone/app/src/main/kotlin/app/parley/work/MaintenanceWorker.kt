@@ -58,7 +58,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         notices.forEachIndexed { i, n -> notify(ctx, i, n) }
         // After the day's snapshot (taken in housekeeping): contacts that vanished without the user deleting them.
         step("sync watchdog") { SyncWatchdogNotice.check(ctx, c) }
-        // Number memory (I1): after the journal was pruned and today's snapshot taken; only changed stores are read.
+        // Number memory: after the journal was pruned and today's snapshot taken; only changed stores are read.
         step("number memory") { c.numberMemory.rebuild() }
         // At most one backup reminder a month while a backup is overdue.
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
@@ -73,7 +73,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         // Screening upkeep and lists from the optional "Parley Lists" app (read through its provider).
         step("screening upkeep") { SpamListWorker.run(c) }
         step("spam lists") { ListsUpdaterClient.refresh(ctx, c.lists) }
-        // I2: learn again what your own calls say about numbers and ranges (after the archive caught up above).
+        // Learn again what your own calls say about numbers and ranges (after the archive caught up above).
         step("personal reputation") { ReputationLearner.learn(c) }
         return Result.success()
     }
@@ -130,7 +130,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
             val notices = if (onlyDevice?.isEmpty() == true) emptyList() else step("temporary contacts") { c.temporaries.expire(now, onlyDevice) }.orEmpty()
             // 2. Expired vault entries
-            //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
+            //    (private temporary contacts take their call history and "last messaged" entry with them)
             //    Only numbers nobody else has: not a phone contact (or unknown, without permission) and no other
             //    private contact; those keep their history.
             val expired = step("expired vault entries") { c.vault.expiredEntries(now) }.orEmpty().filter { onlyPrivate == null || it.id in onlyPrivate }

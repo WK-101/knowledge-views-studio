@@ -62,7 +62,7 @@ import app.parley.ui.rowColors
 import app.parley.ui.startOrSay
 
 /**
- * Settings › Calls › Drive profile (I11): mark the car's Bluetooth, then choose what happens while it is connected.
+ * Settings › Calls › Drive profile: mark the car's Bluetooth, then choose what happens while it is connected.
  * The list shows paired devices (Android 12+, with "Nearby devices") and the Bluetooth audio devices connected now,
  * so on Android 10 and 11 the car is picked while connected to it. No location, nothing in the background.
  */
@@ -87,7 +87,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
         SegmentedGroup(stringResource(R.string.drive_group_car)) {
             rows.forEach { row -> item("car_${row.device.address}") { DeviceRow(row) { on -> set { DriveProfile.mark(it, row.device, on) } } } }
             if (needsPermission) {
-                // L1: matched by name alone, a common name ("Car Multimedia") could be any car or headphones.
+                // Matched by name alone, a common name ("Car Multimedia") could be any car or headphones.
                 val common = cfg.cars.firstOrNull { DriveProfile.genericName(it.name) }
                 item("nearby") {
                     LinkRow(

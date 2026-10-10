@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 data class LostNumbers(val key: String, val contactId: Long, val name: String, val rows: List<DataRow>)
 
 /**
- * The sync watchdog's device side (I13): after the daily snapshot, compares it with the last one the watchdog saw
+ * The sync watchdog's device side: after the daily snapshot, compares it with the last one the watchdog saw
  * and the accounts with how they were, keeps what it said in [memory], and brings contacts back ("Restore from
  * snapshot") with an undo. Everything stays on the phone; nothing is read but the snapshots, the journal and the
  * accounts' sync switches (READ_SYNC_SETTINGS).

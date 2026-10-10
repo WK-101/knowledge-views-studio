@@ -7,7 +7,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** M1: one reader per call, whatever Telecom does with its RttCall objects. */
+/** One reader per call, whatever Telecom does with its RttCall objects. */
 class RttReaderTest {
     private class Stream(val name: String) {
         override fun toString() = name

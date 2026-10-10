@@ -53,11 +53,11 @@ data class NavTabs(
     companion object {
         val DEFAULT_ORDER = listOf(StartTab.FAVORITES, StartTab.RECENTS, StartTab.CONTACTS, StartTab.KEYPAD, StartTab.CIRCLE)
 
-        /** Optional tabs, off until shown in Settings › Navigation bar (R1: the Circle). */
+        /** Optional tabs, off until shown in Settings › Navigation bar (the Circle). */
         val HIDDEN_BY_DEFAULT: Set<StartTab> = setOf(StartTab.CIRCLE)
 
         /**
-         * Reads [encode]'s format; anything unreadable falls back to the default. U6 (layout promise): a tab missing
+         * Reads [encode]'s format; anything unreadable falls back to the default. The layout promise: a tab missing
          * from a saved value is one an update added, so it is appended *hidden*: an update never changes the bar.
          */
         fun decode(value: String?): NavTabs {

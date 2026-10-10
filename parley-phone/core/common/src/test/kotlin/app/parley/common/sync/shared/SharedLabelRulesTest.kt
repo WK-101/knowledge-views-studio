@@ -60,7 +60,7 @@ class SharedLabelRulesTest {
     }
 
     @Test fun an_unreadable_file_is_written_again_after_a_grace_period() {
-        // M2: a damaged file waits an hour (it may still be arriving), one signed by a stranger a day (their journal may).
+        // A damaged file waits an hour (it may still be arriving), one signed by a stranger a day (their journal may).
         val t = 1_000_000L
         assertEquals(Remote.UNREADABLE, SharedLabelRules.unreadable(t, t + SharedLabelRules.CORRUPT_GRACE_MS - 1, stranger = false))
         assertEquals(Remote.MISSING, SharedLabelRules.unreadable(t, t + SharedLabelRules.CORRUPT_GRACE_MS, stranger = false))
@@ -72,7 +72,7 @@ class SharedLabelRulesTest {
     }
 
     @Test fun versions_far_in_the_future_or_at_the_top_never_freeze_a_contact() {
-        // L7.
+        // A version stamp far in the future is no version.
         val now = 1_700_000_000_000L
         assertTrue(SharedLabelRules.plausibleVersion(now + 1000, now))
         assertFalse(SharedLabelRules.plausibleVersion(Long.MAX_VALUE, now))

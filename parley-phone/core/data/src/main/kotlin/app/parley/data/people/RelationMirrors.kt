@@ -142,6 +142,7 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
     }
 
     /** Takes back [done] (the snackbar's Undo): each change is reversed where the other contact still shows it. */
+    // One pass over the changes, skipping those the other contact no longer shows.
     @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
     suspend fun undo(selfId: Long, done: List<Done>): Int = withContext(Dispatchers.IO) {
         lock.withLock {

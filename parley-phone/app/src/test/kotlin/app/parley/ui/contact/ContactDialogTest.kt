@@ -30,7 +30,7 @@ class ContactDialogTest {
         // Through a real Bundle, as the activity keeps it.
         val bundle = Bundle().apply { putSerializable("d", saved as java.io.Serializable) }
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The test reads the bundle the way older Androids do.
         val back = bundle.getSerializable("d")!!
         return ContactDialog.Saver.restore(back)!!
     }

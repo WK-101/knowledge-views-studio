@@ -62,7 +62,7 @@ class ParleyApp : Application() {
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
         container = DataContainer(this)
-        // Parley is English-only: a language picked in an older version is dropped once, off the main thread (L7).
+        // Parley is English-only: a language picked in an older version is dropped once, off the main thread.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)
@@ -91,7 +91,7 @@ class ParleyApp : Application() {
             // A private contact's picture shared from the cache (decrypted) goes with the rest.
             container.scope.launch(Dispatchers.IO) { ImageExport.forgetPrivate(this@ParleyApp) }
         }
-        // I21: locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
+        // Locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
         // real Parley PIN.
         AppLock.onEngaged = { LockTransitions.locked(container) }
         // Widgets hide names when Parley's lock delay runs out after leaving it, not only at the next screen-on.

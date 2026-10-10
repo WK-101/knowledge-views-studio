@@ -156,7 +156,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
         val unlabelled = all.orEmpty().count { idx.extras[it.id]?.labels.isNullOrEmpty() }
         val labelsTip = tipPending(Tips.CONCEPT_LABELS)
         LazyColumn(Modifier.padding(p)) {
-            // P18: what labels are, the first time this screen lists some.
+            // What labels are, the first time this screen lists some.
             if (!merging && list.isNotEmpty() && labelsTip) item(key = "tip") {
                 CoachMark(Tips.CONCEPT_LABELS, stringResource(R.string.tip_concept_labels))
             }
@@ -345,7 +345,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
         onConfirm = {
             onDismiss()
             scope.launch {
-                // M4: renaming onto another label's name merges the two; while either is shared, that would share
+                // Renaming onto another label's name merges the two; while either is shared, that would share
                 // every contact of the merged label, so it is refused.
                 if (vm.c.sharedLabels.renameWouldMerge(old, name)) {
                     vm.toast(res.getString(R.string.shl_rename_would_merge, name.trim()))
@@ -431,7 +431,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     }
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The ringtone picker returns its pick in an untyped extra.
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             vm.people.update { st ->
                 st.copy(labelRingtones = if (uri == null) st.labelRingtones - current else st.labelRingtones + (current to uri.toString()))
@@ -538,7 +538,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                 }
                 // SIM, Circle rhythm and Do Not Disturb for this label.
                 item { LabelPolicySection(vm, current, members) }
-                // I4: the label's safe word (asks who it is before showing or changing it).
+                // The label's safe word (asks who it is before showing or changing it).
                 item { SafeWordSection(vm, current) }
                 // Shared with other people's phones: status, members and who changed what.
                 item { SharedLabelSection(vm, current, open) }

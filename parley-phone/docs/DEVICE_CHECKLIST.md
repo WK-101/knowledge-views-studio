@@ -2,7 +2,7 @@
 
 One hour on real phones, riskiest first. Each line points at the full steps in [TESTING.md](TESTING.md). Nothing below has been run on a device yet; unit and Robolectric tests cover the logic, not the phone.
 
-**Phones.** A: a Pixel on Android 16, signed in to Google, Parley as the default phone app. B: a Samsung on Android 15 (One UI). A second phone (or a friend) to call from. Where a line says "A only" or "B only", the other phone can skip it.
+**Phones.** A: a Pixel on Android 17, signed in to Google, Parley as the default phone app. B: a Samsung on One UI 8 or 9. C: a Xiaomi or a Motorola, which stop background work hardest (used by the 6.x lines). A second phone (or a friend) to call from. Where a line says "A only" or "B only", the other phones can skip it. The lines of sections 1–4 were written for Android 15 and 16 and hold on Android 17; where a line names an Android version, read it as "that version or later".
 
 **Before you start.** Install the debug build on both phones and finish onboarding. Save three contacts: one in Google with a photo, one phone-only, and one private contact (with a note). Keep `adb logcat` running on A and watch for crashes.
 
@@ -44,5 +44,26 @@ One hour on real phones, riskiest first. Each line points at the full steps in [
 | # | Check | Phones | Expected | Steps |
 |---|---|---|---|---|
 | 17 | **Themes and sizes.** Check the call screen, Recents in Cards and the Filters sheet in light, dark and AMOLED, at the largest font, right to left and in landscape | A; B (One UI font scaling) | Nothing is cut off, sheets scroll, rows wrap and numbers stay left to right | §32.3 5, §33.1 12, §34.3 10 |
+
+## 5. The 6.x features (about 35 min)
+
+Riskiest first: Android 17 itself, then what depends on alarms, background work and the carrier, which no test on a computer can show. Install the debug build: a crash or "isn't responding" on any line shows "Parley stopped unexpectedly" at the next start, so save that report with the row.
+
+| # | Check | Phones | Expected | Steps |
+|---|---|---|---|---|
+| 18 | **Android 17.** Make Parley the default phone app on a fresh install, take a call, place one, then open Recents and a contact | A | Onboarding asks for the phone role and permissions as on Android 16; the call screen, Recents and the system call log behave the same. Nothing asks for a new permission | §30.1, §30.2 |
+| 19 | **Rescue call in Doze.** Set a rescue call for in 15 minutes, lock the phone and leave it still, face down, unplugged | A, B, C | It rings, at most a few minutes late, full screen. On C note how late, and whether it rang at all with battery saver on | §41.4 3–4 |
+| 20 | **Duress and Rescue.** Unlock with the duress PIN, then open Settings › Calls › Situations › Rescue call; get a call blocked by a rule from a private contact's number | A | Rescue shows nothing pending and no last choices. The blocked-call notification names no private contact, also on the lock screen | §44.4 |
+| 21 | **Situations by time and by car.** Set a Situation for a window of 10 minutes; then one that starts when the car's Bluetooth connects | A, B, C | The window turns it on and off within a few minutes; calls follow it at once. Connecting the car turns it on, disconnecting turns it off. On C, check the window still ends with the screen off | §39.3 |
+| 22 | **Archive with Google.** Archive a contact saved in Google, check Google Contacts on the web, then Unarchive | A, B | Archived: it leaves Google Contacts and every list, yet its calls ring as a saved contact with its name. Unarchived: it is back in Google, photo whole | §41.2 |
+| 23 | **A card from a stranger.** Open a .vcf someone sent you that asks to be archived and a favourite, and scan a QR card with the same | A | Before "Import all" the dialog lists what is left out. The contact is in your lists, not a favourite, and their calls get the usual unknown-number help | §46.13 |
+| 24 | **Shield between two phones.** Share a family label between A and B with the spam shield on; block a number on A | A + B | B warns about that number within a sync; nothing is shared until both have opted in | §40.2 |
+| 25 | **"This number never calls you".** Save the second phone as a company you've only called, then let it call you | A, B | The calm card shows while it rings, with Is this a scam? | §39.1 1–4 |
+| 26 | **Network names.** Take a call from an unsaved number on a carrier that sends the caller's name (CNAP: most US carriers, some in India) | A or B, by carrier | The name shows marked "From the network", and is offered in Search everything once Remember names from the network is on | §43.1, §44.1 |
+| 27 | **Dead-number radar.** Call a number that no longer exists, twice | A, B | After the second failed call the contact page offers to check the number; a busy or unanswered call never counts | §40.3 |
+| 28 | **Chapter end.** Give a label an end two minutes ahead and wait with Parley closed | A, C | One notification and a card on the label at the end, with nothing done by itself | §41.1 |
+| 29 | **Ringing.** Ring style Increasing, then Vibrate first, then ring; take calls with the ringer on, on vibrate and with Do Not Disturb | A, B | The ring grows from quiet; after any call, even one Parley was closed during, the ring volume is back where you set it. Vibrate first stops at once when the phone goes silent | §45.5, §45.6, §45.8 1–3 |
+| 30 | **SIM that learns.** On a dual-SIM phone, call the same number three times on the second SIM | B or C (dual SIM) | The fourth call offers that SIM first, and says why | §40.4 |
+| 31 | **Crash report.** With Parley open, crash it (`adb shell am crash app.parley.phone.debug`; a force-stop is no crash), then open it again; once more with Keep crash reports off | A, B | One card, "Parley stopped unexpectedly", with Save a report, both times; the saved file has the stack, versions and phone model only, and the card doesn't come back | §46.15 |
 
 **When something fails,** note the phone, Android version, Parley build and the row number, and attach the logcat around it. Device-only flows (Telecom, widgets, the camera, the Storage Access Framework) can't be reproduced in unit tests, so the report is what gets them fixed.

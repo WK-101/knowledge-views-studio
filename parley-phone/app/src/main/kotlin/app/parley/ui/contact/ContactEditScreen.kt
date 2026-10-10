@@ -1313,7 +1313,7 @@ private fun EventTypePill(ev: EventItem, onChange: (EventItem) -> Unit, onCustom
 }
 
 /**
- * One address as a block of lines: street (with the type pill), PO box and neighbourhood when it has them (F25),
+ * One address as a block of lines: street (with the type pill), PO box and neighbourhood when it has them,
  * postcode and city, region and country; then its map link ("Add from map link").
  */
 @Suppress("CyclomaticComplexMethod") // One branch per optional line of the block.

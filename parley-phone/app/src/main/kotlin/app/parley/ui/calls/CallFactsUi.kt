@@ -32,9 +32,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Number history: the facts of recent calls worth knowing (L2, L10): the subject the caller sent, a call the network
+ * Number history: the facts of recent calls worth knowing: the subject the caller sent, a call the network
  * dropped and why, Wi-Fi calling and HD voice, the SIM. Plain calls with nothing to say aren't listed. Above them, one
- * quality line for the number once it has two connected calls (I8).
+ * quality line for the number once it has two connected calls.
  */
 @Composable
 fun CallFactsHistorySection(vm: AppViewModel, number: String) {
@@ -43,7 +43,7 @@ fun CallFactsHistorySection(vm: AppViewModel, number: String) {
         value = withContext(Dispatchers.IO) { runCatching { vm.c.callQuality.forNumber(number) }.getOrDefault(emptyList()) }
     }
     val shown = facts.filter { it.subject != null || it.drop != null || it.wifi || it.hd }.take(MAX_SHOWN)
-    // I8: one quality line for the number ("7 calls in 60 days, 2 dropped, all on Work").
+    // One quality line for the number ("7 calls in 60 days, 2 dropped, all on Work").
     val quality = remember(facts) { CallQualityDiary.numberLine(facts) }
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     // Without the phone-app role nothing is noted: the section says so, with the way to change it.

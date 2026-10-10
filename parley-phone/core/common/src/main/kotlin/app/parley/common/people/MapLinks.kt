@@ -86,7 +86,7 @@ object MapLinks {
     }
 
     /** One link (see the class documentation); null when it isn't a link at all. */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One branch per map service's link form.
     fun parseLink(url: String): Place? {
         if (url.startsWith("geo:", ignoreCase = true)) return parseGeo(url)
         val u = split(url) ?: return null

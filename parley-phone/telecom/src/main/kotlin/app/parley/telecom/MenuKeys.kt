@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The keypad during a call: DTMF tones (held as long as the key is), and menu memory (I6): the digits sent in a
+ * The keypad during a call: DTMF tones (held as long as the key is), and menu memory: the digits sent in a
  * connected outgoing call, kept when it ends, and "Last time: 2 › 1 › 4" sent again on request.
  */
 internal class MenuKeys(private val scope: CoroutineScope, private val live: LiveCalls, private val deps: () -> TelecomDependencies) {
@@ -62,7 +62,7 @@ internal class MenuKeys(private val scope: CoroutineScope, private val live: Liv
         s.menuPresses += MenuPress(c, System.currentTimeMillis() - d.connectTimeMillis)
     }
 
-    /** I6: hands the digits of a connected outgoing call to menu memory. Never for emergency calls or conferences. */
+    /** Hands the digits of a connected outgoing call to menu memory. Never for emergency calls or conferences. */
     fun record(ended: CallUi, s: CallSession) {
         if (s.menuPresses.isEmpty() || ended.connectTimeMillis <= 0) return
         if (ended.incoming || ended.isConference || ended.hidden) return
@@ -106,7 +106,7 @@ internal class MenuKeys(private val scope: CoroutineScope, private val live: Liv
     }
 
     /**
-     * L3: whether a replay may send its next key into [c]: still active on its own, not merged into a conference (the
+     * Whether a replay may send its next key into [c]: still active on its own, not merged into a conference (the
      * keys would go to everyone in it) and no other call became the active one.
      */
     private fun replayMayGoOn(c: Call): Boolean = MenuMemory.replayGoesOn(
@@ -115,7 +115,7 @@ internal class MenuKeys(private val scope: CoroutineScope, private val live: Liv
         otherActive = live.calls.any { it !== c && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE },
     )
 
-    /** L3: a call changed (merged, held, another answered): the replay stops at once if it may not go on. */
+    /** A call changed (merged, held, another answered): the replay stops at once if it may not go on. */
     fun checkReplay() {
         val id = _replay.value?.callId ?: return
         val c = live.find(id)

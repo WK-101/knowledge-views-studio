@@ -45,7 +45,7 @@ internal class CallEndRecorder(
         hasNumber = !ended.hidden && !ended.number.isNullOrBlank(),
     )
 
-    /** L2: the call's quality facts, for the number history and the quality diary (returned too). Never for emergency calls. */
+    /** The call's quality facts, for the number history and the quality diary (returned too). Never for emergency calls. */
     fun quality(call: Call, ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?): CallQualityFacts? {
         if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return null
         val now = System.currentTimeMillis()

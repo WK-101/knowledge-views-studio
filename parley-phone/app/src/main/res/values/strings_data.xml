@@ -51,7 +51,6 @@
         <item quantity="other">Restored %1$d calls</item>
     </plurals>
     <string name="hist_restore_failed_default">Couldn\'t restore. Make Parley your default phone app first.</string>
-    <string name="hist_export_import">Export &amp; import</string>
     <string name="hist_csv_bom">Excel-friendly CSV</string>
     <string name="hist_csv_bom_summary">Adds a byte-order mark so accents show correctly in Excel</string>
     <string name="hist_export_hint">To export, open Recents › ⋮ › Export, or a number\'s history.</string>
@@ -1006,12 +1005,11 @@
         <item quantity="one">Contact copied</item>
         <item quantity="other">%1$d contacts copied</item>
     </plurals>
-    <string name="ppl_crash_title">Parley stopped last time</string>
-    <string name="ppl_crash_text">A report was kept on this phone. Numbers and email addresses in it are masked. Send it if you\'d like the problem fixed; Parley can\'t send anything itself.</string>
-    <string name="ppl_crash_subject">Parley crash report</string>
-    <string name="ppl_crash_send_chooser">Send crash report</string>
-    <string name="ppl_crash_send">Send…</string>
-    <string name="ppl_crash_delete">Delete report</string>
+    <string name="ppl_crash_title">Parley stopped unexpectedly</string>
+    <string name="ppl_crash_text">A report can help get it fixed. It holds only what went wrong in the app, the app and Android versions and the phone model, with numbers and email addresses masked. Parley can\'t send anything itself.</string>
+    <string name="ppl_crash_save">Save a report</string>
+    <string name="ppl_crash_not_now">Not now</string>
+    <string name="ppl_crash_saved">Report saved</string>
 
     <!-- People: contact CSV column mapping -->
     <string name="csv_no_table">This file has no lines Parley can read as a table.</string>

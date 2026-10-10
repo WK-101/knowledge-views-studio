@@ -34,7 +34,7 @@ object CallsRoutes {
 }
 
 /**
- * Settings › Calls › Phone menus (I6): "Remember menu keys", on by default with the conservative guard
+ * Settings › Calls › Phone menus: "Remember menu keys", on by default with the conservative guard
  * ([MenuMemory.secretStartOf]). Turning it off forgets every remembered path at once; saved shortcuts and the
  * per-number "Don't remember" choices stay.
  */

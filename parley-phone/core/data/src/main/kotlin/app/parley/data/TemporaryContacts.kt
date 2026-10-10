@@ -61,7 +61,7 @@ object TemporaryContacts {
             return Saved(id, private = true)
         }
         // Kept on this phone only (never synced to an account): it's meant to disappear. The store records the raw
-        // contact it created, and only that one is ever deleted (F2; see app.parley.data.people.TemporaryContactStore).
+        // contact it created, and only that one is ever deleted (see app.parley.data.people.TemporaryContactStore).
         val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory, photo) ?: return null
         return Saved(saved.contactId, private = false, rawId = saved.rawId)
     }

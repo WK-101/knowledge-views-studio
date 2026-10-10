@@ -104,7 +104,7 @@ internal fun confirmItsYou(context: Context, onOk: () -> Unit) {
 }
 
 /**
- * I4 on a label's page: "Family safe word", set or not. Seeing or changing it asks who it is first; the question and
+ * On a label's page: "Family safe word", set or not. Seeing or changing it asks who it is first; the question and
  * answer are read from the sealed store only then, and never kept in saved state.
  */
 @Composable
@@ -129,7 +129,7 @@ fun SafeWordSection(vm: AppViewModel, title: String) {
         },
         leadingContent = { Icon(Icons.Rounded.FamilyRestroom, null) },
         headlineContent = { Text(stringResource(R.string.safe_word_row)) },
-        // Says what it is for the first time and every time (P18).
+        // Says what it is for the first time and every time.
         supportingContent = { Text(stringResource(if (set) R.string.safe_word_row_set else R.string.safe_word_row_none)) },
         trailingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
     )
@@ -181,7 +181,7 @@ private fun SafeWordDialog(label: String, initial: SafeWord?, onDismiss: () -> U
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                // L3: a secret: a password field with no suggestions or autocorrect, and the keyboard told not to learn it.
+                // A secret: a password field with no suggestions or autocorrect, and the keyboard told not to learn it.
                 NoKeyboardLearning {
                     OutlinedTextField(
                         answer, { answer = it.take(SafeWords.MAX_ANSWER) }, singleLine = true,

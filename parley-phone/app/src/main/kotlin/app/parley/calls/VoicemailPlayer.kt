@@ -195,7 +195,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
             if (Build.VERSION.SDK_INT >= 31) {
                 am.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }?.let { am.setCommunicationDevice(it) }
             } else {
-                @Suppress("DEPRECATION")
+                @Suppress("DEPRECATION") // setCommunicationDevice needs Android 12; this is the older path.
                 am.isSpeakerphoneOn = false
             }
         }

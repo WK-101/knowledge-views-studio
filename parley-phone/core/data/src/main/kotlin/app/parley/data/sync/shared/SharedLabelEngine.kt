@@ -77,7 +77,7 @@ class SharedLabelEngine(
     private fun parse(bytes: ByteArray, labelId: String): SharedLabelCrypto.Header? =
         runCatching { SharedLabelCrypto.parseHeader(bytes) }.getOrNull()?.takeIf { it.labelId == labelId }
 
-    /** What the folder's header means for this phone (M3). */
+    /** What the folder's header means for this phone. */
     private sealed interface HeaderCheck {
         /** This phone's key opens it at its epoch: go on, and keep it as the last good header. */
         class Ok(val bytes: ByteArray) : HeaderCheck
@@ -97,7 +97,7 @@ class SharedLabelEngine(
     }
 
     /**
-     * M3: anyone who can write to the folder can replace `.parley-label`. A header this phone's key doesn't open is a
+     * Anyone who can write to the folder can replace `.parley-label`. A header this phone's key doesn't open is a
      * key change only when a member signed it ([SharedLabelCrypto.headerSigName], sealed with this phone's key, so
      * only someone who had it could write it); otherwise this phone keeps to the header it last accepted, and never
      * moves to a lower epoch. A state kept before headers were remembered follows the old rule once.
@@ -206,7 +206,7 @@ class SharedLabelEngine(
     // ---------------------------------------------------------------- reading the folder
 
     /**
-     * The journals in the folder, checked. L7: members' own journals first, then at most [MAX_JOURNALS] in all, and a
+     * The journals in the folder, checked. Members' own journals first, then at most [MAX_JOURNALS] in all, and a
      * file that couldn't be used before ([junk], same stamp) isn't opened again: a folder writer can't make every run
      * read thousands of files. [newJunk] collects what couldn't be used this time.
      */
@@ -270,6 +270,7 @@ class SharedLabelEngine(
      */
     private class Read(val name: String, val file: CardFile?, val member: Boolean)
 
+    // One sync run in order, with its mass-delete guard; split only with behaviour work.
     @Suppress("CyclomaticComplexMethod", "LongMethod", "NestedBlockDepth", "ReturnCount", "LoopWithTooManyJumpStatements")
     suspend fun run(start: SharedLabelState, allowMassDelete: Boolean = false): Outcome {
         if (!SharedLabelMembership.syncs(start.membership)) return Outcome(start)
@@ -319,8 +320,8 @@ class SharedLabelEngine(
         }
 
         // Contact files: only those whose stamp moved are opened, while the members stay the same. When they change,
-        // every file is read once: one from a member who left must be seen to be signed again (M1), and junk (L7,
-        // remembered by stamp) can turn out to be a new member's once their journal has arrived.
+        // every file is read once: one from a member who left must be seen to be signed again, and junk (remembered
+        // by stamp) can turn out to be a new member's once their journal has arrived.
         val rosterSame = memberKeys == s.members.map { it.keyHex }.toSet()
         val cardJunk = if (rosterSame) s.junk else emptyMap()
         val stamps = HashMap(s.stamps.filterKeys { it in listing })
@@ -331,7 +332,7 @@ class SharedLabelEngine(
             rosterSame && stamp != null && s.stamps[name] == stamp && (sid in s.entries || sid in s.seen)
         for ((name, listed) in listing) {
             val sid = SharedLabelFiles.sidOf(name) ?: continue
-            // A provider without modified time and size (M1): the content's hash stands in for the stamp.
+            // A provider without modified time and size: the content's hash stands in for the stamp.
             var bytes: ByteArray? = null
             val stamp = listed ?: folder.read(name)?.also { bytes = it }?.let(::contentStamp)
             if (unchanged(name, stamp, sid)) continue
@@ -342,7 +343,7 @@ class SharedLabelEngine(
             }
             val file = (bytes ?: folder.read(name))?.let { SharedLabelCrypto.open(s.key, s.labelId, name, it) }
                 ?.let { SharedLabelFiles.readCard(s.labelId, name, it) }
-                // L7: a version far ahead of the clock would make every later write lose to it.
+                // A version far ahead of the clock would make every later write lose to it.
                 ?.takeIf { SharedLabelRules.plausibleVersion(it.version, now) }
             val member = file != null && file.authorHex in memberKeys
             reads[sid] = Read(name, file, member)
@@ -362,7 +363,7 @@ class SharedLabelEngine(
             if (m != null) mapped[sid] = m
         }
 
-        // M1: a file this phone accepted, now signed by someone who isn't a member any more (they left, or their key
+        // A file this phone accepted, now signed by someone who isn't a member any more (they left, or their key
         // changed): signed again by this phone exactly as accepted, so it stays readable for everyone, later members
         // included. Only the very file accepted (same version, same signed body); anything else isn't vouched for.
         fun accepted(e: SharedLabelState.Entry, f: CardFile) = e.fileHash.isNotEmpty() && f.version == e.ver && f.bodyHash == e.fileHash
@@ -383,7 +384,7 @@ class SharedLabelEngine(
             val r = reads[sid] ?: return Remote.UNCHANGED to null // stamp unchanged
             val f = r.file?.takeIf { r.member }
             if (f == null) {
-                // M2: unusable for a while, then written again from here (anyone with folder access could freeze it).
+                // Unusable for a while, then written again from here (anyone with folder access could freeze it).
                 val u = unreadable.getOrPut(sid) { SharedLabelState.Unreadable(now, stranger = r.file != null) }
                 return SharedLabelRules.unreadable(u.since, now, u.stranger) to null
             }
@@ -432,7 +433,7 @@ class SharedLabelEngine(
          * Writes [m] as the sid's next version. [parent]: the version it was made from (this phone's synced one, or the
          * member's version merged in); [theirs]: that merged version, remembered as one this phone held.
          */
-        @Suppress("LongParameterList")
+        @Suppress("LongParameterList") // One argument per part of the published card.
         fun publish(
             sid: String,
             m: LabelContacts.Member,
@@ -605,7 +606,7 @@ class SharedLabelEngine(
 
     // ---------------------------------------------------------------- choices, key changes, leaving
 
-    /** Whether the folder's header lets this phone write now: its own, or a suspect one it keeps ignoring (M3). */
+    /** Whether the folder's header lets this phone write now: its own, or a suspect one it keeps ignoring. */
     private fun writable(s: SharedLabelState, listing: Map<String, String?>): Boolean = when (checkHeader(s, listing)) {
         is HeaderCheck.Ok, is HeaderCheck.Suspect -> true
         else -> false
@@ -667,9 +668,10 @@ class SharedLabelEngine(
      * nobody here accepted (planted by someone who still has the old key, the removed member included, before or
      * during the change) stays sealed with the old key: unreadable from now on, and ignored. On a retry this works
      * from the same record, not from what the folder holds by then. Then the signed note of the key change (sealed with
-     * the old key, so members who still hold it can tell a real change from a swapped header, M3), the new header, and
+     * the old key, so members who still hold it can tell a real change from a swapped header), the new header, and
      * this phone's journal; other members' old journals go. Idempotent; null when the folder couldn't be written.
      */
+    // Every step of a key rotation in one place, each failing safe.
     @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements", "ReturnCount")
     private fun finishRotation(s: SharedLabelState, listing: Map<String, String?>): SharedLabelState? {
         val old = s.oldKey ?: return s
@@ -768,7 +770,7 @@ class SharedLabelEngine(
      * them with the usual rules, history and replay checks. The update itself must be sealed with this label's key,
      * signed by its sender, and newer than the last one opened from them.
      */
-    @Suppress("ReturnCount", "CyclomaticComplexMethod")
+    @Suppress("ReturnCount", "CyclomaticComplexMethod") // Every check of an update file in one place, each with its own result.
     suspend fun openUpdate(s: SharedLabelState, bytes: ByteArray, allowMassDelete: Boolean = false): UpdateOutcome {
         fun no(r: UpdateResult) = UpdateOutcome(s, r)
         val peek = SharedLabelUpdates.peek(bytes) ?: return no(UpdateResult.NOT_AN_UPDATE)
@@ -798,7 +800,7 @@ class SharedLabelEngine(
      * Which of an update's [files] the run sees ([SharedLabelUpdates.takesCard] and the like), and which of those stay
      * in the folder afterwards. Files that don't open with the label's key, and this phone's own journal, are left out.
      */
-    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
+    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements") // One pass over the listing, skipping what isn't new.
     private fun arrivals(s: SharedLabelState, listing: Map<String, String?>, files: Map<String, ByteArray>): Pair<Map<String, ByteArray>, Set<String>> {
         val shown = LinkedHashMap<String, ByteArray>()
         val kept = HashSet<String>()
@@ -853,7 +855,7 @@ class SharedLabelEngine(
         /** Senders whose last update time is kept (the members a label can count, and some to spare). */
         const val MAX_EXCHANGED = 2 * SharedLabelFiles.MAX_MEMBERS
 
-        /** L7: journals opened per run at most (members' own first): twice the members a label can count. */
+        /** Journals opened per run at most (members' own first): twice the members a label can count. */
         const val MAX_JOURNALS = 2 * SharedLabelFiles.MAX_MEMBERS
 
         /** The stamp of a file whose provider gives no modified time or size: its content's hash. */

@@ -104,7 +104,7 @@ object FrameMath {
      * ([panX], [panY]) screen pixels and pinched by [zoom] around ([centroidX], [centroidY]) in the viewport. The
      * picture follows the fingers: the point under them stays under them.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // A gesture's values as the gesture detector gives them.
     fun gesture(
         f: PhotoFrame, width: Int, height: Int, viewSide: Double,
         panX: Double, panY: Double, zoom: Double, centroidX: Double, centroidY: Double,

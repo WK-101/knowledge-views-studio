@@ -57,7 +57,7 @@ private data class DiaryPerson(val title: String, val number: String, val contac
 private data class QualityData(val report: QualityReport, val people: Map<String, DiaryPerson>)
 
 /**
- * I8, the Call insights "Quality" card: drop rates (overall, per SIM, Wi-Fi calling against the mobile network),
+ * The Call insights "Quality" card: drop rates (overall, per SIM, Wi-Fi calling against the mobile network),
  * patterns worth acting on ("Calls with Mum often drop on SIM 2 in the evening · Try Wi-Fi calling") and the recent
  * dropped calls with Call again (same number, same SIM). From the quality facts kept per call for 60 days
  * ([app.parley.data.calls.CallQualityStore]); those are keyed by a fingerprint of the line, so people are matched by

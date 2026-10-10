@@ -93,7 +93,7 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
 
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The ringtone picker returns its pick in an untyped extra.
         val picked = r.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
         onDismiss()
         // "Default ringtone" means the phone's own: no ringtone of their own.

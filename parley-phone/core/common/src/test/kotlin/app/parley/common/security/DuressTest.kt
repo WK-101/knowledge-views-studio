@@ -10,7 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The duress session's state machine and what it hides (I21). */
+/** The duress session's state machine and what it hides. */
 class DuressTest {
     private val start = DuressMachine.restored(hiding = false, vaultLocked = false)
 
@@ -47,7 +47,7 @@ class DuressTest {
     }
 
     @Test fun with_a_parley_pin_only_a_pin_unlocks() {
-        // M7: the same with or without a duress PIN, so the lock screen can't tell which.
+        // The same with or without a duress PIN, so the lock screen can't tell which.
         assertNull(DuressMachine.otherUnlock(start, pinRequired = true))
         val hidden = DuressMachine.locked(DuressMachine.pinEntered(start, PinVerdict.DURESS, true))
         assertNull(DuressMachine.otherUnlock(hidden, pinRequired = true))
@@ -94,13 +94,13 @@ class DuressTest {
     }
 
     @Test fun search_finds_the_duress_pin_whether_or_not_one_is_set() {
-        // M7: the duress PIN's row is always there (shown "Off" in a session), so search always finds it, as on a
+        // The duress PIN's row is always there (shown "Off" in a session), so search always finds it, as on a
         // phone where none was ever set; a search that came back empty in a session would give it away.
         assertTrue(SettingsCatalog.entries.any { it.key == "duress_pin" })
     }
 
     @Test fun pin_changes_wait_like_wrong_tries_and_only_the_real_pin_clears_them() {
-        // M5: in a duress session a "new PIN" is a way to try PINs; changes count, whatever was typed.
+        // In a duress session a "new PIN" is a way to try PINs; changes count, whatever was typed.
         var r = PinRecord("c2FsdA==", 10, 1, 1, "aGFzaA==")
         repeat(PinBackoff.FREE_TRIES) {
             assertEquals(0L, PinBackoff.changeWait(r, 1_000L))

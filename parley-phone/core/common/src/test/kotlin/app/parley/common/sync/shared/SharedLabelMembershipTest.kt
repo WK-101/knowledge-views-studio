@@ -120,7 +120,7 @@ class SharedLabelMembershipTest {
     }
 
     @Test fun invitations_expire_and_qr_codes_are_hard_to_guess() {
-        // L3: a week, then a new invitation is needed.
+        // A week, then a new invitation is needed.
         val (_, key) = SharedLabelCrypto.newHeader(label, 1, "pass".toCharArray(), KdfParams.Pbkdf2(BackupCrypto.MIN_ITERATIONS))
         val i = Invitation(label, "Family", "", 1, key, ana.publicKey, "Ana", ana.publicKey, "Ana", invite(ana))
         assertNotNull(SharedLabelInvites.decode(SharedLabelInvites.encode(i), now + week - 1))
@@ -135,7 +135,7 @@ class SharedLabelMembershipTest {
     }
 
     @Test fun an_invitation_lets_in_one_member_and_not_after_it_expired() {
-        // L3: Sam and Eve both show the same invitation: neither is let in, unless one was already counted.
+        // Sam and Eve both show the same invitation: neither is let in, unless one was already counted.
         val id = SharedLabelFiles.newId()
         val twice = listOf(journal(ana, "Ana"), journal(sam, "Sam", ticket = invite(ana, id = id)), journal(eve, "Mom", ticket = invite(ana, id = id)))
         assertEquals(listOf("Ana"), SharedLabelRoster.members(label, 1, ana.publicKey, "Ana", twice, now).map { it.name })
@@ -149,7 +149,7 @@ class SharedLabelMembershipTest {
     }
 
     @Test fun a_key_change_is_signed_over_the_new_header() {
-        // M3: the new anchor signs the new header; anyone else's signature, or another header, doesn't pass.
+        // The new anchor signs the new header; anyone else's signature, or another header, doesn't pass.
         val (header, _) = SharedLabelCrypto.newHeader(label, 2, "pass".toCharArray(), KdfParams.Pbkdf2(BackupCrypto.MIN_ITERATIONS))
         val sig = SharedLabelFiles.readHeaderSig(label, SharedLabelFiles.writeHeaderSig(ana, label, 2, header)!!)!!
         assertEquals(ana.hex, sig.signerHex)
@@ -161,7 +161,7 @@ class SharedLabelMembershipTest {
     }
 
     @Test fun joined_labels_never_land_in_a_label_of_the_same_name() {
-        // M4.
+        // A shared label's title never takes one already in use.
         val suffixed = { n: Int -> if (n == 1) "Family (shared)" else "Family (shared $n)" }
         assertEquals("Family", SharedLabelTitles.fresh("Family", listOf("Work"), suffixed))
         assertEquals("Family (shared)", SharedLabelTitles.fresh("Family", listOf("Family", "Work"), suffixed))

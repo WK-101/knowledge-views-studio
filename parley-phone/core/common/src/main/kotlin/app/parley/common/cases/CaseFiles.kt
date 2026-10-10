@@ -99,7 +99,7 @@ object CaseFiles {
      * "Keep a case file" ([mode] ON) for a contact named [name] with [numbers], or turning it back to [CaseMode.AUTO]:
      * the one found by number changes (its name and numbers follow the contact's), else a new one is made with [newId].
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // Each value is a separate fact of the case; a holder would only rename them.
     fun setMode(state: CaseState, name: String, numbers: List<String>, private: Boolean, mode: CaseMode, now: Long, region: String?, newId: String): CaseState {
         val found = find(state, numbers, region)
         val next = found?.let { withNumbers(it, numbers, region).copy(name = name.ifBlank { it.name }, mode = mode, private = private) }
@@ -111,7 +111,7 @@ object CaseFiles {
      * The case file of an organisation that has none yet (its card was opened): made with [CaseMode.AUTO] and nothing in it.
      * The found one when there is one.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // Each value is a separate fact of the case; a holder would only rename them.
     fun ensure(state: CaseState, name: String, numbers: List<String>, private: Boolean, now: Long, region: String?, newId: String): CaseState =
         if (find(state, numbers, region) != null) state else put(state, CaseFile(newId, name, numbers.distinct(), CaseMode.AUTO, private, created = now))
 
@@ -127,7 +127,7 @@ object CaseFiles {
      * an [organisation]'s ([name] then names the contact); one that was stopped keeps nothing. [private]: the number is
      * a private contact's now, which the case takes on either way.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // Each value is a separate fact of the call; a holder would only rename them.
     fun recordCall(
         state: CaseState,
         number: String,

@@ -41,7 +41,7 @@ import app.parley.ui.rowColors
 import kotlinx.coroutines.launch
 
 /**
- * I6: the menu shortcuts saved for any of [numbers] (a contact's, or the number of a number history), as a "Shortcuts"
+ * The menu shortcuts saved for any of [numbers] (a contact's, or the number of a number history), as a "Shortcuts"
  * group. A tap calls the number and sends the digits with their pauses (`number,,2,1,4`, through the usual call path);
  * ⋮ renames one, puts it on the home screen or deletes it. Nothing shows while there are none.
  */

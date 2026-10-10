@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Remind me" on a missed-call notification (P3): a small sheet with the fixed times. It names no one (the
+ * "Remind me" on a missed-call notification: a small sheet with the fixed times. It names no one (the
  * notification already said who), so it needs no app unlock; the system asks to unlock the phone before any
  * activity starts from the lock screen. The caller's notification goes, as if seen, once the reminder is set.
  */

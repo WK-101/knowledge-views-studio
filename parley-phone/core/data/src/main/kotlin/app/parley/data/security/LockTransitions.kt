@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * I21: what the app lock's transitions mean for the stores, in one place (the app lock calls these; tests too).
+ * What the app lock's transitions mean for the stores, in one place (the app lock calls these; tests too).
  */
 object LockTransitions {
     /**
@@ -32,7 +32,7 @@ object LockTransitions {
         }
         if (next.session) {
             c.appPin.beginSession()
-            // L2: Parley's own notifications posted before (missed calls with private names, reminders, notes) go.
+            // Parley's own notifications posted before (missed calls with private names, reminders, notes) go.
             HiddenNotifications.clear(c.appContext)
         }
         // Nothing opened before stays open, and safe words follow the hiding.
@@ -51,7 +51,7 @@ object LockTransitions {
 }
 
 /**
- * L2: at a duress unlock, Parley's own notifications in the shade could name what it now hides (a missed call from a
+ * At a duress unlock, Parley's own notifications in the shade could name what it now hides (a missed call from a
  * private contact, a To call reminder, an expected-call hint, a note). They are all cancelled, except ongoing ones (a
  * call in progress, a running backup), which say nothing private and couldn't be dismissed anyway. Whatever still
  * matters is posted again by its own schedule, through the hiding.

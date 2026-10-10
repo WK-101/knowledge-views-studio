@@ -35,7 +35,6 @@ data class Countdown(
     val warnAt: Long? get() = endAt?.let { maxOf(startElapsed, it - warnBeforeMs) }
 
     val hasEnd: Boolean get() = endAt != null
-    val isLimited: Boolean get() = limitMs != null || endOverride != null
 
     fun remainingMs(now: Long): Long? = endAt?.let { (it - now).coerceAtLeast(0) }
 
@@ -140,8 +139,6 @@ class CallTimeBook {
         val cur = entries[id] ?: return null
         return f(cur).also { entries[id] = it }
     }
-
-    fun untrack(id: String): Countdown? = entries.remove(id)
 
     /** Keeps only calls that still exist. */
     fun retain(ids: Set<String>) {

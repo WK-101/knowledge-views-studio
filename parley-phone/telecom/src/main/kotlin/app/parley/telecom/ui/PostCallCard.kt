@@ -69,10 +69,10 @@ sealed interface PostCallChoice {
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
 
-    /** I1: open the number's history in Parley, where what Parley remembers about it has its action. */
+    /** Open the number's history in Parley, where what Parley remembers about it has its action. */
     data class NumberMemory(val number: String) : PostCallChoice
 
-    /** I3: call a saved number instead ("was that really the bank?"). */
+    /** Call a saved number instead ("was that really the bank?"). */
     data class Verify(val number: String) : PostCallChoice
 
     /** "Was it a scam?": the warning signs, handled on the call screen itself. */
@@ -128,7 +128,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 Action(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_save)) { onChoice(PostCallChoice.Save(number, call.networkName)) }
                 Action(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { onChoice(PostCallChoice.AddToContact(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
-                // L1: call them back later, from the To call list (saved without unlocking, like a note).
+                // Call them back later, from the To call list (saved without unlocking, like a note).
                 RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
                 Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
                 if (!emergency) {
@@ -146,7 +146,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 }
                 Action(Icons.Rounded.Shield, stringResource(R.string.scam_postcall)) { onChoice(PostCallChoice.ScamCheck) }
             }
-            // I2: after a call that looked like a sales line, "Block this range?".
+            // After a call that looked like a sales line, "Block this range?".
             BlockRangeOffer(call)
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }
         }

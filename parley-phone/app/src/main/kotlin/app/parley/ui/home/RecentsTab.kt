@@ -55,7 +55,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -164,7 +163,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     // Blocking: verdict / "Don't call back" badges and multi-select block.
     val badgeFor = rememberRecentBadges(vm)
     val selected by recents.selection.collectAsStateWithLifecycle()
-    // Opt-in swipe actions; M7: "Message" uses a contact's usual way to message.
+    // Opt-in swipe actions; "Message" uses a contact's usual way to message.
     val swipe = vm.people.settings.collectAsStateWithLifecycle().value.swipe
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
@@ -206,7 +205,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             item(key = "voicemail") { VoicemailInbox(vm, query) }
             return@LazyColumn
         }
-        // I9: the calls you owe, as one quiet strip that opens the To call list.
+        // The calls you owe, as one quiet strip that opens the To call list.
         item(key = "to-call") { ToCallStrip(open) }
         // Unknown: a quiet "3 unknown callers today" under the chips.
         if (filter == RecentFilter.UNKNOWN) item(key = "unknown-today") { UnknownCallersHeader(recents.unknownToday.collectAsStateWithLifecycle().value) }
@@ -323,7 +322,7 @@ fun RecentRow(
     val marked = selected || LocalOpenDetail.current?.let { it == recentDestination(g) } == true
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     // The rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
-    // count chip and sequence dots, duration bar); Simple keeps the U3 row.
+    // count chip and sequence dots, duration bar); Simple keeps the plain icon row.
     val style = LocalRecentsStyle.current
     val rich = style.rich
     val cls = CallClass.of(e)
@@ -512,10 +511,6 @@ private val RecentGroup.shownTitle: String
         return if (!named && number.isNotBlank()) Bidi.ltr(title) else title
     }
 
-/** The icon of a call type, in its fixed call colour (never the wallpaper colours). */
-@Composable
-fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = callTypeVector(type) to CallTypeColors.of(CallHue.of(type))
-
 private fun callTypeVector(type: CallType): ImageVector = when (type) {
     CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> Icons.AutoMirrored.Rounded.CallReceived
     CallType.OUTGOING -> Icons.AutoMirrored.Rounded.CallMade
@@ -527,8 +522,8 @@ private fun callTypeVector(type: CallType): ImageVector = when (type) {
 }
 
 /**
- * A call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. R4:
- * in the Rich style it is the shape-coded [app.parley.ui.CallClassBadge] ([durationSec] tells "No answer" apart).
+ * A call type's icon on its tinted circle, the same in Recents, history, the contact page and insights.
+ * In the Rich style it is the shape-coded [app.parley.ui.CallClassBadge] ([durationSec] tells "No answer" apart).
  */
 @Composable
 fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp, describe: Boolean = true, durationSec: Long? = null) {

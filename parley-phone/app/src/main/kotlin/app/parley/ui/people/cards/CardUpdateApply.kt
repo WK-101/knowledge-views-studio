@@ -20,7 +20,7 @@ import app.parley.data.PostalItem
 import app.parley.ui.contact.SaveContactUseCase
 import app.parley.ui.people.BackgroundChange
 
-/** Turning a reviewed card update into an edit of the contact (I14). */
+/** Turning a reviewed card update into an edit of the contact. */
 object CardUpdateApply {
     /** The contact's own fields, as a card update compares them. */
     fun fieldsOf(d: ContactDetails): CardFields = CardFields(
@@ -33,7 +33,7 @@ object CardUpdateApply {
         address = d.addresses.firstOrNull()?.formatted.orEmpty(),
     )
 
-    /** Every address of the contact: an update replaces only the one that is the card's previous address (M2). */
+    /** Every address of the contact: an update replaces only the one that is the card's previous address. */
     fun addressesOf(d: ContactDetails): List<String> = d.addresses.map { it.formatted }.filter { it.isNotBlank() }
 
     /**

@@ -30,13 +30,13 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
- * I14: My card's identity. A stable card id, an Ed25519 key that signs every card you share, and the card's version,
+ * My card's identity. A stable card id, an Ed25519 key that signs every card you share, and the card's version,
  * which grows whenever what the card says changes.
  *
  * The Android Keystore can't hold an Ed25519 key on most phones (and a key it held could never move to your next
  * phone, so your contacts would see a different signer after a phone change). The 32-byte secret is therefore kept
  * sealed with the small-records key ([RecordCrypto], wrapped by a Keystore key) and travels only inside the encrypted
- * backup. It is never stored plain: while sealing fails, nothing is signed (L1). Signing uses the platform's Ed25519
+ * backup. It is never stored plain: while sealing fails, nothing is signed. Signing uses the platform's Ed25519
  * where there is one ([Ed25519]).
  */
 class MyCardIdentity(context: Context) : RecordSealing.Resealable {
@@ -46,7 +46,7 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
 
     private val _restoreChoice = MutableStateFlow(prefs.contains(K_PENDING))
 
-    /** A restored backup brought another card key while this phone's own was already shared: the user picks one (M5). */
+    /** A restored backup brought another card key while this phone's own was already shared: the user picks one. */
     val restoreChoice: StateFlow<Boolean> = _restoreChoice.asStateFlow()
 
     /** The secret, created on first use; null while a sealed one can't be opened or a new one can't be sealed. */
@@ -56,7 +56,7 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
         if (stored == null) {
             val s = Ed25519.newSecret()
             val sealed = records.sealText(Base64.encodeToString(s, Base64.NO_WRAP))
-            // Never kept plain (L1): without the Keystore nothing is signed, and the next share tries again.
+            // Never kept plain: without the Keystore nothing is signed, and the next share tries again.
             if (!records.isSealed(sealed)) return null
             prefs.edit(commit = true) {
                 putString(K_SECRET, sealed)
@@ -80,8 +80,8 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
 
     /**
      * [card] (one source for every share: My card with the phone's profile filled in) as shared with [parts], signed.
-     * The version moves on only when what the full card says changed since the last signature (M4), whatever parts
-     * this share includes (they are signed with it, M3), and never repeats (M6). Showing or signing a card doesn't
+     * The version moves on only when what the full card says changed since the last signature, whatever parts
+     * this share includes (they are signed with it), and never repeats. Showing or signing a card doesn't
      * count as sharing it ([markShared] does). Null when the key can't be read right now: the card is then shared
      * unsigned, as before.
      */
@@ -98,7 +98,7 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
         return SignedCards.sign(CardFields.of(card, parts), id, version, secret, parts)
     }
 
-    /** A signed card actually left the phone (a file shared, a swap): this key is now the one people know (M5). */
+    /** A signed card actually left the phone (a file shared, a swap): this key is now the one people know. */
     fun markShared() {
         if (!prefs.getBoolean(K_USED, false)) prefs.edit(commit = true) { putBoolean(K_USED, true) }
     }
@@ -129,7 +129,7 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
     /**
      * Restores a backup's identity. A phone whose own card never left it takes it at once; one whose card was already
      * shared keeps it until the user chooses ([restoreChoice], [usePrevious], [keepThis]) instead of skipping the
-     * backup's key silently (M5). Versions only grow across the restore (M6).
+     * backup's key silently. Versions only grow across the restore.
      */
     @Synchronized
     fun importJson(json: String) {
@@ -193,9 +193,9 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
 }
 
 /**
- * I22: "Shared with", the private ledger of who got your card. One document sealed with the small-records key; a
+ * "Shared with", the private ledger of who got your card. One document sealed with the small-records key; a
  * document that can't be opened right now is kept as it is and nothing is added until it can. Receipts for private
- * contacts (M7) keep no name or number, are sealed with the vault's key in a document of their own, and are left
+ * contacts keep no name or number, are sealed with the vault's key in a document of their own, and are left
  * out of [exportJson] (they travel with the private contacts, [exportFor]).
  */
 class ShareLedgerStore(context: Context) : RecordSealing.Resealable {
@@ -324,7 +324,7 @@ class ShareLedgerStore(context: Context) : RecordSealing.Resealable {
     }
 }
 
-/** Text sealed with the vault's caller-ID key (no unlock needed), for what names a private contact (M7). */
+/** Text sealed with the vault's caller-ID key (no unlock needed), for what names a private contact. */
 internal object PrivateSeal {
     fun seal(text: String): String? = runCatching {
         Base64.encodeToString(VaultCrypto.sealCallerId(text.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
@@ -335,10 +335,10 @@ internal object PrivateSeal {
 }
 
 /**
- * I14: which contacts are linked to which signed cards, by the contact's Parley key (a private contact's
+ * Which contacts are linked to which signed cards, by the contact's Parley key (a private contact's
  * `parley-private:<id>` too), with the newest version seen and an update waiting; and the cards received and not
  * linked yet. Device contacts' links and held cards are one document sealed with the small-records key; private
- * contacts' links are a second one sealed with the vault's key (M7). Keys follow the contact through
+ * contacts' links are a second one sealed with the vault's key. Keys follow the contact through
  * [app.parley.data.people.ContactKeys].
  */
 class CardLinkStore(context: Context) : RecordSealing.Resealable {

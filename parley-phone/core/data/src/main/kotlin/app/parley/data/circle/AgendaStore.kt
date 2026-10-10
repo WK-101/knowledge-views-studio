@@ -100,7 +100,7 @@ class AgendaStore(private val c: DataContainer) {
     }
 
     /** Adds [text] as an item. */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // A sealed store's failure of any kind is reported, never thrown.
     suspend fun add(target: AgendaTarget, text: String): Added = withContext(Dispatchers.IO) {
         val item = Agenda.clean(text) ?: return@withContext Added.FAILED
         try {
@@ -134,7 +134,7 @@ class AgendaStore(private val c: DataContainer) {
      * Ticks the item reading [text] off ([done]) or opens it again. Returns the note it was in as it was before (for
      * a number's call note, what an expected call made from that note follows), or null when nothing changed.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // A sealed store's failure of any kind is reported, never thrown.
     suspend fun setDone(target: AgendaTarget, text: String, done: Boolean): CircleRepository.PersonNote? = withContext(Dispatchers.IO) {
         try {
             when (target) {

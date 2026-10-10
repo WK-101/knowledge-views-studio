@@ -36,7 +36,7 @@ object ScamCheck {
      * ([neverCallsYou], see [NeverCallsYou]): a faked caller ID shows a saved name. Never for an emergency call or a
      * conference.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // One argument per fact the rule weighs.
     fun offered(
         live: Boolean,
         savedCaller: Boolean,

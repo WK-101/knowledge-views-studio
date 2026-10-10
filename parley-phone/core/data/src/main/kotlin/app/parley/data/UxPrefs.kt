@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Layout and wording state (U2 tips, U6 "What's new", C3 backup reminder). Kept apart from [SettingsRepository]
+ * Layout and wording state (tips, "What's new", the backup reminder). Kept apart from [SettingsRepository]
  * because most of it isn't a setting but "what the user has already seen"; the two real settings (reminder
  * threshold, reset tips) are listed in SettingsCatalog like every other.
  */

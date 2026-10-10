@@ -4,7 +4,7 @@ import app.parley.common.blocking.Csv
 import java.io.File
 
 /**
- * Offline pack building (B4 tooling). Converts public data such as the US FTC Do-Not-Call "reported calls"
+ * Offline pack building, on a computer. Converts public data such as the US FTC Do-Not-Call "reported calls"
  * CSV into a `.parleylist`:
  *
  * ```

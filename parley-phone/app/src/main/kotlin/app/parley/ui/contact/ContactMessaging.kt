@@ -99,7 +99,7 @@ object ContactMessaging {
         c.scope.launch { runCatching { c.circle.onLaunched(key, r.contactId, r.name, channel) } }
     }
 
-    /** [start] for a messenger row of [r] (chat or video), then R3's "Log this?". */
+    /** [start] for a messenger row of [r] (chat or video), then the Circle's "Log this?". */
     fun startRow(context: Context, r: Reach, m: MessengerAction): String? = start(context, m.intent(), m.appName).also { err ->
         if (err == null && m.kind != ReachKind.VOICE) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))
     }

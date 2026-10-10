@@ -183,7 +183,7 @@ class CircleWidget : AppWidgetProvider() {
         private val dateIds = intArrayOf(R.id.circle_date_0, R.id.circle_date_1, R.id.circle_date_2)
 
         /** [unlockInParley]: only Parley is locked (the phone isn't), so a tap opens Parley to unlock it. */
-        @Suppress("LongParameterList")
+        @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
         private fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, locked: Boolean, unlockInParley: Boolean): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_circle)
             val open = WidgetTaps.activity(

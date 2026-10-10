@@ -13,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Reads packs from the optional "Parley Lists" companion app (B4c, module :lists-updater). That app has
+ * Reads packs from the optional "Parley Lists" companion app (module :lists-updater). That app has
  * INTERNET and no contacts or phone permissions; Parley has the reverse. Packs cross over through its
  * ContentProvider, guarded by a signature permission, and are verified here exactly like a file the user
  * picked (checksums, Ed25519 signature, same-key updates) before [SpamListStore] installs them.
@@ -47,7 +47,7 @@ object ListsUpdaterClient {
      * itself, so holding it proves nothing about the other side; any app could claim the package name or the
      * authority when the real companion isn't installed.
      */
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // The flags overload of resolveContentProvider is deprecated only from Android 13.
     fun isGenuine(ctx: Context): Boolean = try {
         val pm = ctx.packageManager
         val provider = pm.resolveContentProvider(authority(ctx), 0)

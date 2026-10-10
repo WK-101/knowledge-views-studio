@@ -27,7 +27,7 @@ import kotlinx.coroutines.withContext
 import app.parley.telecom.R as TR
 
 /**
- * I2: what your own calls say about [number] (null: nothing, a contact, or "Learn from your calls" is off), read off the
+ * What your own calls say about [number] (null: nothing, a contact, or "Learn from your calls" is off), read off the
  * main thread and again whenever the daily run learns something new.
  */
 @Composable

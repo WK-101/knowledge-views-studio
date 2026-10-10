@@ -21,7 +21,6 @@ import java.security.InvalidAlgorithmParameterException
 import java.security.InvalidKeyException
 import java.security.KeyStore
 import java.security.ProviderException
-import java.security.SecureRandom
 import java.security.UnrecoverableKeyException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
@@ -82,7 +81,6 @@ object VaultCrypto {
     )
 
     private val ks: KeyStore by lazy { KeyStore.getInstance(STORE).apply { load(null) } }
-    private val random = SecureRandom()
 
     /**
      * Key handles already looked up, by alias. A handle is only a reference (the key never leaves the Keystore), but
@@ -123,7 +121,7 @@ object VaultCrypto {
     @Volatile var appContext: Context? = null
 
     /**
-     * I21: after a duress unlock (with "Keep private details locked"), details refuse to open as if the key needed a
+     * After a duress unlock (with "Keep private details locked"), details refuse to open as if the key needed a
      * fresh unlock, until the real Parley PIN ends it ([app.parley.data.security.Concealment]). Nothing is changed in
      * the Keystore: it is Parley declining to use the key, and every caller already treats "locked" as temporary.
      */
@@ -243,7 +241,7 @@ object VaultCrypto {
                     if (Build.VERSION.SDK_INT >= 30) {
                         setUserAuthenticationParameters(AUTH_SECONDS, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
                     } else {
-                        @Suppress("DEPRECATION")
+                        @Suppress("DEPRECATION") // The timeout-only form is the one before Android 11.
                         setUserAuthenticationValidityDurationSeconds(AUTH_SECONDS)
                     }
                     // Details are only ever shown on an unlocked phone; a locked one can't decrypt them at all.
@@ -513,7 +511,7 @@ object VaultCrypto {
             ?: return KeyAudit(gen, true, false, false, false, false)
         val level = if (Build.VERSION.SDK_INT >= 31) info.securityLevel else null
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // KeyInfo.securityLevel needs Android 12; this is the older check.
         val secure = if (level != null) level != KeyProperties.SECURITY_LEVEL_SOFTWARE else info.isInsideSecureHardware
         return KeyAudit(
             generation = gen,
@@ -593,6 +591,4 @@ object VaultCrypto {
             Hex.encode(mac.doFinal(value.toByteArray()))
         }
     }
-
-    fun randomBytes(n: Int) = ByteArray(n).also { random.nextBytes(it) }
 }

@@ -84,8 +84,6 @@ data class CallingConfig(
         return copy(rules = if (rule.isEmpty) rest else rest + rule)
     }
 
-    fun withoutRule(scope: LimitScope, key: String): CallingConfig = copy(rules = rules.filterNot { it.scope == scope && it.key == key })
-
     /** What is set for contact [key] alone: its limit, its reminder and "never limit". */
     fun contactPart(key: String): ContactCallTime =
         ContactCallTime(rule(LimitScope.CONTACT, key), reminders.perContact[key], key in neverLimit)

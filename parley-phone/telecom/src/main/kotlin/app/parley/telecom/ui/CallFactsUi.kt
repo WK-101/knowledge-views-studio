@@ -72,7 +72,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * P5: a connected call the network dropped. The reason in plain words ("Lost signal · Wi-Fi calling") and a big
+ * A connected call the network dropped. The reason in plain words ("Lost signal · Wi-Fi calling") and a big
  * Call again, the same number on the same SIM. It stays a few seconds, or until dismissed.
  */
 @Composable
@@ -131,7 +131,7 @@ private fun SimTipRow(tip: SimTip, onAnswer: (Boolean) -> Unit) {
 }
 
 /**
- * I10 hold mode, in place of the grid: how long you've been waiting, what Parley does and doesn't do (it can't hear
+ * Hold mode, in place of the grid: how long you've been waiting, what Parley does and doesn't do (it can't hear
  * the call), the keypad for "press 1 to keep holding", and a big way out.
  */
 @Composable
@@ -181,7 +181,7 @@ private sealed interface Organisations {
 }
 
 /**
- * I3 "Check it's really them": hang up and call the number you saved, since caller ID can be faked but your saved
+ * "Check it's really them": hang up and call the number you saved, since caller ID can be faked but your saved
  * number reaches the real person or organisation. For a contact (or a private contact), their saved numbers, the one
  * that called first; for anyone, the saved organisations to pick from (a caller claiming to be "the bank"). Shown only
  * after the phone is unlocked; with an ended call ([live] false) it just dials.
@@ -256,7 +256,7 @@ private fun Note(text: String) {
 }
 
 /**
- * A one-time tip on the call screen (P18), for a gesture nobody would find by themselves. Dismissed with its close
+ * A one-time tip on the call screen, for a gesture nobody would find by themselves. Dismissed with its close
  * button, or for good once the gesture is used.
  */
 @Composable

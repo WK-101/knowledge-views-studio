@@ -46,7 +46,7 @@ internal val BUSY_STATES = FRONT_STATES + setOf(CallState.RINGING, CallState.SEL
 internal val ANSWERED_STATES = setOf(CallState.ACTIVE, CallState.HOLDING)
 internal val ENDING_STATES = setOf(CallState.DISCONNECTING, CallState.DISCONNECTED)
 
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION") // Call.getState is the only one before Android 12.
 internal fun Call.stateCompat(): Int = if (Build.VERSION.SDK_INT >= 31) details.state else state
 
 internal fun Call.Details.contactDisplayNameCompat(): String? =
@@ -73,7 +73,7 @@ internal fun verificationOf(call: Call): Verification = when {
 }
 
 /** Before Telecom picks the account, the one Parley asked for is in the intent extras. */
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION") // The typed getter needs Android 13; this runs on older phones too.
 internal fun requestedAccount(d: Call.Details): PhoneAccountHandle? = try {
     if (Build.VERSION.SDK_INT >= 33) d.intentExtras?.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, PhoneAccountHandle::class.java)
     else d.intentExtras?.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE)

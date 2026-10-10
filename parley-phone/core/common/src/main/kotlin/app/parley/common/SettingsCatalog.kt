@@ -22,7 +22,7 @@ enum class SettingPlace {
      */
     REMINDERS,
 
-    /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN (I21). */
+    /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN. */
     APP_LOCK,
 }
 
@@ -188,7 +188,7 @@ object SettingsCatalog {
         // Phone menus: a screen of its own, linked from Calls › Situations.
         at(SettingPlace.PHONE_MENUS, "phone_menus", C),
         at(SettingPlace.PHONE_MENUS, "menu_memory", C),
-        // L6: on SIMs & plan minutes; only ever acts while a SIM is abroad.
+        // On SIMs & plan minutes; only ever acts while a SIM is abroad.
         at(SettingPlace.SIMS, "assisted_dialling", C),
         at(SettingPlace.SIMS, "local_sim_hint", C),
         at(SettingPlace.CALLS_DURING, "proximity_sensor", C),
@@ -279,7 +279,7 @@ object SettingsCatalog {
         // Privacy & security
         e("app_lock", S),
         e("lock_after", S),
-        // I21: how Parley unlocks; the PINs live on a screen of their own (the Privacy page keeps to its rows).
+        // How Parley unlocks; the PINs live on a screen of their own (the Privacy page keeps to its rows).
         e("app_lock_method", S),
         at(SettingPlace.APP_LOCK, "parley_pin", S),
         at(SettingPlace.APP_LOCK, "duress_pin", S),

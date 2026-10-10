@@ -31,7 +31,7 @@ class ContactsAudit(private val context: Context) {
 
     suspend fun appsWithAccess(): List<ContactsAccessApp> = withContext(Dispatchers.IO) {
         val launcher = try {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The flags overload is deprecated only from Android 13.
             pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
         } catch (_: Exception) {
             emptyList()

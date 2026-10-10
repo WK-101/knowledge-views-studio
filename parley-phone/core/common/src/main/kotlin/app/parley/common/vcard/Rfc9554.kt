@@ -74,7 +74,7 @@ object Rfc9554 {
         }
     }
 
-    @Suppress("FunctionNaming")
+    @Suppress("FunctionNaming") // ez-vcard's scribe methods start with an underscore.
     private class AdrScribe : AddressScribe() {
         override fun _parseText(value: String, dataType: VCardDataType?, parameters: VCardParameters, context: ParseContext): Address =
             super._parseText(value, dataType, parameters, context).also { readParts(value, ADDRESS_BASE, ADDRESS_PARTS, parameters) }

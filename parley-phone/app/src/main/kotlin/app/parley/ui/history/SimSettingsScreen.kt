@@ -88,13 +88,13 @@ fun SimListScreen(vm: AppViewModel, plans: Boolean, back: () -> Unit, open: (Des
                     )
                 }
             }
-            // L6: assisted dialling and the local-SIM suggestion while abroad.
+            // Assisted dialling and the local-SIM suggestion while abroad.
             item(key = "abroad") { AbroadSettingsGroup(vm) }
         }
     }
 }
 
-/** Per-SIM settings page. T8: the plan meter (allowance, cycle, billing increment, counted numbers). */
+/** Per-SIM settings page. The plan meter (allowance, cycle, billing increment, counted numbers). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {

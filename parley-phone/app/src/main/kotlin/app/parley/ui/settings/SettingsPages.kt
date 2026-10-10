@@ -1,5 +1,7 @@
 package app.parley.ui.settings
 
+import app.parley.common.vcard.ImportGuard
+import app.parley.ui.common.ImportLeftOut
 import app.parley.common.history.RetentionDefaults
 import app.parley.ui.Destination
 import android.app.NotificationManager
@@ -331,7 +333,7 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
 @Composable
 private fun BlockingAdvanced(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
-    // I2: one choice for tags from your own calls (Tag quietly, the default) and the optional silence rule.
+    // One choice for tags from your own calls (Tag quietly, the default) and the optional silence rule.
     val sales = SalesLines.of(s.screening.learnFromCalls, s.screening.silenceSalesLines)
     val salesChoices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_sales_lines_tag), stringResource(R.string.set_sales_lines_silence))
     val salesSub = if (sales == SalesLines.TAG_AND_SILENCE) stringResource(R.string.set_sales_lines_silence_sub) else null
@@ -344,7 +346,7 @@ private fun BlockingAdvanced(vm: AppViewModel, open: (Destination) -> Unit) {
                 catching { ReputationLearner.learn(vm.c) }
             }
         }
-        // I7: notes, To call items and delivery QR codes turning "Expecting a call" on (off until accepted).
+        // Notes, To call items and delivery QR codes turning "Expecting a call" on (off until accepted).
         item("expected_hints") { ExpectedHintsRow(vm) }
     }
     SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
@@ -391,12 +393,14 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             // Cards marked private go into private contacts: unlocked first, so none is left out for being locked.
             // Cancelled, the import still runs and says which ones it couldn't bring in.
             val activity = context as? ComponentActivity
-            if (activity != null && vm.c.vcards.holdsPrivate(uri) && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() }) {
+            // One bounded look at the file: its size, its private cards and what a plain import leaves out.
+            val scan = vm.c.vcards.preScan(uri)
+            if (activity != null && scan.private > 0 && withContext(Dispatchers.IO) { VaultCrypto.detailNeedsUnlock() }) {
                 AppLock.unlockVault(activity)
             }
-            val count = vm.c.vcards.estimateCount(uri)
+            val count = if (scan.capped) maxOf(scan.entries, BackupNudge.LARGE_IMPORT) else scan.entries
             backupFirst.ask(count, BackupNudge.LARGE_IMPORT) {
-                scope.launch { importAccounts = ImportAsk(uri, withContext(Dispatchers.IO) { vm.c.contacts.accounts() }) }
+                scope.launch { importAccounts = ImportAsk(uri, withContext(Dispatchers.IO) { vm.c.contacts.accounts() }, scan = scan) }
             }
         }
     }
@@ -452,6 +456,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             title = { Text(stringResource(R.string.set_import_into)) },
             text = {
                 Column {
+                    ImportLeftOut(ask.scan)
                     SwitchRow(stringResource(R.string.set_skip_duplicates), stringResource(R.string.set_skip_duplicates_body), skipDuplicates) { skipDuplicates = it }
                     ask.accounts.forEach { a ->
                         ParleyListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
@@ -497,7 +502,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
 }
 
 /** A file waiting for "Import into": the accounts to offer and, for an encrypted vCard, the passphrase that opens it. */
-private class ImportAsk(val uri: Uri, val accounts: List<AccountRef>, val pass: CharArray? = null)
+private class ImportAsk(val uri: Uri, val accounts: List<AccountRef>, val pass: CharArray? = null, val scan: ImportGuard.Scan? = null)
 
 // ---------------------------------------------------------------- Recents & history
 
@@ -610,7 +615,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
             menuRow("lock_after", lockLabels, lockTimes.indexOf(s.lockAfterMinutes).coerceAtLeast(0), Icons.Rounded.LockClock) { i ->
                 set { it.copy(lockAfterMinutes = lockTimes[i]) }
             }
-            // I21: the Parley PIN and the duress PIN, on a page of their own.
+            // The Parley PIN and the duress PIN, on a page of their own.
             linkRow("app_lock_method", Icons.Rounded.Dialpad, sub = unlockWith) { open(AppLockRoutes.UnlockWith) }
         }
     }
@@ -626,10 +631,10 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
             set { it.copy(lockScreenCaller = LockScreenCaller.entries[i]) }
         }
     }
-    // The family safe word, by label (WP-8).
+    // The family safe word, by label.
     FamilySafetyPrivacyGroup(open)
     SegmentedGroup(stringResource(R.string.set_group_private_contacts)) {
-        // After a duress unlock these show the switches as they were left, not what Parley enforces (I21).
+        // After a duress unlock these show the switches as they were left, not what Parley enforces.
         switchRow("hide_vault", s.duress?.hideVault ?: s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
     }
     SegmentedGroup(stringResource(R.string.set_group_your_data)) {

@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
 /**
- * L10: the subject a caller sent with the call (`TelecomManager.EXTRA_CALL_SUBJECT`, RCS Call Composer), made safe to
+ * The subject a caller sent with the call (`TelecomManager.EXTRA_CALL_SUBJECT`, RCS Call Composer), made safe to
  * show: it comes from anyone who can place a call, so control characters, line breaks and bidirectional overrides
  * (which could make it read backwards or spill over other text) are dropped, spaces are collapsed and it is cut to
  * [MAX_LENGTH]. It is always shown as plain text, never as a link.

@@ -12,7 +12,7 @@ import app.parley.data.DataContainer
 import app.parley.ui.timemachine.WatchText
 
 /**
- * The sync watchdog's daily step (I13): after the day's snapshot, one look for large unexplained losses, and one
+ * The sync watchdog's daily step: after the day's snapshot, one look for large unexplained losses, and one
  * notification for whatever it found that was never said before. The lock screen shows only "Contacts may be
  * missing"; the account appears after unlock, and no person is ever named. The card in the Contact health check
  * stays until it is answered.

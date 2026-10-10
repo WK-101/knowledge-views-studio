@@ -285,9 +285,6 @@ class SituationsController(
         return ownOffHoursOff
     }
 
-    /** What off hours is when no Situation is on: the one on now taken back out. */
-    suspend fun ownBehaviour(): Behaviour = withContext(Dispatchers.IO) { mutex.withLock { Situations.base(_state.value, read()) } }
-
     /**
      * Runs [block] alone and to its end: a switch is never cut in half by a cancelled caller (a screen left, the
      * time limit before screening).

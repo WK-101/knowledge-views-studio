@@ -55,9 +55,9 @@ class ContactKeys(
     private val calling: () -> CallingRepository? = { null },
     /** Re-keys waiting for a contact's lookup key ([rekeyLater]); none are kept without it. */
     private val waiting: () -> SharedPreferences? = { null },
-    /** The signed card a contact is linked to (I14) follows the same moves. */
+    /** The signed card a contact is linked to follows the same moves. */
     private val cardLinks: () -> CardLinkStore? = { null },
-    /** "Shared with" receipts for private contacts (M7) travel and move with them too. */
+    /** "Shared with" receipts for private contacts travel and move with them too. */
     private val shareLedger: () -> ShareLedgerStore? = { null },
     /** My card's relation links, and what the user corrected about two contacts' relations, follow the same moves. */
     private val myCard: () -> MeCardStore? = { null },

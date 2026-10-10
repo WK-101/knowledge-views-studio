@@ -40,7 +40,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,9 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.RecentGroup
-import app.parley.blocking.BlockingActions
 import app.parley.blocking.BlockingText
-import app.parley.container
 import app.parley.common.TraceCodec
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
@@ -63,7 +60,6 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.bidiLtrIfNumber
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ConfirmDialog
 import androidx.compose.material.icons.rounded.Storefront
@@ -76,7 +72,7 @@ import app.parley.telecom.R as TR
  * the calling screen needs no state of its own.
  */
 
-/** Long-press rows for a Recents entry (B1, B8, B13, B25, "Why did this ring?"). Renders nothing for hidden callers. */
+/** Long-press rows for a Recents entry ("Why did this ring?"). Renders nothing for hidden callers. */
 @Composable
 fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?, blocked: Boolean, dismiss: () -> Unit) {
     if (number.isBlank()) return
@@ -90,7 +86,7 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
         stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline,
     ) { BlockingDialogs.show(BlockingDialog.Why(number)) }
     row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
-    // I2: only when your calls say it looks like a sales line.
+    // Only when your calls say it looks like a sales line.
     val salesLine = rememberReputation(vm, number, isContact = contactName != null) != null
     if (salesLine) {
         row(stringResource(R.string.blk_rep_menu), Icons.Rounded.Storefront) { BlockingDialogs.show(BlockingDialog.Reputation(number)) }
@@ -119,7 +115,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
     val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
-    // I2: the quiet "Looks like a sales line (your calls)" when there's no verdict to show.
+    // The quiet "Looks like a sales line (your calls)" when there's no verdict to show.
     val repVersion by vm.c.reputation.version.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val learn = settings.screening.learnFromCalls
@@ -150,7 +146,7 @@ private fun verdictBadge(context: android.content.Context, v: VerdictSummary?, d
     v?.takeIf { abs(it.time - date) < 10 * 60_000L || it.time > date }
         ?.let { RecentBadge(BlockingText.verdict(context, it.text) ?: it.text, warn = it.blocked || it.kind == "LIKELY_SPAM" || it.kind == "REPORTED") }
 
-/** I2: "Looks like a sales line (your calls)", quiet (never a warning), for an unknown number your calls tagged. */
+/** "Looks like a sales line (your calls)", quiet (never a warning), for an unknown number your calls tagged. */
 private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.res.Resources, learn: Boolean): RecentBadge? {
     if (!learn || g.vaultId != null) return null
     return runCatching { vm.c.reputation.lookup(g.number, PhoneEnv.countryIso(vm.c.appContext, g.latest.accountId)) }.getOrNull()
@@ -277,22 +273,5 @@ fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
         { Text(stringResource(R.string.blk_label_menu)) },
         leadingIcon = { Icon(Icons.Rounded.Shield, null) },
         onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(LabelRefs.key(title))) },
-    )
-}
-
-/** Keypad or home overflow item. */
-@Composable
-fun ExpectingCallMenuItem(closeMenu: () -> Unit) {
-    val c = LocalContext.current.container
-    val s by c.settings.settings.collectAsStateWithLifecycle()
-    val active = s.screening.snoozeActive(System.currentTimeMillis())
-    val scope = rememberCoroutineScope()
-    DropdownMenuItem(
-        { Text(stringResource(if (active) R.string.blk_snooze_stop else R.string.blk_snooze_menu)) },
-        leadingIcon = { Icon(Icons.Rounded.HourglassTop, null) },
-        onClick = {
-            closeMenu()
-            if (active) scope.launch { BlockingActions.snooze(c, 0) } else BlockingDialogs.show(BlockingDialog.Snooze)
-        },
     )
 }

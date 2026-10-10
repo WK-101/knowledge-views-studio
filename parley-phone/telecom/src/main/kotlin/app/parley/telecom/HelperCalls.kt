@@ -16,14 +16,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** I5: the helper being brought into the call [fromId] ("Calling Sam to join…", then "Merge now"). */
+/** The helper being brought into the call [fromId] ("Calling Sam to join…", then "Merge now"). */
 data class HelperJoinUi(val fromId: String, val name: String, val number: String, val seen: Boolean = false)
 
 /** Where a helper's call is, worked out from the live calls (pure rules in [HelperJoin]). */
 data class HelperProgress(val join: HelperJoinUi, val stage: HelperStage, val call: CallUi?)
 
 /**
- * "Add my helper" (I5): Add call to a trusted person through Telecom (which holds the call that goes on), then Merge
+ * "Add my helper": Add call to a trusted person through Telecom (which holds the call that goes on), then Merge
  * with the existing conference support once they answer. Lives beside [CallManager] so it survives the call screen
  * going to picture-in-picture; forgotten when the calls end.
  */
@@ -52,7 +52,7 @@ object HelperCalls {
 
     /**
      * Stop bringing them in: ends the helper's call while it's still ringing, and forgets it. Tapped before Telecom has
-     * reported the call (L5), the call is ended as soon as it shows up, so it never keeps dialling behind the card.
+     * reported the call, the call is ended as soon as it shows up, so it never keeps dialling behind the card.
      */
     fun cancel(progress: HelperProgress?) {
         val p = progress

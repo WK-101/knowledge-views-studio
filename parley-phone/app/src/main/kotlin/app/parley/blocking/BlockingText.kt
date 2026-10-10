@@ -13,7 +13,6 @@ import app.parley.common.blocking.PersonalReputation
 import app.parley.common.spam.RepReason
 import app.parley.common.spam.RepSignal
 import app.parley.telecom.ReputationText
-import app.parley.common.blocking.ReplayReport
 import app.parley.common.lineTypeLabel
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -281,11 +280,6 @@ object BlockingText {
         s.rejected.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.blk_sugg_declined, it, it) },
         s.shortAnswered.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.blk_sugg_short, it, it) },
     ).joinToString(", ")
-
-    /** [ReplayReport.summary]: "Would have blocked 14 of 22 calls from unknown numbers". */
-    fun replaySummary(context: Context, r: ReplayReport): String =
-        if (r.unknown.isEmpty()) context.getString(R.string.blk_replay_none)
-        else context.resources.getQuantityString(R.plurals.blk_replay_summary, r.unknown.size, r.blocked, r.unknown.size)
 
     /** Name of a spam list: built-in ones in the app's language (keyed by id), others as they were published. */
     fun packName(context: Context, id: String, name: String): String = when (id) {

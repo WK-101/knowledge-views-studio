@@ -82,7 +82,7 @@ class DataContainer(context: Context) {
     init {
         // The vault's key generation checks for a secure lock screen and StrongBox.
         VaultCrypto.appContext = appContext
-        // I21: where a duress unlock's hiding is kept (read on first use, off the main thread).
+        // Where a duress unlock's hiding is kept (read on first use, off the main thread).
         Concealment.init(appContext)
     }
 
@@ -122,10 +122,10 @@ class DataContainer(context: Context) {
                 // An archived contact is a saved contact to screening (never an "unknown caller").
                 s.archivedCaller = { n, iso -> archive.lookup(n, iso) != null }
             }
-            // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
+            // Windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->
                 s.expectedWindows = {
-                    // Memory only on the call path (L7): not read yet means none this time, and a read in the background.
+                    // Memory only on the call path: not read yet means none this time, and a read in the background.
                     val windows = familySafety.windowsNow()
                         ?: emptyList<ExpectedWindow>().also { scope.launch(warmDispatcher) { runCatching { familySafety.load() } } }
                     // A private contact's name stays out of "expecting a call (note on …)" in discreet mode.
@@ -179,14 +179,14 @@ class DataContainer(context: Context) {
     /** What was answered to "Numbers that seem out of service" and to SIM suggestions (by line key). */
     val numberAdvice: NumberAdviceStore by lazy { NumberAdviceStore(appContext) }
 
-    /** I2 personal reputation: what your own calls say about numbers and ranges (learned daily, sealed). */
+    /** Personal reputation: what your own calls say about numbers and ranges (learned daily, sealed). */
     val reputation: ReputationStore by lazy { ReputationStore(appContext) { history } }
     val voicemail by lazy { VoicemailRepository(appContext, scope) }
 
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
     val toCall by lazy { ToCallStore(appContext) { n -> vault.lookup(n) != null } }
 
-    /** I6 menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
+    /** Menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
     val menus by lazy { MenuMemoryStore(appContext) { n -> vault.lookup(n) != null } }
 
     /** Case files: calls, hold times, menu keys and reference numbers per organisation (sealed at rest). */
@@ -196,16 +196,16 @@ class DataContainer(context: Context) {
         ) { PhoneEnv.countryIso(appContext) }
     }
 
-    /** I21: the Parley PIN and the duress PIN (hashes only, sealed, this phone only). */
+    /** The Parley PIN and the duress PIN (hashes only, sealed, this phone only). */
     val appPin by lazy { AppPinStore(appContext) { RecordCrypto.get(appContext) } }
 
     /** Family safety: safe words per label, helpers, expected-call windows (sealed at rest, in backups). */
     val familySafety by lazy { FamilySafetyStore(appContext) }
 
-    /** I11 drive profile (the cars and what happens while one is connected), read from memory on the call path. */
+    /** Drive profile (the cars and what happens while one is connected), read from memory on the call path. */
     val driveProfile by lazy { DriveProfileRepository(appContext) }
 
-    /** L6 assisted dialling abroad and the local-SIM hint. */
+    /** Assisted dialling abroad and the local-SIM hint. */
     val roaming by lazy { RoamingRepository(appContext, sims) }
 
     /** Situations ("Driving", "Night"…): one tap sets a moment, and turning it off puts back what was set. */

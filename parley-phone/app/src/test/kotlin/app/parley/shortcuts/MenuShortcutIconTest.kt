@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** L7: renaming a pinned menu shortcut rebuilds it with the contact's photo, as it was pinned. */
+/** Renaming a pinned menu shortcut rebuilds it with the contact's photo, as it was pinned. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class MenuShortcutIconTest {

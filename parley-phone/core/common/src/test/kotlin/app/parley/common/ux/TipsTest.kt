@@ -22,7 +22,7 @@ class TipsTest {
     }
 
     @Test fun concept_explainers_stay_dismissed() {
-        // P18: once dismissed, an explainer's id must survive the stored round trip, or it would come back.
+        // Once dismissed, an explainer's id must survive the stored round trip, or it would come back.
         val concepts = setOf(
             Tips.CONCEPT_PRIVATE, Tips.CONCEPT_TEMPORARY, Tips.CONCEPT_CIRCLE, Tips.CONCEPT_LABELS,
             Tips.CONCEPT_FAVOURITES, Tips.CONCEPT_HISTORY_UNDO, Tips.TO_CALL,

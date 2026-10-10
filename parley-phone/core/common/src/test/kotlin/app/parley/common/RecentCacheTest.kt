@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The number parse cache (PERFORMANCE B5): least recently used out one at a time, sized to the address book. */
+/** The number parse cache: least recently used out one at a time, sized to the address book. */
 class RecentCacheTest {
     @Test fun the_least_recently_used_goes_never_everything() {
         val cache = RecentCache<String, Int>(3)

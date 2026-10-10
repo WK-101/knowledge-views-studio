@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * I6 menu memory for the call screen ([MenuMemoryHooks]), on [DataContainer.menus]. Every way in checks the number
+ * Menu memory for the call screen ([MenuMemoryHooks]), on [DataContainer.menus]. Every way in checks the number
  * again: never an emergency number (the platform's list, not only the fallback one), never a service code, and
  * nothing at all while Settings › Calls › Phone menus › "Remember menu keys" is off (shortcuts still work).
  */

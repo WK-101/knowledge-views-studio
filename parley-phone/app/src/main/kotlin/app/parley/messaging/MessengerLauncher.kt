@@ -60,7 +60,7 @@ object MessengerLauncher {
 }
 
 /**
- * "Save as a temporary contact": deletes itself (and its call history) after [DEFAULT_DAYS]. F5: private (kept in
+ * "Save as a temporary contact": deletes itself (and its call history) after [DEFAULT_DAYS]. Private (kept in
  * Parley's vault, invisible to WhatsApp and other apps) unless the user chooses "Save visible to other apps".
  */
 object TemporaryContact {

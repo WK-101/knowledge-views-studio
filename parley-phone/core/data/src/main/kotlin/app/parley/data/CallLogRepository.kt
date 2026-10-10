@@ -206,8 +206,6 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
         }
     }
 
-    suspend fun deleteAll() = withContext(Dispatchers.IO) { cr.delete(Calls.CONTENT_URI, null, null) }
-
     suspend fun deleteForNumber(number: String) = withContext(Dispatchers.IO) {
         delete(queryForNumber(number).map { it.id })
     }

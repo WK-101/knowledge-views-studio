@@ -342,7 +342,7 @@
     <string name="set_diagnostics_summary">App version, device and settings, with numbers masked</string>
     <string name="set_diagnostics_kw">debug, logs, bug report, support, raw, dump</string>
     <string name="set_crash_reports_title">Keep crash reports</string>
-    <string name="set_crash_reports_summary">Off by default. After a crash, Parley offers the report on the next start; nothing is sent</string>
+    <string name="set_crash_reports_summary">Keeps the details of a crash for the report offered on the next start. Off by default, on in test builds; nothing is sent</string>
     <string name="set_crash_reports_kw">crash, bug, error, report, stack trace, debug</string>
 
     <!-- Settings screens: shared -->
@@ -403,16 +403,13 @@
     <!-- Settings pages -->
     <string name="set_group_theme">Theme</string>
     <string name="set_group_navigation_bar">Navigation bar</string>
-    <string name="set_group_lists">Lists</string>
     <string name="set_group_names">Names</string>
     <string name="set_group_feedback">Feedback</string>
-    <string name="set_group_keys">Keys</string>
     <string name="set_group_lists_rules">Lists and rules</string>
     <string name="set_group_organise">Organise</string>
     <string name="set_group_import_export">Import and export</string>
     <string name="set_group_call_history">Call history</string>
     <string name="set_group_recents">Recents</string>
-    <string name="set_group_messaged">Messaged numbers</string>
     <string name="set_group_app_lock">App lock</string>
     <string name="set_group_private_contacts">Private contacts</string>
     <string name="set_group_your_data">Your data</string>
