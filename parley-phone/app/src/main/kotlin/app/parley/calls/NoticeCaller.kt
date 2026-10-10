@@ -50,7 +50,7 @@ internal class NoticeCaller(
         suspend fun find(c: DataContainer, number: String?, simRegion: String?, privacy: PrivacyView): NoticeCaller {
             if (number == null) return NoticeCaller(null, null, null, null, privacy.privateHidden)
             val owners = c.numberOwners
-            val found = owners.findIn(number, simRegion ?: owners.region(null))
+            val found = owners.findIn(number, simRegion ?: owners.region(null), NumberOwners.Use.NOTIFICATION)
             val owner = owners.ownerOf(found, NumberOwners.Use.NOTIFICATION, privacy)
             val savedName = found.contact?.name?.takeIf { it.isNotBlank() } ?: (owner as? NumberOwners.Owner.Archived)?.name
             return NoticeCaller(found.contact, savedName, found.private?.second?.name, (owner as? NumberOwners.Owner.Network)?.name, privacy.privateHidden)

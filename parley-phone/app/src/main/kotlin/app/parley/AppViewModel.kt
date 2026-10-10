@@ -286,7 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     /** Recall: the Contacts search's "Search everything" mode. */
-    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex, settings)
+    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex)
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, everyone)

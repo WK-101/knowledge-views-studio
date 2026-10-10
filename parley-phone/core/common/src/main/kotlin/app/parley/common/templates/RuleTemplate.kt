@@ -327,8 +327,8 @@ object RuleTemplates {
         author = author,
         version = version,
         description = "Rules shared from Parley",
-        rules = rules.filter { it.enabled && it.type != RuleType.LABEL && !it.allowsByName && it.simId == null && it.expiresAt == null }.take(MAX_RULES).map { r ->
-            TemplateRule(kind = r.kind, type = r.type, pattern = r.pattern, action = r.action, note = r.note, schedule = r.schedule)
-        },
+        rules = rules.filter { it.enabled && it.type != RuleType.LABEL && !it.allowsByName && it.simId == null && it.expiresAt == null }
+            .take(MAX_RULES)
+            .map { r -> TemplateRule(kind = r.kind, type = r.type, pattern = r.pattern, action = r.action, note = r.note, schedule = r.schedule) },
     )
 }

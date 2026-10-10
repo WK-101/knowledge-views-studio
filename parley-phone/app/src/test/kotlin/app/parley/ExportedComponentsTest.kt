@@ -126,7 +126,8 @@ class ExportedComponentsTest {
             "app.parley.situations.SituationTileService", "app.parley.security.VaultTileService", "app.parley.telecom.HangUpTileService",
         ).map { ComponentName(context, it) } + listOf(ComponentName("com.example", "app.parley.situations.SituationTileService"), null)
         for (tile in tiles) {
-            val sent = android.content.Intent(IntentRoutes.QS_TILE_PREFERENCES).apply { tile?.let { putExtra(android.content.Intent.EXTRA_COMPONENT_NAME, it) } }
+            val sent = android.content.Intent(IntentRoutes.QS_TILE_PREFERENCES)
+                .apply { tile?.let { putExtra(android.content.Intent.EXTRA_COMPONENT_NAME, it) } }
             val out = IntentRoutes.tileLongPress(context, sent)
             assertTrue("$tile: through Parley's own entry", !IntentRoutes.fromParley(out))
             assertTrue("$tile: relays ${out.action}", out.action !in IntentRoutes.INTERNAL_ACTIONS)

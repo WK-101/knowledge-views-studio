@@ -152,7 +152,7 @@ object RescueCalls {
     /** Who the call shows, looked up off the main thread; tests replace it, so the ringing itself is real. */
     @VisibleForTesting
     internal var lookUp: suspend (Context, RescueRequest, String?) -> RescueCaller = { app, r, clip ->
-        withContext(Dispatchers.IO) { caller(app, app.container, r, clip) }
+        withContext(Dispatchers.IO) { caller(app.container, r, clip) }
     }
 
     /** Whether a duress unlock hides things now; tests replace it. */
@@ -372,7 +372,7 @@ object RescueCalls {
      * changed photo count) with their tone and vibration; for a name only, that name with the phone's default tone.
      * The lookups only read: nothing is noted, counted or logged.
      */
-    private suspend fun caller(app: Context, c: DataContainer, r: RescueRequest, clip: String?): RescueCaller {
+    private suspend fun caller(c: DataContainer, r: RescueRequest, clip: String?): RescueCaller {
         val number = r.number?.takeIf { it.isNotBlank() } ?: return RescueCaller(name = RescuePlan.shownName(r.name, null), clip = clip)
         val shown = suspendRunCatching { TelecomGraph.dependencies.callerInfo(number, null) }.getOrNull()
         val hidesPrivate = c.privacy.now().privateHidden

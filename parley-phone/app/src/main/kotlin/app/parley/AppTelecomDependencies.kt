@@ -66,6 +66,7 @@ import app.parley.data.calls.ReputationLearner
 import app.parley.data.circle.CircleRepository
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.CallUsageEntity
+import app.parley.data.people.NumberOwners
 import app.parley.data.vault.VaultCallChoices
 import app.parley.messaging.TemporaryContact
 import app.parley.telecom.AgendaHooks
@@ -130,7 +131,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val region = PhoneEnv.countryIso(app, accountId)
         val last = lastCallSummary(number, region)
         // Who owns the number was likely found by screening a moment ago (NumberOwners keeps it for the ring).
-        val found = c.numberOwners.findIn(number, region)
+        val found = c.numberOwners.findIn(number, region, NumberOwners.Use.CALL_PATH)
         found.contact?.let {
             if (it.work) {
                 // A work-profile contact: its name and photo only (it can't be opened or noted from here).
@@ -248,7 +249,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** I11: a contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
     override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
-        val found = c.numberOwners.find(number, accountId)
+        val found = c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH)
         found.contact != null || found.private != null || found.archived != null
     }
 
@@ -511,9 +512,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun onCallQuality(number: String?, facts: CallQualityFacts) {
         c.scope.launch(Dispatchers.IO) {
-            runCatching {
+            catching {
                 // Like ring facts: calls with private contacts leave no trace outside the vault with "Private call history" on.
-                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@runCatching
+                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@catching
                 c.callQuality.add(number, facts)
             }
         }
@@ -524,7 +525,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun simTipAfterDrop(number: String, facts: CallQualityFacts?): SimTip? = withContext(Dispatchers.IO) {
         // Names a person: not while Parley is locked, and never a private contact that's hidden.
         if (appLocked()) return@withContext null
-        val found = c.numberOwners.find(number, null)
+        val found = c.numberOwners.find(number, null, NumberOwners.Use.CALL_PATH)
         val contact = found.contact?.takeIf { !it.work }
         val (name, numbers) = if (contact != null) {
             contact.name to c.contacts.numbersOf(contact.contactId)
@@ -551,7 +552,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override suspend fun savedNumbersFor(number: String, accountId: String?): List<VerifyCallBack.Saved> = withContext(Dispatchers.IO) {
         val res = app.resources
-        val found = c.numberOwners.find(number, accountId)
+        val found = c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH)
         found.contact?.takeIf { !it.work }?.let { info ->
             // While Parley is locked, only the number the call screen already shows.
             if (appLocked()) return@withContext listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel))
@@ -599,9 +600,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun onRingFacts(number: String?, facts: RingFacts) {
         c.scope.launch(Dispatchers.IO) {
-            runCatching {
+            catching {
                 // Calls with private contacts leave no trace outside the vault when "Private call history" is on.
-                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@runCatching
+                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@catching
                 // Android played the tone: say whether it was the contact's own or the default.
                 val refined = if (facts.ringtone == RingtoneSource.SYSTEM && number != null) {
                     facts.copy(ringtone = if (contactRingtone(number) != null) RingtoneSource.CONTACT else RingtoneSource.DEFAULT)
@@ -614,7 +615,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     /** A private contact's number (one that can't be checked counts as one: nothing is kept then). */
-    private suspend fun isPrivate(number: String): Boolean = c.numberOwners.find(number, null).let { it.private != null || it.privateFailed }
+    private suspend fun isPrivate(number: String): Boolean =
+        c.numberOwners.find(number, null, NumberOwners.Use.CALL_PATH).let { it.private != null || it.privateFailed }
 
     private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
 
@@ -631,7 +633,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** The labels [number] is a saved member of (a private contact's too, unless discreet mode hides it); null when unknown. */
     private suspend fun callerLabels(number: String, accountId: String?): Set<String>? {
-        val found = c.numberOwners.find(number, accountId)
+        val found = c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH)
         found.contact?.takeIf { !it.work }?.let { return runCatching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
         if (c.privacy.now().privateHidden) return null
         val (id, _) = found.private ?: return null
@@ -670,7 +672,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             catching {
                 val enabled = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
                 val region = PhoneEnv.countryIso(app, accountId)
-                val found = c.numberOwners.findIn(number, region)
+                val found = c.numberOwners.findIn(number, region, NumberOwners.Use.CALL_PATH)
                 val private = if (found.privateFailed) null else found.private != null
                 when (NetworkName.keep(enabled, private)) {
                     NetworkName.Keep.RECORD -> c.networkNames.record(number, name, at, accountId, region)

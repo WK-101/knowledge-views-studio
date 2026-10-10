@@ -11,6 +11,7 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.people.NumberOwners
 import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
@@ -48,7 +49,8 @@ class NumberMemoryStore(private val c: DataContainer) {
      */
     @Suppress("TooGenericExceptionCaught") // Fail open: no line rather than a broken call screen or keypad.
     suspend fun hints(number: String, place: NumberMemory.Place, region: String = this.region): List<MemoryHint> = try {
-        if (number.isBlank() || c.numberOwners.findIn(number, region).let { it.private != null || it.privateFailed }) {
+        val use = if (place == NumberMemory.Place.CALL) NumberOwners.Use.CALL_PATH else NumberOwners.Use.SCREEN
+        if (number.isBlank() || c.numberOwners.findIn(number, region, use).let { it.private != null || it.privateFailed }) {
             emptyList()
         } else {
             val privateAllowed = c.privacy.now().privateShown && !VaultCrypto.detailNeedsUnlock()

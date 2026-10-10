@@ -42,7 +42,8 @@ class NumberOwners internal constructor(
         // Any change to who is saved drops what was found (the first value of each is the current state, skipped).
         merge(
             c.appContext.contentResolver.changes(Contacts.CONTENT_URI).drop(1),
-            c.vault.callerRowsChanged.drop(1),
+            // Private contacts saved, changed or deleted: the rows only, nothing opened.
+            c.db.vaultDao().callerRows().map { }.drop(1),
             c.archive.cards.drop(1).map { },
         ).onEach { forget() }.launchIn(c.scope)
     }
@@ -154,11 +155,12 @@ class NumberOwners internal constructor(
 
         fun clear() = synchronized(kept) { kept.clear() }
 
-        suspend fun get(number: String, region: String): Result<T> {
+        /** [reuse]: an answer found less than [MEMO_MS] ago will do (a ring); otherwise it is looked up again. */
+        suspend fun get(number: String, region: String, reuse: Boolean = true): Result<T> {
             val key = "$region|$number"
             val pending = synchronized(kept) {
                 val now = clock()
-                kept[key]?.takeIf { now - it.at < MEMO_MS && !it.answer.isCancelled }?.answer
+                kept[key]?.takeIf { reuse && now - it.at < MEMO_MS && !it.answer.isCancelled }?.answer
                     ?: scope.async(Dispatchers.IO) { catching { load(number, region) } }.also { d ->
                         if (kept.size >= MAX_KEPT) kept.entries.removeIf { now - it.value.at >= MEMO_MS }
                         if (kept.size >= MAX_KEPT) kept.clear()
@@ -185,21 +187,26 @@ class NumberOwners internal constructor(
     /** The region a national [number] is read with for a call on [accountId]'s SIM. */
     fun region(accountId: String?): String = sources.region(accountId)
 
-    /** What [number] is saved as, read as the SIM [accountId] reads it; kept for [MEMO_MS]. */
-    suspend fun find(number: String, accountId: String?): Found = findIn(number, region(accountId))
+    /**
+     * What [number] is saved as, read as the SIM [accountId] reads it. For the call path and notifications ([use]) an
+     * answer found less than [MEMO_MS] ago does: one ring asks many times. Parley's own screens ([Use.SCREEN]) always
+     * look it up again (and keep the fresh answer), so a contact saved a moment ago is never missed there.
+     */
+    suspend fun find(number: String, accountId: String?, use: Use = Use.SCREEN): Found = findIn(number, region(accountId), use)
 
     /**
      * [find] with the region already known. The private contact is looked up even for a contact's number: a line saved
      * both ways must leave no trace outside the vault ("Private call history"), whichever name shows.
      */
-    suspend fun findIn(number: String, region: String): Found = coroutineScope {
+    suspend fun findIn(number: String, region: String, use: Use = Use.SCREEN): Found = coroutineScope {
         if (number.isBlank()) return@coroutineScope Found(number, region, null, false, null, false, null, false)
-        val contactAsked = async { contacts.get(number, region) }
-        val privateAsked = async { privates.get(number, region) }
+        val reuse = use != Use.SCREEN
+        val contactAsked = async { contacts.get(number, region, reuse) }
+        val privateAsked = async { privates.get(number, region, reuse) }
         val contact = contactAsked.await()
         val private = privateAsked.await()
         val saved = contact.getOrNull() != null || private.getOrNull() != null
-        val archive = if (!saved) archived.get(number, region) else Result.success(null)
+        val archive = if (!saved) archived.get(number, region, reuse) else Result.success(null)
         Found(number, region, contact.getOrNull(), contact.isFailure, private.getOrNull(), private.isFailure, archive.getOrNull(), archive.isFailure)
     }
 
@@ -219,7 +226,7 @@ class NumberOwners internal constructor(
      * screen, only where "Caller on the lock screen" shows names in full.
      */
     suspend fun owner(number: String, accountId: String?, use: Use, privacy: PrivacyView? = null): Owner =
-        ownerOf(find(number, accountId), use, privacy ?: catching { sources.privacy() }.getOrDefault(PrivacyView.CLOSED))
+        ownerOf(find(number, accountId, use), use, privacy ?: catching { sources.privacy() }.getOrDefault(PrivacyView.CLOSED))
 
     /** [owner] for what was already [found]. */
     suspend fun ownerOf(found: Found, use: Use, privacy: PrivacyView): Owner {

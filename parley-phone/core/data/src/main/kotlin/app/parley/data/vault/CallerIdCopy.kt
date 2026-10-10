@@ -24,6 +24,16 @@ internal object CallerIdCopy {
 
     /** "They never call me" ([app.parley.common.extras.CallerChoice.neverCalls]). */
     const val C_NEVER_CALLS = "nc"
+
+    /**
+     * The choices set from the contact's page only (the editor doesn't show them): the vibration, auto-answer and
+     * "They never call me" of [s], written into [o] (an option that is off isn't stored).
+     */
+    fun putPageChoices(o: JSONObject, s: VaultSummary) {
+        if (s.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, s.vibration)
+        if (s.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
+        if (s.neverCalls) o.put(C_NEVER_CALLS, true) else o.remove(C_NEVER_CALLS)
+    }
     const val C_PRONOUNS = "pn"
 
     /** The name in their own language, shown under the name on the call screen like the name itself. */

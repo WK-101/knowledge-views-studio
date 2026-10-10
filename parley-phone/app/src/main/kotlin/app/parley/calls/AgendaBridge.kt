@@ -6,6 +6,7 @@ import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.circle.AgendaStore
 import app.parley.data.circle.AgendaTarget
+import app.parley.data.people.NumberOwners
 import app.parley.telecom.AgendaAdded
 import app.parley.telecom.AgendaHooks
 import app.parley.telecom.CallerAgenda
@@ -22,7 +23,7 @@ class AgendaBridge(private val app: Context, private val c: DataContainer) : Age
     private fun emergency(number: String): Boolean = catching { EmergencyNumbers.isEmergency(app, number) }.getOrDefault(true)
 
     private suspend fun target(number: String, accountId: String?): AgendaTarget? =
-        if (emergency(number)) null else c.agenda.targetFor(number, accountId)
+        if (emergency(number)) null else c.agenda.targetFor(number, accountId, NumberOwners.Use.CALL_PATH)
 
     override suspend fun agendaFor(number: String, accountId: String?): CallerAgenda? = withContext(Dispatchers.IO) {
         val target = target(number, accountId) ?: return@withContext null

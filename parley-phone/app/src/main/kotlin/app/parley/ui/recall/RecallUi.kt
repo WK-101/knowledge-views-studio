@@ -1,6 +1,5 @@
 package app.parley.ui.recall
 
-import app.parley.common.AppSettings
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
@@ -63,7 +62,6 @@ class RecallUi(
     shown: StateFlow<List<ContactSummary>?>,
     /** Number → device contact by line, as Recents names calls. */
     private val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>>,
-    settings: StateFlow<AppSettings>,
 ) {
     private val sources = RecallSources(c)
 

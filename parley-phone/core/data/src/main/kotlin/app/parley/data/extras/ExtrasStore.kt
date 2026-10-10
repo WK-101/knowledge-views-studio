@@ -135,7 +135,7 @@ class ExtrasStore(private val c: DataContainer) {
         val moving = _choices.value[from] ?: return
         val vaultId = ContactRef.vaultIdOf(to)
         if (vaultId != null) {
-            val written = runCatching {
+            val written = catching {
                 c.vault.updateCallerChoices(vaultId) { s ->
                     s.copy(
                         vibration = s.vibration ?: moving.vibration, autoAnswer = s.autoAnswer || moving.autoAnswer,
@@ -472,7 +472,8 @@ class ExtrasStore(private val c: DataContainer) {
                 val a = runCatching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
                 (0 until a.length()).mapNotNull { i ->
                     val o = a.optJSONObject(i) ?: return@mapNotNull null
-                    CallerChoiceRestore.Entry(o.toPersonRef(), CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false)))
+                    val choice = CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false))
+                    CallerChoiceRestore.Entry(o.toPersonRef(), choice)
                 }
             } ?: values[X_CALLER_CHOICES]?.let { v ->
                 CallerChoices.decode(v).filterKeys { !ContactRef.isPrivateKey(it) }.map { (k, choice) -> CallerChoiceRestore.Entry(PersonRef(k), choice) }

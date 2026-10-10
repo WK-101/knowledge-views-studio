@@ -350,7 +350,8 @@ class NavigationRoutesTest {
         }
         // MainActivity opens Rescue call only for the Situation tile's long press; another tile's, or none named, opens nothing.
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.QS_TILE_PREFERENCES), fromParley = false) { null })
-        val hangUp = Intent(IntentRoutes.QS_TILE_PREFERENCES).putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, "app.parley.telecom.HangUpTileService"))
+        val hangUp = Intent(IntentRoutes.QS_TILE_PREFERENCES)
+            .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, "app.parley.telecom.HangUpTileService"))
         assertNull(IntentRoutes.resolve(hangUp, fromParley = false) { null })
     }
 

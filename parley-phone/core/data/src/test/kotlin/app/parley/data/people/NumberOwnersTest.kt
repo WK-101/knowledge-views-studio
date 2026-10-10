@@ -107,19 +107,26 @@ class NumberOwnersTest {
 
     @Test fun one_ring_finds_the_owner_once_for_a_minute() = runBlocking {
         val o = owners()
+        val ring = Use.CALL_PATH
         // Screening, the call screen, "never calls you" and the agenda ask at the same moment.
-        (1..6).map { async(Dispatchers.Default) { o.find(privateNumber, null) } }.awaitAll()
+        (1..6).map { async(Dispatchers.Default) { o.find(privateNumber, null, ring) } }.awaitAll()
         assertEquals(1, privateLookups.get())
         now += NumberOwners.MEMO_MS - 1
-        o.find(privateNumber, null)
+        o.find(privateNumber, null, Use.NOTIFICATION)
         assertEquals(1, privateLookups.get())
         now += 2
-        o.find(privateNumber, null)
+        o.find(privateNumber, null, ring)
         assertEquals(2, privateLookups.get())
         // Who is saved changed: found again.
         o.forget()
-        o.find(privateNumber, null)
+        o.find(privateNumber, null, ring)
         assertEquals(3, privateLookups.get())
+        // Parley's own screens always look it up again, so a contact saved a moment ago is never missed there.
+        o.find(privateNumber, null, Use.SCREEN)
+        assertEquals(4, privateLookups.get())
+        // ...and the fresh answer serves the ring.
+        o.find(privateNumber, null, ring)
+        assertEquals(4, privateLookups.get())
     }
 
     @Test fun a_number_is_read_with_the_region_of_the_calls_sim() = runBlocking {

@@ -8,6 +8,7 @@ import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
+import app.parley.data.people.NumberOwners
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,7 +25,7 @@ object NeverCallsYouFacts {
             c.settings.current().screening.emergencyExtras.any { PhoneIdentity.same(it, number, iso) }
         val line = PhoneIdentity.e164(number, iso)
         if (emergency || line == null) return@withContext false
-        val saved = savedFor(c, number, iso)
+        val saved = savedFor(c, number, iso, NumberOwners.Use.CALL_PATH)
         if (saved.owners.isEmpty()) return@withContext false
         // "They never call me" on the contact: no history needed.
         if (NeverCallsYou.shows(number, line, saved.owners, emptyList(), null, emergency = false)) return@withContext true
@@ -70,7 +71,7 @@ object NeverCallsYouFacts {
     /** Everyone [number] is saved for, and the private contact among them (its id) when there is one. */
     private class Saved(val owners: List<NeverCallsYou.SavedAs>, val vaultId: Long?)
 
-    private suspend fun savedFor(c: DataContainer, number: String, iso: String): Saved {
+    private suspend fun savedFor(c: DataContainer, number: String, iso: String, use: NumberOwners.Use = NumberOwners.Use.SCREEN): Saved {
         // "They never call me" is read from memory, and a contact's key looked up only when someone chose it at all.
         val neverCallKeys = c.extras.callerChoices.value.filterValues { it.neverCalls }.keys
         val contacts = catching { c.contacts.lookupAll(number) }.getOrDefault(emptyList()).map { o ->
@@ -83,7 +84,7 @@ object NeverCallsYouFacts {
             )
         }
         // Discreet mode: a private contact is a plain number everywhere, so it is no organisation here either.
-        val private = if (c.privacy.now().privateHidden) null else catching { c.numberOwners.findIn(number, iso).private }.getOrNull()
+        val private = if (c.privacy.now().privateHidden) null else catching { c.numberOwners.findIn(number, iso, use).private }.getOrNull()
         val privateOwner = private?.let { (id, info) ->
             val summary = catching { c.vault.summary(id) }.getOrNull()
             NeverCallsYou.SavedAs(

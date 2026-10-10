@@ -12,7 +12,7 @@ object CallerCards {
      * the notification's private version only; its public version has no names.
      */
     suspend fun missedCallLine(c: DataContainer, number: String, privateHidden: Boolean, region: String? = null): String? = catching {
-        val found = c.numberOwners.findIn(number, region ?: c.numberOwners.region(null))
+        val found = c.numberOwners.findIn(number, region ?: c.numberOwners.region(null), NumberOwners.Use.NOTIFICATION)
         val contact = found.contact
         if (contact != null) {
             if (contact.work) return@catching null

@@ -35,6 +35,7 @@ import app.parley.common.blocking.BlockPlan
 import app.parley.common.suspendRunCatching
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.ux.DefaultAppFeature
+import app.parley.data.sync.shared.SharedLabelState
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyDialog
@@ -144,7 +145,7 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
     if (p.isEmpty()) return NothingToBlockDialog(vm, x, who, emergencyOnly, dismiss)
     val count = p.size
     val onSystem = p.all { it.where == BlockPlan.Where.SYSTEM_LIST }
-    val sharedWith = if (onSystem) emptyList() else labelStates.filter { it.shieldOn && SharedLabelMembership.syncs(it.membership) }.map { it.title }
+    val sharedWith = shieldedTitles(labelStates, onSystem)
     ConfirmDialog(
         title = if (count == 1 && who != null) {
             stringResource(R.string.blockflow_title_one, who)
@@ -164,16 +165,7 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
                 }
                 if (!onSystem) DefaultAppNote(vm, DefaultAppFeature.BLOCKING, inset = false)
                 // Said at the moment of blocking, with a way out for this block only (no setting).
-                if (sharedWith.isNotEmpty()) {
-                    Text(pluralStringResource(R.plurals.blockflow_also_shared, count, sharedWith.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
-                    Row(
-                        Modifier.fillMaxWidth().toggleable(!share, role = Role.Checkbox) { share = !it },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(!share, onCheckedChange = null)
-                        Text(stringResource(R.string.blockflow_dont_share), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                if (sharedWith.isNotEmpty()) AlsoShared(sharedWith, count, share) { share = it }
                 x.numbers.singleOrNull()?.let { n ->
                     TextButton({
                         dismiss()
@@ -183,6 +175,20 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
             }
         },
     )
+}
+
+/** The labels whose family spam shield shares numbers blocked one by one; none for a block on Android's own list. */
+private fun shieldedTitles(states: List<SharedLabelState>, onSystem: Boolean): List<String> =
+    if (onSystem) emptyList() else states.filter { it.shieldOn && SharedLabelMembership.syncs(it.membership) }.map { it.title }
+
+/** "Also shared with Family…", with "Don't share" for this block alone ([share] false when ticked). */
+@Composable
+private fun AlsoShared(labels: List<String>, count: Int, share: Boolean, onShare: (Boolean) -> Unit) {
+    Text(pluralStringResource(R.plurals.blockflow_also_shared, count, labels.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
+    Row(Modifier.fillMaxWidth().toggleable(!share, role = Role.Checkbox) { onShare(!it) }, verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(!share, onCheckedChange = null)
+        Text(stringResource(R.string.blockflow_dont_share), style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 /**

@@ -28,7 +28,6 @@ import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
-import app.parley.data.vault.CallerIdCopy.C_AUTO_ANSWER
 import app.parley.data.vault.CallerIdCopy.C_COMPANY
 import app.parley.data.vault.CallerIdCopy.C_LABELS
 import app.parley.data.vault.CallerIdCopy.C_NAME_ALT
@@ -38,11 +37,9 @@ import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import app.parley.data.vault.CallerIdCopy.C_STAR
 import app.parley.data.vault.CallerIdCopy.C_TITLE
 import app.parley.data.vault.CallerIdCopy.C_TONE
-import app.parley.data.vault.CallerIdCopy.C_VIBRATION
 import app.parley.data.vault.CallerIdCopy.C_VOICEMAIL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -224,9 +221,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .map { list -> summarizeAll(list).sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, null)
-
-    /** Emits whenever private contacts are saved, changed or deleted: the rows only, nothing opened. */
-    val callerRowsChanged: Flow<Unit> get() = dao.callerRows().map { }
 
     /** [listing], empty until it has loaded. */
     val contacts: StateFlow<List<VaultSummary>> = listing.map { it.orEmpty() }
@@ -614,9 +608,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.customRingtone?.takeIf { it.isNotBlank() }?.let { put(C_TONE, it) }
                     if (shown.sendToVoicemail) put(C_VOICEMAIL, true)
                     // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
-                    existingSummary?.vibration?.let { put(C_VIBRATION, it) }
-                    if (existingSummary?.autoAnswer == true) put(C_AUTO_ANSWER, true)
-                    if (existingSummary?.neverCalls == true) put(CallerIdCopy.C_NEVER_CALLS, true)
+                    existingSummary?.let { CallerIdCopy.putPageChoices(this, it) }
                     // An edit keeps an archived contact archived (Unarchive is what lists it again).
                     existingSummary?.archivedAt?.let { put(CallerIdCopy.C_ARCHIVED, it) }
                 }
@@ -732,9 +724,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             CallerIdCopy.putLabels(o, after.labels)
             if (after.ringtone.isNullOrBlank()) o.remove(C_TONE) else o.put(C_TONE, after.ringtone)
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
-            if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
-            if (after.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
-            if (after.neverCalls) o.put(CallerIdCopy.C_NEVER_CALLS, true) else o.remove(CallerIdCopy.C_NEVER_CALLS)
+            CallerIdCopy.putPageChoices(o, after)
             after.archivedAt?.let { o.put(CallerIdCopy.C_ARCHIVED, it) } ?: o.remove(CallerIdCopy.C_ARCHIVED)
             // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))

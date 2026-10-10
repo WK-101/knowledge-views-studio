@@ -8,6 +8,7 @@ import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.db.CallNoteEntity
+import app.parley.data.people.NumberOwners
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -55,10 +56,14 @@ class AgendaStore(private val c: DataContainer) {
      * contact (Parley keeps nothing for those), a private contact while private contacts are hidden (the number must
      * not show an agenda of its own either), and something too short to be a number.
      */
-    suspend fun targetFor(number: String, accountId: String? = null): AgendaTarget? = withContext(Dispatchers.IO) {
+    suspend fun targetFor(
+        number: String,
+        accountId: String? = null,
+        use: NumberOwners.Use = NumberOwners.Use.SCREEN,
+    ): AgendaTarget? = withContext(Dispatchers.IO) {
         if (PhoneIdentity.digits(number).length < MIN_DIGITS) return@withContext null
         // Who owns the number, found once per ring ([app.parley.data.people.NumberOwners]).
-        val owners = catching { c.numberOwners.find(number, accountId) }.getOrNull()
+        val owners = catching { c.numberOwners.find(number, accountId, use) }.getOrNull()
         val found = owners?.contact
         if (found != null) {
             if (found.work) return@withContext null

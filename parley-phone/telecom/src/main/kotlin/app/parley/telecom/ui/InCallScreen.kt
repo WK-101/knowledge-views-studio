@@ -991,7 +991,8 @@ private fun ScamCheckDialog(
         }
         // A call that showed "This number never calls you" has ended: "It wasn't them" can still be said about it.
         s.primary == null && v.neverCallsYou && !v.number.isNullOrBlank() -> {
-            ScamCheckSheet(live = false, ScamCheckActions(onVerify = { onPostCall(PostCallChoice.Verify(v.number.orEmpty())) }, onNotThem = notThem(scope, v)), close)
+            val actions = ScamCheckActions(onVerify = { onPostCall(PostCallChoice.Verify(v.number.orEmpty())) }, onNotThem = notThem(scope, v))
+            ScamCheckSheet(live = false, actions, close)
         }
         s.primary == null && v.postCallCard -> {
             val number = v.number.orEmpty()
