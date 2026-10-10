@@ -2,20 +2,20 @@ package app.parley.data
 
 import app.parley.common.GeoLanguages
 import app.parley.common.circle.GoodTime
+import app.parley.common.phone.AreaNames
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper
 import com.google.i18n.phonenumbers.PhoneNumberUtil
-import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder
 import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Offline phone-number facts via libphonenumber's bundled data: where a number is from
+ * Offline phone-number facts via libphonenumber's bundled data (packed: [PhoneData]): where a number is from
  * ("Mountain View, CA" / "Germany"), its region, and a flag emoji. Never touches the network.
  */
 object NumberInfo {
-    private val util by lazy { PhoneNumberUtil.getInstance() }
-    private val geocoder by lazy { PhoneNumberOfflineGeocoder.getInstance() }
+    private val util by lazy { PhoneData.util }
     private val cache = ConcurrentHashMap<String, String>()
 
     fun location(number: String?, countryIso: String, locale: Locale = Locale.getDefault()): String? {
@@ -35,7 +35,7 @@ object NumberInfo {
                 } else {
                     // With the phone's own country: a number from there gets its area, a foreign one its country (a
                     // null region would make the geocoder fail, and a foreign area file may not be in the APK).
-                    geocoder.getDescriptionForNumber(parsed, lang, countryIso.uppercase(Locale.ROOT)).ifBlank { null }
+                    AreaNames.describe(parsed, lang, countryIso.uppercase(Locale.ROOT)).ifBlank { null }
                 }
             }
         } catch (_: Exception) {
@@ -70,7 +70,8 @@ object NumberInfo {
         null
     }
 
-    private val zones by lazy { PhoneNumberToTimeZonesMapper.getInstance() }
+    // The mapper asks PhoneNumberUtil.getInstance(): the packed metadata goes in first.
+    private val zones by lazy { util.let { PhoneNumberToTimeZonesMapper.getInstance() } }
 
     /**
      * The time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it

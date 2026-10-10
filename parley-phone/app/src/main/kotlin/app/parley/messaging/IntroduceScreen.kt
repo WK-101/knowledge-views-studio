@@ -156,7 +156,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(draft ?: stringResource(R.string.intro_no_details)) },
                     supportingContent = { Text(stringResource(R.string.intro_the_message)) },
                     leadingContent = { Icon(Icons.Rounded.Badge, null) },
-                    trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.keypad_set_up else R.string.main_edit)) } },
+                    trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.bkp_set_up else R.string.me_edit_short)) } },
                 )
             }
             when {
@@ -178,7 +178,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                         Text(MessagingText.introSummary(res, queue), style = MaterialTheme.typography.titleMedium)
                     }
-                    Button(back) { Text(stringResource(R.string.main_done)) }
+                    Button(back) { Text(stringResource(R.string.dc_done)) }
                 }
                 else -> {
                     val t = queue.current!!
@@ -191,8 +191,8 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                         Text(stringResource(if (opened) R.string.intro_open_again else R.string.intro_open_in_app, app.label))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.intro_next else R.string.intro_skip)) }
-                        TextButton({ queue = queue.stop() }) { Text(stringResource(R.string.intro_stop)) }
+                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.pin_next else R.string.intro_skip)) }
+                        TextButton({ queue = queue.stop() }) { Text(stringResource(R.string.blk_stop)) }
                         TextButton({ appPackage = null }) { Text(stringResource(R.string.intro_change_app)) }
                     }
                 }

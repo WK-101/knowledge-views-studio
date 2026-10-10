@@ -60,7 +60,7 @@ object BlockingText {
     /** A verdict ("Blocked by rule 'X' · 3 calls", "Likely spam · List") in the app's language. */
     fun verdict(context: Context, text: String?): String? {
         if (text == null) return null
-        fun join(a: String, b: String?) = if (b == null) a else context.getString(R.string.blk_joined, a, b)
+        fun join(a: String, b: String?) = if (b == null) a else context.getString(R.string.archive_page_work, a, b)
         reportedBy.matchEntire(text)?.let { m -> return join(context.getString(R.string.blk_verdict_reported_by, m.groupValues[1]), m.groups[2]?.value) }
         blockedByRule.matchEntire(text)?.let { m ->
             val base = context.getString(R.string.blk_verdict_blocked_by_rule, m.groupValues[1])
@@ -110,7 +110,7 @@ object BlockingText {
         "SIM allow rule" to R.string.blk_check_sim_allow_rule,
         "Repeat caller" to R.string.blk_check_repeat,
         "Your calls" to R.string.blk_check_your_calls,
-        "Family shield" to R.string.fsh_check,
+        "Family shield" to R.string.blk_decides_shield,
     )
 
     private val results = mapOf(

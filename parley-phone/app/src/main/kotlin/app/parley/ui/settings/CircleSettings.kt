@@ -81,7 +81,7 @@ fun SegmentedGroupScope.logPromptsRow(vm: AppViewModel, cfg: CircleConfig) = ite
  * history; the card's own ⋮ changes the same values).
  */
 fun SegmentedGroupScope.peopleCardRow(vm: AppViewModel, cfg: CircleConfig) = item("people_card") {
-    val choices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_on), stringResource(R.string.set_circle_first_mover_title))
+    val choices = listOf(stringResource(R.string.dc_off), stringResource(R.string.dc_on), stringResource(R.string.set_circle_first_mover_title))
     MenuRow(settingTitle("people_card"), choices, PeopleCardChoice.of(cfg).ordinal, Icons.Rounded.Groups, settingSummary("people_card")) { i ->
         vm.c.circle.updateConfig { PeopleCardChoice.entries[i].applyTo(it) }
     }
@@ -126,6 +126,6 @@ private fun LogPromptsRow(vm: AppViewModel, cfg: CircleConfig) {
                 }
             }
         },
-        confirmButton = { TextButton({ open = false }) { Text(stringResource(R.string.main_done)) } },
+        confirmButton = { TextButton({ open = false }) { Text(stringResource(R.string.dc_done)) } },
     )
 }

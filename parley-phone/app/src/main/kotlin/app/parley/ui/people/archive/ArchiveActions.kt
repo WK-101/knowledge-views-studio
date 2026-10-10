@@ -158,7 +158,7 @@ fun ArchiveContactDialog(vm: AppViewModel, contactId: Long, name: String, onDism
             }
         },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 
@@ -185,7 +185,7 @@ fun ArchiveSelectionDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> U
             }
         },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 
@@ -364,7 +364,7 @@ private fun ChooseAccountDialog(vm: AppViewModel, name: String, missing: String,
         confirmLabel = stringResource(R.string.archive_put_back),
         onConfirm = { account?.let(onPick) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = account != null,
         content = {
             Column(Modifier.verticalScroll(rememberScrollState())) {

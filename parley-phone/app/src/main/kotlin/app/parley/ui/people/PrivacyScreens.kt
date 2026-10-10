@@ -229,7 +229,7 @@ private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (Loo
         },
         trailingContent = {
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem({ Text(stringResource(R.string.privnames_allow)) }, onClick = { menu = false; set(LookupApproval.ALLOWED) })
+                DropdownMenuItem({ Text(stringResource(R.string.blk_allow)) }, onClick = { menu = false; set(LookupApproval.ALLOWED) })
                 DropdownMenuItem({ Text(stringResource(R.string.privnames_deny)) }, onClick = { menu = false; set(LookupApproval.DENIED) })
                 DropdownMenuItem({ Text(stringResource(R.string.pn_forget)) }, onClick = { menu = false; set(null) })
             }
@@ -291,7 +291,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 )
             }
             if (st.log.isNotEmpty()) item {
-                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) }
+                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.blk_clear_log)) }
             }
         }
     }
@@ -301,7 +301,7 @@ private fun outcomeText(o: LookupOutcome): Int = when (o) {
     LookupOutcome.ANSWERED -> R.string.pn_out_answered
     LookupOutcome.NOT_FOUND -> R.string.pn_out_not_found
     LookupOutcome.DENIED -> R.string.pn_out_denied
-    LookupOutcome.ASKED -> R.string.pn_out_asked
+    LookupOutcome.ASKED -> R.string.pn_waiting
     LookupOutcome.OFF -> R.string.pn_out_off
     LookupOutcome.REJECTED -> R.string.pn_out_rejected
     LookupOutcome.RATE_LIMITED -> R.string.pn_out_rate

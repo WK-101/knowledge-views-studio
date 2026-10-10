@@ -81,7 +81,7 @@ fun CrashReportHost(vm: AppViewModel) {
             }
         },
         confirmButton = { TextButton({ saver.launch("parley-report.txt") }) { Text(stringResource(R.string.ppl_crash_save)) } },
-        dismissButton = { TextButton(::done) { Text(stringResource(R.string.ppl_crash_not_now)) } },
+        dismissButton = { TextButton(::done) { Text(stringResource(R.string.circle_not_now)) } },
     )
 }
 

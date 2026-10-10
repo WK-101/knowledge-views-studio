@@ -167,18 +167,18 @@ object ToCallReminders {
         )
         val one = due.singleOrNull()
         val b = PrivateNotice.builder(
-            context, NotificationChannels.TO_CALL, app.parley.ui.R.drawable.ic_stat_call, "", context.getString(R.string.to_call_notif_public), open = open,
+            context, NotificationChannels.TO_CALL, app.parley.ui.R.drawable.ic_stat_call, "", context.getString(R.string.circle_notif_public), open = open,
         )
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setOnlyAlertOnce(true)
             .setNumber(0)
         if (one != null) {
-            b.setContentTitle(context.getString(R.string.to_call_notif_one, names[0]))
+            b.setContentTitle(context.getString(R.string.circle_call_who, names[0]))
                 .setContentText(
                     context.getString(if (one.source == ToCallSource.FOLLOW_UP) R.string.to_call_notif_follow_up else R.string.to_call_notif_reminder),
                 )
                 .addAction(
-                    0, context.getString(R.string.to_call_call),
+                    0, context.getString(R.string.circle_widget_call),
                     PendingIntent.getActivity(
                         context, NotificationRequests.TO_CALL_CALL, Shortcuts.intent(context, Shortcuts.Kind.CALL, one.number, null, names[0]),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -190,7 +190,7 @@ object ToCallReminders {
             names.take(6).forEach { inbox.addLine(it) }
             b.setContentTitle(title).setContentText(names.joinToString(", ")).setStyle(inbox)
         }
-        b.addAction(0, context.getString(R.string.to_call_not_now), notNow)
+        b.addAction(0, context.getString(R.string.circle_not_now), notNow)
         PrivateNotice.post(context, NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID, b)
     }
 

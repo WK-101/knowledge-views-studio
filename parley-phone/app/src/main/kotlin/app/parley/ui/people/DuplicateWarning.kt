@@ -80,9 +80,9 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
             }
             Row {
                 if (private) {
-                    TextButton({ vm.navigate(NavEvent.Vault(-h.contact.id)) }) { Text(stringResource(R.string.dup_open)) }
+                    TextButton({ vm.navigate(NavEvent.Vault(-h.contact.id)) }) { Text(stringResource(R.string.blk_open)) }
                 } else {
-                    TextButton({ onOpen(h.contact.id) }) { Text(stringResource(R.string.dup_open)) }
+                    TextButton({ onOpen(h.contact.id) }) { Text(stringResource(R.string.blk_open)) }
                     TextButton({ onAddTo(h.contact.id) }) { Text(stringResource(R.string.dup_add_to, h.contact.displayName.substringBefore(' '))) }
                 }
                 TextButton({ dismissed = h.contact.id }) { Text(stringResource(R.string.dup_someone_else)) }

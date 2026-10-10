@@ -19,9 +19,9 @@ val StartTab.label: String
 /** The string resource of [label], for code outside composition. */
 val StartTab.labelRes: Int
     get() = when (this) {
-        StartTab.FAVORITES -> R.string.tab_favorites
+        StartTab.FAVORITES -> R.string.blk_favourites
         StartTab.RECENTS -> R.string.tab_recents
-        StartTab.CONTACTS -> R.string.tab_contacts
+        StartTab.CONTACTS -> R.string.rst_contacts
         StartTab.KEYPAD -> R.string.tab_keypad
         StartTab.CIRCLE -> R.string.tab_circle
     }

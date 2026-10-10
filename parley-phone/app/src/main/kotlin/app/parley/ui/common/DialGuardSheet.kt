@@ -46,7 +46,7 @@ fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = nul
             Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(stringResource(R.string.call_who_question, who), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            Text(stringResource(R.string.shortcut_call_confirm, who), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             all.forEach { w ->
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
@@ -68,8 +68,8 @@ fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = nul
                         onCall, Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text(stringResource(R.string.call_anyway)) }
                 } else {
-                    OutlinedButton(onCancel, Modifier.weight(1f)) { Text(stringResource(R.string.main_cancel)) }
-                    Button(onCall, Modifier.weight(1f)) { Text(stringResource(R.string.main_call)) }
+                    OutlinedButton(onCancel, Modifier.weight(1f)) { Text(stringResource(R.string.dc_cancel)) }
+                    Button(onCall, Modifier.weight(1f)) { Text(stringResource(R.string.circle_widget_call)) }
                 }
             }
         }

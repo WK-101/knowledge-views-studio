@@ -238,10 +238,10 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>) = app.parley.ui.block
 internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false): String = res.getString(
     when (a) {
         SwipeAction.NONE -> R.string.swipe_none
-        SwipeAction.CALL -> R.string.swipe_call
-        SwipeAction.MESSAGE -> R.string.swipe_message
-        SwipeAction.MESSAGE_ON -> R.string.reach_message_or_call_on
-        SwipeAction.BLOCK -> R.string.swipe_block
-        SwipeAction.DELETE -> if (short) R.string.swipe_delete_short else R.string.swipe_delete
+        SwipeAction.CALL -> R.string.circle_widget_call
+        SwipeAction.MESSAGE -> R.string.circle_type_message
+        SwipeAction.MESSAGE_ON -> R.string.contact_page_sec_messengers
+        SwipeAction.BLOCK -> R.string.blk_block
+        SwipeAction.DELETE -> if (short) R.string.blk_delete else R.string.swipe_delete
     },
 )

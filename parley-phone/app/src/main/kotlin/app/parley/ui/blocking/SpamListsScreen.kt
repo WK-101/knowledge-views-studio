@@ -170,7 +170,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                                         vm.toast(if (n == 0) res.getString(R.string.blk_no_new_lists) else res.getString(R.string.blk_updated_n, n))
                                     }
                                 }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.blk_check_now)) }
-                                TextButton({ scope.launch { vm.c.lists.unsubscribe() } }) { Text(stringResource(R.string.ct_remove)) }
+                                TextButton({ scope.launch { vm.c.lists.unsubscribe() } }) { Text(stringResource(R.string.jr_remove)) }
                             }
                         },
                     )
@@ -189,7 +189,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                         supportingContent = { Text(BlockingText.packDescription(context, b.id, b.description)) },
                         trailingContent = {
                             TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(res.getString(R.string.blk_added_toast)) } }) {
-                                Text(stringResource(R.string.blk_add))
+                                Text(stringResource(R.string.agenda_add_save))
                             }
                         },
                     )
@@ -206,7 +206,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
         ConfirmDialog(
             title = stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name),
             text = null,
-            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.blk_add),
+            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.agenda_add_save),
             onConfirm = {
                 scope.launch {
                     when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
@@ -221,7 +221,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                 pendingDry = null
             },
             onDismiss = { pending = null; pendingDry = null },
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val count = pk.numbers.size / 10
@@ -233,7 +233,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                         ).joinToString(" · "),
                     )
                     if (m.publisher.isNotBlank()) Text(
-                        stringResource(R.string.blk_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                        stringResource(R.string.blk_title_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
                     )
                     if (pk.signature == SignatureStatus.SIGNED) {
                         Row(
@@ -263,7 +263,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             title = stringResource(R.string.blk_cant_add_list),
             text = e,
             onDismiss = { error = null },
-            closeLabel = stringResource(R.string.set_ok),
+            closeLabel = stringResource(R.string.dc_ok),
         )
     }
 }
@@ -333,7 +333,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                 if (pk.suppressed.isNotEmpty()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(pluralStringResource(R.plurals.blk_marked_not_spam_count, pk.suppressed.size, pk.suppressed.size), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.set_clear)) }
+                        TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.hist_filter_clear)) }
                     }
                 }
                 if (pk.source.isNotBlank()) Text(stringResource(R.string.blk_source, pk.source), style = MaterialTheme.typography.bodySmall)
@@ -353,9 +353,9 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                         if (pk.origin == PackOrigin.UPDATER) ListsUpdaterClient.unsubscribe(ctx, vm.c.lists, pk.id) else vm.c.lists.remove(pk.id)
                     }
                     confirmRemove = false
-                }) { Text(stringResource(R.string.ct_remove)) }
+                }) { Text(stringResource(R.string.jr_remove)) }
             },
-            dismissButton = { TextButton({ confirmRemove = false }) { Text(stringResource(R.string.set_cancel)) } },
+            dismissButton = { TextButton({ confirmRemove = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 }

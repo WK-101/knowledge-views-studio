@@ -107,8 +107,8 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
     var rowHeight by remember { mutableIntStateOf(1) }
     val latest by rememberUpdatedState(layout)
     val latestOnChange by rememberUpdatedState(onChange)
-    val moveUp = stringResource(R.string.set_move_up)
-    val moveDown = stringResource(R.string.set_move_down)
+    val moveUp = stringResource(R.string.editor_move_up)
+    val moveDown = stringResource(R.string.editor_move_down)
     fun moved(from: Int, to: Int) = latest.copy(order = order).moved(from, to)
 
     Column(Modifier.padding(vertical = 4.dp)) {
@@ -200,8 +200,8 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
 
 private fun modeLabel(res: Resources, m: SectionMode): String = res.getString(
     when (m) {
-        SectionMode.OPEN -> R.string.contact_page_mode_open
-        SectionMode.FOLDED -> R.string.contact_page_mode_folded
+        SectionMode.OPEN -> R.string.blk_open
+        SectionMode.FOLDED -> R.string.contact_page_folded
         SectionMode.HIDDEN -> R.string.contact_page_mode_hidden
     },
 )

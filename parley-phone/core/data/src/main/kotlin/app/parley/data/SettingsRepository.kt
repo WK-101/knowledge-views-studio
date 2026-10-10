@@ -1,15 +1,13 @@
 package app.parley.data
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.MutablePreferences
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import app.parley.data.prefs.MutablePreferences
+import app.parley.data.prefs.PreferenceFile
+import app.parley.data.prefs.Preferences
+import app.parley.data.prefs.booleanPreferencesKey
+import app.parley.data.prefs.intPreferencesKey
+import app.parley.data.prefs.longPreferencesKey
+import app.parley.data.prefs.stringPreferencesKey
 import app.parley.common.AppSettings
 import app.parley.common.BlockAction
 import app.parley.common.NavTabs
@@ -32,14 +30,12 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
 class SettingsRepository internal constructor(
-    private val store: DataStore<Preferences>,
+    private val store: PreferenceFile,
     scope: CoroutineScope,
     isFreshInstall: () -> Boolean,
 ) {
-    constructor(context: Context, scope: CoroutineScope) : this(context.applicationContext.dataStore, scope, { neverUpdated(context) })
+    constructor(context: Context, scope: CoroutineScope) : this(PreferenceFile(context, "settings"), scope, { neverUpdated(context) })
 
     /**
      * This install was never updated: the first run of a new install (an update changes the last-update time). Stored
@@ -105,7 +101,7 @@ class SettingsRepository internal constructor(
     /**
      * Current settings as stored. Read from the store rather than [settings], which can lag a moment behind an
      * [update] that just finished (a call placed right after changing "confirm before calling" must see it).
-     * DataStore serves this from memory once loaded, and reads disk when the process was just woken by a call.
+     * The file is served from memory once loaded, and read from disk when the process was just woken by a call.
      */
     suspend fun current(): AppSettings =
         DuressPolicy.effective(store.data.first().toSettings(), Concealment.hiding, sessionOverlay.value.takeIf { duressSession })

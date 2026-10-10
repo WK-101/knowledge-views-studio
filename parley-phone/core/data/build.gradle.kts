@@ -24,7 +24,6 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    api(libs.androidx.datastore.preferences)
     api(libs.kotlinx.coroutines.android)
     // Editor drafts in saved state (ContactDraftJson).
     implementation(libs.kotlinx.serialization.json)
@@ -33,9 +32,12 @@ dependencies {
     implementation(libs.androidx.exifinterface)
 
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core:common")))
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Writes settings files the way older Parley versions did, to test moving them over (PreferenceFileTest).
+    testImplementation(libs.androidx.datastore.preferences)
 }

@@ -230,7 +230,7 @@ internal fun CallActionButton(
 /** End call: the wide red pill, centred at the bottom within thumb reach. */
 @Composable
 internal fun EndCallButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val endCall = stringResource(R.string.incall_end_call)
+    val endCall = stringResource(R.string.tile_end_call)
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val corner by animateDpAsState(if (pressed) 22.dp else CallButtonSize.endHeight / 2, ParleyMotion.fastSpatial(), label = "corner")

@@ -86,7 +86,7 @@ fun LimitRuleDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CheckRow(stringResource(R.string.ct_incoming_calls), incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
+                CheckRow(stringResource(R.string.set_group_incoming), incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
                 CheckRow(stringResource(R.string.ct_outgoing_calls), outgoing) { outgoing = it; if (!it && !incoming) incoming = true }
                 extra?.invoke()
             }
@@ -103,14 +103,14 @@ fun LimitRuleDialog(
                     ),
                 )
                 onDismiss()
-            }) { Text(stringResource(R.string.set_save)) }
+            }) { Text(stringResource(R.string.pin_save)) }
         },
         dismissButton = {
             Row {
                 if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) {
-                    Text(stringResource(R.string.ct_remove))
+                    Text(stringResource(R.string.jr_remove))
                 }
-                TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
             }
         },
     )
@@ -142,7 +142,7 @@ private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Uni
 
 /** "Every 15 min" / "Off". */
 fun reminderText(context: Context, minutes: Int): String =
-    if (minutes <= 0) context.getString(R.string.set_off) else context.getString(R.string.ct_every_min, minutes)
+    if (minutes <= 0) context.getString(R.string.dc_off) else context.getString(R.string.ct_every_min, minutes)
 
 /** "every 15 min" / "off", inside a sentence. */
 fun reminderTextInline(context: Context, minutes: Int): String =

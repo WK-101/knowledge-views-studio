@@ -147,7 +147,7 @@ object QrLabels {
     fun kind(res: Resources, p: QrPayload): String = when (p) {
         is QrPayload.Contact -> if (p.records.size > 1) res.getQuantityString(
             R.plurals.qs_kind_contacts, p.records.size, p.records.size,
-        ) else res.getString(R.string.qs_kind_contact)
+        ) else res.getString(R.string.rel_contact)
         is QrPayload.Parley -> res.getString(
             when (p.kind) {
                 ParleyKind.CONTACT -> R.string.qs_kind_parley_contact
@@ -156,16 +156,16 @@ object QrLabels {
                 ParleyKind.LABEL -> R.string.qs_kind_parley_label
             },
         )
-        is QrPayload.Phone -> res.getString(if (p.isMmi) R.string.qs_kind_code else R.string.qs_kind_phone)
+        is QrPayload.Phone -> res.getString(if (p.isMmi) R.string.qs_kind_code else R.string.blk_phone_number)
         is QrPayload.Sms -> res.getString(R.string.qs_kind_sms)
-        is QrPayload.Email -> res.getString(R.string.qs_kind_email)
+        is QrPayload.Email -> res.getString(R.string.contact_page_sec_emails)
         is QrPayload.Geo -> res.getString(R.string.qs_kind_geo)
         is QrPayload.Wifi -> res.getString(R.string.qs_kind_wifi)
         is QrPayload.Event -> res.getString(R.string.qs_kind_event)
         is QrPayload.Messenger -> res.getString(
             when (p.kind) {
                 LinkKind.PHONE -> R.string.qs_link_phone
-                LinkKind.PROFILE -> R.string.qs_link_profile
+                LinkKind.PROFILE -> R.string.paste_type_profile
                 LinkKind.ID -> R.string.qs_link_id
                 LinkKind.GROUP -> R.string.qs_link_group
                 LinkKind.CHANNEL -> R.string.qs_link_channel
@@ -214,11 +214,11 @@ fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, o
                 // A Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
                 TextButton({ Clipboard.copy(context, payload.raw) }) {
                     Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
-                    Text("  " + stringResource(R.string.qs_copy_text))
+                    Text("  " + stringResource(R.string.hist_action_copy))
                 }
                 TextButton({ QrActions.share(context, payload.raw) }) {
                     Icon(Icons.Rounded.Share, null, Modifier.size(18.dp))
-                    Text("  " + stringResource(R.string.qs_share))
+                    Text("  " + stringResource(R.string.diag_share))
                 }
             }
         }
@@ -326,7 +326,7 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             ) {
                 Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column {
-                    Text(QrText.shown(nameOf(r, d), 80, false).ifBlank { stringResource(R.string.qs_no_name) }, style = MaterialTheme.typography.bodyLarge)
+                    Text(QrText.shown(nameOf(r, d), 80, false).ifBlank { stringResource(R.string.cs_no_name) }, style = MaterialTheme.typography.bodyLarge)
                     d.phones.firstOrNull()?.let { Text(Bidi.ltr(QrText.shown(it.value, 40, false)), style = MaterialTheme.typography.bodySmall) }
                 }
             }
@@ -397,23 +397,23 @@ private fun ColumnScope.ContactCard(
     Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                QrText.shown(name, 120, false).ifBlank { stringResource(R.string.qs_no_name) },
+                QrText.shown(name, 120, false).ifBlank { stringResource(R.string.cs_no_name) },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Medium,
             )
             listOf(details.title, details.company).filter { it.isNotBlank() }.joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
                 Text(QrText.shown(it, 200, false), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            details.phones.forEach { Field(stringResource(R.string.qs_field_phone), it.value, ltr = true) }
-            details.emails.forEach { Field(stringResource(R.string.qs_field_email), it.value) }
-            details.addresses.forEach { Field(stringResource(R.string.qs_field_address), it.formatted) }
-            details.websites.forEach { Field(stringResource(R.string.qs_field_website), it.value) }
+            details.phones.forEach { Field(stringResource(R.string.contact_page_sec_phones), it.value, ltr = true) }
+            details.emails.forEach { Field(stringResource(R.string.contact_page_sec_emails), it.value) }
+            details.addresses.forEach { Field(stringResource(R.string.contact_page_sec_addresses), it.formatted) }
+            details.websites.forEach { Field(stringResource(R.string.csv_field_website), it.value) }
             details.handles.forEach { Field(it.service.label, it.value) }
-            details.events.forEach { Field(stringResource(R.string.qs_field_date), it.date, ltr = true) }
-            if (details.note.isNotBlank()) Field(stringResource(R.string.qs_field_note), details.note)
+            details.events.forEach { Field(stringResource(R.string.hist_pdf_col_date), it.date, ltr = true) }
+            if (details.note.isNotBlank()) Field(stringResource(R.string.blk_col_note), details.note)
         }
     }
-    Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd, primary = true) {
+    Action(stringResource(R.string.keypad_add_to_contacts), Icons.Rounded.PersonAdd, primary = true) {
         // The editor shows the duplicate warning when the number or name is already saved.
         onDismiss()
         vm.navigate(NavEvent.NewContact(details))
@@ -508,14 +508,14 @@ private fun ColumnScope.ParleyResult(vm: AppViewModel, p: QrPayload.Parley, onDi
 private fun ColumnScope.NumberActions(vm: AppViewModel, number: String, onDismiss: () -> Unit, call: Boolean = true) {
     var messageOn by remember { mutableStateOf(false) }
     if (call) {
-        Action(stringResource(R.string.qs_call), Icons.Rounded.Call, primary = true) {
+        Action(stringResource(R.string.circle_widget_call), Icons.Rounded.Call, primary = true) {
             onDismiss()
             // The usual path: dial guard, confirm-before-calling, SIM choice.
             vm.requestCall(number)
         }
     }
-    Action(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
-    Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd) {
+    Action(stringResource(R.string.contact_page_sec_messengers), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
+    Action(stringResource(R.string.keypad_add_to_contacts), Icons.Rounded.PersonAdd) {
         onDismiss()
         vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
     }
@@ -545,7 +545,7 @@ private fun ColumnScope.PhoneResult(vm: AppViewModel, p: QrPayload.Phone, onDism
 private fun ColumnScope.SmsResult(vm: AppViewModel, p: QrPayload.Sms, onDismiss: () -> Unit) {
     val context = LocalContext.current
     Field(stringResource(R.string.qs_field_to), p.numbers.joinToString(", "), ltr = true)
-    p.body?.let { Field(stringResource(R.string.qs_field_message), it) }
+    p.body?.let { Field(stringResource(R.string.circle_type_message), it) }
     Note(stringResource(R.string.qs_sms_note))
     Action(stringResource(R.string.qs_write_sms), Icons.AutoMirrored.Rounded.Message, primary = true) {
         val link = MessengerLinks.sms(p.number, null, p.body, MessengerLauncher.smsPackage(context))
@@ -565,10 +565,10 @@ private fun ColumnScope.EmailResult(vm: AppViewModel, p: QrPayload.Email, onDism
         Note(stringResource(R.string.qs_bcc_note), Icons.Rounded.Warning, warning = true)
     }
     p.subject?.let { Field(stringResource(R.string.qs_field_subject), it) }
-    p.body?.let { Field(stringResource(R.string.qs_field_message), it) }
+    p.body?.let { Field(stringResource(R.string.circle_type_message), it) }
     Action(stringResource(R.string.qs_write_email), Icons.Rounded.Email, primary = true) { QrActions.email(context, p) }
     p.to.firstOrNull()?.let { address ->
-        Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd) {
+        Action(stringResource(R.string.keypad_add_to_contacts), Icons.Rounded.PersonAdd) {
             onDismiss()
             vm.navigate(
                 NavEvent.NewContact(ContactDetails(emails = listOf(DataItem(value = address, type = ContactsContract.CommonDataKinds.Email.TYPE_HOME)))),
@@ -610,7 +610,7 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
     p.password?.let { pw ->
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                Field(stringResource(R.string.qs_field_password), if (reveal) pw else "•".repeat(pw.length.coerceAtMost(16)), mono = true)
+                Field(stringResource(R.string.blk_password), if (reveal) pw else "•".repeat(pw.length.coerceAtMost(16)), mono = true)
             }
             IconButton({ reveal = !reveal }) {
                 Icon(
@@ -642,11 +642,11 @@ private fun ColumnScope.EventResult(p: QrPayload.Event) {
         val end = p.end?.toEpochMillis(zone)?.let { if (s.allDay && it > start) it - 1 else it } ?: start
         var flags = DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_YEAR
         if (!s.allDay) flags = flags or DateUtils.FORMAT_SHOW_TIME
-        Field(stringResource(R.string.qs_field_when), DateUtils.formatDateRange(context, start, maxOf(start, end), flags))
+        Field(stringResource(R.string.blk_editor_when), DateUtils.formatDateRange(context, start, maxOf(start, end), flags))
     }
     p.location?.let { Field(stringResource(R.string.qs_field_place), it) }
-    p.description?.let { Field(stringResource(R.string.qs_field_note), it) }
-    p.url?.let { Field(stringResource(R.string.qs_field_website), it) }
+    p.description?.let { Field(stringResource(R.string.blk_col_note), it) }
+    p.url?.let { Field(stringResource(R.string.csv_field_website), it) }
     Action(stringResource(R.string.qs_add_calendar), Icons.Rounded.Event, primary = true) { QrActions.calendar(context, p) }
 }
 
@@ -658,18 +658,18 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
     var missing by remember { mutableStateOf(false) }
     val app = p.app
     p.handle?.let { Text(if (p.phone != null) Bidi.ltr(it) else it, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp)) }
-    Field(stringResource(R.string.qs_field_link), p.uri)
+    Field(stringResource(R.string.picker_join_confirm), p.uri)
     when {
         app.legacy -> Note(stringResource(R.string.qs_app_closed, app.label))
         app.scanInside -> Note(stringResource(R.string.qs_scan_inside, app.label))
         app.pasteOnly -> Note(stringResource(R.string.qs_paste_only, app.label))
     }
-    Action(stringResource(R.string.qs_open_in, app.label), Icons.AutoMirrored.Rounded.Chat, primary = true) {
+    Action(stringResource(R.string.intro_open_in_app, app.label), Icons.AutoMirrored.Rounded.Chat, primary = true) {
         if (QrActions.openInApp(context, p)) onDismiss() else missing = true
     }
     if (missing) {
         Note(stringResource(R.string.qs_not_installed, app.label), Icons.Rounded.Info)
-        Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.uri) }
+        Action(stringResource(R.string.detail_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.uri) }
         if (p.hasWebPage) {
             Action(stringResource(R.string.qs_open_browser), Icons.Rounded.OpenInBrowser) { QrActions.openInBrowser(context, p.uri) }
             Text(stringResource(R.string.qs_browser_leaves), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -685,7 +685,7 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
             )
         }
         if (app in setOf(QrApp.WHATSAPP, QrApp.SIGNAL, QrApp.TELEGRAM, QrApp.VIBER, QrApp.ZALO)) {
-            Action(stringResource(R.string.qs_call), Icons.Rounded.Call) {
+            Action(stringResource(R.string.circle_widget_call), Icons.Rounded.Call) {
                 onDismiss()
                 vm.requestCall(number)
             }
@@ -743,7 +743,7 @@ private fun ColumnScope.UrlResult(p: QrPayload.Url) {
     }
     Action(stringResource(R.string.qs_open_browser), Icons.Rounded.OpenInBrowser, primary = !info.isRisky) { QrActions.openInBrowser(context, p.url) }
     Text(stringResource(R.string.qs_browser_leaves), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Action(stringResource(R.string.qs_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.url) }
+    Action(stringResource(R.string.detail_copy_link), Icons.Rounded.ContentCopy) { Clipboard.copy(context, p.url) }
 }
 
 @Composable

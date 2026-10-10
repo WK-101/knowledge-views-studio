@@ -171,7 +171,7 @@ detekt {
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(
         listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater", "tools/detekt-rules", "baselineprofile").flatMap { m ->
-            listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
+            listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin", "$m/src/testFixtures/kotlin")
         }.map { file(it) }.filter { it.exists() },
     )
 }

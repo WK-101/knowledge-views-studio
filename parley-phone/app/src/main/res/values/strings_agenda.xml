@@ -15,7 +15,6 @@
         <item quantity="one">%1$d thing to talk about</item>
         <item quantity="other">%1$d things to talk about</item>
     </plurals>
-    <string name="agenda_item_label">To talk about</string>
     <string name="agenda_number_hint">Kept with this number\'s notes. It shows when you call it or it calls you.</string>
     <string name="agenda_share_row">Add to talk about with…</string>
     <string name="agenda_share_row_body">Pick who, and it shows when you next talk</string>
@@ -23,6 +22,5 @@
     <string name="agenda_share_pick_title">Talk about this with…</string>
     <string name="agenda_share_search">Name</string>
     <string name="agenda_share_none">No contacts match</string>
-    <string name="recall_add_agenda">Add something to talk about</string>
     <string name="recall_more_for">More for %1$s</string>
 </resources>

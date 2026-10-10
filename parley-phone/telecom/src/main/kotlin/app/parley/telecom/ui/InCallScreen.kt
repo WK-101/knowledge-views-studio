@@ -683,7 +683,7 @@ private fun controlSpec(res: Resources, control: CallControl, enabled: Boolean, 
         ControlSpec(icon, res.getString(label), res.getString(spoken), enabled = enabled, onClick = onClick)
     return when (control) {
         CallControl.MUTE -> toggleSpec(
-            res, audio.muted, Icons.Rounded.MicOff to Icons.Rounded.Mic, R.string.incall_muted to R.string.incall_mute, enabled, onClick,
+            res, audio.muted, Icons.Rounded.MicOff to Icons.Rounded.Mic, R.string.incall_muted to R.string.notif_mute, enabled, onClick,
         )
         CallControl.KEYPAD -> plain(Icons.Rounded.Dialpad, R.string.incall_keypad, R.string.incall_keypad)
         CallControl.AUDIO -> audioSpec(res, audio, enabled, onClick)
@@ -765,7 +765,7 @@ private fun SimPicker(call: CallUi) {
             }
         }
         TextButton(onClick = { CallManager.hangup(call.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(stringResource(R.string.tc_cancel))
+            Text(stringResource(R.string.call_auto_answer_cancel))
         }
     }
 }
@@ -882,7 +882,7 @@ private fun InCallDialogs(
             confirmLabel = stringResource(R.string.incall_send),
             onConfirm = { CallManager.postDialContinue(primary.id, true) },
             onDismiss = { CallManager.postDialContinue(primary.id, false) },
-            dismissLabel = stringResource(R.string.tc_cancel),
+            dismissLabel = stringResource(R.string.call_auto_answer_cancel),
         )
     }
     if (sheets.route) AudioRouteSheet(s.audio) { sheets.route = false }
@@ -1090,7 +1090,7 @@ private fun NoteDialog(callId: String, onDone: () -> Unit) {
             onDone()
         },
         onDismiss = onDone,
-        dismissLabel = stringResource(R.string.tc_cancel),
+        dismissLabel = stringResource(R.string.call_auto_answer_cancel),
         content = { OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
     )
 }
@@ -1098,7 +1098,7 @@ private fun NoteDialog(callId: String, onDone: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReplySheet(call: CallUi, quickReplies: List<String>, onDismiss: () -> Unit) {
-    ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_reply_sheet_title)) {
+    ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_reply_a11y)) {
         // The defaults live in core/common in English: while unedited, send them in the user's language.
         val replies = if (quickReplies == AppSettings.DEFAULT_QUICK_REPLIES) {
             stringArrayResource(R.array.incall_default_quick_replies).toList()

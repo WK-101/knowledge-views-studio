@@ -47,7 +47,7 @@ class CallScreenerTest {
         provider = FakeContactsProvider.install()
         WorkProfile::class.java.getDeclaredField("cached").apply { isAccessible = true }.set(null, null)
         c = DataContainer(app)
-        // DataStore instances are process-wide, so settings would carry over from the previous test.
+        // Start from defaults, whatever an earlier test stored.
         runBlocking { c.settings.update { AppSettings() } }
     }
 

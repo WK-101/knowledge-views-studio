@@ -67,7 +67,7 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null,
         when {
             done == null -> vm.toast(res.getString(R.string.vm_couldnt_block))
             done.numbers.isEmpty() && done.emergency.isNotEmpty() -> vm.toast(res.getString(R.string.blockflow_emergency_text))
-            done.numbers.isEmpty() -> vm.toast(res.getString(R.string.contacts_swipe_already_blocked))
+            done.numbers.isEmpty() -> vm.toast(res.getString(R.string.blockflow_already_title))
             done.numbers.size == 1 -> vm.offerUndo(said(res.getString(R.string.vm_blocked, name ?: Bidi.ltr(done.numbers[0]))), done.undo)
             else -> vm.offerUndo(said(res.getQuantityString(R.plurals.blk_blocked_numbers, done.numbers.size, done.numbers.size)), done.undo)
         }
@@ -156,7 +156,7 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
         confirmLabel = stringResource(R.string.blk_block),
         onConfirm = { dismiss(); blockWithUndo(vm, p.map { it.number }, x.name, x.note, share = share || sharedWith.isEmpty()) },
         onDismiss = dismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(pluralStringResource(if (onSystem) R.plurals.blockflow_system_list else R.plurals.blockflow_parley_rule, count))
@@ -202,7 +202,7 @@ private fun NothingToBlockDialog(vm: AppViewModel, x: BlockingDialog.Block, who:
             onDismissRequest = dismiss,
             title = { Text(stringResource(R.string.blockflow_emergency_title)) },
             text = { Text(stringResource(R.string.blockflow_emergency_text)) },
-            confirmButton = { TextButton(dismiss) { Text(stringResource(R.string.main_ok)) } },
+            confirmButton = { TextButton(dismiss) { Text(stringResource(R.string.dc_ok)) } },
         )
         return
     }
@@ -212,6 +212,6 @@ private fun NothingToBlockDialog(vm: AppViewModel, x: BlockingDialog.Block, who:
         confirmLabel = stringResource(R.string.blk_unblock),
         onConfirm = { dismiss(); unblockWithUndo(vm, x.numbers, x.name) },
         onDismiss = dismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }

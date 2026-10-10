@@ -105,7 +105,7 @@ fun SavedFilterChips(vm: AppViewModel, compact: Boolean = false, showLabels: Boo
 private fun rememberFilterDescriber(vm: AppViewModel): (HistoryFilter) -> String {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val res = LocalResources.current
-    val simFallback = stringResource(R.string.hist_filter_sim)
+    val simFallback = stringResource(R.string.blk_editor_sim)
     return { f -> HistoryText.describe(res, f, { id -> sims.firstOrNull { it.id == id }?.label ?: simFallback }) }
 }
 
@@ -171,7 +171,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.hist_filter_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
 
-            Label(stringResource(R.string.hist_filter_type))
+            Label(stringResource(R.string.hist_pdf_col_type))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TypeGroup.entries.forEach { g ->
                     FilterChip(
@@ -182,17 +182,17 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                 }
             }
             if (sims.size > 1) {
-                Label(stringResource(R.string.hist_filter_sim))
+                Label(stringResource(R.string.blk_editor_sim))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(draft.simId == null, { draft = draft.copy(simId = null) }, { Text(stringResource(R.string.hist_filter_any)) })
                     sims.forEach { s -> FilterChip(draft.simId == s.id, { draft = draft.copy(simId = s.id) }, { Text(s.label) }) }
                 }
             }
-            Label(stringResource(R.string.hist_filter_when))
+            Label(stringResource(R.string.blk_editor_when))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterPeriod.entries.forEach { p -> FilterChip(draft.period == p, { draft = draft.copy(period = p) }, { Text(stringResource(HistoryText.period(p))) }) }
             }
-            Label(stringResource(R.string.hist_filter_talk_time))
+            Label(stringResource(R.string.hist_talk_time_label))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 durations.forEach { (label, range) ->
                     FilterChip(
@@ -233,7 +233,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                             trailingIcon = {
                                 // A full-size touch target; the filter can be brought back from the snackbar.
                                 IconButton({ delete(prefs.savedFilters, f) }) {
-                                    Icon(Icons.Rounded.Close, stringResource(R.string.hist_filter_delete, f.name), Modifier.size(16.dp))
+                                    Icon(Icons.Rounded.Close, stringResource(R.string.case_reference_delete, f.name), Modifier.size(16.dp))
                                 }
                             },
                         )

@@ -102,6 +102,6 @@ private fun AddToLabelDialog(groups: List<GroupInfo>, onDismiss: () -> Unit, onP
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

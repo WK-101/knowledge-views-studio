@@ -51,17 +51,17 @@ private const val SHOWN_OWN = 100
 internal object FamilyShieldTexts {
     fun mode(res: Resources, m: ShieldMode): String = res.getString(
         when (m) {
-            ShieldMode.WARN -> R.string.fsh_mode_warn
-            ShieldMode.SILENCE -> R.string.fsh_mode_silence
-            ShieldMode.BLOCK -> R.string.fsh_mode_block
+            ShieldMode.WARN -> R.string.blk_warn_only
+            ShieldMode.SILENCE -> R.string.blk_action_silence
+            ShieldMode.BLOCK -> R.string.blk_block
         },
     )
 
     fun kind(res: Resources, k: ShieldKind): String = res.getString(
         when (k) {
-            ShieldKind.BLOCKED -> R.string.fsh_kind_blocked
+            ShieldKind.BLOCKED -> R.string.blk_blocked
             ShieldKind.SCAM -> R.string.fsh_kind_scam
-            ShieldKind.SPAM_LIKELY -> R.string.fsh_kind_spam
+            ShieldKind.SPAM_LIKELY -> R.string.blk_ch_likely
         },
     )
 }
@@ -72,7 +72,7 @@ private fun ExplainDialog(title: String, onConfirm: () -> Unit, onDismiss: () ->
     ConfirmDialog(
         title = stringResource(R.string.fsh_explain_title, title),
         text = stringResource(R.string.fsh_explain_body, title),
-        confirmLabel = stringResource(R.string.fsh_turn_on),
+        confirmLabel = stringResource(R.string.blk_status_turn_on),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
         icon = Icons.Rounded.Shield,
@@ -95,7 +95,7 @@ internal fun FamilyShieldRow(vm: AppViewModel, s: SharedLabelState, open: (Desti
     val res = LocalResources.current
     var explain by remember { mutableStateOf(false) }
     val sub = if (s.shieldOn) stringResource(R.string.fsh_row_on, FamilyShieldTexts.mode(res, s.shieldMode)) else stringResource(R.string.fsh_row_off)
-    SwitchRow(stringResource(R.string.fsh_title), sub, s.shieldOn, Icons.Rounded.Shield) { on ->
+    SwitchRow(stringResource(R.string.blk_decides_shield), sub, s.shieldOn, Icons.Rounded.Shield) { on ->
         if (on) explain = true else vm.setShield(s, false, s.shieldMode, res)
     }
     // Its page: what a match does here, who shares what, and withdrawing.
@@ -123,7 +123,7 @@ fun FamilyShieldScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(reload) { mine = shared.shield?.mine() }
     val me = rememberMyHex(vm)
-    SettingsScaffold(stringResource(R.string.fsh_title), back) {
+    SettingsScaffold(stringResource(R.string.blk_decides_shield), back) {
         Text(
             stringResource(R.string.fsh_explain_body, s.title), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -203,7 +203,7 @@ private fun OwnRow(vm: AppViewModel, v: ShieldOwn, onChanged: () -> Unit) {
     val number = bidiLtr(Format.number(v.e164, vm.countryIso))
     ParleyListItem(
         headlineContent = { Text(number) },
-        supportingContent = { Text(stringResource(R.string.fsh_own_line, FamilyShieldTexts.kind(res, v.kind), SharedLabelTexts.ago(v.at))) },
+        supportingContent = { Text(stringResource(R.string.archive_page_work, FamilyShieldTexts.kind(res, v.kind), SharedLabelTexts.ago(v.at))) },
         trailingContent = {
             val cd = stringResource(R.string.fsh_withdraw_cd, number)
             TextButton(

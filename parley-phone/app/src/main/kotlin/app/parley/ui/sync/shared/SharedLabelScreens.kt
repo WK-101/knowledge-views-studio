@@ -150,7 +150,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
             error = null
         }
     }
-    SettingsScaffold(stringResource(R.string.shl_share_title, title), back) {
+    SettingsScaffold(stringResource(R.string.blk_share_chooser, title), back) {
         Text(
             stringResource(R.string.shl_share_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -186,7 +186,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
                 },
                 enabled = !busy && (byFile || folder != null) && passReady(pass, again) && name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.shl_share_start)) }
+            ) { Text(stringResource(R.string.diag_share)) }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
     }
@@ -208,7 +208,7 @@ private fun HowItTravels(byFile: Boolean, folder: String?, onByFile: (Boolean) -
                 ParleyListItem(
                     modifier = Modifier.clickable(onClick = onPickFolder),
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                    headlineContent = { Text(stringResource(R.string.shl_share_folder)) },
+                    headlineContent = { Text(stringResource(R.string.blk_folder)) },
                     supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
                     colors = rowColors(),
                 )
@@ -391,8 +391,8 @@ private fun MemberRow(m: LabelMember, me: String?, all: List<LabelMember>, canRe
         },
         trailingContent = {
             if (canRemove) {
-                val desc = stringResource(R.string.shl_remove_desc, m.name)
-                TextButton(onRemove, modifier = Modifier.semanticsLabel(desc)) { Text(stringResource(R.string.shl_remove)) }
+                val desc = stringResource(R.string.edit_remove_citizenship, m.name)
+                TextButton(onRemove, modifier = Modifier.semanticsLabel(desc)) { Text(stringResource(R.string.jr_remove)) }
             }
         },
         colors = rowColors(),
@@ -410,9 +410,9 @@ private fun RemoveMemberDialog(vm: AppViewModel, id: String, m: LabelMember, onD
     var b by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     ConfirmDialog(
-        title = stringResource(R.string.shl_remove_title, m.name),
+        title = stringResource(R.string.blk_remove_list_q, m.name),
         text = stringResource(R.string.shl_remove_text, m.name),
-        confirmLabel = stringResource(R.string.shl_remove),
+        confirmLabel = stringResource(R.string.jr_remove),
         destructive = true,
         confirmEnabled = !busy && passReady(a, b),
         onConfirm = {
@@ -440,7 +440,7 @@ private fun PassphraseDialog(title: String, text: String, onDismiss: () -> Unit,
     ConfirmDialog(
         title = title,
         text = text,
-        confirmLabel = stringResource(R.string.main_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         confirmEnabled = p.isNotEmpty(),
         onConfirm = { onDone(p.toCharArray()) },
         onDismiss = onDismiss,
@@ -480,7 +480,7 @@ private fun InviteQrDialog(vm: AppViewModel, id: String, title: String, onDismis
                 actions?.let { CodeImageActions(it) }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
     )
 }
 
@@ -500,7 +500,7 @@ fun SharedLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             open(SharedLabelRoutes.Join)
         }
     }
-    SettingsScaffold(stringResource(R.string.set_shared_labels_title), back) {
+    SettingsScaffold(stringResource(R.string.discover_shared_labels_title), back) {
         Text(
             stringResource(R.string.set_shared_labels_summary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -565,7 +565,7 @@ fun JoinSharedLabelScreen(vm: AppViewModel, back: () -> Unit) {
         SharedLabelInbox.file.value = null
         back()
     }
-    SettingsScaffold(stringResource(R.string.shl_join_title), ::done) {
+    SettingsScaffold(stringResource(R.string.set_shared_labels_join_title), ::done) {
         val i = invitation
         if (i == null) OpenInvitation(link, file) { invitation = it } else JoinInvitation(vm, i, onJoined = { invitation = null; done() })
     }
@@ -609,7 +609,7 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
                 busy = false
                 if (opened == null) error = res.getString(R.string.shl_join_wrong) else onOpened(opened)
             }
-        }, enabled = code.isNotEmpty() && !busy) { Text(stringResource(R.string.shl_join_open)) }
+        }, enabled = code.isNotEmpty() && !busy) { Text(stringResource(R.string.blk_open)) }
     }
 }
 
@@ -746,7 +746,7 @@ private fun PickLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (St
     val titles by produceState<List<String>?>(null) { value = vm.c.sharedLabels.labelTitles() }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.shl_join_pick_label)) },
+        title = { Text(stringResource(R.string.bulk_choose_label)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 val list = titles
@@ -761,6 +761,6 @@ private fun PickLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (St
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

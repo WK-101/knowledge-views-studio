@@ -15,9 +15,7 @@
     <!-- Contact page › Settings for this contact: the photo on the call screen -->
     <string name="callphoto_title">Photo on the call screen</string>
     <string name="callphoto_change">Change</string>
-    <string name="callphoto_default">Default</string>
     <string name="callphoto_default_shown">Default (shown)</string>
     <string name="callphoto_default_hidden">Default (hidden)</string>
-    <string name="callphoto_show">Show</string>
     <string name="callphoto_hide">Hide, show the initial</string>
 </resources>

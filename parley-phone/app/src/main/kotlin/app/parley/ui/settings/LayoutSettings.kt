@@ -112,7 +112,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                 )
                 PreviewChoices(
                     listOf(
-                        Triple(stringResource(R.string.home_fav_off), Thumb.FAV_OFF, surfaces.favorites == FavoritesPlacement.OFF),
+                        Triple(stringResource(R.string.dc_off), Thumb.FAV_OFF, surfaces.favorites == FavoritesPlacement.OFF),
                         Triple(stringResource(R.string.home_fav_section), Thumb.FAV_SECTION, surfaces.favorites == FavoritesPlacement.SECTION),
                         Triple(stringResource(R.string.home_fav_strip), Thumb.FAV_STRIP, surfaces.favorites == FavoritesPlacement.STRIP),
                     ),
@@ -149,7 +149,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                     headlineContent = { Text(stringResource(R.string.home_back_to_separate)) },
                     supportingContent = { Text(stringResource(R.string.home_back_to_separate_sub)) },
                     leadingContent = { Icon(Icons.Rounded.ViewAgenda, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_back_action)) } },
+                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_calls_separate)) } },
                     colors = rowColors(),
                 )
             }

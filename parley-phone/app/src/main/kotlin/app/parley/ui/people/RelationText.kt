@@ -28,7 +28,7 @@ object RelationText {
             "referred-by" -> R.string.rel_referred_by
             "contact" -> R.string.rel_contact
             "acquaintance" -> R.string.rel_acquaintance
-            "met" -> R.string.rel_met
+            "met" -> R.string.circle_type_meet
             "co-worker" -> R.string.rel_co_worker
             "colleague" -> R.string.rel_colleague
             "co-resident" -> R.string.rel_co_resident
@@ -37,9 +37,9 @@ object RelationText {
             "kin" -> R.string.rel_kin
             "muse" -> R.string.rel_muse
             "crush" -> R.string.rel_crush
-            "date" -> R.string.rel_date
+            "date" -> R.string.hist_pdf_col_date
             "sweetheart" -> R.string.rel_sweetheart
-            "me" -> R.string.rel_me
+            "me" -> R.string.basics_for_me
             "agent" -> R.string.rel_agent
             "emergency" -> R.string.rel_emergency
             "wife" -> R.string.rel_wife
@@ -121,10 +121,10 @@ object RelationText {
     fun group(res: Resources, g: RelationType.Group): String = res.getString(
         when (g) {
             RelationType.Group.FAMILY -> R.string.rel_group_family
-            RelationType.Group.PARTNER -> R.string.rel_group_partner
+            RelationType.Group.PARTNER -> R.string.rel_partner
             RelationType.Group.SOCIAL -> R.string.rel_group_social
             RelationType.Group.WORK -> R.string.rel_group_work
-            RelationType.Group.OTHER -> R.string.rel_group_other
+            RelationType.Group.OTHER -> R.string.circle_type_other
         },
     )
 

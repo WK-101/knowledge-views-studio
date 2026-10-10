@@ -67,7 +67,7 @@ fun ChangedElsewhereSheet(
             }
         }
         Choice(
-            Icons.Rounded.Edit, stringResource(R.string.edit_changed_mine),
+            Icons.Rounded.Edit, stringResource(R.string.blk_keep_mine),
             stringResource(if (gone) R.string.edit_changed_mine_new_sub else R.string.edit_changed_mine_sub), onMine,
         )
     }
@@ -88,23 +88,23 @@ private fun Choice(icon: ImageVector, title: String, sub: String, onClick: () ->
 @Composable
 private fun fieldLabel(f: Field): String = stringResource(
     when (f) {
-        Field.NAME -> R.string.edit_name
-        Field.NICKNAME -> R.string.edit_nickname
-        Field.COMPANY -> R.string.edit_company
-        Field.NOTE -> R.string.edit_notes
+        Field.NAME -> R.string.agenda_share_search
+        Field.NICKNAME -> R.string.csv_field_nickname
+        Field.COMPANY -> R.string.cs_sort_company
+        Field.NOTE -> R.string.contact_page_kind_notes
         Field.PHONES -> R.string.edit_field_phones
         Field.EMAILS -> R.string.edit_field_emails
-        Field.WEBSITES -> R.string.edit_field_websites
-        Field.RELATIONS -> R.string.edit_relations
+        Field.WEBSITES -> R.string.me_websites
+        Field.RELATIONS -> R.string.me_part_relations
         Field.ADDRESSES -> R.string.edit_field_addresses
         Field.EVENTS -> R.string.edit_important_dates
-        Field.HANDLES -> R.string.edit_handles
-        Field.LABELS -> R.string.edit_field_labels
+        Field.HANDLES -> R.string.prov_field_handles
+        Field.LABELS -> R.string.blk_check_labels
         Field.PRONOUNS -> R.string.edit_pronouns
-        Field.LANGUAGE -> R.string.edit_language
+        Field.LANGUAGE -> R.string.detail_language
         Field.CUSTOM_FIELDS -> R.string.edit_custom_fields
         Field.NATIVE_NAME -> R.string.edit_native_name
-        Field.CITIZENSHIP -> R.string.edit_citizenship
+        Field.CITIZENSHIP -> R.string.detail_citizenship
     },
 )
 
@@ -143,7 +143,7 @@ private fun MergeFieldsDialog(conflict: EditConflict, onMerge: (Map<Field, Side>
         confirmButton = {
             TextButton({
                 onMerge(conflict.conflicts.associate { c -> c.field to if (c.field.name in theirs) Side.THEIRS else Side.MINE })
-            }) { Text(stringResource(R.string.edit_merge_apply)) }
+            }) { Text(stringResource(R.string.lbl_merge)) }
         },
         dismissButton = { TextButton(onDismiss) { Text(kitStrings().cancel) } },
     )

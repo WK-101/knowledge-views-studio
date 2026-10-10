@@ -170,7 +170,7 @@ class CircleWidget : AppWidgetProvider() {
         }
 
         private fun whenText(ctx: Context, days: Int): String = when (days) {
-            0 -> ctx.getString(R.string.circle_widget_today)
+            0 -> ctx.getString(R.string.blk_dry_today)
             1 -> ctx.getString(R.string.circle_widget_tomorrow)
             else -> ctx.resources.getQuantityString(R.plurals.circle_widget_in_days, days, days)
         }
@@ -230,7 +230,7 @@ class CircleWidget : AppWidgetProvider() {
                 v.setOnClickPendingIntent(row, contactIntent(ctx, p.contactId, WidgetTaps.Kind.CIRCLE_PERSON, id, i))
                 if (p.phone != null) {
                     v.setViewVisibility(call, View.VISIBLE)
-                    v.setContentDescription(call, ctx.getString(R.string.widget_call_name, p.name))
+                    v.setContentDescription(call, ctx.getString(R.string.circle_call_who, p.name))
                     val callIntent = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, p.phone, p.contactId, p.name)
                     v.setOnClickPendingIntent(call, WidgetTaps.activity(ctx, WidgetTaps.Kind.CIRCLE_CALL, id, i, callIntent))
                 } else {

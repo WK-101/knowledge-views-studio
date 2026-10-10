@@ -288,12 +288,12 @@ private fun PastePreview(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End),
             ) {
                 val picked = paste.picked
-                TextButton(paste::close) { Text(stringResource(R.string.main_cancel)) }
+                TextButton(paste::close) { Text(stringResource(R.string.dc_cancel)) }
                 if (hit != null) {
-                    TextButton({ paste.close(); onFill(picked) }, enabled = picked.isNotEmpty()) { Text(stringResource(R.string.paste_new_contact)) }
+                    TextButton({ paste.close(); onFill(picked) }, enabled = picked.isNotEmpty()) { Text(stringResource(R.string.hist_action_new_contact)) }
                     Button({ paste.close(); onAddTo(hit.contact.id, picked) }, enabled = picked.isNotEmpty()) {
                         val first = hit.contact.displayName.substringBefore(' ')
-                        Text(stringResource(R.string.paste_add_to, first), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.lbl_add_people_title, first), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Button({ paste.close(); onFill(picked) }, enabled = picked.isNotEmpty()) { Text(stringResource(R.string.paste_fill)) }
@@ -331,32 +331,32 @@ private fun existingMatch(vm: AppViewModel, picked: List<PasteParser.Field>): Du
 
 @Suppress("CyclomaticComplexMethod") // One label per kind and type.
 private fun typeLabel(res: Resources, f: PasteParser.Field): String = when (f.kind) {
-    Kind.NAME -> res.getString(R.string.paste_type_name)
-    Kind.ORGANISATION -> res.getString(R.string.paste_type_company)
-    Kind.JOB_TITLE -> res.getString(R.string.paste_type_title)
+    Kind.NAME -> res.getString(R.string.agenda_share_search)
+    Kind.ORGANISATION -> res.getString(R.string.cs_sort_company)
+    Kind.JOB_TITLE -> res.getString(R.string.csv_field_title)
     Kind.PHONE -> res.getString(
         when (f.label) {
-            Label.MOBILE -> R.string.paste_type_mobile
+            Label.MOBILE -> R.string.blk_line_mobile
             Label.WORK -> R.string.paste_type_work_phone
             Label.HOME -> R.string.paste_type_home_phone
             Label.MAIN -> R.string.paste_type_main
             Label.FAX -> R.string.paste_type_fax
-            Label.OTHER, Label.NONE -> R.string.paste_type_phone
+            Label.OTHER, Label.NONE -> R.string.contact_page_sec_phones
         },
     )
     Kind.EMAIL -> res.getString(
         when (f.label) {
             Label.WORK -> R.string.paste_type_work_email
             Label.HOME -> R.string.paste_type_personal_email
-            else -> R.string.paste_type_email
+            else -> R.string.contact_page_sec_emails
         },
     )
     Kind.ADDRESS -> res.getString(if (f.label == Label.HOME) R.string.paste_type_home_address else R.string.paste_type_work_address)
-    Kind.MAP_LINK -> res.getString(R.string.paste_type_map)
-    Kind.WEBSITE -> res.getString(R.string.paste_type_website)
-    Kind.PROFILE -> f.profile?.let { res.getString(R.string.paste_type_profile, it.service.label) } ?: res.getString(R.string.paste_type_website)
-    Kind.BIRTHDAY -> res.getString(R.string.paste_type_birthday)
-    Kind.NOTE -> res.getString(R.string.paste_type_note)
+    Kind.MAP_LINK -> res.getString(R.string.map_link_field)
+    Kind.WEBSITE -> res.getString(R.string.csv_field_website)
+    Kind.PROFILE -> f.profile?.let { res.getString(R.string.paste_type_profile, it.service.label) } ?: res.getString(R.string.csv_field_website)
+    Kind.BIRTHDAY -> res.getString(R.string.cs_group_birthday)
+    Kind.NOTE -> res.getString(R.string.blk_col_note)
 }
 
 /** The value as the contact page will show it: numbers in international form (left to right), dates in the user's format. */

@@ -190,13 +190,13 @@ fun SelectionBar(vm: AppViewModel) {
             Modifier.fillMaxWidth().windowInsetsPadding(insets).heightIn(min = 64.dp).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.sel_clear)) }
+            IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
             Text(
                 pluralStringResource(R.plurals.sel_count, selection.size, selection.size),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
-            IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, stringResource(R.string.home_select_all)) }
+            IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, stringResource(R.string.watch_select_all)) }
             val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
             IconButton({
                 scope.launch { bulk.star(ids, !allStarred) }
@@ -242,7 +242,7 @@ fun SelectionBar(vm: AppViewModel) {
                 }
             },
             onDismiss = { confirmVisible = false },
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
     if (confirmArchive) {
@@ -262,7 +262,7 @@ fun SelectionBar(vm: AppViewModel) {
         ConfirmDialog(
             title = pluralStringResource(R.plurals.sel_delete_title, chosen.size, chosen.size),
             text = stringResource(R.string.sel_delete_body),
-            confirmLabel = stringResource(R.string.main_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 confirmDelete = false
                 val ids = chosen.map { it.id }
@@ -273,7 +273,7 @@ fun SelectionBar(vm: AppViewModel) {
             },
             onDismiss = { confirmDelete = false },
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
     labelPicker?.let { groups ->
@@ -308,7 +308,7 @@ fun SelectionBar(vm: AppViewModel) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ labelPicker = null }) { Text(stringResource(R.string.main_cancel)) } },
+            dismissButton = { TextButton({ labelPicker = null }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 }
@@ -319,8 +319,8 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
     stringResource(
         when (a) {
             SelectionMenu.Action.EDIT -> R.string.be_menu
-            SelectionMenu.Action.MESSAGE_ALL -> R.string.sel_message_all
-            SelectionMenu.Action.SHARE_FILE -> R.string.detail_share_file
+            SelectionMenu.Action.MESSAGE_ALL -> R.string.lbl_message_all
+            SelectionMenu.Action.SHARE_FILE -> R.string.me_share_file
             SelectionMenu.Action.COPY_AS_TEXT -> R.string.ppl_copy_as_text
             SelectionMenu.Action.EXPORT_VCF -> R.string.sel_export_vcf
             SelectionMenu.Action.MERGE -> R.string.sel_merge
@@ -328,7 +328,7 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
             SelectionMenu.Action.MAKE_PRIVATE -> R.string.sel_move_private
             SelectionMenu.Action.MAKE_VISIBLE -> R.string.contact_make_visible
             SelectionMenu.Action.ARCHIVE -> R.string.archive_action
-            SelectionMenu.Action.DELETE -> R.string.main_delete
+            SelectionMenu.Action.DELETE -> R.string.blk_delete
         },
     ),
     selectionMenuIcon(a),

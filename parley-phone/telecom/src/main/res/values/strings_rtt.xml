@@ -13,22 +13,17 @@
     <string name="rtt_request_named">%1$s wants to switch to RTT</string>
     <string name="rtt_request">The other person wants to switch to RTT</string>
     <string name="rtt_request_body">RTT sends text letter by letter as you type, alongside the call.</string>
-    <string name="rtt_accept">Switch to RTT</string>
-    <string name="rtt_decline">Not now</string>
     <string name="rtt_failed">Couldn\'t switch to RTT. The network or the other phone didn\'t accept it.</string>
     <string name="rtt_open">Open RTT conversation</string>
 
     <!-- The conversation sheet -->
-    <string name="rtt_sheet_title">RTT conversation</string>
     <string name="rtt_empty">Type below. They see each letter as you type it, and their letters show here as they type.</string>
     <string name="rtt_field_hint">Type a message</string>
-    <string name="rtt_send">Send</string>
     <string name="rtt_them">Them</string>
     <string name="rtt_you">You</string>
     <string name="rtt_typing">%1$s (typing)</string>
     <string name="rtt_typing_label">typing…</string>
     <string name="rtt_bubble">%1$s: %2$s</string>
-    <string name="rtt_mode_title">Audio</string>
     <string name="rtt_mode_full">Talk and type</string>
     <string name="rtt_mode_hco">Listen and type</string>
     <string name="rtt_mode_vco">Talk and read</string>

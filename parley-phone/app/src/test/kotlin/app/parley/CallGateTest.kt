@@ -41,7 +41,7 @@ class CallGateTest {
         shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
         c = DataContainer(context)
         gate = CallGate(c)
-        // DataStore instances are process-wide, so settings would carry over from the previous test.
+        // Start from defaults, whatever an earlier test stored.
         runBlocking { c.settings.update { AppSettings() } }
     }
 

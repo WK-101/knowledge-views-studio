@@ -2,9 +2,7 @@
 <!-- Recents at a glance: call classes, legend and Recents style. -->
 <resources>
     <!-- Recents at a glance -->
-    <string name="recents_class_no_answer">No answer</string>
     <string name="recents_not_returned">not called back yet</string>
-    <string name="recents_call_back">Call back</string>
     <string name="recents_call_back_who">Call back %1$s</string>
     <string name="recents_count">%1$d×</string>
     <plurals name="recents_calls_sequence">
@@ -29,8 +27,6 @@
     <string name="recents_legend_footer">The shapes tell the calls apart too, so colour is never the only clue. Prefer plain icons and text chips? Settings › Recents &amp; history › Recents style › Simple.</string>
     <string name="recents_legend_footer_simple">Each kind of call has an icon of its own, so colour is never the only clue. Prefer shapes, dots and bars? Settings › Recents &amp; history › Recents style › Rich.</string>
     <!-- The legend's groups, and the lines for the filter chips and the marks on a row. -->
-    <string name="recents_legend_section_calls">Calls</string>
-    <string name="recents_legend_section_filters">Filters</string>
     <string name="recents_legend_section_rows">On a row</string>
     <string name="recents_legend_filter_all">Every call.</string>
     <string name="recents_legend_filter_missed">Calls you missed or turned down. The number on it: people still to call back.</string>
@@ -53,7 +49,6 @@
     <string name="recents_legend_duration_meaning">How long you talked. Longer calls have longer bars.</string>
     <string name="recents_legend_call_back_meaning">Calls them back in one tap. It goes once you\'ve called back.</string>
     <string name="recents_legend_video_meaning">Your phone logged it as a video call. Parley answers video calls with voice only.</string>
-    <string name="recents_legend_private">Private contact</string>
     <string name="recents_legend_private_meaning">A call with a private contact, kept in Parley\'s encrypted call history.</string>
     <string name="recents_legend_screening">A line under the call</string>
     <string name="recents_legend_screening_meaning">What screening noticed, like \"Likely spam\" or \"Don\'t call back\". Red means take care.</string>
@@ -73,7 +68,6 @@
     <string name="recents_legend_missed_name">Name in red</string>
     <string name="recents_legend_missed_name_meaning">The latest call was missed or turned down.</string>
     <string name="recents_legend_sample_name">Ana</string>
-    <string name="recents_video_call">Video call</string>
     <string name="recents_style_rich">Rich</string>
     <string name="recents_style_simple">Simple</string>
     <string name="recents_style_cards">Cards</string>
@@ -81,8 +75,6 @@
     <string name="set_recents_style_summary">Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons. Cards: Rich, with each day in a rounded card</string>
     <string name="set_recents_style_kw">rich, simple, cards, rounded, grouped by day, colours, colors, icons, missed, call back, style, legend, colour blind</string>
     <!-- Recents chips by who called, and the quiet line under Unknown. -->
-    <string name="recents_filter_unknown">Unknown</string>
-    <string name="recents_filter_contacts">Contacts</string>
     <plurals name="recents_unknown_today">
         <item quantity="one">%1$d unknown caller today</item>
         <item quantity="other">%1$d unknown callers today</item>

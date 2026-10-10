@@ -87,7 +87,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             ParleyListItem(
                 modifier = Modifier.clickable { pickSim = true },
                 leadingContent = { Icon(Icons.Rounded.SimCard, null) },
-                headlineContent = { Text(stringResource(R.string.label_policy_sim)) },
+                headlineContent = { Text(stringResource(R.string.be_sim)) },
                 supportingContent = {
                     Text(
                         when {
@@ -154,7 +154,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
 
     if (pickSim) ParleyDialog(
         onDismissRequest = { pickSim = false },
-        title = { Text(stringResource(R.string.label_policy_sim)) },
+        title = { Text(stringResource(R.string.be_sim)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.label_policy_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))

@@ -16,7 +16,7 @@ import java.io.File
 import java.security.KeyStore
 
 /**
- * "Delete all Parley data": removes every store in [PersistentStores] (databases, DataStores, preferences, files and
+ * "Delete all Parley data": removes every store in [PersistentStores] (databases, preferences, files and
  * Keystore keys) and the cache. Android's contacts and call log are left alone unless asked, and then only the call
  * log and the contacts stored on the phone itself (contacts in synced accounts would be deleted on their server too).
  *
@@ -55,8 +55,11 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
         }
         for (s in PersistentStores.all) {
             when (s.kind) {
-                StoreKind.PREFS -> step(s.name) { context.deleteSharedPreferences(s.name) }
-                StoreKind.DATASTORE -> step(s.name) { File(context.filesDir, "datastore/${s.name}.preferences_pb").delete() }
+                StoreKind.PREFS -> step(s.name) {
+                    context.deleteSharedPreferences(s.name)
+                    // A settings file an older Parley kept in DataStore and that wasn't moved over yet.
+                    File(context.filesDir, "datastore/${s.name}.preferences_pb").delete()
+                }
                 StoreKind.FILES -> step(s.name) { fileOf(s)?.deleteRecursively() }
                 StoreKind.KEYSTORE -> step(s.name) { deleteKeys() }
                 StoreKind.ROOM_TABLE -> Unit

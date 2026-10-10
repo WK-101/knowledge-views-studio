@@ -79,7 +79,7 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
             Column(Modifier.weight(1f)) {
                 Text(held.displayTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    res.getString(R.string.incall_on_hold_for, clockText(heldFor)), style = MaterialTheme.typography.bodySmall.tabular(),
+                    res.getString(R.string.holdmode_pip, clockText(heldFor)), style = MaterialTheme.typography.bodySmall.tabular(),
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }

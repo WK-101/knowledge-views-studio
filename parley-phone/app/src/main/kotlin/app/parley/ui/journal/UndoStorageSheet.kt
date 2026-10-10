@@ -153,19 +153,19 @@ private fun ClearDialog(store: UndoStore, u: UndoStorage.Usage?, privateKept: In
         UndoStore.CONTACTS -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_contacts_title),
             text = pluralStringResource(R.plurals.jr_clear_contacts_text, contacts, contacts),
-            confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
+            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.PRIVATE -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_private_title),
             text = pluralStringResource(R.plurals.jr_clear_private_text, privateKept, privateKept),
-            confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
+            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.CALLS -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_calls_title),
             text = pluralStringResource(R.plurals.jr_clear_calls_text, calls, calls),
-            confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
+            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.SNAPSHOTS -> SnapshotClearDialog(u?.snapshotTimes.orEmpty(), onConfirm, onDismiss)
@@ -178,7 +178,7 @@ private fun StoreRow(icon: ImageVector, title: String, sub: String?, onClear: ()
     val enabled = sub != null
     InfoRow(title, sub ?: stringResource(R.string.jr_storage_empty), icon) {
         TextButton(onClear, enabled = enabled) {
-            Text(stringResource(R.string.jr_storage_clear), color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified)
+            Text(stringResource(R.string.hist_filter_clear), color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified)
         }
     }
 }
@@ -193,7 +193,7 @@ private fun SnapshotClearDialog(times: List<Long>, onConfirm: (SnapshotKeep) -> 
     ConfirmDialog(
         title = stringResource(R.string.jr_clear_snapshots_title),
         text = stringResource(R.string.jr_clear_snapshots_text),
-        confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
+        confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
         confirmEnabled = (counts[keep] ?: 0) > 0,
         onConfirm = { onConfirm(keep) },
         onDismiss = onDismiss,

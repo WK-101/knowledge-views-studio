@@ -52,8 +52,8 @@ object SharedWithText {
     fun method(res: Resources, m: ShareMethod): String = res.getString(
         when (m) {
             ShareMethod.QR_SWAP -> R.string.card_method_qr_swap
-            ShareMethod.SEND_DETAILS -> R.string.card_method_send_details
-            ShareMethod.INTRODUCE -> R.string.card_method_introduce
+            ShareMethod.SEND_DETAILS -> R.string.discover_my_card_title
+            ShareMethod.INTRODUCE -> R.string.intro_title
             ShareMethod.CARD_FILE -> R.string.card_method_file
             ShareMethod.NEW_NUMBER -> R.string.card_method_new_number
         },
@@ -92,7 +92,7 @@ fun SharedWithScreen(vm: AppViewModel, back: () -> Unit) {
         when {
             loaded == false -> EmptyState(Icons.Rounded.People, stringResource(R.string.card_shared_unreadable), null, Modifier.padding(p))
             loaded == true && people.isEmpty() -> EmptyState(
-                Icons.Rounded.People, stringResource(R.string.card_shared_empty), stringResource(R.string.card_shared_empty_body), Modifier.padding(p),
+                Icons.Rounded.People, stringResource(R.string.card_shared_none), stringResource(R.string.card_shared_empty_body), Modifier.padding(p),
             )
             else -> LazyColumn(
                 Modifier.fillMaxSize(), contentPadding = PaddingValues(top = p.calculateTopPadding(), bottom = p.calculateBottomPadding() + Spacing.l),
@@ -119,7 +119,7 @@ fun SharedWithScreen(vm: AppViewModel, back: () -> Unit) {
         ConfirmDialog(
             title = stringResource(R.string.card_shared_remove_title, SharedWithText.who(person)),
             text = stringResource(R.string.card_shared_remove_body),
-            confirmLabel = stringResource(R.string.me_remove),
+            confirmLabel = stringResource(R.string.jr_remove),
             onConfirm = { forget = null; scope.launch { store.remove(person.receipts.map { it.id }.toSet()) } },
             onDismiss = { forget = null },
             destructive = true,
@@ -155,6 +155,6 @@ private fun SharedPersonRow(person: SharedPerson, onRemove: () -> Unit) {
             )
             Text(line.joinToString(stringResource(R.string.main_separator)), color = MaterialTheme.colorScheme.onSurfaceVariant)
         },
-        trailingContent = { IconButton(onRemove) { Icon(Icons.Rounded.Delete, stringResource(R.string.card_shared_remove_who, who)) } },
+        trailingContent = { IconButton(onRemove) { Icon(Icons.Rounded.Delete, stringResource(R.string.edit_remove_citizenship, who)) } },
     )
 }

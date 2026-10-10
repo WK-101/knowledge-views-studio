@@ -148,7 +148,7 @@ class ToCallTest {
 
     @Test fun calls_you_made_or_answered_settle_missed_and_declined_ones_dont() {
         fun call(type: app.parley.common.CallType, sec: Long = 30, hidden: Boolean = false) =
-            app.parley.common.CallEntry(1, "+1", null, type, now, sec, null, false, hidden)
+            app.parley.common.CallEntry(1, "+1", null, type, now, sec, presentationHidden = hidden)
         assertTrue(ToCall.settles(call(app.parley.common.CallType.OUTGOING, sec = 0)))
         assertTrue(ToCall.settles(call(app.parley.common.CallType.INCOMING)))
         assertFalse(ToCall.settles(call(app.parley.common.CallType.MISSED)))

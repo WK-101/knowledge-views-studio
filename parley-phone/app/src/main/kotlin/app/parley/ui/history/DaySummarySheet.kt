@@ -74,9 +74,9 @@ fun StatGrid(t: CallTotals) {
     val tiles = buildList {
         add(stringResource(R.string.hist_stat_made) to t.outgoing)
         add(stringResource(R.string.hist_stat_received) to t.incoming)
-        add(stringResource(R.string.hist_stat_missed) to t.missed)
-        add(stringResource(R.string.hist_stat_rejected) to t.rejected)
-        if (t.blocked > 0) add(stringResource(R.string.hist_stat_blocked) to t.blocked)
+        add(stringResource(R.string.contact_page_kind_missed) to t.missed)
+        add(stringResource(R.string.hist_type_rejected) to t.rejected)
+        if (t.blocked > 0) add(stringResource(R.string.blk_blocked) to t.blocked)
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         tiles.forEach { (label, n) ->

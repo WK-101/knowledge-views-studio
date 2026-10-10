@@ -18,7 +18,7 @@ object RingText {
         null -> null
         is NoRing.Silenced -> {
             val s = r.reason
-            val prefixes = listOf("Silenced", "Blocked", res.getString(app.parley.telecom.R.string.call_silenced), res.getString(R.string.ring_prefix_blocked))
+            val prefixes = listOf("Silenced", "Blocked", res.getString(app.parley.telecom.R.string.call_silenced), res.getString(R.string.blk_blocked))
             if (prefixes.any { s.startsWith(it, ignoreCase = true) }) s else res.getString(R.string.ring_silenced_reason, s.replaceFirstChar { it.lowercase() })
         }
         NoRing.DndTotalSilence -> res.getString(R.string.ring_why_dnd_total)
@@ -73,7 +73,7 @@ object RingText {
         RingtoneSource.UNKNOWN_CALLER -> res.getString(R.string.ring_tone_unknown_caller)
         RingtoneSource.REPEAT -> res.getString(R.string.ring_tone_repeat)
         RingtoneSource.LIKELY_SPAM -> res.getString(R.string.ring_tone_spam)
-        RingtoneSource.NONE -> res.getString(R.string.ring_tone_none)
+        RingtoneSource.NONE -> res.getString(R.string.blk_res_none)
     }
 
     fun outcomeText(res: Resources, f: RingFacts): String = when (f.outcome) {
@@ -86,7 +86,7 @@ object RingText {
             null -> res.getString(R.string.ring_answered)
         }
         RingOutcome.ANSWERED_ELSEWHERE -> res.getString(R.string.ring_answered_elsewhere)
-        RingOutcome.MISSED -> res.getString(R.string.ring_not_answered)
+        RingOutcome.MISSED -> res.getString(R.string.hist_dur_not_answered)
         RingOutcome.DECLINED -> res.getString(R.string.ring_declined)
         RingOutcome.BLOCKED -> res.getString(R.string.ring_rejected_rules)
         RingOutcome.UNKNOWN -> res.getString(R.string.ring_outcome_unknown)
@@ -94,6 +94,6 @@ object RingText {
 
     private fun seconds(res: Resources, ms: Long): String {
         val s = ((ms + 500) / 1000).toInt()
-        return if (s < 60) res.getString(R.string.ring_seconds, s) else res.getString(R.string.ring_min_seconds, s / 60, s % 60)
+        return if (s < 60) res.getString(R.string.hist_seconds_short, s) else res.getString(R.string.ring_min_seconds, s / 60, s % 60)
     }
 }

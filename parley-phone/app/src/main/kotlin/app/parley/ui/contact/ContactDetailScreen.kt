@@ -401,14 +401,14 @@ private fun PinnedBar(ctx: ContactPageContext, listState: LazyListState, barColo
     var pinnedHeight by remember { mutableIntStateOf(0) }
     val email = ctx.email
     val actions = listOfNotNull(
-        QuickAction(Icons.Rounded.Call, stringResource(R.string.main_call_who, d.displayName), ctx.canCall) { ctx.call() },
-        QuickAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.main_message_who, d.displayName), ctx.canMessage) { ctx.message() },
+        QuickAction(Icons.Rounded.Call, stringResource(R.string.circle_call_who, d.displayName), ctx.canCall) { ctx.call() },
+        QuickAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, d.displayName), ctx.canMessage) { ctx.message() },
         if (ctx.reach.videoRows.isNotEmpty()) {
             QuickAction(Icons.Rounded.Videocam, ctx.preferredVideo?.appName ?: stringResource(R.string.detail_video), true) { ctx.video() }
         } else {
             null
         },
-        if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.detail_email), true) { Intents.email(context, email.value) } else null,
+        if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.contact_page_sec_emails), true) { Intents.email(context, email.value) } else null,
     )
     val jumps = unfold.mapIndexed { i, (title, open) ->
         title to {

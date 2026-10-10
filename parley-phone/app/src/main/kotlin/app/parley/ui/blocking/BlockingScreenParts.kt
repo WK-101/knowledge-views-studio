@@ -145,14 +145,14 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         modifier = Modifier.clickable { target = "repeat"; pick(s.repeatRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
         supportingContent = { Text(ringtoneTitle(context, s.repeatRingtone) ?: stringResource(R.string.set_same_as_usual)) },
-        trailingContent = { if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.set_reset)) } },
+        trailingContent = { if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) } },
     )
     ParleyListItem(
         modifier = Modifier.clickable { target = "spam"; pick(s.likelySpamRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_spam)) },
         supportingContent = { Text(ringtoneTitle(context, s.likelySpamRingtone) ?: stringResource(R.string.set_same_as_usual)) },
         trailingContent = {
-            if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.set_reset)) }
+            if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) }
         },
     )
     Text(
@@ -197,7 +197,7 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
         ParleyListItem(
             headlineContent = { Text(bidiLtr(Format.number(x, vm.countryIso))) },
             trailingContent = {
-                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.ct_remove)) }
+                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.jr_remove)) }
             },
         )
     }
@@ -214,7 +214,7 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
             val clean = RuleTools.check(n, RuleType.EXACT, vm.countryIso)
             if (clean.error == null) set { it.copy(emergencyExtras = (it.emergencyExtras + clean.pattern).distinct()) }
             n = ""
-        }, enabled = n.isNotBlank()) { Text(stringResource(R.string.blk_add)) }
+        }, enabled = n.isNotBlank()) { Text(stringResource(R.string.agenda_add_save)) }
     }
 }
 

@@ -23,7 +23,6 @@
     <string name="export_private_locked">Private contacts stayed locked, so nothing was exported. Try again and unlock them.</string>
     <!-- The readable notes in a card and in the text file. -->
     <string name="export_notes_heading">Notes from Parley</string>
-    <string name="export_notes_for_calls">Note for calls</string>
     <string name="export_notes_context">Who is this</string>
     <string name="export_notes_circle">In your Circle: %1$s</string>
     <!-- Import of an encrypted vCard. -->
@@ -31,7 +30,6 @@
     <string name="import_sealed_text">Enter the passphrase this file was exported with. Private contacts in it stay private.</string>
     <string name="import_sealed_wrong">That passphrase doesn\'t open this file. Check it and try again.</string>
     <string name="import_sealed_backup">This is a Parley backup. Restore it from Settings › Backup &amp; sync › Backups.</string>
-    <string name="import_sealed_open">Open</string>
     <string name="import_sealed_locked">Private contacts stayed locked, so nothing was imported. Enter the passphrase again, then unlock them.</string>
     <string name="import_sealed_unreadable">Couldn\'t read this file. It may be damaged or cut off.</string>
     <!-- The one-time notice that the notes folder export was replaced. -->

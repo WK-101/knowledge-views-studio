@@ -24,7 +24,6 @@
     <string name="scam_safe_word_detail">Shows your question on the call screen</string>
     <string name="scam_official_number">Hang up and call the official number</string>
     <string name="scam_official_number_detail">The one on your card, a statement or their website</string>
-    <string name="scam_hang_up">Hang up</string>
     <string name="scam_hang_up_detail">Then block or report the number on the next screen</string>
     <string name="scam_block">Block this number</string>
     <string name="scam_report">Report this number</string>

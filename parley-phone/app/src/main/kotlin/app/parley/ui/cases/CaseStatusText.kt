@@ -19,7 +19,7 @@ import app.parley.ui.Spacing
 /** The words for where a case stands ([CaseStatus]), on its page, in the list and in the PDF. */
 object CaseStatusText {
     @StringRes fun of(s: CaseStatus): Int = when (s) {
-        CaseStatus.OPEN -> R.string.case_status_open
+        CaseStatus.OPEN -> R.string.blk_open
         CaseStatus.WAITING -> R.string.case_status_waiting
         CaseStatus.RESOLVED -> R.string.case_status_resolved
     }

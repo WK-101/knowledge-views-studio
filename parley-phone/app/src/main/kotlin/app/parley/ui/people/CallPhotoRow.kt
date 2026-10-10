@@ -42,7 +42,7 @@ fun CallPhotoRow(vm: AppViewModel, d: ContactDetails) {
     var open by remember { mutableStateOf(false) }
     val current = when (choice) {
         null -> stringResource(if (settings.showCallerPhoto) R.string.callphoto_default_shown else R.string.callphoto_default_hidden)
-        true -> stringResource(R.string.callphoto_show)
+        true -> stringResource(R.string.archive_also_show)
         false -> stringResource(R.string.callphoto_hide)
     }
     Box {
@@ -54,7 +54,7 @@ fun CallPhotoRow(vm: AppViewModel, d: ContactDetails) {
             supportingContent = { Text(current) },
         )
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            listOf(null to R.string.callphoto_default, true to R.string.callphoto_show, false to R.string.callphoto_hide).forEach { (value, label) ->
+            listOf(null to R.string.blk_check_default, true to R.string.archive_also_show, false to R.string.callphoto_hide).forEach { (value, label) ->
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     trailingIcon = if (value == choice) ({ Icon(Icons.Rounded.Check, null) }) else null,

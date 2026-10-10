@@ -54,7 +54,7 @@ internal fun AddPeopleSheet(vm: AppViewModel, title: String, members: Set<Long>,
     val shown = remember(candidates, query) { candidates.filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) } }
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.lbl_add_people_title, title)) {
         OutlinedTextField(
-            query, { query = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true,
+            query, { query = it }, placeholder = { Text(stringResource(R.string.blk_search)) }, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l),
         )
         LazyColumn(Modifier.heightIn(max = 420.dp).padding(top = Spacing.s)) {

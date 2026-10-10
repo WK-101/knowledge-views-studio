@@ -91,7 +91,7 @@ object JobNotices {
         r.fraction?.let { r.copy(done = (it * PERCENT).toInt(), total = PERCENT) } ?: r
 
     fun post(context: Context, f: UserJobs.Finished) {
-        val title = context.getString(if (f.failed) R.string.job_failed_title else R.string.job_done_title)
+        val title = context.getString(if (f.failed) R.string.job_failed_title else R.string.dc_done)
         val tap = f.opener?.let {
             PendingIntent.getActivity(
                 context, NotificationRequests.JOB_FILE + (f.id % NotificationRequests.JOB_FILES).toInt(), openIntent(context, it),

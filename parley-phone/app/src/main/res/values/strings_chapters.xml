@@ -48,7 +48,5 @@
         <item quantity="one">%d chapter has ended</item>
         <item quantity="other">%d chapters have ended</item>
     </plurals>
-    <string name="chapter_notice_one">“%1$s” has ended</string>
     <string name="chapter_notice_text">Open the label to choose what to do. Nothing changes until you do.</string>
-    <string name="chapter_in_list">%1$s · %2$s</string>
 </resources>

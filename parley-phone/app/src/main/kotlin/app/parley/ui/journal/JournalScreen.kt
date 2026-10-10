@@ -100,7 +100,7 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
                                 if (id != null) {
                                     vm.toast(
                                         if (e.action == "DELETE") res.getString(
-                                            R.string.jr_restored_name, e.displayName,
+                                            R.string.tm_restored_name, e.displayName,
                                         ) else res.getString(R.string.jr_restored_copy),
                                     )
                                     open(Routes.contact(id))
@@ -158,7 +158,7 @@ private class PrivateTrashUi(
         val id = runCatching { vm.c.privateTrash.restore(k.file) }.getOrNull()
         reload()
         if (id == null) return@launch vm.toast(res.getString(R.string.jr_restore_failed))
-        vm.toast(res.getString(R.string.jr_restored_name, k.name))
+        vm.toast(res.getString(R.string.tm_restored_name, k.name))
         open(Routes.contact(ContactRef.Private(id).navId))
     }
 
@@ -199,11 +199,11 @@ private fun rememberPrivateTrash(vm: AppViewModel, open: (Destination) -> Unit):
 private fun LazyListScope.privateTrashItems(ui: PrivateTrashUi) {
     item(key = "private") {
         val kept = ui.kept
-        val unlock = if (kept == null) Modifier.clickable(onClickLabel = stringResource(R.string.jr_private_unlock)) { ui.unlock() } else Modifier
+        val unlock = if (kept == null) Modifier.clickable(onClickLabel = stringResource(R.string.cs_private_unlock)) { ui.unlock() } else Modifier
         ParleyListItem(
             modifier = unlock,
             leadingContent = { Icon(Icons.Rounded.Lock, null) },
-            headlineContent = { Text(stringResource(R.string.jr_private_title)) },
+            headlineContent = { Text(stringResource(R.string.jr_storage_private)) },
             supportingContent = {
                 Text(if (kept == null) pluralStringResource(R.plurals.jr_private_locked, ui.count, ui.count) else stringResource(R.string.jr_private_open))
             },

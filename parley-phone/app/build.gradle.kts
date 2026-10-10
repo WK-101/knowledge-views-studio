@@ -88,18 +88,14 @@ android {
         // ez-vcard's hCard (HTML) writer template and its placeholder picture: Parley never writes HTML (that writer
         // needs FreeMarker, which isn't included).
         resources.excludes += "ezvcard/io/html/**"
-        // DataStore's native counter is loaded only by multi-process DataStore, which Parley doesn't use.
-        jniLibs.excludes += "**/libdatastore_shared_counter.so"
-        // "Where is this number from" place names: only English and the app's other languages the geocoder has
-        // data for (German, Spanish, French, Portuguese, Arabic; none for Hindi or Urdu). The Chinese set alone was
-        // 790 KB. NumberInfo asks in English for any other language (GeoLanguages), so a dropped file is never read.
+        // libphonenumber's number metadata, short numbers and area names ship packed in two files instead (core/common's
+        // packPhoneData, read by PhoneData and AreaNames): about 1,100 fewer ZIP entries. The pack keeps only the area
+        // names of English and the app's other languages the geocoder has data for, without China and Australia.
         resources.excludes += listOf(
-            "be", "bg", "bs", "el", "fa", "fi", "hr", "hu", "hy", "id", "it", "iw", "ja", "kk", "ko", "nl", "pl", "ro",
-            "ru", "sq", "sr", "sv", "th", "tr", "uk", "vi", "zh", "zh_Hant",
-        ).map { "com/google/i18n/phonenumbers/geocoding/data/*_$it" }
-        // Area names for China and Australia, the two largest files (about 580 KB of the APK): those numbers show
-        // the country only. NumberInfo never reads them (GeoLanguages.COUNTRIES_WITHOUT_AREAS; keep both in step).
-        resources.excludes += listOf("86", "61").map { "com/google/i18n/phonenumbers/geocoding/data/${it}_*" }
+            "com/google/i18n/phonenumbers/data/PhoneNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/data/ShortNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/geocoding/data/**",
+        )
     }
 
     lint {
@@ -140,6 +136,7 @@ dependencies {
 
     testImplementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core:common")))
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)

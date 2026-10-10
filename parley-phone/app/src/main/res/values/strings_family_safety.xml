@@ -3,7 +3,6 @@
      notes, the To call list and delivery QR codes. -->
 <resources>
     <!-- Settings search entries -->
-    <string name="set_family_safe_word_title">Family safe word</string>
     <string name="set_family_safe_word_summary">A private question for callers who say they\'re family, set on a label\'s page</string>
     <string name="set_family_safe_word_kw">safe word, scam, grandparent scam, impostor, voice clone, family, question, password, grandparent</string>
     <string name="set_call_helpers_title">Helpers</string>
@@ -18,7 +17,6 @@
     <string name="set_group_family_safety">Family safety</string>
 
     <!-- A label's safe word, on the label page -->
-    <string name="safe_word_row">Family safe word</string>
     <string name="safe_word_row_set">Set. Asked of callers from unknown numbers who say they\'re family</string>
     <string name="safe_word_row_none">A question only your family can answer, for calls from unknown numbers</string>
     <!-- %1$s: the label, e.g. "Family" -->
@@ -29,7 +27,6 @@
     <string name="safe_word_answer">Answer</string>
     <string name="safe_word_show_answer">Show answer</string>
     <string name="safe_word_hide_answer">Hide answer</string>
-    <string name="safe_word_remove">Remove</string>
     <string name="safe_word_saved">Safe word saved</string>
     <string name="safe_word_removed">Safe word removed</string>
     <string name="safe_word_failed">Couldn\'t save the safe word. Try again.</string>
@@ -37,7 +34,6 @@
 
     <!-- Settings › Privacy › Family safe word -->
     <string name="safe_words_intro">Pick a label, such as Family, and set a question only its members can answer. During a call from an unknown number that lasts more than 20 seconds, or after you tap Says they\'re family in More, a discreet card shows the question. Saved members of the label never see it. It stays on this phone.</string>
-    <string name="safe_words_labels">Labels</string>
     <string name="safe_words_no_labels">No labels yet. Make one, such as Family, in Labels.</string>
     <string name="safe_words_open_labels">Open labels</string>
     <string name="safe_words_set">Safe word set</string>
@@ -46,8 +42,6 @@
     <!-- Settings › Calls › Helpers -->
     <string name="helpers_intro">During a call, Add my helper in More calls one of these people, then lets you merge them into the call so they can hear and help. Never during emergency calls.</string>
     <string name="helpers_add">Add a helper</string>
-    <!-- %1$s: the helper's name -->
-    <string name="helpers_remove">Remove %1$s</string>
     <string name="helpers_full">You have 3 helpers. Remove one to add another.</string>
     <string name="helpers_none">None yet</string>
     <string name="helpers_private">Private contact</string>
@@ -64,16 +58,13 @@
     <string name="expected_to_call_body">Only that number, until a day after it\'s due</string>
     <string name="expected_delivery">You scan a delivery QR code</string>
     <string name="expected_delivery_body">Until 8 pm, so the courier gets through</string>
-    <string name="expected_windows">Coming up</string>
     <!-- %1$s: who the note is about -->
     <string name="expected_from_note_on">Note on %1$s</string>
     <string name="expected_from_note">A note</string>
     <string name="expected_from_to_call">To call list</string>
     <string name="expected_from_delivery">Delivery QR code</string>
-    <string name="expected_remove">Remove</string>
 
     <!-- The one-time question -->
-    <string name="expected_offer_title">Expecting a call?</string>
     <!-- %1$s: when, e.g. "Tue 6 Oct, 08:00 – 20:00" -->
     <string name="expected_offer_note">A note mentions a call %1$s. Let unknown numbers ring through then?</string>
     <!-- %1$s: the number, %2$s: until when -->
@@ -81,6 +72,4 @@
     <!-- %1$s: until when -->
     <string name="expected_offer_delivery">That looks like a delivery. Let unknown numbers ring until %1$s, so the courier gets through?</string>
     <string name="expected_offer_after">Your block rules and spam lists still apply. From now on this happens by itself. You can change it in Settings › Blocking &amp; spam.</string>
-    <string name="expected_offer_yes">Turn on</string>
-    <string name="expected_offer_no">No thanks</string>
 </resources>

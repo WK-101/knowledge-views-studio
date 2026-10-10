@@ -70,9 +70,9 @@ fun NavTabsEditor(
     val latestTabs by rememberUpdatedState(tabs)
     val latestOnChange by rememberUpdatedState(onChange)
     val shownText = stringResource(R.string.set_tab_shown)
-    val hiddenText = stringResource(R.string.set_tab_hidden)
-    val moveUp = stringResource(R.string.set_move_up)
-    val moveDown = stringResource(R.string.set_move_down)
+    val hiddenText = stringResource(R.string.contact_page_mode_hidden)
+    val moveUp = stringResource(R.string.editor_move_up)
+    val moveDown = stringResource(R.string.editor_move_down)
 
     Column(Modifier.padding(vertical = 4.dp)) {
         order.forEachIndexed { i, t ->

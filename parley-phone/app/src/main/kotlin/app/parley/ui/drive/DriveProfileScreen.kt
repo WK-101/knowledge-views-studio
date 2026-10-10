@@ -79,7 +79,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
     fun set(f: (DriveProfileConfig) -> DriveProfileConfig) = store.update(transform = f)
 
-    SettingsScaffold(stringResource(R.string.set_drive_profile_title), back) {
+    SettingsScaffold(stringResource(R.string.discover_drive_profile_title), back) {
         Text(
             stringResource(R.string.drive_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
@@ -199,6 +199,6 @@ private fun pairedDevices(context: Context): List<CarDevice> {
 /** "On for My Golf", or "Off" (Settings › Calls). */
 @Composable
 internal fun driveSummary(cfg: DriveProfileConfig): String {
-    if (!cfg.enabled) return stringResource(R.string.set_off)
+    if (!cfg.enabled) return stringResource(R.string.dc_off)
     return stringResource(R.string.drive_summary_cars, cfg.cars.joinToString(stringResource(R.string.main_separator)) { it.name })
 }

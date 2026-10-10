@@ -3,7 +3,6 @@
 <resources>
     <string name="cs_sort_menu">Sort by…</string>
     <string name="cs_sort_title">Sort contacts by</string>
-    <string name="cs_sort_name">Name</string>
     <string name="cs_sort_name_help">First or last name, as chosen in Settings › Appearance</string>
     <string name="cs_sort_recent">Recently added</string>
     <string name="cs_sort_recent_help">Newest first</string>

@@ -183,7 +183,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (Destination) -> Unit, onReorder: 
 
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
         SectionHeader(
-            title = stringResource(R.string.tab_favorites),
+            title = stringResource(R.string.blk_favourites),
             count = favorites.size,
             collapsed = collapsed,
             onToggle = ::toggle,
@@ -217,8 +217,8 @@ private fun RecentGroup.stripItem(vm: AppViewModel, open: (Destination) -> Unit)
 /** The folding header: "Favourites (n)", Reorder, and a chevron. TalkBack reads it as a heading with its state. */
 @Composable
 private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, onReorder: (() -> Unit)?) {
-    val state = stringResource(if (collapsed) R.string.home_folded else R.string.home_unfolded)
-    val action = stringResource(if (collapsed) R.string.home_unfold else R.string.home_fold)
+    val state = stringResource(if (collapsed) R.string.contact_page_folded else R.string.home_unfolded)
+    val action = stringResource(if (collapsed) R.string.contact_page_unfold else R.string.contact_page_fold)
     Row(
         Modifier.fillMaxWidth()
             .clickable(onClickLabel = action, onClick = onToggle)
@@ -228,7 +228,7 @@ private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggl
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (count > 0) stringResource(R.string.home_fav_header_count, title, count) else title,
+            if (count > 0) stringResource(R.string.rst_with_count, title, count) else title,
             style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f),
         )
         if (onReorder != null) TextButton(onReorder) { Text(stringResource(R.string.fav_reorder)) }
@@ -259,7 +259,7 @@ private class StripItem(val key: String, val name: String, val photo: String?, v
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AvatarStrip(items: List<StripItem>) {
-    val callLabel = stringResource(R.string.main_call)
+    val callLabel = stringResource(R.string.circle_widget_call)
     val openLabel = stringResource(R.string.main_open_contact)
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         items(items, key = { it.key }) { item ->
@@ -303,7 +303,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f).semantics { heading() },
                 )
-                TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) }
             }
             Text(
                 stringResource(R.string.fav_reorder_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -65,7 +65,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
         contact.primaryNumber?.let { phone ->
             val call = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id, contact.displayName)
-            b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
+            b.addAction(0, ctx.getString(R.string.circle_widget_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
         }
         PrivateNotice.post(ctx, tag, 0, b)
         return Result.success()

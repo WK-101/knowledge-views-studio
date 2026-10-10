@@ -54,7 +54,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             if (due.isEmpty()) return
             val sims = c.sims.accounts().associate { it.id to it.label }
             for (u in due) {
-                notify(context, u, sims[u.config.simId] ?: context.getString(R.string.hist_filter_sim))
+                notify(context, u, sims[u.config.simId] ?: context.getString(R.string.blk_editor_sim))
                 c.history.markWarned(u)
             }
         }
@@ -64,7 +64,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             val open = PrivateNotice.open(context, id, Intent(context, MainActivity::class.java), update = true)
             val title = if (u.isOver) context.getString(R.string.work_plan_used_up, simLabel)
             else context.getString(R.string.work_plan_used_percent, simLabel, (u.fraction * 100).toInt())
-            val b = PrivateNotice.builder(context, CHANNEL, R.drawable.ic_stat_timer, title, context.getString(R.string.work_channel_plan), open = open)
+            val b = PrivateNotice.builder(context, CHANNEL, R.drawable.ic_stat_timer, title, context.getString(R.string.hist_plan_section), open = open)
                 .setContentText(HistoryText.planSummary(context.resources, u))
             PrivateNotice.post(context, NotificationIds.TAG_PLAN, id, b)
         }

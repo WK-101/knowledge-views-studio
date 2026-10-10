@@ -94,7 +94,7 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
         SegmentedGroup {
-            item("sit_name") { LinkRow(stringResource(R.string.sit_rename), name, Icons.Rounded.Edit) { renaming = true } }
+            item("sit_name") { LinkRow(stringResource(R.string.agenda_share_search), name, Icons.Rounded.Edit) { renaming = true } }
         }
         WhileOn(vm, s, ::edit)
         InTheCar(vm, s, open, ::edit)
@@ -111,16 +111,16 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
         }
     }
     if (renaming) {
-        NameDialog(stringResource(R.string.sit_rename), name, onDismiss = { renaming = false }) { n ->
+        NameDialog(stringResource(R.string.agenda_share_search), name, onDismiss = { renaming = false }) { n ->
             renaming = false
             edit { it.copy(name = n) }
         }
     }
     if (removing) {
         ConfirmDialog(
-            title = stringResource(if (s.builtIn) R.string.sit_reset_title else R.string.sit_delete_title, name),
+            title = stringResource(if (s.builtIn) R.string.sit_reset_title else R.string.detail_delete_title, name),
             text = stringResource(R.string.sit_delete_body),
-            confirmLabel = stringResource(if (s.builtIn) R.string.sit_reset_confirm else R.string.sit_delete_confirm),
+            confirmLabel = stringResource(if (s.builtIn) R.string.contact_page_reset else R.string.blk_delete),
             destructive = !s.builtIn,
             onConfirm = {
                 removing = false
@@ -133,7 +133,7 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
 
 /** "As it is", "On", "Off" for a switch a Situation may set. */
 @Composable
-private fun triOptions() = listOf(stringResource(R.string.sit_as_is), stringResource(R.string.sit_turn_on), stringResource(R.string.sit_turn_off))
+private fun triOptions() = listOf(stringResource(R.string.sit_as_is), stringResource(R.string.dc_on), stringResource(R.string.dc_off))
 
 private fun triIndex(v: Boolean?): Int = when (v) {
     null -> 0
@@ -174,12 +174,12 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
     // A label chosen earlier is offered even while the labels are read (or if it went).
     val labelChoices = (listOfNotNull(s.ringLabel?.takeIf { s.ring == SituationRing.LABEL }) + labels).distinctBy { LabelRefs.key(it) }
     val ringOptions = listOf(
-        stringResource(R.string.sit_as_is), stringResource(R.string.sit_ring_everyone), stringResource(R.string.sit_ring_contacts),
-        stringResource(R.string.sit_ring_favourites),
+        stringResource(R.string.sit_as_is), stringResource(R.string.shl_everyone), stringResource(R.string.rst_contacts),
+        stringResource(R.string.blk_favourites),
     ) + labelChoices
     val ringIndex = ringIndex(s, labelChoices)
     val speakerOptions = listOf(
-        stringResource(R.string.sit_as_is), stringResource(R.string.set_speaker_never), stringResource(R.string.set_speaker_always),
+        stringResource(R.string.sit_as_is), stringResource(R.string.blk_sched_never), stringResource(R.string.blk_always),
         stringResource(R.string.set_speaker_unknown),
     )
     var replying by rememberSaveable { mutableStateOf(false) }
@@ -203,7 +203,7 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
         }
         item("sit_reply") {
             LinkRow(
-                stringResource(R.string.sit_reply), s.reply?.takeIf { it.isNotBlank() } ?: stringResource(R.string.sit_reply_none),
+                stringResource(R.string.sit_reply), s.reply?.takeIf { it.isNotBlank() } ?: stringResource(R.string.blk_notify_none),
                 Icons.Rounded.Quickreply,
             ) { replying = true }
         }
@@ -213,7 +213,7 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
             }
         }
         item("sit_speaker") {
-            MenuRow(stringResource(R.string.sit_speaker), speakerOptions, s.speaker?.let { it.ordinal + 1 } ?: 0, Icons.AutoMirrored.Rounded.VolumeUp) { i ->
+            MenuRow(stringResource(R.string.set_speaker_default_title), speakerOptions, s.speaker?.let { it.ordinal + 1 } ?: 0, Icons.AutoMirrored.Rounded.VolumeUp) { i ->
                 edit { it.copy(speaker = if (i == 0) null else SpeakerDefault.entries[i - 1]) }
             }
         }
@@ -238,9 +238,9 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
 private fun ReplyDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf(initial) }
     ConfirmDialog(
-        title = stringResource(R.string.sit_reply_title),
+        title = stringResource(R.string.sit_reply),
         text = stringResource(R.string.sit_reply_body),
-        confirmLabel = stringResource(R.string.sit_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = { onSave(text) },
         onDismiss = onDismiss,
     ) {
@@ -257,23 +257,23 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
     val sub = stringResource(R.string.sit_drive_sub)
     SegmentedGroup(stringResource(R.string.sit_group_car)) {
         item("sit_drive_announce") {
-            TriRow(stringResource(R.string.sit_drive_announce), s.driveAnnounce, Icons.Rounded.RecordVoiceOver, sub) { v ->
+            TriRow(stringResource(R.string.drive_announce), s.driveAnnounce, Icons.Rounded.RecordVoiceOver, sub) { v ->
                 edit { it.copy(driveAnnounce = v) }
             }
         }
         item("sit_drive_favourites") {
-            TriRow(stringResource(R.string.sit_drive_favourites), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
+            TriRow(stringResource(R.string.drive_answer_favourites), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
                 edit { it.copy(driveAnswerFavourites = v) }
             }
         }
         item("sit_drive_silence") {
-            TriRow(stringResource(R.string.sit_drive_silence), s.driveSilenceUnknown, Icons.Rounded.NotificationsOff, sub) { v ->
+            TriRow(stringResource(R.string.drive_silence_unknown), s.driveSilenceUnknown, Icons.Rounded.NotificationsOff, sub) { v ->
                 edit { it.copy(driveSilenceUnknown = v) }
             }
         }
         item("sit_drive_cars") {
             val carSub = if (drive.enabled) driveSummary(drive) else stringResource(R.string.sit_drive_no_car)
-            LinkRow(stringResource(R.string.sit_drive_cars), carSub, Icons.Rounded.DirectionsCar) { open(DriveRoutes.Profile) }
+            LinkRow(stringResource(R.string.drive_group_car), carSub, Icons.Rounded.DirectionsCar) { open(DriveRoutes.Profile) }
         }
     }
 }
@@ -294,15 +294,15 @@ private fun AbroadAndSims(vm: AppViewModel, s: Situation, edit: ((Situation) -> 
     }
     SegmentedGroup(stringResource(R.string.sit_group_abroad)) {
         item("sit_assisted") {
-            TriRow(stringResource(R.string.sit_assisted), s.assistedDialling, Icons.Rounded.Public) { v -> edit { it.copy(assistedDialling = v) } }
+            TriRow(stringResource(R.string.set_assisted_dialling_title), s.assistedDialling, Icons.Rounded.Public) { v -> edit { it.copy(assistedDialling = v) } }
         }
         item("sit_local_sim") {
-            TriRow(stringResource(R.string.sit_local_sim), s.localSimHint, Icons.Rounded.SimCard) { v -> edit { it.copy(localSimHint = v) } }
+            TriRow(stringResource(R.string.set_local_sim_hint_title), s.localSimHint, Icons.Rounded.SimCard) { v -> edit { it.copy(localSimHint = v) } }
         }
         // Only with a choice to make: two SIMs or more, or one chosen earlier.
         if (sims.size > 1 || s.simId != null) {
             item("sit_sim") {
-                MenuRow(stringResource(R.string.sit_sim), simOptions, simIndex, Icons.Rounded.SimCard, stringResource(R.string.sit_sim_sub)) { i ->
+                MenuRow(stringResource(R.string.be_sim), simOptions, simIndex, Icons.Rounded.SimCard, stringResource(R.string.sit_sim_sub)) { i ->
                     val sim = sims.getOrNull(i - 1)
                     edit {
                         when {

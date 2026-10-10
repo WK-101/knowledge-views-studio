@@ -78,6 +78,14 @@ android {
         // ez-vcard comes along with :core:common, but none of its code survives shrinking here (the updater reads no
         // vCards), so its messages, licence copies and HTML template are dead weight.
         resources.excludes += "ezvcard/**"
+        // libphonenumber's data comes packed with :core:common (PhoneData); the updater never looks up area names.
+        resources.excludes += listOf(
+            "com/google/i18n/phonenumbers/data/PhoneNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/data/ShortNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/geocoding/**",
+            "com/google/i18n/phonenumbers/timezones/**",
+            "app/parley/common/phone/area_names.bin",
+        )
     }
 
     lint {

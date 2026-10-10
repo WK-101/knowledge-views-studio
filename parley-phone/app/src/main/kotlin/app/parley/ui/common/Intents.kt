@@ -7,7 +7,7 @@ import app.parley.R
 import app.parley.ui.startOrSay
 
 object Intents {
-    private fun launch(context: Context, intent: Intent) = context.startOrSay(intent, context.getString(R.string.main_no_app))
+    private fun launch(context: Context, intent: Intent) = context.startOrSay(intent, context.getString(R.string.blk_no_app))
 
     fun sms(context: Context, number: String) = launch(context, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
     fun email(context: Context, address: String) = launch(context, Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", address, null)))

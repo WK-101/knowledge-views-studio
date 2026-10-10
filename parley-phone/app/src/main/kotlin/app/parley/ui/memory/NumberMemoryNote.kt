@@ -158,7 +158,7 @@ internal fun restoreAndOpen(
     val res = context.resources
     scope.launch {
         val id = catching { block() }.getOrNull() ?: return@launch vm.toast(res.getString(R.string.jr_restore_failed))
-        vm.toast(res.getString(R.string.jr_restored_name, name))
+        vm.toast(res.getString(R.string.tm_restored_name, name))
         changed()
         open(Routes.contact(id))
     }

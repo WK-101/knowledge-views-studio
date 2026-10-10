@@ -135,7 +135,7 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     val name = MeCardDetails.nameOf(card)
     val empty = MeCardDetails.isEmpty(card)
     val number = MeCardDetails.toCard(card).firstNumber
-    val me = stringResource(R.string.me_short)
+    val me = stringResource(R.string.basics_for_me)
     val myCard = stringResource(R.string.me_title)
     var showQr by rememberSaveable { mutableStateOf(false) }
     ParleyListItem(
@@ -264,7 +264,7 @@ private fun MeHeader(
     val empty = MeCardDetails.isEmpty(card)
     val name = MeCardDetails.nameOf(card)
     Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.l), horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(name.ifBlank { stringResource(R.string.me_short) }, card.photoUri, 96.dp, modifier = Modifier.padding(top = Spacing.xs))
+        Avatar(name.ifBlank { stringResource(R.string.basics_for_me) }, card.photoUri, 96.dp, modifier = Modifier.padding(top = Spacing.xs))
         Text(
             name.ifBlank { stringResource(R.string.me_your_name) }, style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center, modifier = Modifier.padding(top = Spacing.m),
@@ -286,8 +286,8 @@ private fun MeHeader(
             HeaderFacts(listOf(card.pronouns.trim(), card.nickname.trim(), work), stringResource(R.string.main_separator), status)
         }
         Row(Modifier.fillMaxWidth().padding(top = Spacing.m), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            ActionTile(Icons.Rounded.QrCode2, stringResource(R.string.me_qr), enabled = !empty, onClick = onQr)
-            ActionTile(Icons.Rounded.Share, stringResource(R.string.me_share), enabled = !empty, onClick = onShare)
+            ActionTile(Icons.Rounded.QrCode2, stringResource(R.string.blk_qr_code), enabled = !empty, onClick = onQr)
+            ActionTile(Icons.Rounded.Share, stringResource(R.string.diag_share), enabled = !empty, onClick = onShare)
             ActionTile(Icons.Rounded.Edit, stringResource(R.string.me_edit_short), enabled = true, onClick = onEdit)
         }
     }
@@ -429,6 +429,6 @@ private fun NewNumberBanner(vm: AppViewModel, own: MeCard, open: (Destination) -
         pluralStringResource(R.plurals.card_new_number_banner, outdated, outdated),
         icon = Icons.Rounded.PhoneForwarded,
         action = stringResource(R.string.card_new_number_tell), onAction = { open(PeopleRoutes.NewNumber) },
-        onDismiss = { store.dismissNumbers(key) }, dismissLabel = stringResource(R.string.card_update_not_now),
+        onDismiss = { store.dismissNumbers(key) }, dismissLabel = stringResource(R.string.circle_not_now),
     )
 }

@@ -24,7 +24,6 @@
 
     <!-- Settings › Privacy & security › App lock › Unlock with. -->
     <string name="app_lock_method_device">Fingerprint or screen lock</string>
-    <string name="app_lock_method_pin">Parley PIN</string>
     <string name="app_lock_intro">Parley can ask for your phone\'s fingerprint or screen lock, or for a PIN of its own. Incoming calls and emergency calls never wait for either.</string>
     <string name="pin_change">Change Parley PIN</string>
     <string name="pin_off_title">Turn off the Parley PIN?</string>
@@ -38,13 +37,11 @@
     <string name="duress_on_summary">On. Only your Parley PIN shows everything again.</string>
     <string name="duress_what_it_hides">What a duress PIN hides, and what it can\'t do</string>
     <string name="duress_change">Change duress PIN</string>
-    <string name="duress_off">Turn off</string>
     <string name="duress_off_title">Turn off the duress PIN?</string>
     <string name="duress_off_body">Your Parley PIN stays. Nothing that was hidden is lost.</string>
     <string name="duress_set_title">Choose a duress PIN</string>
     <string name="duress_set_body">Different from your Parley PIN. Pick one you\'ll remember under stress.</string>
     <string name="duress_about_title">Duress PIN</string>
-    <string name="duress_about_continue">Choose a duress PIN</string>
     <string name="duress_about_hides">The duress PIN opens Parley as usual, but hides private contacts and their calls, Circle notes and promises, notes for calls and call notes, family safe words and Shared with. Private contacts who call ring as unknown numbers. Nothing is deleted.</string>
     <string name="duress_about_until">They stay hidden, also after Parley locks or the phone restarts, until you unlock with your Parley PIN. Settings show the duress PIN as off, as on a phone without one.</string>
     <string name="duress_about_only_pin">Parley can\'t recover a forgotten PIN: you would have to clear Parley\'s storage in Android\'s settings, and private contacts not in a backup would be lost.</string>

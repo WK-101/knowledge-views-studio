@@ -104,7 +104,7 @@ private fun MarkContent(id: String, text: String, marks: CoachMarks, action: Str
                 if (action != null && onAction != null) {
                     TextButton({ marks.dismiss(id); onAction() }) { Text(action, color = MaterialTheme.colorScheme.inversePrimary) }
                 }
-                TextButton({ marks.dismiss(id) }) { Text(stringResource(R.string.ux_tip_got_it), color = MaterialTheme.colorScheme.inversePrimary) }
+                TextButton({ marks.dismiss(id) }) { Text(stringResource(R.string.dc_got_it), color = MaterialTheme.colorScheme.inversePrimary) }
             }
         }
     }

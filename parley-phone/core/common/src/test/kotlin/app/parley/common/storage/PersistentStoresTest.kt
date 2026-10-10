@@ -7,7 +7,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Every store the code uses is registered with a backup policy, so a new preferences file, DataStore, table or files
+ * Every store the code uses is registered with a backup policy, so a new preferences file, table or files
  * entry can't silently miss the backup or "Delete all Parley data".
  */
 class PersistentStoresTest {
@@ -46,18 +46,16 @@ class PersistentStoresTest {
         val literal = names(Regex("""getSharedPreferences\(\s*"([^"]+)""""))
         // Files named by a constant: PREFS / FILE in a file that opens preferences.
         val constants = names(Regex("""(?:const\s+)?val\s+(?:PREFS|FILE)\s*=\s*"([^"]+)"""")) { "getSharedPreferences(" in it }
-        val used = literal + constants
+        // Settings files (PreferenceFile) are SharedPreferences too.
+        val settingsFiles = names(Regex("""PreferenceFile\(\s*context\s*,\s*"([^"]+)""""))
+        assertEquals(setOf("settings", "people", "history"), settingsFiles.keys)
+        val used = literal + constants + settingsFiles
         assertTrue("the scan found nothing: wrong folder?", used.size >= 20)
         val registered = PersistentStores.of(StoreKind.PREFS).map { it.name }.toSet()
         val missing = used.keys - registered
         assertTrue("SharedPreferences not in PersistentStores: ${missing.associateWith { used[it]?.name }}", missing.isEmpty())
         val stale = registered - used.keys
         assertTrue("PersistentStores lists preferences no code uses: $stale", stale.isEmpty())
-    }
-
-    @Test fun every_datastore_is_registered() {
-        val used = names(Regex("""preferencesDataStore\(\s*name\s*=\s*"([^"]+)""""))
-        assertEquals(PersistentStores.of(StoreKind.DATASTORE).map { it.name }.toSet(), used.keys)
     }
 
     @Test fun every_database_is_registered() {

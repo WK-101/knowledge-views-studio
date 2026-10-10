@@ -9,7 +9,6 @@
     <string name="caller_tune_body">A short tune made from this name, on this phone. Play it, or try another until one sounds right.</string>
     <string name="caller_tune_variant">Tune %1$d</string>
     <string name="caller_tune_play">Play</string>
-    <string name="caller_tune_stop">Stop</string>
     <string name="caller_tune_another">Try another</string>
     <string name="caller_tune_use">Use this tune</string>
     <string name="caller_tune_failed">Couldn\'t save the tune. Try again.</string>

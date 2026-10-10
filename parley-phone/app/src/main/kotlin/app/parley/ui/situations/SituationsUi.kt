@@ -155,14 +155,14 @@ private fun HowLongDialog(name: String, s: Situation, onDismiss: () -> Unit, onP
     val choices = remember(s) { Situations.endChoices(s, System.currentTimeMillis(), ZoneId.systemDefault()) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
         title = { Text(stringResource(R.string.sit_end_title, name)) },
         text = {
             Column {
                 choices.forEach { e ->
                     val label = when (e) {
                         is Situations.End.ForAnHour -> stringResource(R.string.sit_end_hour)
-                        is Situations.End.UntilTime -> stringResource(R.string.sit_end_until, Schedule.hm(e.minute))
+                        is Situations.End.UntilTime -> stringResource(R.string.blk_editor_until, Schedule.hm(e.minute))
                         Situations.End.UntilTurnedOff -> stringResource(R.string.sit_end_off)
                     }
                     ParleyListItem(
@@ -202,14 +202,14 @@ internal fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, o
     ConfirmDialog(
         title = title,
         text = null,
-        confirmLabel = stringResource(R.string.sit_save),
+        confirmLabel = stringResource(R.string.pin_save),
         confirmEnabled = text.isNotBlank(),
         onConfirm = { onSave(text.trim()) },
         onDismiss = onDismiss,
     ) {
         OutlinedTextField(
             text, { text = it.take(MAX_NAME) }, singleLine = true,
-            label = { Text(stringResource(R.string.sit_name_label)) },
+            label = { Text(stringResource(R.string.agenda_share_search)) },
             placeholder = { Text(stringResource(R.string.sit_name_hint)) },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -265,7 +265,7 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
                 TextButton(
                     onClick = { c.scope.launch { sit.turnOff() } },
                     modifier = Modifier.padding(end = Spacing.xs).semantics { contentDescription = offCd },
-                ) { Text(stringResource(R.string.sit_chip_off)) }
+                ) { Text(stringResource(R.string.pin_off_confirm)) }
             }
         }
     }

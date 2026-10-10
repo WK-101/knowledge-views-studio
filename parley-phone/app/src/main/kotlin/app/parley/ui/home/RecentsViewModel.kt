@@ -292,7 +292,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys, archived) }
         fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
         val tz = TimeZone.getDefault()
-        val privateNumber = c.appContext.getString(R.string.main_private_number)
+        val privateNumber = c.appContext.getString(R.string.blk_private_number)
         val unknown = c.appContext.getString(R.string.main_unknown)
         // Grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
         val rows = RecentsGrouping.group(filtered, layout, ::keyOf) { e -> ListSections.localDay(e.date, tz) }
