@@ -1,5 +1,4 @@
 import java.util.Properties
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /**
  * "Parley Lists": the optional companion that downloads public spam lists. It is a separate app so that
@@ -25,12 +24,8 @@ val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System
 
 android {
     namespace = "app.parley.lists"
-    compileSdk = 36
-
     defaultConfig {
         applicationId = "app.parley.lists"
-        minSdk = 29
-        targetSdk = 36
         // Plain literals only (F-Droid's update check reads them with a regex). Tag lists-v<versionName>.
         versionCode = 3
         versionName = "1.1.1"
@@ -71,11 +66,6 @@ android {
     // English-only, like Parley.
     androidResources { localeFilters += listOf("en") }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -91,15 +81,8 @@ android {
     }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = true
-        // Missing translations are warnings (they fall back to English); see lint.xml.
-        lintConfig = rootProject.file("lint.xml")
     }
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 dependencies {

@@ -2,7 +2,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Locale
 import java.util.Properties
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -25,12 +24,8 @@ val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System
 
 android {
     namespace = "app.parley"
-    compileSdk = 36
-
     defaultConfig {
         applicationId = "app.parley.phone"
-        minSdk = 29
-        targetSdk = 36
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
         versionCode = 36
@@ -77,11 +72,6 @@ android {
     // costs a full offset table in resources.arsc (4 bytes for every string Parley has), so only English is kept.
     androidResources { localeFilters += listOf("en") }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     // Reproducible-build friendly: no signed dependency blob, no VCS info.
     dependenciesInfo {
         includeInApk = false
@@ -113,19 +103,12 @@ android {
     }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = true
-        // Missing translations are warnings (they fall back to English); see lint.xml.
-        lintConfig = rootProject.file("lint.xml")
     }
 
     testOptions { unitTests.isIncludeAndroidResources = true }
     // The fake Keystore and Contacts Provider are shared with core:data's Robolectric tests.
     sourceSets["test"].java.srcDir(rootProject.file("core/data/src/testShared/kotlin"))
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 // `./gradlew :app:generateBaselineProfile` with a device connected writes src/release/generated/baselineProfiles/;

@@ -2,12 +2,14 @@ package app.parley.common.people
 
 import app.parley.common.record.Col
 import app.parley.common.record.Mime
+import kotlinx.serialization.Serializable
 import java.util.Locale
 
 /**
  * A person's name in their own language and script ("Иван Петров" beside the everyday "Ivan Petrov", "王伟" beside
  * "Wang Wei"). [full] is the name as written; [given] and [family] are optional parts; [language] a BCP 47 tag ("ru").
  */
+@Serializable
 data class NativeName(val full: String = "", val given: String = "", val family: String = "", val language: String = "") {
     val isBlank: Boolean get() = full.isBlank() && given.isBlank() && family.isBlank()
 

@@ -1,32 +1,17 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "app.parley.data"
-    compileSdk = 36
-    defaultConfig { minSdk = 29 }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    lint {
-        abortOnError = true
-        lintConfig = rootProject.file("lint.xml")
-    }
     // Robolectric tests read the module's strings, and the Room migration tests read the exported schemas.
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["test"].assets.srcDir("$projectDir/schemas")
     // Test helpers shared with the app module's Robolectric tests (fake Keystore, fake providers).
     sourceSets["test"].java.srcDir("src/testShared/kotlin")
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 ksp {
@@ -41,6 +26,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     api(libs.androidx.datastore.preferences)
     api(libs.kotlinx.coroutines.android)
+    // Editor drafts in saved state (ContactDraftJson).
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.libphonenumber)
     implementation(libs.phone.geocoder)
     implementation(libs.androidx.exifinterface)
