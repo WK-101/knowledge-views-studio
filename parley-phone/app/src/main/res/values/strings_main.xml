@@ -226,6 +226,8 @@
     <string name="home_create_contact">Create contact</string>
     <string name="home_labels">Labels</string>
     <string name="home_lock_now">Lock now</string>
+    <string name="home_lock_menu">Lock…</string>
+    <string name="home_lock_parley">Lock Parley</string>
     <string name="home_speed_dial">Speed dial</string>
     <string name="home_messaged_numbers">Messaged numbers</string>
     <string name="home_select_all">Select all</string>

@@ -30,13 +30,17 @@ data class CircleConfig(
     val favoritesSectionCollapsed: Boolean = false,
     /** "Suggested for your Circle" was dismissed. */
     val suggestionsDismissed: Boolean = false,
-    /** The People card in Insights. */
+    /** The People card in Insights ([PeopleCardChoice] with [firstMover]). */
     val peopleCard: Boolean = true,
     /** "who usually reaches out first" on the People card (private; can be hidden). */
     val firstMover: Boolean = true,
     /** "Anything to remember?" after calls with contacts (opt-in). */
     val memoryPrompt: Boolean = false,
-    /** The last note and open promises also on the incoming-call screen while the phone is locked. */
+    /**
+     * The older "Notes on the lock screen" switch. Folded into Privacy › Caller on the lock screen ("Name and notes")
+     * at the next start ([app.parley.common.calls.LockScreenCaller.folded]) and then off; read nowhere else. Kept so
+     * an older backup's choice is folded the same way.
+     */
     val memoryOnLockScreen: Boolean = false,
     /** The pre-call peek before calling from a contact's page. */
     val preCallPeek: Boolean = true,
@@ -67,5 +71,28 @@ data class CircleConfig(
             weeklyCap = weeklyCap.takeIf { it in CAP_CHOICES } ?: 3,
             dateLeadDays = dateLeadDays.takeIf { it in LEAD_CHOICES } ?: 0,
         )
+    }
+}
+
+/**
+ * Settings › Recents & history › People card, one choice where there were two switches: the card off, on, or on with
+ * "who usually reaches out first". The card's own ⋮ changes the same two values.
+ */
+enum class PeopleCardChoice {
+    OFF, ON, ON_WITH_FIRST_MOVER;
+
+    /** [c] with this choice. Off keeps "who reaches out first" as it was, for when the card comes back. */
+    fun applyTo(c: CircleConfig): CircleConfig = when (this) {
+        OFF -> c.copy(peopleCard = false)
+        ON -> c.copy(peopleCard = true, firstMover = false)
+        ON_WITH_FIRST_MOVER -> c.copy(peopleCard = true, firstMover = true)
+    }
+
+    companion object {
+        fun of(c: CircleConfig): PeopleCardChoice = when {
+            !c.peopleCard -> OFF
+            c.firstMover -> ON_WITH_FIRST_MOVER
+            else -> ON
+        }
     }
 }

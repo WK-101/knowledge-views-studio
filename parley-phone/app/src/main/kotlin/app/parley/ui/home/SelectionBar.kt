@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -133,7 +134,7 @@ fun SelectionBar(vm: AppViewModel) {
         }
     }
 
-    // At most seven items: sharing and privacy under Share… and Privacy… (SelectionMenu).
+    // At most seven items: sharing and privacy under Share… and Privacy… (SelectionMenu). Share… is the one Share.
     val menuEntries = SelectionMenu.build(SelectionMenu.Facts(hasDevice, hasPrivate, BulkActions.available(BulkAction.MERGE, ids)))
     fun runMenu(a: SelectionMenu.Action) {
         when (a) {
@@ -144,7 +145,18 @@ fun SelectionBar(vm: AppViewModel) {
                 if (numbers.isEmpty()) vm.toast(res.getString(R.string.sel_no_numbers))
                 else context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";"))))
             }
-            // The clipboard and a .vcf file are readable by other apps: device contacts only.
+            // A vCard file handed to another app, the clipboard and a .vcf file are readable by other apps: device
+            // contacts only.
+            SelectionMenu.Action.SHARE_FILE -> {
+                val shared = targets(BulkAction.SHARE)
+                if (shared.isNotEmpty()) {
+                    val uri = vm.c.contacts.multiVcardUri(shared.map { it.lookupKey }.filter { it.isNotEmpty() })
+                    val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    context.startOrSay(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, shared.size, shared.size)))
+                }
+                noteSkipped(BulkAction.SHARE)
+            }
             SelectionMenu.Action.COPY_AS_TEXT -> {
                 copyAsText(context, targets(BulkAction.COPY_AS_TEXT))
                 noteSkipped(BulkAction.COPY_AS_TEXT)
@@ -189,17 +201,6 @@ fun SelectionBar(vm: AppViewModel) {
             IconButton({
                 scope.launch { bulk.star(ids, !allStarred) }
             }) { Icon(if (allStarred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (allStarred) R.string.sel_unstar else R.string.sel_star)) }
-            // A vCard file is handed to another app: device contacts only.
-            IconButton({
-                val shared = targets(BulkAction.SHARE)
-                if (shared.isNotEmpty()) {
-                    val uri = vm.c.contacts.multiVcardUri(shared.map { it.lookupKey }.filter { it.isNotEmpty() })
-                    val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    context.startOrSay(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, shared.size, shared.size)))
-                }
-                noteSkipped(BulkAction.SHARE)
-            }) { Icon(Icons.Rounded.Share, stringResource(R.string.main_share)) }
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
                 DropdownMenu(menu, { menu = false }) {
@@ -314,15 +315,36 @@ fun SelectionBar(vm: AppViewModel) {
 
 /** The words and icon of a selection ⋮ action. */
 @Composable
-private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = when (a) {
-    SelectionMenu.Action.EDIT -> MenuLabel(stringResource(R.string.be_menu), Icons.Rounded.Edit)
-    SelectionMenu.Action.MESSAGE_ALL -> MenuLabel(stringResource(R.string.sel_message_all), Icons.AutoMirrored.Rounded.Message)
-    SelectionMenu.Action.COPY_AS_TEXT -> MenuLabel(stringResource(R.string.ppl_copy_as_text), Icons.Rounded.ContentCopy)
-    SelectionMenu.Action.EXPORT_VCF -> MenuLabel(stringResource(R.string.sel_export_vcf), Icons.Rounded.FileDownload)
-    SelectionMenu.Action.MERGE -> MenuLabel(stringResource(R.string.sel_merge), Icons.AutoMirrored.Rounded.MergeType)
-    SelectionMenu.Action.DELETE_AUTOMATICALLY -> MenuLabel(stringResource(R.string.contact_make_temporary), Icons.Rounded.Timer)
-    SelectionMenu.Action.MAKE_PRIVATE -> MenuLabel(stringResource(R.string.sel_move_private), Icons.Rounded.Lock)
-    SelectionMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
-    SelectionMenu.Action.ARCHIVE -> MenuLabel(stringResource(R.string.archive_action), Icons.Rounded.Archive)
-    SelectionMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
+private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
+    stringResource(
+        when (a) {
+            SelectionMenu.Action.EDIT -> R.string.be_menu
+            SelectionMenu.Action.MESSAGE_ALL -> R.string.sel_message_all
+            SelectionMenu.Action.SHARE_FILE -> R.string.detail_share_file
+            SelectionMenu.Action.COPY_AS_TEXT -> R.string.ppl_copy_as_text
+            SelectionMenu.Action.EXPORT_VCF -> R.string.sel_export_vcf
+            SelectionMenu.Action.MERGE -> R.string.sel_merge
+            SelectionMenu.Action.DELETE_AUTOMATICALLY -> R.string.contact_make_temporary
+            SelectionMenu.Action.MAKE_PRIVATE -> R.string.sel_move_private
+            SelectionMenu.Action.MAKE_VISIBLE -> R.string.contact_make_visible
+            SelectionMenu.Action.ARCHIVE -> R.string.archive_action
+            SelectionMenu.Action.DELETE -> R.string.main_delete
+        },
+    ),
+    selectionMenuIcon(a),
+)
+
+/** The icon of a selection ⋮ action: never repeated within the menu or one of its sheets (a test holds them to that). */
+internal fun selectionMenuIcon(a: SelectionMenu.Action): ImageVector = when (a) {
+    SelectionMenu.Action.EDIT -> Icons.Rounded.Edit
+    SelectionMenu.Action.MESSAGE_ALL -> Icons.AutoMirrored.Rounded.Message
+    SelectionMenu.Action.SHARE_FILE -> Icons.Rounded.Share
+    SelectionMenu.Action.COPY_AS_TEXT -> Icons.Rounded.ContentCopy
+    SelectionMenu.Action.EXPORT_VCF -> Icons.Rounded.FileDownload
+    SelectionMenu.Action.MERGE -> Icons.AutoMirrored.Rounded.MergeType
+    SelectionMenu.Action.DELETE_AUTOMATICALLY -> Icons.Rounded.Timer
+    SelectionMenu.Action.MAKE_PRIVATE -> Icons.Rounded.Lock
+    SelectionMenu.Action.MAKE_VISIBLE -> Icons.Rounded.LockOpen
+    SelectionMenu.Action.ARCHIVE -> Icons.Rounded.Archive
+    SelectionMenu.Action.DELETE -> Icons.Rounded.Delete
 }

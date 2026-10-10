@@ -53,7 +53,6 @@
     <ID>CyclomaticComplexMethod:BackupScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BirthdaysScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BirthdaysScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BlockingDialogs.kt$@Composable private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:BlockingText.kt$BlockingText$fun result(context: Context, check: String, result: String): String</ID>
     <ID>CyclomaticComplexMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BulkAddStore.kt$BulkAddStore$suspend fun save( items: List&lt;BulkItem&gt;, destination: BulkDestination, where: String, progress: (Int, Int) -&gt; Unit = { _, _ -&gt; }, now: Long = System.currentTimeMillis(), ): Result</ID>
@@ -77,7 +76,6 @@
     <ID>CyclomaticComplexMethod:ContactCsv.kt$ContactCsv$fun read(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactDetailsJson.kt$ContactDetailsJson$fun encode(d: ContactDetails): String</ID>
     <ID>CyclomaticComplexMethod:ContactEditRebase.kt$ContactEditRebase$fun rebase(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails, picks: Map&lt;Field, Side&gt;, fallback: Side = Side.MINE): ContactDetails</ID>
-    <ID>CyclomaticComplexMethod:ContactEditScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ContactEditScreen( vm: AppViewModel, contactId: Long?, prefillName: String, prefillPhone: String, prefillEmail: String, addPhone: String, prefill: ContactDetails? = null, /** Private vault mode: 0 = new vault contact, &gt; 0 = edit that vault contact. */ vaultId: Long? = null, /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */ rawId: Long? = null, /** "My card": your own details with the same form, plus what its QR code and vCard include. */ meCard: Boolean = false, /** Text shared to Parley ("Make a contact from this text"): its details are shown to tick at once. */ pasteText: String? = null, done: (Long?) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ContactKeys.kt$ContactKeys$suspend fun sweep(): Int</ID>
     <ID>CyclomaticComplexMethod:ContactMessaging.kt$ContactMessaging$fun open(context: Context, route: MessageRoute, r: Reach): String?</ID>
     <ID>CyclomaticComplexMethod:ContactMover.kt$ContactMover$suspend fun move(contactId: Long, rawId: Long, target: AccountRef): Result</ID>
@@ -262,13 +260,10 @@
     <ID>LongMethod:BackupArchive.kt$BackupArchiveReader.Companion$fun open(source: () -&gt; InputStream, limits: ArchiveLimits = ArchiveLimits()): BackupArchiveReader</ID>
     <ID>LongMethod:BackupRepository.kt$BackupRepository$suspend fun backupNow(scheduled: Boolean, target: Uri? = null, safety: Boolean = false): BackupOutcome</ID>
     <ID>LongMethod:BackupScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit = {})</ID>
     <ID>LongMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:CallPolicy.kt$CallPolicy.Evaluation$fun run(): ScreeningResult</ID>
     <ID>LongMethod:CallTimeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CallTimeScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:ClearHistoryDialog.kt$@Composable fun ClearHistoryDialog(vm: AppViewModel, shown: List&lt;CallEntry&gt;?, open: (Destination) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
-    <ID>LongMethod:ContactEditScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ContactEditScreen( vm: AppViewModel, contactId: Long?, prefillName: String, prefillPhone: String, prefillEmail: String, addPhone: String, prefill: ContactDetails? = null, /** Private vault mode: 0 = new vault contact, &gt; 0 = edit that vault contact. */ vaultId: Long? = null, /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */ rawId: Long? = null, /** "My card": your own details with the same form, plus what its QR code and vCard include. */ meCard: Boolean = false, /** Text shared to Parley ("Make a contact from this text"): its details are shown to tick at once. */ pasteText: String? = null, done: (Long?) -&gt; Unit, )</ID>
-    <ID>LongMethod:ContactEditScreen.kt$fun LazyListScope.fields(base: Int)</ID>
     <ID>LongMethod:ContactPageSettings.kt$@Composable private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayout) -&gt; Unit)</ID>
     <ID>LongMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
     <ID>LongMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>

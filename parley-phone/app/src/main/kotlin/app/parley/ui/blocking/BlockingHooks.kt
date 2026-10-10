@@ -24,7 +24,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
@@ -102,7 +102,7 @@ fun recentScreeningLabel(a: RecentMenu.Action, blocked: Boolean): MenuLabel? = w
     RecentMenu.Action.SALES_LINE -> MenuLabel(stringResource(R.string.blk_rep_menu), Icons.Rounded.Storefront)
     RecentMenu.Action.ALWAYS_ALLOW -> MenuLabel(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser)
     RecentMenu.Action.ALLOW_24H -> MenuLabel(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop)
-    RecentMenu.Action.REPORT -> MenuLabel(stringResource(R.string.blk_report), Icons.Rounded.Flag)
+    RecentMenu.Action.REPORT -> MenuLabel(stringResource(R.string.blk_report), Icons.Rounded.Report)
     RecentMenu.Action.SEARCH_WEB -> MenuLabel(stringResource(R.string.blk_search_web_long), Icons.Rounded.Search)
     else -> null
 }
@@ -261,7 +261,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
             if (contactName == null) AssistChip(
                 { BlockingDialogs.show(BlockingDialog.Report(number)) },
                 { Text(stringResource(R.string.blk_report)) },
-                leadingIcon = { Icon(Icons.Rounded.Flag, null) },
+                leadingIcon = { Icon(Icons.Rounded.Report, null) },
             )
         }
         if (mine.isNotEmpty()) {

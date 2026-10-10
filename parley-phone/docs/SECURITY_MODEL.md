@@ -316,7 +316,9 @@ the real PIN (or a restart), like the session's other changes.
 ### One privacy rule
 
 "May private data show now?" has one answer, `PrivacyView` (core/common `security/`), built by `Privacy` (core/data,
-`c.privacy`) from the settings Parley runs on, the duress state (`Concealment`) and the app lock. It carries discreet
+`c.privacy`) from the settings Parley runs on ("Caller on the lock screen" is the one rule for notes there: the
+older Circle switch "Notes on the lock screen", which the agenda ORed in even under *Initials* or *Nothing*, folded
+into it in 6.4, on with *Name* becoming *Name and notes*, `LockScreenCaller.folded`), the duress state (`Concealment`) and the app lock. It carries discreet
 mode as it holds now (forced on while hiding), the duress state, "Caller on the lock screen" and whether Parley's lock
 is engaged, and answers `privateShown` / `privateHidden`, `hides(Concealed)`, `notesShown`, `circleNotesShown`,
 `safeWordsShown` and `lockScreenName`. Every feature asks it: notifications, the call path, lists, Recall, case files,

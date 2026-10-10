@@ -14,7 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.EventAvailable
-import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,7 +89,7 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
 
     if (!Chapters.decidesHere(isShared, owner)) {
         ParleyListItem(
-            leadingContent = { Icon(Icons.Rounded.Flag, null) },
+            leadingContent = { Icon(Icons.Rounded.HourglassBottom, null) },
             headlineContent = { Text(stringResource(R.string.chapter_give_end)) },
             supportingContent = { Text(stringResource(R.string.chapter_owner_only)) },
         )
@@ -98,7 +98,7 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
     when {
         chapter == null -> ParleyListItem(
             modifier = Modifier.clickable { setting = true },
-            leadingContent = { Icon(Icons.Rounded.Flag, null) },
+            leadingContent = { Icon(Icons.Rounded.HourglassBottom, null) },
             headlineContent = { Text(stringResource(R.string.chapter_give_end)) },
             supportingContent = { Text(stringResource(R.string.chapter_give_end_text)) },
         )

@@ -83,7 +83,7 @@ internal fun PocketGuardRow(vm: AppViewModel) {
     ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
 }
 
-/** Settings › Calls › Situations: menu memory, a page of its own. */
+/** Settings › Calls › Keypad & dialling › Advanced: menu memory, a page of its own. */
 @Composable
 internal fun PhoneMenusRow(vm: AppViewModel, open: (Destination) -> Unit) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()

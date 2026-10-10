@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -40,9 +42,9 @@ import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 
 /**
- * Contacts-tab filter row: All · Search everything (while searching) · Filters (while searching or filtering) · Private · Unlabelled · labels (multi-select,
- * AND/OR) · account, plus shortcuts
- * to the selected label's page, to label management and to the city scope ("Who's in…").
+ * Contacts-tab filter row: All · Search everything (while searching) · Filters (while searching or filtering) · Private ·
+ * Unlabelled · labels (multi-select, AND/OR) · account; then, after a divider, the chips that go somewhere rather than
+ * filter: the selected label's page, label management, the city scope ("Who's in…") and Temporary contacts.
  */
 @Composable
 fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -> Unit) {
@@ -106,6 +108,8 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
                 label = { Text(stringResource(R.string.ppl_account_count, title, idx.labelCounts[title] ?: 0)) },
             )
         }
+        // Filters above, ways elsewhere below: a divider keeps a tap on "Labels" from reading as one more filter.
+        VerticalDivider(Modifier.height(24.dp).padding(horizontal = 4.dp))
         if (filter.labels.size == 1 && !showVault) {
             val only = filter.labels.single()
             AssistChip(

@@ -4,17 +4,13 @@
     <string name="set_cat_appearance_title">Appearance</string>
     <string name="set_cat_appearance_summary">Theme, colours, language, lists, names</string>
     <string name="set_cat_calls_title">Calls</string>
-    <string name="set_cat_calls_summary">Answering, SIMs, situations, call time</string>
-    <string name="set_cat_keypad_title">Keypad</string>
-    <string name="set_cat_keypad_summary">Tones, letters, speed dial, USSD</string>
+    <string name="set_cat_calls_summary">Answering, keypad, SIMs, situations</string>
     <string name="set_cat_blocking_title">Blocking &amp; spam</string>
     <string name="set_cat_blocking_summary">Rules, spam lists, off hours, tests</string>
     <string name="set_cat_contacts_title">Contacts</string>
     <string name="set_cat_contacts_summary">Accounts, My card, import &amp; export</string>
     <string name="set_cat_history_title">Recents &amp; history</string>
     <string name="set_cat_history_summary">Parley\'s copy of calls, Android\'s call log, Recents</string>
-    <string name="set_cat_messaging_title">Messaging</string>
-    <string name="set_cat_messaging_summary">Quick replies, forgetting messaged numbers</string>
     <string name="set_cat_privacy_title">Privacy &amp; security</string>
     <string name="set_cat_privacy_summary">App lock, private contacts, permissions</string>
     <string name="set_cat_backup_title">Backup &amp; sync</string>
@@ -22,7 +18,7 @@
     <string name="set_cat_notifications_title">Notifications &amp; device</string>
     <string name="set_cat_notifications_summary">Full-screen calls, battery, system settings</string>
     <string name="set_cat_about_title">About</string>
-    <string name="set_cat_about_summary">Version and licence, diagnostics, crash reports</string>
+    <string name="set_cat_about_summary">Version, diagnostics, help and tips</string>
 
     <!-- Settings catalog: title, summary and search keywords (comma-separated) per setting key -->
     <string name="set_theme_title">Theme</string>
@@ -251,9 +247,6 @@
     <string name="set_retention_title">Trim Android\'s call log</string>
     <string name="set_retention_summary">Delete older calls from Android\'s call log once you choose a limit. Parley\'s copy keeps to the same limit</string>
     <string name="set_retention_kw">retention, delete old calls, auto delete, call log, keep call history</string>
-    <string name="set_sim_labels_title">Show SIM in call history</string>
-    <string name="set_sim_labels_summary">Only when two SIMs are active</string>
-    <string name="set_sim_labels_kw">dual sim, sim label</string>
     <string name="set_insights_title">Call insights</string>
     <string name="set_insights_summary">Talk time, top people, calls you didn\'t return</string>
     <string name="set_insights_kw">statistics, stats, charts, talk time</string>
@@ -461,11 +454,6 @@
         <item quantity="one">%1$d number</item>
         <item quantity="other">%1$d numbers</item>
     </plurals>
-    <string name="set_expiry_never">Never</string>
-    <plurals name="set_expiry_after_days">
-        <item quantity="one">After %1$d day</item>
-        <item quantity="other">After %1$d days</item>
-    </plurals>
     <string name="set_lock_immediately">Immediately</string>
     <string name="set_app_lock_turn_on">Turn on app lock</string>
     <string name="set_app_lock_turn_off">Turn off app lock</string>
@@ -556,13 +544,15 @@
     <string name="set_group_missed_voicemail">Missed calls and voicemail</string>
     <!-- Settings › Calls: its own pages, so the Calls page stays a short list. -->
     <string name="set_calls_answering_title">Answering</string>
-    <string name="set_calls_answering_summary">How you answer, ringtones, auto-answer and RTT</string>
+    <string name="set_calls_answering_summary">How you answer, ringtones, quick replies and RTT</string>
     <string name="set_calls_during_title">During calls</string>
-    <string name="set_calls_during_summary">Vibration, the screen at your ear, notes after calls</string>
+    <string name="set_calls_during_summary">Speaker, the screen at your ear, notes and call time</string>
+    <string name="set_calls_keypad_title">Keypad &amp; dialling</string>
+    <string name="set_calls_keypad_summary">Tones and vibration, letters, speed dial, phone menus</string>
     <string name="set_calls_sims_title">SIMs &amp; carrier</string>
     <string name="set_calls_sims_summary">SIMs, calling abroad, forwarding and voicemail settings</string>
     <string name="set_calls_situations_title">Situations</string>
-    <string name="set_calls_situations_summary">Driving, meeting, night and travelling; helpers, phone menus and call time</string>
+    <string name="set_calls_situations_summary">Driving, meeting, night and travelling; rescue call and helpers</string>
     <string name="set_calls_situations_intro">One tap sets a moment: who may ring, how calls are answered, which reply comes first and which SIM calls go out on. Turning it off puts back what you had. Below: helpers, phone menus and how long calls last.</string>
     <string name="set_group_before_calling">Before you call</string>
     <string name="set_group_incoming">Incoming calls</string>
@@ -759,7 +749,7 @@
     <string name="set_reset_tips_title">Reset tips</string>
     <string name="set_reset_tips_summary">Show the one-time tips again (keypad, Recents, search)</string>
     <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial, onboarding</string>
-    <string name="set_group_tips">Tips</string>
+    <string name="set_group_tips">Help &amp; tips</string>
     <string name="ux_tips_reset_done">Tips will show again</string>
 
     <!-- Settings that live on screens of their own, for Settings search (SettingPlace). -->
@@ -832,7 +822,6 @@
     <string name="set_sim_billing_title">Billing increments per SIM</string>
     <string name="set_sim_billing_summary" formatted="false">Per-second or per-minute billing, what counts, and the 80 % warning</string>
     <string name="set_sim_billing_kw">billing, per minute, per second, rounding, plan, tariff</string>
-    <string name="set_csv_bom_kw">excel, csv, accents, byte order mark, export</string>
 
     <!-- Settings structure: Layout & gestures, Advanced groups, Tools -->
     <string name="set_cat_layout_title">Layout &amp; gestures</string>

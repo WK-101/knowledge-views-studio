@@ -1,6 +1,14 @@
 package app.parley.ui.history
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -64,7 +72,11 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
 
     suspend fun rows() = ExportFiles.rows(context.applicationContext, calls) { e -> ExportFiles.nameFor(e) { n -> vm.contactFor(n)?.displayName } }
 
-    suspend fun file(format: ExportFormat) = ExportFiles.write(context.applicationContext, rows(), subject, format)
+    // "Excel-friendly CSV": a tick box here, not a setting. It starts as last chosen, and choosing remembers it.
+    var bom by rememberSaveable { mutableStateOf(vm.c.history.prefs.state.value.csvBom) }
+    val scope = rememberCoroutineScope()
+
+    suspend fun file(format: ExportFormat) = ExportFiles.write(context.applicationContext, rows(), subject, format, excelBom = bom)
 
     ParleySheet(onDismissRequest = onDismiss) {
         Text(
@@ -87,6 +99,10 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
         row(stringResource(R.string.hist_export_csv), stringResource(R.string.hist_export_csv_summary), Icons.Rounded.TableChart) {
             run { ExportFiles.opener(file(ExportFormat.CSV), ExportFormat.CSV) }
         }
+        ExcelBomRow(bom) { v ->
+            bom = v
+            scope.launch { vm.c.history.prefs.setCsvBom(v) }
+        }
         row(stringResource(R.string.hist_export_json), stringResource(R.string.hist_export_json_summary), Icons.Rounded.Code) {
             run { ExportFiles.opener(file(ExportFormat.JSON), ExportFormat.JSON) }
         }
@@ -101,4 +117,15 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
         }
         Spacer(Modifier.height(24.dp))
     }
+}
+
+/** "Excel-friendly CSV": a tick box under the CSV row (a byte-order mark so Excel reads accents right). */
+@Composable
+private fun ExcelBomRow(on: Boolean, onChange: (Boolean) -> Unit) {
+    ParleyListItem(
+        headlineContent = { Text(stringResource(R.string.hist_csv_bom)) },
+        supportingContent = { Text(stringResource(R.string.hist_csv_bom_summary)) },
+        leadingContent = { Checkbox(on, onCheckedChange = null) },
+        modifier = Modifier.toggleable(on, role = Role.Checkbox, onValueChange = onChange),
+    )
 }

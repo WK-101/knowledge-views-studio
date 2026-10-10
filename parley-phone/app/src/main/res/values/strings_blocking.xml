@@ -871,4 +871,23 @@
         <item quantity="one">%1$d rule that would always allow a caller by their name is left out: anyone can send any name.</item>
         <item quantity="other">%1$d rules that would always allow a caller by their name are left out: anyone can send any name.</item>
     </plurals>
+    <!-- Blocking & screening: "What decides", and the sales-line and hint rows that were on Settings' page. -->
+    <string name="blk_decides_title">What decides</string>
+    <string name="blk_decides_help">Where a call\'s verdict can come from. Each is set where it lives.</string>
+    <string name="blk_decides_rules">Your rules</string>
+    <string name="blk_decides_lists">Spam lists</string>
+    <string name="blk_decides_sales">Sales lines (your calls)</string>
+    <string name="blk_decides_shield">Family spam shield</string>
+    <string name="blk_decides_shield_on">On in %1$s (%2$s)</string>
+    <plurals name="blk_decides_block_rules">
+        <item quantity="one">%1$d block rule</item>
+        <item quantity="other">%1$d block rules</item>
+    </plurals>
+    <plurals name="blk_decides_allow_rules">
+        <item quantity="one">%1$d allow rule</item>
+        <item quantity="other">%1$d allow rules</item>
+    </plurals>
+    <string name="blk_matters_once_silenced">Matters once unknown callers are silenced</string>
+    <string name="blk_learned_title">From your calls and notes</string>
+    <string name="blk_learned_help">Sales lines your calls tag, and expected calls from your notes</string>
 </resources>

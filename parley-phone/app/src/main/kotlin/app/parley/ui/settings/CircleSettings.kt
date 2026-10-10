@@ -9,8 +9,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Speed
@@ -42,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.circle.CircleText
 import app.parley.ui.LinkRow
 import app.parley.ui.MenuRow
+import app.parley.common.circle.PeopleCardChoice
 import app.parley.ui.ParleyDialog
 
 /** Settings › Reminders › Birthdays and dates: how early date reminders come, shown while they're on. */
@@ -77,19 +76,26 @@ fun SegmentedGroupScope.keepInTouchRows(vm: AppViewModel, cfg: CircleConfig, nud
 /** Settings › Contacts › Circle: "Log this?" after a chat or video call Parley opened. */
 fun SegmentedGroupScope.logPromptsRow(vm: AppViewModel, cfg: CircleConfig) = item("log_prompts") { LogPromptsRow(vm, cfg) }
 
-/** The People card in Insights and its "who reaches out first" part (Settings › Recents & history). */
-fun SegmentedGroupScope.peopleCardRows(vm: AppViewModel, cfg: CircleConfig) {
-    switchRow("people_card", cfg.peopleCard, Icons.Rounded.Groups) { v -> vm.c.circle.updateConfig { it.copy(peopleCard = v) } }
-    if (cfg.peopleCard) switchRow("first_mover", cfg.firstMover, Icons.Rounded.SwapHoriz) { v -> vm.c.circle.updateConfig { it.copy(firstMover = v) } }
+/**
+ * The People card in Insights, one choice: off, on, or on with "who usually reaches out first" (Settings › Recents &
+ * history; the card's own ⋮ changes the same values).
+ */
+fun SegmentedGroupScope.peopleCardRow(vm: AppViewModel, cfg: CircleConfig) = item("people_card") {
+    val choices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_on), stringResource(R.string.set_circle_first_mover_title))
+    MenuRow(settingTitle("people_card"), choices, PeopleCardChoice.of(cfg).ordinal, Icons.Rounded.Groups, settingSummary("people_card")) { i ->
+        vm.c.circle.updateConfig { PeopleCardChoice.entries[i].applyTo(it) }
+    }
 }
 
-/** "Remember what matters" (Settings › Calls): the memory prompt, notes on the lock screen, the peek. */
+/**
+ * "Remember what matters" (Settings › Calls): the memory prompt and the peek. Notes on the lock screen are Privacy ›
+ * Caller on the lock screen's "Name and notes".
+ */
 @Composable
 fun MemorySettingsGroup(vm: AppViewModel) {
     val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_circle_group_memory)) {
         switchRow("memory_prompt", cfg.memoryPrompt, Icons.AutoMirrored.Rounded.NoteAdd) { v -> vm.c.circle.updateConfig { it.copy(memoryPrompt = v) } }
-        switchRow("memory_lock_screen", cfg.memoryOnLockScreen, Icons.Rounded.Lock) { v -> vm.c.circle.updateConfig { it.copy(memoryOnLockScreen = v) } }
         switchRow("pre_call_peek", cfg.preCallPeek, Icons.Rounded.Visibility) { v -> vm.c.circle.updateConfig { it.copy(preCallPeek = v) } }
     }
 }

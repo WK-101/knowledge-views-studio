@@ -193,6 +193,21 @@ class ContactConversionsTest {
         assertNothingUnder(ContactRef.privateKey(made.vaultId))
     }
 
+    /** A private contact deleted without a question (a swipe) comes back with Undo, from the sealed copy kept for it. */
+    @Test fun deleting_a_private_contact_keeps_a_copy_that_undo_brings_back() = runBlocking {
+        val (id, _) = ada()
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        val kept = conversions.deletePrivateKept(made.vaultId)
+        assertNotNull(kept)
+        assertTrue(c.vault.summariesNow().isEmpty())
+        val back = conversions.undoDeletePrivate(kept!!)
+        assertNotNull(back)
+        assertEquals(1, c.vault.summariesNow().size)
+        // The copy went with the undo: History & undo doesn't list it twice.
+        assertTrue(c.privateTrash.list().isEmpty())
+    }
+
     @Test fun a_private_contacts_extras_travel_in_the_private_backup_section() = runBlocking {
         val (id, _) = ada()
         val made = ContactConversions(c).makePrivate(id, c.contacts.details(id)!!)

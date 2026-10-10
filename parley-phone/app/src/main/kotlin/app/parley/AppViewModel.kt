@@ -451,7 +451,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val (private, device) = ids.partition { it < 0 }
             val conversions = app.parley.ui.contact.ContactConversions(c)
             // A private contact whose sealed copy couldn't be kept isn't deleted: the user is offered to delete it anyway.
-            val notDeleted = private.filterNot { suspendRunCatching { conversions.deletePrivate(-it) }.getOrDefault(false) }
+            // The copies kept are what Undo brings back.
+            val kept = private.associateWith { suspendRunCatching { conversions.deletePrivateKept(-it) }.getOrNull() }
+            val notDeleted = kept.filterValues { it == null }.keys.toList()
+            val undoPrivate = kept.values.filterNotNull()
             if (notDeleted.isNotEmpty()) {
                 events.trySend(
                     UiEvent.Offer(plural(R.plurals.vault_delete_no_copy_bulk, notDeleted.size, notDeleted.size), str(R.string.vault_delete_no_copy_confirm)) {
@@ -461,7 +464,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             val deleted = ids.size - notDeleted.size
             if (device.isEmpty()) {
-                if (deleted > 0) toast(plural(R.plurals.vm_contacts_deleted, deleted, deleted))
+                // Undo, as a device contact's delete has: back from the sealed copies (a swipe deletes without asking).
+                if (undoPrivate.isNotEmpty()) {
+                    offerUndo(plural(R.plurals.vm_contacts_deleted, deleted, deleted)) { undoPrivate.forEach { conversions.undoDeletePrivate(it) } }
+                } else if (deleted > 0) {
+                    toast(plural(R.plurals.vm_contacts_deleted, deleted, deleted))
+                }
                 return@launch
             }
             // Relations Parley wrote on other contacts for these ("Child: Sam" on Ana) go with them.

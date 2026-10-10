@@ -40,7 +40,7 @@ fun MenuGroup.title(): String = stringResource(
     },
 )
 
-private val MenuGroup.icon: ImageVector
+internal val MenuGroup.icon: ImageVector
     get() = when (this) {
         MenuGroup.SHARE -> Icons.Rounded.Share
         MenuGroup.PRIVACY -> Icons.Rounded.Shield

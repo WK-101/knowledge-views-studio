@@ -24,4 +24,5 @@
     <string name="agenda_share_search">Name</string>
     <string name="agenda_share_none">No contacts match</string>
     <string name="recall_add_agenda">Add something to talk about</string>
+    <string name="recall_more_for">More for %1$s</string>
 </resources>

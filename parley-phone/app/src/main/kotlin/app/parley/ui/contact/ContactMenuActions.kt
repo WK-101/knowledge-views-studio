@@ -1,12 +1,8 @@
 package app.parley.ui.contact
 
-import android.content.Intent
-import android.media.RingtoneManager
-import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.AlarmAdd
-import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Delete
@@ -14,24 +10,20 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LinkOff
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.cases.CaseFiles
@@ -52,7 +44,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The top bar's actions on a contact's page: star, edit and ⋮. The ⋮ menu has at most seven items, the rarer ones
- * under Share…, Privacy… and More… (ContactMenu); a group opens as its own sheet.
+ * under Share… and More… (ContactMenu); a group opens as its own sheet. How the contact is kept is the page's "Kept
+ * as" row.
  */
 @Composable
 internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, blocked: Boolean, onlyEmergency: Boolean) {
@@ -65,29 +58,24 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
         Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit))
     }
     IconButton({ ctx.show(ContactDialog.Menu) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
-    // A private contact archived inside the vault still has its page (from its calls); it isn't offered Archive again.
-    val privateList by ctx.vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val archived = ctx.isPrivate && privateList.firstOrNull { it.id == -contactId }?.archived == true
     val entries = ContactMenu.build(
         ContactMenu.Facts(
-            isPrivate = ctx.isPrivate,
             canShareFile = ctx.can(ContactCapability.SHARE_VCARD_FILE),
             canSeeVersions = ctx.can(ContactCapability.VERSION_HISTORY),
             canAddToHomeScreen = ctx.can(ContactCapability.HOME_SCREEN_SHORTCUT),
             hasNumbers = d.phones.isNotEmpty(),
             canCopyToSim = ctx.can(ContactCapability.COPY_TO_SIM),
-            canSetRingtone = ctx.can(ContactCapability.RINGTONE),
             linked = d.rawContacts.size > 1,
             // "Log a chat or visit" is the FAB for Circle contacts.
             inCircle = ctx.inCircle,
             blocked = blocked,
             onlyEmergency = onlyEmergency,
             caseShown = ctx.case.shown,
-            archived = archived,
+            isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
         ),
     )
     val run: (ContactMenu.Action) -> Unit = { a -> runContactMenu(ctx, a) }
-    val label: @Composable (ContactMenu.Action) -> MenuLabel = { contactMenuLabel(it, ctx.ui.temporary != null) }
+    val label: @Composable (ContactMenu.Action) -> MenuLabel = { contactMenuLabel(it) }
     val close = { if (dialog == ContactDialog.Menu) ctx.show(ContactDialog.None) }
     DropdownMenu(dialog == ContactDialog.Menu, close) {
         MenuItems(entries, label, close = close, onGroup = { ctx.show(ContactDialog.MenuSheet(it.group)) }, onAction = run)
@@ -114,23 +102,11 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
         // The one Block (a question, then Undo); Unblock once any of the numbers is blocked.
         ContactMenu.Action.BLOCK_NUMBERS -> askToBlock(d.phones.map { it.value }, d.displayName)
         ContactMenu.Action.UNBLOCK_NUMBERS -> unblockWithUndo(ctx.vm, d.phones.map { it.value }, d.displayName)
-        // Make private ⇄ Make visible: the same contact, kept somewhere else (asks first).
-        ContactMenu.Action.MAKE_PRIVATE -> ctx.show(ContactDialog.ConfirmMakePrivate)
-        ContactMenu.Action.MAKE_VISIBLE -> ctx.show(ContactDialog.ConfirmMakeVisible)
-        ContactMenu.Action.DELETE_AUTOMATICALLY -> ctx.show(ContactDialog.Expiry)
-        // Out of the lists and other apps, still named on calls (asks first).
-        ContactMenu.Action.ARCHIVE -> ctx.show(ContactDialog.ConfirmArchive)
         ContactMenu.Action.LOG_CHAT_OR_VISIT -> ctx.show(ContactDialog.LogInteraction)
         // The case card then shows on the page; the case file fills with the next call.
         ContactMenu.Action.CASE_FILE -> keepCaseFile(ctx)
         ContactMenu.Action.ADD_TO_HOME_SCREEN -> ctx.show(ContactDialog.AddToHomeScreen)
         ContactMenu.Action.COPY_TO_SIM -> ctx.show(ContactDialog.CopyToSim)
-        ContactMenu.Action.SET_RINGTONE -> ctx.pickRingtone(
-            Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
-                .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
-                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, d.customRingtone?.let(Uri::parse)),
-        )
         ContactMenu.Action.ALLOW_SIMILAR_NUMBERS ->
             BlockingDialogs.show(BlockingDialog.PrefixAllow(d.composedName.ifBlank { null }, d.phones.map { it.value }))
         ContactMenu.Action.SEPARATE -> ctx.page.separate(ctx.back)
@@ -138,30 +114,48 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
     }
 }
 
-/** The words and icon of a contact page ⋮ action ([temporary]: it already deletes itself, so its time can change). */
+/** The words and icon of a contact page ⋮ action. */
 @Composable
+private fun contactMenuLabel(a: ContactMenu.Action): MenuLabel = MenuLabel(stringResource(contactMenuText(a)), contactMenuIcon(a))
+
 @Suppress("CyclomaticComplexMethod") // One label per action.
-private fun contactMenuLabel(a: ContactMenu.Action, temporary: Boolean): MenuLabel = when (a) {
-    ContactMenu.Action.SHARE_FILE -> MenuLabel(stringResource(R.string.detail_share_file), Icons.Rounded.Share)
-    ContactMenu.Action.SHOW_QR -> MenuLabel(stringResource(R.string.detail_show_qr), Icons.Rounded.QrCode2)
-    ContactMenu.Action.SHARE_ENCRYPTED_QR -> MenuLabel(stringResource(R.string.detail_share_private), Icons.Rounded.Lock)
-    ContactMenu.Action.VERSION_HISTORY -> MenuLabel(stringResource(R.string.detail_versions), Icons.Rounded.History)
-    ContactMenu.Action.REMIND_TO_CALL -> MenuLabel(stringResource(R.string.to_call_remind_me_to_call), Icons.Rounded.AlarmAdd)
-    ContactMenu.Action.BLOCK_NUMBERS -> MenuLabel(stringResource(R.string.detail_block_numbers), Icons.Rounded.Block)
-    ContactMenu.Action.UNBLOCK_NUMBERS -> MenuLabel(stringResource(R.string.detail_unblock_numbers), Icons.Rounded.RemoveModerator)
-    ContactMenu.Action.MAKE_PRIVATE -> MenuLabel(stringResource(R.string.detail_move_vault), Icons.Rounded.Lock)
-    ContactMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
-    ContactMenu.Action.DELETE_AUTOMATICALLY ->
-        MenuLabel(stringResource(if (temporary) R.string.detail_change_expiry else R.string.contact_make_temporary), Icons.Rounded.Timer)
-    ContactMenu.Action.ARCHIVE -> MenuLabel(stringResource(R.string.archive_action), Icons.Rounded.Archive)
-    ContactMenu.Action.LOG_CHAT_OR_VISIT -> MenuLabel(stringResource(R.string.circle_log_interaction), Icons.Rounded.Handshake)
-    ContactMenu.Action.CASE_FILE -> MenuLabel(stringResource(R.string.case_keep), Icons.Rounded.FolderOpen)
-    ContactMenu.Action.ADD_TO_HOME_SCREEN -> MenuLabel(stringResource(R.string.detail_add_home), Icons.Rounded.AddToHomeScreen)
-    ContactMenu.Action.COPY_TO_SIM -> MenuLabel(stringResource(R.string.detail_copy_sim), Icons.Rounded.SimCard)
-    ContactMenu.Action.SET_RINGTONE -> MenuLabel(stringResource(R.string.detail_set_ringtone), Icons.Rounded.MusicNote)
-    ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> MenuLabel(stringResource(R.string.blk_prefix_title), Icons.Rounded.Business)
-    ContactMenu.Action.SEPARATE -> MenuLabel(stringResource(R.string.detail_separate), Icons.Rounded.LinkOff)
-    ContactMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
+private fun contactMenuText(a: ContactMenu.Action): Int = when (a) {
+    ContactMenu.Action.SHARE_FILE -> R.string.detail_share_file
+    ContactMenu.Action.SHOW_QR -> R.string.detail_show_qr
+    ContactMenu.Action.SHARE_ENCRYPTED_QR -> R.string.detail_share_private
+    ContactMenu.Action.VERSION_HISTORY -> R.string.detail_versions
+    ContactMenu.Action.REMIND_TO_CALL -> R.string.to_call_remind_me_to_call
+    ContactMenu.Action.BLOCK_NUMBERS -> R.string.detail_block_numbers
+    ContactMenu.Action.UNBLOCK_NUMBERS -> R.string.detail_unblock_numbers
+    ContactMenu.Action.LOG_CHAT_OR_VISIT -> R.string.circle_log_interaction
+    ContactMenu.Action.CASE_FILE -> R.string.case_keep
+    ContactMenu.Action.ADD_TO_HOME_SCREEN -> R.string.detail_add_home
+    ContactMenu.Action.COPY_TO_SIM -> R.string.detail_copy_sim
+    ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> R.string.blk_prefix_title
+    ContactMenu.Action.SEPARATE -> R.string.detail_separate
+    ContactMenu.Action.DELETE -> R.string.main_delete
+}
+
+/**
+ * The icon of a contact page ⋮ action: one per action, never repeated within the menu or one of its sheets (a test
+ * holds them to that). The encrypted code is a key, not a padlock: the padlock means a private contact.
+ */
+@Suppress("CyclomaticComplexMethod") // One icon per action.
+internal fun contactMenuIcon(a: ContactMenu.Action): ImageVector = when (a) {
+    ContactMenu.Action.SHARE_FILE -> Icons.Rounded.Share
+    ContactMenu.Action.SHOW_QR -> Icons.Rounded.QrCode2
+    ContactMenu.Action.SHARE_ENCRYPTED_QR -> Icons.Rounded.Key
+    ContactMenu.Action.VERSION_HISTORY -> Icons.Rounded.History
+    ContactMenu.Action.REMIND_TO_CALL -> Icons.Rounded.AlarmAdd
+    ContactMenu.Action.BLOCK_NUMBERS -> Icons.Rounded.Block
+    ContactMenu.Action.UNBLOCK_NUMBERS -> Icons.Rounded.RemoveModerator
+    ContactMenu.Action.LOG_CHAT_OR_VISIT -> Icons.Rounded.Handshake
+    ContactMenu.Action.CASE_FILE -> Icons.Rounded.FolderOpen
+    ContactMenu.Action.ADD_TO_HOME_SCREEN -> Icons.Rounded.AddToHomeScreen
+    ContactMenu.Action.COPY_TO_SIM -> Icons.Rounded.SimCard
+    ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> Icons.Rounded.Business
+    ContactMenu.Action.SEPARATE -> Icons.Rounded.LinkOff
+    ContactMenu.Action.DELETE -> Icons.Rounded.Delete
 }
 
 /** "Keep a case file": for any contact, by its numbers (a private contact's hides with it). */

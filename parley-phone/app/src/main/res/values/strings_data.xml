@@ -1197,7 +1197,19 @@
     <string name="lbl_default_ringtone">Default ringtone</string>
     <string name="lbl_ringtone_summary">Plays for people in this label, unless they have their own ringtone</string>
     <string name="lbl_reset">Reset</string>
-    <string name="lbl_nobody">Nobody has this label yet. Select contacts in the Contacts tab and choose “Add to label”.</string>
+    <string name="lbl_nobody">Nobody has this label yet. Add the people it\'s for.</string>
+    <string name="lbl_add_people">Add people</string>
+    <string name="lbl_add_people_title">Add to %1$s</string>
+    <plurals name="lbl_add_n">
+        <item quantity="one">Add %1$d person</item>
+        <item quantity="other">Add %1$d people</item>
+    </plurals>
+    <plurals name="lbl_added_people">
+        <item quantity="one">%1$d person added to %2$s</item>
+        <item quantity="other">%1$d people added to %2$s</item>
+    </plurals>
+    <string name="lbl_settings_fold">Settings for this label</string>
+    <string name="lbl_settings_fold_sub">Ringtone, caller tune, SIM, safe word, sharing and chapter</string>
     <string name="lbl_remove_from">Remove from %1$s</string>
     <plurals name="lbl_delete_text_n">
         <item quantity="one">The label is removed from every account. The %1$d contact in it is kept.</item>

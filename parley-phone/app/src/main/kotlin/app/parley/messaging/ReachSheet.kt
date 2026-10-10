@@ -1,5 +1,7 @@
 package app.parley.messaging
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import app.parley.ui.temporary.TemporaryContactActions
 import app.parley.security.VaultUnlockDeclined
 import androidx.activity.ComponentActivity
@@ -44,12 +46,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -95,6 +95,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleySheet
 import app.parley.ui.showMessage
+import app.parley.ui.ParleyTag
+import app.parley.ui.TagTone
 
 /**
  * Who "Message or call on…" is for. Every surface opens the same sheet, with the same layout: the number, Call via
@@ -180,7 +182,7 @@ fun SheetSection(title: String) {
 
 @Composable
 private fun UsualTag() {
-    Text(stringResource(R.string.detail_usual), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    ParleyTag(stringResource(R.string.detail_usual), tone = TagTone.INFO)
 }
 
 /**

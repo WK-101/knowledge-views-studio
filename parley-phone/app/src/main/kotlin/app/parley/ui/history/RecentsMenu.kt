@@ -63,7 +63,7 @@ private val clearRequested = MutableStateFlow(false)
 
 /**
  * Recents ⋮ › "Recents view…": how Recents looks, in one place (layout, style, what a tap does) with the colours'
- * legend. The same settings are on Settings › Recents & history and Layout & gestures.
+ * legend. Settings › Recents & history opens the same dialog from its "Recents view" row.
  */
 @Composable
 fun RecentsLayoutMenuItem(closeMenu: () -> Unit) {
@@ -99,8 +99,9 @@ fun RecentsMenuDialogs(vm: AppViewModel, open: (Destination) -> Unit) {
     }
 }
 
+/** Recents view: also Settings › Recents & history's one "Recents view" row. */
 @Composable
-private fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+internal fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val labels = recentsLayoutLabels()
     val hints = listOf(

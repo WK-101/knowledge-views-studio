@@ -51,4 +51,14 @@ enum class LockScreenCaller {
 
     /** Whether the pinned note, "Who is this?" and the last call show while the phone is locked. */
     val showsNotes: Boolean get() = this == NAME_AND_NOTES
+
+    companion object {
+        /**
+         * The rule once the older "Notes on the lock screen" switch ([notesSwitch], a Circle setting) is folded into
+         * this one: someone who showed names and had the switch on keeps their notes ("Name and notes"). Every other
+         * choice stays as it is, so the switch no longer adds notes under Initials or Nothing, as it used to.
+         */
+        fun folded(current: LockScreenCaller, notesSwitch: Boolean): LockScreenCaller =
+            if (notesSwitch && current == NAME) NAME_AND_NOTES else current
+    }
 }

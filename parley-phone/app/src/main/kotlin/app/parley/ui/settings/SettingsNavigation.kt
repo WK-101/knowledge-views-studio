@@ -12,6 +12,7 @@ import app.parley.ui.Routes
 import app.parley.ui.appVm
 import app.parley.ui.backup.BackupScreen
 import app.parley.ui.birthdays.BirthdaysScreen
+import app.parley.ui.blocking.BlockingScreen
 import app.parley.ui.calltime.CallTimeScreen
 import app.parley.ui.discover.CapabilitiesScreen
 import app.parley.ui.health.HealthScreen
@@ -32,6 +33,8 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
             is SettingsPageTarget.Category -> SettingsPageScreen(appVm(), t.category, t.focus, back = back, open = open)
             is SettingsPageTarget.Reminders -> RemindersScreen(appVm(), t.focus, back = back, open = open)
             is SettingsPageTarget.Calls -> CallsSubPageScreen(appVm(), t.page, t.focus, back = back, open = open)
+            // Blocking & spam has no page: its links open the screen that holds its settings.
+            SettingsPageTarget.Blocking -> BlockingScreen(appVm(), back = back, open = open)
         }
     }
     composable<RemindersRoutes.Page> { RemindersScreen(appVm(), it.toRoute<RemindersRoutes.Page>().focus, back = back, open = open) }
@@ -63,6 +66,9 @@ internal sealed interface SettingsPageTarget {
     data class Reminders(val focus: String) : SettingsPageTarget
 
     data class Calls(val page: CallsSubPage, val focus: String) : SettingsPageTarget
+
+    /** Blocking & screening, the screen Blocking & spam's settings are on. */
+    data object Blocking : SettingsPageTarget
 }
 
 /**
@@ -74,9 +80,16 @@ internal sealed interface SettingsPageTarget {
 internal fun settingsPageTarget(categoryName: String, focus: String?): SettingsPageTarget {
     // The Call time category dissolved into Calls › Situations (its SIMs row is on Calls › SIMs & carrier).
     if (categoryName == OLD_CALL_TIME) {
-        return if (focus == "sims") SettingsPageTarget.Calls(CallsSubPage.SIMS, "sims") else SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time")
+        return if (focus == "sims") SettingsPageTarget.Calls(CallsSubPage.SIMS, "sims") else SettingsPageTarget.Calls(CallsSubPage.DURING, "call_time")
     }
+    // Keypad and Messaging went into Calls' pages (Messaging's expiry is beside its list, in Tools).
+    if (categoryName == OLD_KEYPAD) {
+        val key = focus?.takeIf { SettingsCatalog.entries.any { e -> e.key == it && e.place == SettingPlace.CALLS_KEYPAD } }
+        return SettingsPageTarget.Calls(CallsSubPage.KEYPAD, key ?: "keypad_tones")
+    }
+    if (categoryName == OLD_MESSAGING) return SettingsPageTarget.Calls(CallsSubPage.ANSWERING, "quick_replies")
     val category = SettingsCategory.entries.firstOrNull { it.name == categoryName } ?: SettingsCategory.APPEARANCE
+    if (!SettingsCatalog.hasPage(category)) return SettingsPageTarget.Blocking
     val place = focus?.let { f -> SettingsCatalog.entries.firstOrNull { it.key == f }?.place }
     if (focus == null || place == null) return SettingsPageTarget.Category(category, focus)
     if (place == SettingPlace.REMINDERS) return SettingsPageTarget.Reminders(focus)
@@ -84,5 +97,7 @@ internal fun settingsPageTarget(categoryName: String, focus: String?): SettingsP
     return if (calls != null) SettingsPageTarget.Calls(calls, focus) else SettingsPageTarget.Category(category, focus)
 }
 
-/** The name of the former Call time category, in links saved before it went. */
+/** The names of former categories, in links saved before they went. */
 private const val OLD_CALL_TIME = "CALL_TIME"
+private const val OLD_KEYPAD = "KEYPAD"
+private const val OLD_MESSAGING = "MESSAGING"

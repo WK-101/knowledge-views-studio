@@ -140,6 +140,7 @@ class CapabilityRoutesTest {
             "$UI.history.HistoryRoutes.Case" to "an organisation's case file, from its card on the contact or number page",
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
+            "$UI.people.PeopleRoutes.ArchivedContact" to "One archived contact's read-only page, from Archived or Contacts search",
             "$UI.people.PeopleRoutes.Diagnostics" to "Settings › About",
             "$UI.people.PeopleRoutes.EditRaw" to "one account's copy of a contact",
             "$UI.people.PeopleRoutes.Label" to "a label's page",

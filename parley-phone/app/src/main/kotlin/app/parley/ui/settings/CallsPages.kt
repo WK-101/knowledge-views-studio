@@ -23,6 +23,13 @@ import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.Quickreply
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Tag
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Vibration
+import app.parley.ui.Routes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,6 +81,9 @@ import kotlinx.coroutines.launch
 enum class CallsSubPage(val place: SettingPlace, val title: Int, val summary: Int, val icon: ImageVector) {
     ANSWERING(SettingPlace.CALLS_ANSWERING, R.string.set_calls_answering_title, R.string.set_calls_answering_summary, Icons.Rounded.PhoneInTalk),
     DURING(SettingPlace.CALLS_DURING, R.string.set_calls_during_title, R.string.set_calls_during_summary, Icons.Rounded.Call),
+
+    /** The Keypad category and phone menus, once a root row and a Situations row of their own. */
+    KEYPAD(SettingPlace.CALLS_KEYPAD, R.string.set_calls_keypad_title, R.string.set_calls_keypad_summary, Icons.Rounded.Dialpad),
     SIMS(SettingPlace.CALLS_SIMS, R.string.set_calls_sims_title, R.string.set_calls_sims_summary, Icons.Rounded.SimCard),
     SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.set_calls_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
     ;
@@ -108,7 +118,8 @@ internal fun CallsSubPageScreen(vm: AppViewModel, page: CallsSubPage, focus: Str
             if (page == CallsSubPage.ANSWERING || page == CallsSubPage.DURING) DefaultAppNote(vm, DefaultAppFeature.CALL_SCREEN)
             when (page) {
                 CallsSubPage.ANSWERING -> AnsweringPage(vm, open)
-                CallsSubPage.DURING -> DuringCallsPage(vm)
+                CallsSubPage.DURING -> DuringCallsPage(vm, open)
+                CallsSubPage.KEYPAD -> KeypadDiallingPage(vm, open)
                 CallsSubPage.SIMS -> SimsCarrierPage(open)
                 CallsSubPage.SITUATIONS -> SituationsPage(vm, open)
             }
@@ -116,7 +127,7 @@ internal fun CallsSubPageScreen(vm: AppViewModel, page: CallsSubPage, focus: Str
     }
 }
 
-/** Calls › Answering: how a call is answered and what the incoming screen shows, auto-answer and RTT. */
+/** Calls › Answering: how a call is answered and what the incoming screen shows, quick replies, auto-answer and RTT. */
 @Composable
 private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
@@ -160,6 +171,8 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
         item("flip_to_silence") { RingingRow(vm) }
         switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
         item("network_names") { NetworkNamesRow(vm) }
+        // Offered when you decline a call, and first by a Situation that replies for you (Messaging went).
+        item("quick_replies") { QuickRepliesRow(vm) }
     }
     AdvancedSection {
         SegmentedGroup {
@@ -233,15 +246,51 @@ private fun NetworkNamesRow(vm: AppViewModel) {
     }
 }
 
-/** Calls › During calls: vibration, the screen at your ear, the power button, and notes before and after calls. */
+/**
+ * Calls › During calls: the speaker and the screen at your ear; under Advanced vibration, the power button, notes
+ * before and after calls, and talk-time reminders and limits.
+ */
 @Composable
-private fun DuringCallsPage(vm: AppViewModel) {
+private fun DuringCallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     // "Start calls on speaker" and the screen at your ear.
     CallSpeakerGroup(vm)
     AdvancedSection {
         CallFeedbackGroup(vm)
-        // The memory prompt, notes on the lock screen and the pre-call peek.
+        // The memory prompt and the pre-call peek.
         MemorySettingsGroup(vm)
+        SegmentedGroup { item("call_time") { CallTimeRow(vm, open, Icons.Rounded.Timer) } }
+    }
+}
+
+/** Calls › Keypad & dialling: tones and vibration; under Advanced the letters, speed dial, USSD and phone menus. */
+@Composable
+private fun KeypadDiallingPage(vm: AppViewModel, open: (Destination) -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val set = rememberSettingsSetter(vm)
+    SegmentedGroup(stringResource(R.string.set_group_feedback)) {
+        switchRow("keypad_tones", s.dialpadTones, Icons.Rounded.MusicNote) { v -> set { it.copy(dialpadTones = v) } }
+        switchRow("keypad_vibration", s.dialpadHaptics, Icons.Rounded.Vibration) { v -> set { it.copy(dialpadHaptics = v) } }
+    }
+    AdvancedGroup {
+        item("keypad_letters") { KeypadLettersRow(vm, Icons.Rounded.Translate) }
+        linkRow("speed_dial", Icons.Rounded.Speed) { open(Routes.SpeedDial) }
+        item("ussd") { UssdRow(vm, Icons.Rounded.Tag) }
+        item("phone_menus") { PhoneMenusRow(vm, open) }
+    }
+}
+
+/** Quick replies: the replies offered when declining and the one for numbers not in your contacts. */
+@Composable
+private fun QuickRepliesRow(vm: AppViewModel) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val set = rememberSettingsSetter(vm)
+    var editReplies by remember { mutableStateOf(false) }
+    LinkRow(settingTitle("quick_replies"), s.quickReplies.joinToString(" · "), Icons.Rounded.Quickreply) { editReplies = true }
+    if (editReplies) {
+        QuickRepliesDialog(s.quickReplies, s.nameReply, onDismiss = { editReplies = false }) { list, nameReply ->
+            set { it.copy(quickReplies = list, nameReply = nameReply) }
+            editReplies = false
+        }
     }
 }
 
@@ -259,8 +308,9 @@ private fun SimsCarrierPage(open: (Destination) -> Unit) {
 }
 
 /**
- * Calls › Situations: the Situations themselves (one tap sets a moment; the first row is where search lands), then
- * helpers, the drive profile, phone menus and call time (once a category of its own), each a screen of its own.
+ * Calls › Situations: the Situations themselves (one tap sets a moment; the first row is where search lands), then the
+ * rescue call, helpers and the drive profile. Nothing else: phone menus are on Keypad & dialling, call time on During
+ * calls.
  */
 @Composable
 private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
@@ -289,8 +339,4 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     FamilySafetyCallsGroup(vm, open)
     // The drive profile.
     OnTheRoadGroup(vm, open)
-    SegmentedGroup {
-        item("phone_menus") { PhoneMenusRow(vm, open) }
-        item("call_time") { CallTimeRow(vm, open, Icons.Rounded.Timer) }
-    }
 }

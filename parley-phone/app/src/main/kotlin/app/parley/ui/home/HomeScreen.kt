@@ -1,6 +1,6 @@
 package app.parley.ui.home
 
-import app.parley.ui.people.LockPrivateButton
+import app.parley.ui.people.ContactsLockButton
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -21,9 +21,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GroupAdd
-import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Handyman
@@ -84,7 +82,6 @@ import app.parley.common.StartTab
 import app.parley.common.homeLayout
 import app.parley.common.ux.Tips
 import app.parley.messaging.MessagingRoutes
-import app.parley.security.AppLock
 import app.parley.ui.Routes
 import app.parley.ui.activityViewModel
 import app.parley.ui.calltime.NotificationHealthBanner
@@ -331,12 +328,9 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
             IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
         }
         StartTab.CONTACTS -> {
-            // Scan QR is in the add button's menu.
-            IconButton({ open(PeopleRoutes.Labels) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
-            // Private contacts unlocked: lock them all again (not the app lock below).
-            LockPrivateButton(vm)
-            // Lock Parley now, without waiting for the timeout.
-            if (appLock) IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
+            // Scan QR is in the add button's menu; Labels is the chip row's. One lock: private contacts, Parley, or a
+            // small menu with both.
+            ContactsLockButton(vm, appLock)
         }
         StartTab.KEYPAD -> IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
         StartTab.FAVORITES, StartTab.CIRCLE -> Unit
@@ -388,6 +382,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
             // Contacts › Circle: its own setting, and a link to how keep-in-touch reminders arrive (on Reminders).
+            // Lands on the Circle's own group of Settings › Contacts (its "Log this?" row, not folded under Advanced).
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "log_prompts")) }
         }
         // "Who's in…" is the Contacts search's city chip now, not an item of these menus.

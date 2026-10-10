@@ -44,7 +44,8 @@ other apps, and kept whole by Parley (`ArchiveStore`, core/data; rules in `Archi
 contact nothing is locked: its files in `files/archive` are sealed with the small-records key, which needs no unlock,
 so the call path names it while the phone is locked.
 
-- **Archive** (contact page › ⋮ › Privacy…, and a chapter's end) reads the lossless record (`ContactRecordStore.read`
+- **Archive** (the contact page's **Kept as** row, the Delete question's **Archive instead**, the Health check's stale
+  group, a selection, and a chapter's end) reads the lossless record (`ContactRecordStore.read`
   with the full photo), keeps it, then removes the contact from the address book (`purgeForVault`), and
   re-keys what Parley keeps about the person to `parley-archived:<id>` (`ContactRef.archivedKey`), a key the key sweep
   never resolves through the address book. A temporary contact archived stops expiring. Photos are kept whole, at full
@@ -68,7 +69,11 @@ so the call path names it while the phone is locked.
   on their own card and can be ticked, `AgendaStore.targetFor` finds the archived contact by number), missed-call
   notifications, Recents, a number's history, Recall ("Archived contacts"), and screening, which counts an archived
   caller as a saved contact. Hide private contacts and a duress session treat it like any saved contact.
-- **Unarchive** (Contacts › ⋮ › Archived) inserts the record back into the accounts it came from; when one of them
+- **An archived contact's page** (`PeopleRoutes.ArchivedContact`, from Contacts › ⋮ › Archived or Contacts search's
+  "Also archived: Ana · Show"): read-only, the record's numbers, e-mails, addresses, work, websites, dates and note
+  (`ArchivedView.lines`), with the Archived tag and **Unarchive**; a number opens its calls. Nothing is edited there:
+  Unarchive puts the contact back whole. An archived private contact keeps its own page, whose Kept as row says Archived.
+- **Unarchive** (Contacts › ⋮ › Archived, or the archived contact's page) inserts the record back into the accounts it came from; when one of them
   isn't on the phone now, the user picks an account (`Archive.target`). What Parley kept follows it to the new key.
 - **Backups** carry each archived contact (card and record, photos included) in the encrypted backup, restored with
   the contacts and never twice. A restore gives an archived contact a new id, so the archive part is restored first
@@ -301,7 +306,16 @@ in discreet mode. **Save on this contact** writes the name into the Relation row
 
 ## Conversions
 
-From the page (**Settings for this contact** and ⋮) and, for the expiry, from the editor:
+### Kept as
+
+One row in **Settings for this contact**, **Kept as: Visible · Private · Archived** (`KeptAs`, core/common; owner
+decision D9), replaced the ⋮ menu's Privacy… group. The three stay three variants: they answer different questions
+(who can see it, whether it is in the lists); only the control is one. Choosing another asks first with the question
+the menu asked (Make private, Make visible, Archive, `KeptAs.stepTo`); an archived private contact goes back among the
+private contacts with Unarchive and is made visible from there (Visible shows, greyed, "Unarchive first"). How long it
+stays (Delete automatically) and its ringtone are rows of the same section, so the ⋮ menu no longer repeats them.
+
+From the page (**Settings for this contact**) and, for the expiry, from the editor:
 
 | From → to | How | Lossless |
 |---|---|---|

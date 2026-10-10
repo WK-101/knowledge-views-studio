@@ -146,11 +146,25 @@ class ContactConversions(private val c: DataContainer) {
      * holds a private contact. False (nothing deleted) when the promised copy couldn't be kept: the caller offers to
      * delete without one.
      */
-    suspend fun deletePrivate(vaultId: Long, keepCopy: Boolean = true): Boolean = inApp {
-        if (keepCopy && !suspendRunCatching { c.privateTrash.keep(vaultId) }.getOrDefault(false)) return@inApp false
+    suspend fun deletePrivate(vaultId: Long, keepCopy: Boolean = true): Boolean =
+        if (keepCopy) deletePrivateKept(vaultId) != null else inApp { forgetPrivate(vaultId); true }
+
+    /**
+     * [deletePrivate] keeping its sealed copy, which it returns for an Undo ([undoDeletePrivate]); null when the copy
+     * couldn't be kept, and then nothing was deleted.
+     */
+    suspend fun deletePrivateKept(vaultId: Long): String? = inApp {
+        val kept = suspendRunCatching { c.privateTrash.keepFile(vaultId) }.getOrNull() ?: return@inApp null
+        forgetPrivate(vaultId)
+        kept
+    }
+
+    /** Undo of [deletePrivateKept]: the contact back from its sealed copy ([kept]); its new vault id, or null. */
+    suspend fun undoDeletePrivate(kept: String): Long? = inApp { suspendRunCatching { c.privateTrash.restore(kept) }.getOrNull() }
+
+    private suspend fun forgetPrivate(vaultId: Long) {
         c.vault.delete(vaultId)
         c.contactKeys.forget(ContactRef.privateKey(vaultId))
-        true
     }
 
     /** The note for calls and the usual app go back to Parley's row for them (only fields the vault carried). */

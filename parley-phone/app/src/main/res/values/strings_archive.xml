@@ -40,4 +40,30 @@
     <string name="archive_private_section">Private</string>
     <string name="recall_group_archived">Archived contacts</string>
     <string name="recall_archived_on">Archived %1$s</string>
+    <!-- "Kept as" on a contact's page: one row for Visible, Private and Archived. -->
+    <string name="kept_as_title">Kept as</string>
+    <string name="kept_as_visible">Visible</string>
+    <string name="kept_as_visible_sub">In your contacts, where other apps can see it</string>
+    <string name="kept_as_private">Private</string>
+    <string name="kept_as_private_sub">Only in Parley, hidden from other apps</string>
+    <string name="kept_as_archived">Archived</string>
+    <string name="kept_as_archived_sub">Out of your lists, still named when they call</string>
+    <string name="kept_as_unarchive_first">Unarchive first, then make it visible</string>
+    <string name="kept_as_row_sub">%1$s. Change how they\'re kept</string>
+    <!-- The Delete question offers Archive instead. -->
+    <string name="archive_instead">Archive instead</string>
+    <string name="archive_instead_sub">Out of your lists, and Parley keeps naming their calls</string>
+    <!-- An archived contact's own page: read-only, with Unarchive. -->
+    <string name="archive_page_intro">Archived: out of your lists and other apps. Parley still names their calls. Unarchive to change anything.</string>
+    <string name="archive_page_work">%1$s · %2$s</string>
+    <string name="archive_page_gone">This contact isn\'t archived any more.</string>
+    <!-- Contacts search: archived contacts that match, under the results. -->
+    <string name="archive_also_one">Also archived: %1$s</string>
+    <plurals name="archive_also_many">
+        <item quantity="one">Also archived: %1$s and %2$d more</item>
+        <item quantity="other">Also archived: %1$s and %2$d more</item>
+    </plurals>
+    <string name="archive_also_show">Show</string>
+    <!-- Health check: archive the contacts not called in two years. -->
+    <string name="health_archive_all">Archive them</string>
 </resources>
