@@ -44,6 +44,7 @@ import app.parley.messaging.MessageOn
 import app.parley.messaging.NumberActionActivity
 import app.parley.ui.Bidi
 import app.parley.ui.calls.RingText
+import app.parley.work.PrivateNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -261,12 +262,9 @@ object MissedCallNotifier {
         emptyList()
     }
 
-    private fun publicVersion(context: Context, count: Int) = NotificationCompat.Builder(context, CHANNEL)
-        .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-        .setContentTitle(title(context, count))
-        .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-        .setNumber(count)
-        .build()
+    private fun publicVersion(context: Context, count: Int) = PrivateNotice.publicVersion(
+        context, CHANNEL, app.parley.ui.R.drawable.ic_stat_missed, title(context, count), NotificationCompat.CATEGORY_MISSED_CALL, count,
+    )
 
     private fun openRecents(context: Context) = PendingIntent.getActivity(
         context, NotificationRequests.MISSED_OPEN,

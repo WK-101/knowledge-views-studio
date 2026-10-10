@@ -19,7 +19,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
@@ -257,12 +256,7 @@ class CallNotifier internal constructor(
         dismissedIncoming = null
     }
 
-    private fun person(call: CallUi): Person {
-        val b = Person.Builder().setName(call.title).setImportant(true)
-        personUri(call)?.let { b.setUri(it) }
-        call.photoUri?.let { uri -> PhotoCache.peek("$uri@256")?.let { b.setIcon(IconCompat.createWithBitmap(it)) } }
-        return b.build()
-    }
+    private fun person(call: CallUi): Person = CallNotificationTemplate.person(call.title, personUri(call), call.photoUri)
 
     /**
      * Who is calling, in the form Do Not Disturb matches against "starred contacts" / "contacts only": the contact's
@@ -342,12 +336,7 @@ class CallNotifier internal constructor(
      * "Caller on the lock screen" allows), no labels.
      */
     private fun publicVersion(call: CallUi, channel: String, text: String): Notification =
-        NotificationCompat.Builder(context, channel)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(call.forLockScreen(lockMode(), placeholder(call)).title)
-            .setContentText(text)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .build()
+        CallNotificationTemplate.publicVersion(context, channel, call.forLockScreen(lockMode(), placeholder(call)).title, text)
 
     /**
      * Public, as before, while the name may show on the lock screen; otherwise private, so a lock screen that hides
@@ -361,20 +350,11 @@ class CallNotifier internal constructor(
         // Armed for auto-answer: the countdown replaces the subtitle, and its Cancel comes first among the extra
         // actions (a call notification shows only a few next to Decline and Answer).
         val countdown = autoAnswerLeft.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.call_auto_answer_in, it, it) }
-        val b = NotificationCompat.Builder(context, CH_INCOMING)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(call.title)
-            .setContentText(countdown ?: subtitle(call).ifEmpty { context.getString(R.string.notif_incoming_call) })
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setVisibility(callVisibility())
-            .setPublicVersion(publicVersion(call, CH_INCOMING, context.getString(R.string.notif_incoming_call)))
-            .setContentIntent(contentIntent())
-            .setFullScreenIntent(contentIntent(), true)
-            .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), declineIntent(call.id, 3), answer))
-            .addPerson(person(call))
+        val b = CallNotificationTemplate.incoming(
+            context, CH_INCOMING, call.title, countdown ?: subtitle(call).ifEmpty { context.getString(R.string.notif_incoming_call) },
+            person(call), callVisibility(), publicVersion(call, CH_INCOMING, context.getString(R.string.notif_incoming_call)),
+            contentIntent(), declineIntent(call.id, 3), answer,
+        )
         if (countdown != null) {
             b.addAction(0, context.getString(R.string.notif_auto_answer_cancel), action(CallActionReceiver.ACTION_CANCEL_AUTO_ANSWER, call.id, 13))
         }
@@ -402,29 +382,17 @@ class CallNotifier internal constructor(
     private fun buildOngoing(call: CallUi, timing: CallTiming?, chrono: CallChronometer.Display): Notification {
         val audio = CallManager.audio.value
         val limited = timing?.countdown?.hasEnd == true
-        val b = NotificationCompat.Builder(context, CH_ONGOING)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(call.title)
-            .setContentText(
-                when (call.state) {
-                    CallState.DIALING, CallState.CONNECTING -> context.getString(R.string.incall_status_calling)
-                    CallState.HOLDING -> context.getString(R.string.incall_status_on_hold)
-                    else -> if (limited) endsText(timing, chrono) else subtitle(call).ifEmpty { context.getString(R.string.notif_ongoing_call) }
-                },
-            )
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setVisibility(callVisibility())
-            .setPublicVersion(publicVersion(call, CH_ONGOING, context.getString(R.string.notif_ongoing_call)))
-            .setContentIntent(contentIntent())
+        val text = when (call.state) {
+            CallState.DIALING, CallState.CONNECTING -> context.getString(R.string.incall_status_calling)
+            CallState.HOLDING -> context.getString(R.string.incall_status_on_hold)
+            else -> if (limited) endsText(timing, chrono) else subtitle(call).ifEmpty { context.getString(R.string.notif_ongoing_call) }
+        }
+        val b = CallNotificationTemplate.ongoing(
+            context, CH_ONGOING, call.title, text, person(call), callVisibility(),
+            publicVersion(call, CH_ONGOING, context.getString(R.string.notif_ongoing_call)), contentIntent(),
+            action(CallActionReceiver.ACTION_HANGUP, call.id, 6),
+        )
             .setDeleteIntent(dismissIntent(ONGOING_ID, call.id))
-            // CallStyle needs a full-screen intent or a foreground service. The ongoing channel is not
-            // high-importance, so this never pops up; it only satisfies the platform check.
-            .setFullScreenIntent(contentIntent(), false)
-            .setStyle(NotificationCompat.CallStyle.forOngoingCall(person(call), action(CallActionReceiver.ACTION_HANGUP, call.id, 6)))
-            .addPerson(person(call))
             .addAction(0, context.getString(if (audio.muted) R.string.notif_unmute else R.string.notif_mute), action(CallActionReceiver.ACTION_MUTE, call.id, 7))
         if (limited && timing.canExtend) {
             // Wrap-up actions replace Speaker while a limit runs.
