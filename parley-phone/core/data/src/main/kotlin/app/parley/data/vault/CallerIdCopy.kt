@@ -30,6 +30,21 @@ internal object CallerIdCopy {
     /** Marks a caller-ID copy that keeps the star, labels, ringtone and voicemail itself. */
     const val C_SEEDED = "cs"
 
+    /** When the private contact was archived (out of Parley's lists, still private and still named on calls). */
+    const val C_ARCHIVED = "arch"
+
+    /**
+     * What a list row needs of the copy ([summary]), and nothing of the caller card (the note for calls, the "who is
+     * this" line, title, pronouns): all a kept listing ([PrivateSummaryCache]) holds.
+     */
+    private val SUMMARY_KEYS = listOf(
+        "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_SEEDED, C_NAME_ALT,
+        C_REGION, C_COMPANY, C_ARCHIVED,
+    )
+
+    /** Copy [o] cut down to what [summary] reads. */
+    fun summaryPart(o: JSONObject): JSONObject = JSONObject().also { out -> SUMMARY_KEYS.forEach { k -> if (o.has(k)) out.put(k, o.get(k)) } }
+
     /** The list row of entry [id] from its opened copy [o]. */
     fun summary(id: Long, o: JSONObject, expiresAt: Long?, createdAt: Long): VaultSummary {
         val nums = o.optJSONArray("numbers") ?: JSONArray()
@@ -44,6 +59,7 @@ internal object CallerIdCopy {
             region = o.optString(C_REGION).ifEmpty { null },
             company = o.optString(C_COMPANY),
             createdAt = createdAt,
+            archivedAt = o.optLong(C_ARCHIVED, 0L).takeIf { it > 0 },
         )
     }
 

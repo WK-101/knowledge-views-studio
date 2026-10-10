@@ -33,9 +33,8 @@ object NumberText {
         val cacheKey = region.orEmpty() + '|' + raw
         e164Cache[cacheKey]?.let { return it.takeIf { it != NONE } }
         val e164 = computeE164(raw, region)
-        // Matching and keys ask about the same few numbers over and over (a call list, a contact's phones); parsing
-        // is far slower than a lookup. Bounded crudely: a full cache simply starts again.
-        if (e164Cache.size >= CACHE_SIZE) e164Cache.clear()
+        // Matching and keys ask about the same numbers over and over (a call list, every contact's phones); parsing is
+        // far slower than a lookup. The least recently used number goes when full, never the whole cache at once.
         e164Cache[cacheKey] = e164 ?: NONE
         return e164
     }
@@ -54,6 +53,15 @@ object NumberText {
         }
         return PhoneNumbers.heuristicE164(cleaned, region)
     }
+
+    /**
+     * Makes the number cache hold [numbers] distinct numbers (the address book's, with room for the call history's), so
+     * a pass over all of them keeps hitting instead of evicting what the next pass needs.
+     */
+    fun fitCache(numbers: Int) = e164Cache.resize(numbers * 2 + CACHE_SIZE, CACHE_CEILING)
+
+    /** How many numbers the cache holds at most now (tests). */
+    val cacheCapacity: Int get() = e164Cache.capacity
 
     /** International digits without "+" ("923001234567"), as messenger links want them. */
     fun e164Digits(e164: String): String = e164.removePrefix("+")
@@ -127,6 +135,11 @@ object NumberText {
 
     private const val UNKNOWN = "ZZ"
     private const val NONE = ""
-    private const val CACHE_SIZE = 4096
-    private val e164Cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** Numbers kept at least: a call history and a few hundred contacts. */
+    private const val CACHE_SIZE = 8192
+
+    /** At most (about 100 bytes each): 50,000 contacts' numbers and a long call history. */
+    private const val CACHE_CEILING = 131_072
+    private val e164Cache = RecentCache<String, String>(CACHE_SIZE)
 }

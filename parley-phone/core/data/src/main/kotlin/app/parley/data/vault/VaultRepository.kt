@@ -43,11 +43,9 @@ import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -95,7 +93,15 @@ data class VaultSummary(
     val company: String = "",
     /** When it was first saved here (made private or created), for sorting Contacts by recently added. */
     val createdAt: Long = 0,
+    /**
+     * When it was archived: out of Parley's lists (Contacts › ⋮ › Archived shows it while private contacts may show),
+     * still private, still named on calls. Null while it is listed.
+     */
+    val archivedAt: Long? = null,
 ) {
+    /** Archived: kept in the vault, out of the lists. */
+    val archived: Boolean get() = archivedAt != null
+
     /** Anything the call path must apply for this contact (Parley screens its calls then). */
     val hasCallChoices: Boolean get() = ringtone != null || sendToVoicemail || labels.isNotEmpty()
 }
@@ -202,11 +208,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             VaultCallChoices.any = v
         }
 
-    /**
-     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
-     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
-     */
-    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
+    /** Each private contact's list row: opened once, kept between runs ([PrivateRows]). */
+    private val listRows = PrivateRows(context)
 
     /**
      * Every private contact from its caller-ID copy (the sealed details stay in the database, see VaultCallerRow); null
@@ -233,28 +236,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
 
-    /**
-     * Each row's summary. A cold start opens every caller-ID copy once, each a Keystore operation of a few
-     * milliseconds: the ones not opened yet are opened by a few workers at once, so hundreds of private contacts take
-     * a fraction of the time one after the other would. Later listings open only the copies that changed.
-     */
-    private suspend fun summarizeAll(rows: List<VaultCallerRow>): List<VaultSummary> {
-        val fresh = rows.filter { r -> summaries[r.id]?.first?.contentEquals(r.callerIdBlob) != true }
-        if (fresh.size >= OPEN_TOGETHER_FROM) {
-            val per = (fresh.size + OPENERS - 1) / OPENERS
-            coroutineScope { fresh.chunked(per).map { chunk -> async(Dispatchers.IO) { chunk.forEach { summarize(it) } } }.awaitAll() }
-        }
-        return rows.mapNotNull { summarize(it) }
-    }
+    /** Each row's summary, in one batch ([PrivateRows.all]): never one Keystore operation per contact at a cold start. */
+    private suspend fun summarizeAll(list: List<VaultCallerRow>): List<VaultSummary> = listRows.all(list)
 
-    private fun summarize(e: VaultCallerRow): VaultSummary? {
-        summaries[e.id]?.let { (blob, s) -> if (blob.contentEquals(e.callerIdBlob)) return s.copy(expiresAt = e.expiresAt) }
-        return openSummary(e)?.also { summaries[e.id] = e.callerIdBlob to it }
-    }
-
-    private fun openSummary(e: VaultCallerRow): VaultSummary? = runCatching {
-        CallerIdCopy.summary(e.id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))), e.expiresAt, e.createdAt)
-    }.getOrNull()
+    private fun summarize(e: VaultCallerRow): VaultSummary? = listRows.one(e)
 
     /**
      * What the caller-ID copy [o] keeps for the call path and the lists (the star, labels, ringtone and "send to
@@ -334,6 +319,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     fun forgetOpened() {
         openedMain.clear()
         lock.forgotten()
+        // The kept listing's key goes too: the next write unwraps it again.
+        listRows.forgetKey()
         forgetCount.value++
     }
 
@@ -349,7 +336,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * opens or seals details until the next unlock in Parley ([unlockedByPerson]). Names and numbers stay listed, as
      * they are while locked (the caller-ID copy needs no unlock); discreet mode is what hides them.
      */
-    fun lockAll() = lock.lockAll(::forgetOpened)
+    fun lockAll() {
+        lock.lockAll(::forgetOpened)
+        onConcealed()
+    }
+
+    /**
+     * Set by the container: what else must forget private contacts at once when they are locked ("Lock private
+     * contacts"), such as the Contacts list's first screenful kept for a cold start.
+     */
+    @Volatile var onConcealed: () -> Unit = {}
 
     private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
 
@@ -614,6 +610,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
                     existingSummary?.vibration?.let { put(C_VIBRATION, it) }
                     if (existingSummary?.autoAnswer == true) put(C_AUTO_ANSWER, true)
+                    // An edit keeps an archived contact archived (Unarchive is what lists it again).
+                    existingSummary?.archivedAt?.let { put(CallerIdCopy.C_ARCHIVED, it) }
                 }
                 // The region national numbers were read with, so re-fingerprinting later uses the same one.
                 .put(C_REGION, region)
@@ -729,6 +727,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
             if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
             if (after.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
+            after.archivedAt?.let { o.put(CallerIdCopy.C_ARCHIVED, it) } ?: o.remove(CallerIdCopy.C_ARCHIVED)
             // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
             noteCallChoices(after.hasCallChoices)
@@ -872,7 +871,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any). It
             // opens every caller-ID copy, so it waits for the full app; a call's process goes by the stored answer.
             gate?.await()
-            runCatching { dao.callerRows().collect { list -> rememberCallChoices(list.any { e -> summarize(e)?.hasCallChoices == true }) } }
+            // From the listing itself, so a cold start opens nothing twice (and nothing one by one).
+            catching { listing.filterNotNull().collect { list -> rememberCallChoices(list.any { it.hasCallChoices }) } }
         }
         scope.launch {
             gate?.await()
@@ -909,7 +909,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             }
         }
         openedMain.remove(id)
-        summaries.remove(id)
+        listRows.forget(id)
         photoFile(id).delete()
         app.parley.data.people.OriginalPhotos.forgetPrivate(context, id)
     }
@@ -1013,7 +1013,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val cr = context.contentResolver
         val ids = ArrayList<Long>()
         // Only calls that may be private are looked up (see PrivateCallSeal.prefilter).
-        val maybePrivate = PrivateCallSeal.prefilter(dao.callerRowsNow().mapNotNull { summarize(it) }.map { it.numbers to it.region }, region())
+        val maybePrivate = PrivateCallSeal.prefilter(summarizeAll(dao.callerRowsNow()).map { it.numbers to it.region }, region())
             ?: return@withContext 0
         try {
             cr.query(
@@ -1099,12 +1099,30 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         extrasOf(e.detailBlob).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
     }
 
-    /** Every private contact's own ringtone; null when one can't be read now (then no ringtone file counts as unused). */
-    suspend fun ringtonesNow(): List<String>? =
-        withContext(Dispatchers.IO) { dao.callerRowsNow().map { summarize(it) ?: return@withContext null }.mapNotNull { it.ringtone } }
+    /**
+     * Every private contact's own ringtone; null when one can't be read now (then no ringtone file counts as unused).
+     * From the listing once it is open, else in one batch ([summarizeAll]), never one Keystore operation per contact.
+     */
+    suspend fun ringtonesNow(): List<String>? = withContext(Dispatchers.IO) {
+        val rows = dao.callerRowsNow()
+        val list = summarizeAll(rows)
+        if (list.size != rows.size) null else list.mapNotNull { it.ringtone }
+    }
 
-    /** Every private contact, read straight from the database (not the UI flow, which starts empty). */
-    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) } }
+    /** Every private contact, read straight from the database (not the UI flow, which starts empty), in one batch. */
+    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { summarizeAll(dao.callerRowsNow()) }
+
+    /**
+     * Archives private contact [id] ([at] its time) or, with null, lists it again. Only the caller-ID copy changes: the
+     * contact stays sealed in the vault, under the same keys and the same lock, and its calls are still named. An
+     * archived contact doesn't delete itself (its expiry goes, as an archived address-book contact's does). False when
+     * the entry is gone or its copy can't be opened.
+     */
+    suspend fun setArchived(id: Long, at: Long?): Boolean {
+        if (!updateCallerChoices(id) { it.copy(archivedAt = at) }) return false
+        if (at != null) setExpiry(id, null)
+        return true
+    }
 
     /** The private calls of entry [vaultId], read straight from the database (backup). */
     suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) { dao.privateCallsOf(vaultId).mapNotNull(callSeal::opened) }
@@ -1113,7 +1131,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.privateCallCount(vaultId) }
 
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
-    suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) }.flatMap { it.numbers } }
+    suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { summarizeAll(dao.callerRowsNow()).flatMap { it.numbers } }
 
     private companion object {
         const val PREFS = "vault"
@@ -1140,9 +1158,5 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
         /** How long opened details stay in memory: short, and only while the phone is unlocked (see openMain). */
         const val OPENED_MS = 60_000L
-
-        /** Caller-ID copies opened by several workers from this many on, and how many workers. */
-        const val OPEN_TOGETHER_FROM = 16
-        const val OPENERS = 4
     }
 }

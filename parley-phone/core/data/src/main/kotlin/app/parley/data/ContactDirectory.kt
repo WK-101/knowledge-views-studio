@@ -33,6 +33,8 @@ class ContactDirectory(contacts: ContactsRepository, settings: SettingsRepositor
     /** Number → contact by line ([PhoneIdentity]), for naming call-log entries. */
     val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>> = this.contacts.map { list ->
         val m = PhoneIdentity.LineMap<ContactSummary>(countryIso)
+        // Room for every number of the book in the parse cache, so this pass and the next ones keep hitting.
+        app.parley.common.NumberText.fitCache(list.orEmpty().sumOf { it.phones.size })
         list.orEmpty().forEach { ct -> ct.phones.forEach { p -> m.putIfAbsent(p.number, ct) } }
         m
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), PhoneIdentity.LineMap(countryIso))

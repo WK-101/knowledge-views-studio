@@ -1,6 +1,8 @@
 package app.parley.data.vault
 
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,18 @@ class VaultLock(private val scope: CoroutineScope) {
     val unlocked: StateFlow<Boolean> = unlockedNow.asStateFlow()
 
     private val lockCount = MutableStateFlow(0)
+
+    private val lockedNow = MutableStateFlow(true)
+
+    /**
+     * "Lock private contacts" holds ([VaultCrypto.lockedByPerson]), for what shows only while they are unlocked (the
+     * archived private contacts). True until its file has been read, off the main thread: it fails closed.
+     */
+    val lockedByPerson: StateFlow<Boolean> = lockedNow.asStateFlow()
+
+    init {
+        scope.launch(Dispatchers.IO) { lockedNow.value = catching { VaultCrypto.lockedByPerson }.getOrDefault(true) }
+    }
 
     /** Counts [lockAll] calls: an open private contact's page follows it. */
     val locks: StateFlow<Int> = lockCount.asStateFlow()
@@ -53,12 +67,14 @@ class VaultLock(private val scope: CoroutineScope) {
     /** The person's unlock in Parley succeeded: an earlier [lockAll] no longer holds. */
     fun unlockedByPerson() {
         VaultCrypto.lockedByPerson = false
+        lockedNow.value = false
         noteUnlocked()
     }
 
     /** Locks every private contact's details until [unlockedByPerson]; [forget] drops what was opened. */
     fun lockAll(forget: () -> Unit) {
         VaultCrypto.lockedByPerson = true
+        lockedNow.value = true
         forget()
         lockCount.value++
     }

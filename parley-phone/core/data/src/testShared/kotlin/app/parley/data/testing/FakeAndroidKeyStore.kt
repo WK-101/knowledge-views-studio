@@ -36,9 +36,13 @@ object FakeAndroidKeyStore {
             VaultCrypto.forgetKeyHandles()
         }
 
+    /** How often each alias's key was read (a lookup or an unwrap: a call into the Keystore on a phone). */
+    val reads: MutableMap<String, java.util.concurrent.atomic.AtomicInteger> = ConcurrentHashMap()
+
     /** Installs the provider (once per JVM) and forgets every key, so each test starts with an empty Keystore. */
     fun install() {
         keys.clear()
+        reads.clear()
         VaultCrypto.forgetKeyHandles()
         failure = null
         if (Security.getProvider(NAME) !is FakeProvider) {
@@ -65,6 +69,7 @@ object FakeAndroidKeyStore {
     class FakeKeyStoreSpi : KeyStoreSpi() {
         override fun engineGetKey(alias: String, password: CharArray?): Key? {
             failure?.let { throw it() }
+            reads.getOrPut(alias) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet()
             return keys[alias]
         }
         override fun engineGetCertificateChain(alias: String?): Array<Certificate>? = null

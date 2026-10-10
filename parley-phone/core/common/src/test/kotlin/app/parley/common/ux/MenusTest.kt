@@ -68,9 +68,11 @@ class MenusTest {
         assertTrue(ContactMenu.Action.VERSION_HISTORY in more.actions)
         // A blocked number: Unblock in Block's place.
         assertEquals(MenuEntry.Action(ContactMenu.Action.UNBLOCK_NUMBERS), ContactMenu.build(ContactMenu.Facts(blocked = true))[2])
-        // Archive is under Privacy… for a device contact; a private one is out of other apps already.
+        // Archive is under Privacy….
         assertTrue(ContactMenu.Action.ARCHIVE in top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.PRIVACY }.actions)
-        assertTrue(ContactMenu.Action.ARCHIVE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
+        // A private contact is archived inside the vault (it stays private); an archived one isn't offered it again.
+        assertTrue(ContactMenu.Action.ARCHIVE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
+        assertTrue(ContactMenu.Action.ARCHIVE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
         // A private contact offers Make visible instead of Make private.
         assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
         assertTrue(ContactMenu.Action.MAKE_PRIVATE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))

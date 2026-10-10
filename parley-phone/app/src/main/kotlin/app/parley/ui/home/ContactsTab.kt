@@ -117,11 +117,13 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     var recallExpanded by remember(query) { mutableStateOf(emptySet<RecallSource>()) }
     val recallShows = recallActive && (everything || recallState.result?.isEmpty == false)
 
-    val rows = listing
+    // A cold start: the first screenful shown last time, drawn in the list itself (same keys, same headers, the same
+    // things above it), so the real list takes over without a row moving.
+    val head by vm.people.listHead.collectAsStateWithLifecycle()
+    val previewing = listing == null
+    val rows = listing ?: head
     if (rows == null) {
-        // A cold start with a large address book: the rows shown last time, until the list has loaded.
-        val head by vm.people.listHead.collectAsStateWithLifecycle()
-        head?.let { ListHeadPreview(it, open) } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
     val state = rememberLazyListState()
@@ -249,27 +251,17 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                 recallSection(vm, recallState, query, fallback = !everything, recallExpanded, { recallExpanded = recallExpanded + it }, open)
             }
             workResultsSection(work) { n, name -> vm.requestCall(n, name) }
-            // How many are shown, at the very end.
-            ContactsFooter.line(count, query, filter, private = privateShown, privateList = privateOnly)
-                ?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
+            // How many are shown, at the very end (not counted from the kept head).
+            if (!previewing) {
+                ContactsFooter.line(count, query, filter, private = privateShown, privateList = privateOnly)
+                    ?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
+            }
         }
-        if (indexed) AlphabetIndexRail(state, indexEntries, indexStart)
+        // While the kept head shows, the index keeps its lane but waits for every letter.
+        if (indexed && !previewing) AlphabetIndexRail(state, indexEntries, indexStart)
         quickHost()
     }
     ContactSortSheet(vm)
-}
-
-/** The first screenful kept from last time ([app.parley.common.people.ListHead]): plain rows that open the contact. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ListHeadPreview(rows: List<ListSections.Row<String, ContactSummary>>, open: (Destination) -> Unit) {
-    val runs = remember(rows) { ListSections.runs(rows) }
-    LazyColumn(Modifier.fillMaxSize()) {
-        runs.forEach { run ->
-            run.section?.let { s -> stickyHeader(key = "s$s", contentType = CONTENT_LETTER) { ListSectionHeader(s, sticky = true, inset = Spacing.xl) } }
-            items(run.items, key = { it.id }, contentType = { CONTENT_CONTACT }) { c -> ContactRow(c) { open(Routes.contact(c.id)) } }
-        }
-    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

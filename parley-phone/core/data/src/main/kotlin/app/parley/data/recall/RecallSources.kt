@@ -8,12 +8,14 @@ import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
 import app.parley.common.people.ContactRef
+import app.parley.common.people.PrivateArchive
 import app.parley.common.recall.RecallCorpus
 import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
 import app.parley.data.security.Concealment
+import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,7 +68,8 @@ class RecallSources(private val c: DataContainer) {
                 m.number?.takeIf { it.isNotBlank() }?.let { RecallCorpus.Messaged(it, m.label, m.at) }
             },
             cases = safely { cases(access) }.orEmpty(),
-            archived = safely { c.archive.all().map { a -> RecallCorpus.Gone(a.name, a.numbers, a.archivedAt, a.id.toString()) } }.orEmpty(),
+            archived = safely { c.archive.all().map { a -> RecallCorpus.Gone(a.name, a.numbers, a.archivedAt, a.id.toString()) } }.orEmpty() +
+                safely { privateArchived(access) }.orEmpty(),
         )
         withoutPrivate(stored, hidden)
     }
@@ -153,6 +156,17 @@ class RecallSources(private val c: DataContainer) {
             val last = k.calls.maxOfOrNull { it.at } ?: k.created
             RecallCorpus.Case(k.id, k.name, k.numbers, k.references.map { it.label }.filter { it.isNotBlank() }, last, k.private)
         }
+    }
+
+    /**
+     * Private contacts archived inside the vault: only while private contacts may show (not hidden, no duress unlock,
+     * not locked with "Lock private contacts"), like every other private source here.
+     */
+    private suspend fun privateArchived(access: Access): List<RecallCorpus.Gone> {
+        val hiding = Concealment.hides(Concealed.PRIVATE_CONTACTS)
+        if (!PrivateArchive.mayShow(hidden = !access.privateShown, hiding = hiding, locked = VaultCrypto.lockedByPerson)) return emptyList()
+        return c.vault.summariesNow().filter { it.archived }
+            .map { v -> RecallCorpus.Gone(v.name, v.numbers, v.archivedAt ?: 0L, v.id.toString(), private = true) }
     }
 
     private suspend fun deleted(access: Access): List<RecallCorpus.Gone> {

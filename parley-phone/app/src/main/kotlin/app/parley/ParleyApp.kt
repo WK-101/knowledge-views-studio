@@ -58,6 +58,7 @@ class ParleyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         DebugStrictMode.install(this)
+        StartTimings.install(this)
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
         container = DataContainer(this)
@@ -78,11 +79,12 @@ class ParleyApp : Application() {
                 suspendRunCatching { container.vault.splitDetails() }
             }
         }
-        // Ringtones made from names: unused ones go (with their grants), and System UI's ringtone player needs its read
-        // grant again for the rest after a reboot.
+        // Ringtones made from names: System UI's ringtone player needs its read grant again after a reboot (a directory
+        // listing). Unused ones go (with their grants) only once the full app is up and its first screens are drawn:
+        // the sweep reads every ringtone in use, private contacts' included, and never competes with a ringing call.
         container.scope.launch(Dispatchers.IO) {
-            suspendRunCatching { CallerTunes.sweep(container) }
             suspendRunCatching { CallerTunes.regrant(this@ParleyApp) }
+            CallerTunes.afterStart(container.fullStart) { suspendRunCatching { CallerTunes.sweep(container) } }
         }
         AppLock.onLock = {
             container.vault.forgetOpened()

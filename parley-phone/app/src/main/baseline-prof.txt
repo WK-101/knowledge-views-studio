@@ -47,6 +47,27 @@ HSPLapp/parley/common/T9**->**(**)**
 HSPLapp/parley/common/TextSearch;->**(**)**
 HSPLapp/parley/common/Initials;->**(**)**
 
+# The Contacts list's first screen at a cold start: the kept head, the private contacts' kept rows and their batch
+# listing, the records and vault crypto they open with, and the parse cache every list pass goes through
+HSPLapp/parley/StartTimings;->**(**)**
+HSPLapp/parley/data/people/ContactListHead**->**(**)**
+HSPLapp/parley/data/people/PeopleIndex**->**(**)**
+HSPLapp/parley/data/vault/**->**(**)**
+HSPLapp/parley/data/security/**->**(**)**
+HSPLapp/parley/data/history/HistoryCrypto**->**(**)**
+HSPLapp/parley/common/people/ListHead**->**(**)**
+HSPLapp/parley/common/people/PrivateListing;->**(**)**
+HSPLapp/parley/common/people/PrivateArchive;->**(**)**
+HSPLapp/parley/common/people/NameOrder;->**(**)**
+HSPLapp/parley/common/people/ContactSorting**->**(**)**
+HSPLapp/parley/common/people/ContactListSearch**->**(**)**
+HSPLapp/parley/common/people/ContactSearch**->**(**)**
+HSPLapp/parley/common/ux/ListSections**->**(**)**
+HSPLapp/parley/common/NumberText;->**(**)**
+HSPLapp/parley/common/RecentCache**->**(**)**
+HSPLapp/parley/common/crypto/Aead;->**(**)**
+PLapp/parley/ui/contact/CallerTunes;->**(**)**
+
 # A contact's page (opened from Recents, Contacts, search or another app): its view model, sections, the photo as picked
 HSPLapp/parley/ui/contact/ContactDetailScreenKt**->**(**)**
 HSPLapp/parley/ui/contact/ContactDetailViewModel**->**(**)**

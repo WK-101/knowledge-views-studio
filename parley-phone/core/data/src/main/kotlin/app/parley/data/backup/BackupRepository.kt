@@ -471,6 +471,8 @@ class BackupRepository(
         // Its vibration and auto-answer, kept in the caller-ID copy like the labels (optional too).
         v.vibration?.let { o.put("vibration", it) }
         if (v.autoAnswer) o.put("autoAnswer", true)
+        // Archived inside the vault: it comes back archived, and private (optional: older versions list it).
+        v.archivedAt?.let { o.put("archivedAt", it) }
     }
 
     private suspend fun putPrivateExtras(o: JSONObject, vaultId: Long) {
@@ -890,6 +892,7 @@ class BackupRepository(
             if (vibration != null || o.optBoolean("autoAnswer")) {
                 runCatching { vault.updateCallerChoices(id) { s -> s.copy(vibration = vibration, autoAnswer = o.optBoolean("autoAnswer")) } }
             }
+            o.optLong("archivedAt").takeIf { it > 0 }?.let { at -> catching { vault.setArchived(id, at) } }
             restoreCalls(id, o)
             o.optJSONObject("parley")?.let { x -> runCatching { privateExtras?.importPrivate(id, x) } }
             n++

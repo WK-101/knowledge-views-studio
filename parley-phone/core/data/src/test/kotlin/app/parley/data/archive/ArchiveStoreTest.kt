@@ -20,6 +20,9 @@ import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.backup.RestoreOptions
+import app.parley.data.recall.RecallSources
+import app.parley.data.vault.VaultCrypto
+import app.parley.common.people.ArchivedCard
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
@@ -216,6 +219,102 @@ class ArchiveStoreTest {
         provider.refuseRawDeletes = false
         assertNotNull(c.archive.archive(id))
         assertEquals(1, c.archive.all().size)
+    }
+
+    /** Pia, a private contact with a note for calls. */
+    private suspend fun pia(): Long = c.vault.save(
+        null,
+        ContactDetails(given = "Pia", family = "Quist", pinnedNote = "Private note", phones = listOf(DataItem(null, "+44 20 7946 0555", Phone.TYPE_MOBILE))),
+        expiresAt = System.currentTimeMillis() + 86_400_000L,
+    )
+
+    @Test fun a_private_contact_is_archived_inside_the_vault_and_comes_back_private() = runBlocking {
+        val id = pia()
+        assertTrue(c.vault.setArchived(id, 5_000L))
+        val s = c.vault.summary(id)!!
+        assertEquals(5_000L, s.archivedAt)
+        assertNull("an archived contact doesn't delete itself", s.expiresAt)
+        // Still private: never in the archive's files (the records key), never in the address book.
+        assertTrue(c.archive.all().isEmpty())
+        assertTrue(File(app.filesDir, "archive").listFiles().orEmpty().isEmpty())
+        assertTrue(provider.rows("raw_contacts").isEmpty())
+        // Its calls are still named, as a private contact's.
+        assertEquals(-id, c.vault.lookup("+442079460555", "GB")?.second?.contactId)
+        // An edit keeps it archived.
+        val d = c.vault.details(id)!!
+        c.vault.save(id, d.copy(nickname = "P"))
+        assertEquals(5_000L, c.vault.summary(id)!!.archivedAt)
+        // Unarchive: back among the private contacts.
+        assertTrue(c.vault.setArchived(id, null))
+        assertFalse(c.vault.summary(id)!!.archived)
+        assertEquals("Private note", c.vault.details(id)!!.pinnedNote)
+    }
+
+    @Test fun recall_finds_an_archived_private_contact_only_while_private_contacts_may_show() = runBlocking {
+        val id = pia()
+        c.vault.setArchived(id, 5_000L)
+        val recall = RecallSources(c)
+        fun names(shown: Boolean) = runBlocking { recall.load(RecallSources.Access(privateShown = shown)).archived.map { it.name } }
+        assertEquals(listOf("Pia Quist"), names(true))
+        assertTrue("hidden (discreet mode, a duress unlock)", names(false).isEmpty())
+        VaultCrypto.lockedByPerson = true
+        try {
+            assertTrue("locked with Lock private contacts", names(true).isEmpty())
+        } finally {
+            VaultCrypto.lockedByPerson = false
+        }
+    }
+
+    @Test fun a_backup_brings_an_archived_private_contact_back_archived_and_private() = runBlocking {
+        val id = pia()
+        c.vault.setArchived(id, 5_000L)
+        c.backup.setupKeys(passphrase.toCharArray())
+        val out = c.backup.backupNow(scheduled = false, target = Uri.fromFile(file))
+        assertTrue(out.message, out.ok)
+        assertTrue("private contacts' rules: in the vault part", out.vaultIncluded)
+        assertFalse(String(file.readBytes(), Charsets.ISO_8859_1).contains("Quist"))
+
+        c.scope.cancel()
+        withContext(Dispatchers.IO) { c.db.clearAllTables() }
+        c.db.close()
+        File(app.noBackupFilesDir, "vault_summaries").delete()
+        c = DataContainer(app)
+        val opened = c.backup.open(Uri.fromFile(file), Unlock.Passphrase(passphrase.toCharArray()))
+        c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+        val back = c.vault.summariesNow().single()
+        assertEquals("Pia Quist", back.name)
+        assertEquals(5_000L, back.archivedAt)
+        assertTrue("never into the archive store or the address book", c.archive.all().isEmpty())
+    }
+
+    @Test fun an_archived_photo_is_kept_whole_at_full_size() = runBlocking {
+        // A 2 MB display photo: kept as it is (AUDIT_3 D7), through the sealed files and a backup.
+        val photo = ByteArray(2 * 1024 * 1024) { (it * 31 % 251).toByte() }
+        val record = ContactRecord(
+            "lk-ada", "Ada Lovelace",
+            raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.NAME, emptyMap()), DataRow(Mime.PHOTO, emptyMap(), blob = photo)))),
+        )
+        val card = ArchivedCard(0, "Ada Lovelace", listOf("+44 20 7946 0000"), 1_000L, emptyList(), "lk-ada")
+        assertTrue(c.archive.restore(card, record))
+        val kept = c.archive.all().single()
+        assertTrue(photo.contentEquals(c.archive.readRecord(kept.id)!!.raws.single().rows.first { it.mimeType == Mime.PHOTO }.blob))
+        val exported = c.archive.backupExtras.export()
+        File(app.filesDir, "archive").deleteRecursively()
+        c.scope.cancel()
+        c.db.close()
+        c = DataContainer(app)
+        c.archive.backupExtras.import(exported)
+        val again = c.archive.all().single()
+        assertTrue(photo.contentEquals(c.archive.readRecord(again.id)!!.raws.single().rows.first { it.mimeType == Mime.PHOTO }.blob))
+    }
+
+    @Test fun a_private_contacts_photo_stays_whole_when_it_is_archived() = runBlocking {
+        val photo = ByteArray(900 * 1024) { (it * 7 % 251).toByte() }
+        val record = ContactRecord("lk-pia", "Pia Quist", raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.PHOTO, emptyMap(), blob = photo)))))
+        val id = c.vault.save(null, ContactDetails(given = "Pia", phones = listOf(DataItem(null, "+44 20 7946 0555", Phone.TYPE_MOBILE))), record = record)
+        c.vault.setArchived(id, 5_000L)
+        val stored = c.vault.storedRecord(id)!!.record
+        assertTrue(photo.contentEquals(stored.raws.single().rows.single().blob))
     }
 
     @Test fun the_record_codec_keeps_photos() {

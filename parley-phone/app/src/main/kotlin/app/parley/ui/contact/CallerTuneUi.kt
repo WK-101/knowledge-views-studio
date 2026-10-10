@@ -53,8 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import app.parley.R
 import app.parley.common.calls.CallerTune
+import app.parley.common.catching
 import app.parley.common.ux.Tips
 import app.parley.data.DataContainer
+import app.parley.data.StartGate
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Spacing
@@ -131,12 +133,44 @@ internal object CallerTunes {
 
     /** [prune] with what Parley knows is in use now (device contacts, private contacts, labels). Off the main thread. */
     suspend fun sweep(c: DataContainer): Int = withContext(Dispatchers.IO) {
-        val contacts = runCatching { c.contacts.customRingtones() }.getOrNull()
-        val private = runCatching { c.vault.ringtonesNow() }.getOrNull()
-        val labels = runCatching { c.peoplePrefs.current().labelRingtones.values }.getOrNull()
-        val inUse = if (contacts == null || private == null || labels == null) null else contacts + private + labels
-        runCatching { prune(c.appContext, inUse) }.getOrDefault(0)
+        sweep(
+            c.appContext,
+            contacts = { c.contacts.customRingtones() },
+            private = { c.vault.ringtonesNow() },
+            labels = { c.peoplePrefs.current().labelRingtones.values },
+        )
     }
+
+    /**
+     * [prune] with what is in use, read only when there is a tune to look at: nearly everyone has none, and reading the
+     * private contacts' ringtones would list the vault (the address book's are a provider query).
+     */
+    internal suspend fun sweep(
+        context: Context,
+        contacts: suspend () -> Collection<String>?,
+        private: suspend () -> Collection<String>?,
+        labels: suspend () -> Collection<String>?,
+    ): Int {
+        if (File(context.filesDir, DIR).list().isNullOrEmpty()) return 0
+        val inDevice = catching { contacts() }.getOrNull()
+        val inPrivate = catching { private() }.getOrNull()
+        val inLabels = catching { labels() }.getOrNull()
+        val inUse = if (inDevice == null || inPrivate == null || inLabels == null) null else inDevice + inPrivate + inLabels
+        return catching { prune(context, inUse) }.getOrDefault(0)
+    }
+
+    /**
+     * Runs [sweep] once the full app has started ([gate]) and [afterMs] more have passed, so it never runs in a process
+     * started for a call, a worker or a widget, nor while the first screens are being drawn.
+     */
+    suspend fun afterStart(gate: StartGate, afterMs: Long = SWEEP_AFTER_START_MS, sweep: suspend () -> Unit) {
+        gate.await()
+        delay(afterMs)
+        sweep()
+    }
+
+    /** How long after the full start the sweep waits: the first screens and the lists load first. */
+    const val SWEEP_AFTER_START_MS = 20_000L
 
     private fun revoke(context: Context, uri: Uri) = READERS.forEach { pkg ->
         runCatching { context.revokeUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }

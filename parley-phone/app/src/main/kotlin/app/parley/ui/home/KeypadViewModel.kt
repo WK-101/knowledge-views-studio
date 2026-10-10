@@ -73,7 +73,8 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
         .flowOn(Dispatchers.Default)
 
     private val encodedVault = combine(c.vault.contacts, hideVault, layout, lastFirst) { list, hidden, layout, lastFirst ->
-        if (hidden) emptyList() else list.map { v ->
+        // Archived private contacts are out of the lists, as archived address-book contacts are out of the book.
+        if (hidden) emptyList() else list.filterNot { it.archived }.map { v ->
             // The same row as in Contacts (negative id, photo, lock badge): a tap opens the one contact page.
             keypadEntry(privateRow(v, lastFirst), layout)
         }
@@ -109,7 +110,7 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
         .flowOn(Dispatchers.Default)
     private val vaultIndex = combine(
         c.vault.contacts, hideVault,
-    ) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list, { it.name }, { it.numbers }, countryIso) }
+    ) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list.filterNot { it.archived }, { it.name }, { it.numbers }, countryIso) }
         .flowOn(Dispatchers.Default)
 
     /** Matches for [searchQuery]; null until the first search has run. */

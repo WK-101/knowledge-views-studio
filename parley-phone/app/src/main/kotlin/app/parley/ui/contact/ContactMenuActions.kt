@@ -30,6 +30,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.cases.CaseFiles
@@ -63,6 +65,9 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
         Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit))
     }
     IconButton({ ctx.show(ContactDialog.Menu) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
+    // A private contact archived inside the vault still has its page (from its calls); it isn't offered Archive again.
+    val privateList by ctx.vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val archived = ctx.isPrivate && privateList.firstOrNull { it.id == -contactId }?.archived == true
     val entries = ContactMenu.build(
         ContactMenu.Facts(
             isPrivate = ctx.isPrivate,
@@ -78,6 +83,7 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
             blocked = blocked,
             onlyEmergency = onlyEmergency,
             caseShown = ctx.case.shown,
+            archived = archived,
         ),
     )
     val run: (ContactMenu.Action) -> Unit = { a -> runContactMenu(ctx, a) }

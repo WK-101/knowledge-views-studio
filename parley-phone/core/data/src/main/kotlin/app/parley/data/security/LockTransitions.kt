@@ -1,5 +1,6 @@
 package app.parley.data.security
 
+import app.parley.common.catching
 import app.parley.common.security.DuressMachine
 import android.app.Notification
 import android.app.NotificationManager
@@ -25,6 +26,10 @@ object LockTransitions {
         if (next.session) c.settings.beginDuressSession() else c.settings.endDuressSession()
         c.people.privateNames.endSession()
         c.appPin.endSession()
+        if (next.hiding) {
+            // What a cold start would draw before the list loads keeps no private contact from now on.
+            withContext(Dispatchers.IO) { catching { c.people.listHead.dropPrivate() } }
+        }
         if (next.session) {
             c.appPin.beginSession()
             // L2: Parley's own notifications posted before (missed calls with private names, reminders, notes) go.
