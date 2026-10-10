@@ -22,6 +22,8 @@ import androidx.work.WorkerParameters
 import app.parley.R
 import app.parley.common.PolicyClock
 import app.parley.common.calls.DriveProfile
+import app.parley.common.calls.AssistedDial
+import app.parley.common.situations.DeviceTrigger
 import app.parley.common.situations.Situation
 import app.parley.common.situations.SituationKind
 import app.parley.common.situations.SituationSignals
@@ -39,7 +41,9 @@ import java.util.concurrent.TimeUnit
 /**
  * What switches Situations on and off by themselves, with no new permission: the connected audio outputs (a car's
  * hands-free and media links, Bluetooth headphones and speakers, by the product name Android gives without "Nearby
- * devices"), the drive profile's marked cars, car mode (Android Auto, a car dock) and the time. Parley looks again
+ * devices"), the drive profile's marked cars, car mode (Android Auto, a car dock), a SIM on another country's
+ * network (what Assisted dialling reads; a flight landing changes the time zone, which looks again) and the time, or
+ * the end chosen when one was switched on by hand. Parley looks again
  * when it starts, while it runs and an audio device comes or goes or car mode changes, before each incoming call is
  * screened (see [app.parley.data.CallScreener.beforeScreen]) and before an outgoing call picks its SIM, from the Quick
  * Settings tile, when the clock is set or the time zone changes ([SituationClockReceiver]: a flight lands, the job's
@@ -78,6 +82,7 @@ object SituationTriggers {
         val app = context.applicationContext
         c.situations.onChange = {
             refreshTile(app)
+            SituationNotice.update(app, c.situations)
             if (!workerRunning) schedule(app, c)
         }
         // While Parley runs: audio devices coming and going, and car mode.
@@ -105,6 +110,8 @@ object SituationTriggers {
         }
         c.scope.launch {
             suspendRunCatching { c.situations.reconcile() }
+            // After a reboot the notice is gone while the Situation is still on.
+            SituationNotice.update(app, c.situations)
             schedule(app, c)
         }
     }
@@ -132,8 +139,16 @@ object SituationTriggers {
             car = car,
             audioNames = connected.mapNotNull { it.name?.trim()?.takeIf(String::isNotEmpty) }.distinct(),
             bluetoothAudio = connected.isNotEmpty(),
+            roaming = c.situations.list.value.any { it.device == DeviceTrigger.ROAMING } && abroad(c),
         )
     }
+
+    /**
+     * A SIM is on another country's network (what Assisted dialling reads; national roaming isn't "abroad"). Read only
+     * when a Situation turns on abroad: binder calls only, no disk.
+     */
+    private fun abroad(c: DataContainer): Boolean =
+        runCatching { c.roaming.simStates(c.sims.accounts()).any(AssistedDial::abroad) }.getOrDefault(false)
 
     /** The one job for the next window edge; none when no Situation has a window. */
     fun schedule(context: Context, c: DataContainer, fromWorker: Boolean = false) {

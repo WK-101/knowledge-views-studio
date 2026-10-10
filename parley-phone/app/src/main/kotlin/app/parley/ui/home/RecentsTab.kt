@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.PersonSearch
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
@@ -86,11 +87,11 @@ import app.parley.ui.CallSequenceDots
 import app.parley.ui.CallTypeBadge
 import app.parley.ui.CallTypeColors
 import app.parley.ui.blocking.RecentBadge
-import app.parley.ui.blocking.RecentBlockingActions
+import app.parley.ui.blocking.recentScreeningLabel
+import app.parley.ui.blocking.runRecentScreening
 import app.parley.ui.blocking.rememberReputation
 import app.parley.common.ux.RecentMenu
 import app.parley.common.ux.MenuEntry
-import app.parley.common.ux.MenuGroup
 import app.parley.ui.common.MenuGroupSheet
 import app.parley.ui.common.MenuLabel
 import app.parley.ui.common.MenuRows
@@ -541,7 +542,8 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 
 /**
  * A call's actions, from the Recents selection bar's ⋮ (a long-press selects the call): Call, Message, Message or
- * call on… and Copy as one row of buttons, then at most six rows ([RecentMenu]), the screening ones under "Why it rang…".
+ * call on… and Copy as one row of buttons, then at most seven rows ([RecentMenu]): Remind me to call on its own, the
+ * screening ones under "Allow, report…" (Why did this ring? only when a call in the row came in).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -551,7 +553,6 @@ private fun RecentActionsSheet(
 ) {
     val context = LocalContext.current
     val res = LocalResources.current
-    var why by remember { mutableStateOf(false) }
     var more by remember { mutableStateOf<MenuEntry.Group<RecentMenu.Action>?>(null) }
     // "Remind me to call" takes this sheet's place with the fixed times.
     var remind by remember { mutableStateOf(false) }
@@ -565,7 +566,10 @@ private fun RecentActionsSheet(
         blocked = hasNumber && rememberBlocked(vm, listOf(g.number)),
         // A call with 112 or a local emergency service: never blocked.
         emergency = hasNumber && rememberEmergency(vm, listOf(g.number)),
+        // An outgoing call never rang, so there is nothing to ask "why" about.
+        rang = g.calls.any { it.type != CallType.OUTGOING },
     )
+    val blockedCall = g.latest.type == CallType.BLOCKED
     fun runAction(a: RecentMenu.Action) {
         if (a == RecentMenu.Action.REMIND_TO_CALL) {
             remind = true
@@ -584,8 +588,8 @@ private fun RecentActionsSheet(
                 RecentMenu.Action.UNBLOCK -> unblockWithUndo(vm, listOf(g.number), g.contact?.displayName)
                 RecentMenu.Action.DELETE_FROM_HISTORY ->
                     recents.delete(g) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) }
-                // The screening rows are drawn by RecentBlockingActions in the "Why it rang…" sheet.
-                else -> Unit
+                // Allow, report… and Search the web: their dialogs, or allowed with Undo.
+                else -> runRecentScreening(vm, g.number, g.contact?.displayName, a, res)
             }
         }
     }
@@ -595,14 +599,7 @@ private fun RecentActionsSheet(
     }
     // Dismissing More… goes back to this sheet; its actions close everything themselves (or open Remind me to call).
     more?.let { m ->
-        MenuGroupSheet(m, { recentMenuLabel(it) }, onDismiss = { more = null }, onAction = ::runAction)
-        return
-    }
-    if (why) {
-        ParleySheet(onDismissRequest = { why = false; onDismiss() }, title = stringResource(R.string.menu_group_why).removeSuffix("…")) {
-            RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED) { why = false; onDismiss() }
-            Spacer(Modifier.padding(bottom = 24.dp))
-        }
+        MenuGroupSheet(m, { recentMenuLabel(it, blockedCall) }, onDismiss = { more = null }, onAction = ::runAction)
         return
     }
     ParleySheet(onDismissRequest = onDismiss) {
@@ -620,7 +617,7 @@ private fun RecentActionsSheet(
         if (quick.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s), horizontalArrangement = Arrangement.SpaceEvenly) {
                 quick.forEach { a ->
-                    val l = recentMenuLabel(a)
+                    val l = recentMenuLabel(a, blockedCall)
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
                         FilledTonalIconButton({ runAction(a) }, Modifier.size(48.dp)) { Icon(l.icon, l.text) }
                         Text(l.text, style = MaterialTheme.typography.labelMedium, maxLines = 2, textAlign = TextAlign.Center)
@@ -628,30 +625,28 @@ private fun RecentActionsSheet(
                 }
             }
         }
-        MenuRows(
-            RecentMenu.build(facts), { recentMenuLabel(it) },
-            onGroup = { if (it.group == MenuGroup.WHY_IT_RANG) why = true else more = it }, onAction = ::runAction,
-        )
+        MenuRows(RecentMenu.build(facts), { recentMenuLabel(it, blockedCall) }, onGroup = { more = it }, onAction = ::runAction)
         Spacer(Modifier.padding(bottom = 24.dp))
     }
 }
 
-/** The words and icon of a Recents call action. */
+/** The words and icon of a Recents call action; [blockedCall]: the row's call was blocked ("Why was this blocked?"). */
 @Composable
-private fun recentMenuLabel(a: RecentMenu.Action): MenuLabel = when (a) {
+private fun recentMenuLabel(a: RecentMenu.Action, blockedCall: Boolean): MenuLabel = when (a) {
     RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.main_call), Icons.Rounded.Call)
     RecentMenu.Action.MESSAGE -> MenuLabel(stringResource(R.string.recents_send_message), Icons.AutoMirrored.Rounded.Message)
     RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat)
     RecentMenu.Action.COPY_NUMBER -> MenuLabel(stringResource(R.string.recents_copy_number), Icons.Rounded.ContentCopy)
     RecentMenu.Action.CREATE_CONTACT -> MenuLabel(stringResource(R.string.home_create_contact), Icons.Rounded.PersonAdd)
-    RecentMenu.Action.ADD_TO_CONTACT -> MenuLabel(stringResource(R.string.recents_add_to_contact), Icons.Rounded.PersonAdd)
+    // Searching your contacts for the one to add to, as on the post-call card.
+    RecentMenu.Action.ADD_TO_CONTACT -> MenuLabel(stringResource(R.string.recents_add_to_contact), Icons.Rounded.PersonSearch)
     RecentMenu.Action.EDIT_BEFORE_CALL -> MenuLabel(stringResource(R.string.recents_edit_before_call), Icons.Rounded.Dialpad)
     RecentMenu.Action.REMIND_TO_CALL -> MenuLabel(stringResource(R.string.to_call_remind_me_to_call), Icons.Rounded.AlarmAdd)
     RecentMenu.Action.BLOCK -> MenuLabel(stringResource(R.string.recents_block_number), Icons.Rounded.Block)
     RecentMenu.Action.UNBLOCK -> MenuLabel(stringResource(R.string.recents_unblock_number), Icons.Rounded.RemoveModerator)
     RecentMenu.Action.DELETE_FROM_HISTORY -> MenuLabel(stringResource(R.string.recents_delete_from_history), Icons.Rounded.Delete)
-    // Shown by RecentBlockingActions with its own words; the group's entry reads "Why it rang…".
-    else -> MenuLabel(stringResource(R.string.menu_group_why), Icons.Rounded.Info)
+    // The screening actions, with the words they have everywhere.
+    else -> recentScreeningLabel(a, blockedCall) ?: MenuLabel(stringResource(R.string.menu_group_why), Icons.Rounded.Info)
 }
 
 /** What a tap on [g] opens when it doesn't call: a private or saved contact's page, else the number's history. */

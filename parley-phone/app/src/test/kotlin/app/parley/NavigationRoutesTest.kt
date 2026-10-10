@@ -324,6 +324,11 @@ class NavigationRoutesTest {
         assertEquals(app.parley.jobs.UserJobs.Opener("calls.csv", "text/csv"), IntentRoutes.resolve(export, fromParley = true) { null }?.openExport)
         // In particular, no other app can mark every missed call as seen.
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.ACTION_SHOW_MISSED), fromParley = false) { null })
+        // The Situation notice opens Calls › Situations, from Parley only.
+        assertEquals(
+            NavEvent.Route(app.parley.ui.settings.CallsRoutes.Page(app.parley.ui.settings.CallsSubPage.SITUATIONS.name)),
+            IntentRoutes.resolve(Intent(IntentRoutes.ACTION_OPEN_SITUATIONS), fromParley = true) { null }?.event,
+        )
         // Public actions still work from anywhere.
         assertEquals(NavEvent.Tab(StartTab.RECENTS), IntentRoutes.resolve(Intent(Intent.ACTION_CALL_BUTTON), fromParley = false) { null }?.event)
     }

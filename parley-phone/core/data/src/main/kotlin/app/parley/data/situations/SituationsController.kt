@@ -90,13 +90,17 @@ class SituationsController(
     /** Whether the triggers could change anything: one is on, or one can switch itself on. Memory only. */
     fun watching(): Boolean = _state.value.activeId != null || _list.value.any { it.automatic }
 
-    /** The next time a window starts or ends, or null. */
-    fun nextChange(now: Long = System.currentTimeMillis()): Long? = Situations.nextChange(_list.value, now, java.time.ZoneId.systemDefault())
+    /** The next time a window starts or ends, or the Situation on now reaches its chosen end; null when neither. */
+    fun nextChange(now: Long = System.currentTimeMillis()): Long? =
+        Situations.nextChange(_list.value, now, java.time.ZoneId.systemDefault(), _state.value.until)
 
-    /** Switches [id] on by hand (it stays on until switched off by hand); the one on before goes off first. */
-    suspend fun turnOn(id: String): Boolean = changed {
+    /**
+     * Switches [id] on by hand; the one on before goes off first. It goes off by itself at [until] ("For 1 hour",
+     * "Until 18:00", chosen each time), or stays on until switched off by hand when null.
+     */
+    suspend fun turnOn(id: String, until: Long? = null): Boolean = changed {
         val s = _list.value.firstOrNull { it.id == id } ?: return@changed false
-        switch(Situations.turnOn(_state.value, read(), withLabel(s), SituationCause.MANUAL, System.currentTimeMillis()))
+        switch(Situations.turnOn(_state.value, read(), withLabel(s), SituationCause.MANUAL, System.currentTimeMillis(), until))
         true
     }
 
@@ -181,7 +185,7 @@ class SituationsController(
         saveList(next)
         val st = _state.value
         if (st.activeId == s.id) {
-            switch(Situations.turnOn(st, read(), withLabel(s), st.cause, st.since))
+            switch(Situations.turnOn(st, read(), withLabel(s), st.cause, st.since, st.until))
             // On by itself: its window or device may no longer hold now that it changed.
             if (st.cause != SituationCause.MANUAL) reconcileLocked()
         }
@@ -278,7 +282,7 @@ class SituationsController(
             if (next != st) saveState(next)
             val on = next.activeId?.let { id -> list.firstOrNull { it.id == id } }
             if (on != null && on.ring == SituationRing.LABEL) {
-                switch(Situations.turnOn(next, read(), on, next.cause, next.since))
+                switch(Situations.turnOn(next, read(), on, next.cause, next.since, next.until))
             }
             listChanged || next != st
         }

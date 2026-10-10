@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Science
@@ -43,7 +44,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -66,41 +66,45 @@ import androidx.compose.material.icons.rounded.Storefront
 import app.parley.data.PhoneEnv
 import app.parley.data.VerdictSummary
 import app.parley.telecom.R as TR
+import android.content.res.Resources
+import app.parley.common.ux.RecentMenu
+import app.parley.ui.common.MenuLabel
 
 /*
  * Small entry points other screens drop in with one line. Each opens a dialog through [BlockingDialogs], so
  * the calling screen needs no state of its own.
  */
 
-/** Long-press rows for a Recents entry ("Why did this ring?"). Renders nothing for hidden callers. */
-@Composable
-fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?, blocked: Boolean, dismiss: () -> Unit) {
+/**
+ * A Recents call's screening actions ("Allow, report…", and Search the web under More…): each opens its dialog, or
+ * allows the number with Undo. Other actions are not screening ones and do nothing here.
+ */
+fun runRecentScreening(vm: AppViewModel, number: String, contactName: String?, a: RecentMenu.Action, res: Resources) {
     if (number.isBlank()) return
-    val context = LocalContext.current
-    val res = LocalResources.current
+    when (a) {
+        RecentMenu.Action.WHY_IT_RANG -> BlockingDialogs.show(BlockingDialog.Why(number))
+        RecentMenu.Action.TEST_A_CALL -> BlockingDialogs.show(BlockingDialog.Test(number))
+        RecentMenu.Action.SALES_LINE -> BlockingDialogs.show(BlockingDialog.Reputation(number))
+        RecentMenu.Action.ALWAYS_ALLOW -> allowWithUndo(vm, number, hours = null, res.getString(R.string.blk_always_allow_toast))
+        RecentMenu.Action.ALLOW_24H -> allowWithUndo(vm, number, hours = 24, res.getString(R.string.blk_allow_24h_toast))
+        RecentMenu.Action.REPORT -> BlockingDialogs.show(BlockingDialog.Report(number))
+        RecentMenu.Action.SEARCH_WEB -> BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName))
+        else -> Unit
+    }
+}
 
-    @Composable
-    fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
-        ParleyListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
-    row(
-        stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline,
-    ) { BlockingDialogs.show(BlockingDialog.Why(number)) }
-    row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
-    // Only when your calls say it looks like a sales line.
-    val salesLine = rememberReputation(vm, number, isContact = contactName != null) != null
-    if (salesLine) {
-        row(stringResource(R.string.blk_rep_menu), Icons.Rounded.Storefront) { BlockingDialogs.show(BlockingDialog.Reputation(number)) }
-    }
-    if (contactName == null) {
-        row(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser) {
-            allowWithUndo(vm, number, hours = null, res.getString(R.string.blk_always_allow_toast))
-        }
-        row(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop) {
-            allowWithUndo(vm, number, hours = 24, res.getString(R.string.blk_allow_24h_toast))
-        }
-        row(stringResource(R.string.blk_report), Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
-    }
-    row(stringResource(R.string.blk_search_web_long), Icons.Rounded.Search) { BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }
+/** The words and icon of a Recents call's screening action; [blocked]: the call was blocked ("Why was this blocked?"). */
+@Composable
+fun recentScreeningLabel(a: RecentMenu.Action, blocked: Boolean): MenuLabel? = when (a) {
+    RecentMenu.Action.WHY_IT_RANG ->
+        MenuLabel(stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline)
+    RecentMenu.Action.TEST_A_CALL -> MenuLabel(stringResource(R.string.blk_why_test), Icons.Rounded.Science)
+    RecentMenu.Action.SALES_LINE -> MenuLabel(stringResource(R.string.blk_rep_menu), Icons.Rounded.Storefront)
+    RecentMenu.Action.ALWAYS_ALLOW -> MenuLabel(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser)
+    RecentMenu.Action.ALLOW_24H -> MenuLabel(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop)
+    RecentMenu.Action.REPORT -> MenuLabel(stringResource(R.string.blk_report), Icons.Rounded.Flag)
+    RecentMenu.Action.SEARCH_WEB -> MenuLabel(stringResource(R.string.blk_search_web_long), Icons.Rounded.Search)
+    else -> null
 }
 
 /** Second-line badge for a Recents row (B2 verdict, B10 "Don't call back"). Null when there's nothing to say. */
@@ -156,8 +160,9 @@ private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.re
 /**
  * Bar shown while Recents rows are selected: block the unknown numbers in one go, after a confirmation that
  * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
- * be blocked from their own page if that's really meant. With one call selected, ⋮ opens its actions ([onActions]):
- * a long-press selects, as in every list.
+ * be blocked from their own page if that's really meant. Delete takes the chosen rows' calls out of the history at
+ * once, with Undo on the snackbar (as a single row's Delete does). With one call selected, ⋮ opens its actions
+ * ([onActions]): a long-press selects, as in every list.
  */
 @Composable
 @Suppress("CyclomaticComplexMethod") // The bar, its confirmation and the one-call ⋮ read best together.
@@ -166,6 +171,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
     val selected by recents.selection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
     var confirming by remember { mutableStateOf(false) }
+    val res = LocalResources.current
     val chosen = groups.filter { it.key in selected }
     val people = chosen.filter { it.contact != null || it.vaultId != null }
     val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy {
@@ -184,6 +190,14 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
                 Icon(Icons.Rounded.Block, null)
                 Text(" " + stringResource(R.string.blk_block_n, numbers.size))
             }
+            val deleteCd = stringResource(R.string.recents_delete_selected_cd)
+            IconButton(
+                {
+                    recents.deleteMany(chosen) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) }
+                    recents.clearSelection()
+                },
+                enabled = chosen.isNotEmpty(),
+            ) { Icon(Icons.Rounded.Delete, deleteCd) }
             chosen.singleOrNull()?.let { g ->
                 IconButton({ onActions(g) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
             }

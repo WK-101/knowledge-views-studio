@@ -312,6 +312,24 @@ class RecentsViewModelTest {
         t.until("the calls to come back") { t.callLog.rows().size == 3 }
     }
 
+    @Test fun delete_on_the_selection_bar_removes_every_chosen_row_with_one_undo() {
+        t.call("+44 20 7946 0001", today, Calls.MISSED_TYPE)
+        t.call("+44 20 7946 0001", today - MINUTE, Calls.MISSED_TYPE)
+        t.call("+44 20 7946 0002", today - 2 * MINUTE, Calls.OUTGOING_TYPE, 5)
+        t.call("+44 20 7946 0003", today - 3 * MINUTE, Calls.INCOMING_TYPE, 5)
+        val vm = recents()
+        val (a, b, _) = vm.groupsWhen { it.size == 3 }
+        var count = 0
+        var undo: (suspend () -> Unit)? = null
+        vm.deleteMany(listOf(a, b)) { n, back -> count = n; undo = back }
+        t.until("the chosen calls to go") { t.callLog.rows().size == 1 && undo != null }
+        assertEquals("+44 20 7946 0003", t.callLog.rows().single()["number"])
+        assertEquals(3, count)
+        // One Undo brings all three back.
+        runBlocking { undo?.invoke() }
+        t.until("the calls to come back") { t.callLog.rows().size == 4 }
+    }
+
     // ---------------------------------------------------------------- private contacts
 
     @Test fun a_private_contacts_calls_open_the_private_contact() {

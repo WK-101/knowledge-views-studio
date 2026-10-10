@@ -117,15 +117,23 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
      * "Delete from call history" on a row: its calls in the log (and archive) and its private calls. [done] gets the
      * number of calls and the way back, for the snackbar's Undo.
      */
-    fun delete(g: RecentGroup, done: (count: Int, undo: suspend () -> Unit) -> Unit) {
+    fun delete(g: RecentGroup, done: (count: Int, undo: suspend () -> Unit) -> Unit) = deleteCalls(g.calls, done)
+
+    private fun deleteCalls(calls: List<CallEntry>, done: (count: Int, undo: suspend () -> Unit) -> Unit) {
         viewModelScope.launch {
-            val batch = c.history.delete(g.calls.filter { it.id > 0 })
-            val privateRows = c.vault.deletePrivateCallsForUndo(g.calls.filter { it.id < 0 }.map { -it.id })
-            done(g.calls.size) {
+            val batch = c.history.delete(calls.filter { it.id > 0 })
+            val privateRows = c.vault.deletePrivateCallsForUndo(calls.filter { it.id < 0 }.map { -it.id })
+            done(calls.size) {
                 batch?.let { c.history.undoDelete(it) }
                 c.vault.restorePrivateCalls(privateRows)
             }
         }
+    }
+
+    /** Delete on the selection bar: every call of the chosen rows, as [delete] does for one, with one way back. */
+    fun deleteMany(groups: List<RecentGroup>, done: (count: Int, undo: suspend () -> Unit) -> Unit) {
+        if (groups.isEmpty()) return
+        deleteCalls(groups.flatMap { it.calls }.distinctBy { it.id }, done)
     }
 
     /** "Show all calls": clears the chips and the call-history filter. */

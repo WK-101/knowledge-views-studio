@@ -3,7 +3,7 @@
     <!-- Situations: one tap sets a moment (Settings › Calls › Situations, the Quick Settings tile, the home screen). -->
     <string name="set_situations_title">Situations</string>
     <string name="set_situations_summary">One tap for driving, a meeting, the night or travelling</string>
-    <string name="set_situations_kw">situation, moment, mode, profile, routine, driving, meeting, night, sleep, travelling, traveling, travel, abroad, quiet, focus, do not disturb, schedule, automatic, drive profile, car, bluetooth, android auto, announce, say caller name, hands-free, silence unknown, driving reply, who can ring, sim for calls</string>
+    <string name="set_situations_kw">situation, moment, mode, profile, routine, driving, meeting, night, sleep, travelling, traveling, travel, abroad, roaming, for 1 hour, quiet, focus, do not disturb, schedule, automatic, drive profile, car, bluetooth, android auto, announce, say caller name, hands-free, silence unknown, driving reply, who can ring, sim for calls</string>
 
     <string name="sit_name_driving">Driving</string>
     <string name="sit_name_meeting">Meeting</string>
@@ -17,6 +17,7 @@
     <!-- %1$s a time ("07:00"). -->
     <string name="sit_on_until">On until %1$s</string>
     <string name="sit_on_device">On while it\'s connected</string>
+    <string name="sit_on_abroad">On while you\'re abroad</string>
     <string name="sit_off_manual">Off · tap the switch to turn on</string>
     <string name="sit_off_held">Off until next time</string>
     <!-- %1$s when ("Mon–Fri 09:00–17:00"). -->
@@ -25,6 +26,7 @@
     <!-- %1$s a Bluetooth device's name. -->
     <string name="sit_auto_named">Turns on when %1$s connects</string>
     <string name="sit_auto_any">Turns on with any car or Bluetooth audio</string>
+    <string name="sit_auto_roaming">Turns on abroad</string>
     <string name="sit_nothing_yet">Changes nothing yet · tap to choose</string>
     <!-- A Situation's "who may ring" label was deleted. %1$s the label's name. -->
     <string name="sit_label_gone">“%1$s” is gone, so Favourites ring instead</string>
@@ -40,6 +42,8 @@
 
     <!-- The home screen's line while one is on. %1$s its name. -->
     <string name="sit_chip_on">%1$s is on</string>
+    <!-- %1$s its name, %2$s a time ("11:00"). -->
+    <string name="sit_chip_on_until">%1$s is on until %2$s</string>
     <string name="sit_chip_off">Turn off</string>
     <string name="sit_chip_off_cd">Turn off %1$s and put your settings back</string>
     <string name="sit_chip_open">Open Situations</string>
@@ -87,6 +91,7 @@
     <string name="sit_device_none">Not by a connection</string>
     <string name="sit_device_car">Your car (drive profile or car mode)</string>
     <string name="sit_device_any">Any car or Bluetooth audio</string>
+    <string name="sit_device_roaming">Abroad, on another country\'s network</string>
     <string name="sit_device_sub">Parley notices it while it\'s running, and checks again before every call. A device is matched by the name it gives; choose one while it\'s connected.</string>
     <string name="sit_delete">Delete this situation</string>
     <string name="sit_reset">Back to how it came</string>
@@ -103,4 +108,19 @@
     <string name="sit_tile_off_cd">Situation off. Tap to go through your situations.</string>
     <!-- %1$s its name. -->
     <string name="sit_tile_on_cd">%1$s is on. Tap for the next situation.</string>
+
+    <!-- Switching one on by hand asks how long, each time. %1$s its name. -->
+    <string name="sit_end_title">How long should %1$s stay on?</string>
+    <string name="sit_end_hour">For 1 hour</string>
+    <!-- %1$s a time ("18:00"). -->
+    <string name="sit_end_until">Until %1$s</string>
+    <string name="sit_end_off">Until I turn it off</string>
+
+    <!-- The silent ongoing notice while a Situation lets only some people ring. -->
+    <string name="sit_notice_channel">Situation on</string>
+    <string name="sit_notice_channel_desc">A silent reminder while a situation lets only some people ring</string>
+    <string name="sit_notice_public">Situation on</string>
+    <string name="sit_notice_text">Others ring silently and show as missed calls, until you turn it off</string>
+    <!-- %1$s a time ("11:00"). -->
+    <string name="sit_notice_text_until">Others ring silently and show as missed calls, until %1$s</string>
 </resources>
