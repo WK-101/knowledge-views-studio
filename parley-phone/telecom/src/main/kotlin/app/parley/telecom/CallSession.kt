@@ -28,7 +28,7 @@ internal class CallSession(val id: String) {
     /** A private contact the lookup didn't show (discreet mode): still a saved caller, never "unknown" to the speaker. */
     var savedPrivately = false
 
-    /** I1: what Parley remembers about a number that isn't a contact, once looked up. */
+    /** What Parley remembers about a number that isn't a contact, once looked up. */
     var numberMemory: NumberMemoryLine? = null
 
     /** A saved organisation whose number you have only ever called ([CallerInfoSource.neverCallsYou]). */
@@ -101,10 +101,10 @@ internal class CallSession(val id: String) {
     /** The token of the DTMF tone playing now (a stop for another key's tone never touches it). */
     var dtmfToken: Long? = null
 
-    /** I6: the digits sent in this call (outgoing, once connected), for menu memory when it ends. */
+    /** The digits sent in this call (outgoing, once connected), for menu memory when it ends. */
     val menuPresses = ArrayList<MenuPress>()
 
-    // ---- Call facts (L2, L10) ----
+    // ---- Call facts ----
 
     /** Wall-clock time the call was first seen (rang or was placed), for its quality facts. */
     var startedAt: Long = 0
@@ -131,7 +131,7 @@ internal class CallSession(val id: String) {
     /** The SIM's name, remembered while connected. */
     var simLabel: String? = null
 
-    // ---- Hold mode (I10) ----
+    // ---- Hold mode ----
 
     /** `elapsedRealtime` when "I'm on hold" started, or 0. */
     var holdModeSince = 0L

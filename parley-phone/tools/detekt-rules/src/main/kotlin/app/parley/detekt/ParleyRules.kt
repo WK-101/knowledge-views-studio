@@ -28,7 +28,12 @@ class ParleyRuleSetProvider : RuleSetProvider {
     override fun instance(config: Config): RuleSet = RuleSet(
         ruleSetId,
         listOf(
-            DesignSystemComponent(config), SystemToast(config), PhoneNumbersOutsideIdentity(config), RunCatchingInSuspend(config),
+            DesignSystemComponent(config),
+            SystemToast(config),
+            PhoneNumbersOutsideIdentity(config),
+            RunCatchingInSuspend(config),
+            PrivateMark(config),
+            SuppressWithoutReason(config),
             RawRename(config),
         ),
     )

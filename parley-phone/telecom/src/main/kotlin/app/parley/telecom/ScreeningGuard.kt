@@ -39,7 +39,7 @@ object ScreeningGuard {
 
     fun inEmergencyWindow(context: Context): Boolean = windowLeftMs(context) != null
 
-    /** When the current emergency window ends (for the visible countdown, B23), or null when none is running. */
+    /** When the current emergency window ends (for the visible countdown), or null when none is running. */
     fun emergencyWindowEndsAt(context: Context): Long? = windowLeftMs(context)?.let { System.currentTimeMillis() + it }
 
     /** Ends the emergency window early ("Reset"). */

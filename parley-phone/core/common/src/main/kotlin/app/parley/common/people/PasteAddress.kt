@@ -69,7 +69,7 @@ internal object PasteAddress {
      * Gathers the address lines: a weak line or a country next to an address line joins it, so does a place name
      * between two of its lines (or after its street), and each run of adjacent address lines becomes one address.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One rule per way addresses run across pieces.
     fun group(pieces: List<Piece>): List<Piece> {
         val p = pieces.toMutableList()
         fun addr(i: Int) = p.getOrNull(i)?.takeIf { it.role == Role.ADDRESS }
@@ -120,7 +120,7 @@ internal object PasteAddress {
     private val STATE_AT_END = Regex("""(?:^|\s)([A-Z]{2,3})$""")
 
     /** Splits address lines (line number, text) into its parts. */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One rule per address part.
     fun structure(lines: List<Pair<Int, String>>): Address {
         // Each comma part on its own, remembering its line, so street lines keep their line breaks.
         val parts = lines.flatMap { (line, text) -> text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map { line to it } }.toMutableList()

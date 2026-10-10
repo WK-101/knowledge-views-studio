@@ -221,11 +221,6 @@ object CallRoutes {
         val row = rows.firstOrNull { it.kind == kind && (it.appKey == app.packageName || it.app == app.entry) }
         return if (row != null) CallRoute.Row(row) else CallRoute.ViaChat(app)
     }
-
-    /** Whether [app] can make video calls at all (for the via-chat hint). All four chat apps do. */
-    fun hasVideo(app: MessengerApp): Boolean = when (app.messenger) {
-        Messenger.WHATSAPP, Messenger.SIGNAL, Messenger.TELEGRAM, Messenger.VIBER -> true
-    }
 }
 
 /**

@@ -57,7 +57,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         prefs.update { it.copy(labelRingtones = LabelRefs.renameRingtones(it.labelRingtones, renames)) }
         // The label's SIM, rhythm and Do Not Disturb choice follow it.
         c.extras.labelsRenamed(renames)
-        // A label's safe word (I4) follows it too.
+        // A label's safe word follows it too.
         c.familySafety.labelsRenamed(renames)
     }
 

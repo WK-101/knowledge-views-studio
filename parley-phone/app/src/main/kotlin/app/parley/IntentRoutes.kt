@@ -188,7 +188,7 @@ object IntentRoutes {
 
     /** The tile a long press came from, from the extra Android adds. */
     private fun tileComponent(intent: Intent): ComponentName? = runCatching {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The typed getter needs Android 13; this runs on older phones too.
         intent.getParcelableExtra<ComponentName>(Intent.EXTRA_COMPONENT_NAME)
     }.getOrNull()
 
@@ -250,7 +250,7 @@ object IntentRoutes {
      * may read a URI another app handed over (see [app.parley.security.SharedUris]): other apps' `content:` URIs only.
      * [fromParley]: the intent came through Parley's own entry ([OWN_ENTRY]); otherwise [INTERNAL_ACTIONS] open nothing.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One branch per intent action Parley answers.
     fun resolve(
         intent: Intent,
         fromParley: Boolean,
@@ -261,7 +261,7 @@ object IntentRoutes {
         if (!fromParley && intent.action in INTERNAL_ACTIONS) return null
         return when (intent.action) {
             Intent.ACTION_SEND -> {
-                @Suppress("DEPRECATION")
+                @Suppress("DEPRECATION") // The typed getter needs Android 13; this runs on older phones too.
                 val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.takeIf(readable) ?: return null
                 when {
                     isVcard(intent.type) || isSealedVcard(stream) -> go(NavEvent.ImportVcf(stream))
@@ -314,7 +314,7 @@ object IntentRoutes {
                     "SAVE" -> go(NavEvent.Route(Routes.edit(name = intent.getStringExtra(EXTRA_NAME)?.takeIf { it.isNotBlank() }, phone = number)))
                     "ADD_TO_CONTACT" -> go(NavEvent.Route(Routes.pick(number)))
                     "REPORT" -> IntentTarget(report = number)
-                    // I1: the number's history, where what Parley remembers about it offers its action.
+                    // The number's history, where what Parley remembers about it offers its action.
                     "NUMBER_MEMORY" -> go(NavEvent.History(number))
                     else -> null
                 }

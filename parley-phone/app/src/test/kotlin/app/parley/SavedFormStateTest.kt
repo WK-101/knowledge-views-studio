@@ -34,7 +34,7 @@ class SavedFormStateTest {
         val scope = SaverScope { bundleable(it) }
         val saved = with(saver) { scope.save(value) }
         assertTrue("$saved fits in a bundle", bundleable(saved))
-        @Suppress("UNCHECKED_CAST")
+        @Suppress("UNCHECKED_CAST") // The saver restores the type it saved.
         // Nothing saved means the state starts from its initial value again (null here).
         return (if (saved == null) null else saver.restore(saved)) as T
     }

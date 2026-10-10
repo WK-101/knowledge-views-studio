@@ -96,8 +96,6 @@ object ChatThenDecide {
  * contacts before opening such a chat. That's WhatsApp's question, and declining is fine.
  */
 object WhatsAppNotice {
-    /** For "Who can see your contacts" (English; [REVOKE_TEXT_RES] is the translated text). */
-    const val REVOKE_TEXT = "You can revoke WhatsApp's Contacts permission and still start chats from Parley. Some WhatsApp versions may still refuse; Parley can't detect that."
     val REVOKE_TEXT_RES = R.string.msg_whatsapp_revoke
 
     /** The notice text, [R.string.msg_whatsapp_sync]. */

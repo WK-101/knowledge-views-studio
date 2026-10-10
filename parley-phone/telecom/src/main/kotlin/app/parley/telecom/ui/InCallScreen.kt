@@ -142,7 +142,7 @@ private class InCallSheets {
     /** "Check it's really them" for this call (live, or just ended from the post-call card). */
     var verifyFor by mutableStateOf<CallUi?>(null)
 
-    /** Family safety: the safe-word card and "Add my helper" (WP-8). */
+    /** Family safety: the safe-word card and "Add my helper". */
     val family = FamilyCallState()
 
     /** "Send to another number" for this ringing call. */
@@ -151,7 +151,7 @@ private class InCallSheets {
     /** "Is this a scam?" for this call (live, or just ended from the post-call card). */
     var scamFor by mutableStateOf<CallUi?>(null)
 
-    /** L3: the RTT conversation sheet for this call, and the calls whose sheet already opened by itself once. */
+    /** The RTT conversation sheet for this call, and the calls whose sheet already opened by itself once. */
     var rttFor by mutableStateOf<String?>(null)
     val rttOpened = mutableSetOf<String>()
 }
@@ -265,7 +265,7 @@ fun InCallScreen(
 }
 
 /** Whether the caller is laid out as a poster (see [CallBackdrop.posterLayout]). */
-@Suppress("LongParameterList")
+@Suppress("LongParameterList") // One argument per thing on screen that rules the poster out.
 private fun posterLayout(
     call: CallUi?,
     background: CallScreenBackground,
@@ -407,12 +407,12 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     AgendaUnderCaller(s)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
-    // I11: "Drive profile on" while the marked car is connected.
+    // "Drive profile on" while the marked car is connected.
     DriveStatusLine(primary, keypadOpen = s.keypadOpen)
-    // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
+    // The helper being brought in, and "Claims to be family? Ask: …".
     if (primary != null && primary.showsCallCards) {
         FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
-        // L3: an RTT request to answer, or the way back into the RTT conversation.
+        // An RTT request to answer, or the way back into the RTT conversation.
         RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
     }
     Spacer(Modifier.height(Spacing.l))
@@ -503,10 +503,10 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
     ) { open ->
         when {
             open -> DtmfKeypad(call, scroll = scrollKeypad)
-            // I10: "I'm on hold" shows the waiting time and the way out instead of the grid.
+            // "I'm on hold" shows the waiting time and the way out instead of the grid.
             call.holdModeSince > 0 -> HoldModePanel(call, onKeypad = { a.onKeypad(true) })
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Simple mode: "Add my helper" as one big button (I5).
+                // Simple mode: "Add my helper" as one big button.
                 if (s.incoming.simple && !call.simulated) SimpleHelper(call, s, sheets)
                 AudioRoutesTip(call, s.audio)
                 ControlGrid(
@@ -515,7 +515,7 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
                     audio = s.audio,
                     onKeypad = { a.onKeypad(true) },
                     onAudio = { if (s.audio.hasExternal) sheets.route = true else CallManager.toggleSpeaker() },
-                    // P6: press and hold opens the list of outputs straight away, headset or not.
+                    // Press and hold opens the list of outputs straight away, headset or not.
                     onAudioList = {
                         markTipSeen(Tips.CALL_AUDIO_ROUTES)
                         sheets.route = true
@@ -551,7 +551,7 @@ private fun markTipSeen(id: String) {
     runCatching { TelecomGraph.dependencies.markTipSeen(id) }
 }
 
-/** P6's tip, once: press and hold Speaker for the list of outputs (only while connected, with somewhere to choose). */
+/** The speaker tip, once: press and hold Speaker for the list of outputs (only while connected, with somewhere to choose). */
 @Composable
 private fun AudioRoutesTip(call: CallUi, audio: AudioUi) {
     if (call.state != CallState.ACTIVE || audio.routes.size < 2 || Tips.CALL_AUDIO_ROUTES in tipsDismissedHere) return
@@ -773,7 +773,7 @@ private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
     val res = LocalResources.current
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
-        // I6: "Last time: 2 › 1 › 4" with Replay, for a number Parley remembers menu digits for.
+        // "Last time: 2 › 1 › 4" with Replay, for a number Parley remembers menu digits for.
         MenuMemoryRow(call)
         Text(
             Bidi.ltr(typed), style = ParleyType.typedDigits, maxLines = 1,
@@ -885,7 +885,7 @@ private fun AgendaDialog(s: ScreenState, sheets: InCallSheets) {
     if (call != null) AgendaAddDialog(call) { sheets.agendaFor = null } else LaunchedEffect(id) { sheets.agendaFor = null }
 }
 
-/** L3: the RTT conversation; it stays open (and can still be saved) when the call ends under it. */
+/** The RTT conversation; it stays open (and can still be saved) when the call ends under it. */
 @Composable
 private fun RttDialog(s: ScreenState, sheets: InCallSheets) {
     val id = sheets.rttFor ?: return
@@ -997,28 +997,28 @@ private fun ScamCheckDialog(
     }
 }
 
-/** L3: More › "Switch to RTT" where the call's SIM supports it, or "RTT conversation" once it's on. */
+/** More › "Switch to RTT" where the call's SIM supports it, or "RTT conversation" once it's on. */
 private fun rttAction(call: CallUi, rtt: RttUi, sheets: InCallSheets): (() -> Unit)? = when {
     rtt.active -> ({ sheets.rttFor = call.id })
     rtt.supported && !rtt.requesting && call.state == CallState.ACTIVE -> ({ CallRtt.request(call.id) })
     else -> null
 }
 
-/** I4: More › "Says they're family", while the safe-word card isn't up yet for this call. */
+/** More › "Says they're family", while the safe-word card isn't up yet for this call. */
 private fun claimsFamily(call: CallUi, family: FamilyCallState): (() -> Unit)? {
     val seconds = if (call.connectTimeMillis > 0) (System.currentTimeMillis() - call.connectTimeMillis) / 1000 else 0
     if (!SafeWords.claimOffered(family.facts(call, seconds))) return null
     return { family.claimed[call.id] = true }
 }
 
-/** I5: More › "Add my helper": calls the one helper at once, or lists them. */
+/** More › "Add my helper": calls the one helper at once, or lists them. */
 private fun addHelper(context: Context, call: CallUi, s: ScreenState, family: FamilyCallState): (() -> Unit)? {
     val helpers = family.helpersFor(call, s.others, joining = HelperCalls.join.value != null)
     if (helpers.isEmpty()) return null
     return { if (helpers.size == 1) startHelper(context, call, helpers.first()) else family.pickHelper = true }
 }
 
-/** "Add my helper" with several helpers: the list to choose from (I5), while asked for. */
+/** "Add my helper" with several helpers: the list to choose from, while asked for. */
 @Composable
 private fun HelperPick(primary: CallUi?, s: ScreenState, sheets: InCallSheets) {
     if (!sheets.family.pickHelper || primary == null) return
@@ -1027,7 +1027,7 @@ private fun HelperPick(primary: CallUi?, s: ScreenState, sheets: InCallSheets) {
     HelperSheet(helpers, onPick = { startHelper(context, primary, it) }) { sheets.family.pickHelper = false }
 }
 
-/** Simple mode's big "Add my helper" (I5), when there's someone to add. */
+/** Simple mode's big "Add my helper", when there's someone to add. */
 @Composable
 private fun SimpleHelper(call: CallUi, s: ScreenState, sheets: InCallSheets) {
     val context = LocalContext.current
@@ -1063,7 +1063,7 @@ private fun ReplySheet(call: CallUi, quickReplies: List<String>, onDismiss: () -
         } else {
             quickReplies
         }
-        // I11: in the car, the driving replies come first.
+        // In the car, the driving replies come first.
         DrivingReplies(call, onDismiss)
         // "Text me your name" first for a number that isn't saved, with what it's for under it.
         val nameReply = nameReplyFor(call)

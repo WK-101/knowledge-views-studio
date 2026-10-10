@@ -25,10 +25,10 @@ enum class ShareMethod {
 }
 
 /**
- * I22: one entry of "Shared with": who got your card, when, how, and which numbers it had then ([phones], so the
+ * One entry of "Shared with": who got your card, when, how, and which numbers it had then ([phones], so the
  * "Changed my number" helper knows who still has an old one). [number] is theirs, when known; [name] may be empty.
  *
- * [contactKey] is set for a private contact (`parley-private:<id>`, M7): such a receipt keeps no name or number of
+ * [contactKey] is set for a private contact (`parley-private:<id>`): such a receipt keeps no name or number of
  * theirs (they are read from the vault when the list is shown, and hidden in discreet mode), is stored sealed with
  * the vault's key, and travels only in the private-contacts part of a backup.
  */
@@ -49,7 +49,7 @@ data class SharedPerson(val latest: ShareReceipt, val receipts: List<ShareReceip
     val number: String? get() = receipts.firstNotNullOfOrNull { it.number?.takeIf(String::isNotBlank) }
 }
 
-/** The private ledger of who has your card (I22), kept sealed on the phone and in backups. */
+/** The private ledger of who has your card, kept sealed on the phone and in backups. */
 object ShareLedger {
     /** Enough for years of swaps; the oldest go first. */
     const val MAX = 500

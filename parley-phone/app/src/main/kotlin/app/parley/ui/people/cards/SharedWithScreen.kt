@@ -64,7 +64,7 @@ object SharedWithText {
 }
 
 /**
- * I22: My card › Shared with. Everyone Parley saw your card go to (QR swaps, Send my details, Introduce myself, the
+ * My card › Shared with. Everyone Parley saw your card go to (QR swaps, Send my details, Introduce myself, the
  * card file sent to someone), newest first, with how and when; each can be removed, or all of it. It's a private
  * record: sealed on this phone and in your encrypted backups, never sent anywhere. It also feeds "Changed my number".
  */
@@ -73,7 +73,7 @@ object SharedWithText {
 fun SharedWithScreen(vm: AppViewModel, back: () -> Unit) {
     val store = vm.c.people.shareLedger
     val scope = rememberCoroutineScope()
-    // Private contacts named from the vault, and hidden in discreet mode (M7).
+    // Private contacts named from the vault, and hidden in discreet mode.
     val receipts by CardSharing.rememberShownReceipts(vm)
     var loaded by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(Unit) { loaded = store.load() }

@@ -57,7 +57,7 @@ internal class RescueClip(private val context: Context) {
                 val type = if (speaker) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
                 audio.availableCommunicationDevices.firstOrNull { it.type == type }?.let { audio.setCommunicationDevice(it) }
             } else {
-                @Suppress("DEPRECATION")
+                @Suppress("DEPRECATION") // setCommunicationDevice needs Android 12; this is the older path.
                 audio.isSpeakerphoneOn = speaker
             }
         }
@@ -73,7 +73,7 @@ internal class RescueClip(private val context: Context) {
             if (Build.VERSION.SDK_INT >= 31) {
                 audio.clearCommunicationDevice()
             } else {
-                @Suppress("DEPRECATION")
+                @Suppress("DEPRECATION") // setCommunicationDevice needs Android 12; this is the older path.
                 audio.isSpeakerphoneOn = false
             }
             if (audio.mode == AudioManager.MODE_IN_COMMUNICATION) audio.mode = AudioManager.MODE_NORMAL

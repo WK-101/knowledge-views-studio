@@ -23,7 +23,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
-/** "Last messaged via Signal · 2 days ago" for one number. [number] is null for entries kept from before F13. */
+/** "Last messaged via Signal · 2 days ago" for one number. [number] is null for entries kept from before numbers were stored. */
 data class LastMessaged(val app: MessengerApp?, val label: String, val at: Long, val number: String? = null, val key: String = "")
 
 /** The old "My details" (name and number) for "Send my details", read once to fold into My card. */
@@ -128,11 +128,6 @@ class MessagingStore(
         get() = prefs.getString(K_LAST_CALL_APP, null)
         set(v) = prefs.edit { putString(K_LAST_CALL_APP, v) }
 
-    /** WhatsApp or WhatsApp Business, asked once when both are installed. */
-    var whatsappChoice: String?
-        get() = prefs.getString(K_WA_CHOICE, null)
-        set(v) = prefs.edit { putString(K_WA_CHOICE, v) }
-
     /** The one-time "WhatsApp may ask to sync contacts" explanation was shown. */
     var whatsappSyncNoticeShown: Boolean
         get() = prefs.getBoolean(K_WA_SYNC_NOTICE, false)
@@ -161,16 +156,16 @@ class MessagingStore(
     /** Per-item delete. */
     suspend fun forget(number: String) = update { MessagedRecord.forget(it, number, region()) }
 
-    /** Per-item delete by record key (for entries kept from before F13, which have no number). */
+    /** Per-item delete by record key (for entries kept from before numbers were stored, which have none). */
     suspend fun forgetKey(key: String) = update { list -> list.filterNot { it.key == key } }
 
-    /** The last digits of entries kept from before F7, once the record is loaded (see PhoneKeyMigrator). */
+    /** The last digits of entries kept from before E.164 keys, once the record is loaded (see PhoneKeyMigrator). */
     suspend fun legacyDigits(): List<String> {
         loaded.await()
         return recordLock.withLock { MessagedRecord.legacyDigits(entries) }
     }
 
-    /** Moves entries kept from before F7 (last digits only) to the line key [plan] resolved (see PhoneKeyMigrator). */
+    /** Moves entries kept from before E.164 keys (last digits only) to the line key [plan] resolved (see PhoneKeyMigrator). */
     suspend fun rekeyLegacy(plan: Map<String, String>) {
         if (plan.isNotEmpty()) update { MessagedRecord.rekeyLegacy(it, plan) }
     }
@@ -237,7 +232,7 @@ class MessagingStore(
             return read.getOrDefault(emptyList())
         }
         _recordUnreadable.value = false
-        // The plain record from before F13: convert once, then remove it.
+        // The plain record from before numbers were stored: convert once, then remove it.
         val plain = prefs.getString(K_LAST_MESSAGED_PLAIN, null) ?: return emptyList()
         val migrated = runCatching {
             val json = JSONObject(plain)
@@ -281,10 +276,10 @@ class MessagingStore(
         const val K_MY_NAME = "my_name"
         const val K_MY_NUMBER = "my_number"
         const val K_LAST_APP = "last_app"
-        const val K_WA_CHOICE = "whatsapp_choice"
         const val K_LAST_CALL_APP = "last_call_app"
         const val K_WA_SYNC_NOTICE = "whatsapp_sync_notice"
-        /** The plain record written before F13 (read once, then removed). */
+
+        /** The plain record written before numbers were stored (read once, then removed). */
         const val K_LAST_MESSAGED_PLAIN = "last_messaged"
         const val K_RECORD = "last_messaged_enc"
         const val K_RECORD_ENABLED = "record_messaged"

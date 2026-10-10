@@ -1,7 +1,7 @@
 package app.parley.common.ux
 
 /**
- * "Coming from…" (P7): where people switch from, and which of Parley's existing importers takes each file. Nothing is
+ * "Coming from…": where people switch from, and which of Parley's existing importers takes each file. Nothing is
  * fetched: the person exports on the old phone (or a computer), copies the file over and picks it here.
  */
 object ComingFrom {

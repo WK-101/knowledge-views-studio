@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** M4: "Call with a reason…" checks for an emergency number first, quickly, and fails towards placing the call. */
+/** "Call with a reason…" checks for an emergency number first, quickly, and fails towards placing the call. */
 class CallReasonsEmergencyTest {
     @Test fun the_fallback_list_needs_no_platform_call() = runBlocking {
         var asked = false

@@ -57,7 +57,7 @@ class SettingsRepository internal constructor(
     val loaded: StateFlow<Boolean> = _loaded
 
     /**
-     * I21: the safety switches changed during a duress session, in memory only (see [DuressPolicy.split]); null outside
+     * The safety switches changed during a duress session, in memory only (see [DuressPolicy.split]); null outside
      * one. Dropped by [endDuressSession] at the next lock.
      */
     private val sessionOverlay = MutableStateFlow<SafetyOverlay?>(null)
@@ -172,7 +172,7 @@ class SettingsRepository internal constructor(
     }
 
     /**
-     * M8: whether private names must stay hidden now, for the private-name providers. They can be the first thing to
+     * Whether private names must stay hidden now, for the private-name providers. They can be the first thing to
      * run in a cold process, before [settings] has loaded (its first value is the defaults, discreet mode off): this
      * reads the stored settings and the duress hiding itself, and fails closed (hidden) when that takes longer than
      * [timeoutMs] or fails.
@@ -183,10 +183,10 @@ class SettingsRepository internal constructor(
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->
             val stored = prefs.toSettings()
-            // M6: also while hiding outside a session (Parley locked after a duress unlock, the Quick Settings tile):
+            // Also while hiding outside a session (Parley locked after a duress unlock, the Quick Settings tile):
             // the user's stored safety switches are never written then; outside a session the change isn't shown either.
             if (duressSession || Concealment.hiding) {
-                // The screens change what they show; the stored safety switches stay as they are (I21).
+                // The screens change what they show; the stored safety switches stay as they are.
                 val (toStore, overlay) = DuressPolicy.split(stored, transform(DuressPolicy.shown(stored, sessionOverlay.value)))
                 if (duressSession) sessionOverlay.value = overlay
                 prefs.write(toStore)

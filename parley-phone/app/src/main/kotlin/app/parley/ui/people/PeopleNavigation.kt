@@ -38,10 +38,10 @@ object PeopleRoutes {
     /** My card in the contact editor (its My card mode). */
     @Serializable data object MeEdit : Destination
 
-    /** My card › Shared with (I22). */
+    /** My card › Shared with. */
     @Serializable data object SharedWith : Destination
 
-    /** My card › "Changed my number" (I14). */
+    /** My card › "Changed my number". */
     @Serializable data object NewNumber : Destination
 
     /** Contacts › ⋮ › Archived: contacts out of the lists and other apps, with Unarchive. */

@@ -25,7 +25,7 @@ import app.parley.telecom.R
 import app.parley.ui.Spacing
 
 /**
- * I1 number memory on the call screen: one quiet line under a caller who isn't a contact ("You deleted Plumber Mike in
+ * Number memory on the call screen: one quiet line under a caller who isn't a contact ("You deleted Plumber Mike in
  * March with this number"). On the lock screen it says only "Parley knows this number": names and notes appear once the
  * phone is unlocked (re-checked while the screen is up).
  */

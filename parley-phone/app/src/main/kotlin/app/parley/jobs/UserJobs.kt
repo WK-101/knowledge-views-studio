@@ -114,7 +114,7 @@ class UserJobs(
     fun prepare(kind: Kind, label: String, failure: (Throwable) -> String, work: suspend (Progress) -> Ready): Job =
         launch(kind, label, failure, null) { p -> work(p).let { it.message to it.opener } }
 
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // A job's failure of any kind is reported to the user, never thrown at the caller.
     private fun launch(
         kind: Kind,
         label: String,

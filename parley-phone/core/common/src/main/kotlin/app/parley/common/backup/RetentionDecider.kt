@@ -97,7 +97,7 @@ object RetentionDecider {
 
     /**
      * Whether a finished backup may rotate older ones out: not while rotation is [paused] (see [mustPauseRotation]),
-     * for a [safety] copy, for an [incomplete] backup, or while a duress unlock [hiding] things (L4): a backup made then
+     * for a [safety] copy, for an [incomplete] backup, or while a duress unlock [hiding] things: a backup made then
      * lacks the hidden notes and private contacts, and making several must never prune the older ones that have them.
      */
     fun rotates(paused: Boolean, safety: Boolean, incomplete: Boolean, hiding: Boolean): Boolean = !paused && !safety && !incomplete && !hiding

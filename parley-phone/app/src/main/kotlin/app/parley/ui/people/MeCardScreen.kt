@@ -204,10 +204,10 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             MeHeader(card, links, settings.hideVault, onQr = { showQr = true }, onShare = share, onEdit = edit, open = open)
             // "Changed my number": offered while people you shared with still have an old number.
             NewNumberBanner(vm, own, open)
-            // A restored backup brought your earlier card key while this phone's was already shared (M5).
+            // A restored backup brought your earlier card key while this phone's was already shared.
             CardKeyChoiceBanner(vm)
             if (!empty) MeCardDetailsSections(vm, card, links, settings.hideVault, open)
-            // P18: signed cards and "Shared with", explained once.
+            // Signed cards and "Shared with", explained once.
             if (!empty) CoachMark(Tips.SIGNED_CARD, stringResource(R.string.card_signed_tip))
             SegmentedGroup {
                 // What the QR code and the vCard include; changed in the editor.
@@ -220,7 +220,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         supporting = { Text(shared.ifEmpty { listOf(stringResource(R.string.me_share_nothing)) }.joinToString(", ")) },
                     )
                 }
-                // I22: who got your card, when and how.
+                // Who got your card, when and how.
                 item { SharedWithRow(vm, open) }
                 if (profile != null) {
                     item {
@@ -315,8 +315,8 @@ internal fun MeQrDialog(
     val available = MeCards.Part.entries.filter { p ->
         if (p == MeCards.Part.PHOTO) card.photoUri != null else MeCardDetails.restrict(card, setOf(p)) != nothing
     }
-    // Signed (I14) when only what a signed card carries is ticked: a contact's Parley can tell a later card from you;
-    // camera apps read it like any vCard. One signature per change (M4): the card is read with the profile inside.
+    // Signed when only what a signed card carries is ticked: a contact's Parley can tell a later card from you;
+    // camera apps read it like any vCard. One signature per change: the card is read with the profile inside.
     val text by CardSharing.rememberVcard(vm, parts.toSet() - MeCards.Part.PHOTO)
     val bitmap = remember(text) { text?.let { qr(it, 720) } }
     val fileName = stringResource(R.string.img_name_my_card_qr)
@@ -375,7 +375,7 @@ private fun qr(text: String, size: Int): Bitmap? = try {
 }
 
 /**
- * M5: "Use your earlier card key?" after a restore, when this phone had already shared a card with its own key. Either
+ * "Use your earlier card key?" after a restore, when this phone had already shared a card with its own key. Either
  * answer is a choice; until then this phone keeps signing with its own key.
  */
 @Composable
@@ -394,7 +394,7 @@ private fun CardKeyChoiceBanner(vm: AppViewModel) {
     )
 }
 
-/** My card › "Shared with": how many people have your card; opens the list (I22). */
+/** My card › "Shared with": how many people have your card; opens the list. */
 @Composable
 private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
     val receipts by CardSharing.rememberShownReceipts(vm)
@@ -414,7 +414,7 @@ private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
 
 /**
  * After a number change on My card: "You have a new number. Tell the 3 people who have the old one?" until they've
- * been told or the offer is dismissed for these numbers (I14).
+ * been told or the offer is dismissed for these numbers.
  */
 @Composable
 private fun NewNumberBanner(vm: AppViewModel, own: MeCard, open: (Destination) -> Unit) {

@@ -691,7 +691,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         // A picture chosen in the photo picker while the process was stopped arrives as soon as the screen is drawn
         // again, before this restore finishes loading: the saved state is older than it and must not undo it.
         if (photo == null && !removePhoto) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The typed getter needs Android 13; this runs on older phones too.
             photo = b.getParcelable(K_PHOTO)
             removePhoto = b.getBoolean(K_REMOVE_PHOTO)
             photoFrame = PhotoFrame.decode(b.getString(K_PHOTO_FRAME))
@@ -730,7 +730,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
      * different raw contact. So: the same copy is edited again when it is still there; otherwise the draft keeps only
      * ids of the copy loaded now ([ContactEditRebase.adopt]), and the save first asks what to keep.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One check per way the contact can have changed while the editor was away.
     private suspend fun reconcile(restored: ContactDetails, savedRaw: Long, savedVersion: Long) {
         var o = original
         if (o == null && restored.lookupKey.isNotEmpty()) {
@@ -847,7 +847,7 @@ internal object EditorDrafts {
         )
     }
 
-    /** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
+    /** Every text of the draft (a contact holding only an address, a note or a website is fine). */
     fun texts(d: ContactDetails): List<String> = with(d) {
         listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, department, note) +
             listOf(phoneticGiven, phoneticFamily, phoneticMiddle, secondSurname, generation, context, pinnedNote) +

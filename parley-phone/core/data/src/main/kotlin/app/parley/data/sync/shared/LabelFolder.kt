@@ -75,7 +75,7 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
     }.getOrNull()
 
     override fun write(name: String, bytes: ByteArray): String? = try {
-        // L7: a file that arrived after the listing is written in place: creating it again would make "name (1)", a
+        // A file that arrived after the listing is written in place: creating it again would make "name (1)", a
         // write that looks done but that no other phone ever reads.
         val uri = uris[name] ?: find(name) ?: run {
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))

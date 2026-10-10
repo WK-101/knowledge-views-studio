@@ -181,7 +181,7 @@ internal fun RemainingLine(timing: CallTiming?) {
     )
 }
 
-/** L3: More › "Switch to RTT", or "RTT conversation" once it's on. */
+/** More › "Switch to RTT", or "RTT conversation" once it's on. */
 @Composable
 private fun RttMoreRow(active: Boolean, onClick: () -> Unit) {
     ParleyListItem(
@@ -213,15 +213,15 @@ internal fun CallMoreSheet(
     onAgenda: (() -> Unit)? = null,
     /** Copy the number (not for a hidden number). */
     onCopyNumber: (() -> Unit)? = null,
-    /** I10 "I'm on hold" (a connected call not already in hold mode). */
+    /** "I'm on hold" (a connected call not already in hold mode). */
     onHoldMode: (() -> Unit)? = null,
-    /** I3 "Check it's really them": hang up and call the saved number (not for an emergency call). */
+    /** "Check it's really them": hang up and call the saved number (not for an emergency call). */
     onVerify: (() -> Unit)? = null,
-    /** I4 "Says they're family": shows the safe-word card now (a safe word is set; not for an emergency call). */
+    /** "Says they're family": shows the safe-word card now (a safe word is set; not for an emergency call). */
     onClaimsFamily: (() -> Unit)? = null,
-    /** I5 "Add my helper": calls a trusted person to join (never during an emergency call). */
+    /** "Add my helper": calls a trusted person to join (never during an emergency call). */
     onAddHelper: (() -> Unit)? = null,
-    /** L3: "Switch to RTT" (the SIM supports it), or "RTT conversation" once [rttActive]. */
+    /** "Switch to RTT" (the SIM supports it), or "RTT conversation" once [rttActive]. */
     onRtt: (() -> Unit)? = null,
     rttActive: Boolean = false,
     /** "Is this a scam?" for a number that isn't saved. */
@@ -271,7 +271,7 @@ internal fun CallMoreSheet(
                 modifier = Modifier.clickable { onDismiss(); onCopyNumber() },
             )
         }
-        // Each says in one line what it does, the first time and every time (P18).
+        // Each says in one line what it does, the first time and every time.
         if (onRtt != null) RttMoreRow(rttActive) { onDismiss(); onRtt() }
         if (onHoldMode != null) {
             ParleyListItem(

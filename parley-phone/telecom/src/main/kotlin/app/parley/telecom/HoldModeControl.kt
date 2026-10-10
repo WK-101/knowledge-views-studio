@@ -9,7 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Hold mode (I10), "I'm on hold": the speaker comes on (so the phone can lie on the table), the screen shows a hold
+ * Hold mode, "I'm on hold": the speaker comes on (so the phone can lie on the table), the screen shows a hold
  * timer, and the phone buzzes at [HoldMode.REMINDER_MINUTES]. Parley can't hear the call, so it never guesses when
  * someone is back.
  */

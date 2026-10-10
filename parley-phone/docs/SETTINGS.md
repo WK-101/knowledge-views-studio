@@ -179,7 +179,7 @@ Channel **Exports and imports** (`jobs_v1`, quiet): the end of an export, import
 |---|---|
 | — | Parley version `version` (with the licence, GPL-3.0) · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
 
-The page's summary ("Version and licence, diagnostics, crash reports") names exactly these rows.
+The page's summary ("Version and licence, diagnostics, crash reports") names exactly these rows. Keep crash reports is off by default in release builds and on in debug builds; whatever it says, a crash or ANR Android recorded since the last start (Android 11 and later) is offered once as "Parley stopped unexpectedly · Save a report".
 | In Tools ↗ | Tools `what_parley_can_do` (the hub itself, at the top of Settings; search finds it as "What Parley can do" too) |
 
 ## Basic and Advanced

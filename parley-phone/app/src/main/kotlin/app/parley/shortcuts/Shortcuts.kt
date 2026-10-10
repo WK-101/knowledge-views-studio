@@ -88,11 +88,11 @@ object Shortcuts {
         return ShortcutManagerCompat.requestPinShortcut(context, info, null)
     }
 
-    /** The launcher id of a menu shortcut's pinned copy (I6). */
+    /** The launcher id of a menu shortcut's pinned copy. */
     fun menuId(id: String): String = "menu-$id"
 
     /**
-     * I6: pins a menu shortcut ("Bank › lost card") that calls [dialString] (the number, pauses and digits) through the
+     * Pins a menu shortcut ("Bank › lost card") that calls [dialString] (the number, pauses and digits) through the
      * same trampoline as a contact's Call shortcut, so the pocket guard and the emergency path apply.
      */
     fun pinMenu(context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?): Boolean {
@@ -105,7 +105,7 @@ object Shortcuts {
         runCatching { ShortcutManagerCompat.disableShortcuts(context, listOf(menuId(id)), message) }
     }
 
-    /** A renamed menu shortcut keeps its pinned copy in step, its photo included (L7; [iconOf] is replaced in tests). */
+    /** A renamed menu shortcut keeps its pinned copy in step, its photo included ([iconOf] is replaced in tests). */
     fun renameMenu(
         context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?,
         iconOf: (Context, String, String?) -> IconCompat = ::icon,

@@ -83,7 +83,7 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     val shown = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
     val circleTip = showCircleTip(tipPending(Tips.CONCEPT_CIRCLE), all.isEmpty(), q)
     LazyColumn(contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // P18: what the Circle is, once it has people in it (the empty state explains it before that).
+        // What the Circle is, once it has people in it (the empty state explains it before that).
         if (circleTip) item(key = "tip") {
             CoachMark(Tips.CONCEPT_CIRCLE, stringResource(R.string.tip_concept_circle))
         }

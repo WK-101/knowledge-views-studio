@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
 /**
- * What TalkBack says by itself when a call changes state (P16), so someone who can't see the screen hears that the
+ * What TalkBack says by itself when a call changes state, so someone who can't see the screen hears that the
  * call was answered, put on hold or ended without exploring for the status pill. Only changes are spoken: the state
  * the screen opens in is read with the screen, and the running timer never is.
  */

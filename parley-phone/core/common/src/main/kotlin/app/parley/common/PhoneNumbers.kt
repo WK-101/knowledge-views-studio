@@ -119,7 +119,7 @@ internal object PhoneNumbers {
 
     /**
      * The fallback form of [lineKey] regardless of whether an E.164 form exists: for reading records that were keyed
-     * by the last digits before F7.
+     * by the last digits before keys became E.164.
      */
     internal fun fallbackLineKey(raw: String?): String {
         val d = digits(raw)

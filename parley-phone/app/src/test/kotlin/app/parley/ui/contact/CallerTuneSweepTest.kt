@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 import java.io.File
 
 /**
- * The ringtone sweep at start (PERFORMANCE B1): it reads what is in use (the private contacts' ringtones list the vault)
+ * The ringtone sweep at start, kept off the start-up path: it reads what is in use (the private contacts' ringtones list the vault)
  * only when there is a tune to look at, and runs only after the full app has started and its first screens are drawn.
  */
 @OptIn(ExperimentalCoroutinesApi::class)

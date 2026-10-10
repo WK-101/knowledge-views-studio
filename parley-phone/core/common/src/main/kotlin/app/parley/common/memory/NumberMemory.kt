@@ -66,7 +66,7 @@ data class MemoryHint(
 )
 
 /**
- * Number memory (I1, P12): what Parley knows offline about a number that isn't a contact, as one quiet line. The pure
+ * Number memory: what Parley knows offline about a number that isn't a contact, as one quiet line. The pure
  * part: building hints from what each store holds, and choosing the one to show.
  */
 object NumberMemory {
@@ -101,7 +101,7 @@ object NumberMemory {
     val NOTE_SOURCES: Set<MemorySource> = setOf(MemorySource.NOTE, MemorySource.CALL_NOTE)
 
     /**
-     * [hints] without the ones that quote a note when [notesHidden] (a duress unlock, I21). The index was built before
+     * [hints] without the ones that quote a note when [notesHidden] (a duress unlock). The index was built before
      * the hiding started and keeps its excerpts, so the hiding must apply where the hints are read, not only where
      * the notes are.
      */

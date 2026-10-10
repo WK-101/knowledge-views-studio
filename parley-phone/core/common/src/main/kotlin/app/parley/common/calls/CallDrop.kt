@@ -29,7 +29,7 @@ data class DropFacts(
 )
 
 /**
- * L2/P5: a call that was connected and ended because of the network, not because anyone hung up. Telecom reports such
+ * A call that was connected and ended because of the network, not because anyone hung up. Telecom reports such
  * ends as ERROR; telephony's own cause (only readable as the name in the reason text) says which kind. A LOCAL or
  * REMOTE end is someone hanging up, so it's never a drop, whatever the reason says. Emergency calls are left to the
  * system: Parley never offers to call an emergency number again by itself.

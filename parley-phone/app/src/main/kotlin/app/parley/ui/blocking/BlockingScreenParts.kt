@@ -263,7 +263,7 @@ private fun ruleSummary(vm: AppViewModel, r: BlockRule, now: Long, expired: Bool
 }
 
 /**
- * P9: "You're on: Only people I know" and the setups to switch to, each opening what it changes before it's applied;
+ * "You're on: Only people I know" and the setups to switch to, each opening what it changes before it's applied;
  * then the week in one quiet line ("12 calls silenced · no contacts affected").
  */
 @Composable

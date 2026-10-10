@@ -15,7 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
-/** I2: the learned index is stored keyed and sealed, and looked up by line, then by range. */
+/** The learned index is stored keyed and sealed, and looked up by line, then by range. */
 @RunWith(RobolectricTestRunner::class)
 class ReputationStoreTest {
     private val context: Context = ApplicationProvider.getApplicationContext()

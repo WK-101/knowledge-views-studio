@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Settings › Calls › Accessibility (L3): "Answer with RTT", Android's own TTY and RTT settings, and an honest line on
+ * Settings › Calls › Accessibility: "Answer with RTT", Android's own TTY and RTT settings, and an honest line on
  * where RTT works. RTT itself needs no setting: More › Switch to RTT shows in a call whenever the SIM offers it.
  */
 @Composable

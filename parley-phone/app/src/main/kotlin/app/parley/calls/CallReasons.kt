@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * I12 "Call with a reason…": what the phone can do with a reason for one call. Whether a SIM's network carries call
+ * "Call with a reason…": what the phone can do with a reason for one call. Whether a SIM's network carries call
  * subjects is its phone account's `CAPABILITY_CALL_SUBJECT` (with its own length limit); "Text first" needs an app that
  * takes `smsto:` (declared in the manifest's queries). The decision itself is [app.parley.common.calls.CallReason]'s.
  */
@@ -25,7 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 @SuppressLint("MissingPermission")
 object CallReasons {
     /**
-     * M4: whether [number] is an emergency number, checked first and on its own: the fallback list without any binder
+     * Whether [number] is an emergency number, checked first and on its own: the fallback list without any binder
      * call, then the platform's list, bounded by [EMERGENCY_CHECK_MS]. A check that can't answer in time counts as an
      * emergency, so the call is placed at once (the call path checks again).
      */

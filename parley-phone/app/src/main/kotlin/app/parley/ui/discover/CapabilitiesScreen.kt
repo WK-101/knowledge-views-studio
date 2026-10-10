@@ -68,7 +68,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * Tools, the one hub (P8; it was "What Parley can do", and Tools was a separate page): every row of
+ * Tools, the one hub (it was "What Parley can do", and Tools was a separate page): every row of
  * [CapabilityCatalog], grouped by the job it does, one line each; a tap opens the feature. Each job shows its featured
  * rows and folds the rest under "n more", so the page stays short; a search box filters as you type and then shows
  * every match. Lock now and Expecting a call work right here. What this release added comes first, under "New in …".

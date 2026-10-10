@@ -77,7 +77,7 @@ sealed interface BlockingDialog {
     data class LabelRule(val title: String) : BlockingDialog
     data object Snooze : BlockingDialog
 
-    /** I2: why a number looks like a sales line (your calls). */
+    /** Why a number looks like a sales line (your calls). */
     data class Reputation(val number: String) : BlockingDialog
 
     /** The one Block question ([askToBlock]); [name] names a single number, [note] goes on any rule written. */

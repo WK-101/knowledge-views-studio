@@ -70,7 +70,7 @@ object Csv {
 /** One rule found in an imported file. */
 data class ImportedRule(val pattern: String, val type: RuleType, val kind: RuleKind = RuleKind.BLOCK, val note: String? = null)
 
-/** Which columns hold what (B26 column mapping). Indices are 0-based; -1 = none. */
+/** Which columns hold what (the column mapping). Indices are 0-based; -1 = none. */
 data class ColumnMapping(
     val hasHeader: Boolean,
     val number: Int,

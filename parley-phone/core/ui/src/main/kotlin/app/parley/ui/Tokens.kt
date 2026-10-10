@@ -91,9 +91,6 @@ object ParleyShapes {
 /** This shape with square bottom corners (a sheet or panel attached to the bottom edge). */
 fun CornerBasedShape.topOnly(): CornerBasedShape = copy(bottomStart = ZeroCornerSize, bottomEnd = ZeroCornerSize)
 
-/** This shape with square top corners. */
-fun CornerBasedShape.bottomOnly(): CornerBasedShape = copy(topStart = ZeroCornerSize, topEnd = ZeroCornerSize)
-
 /**
  * A rounded shape whose radius is computed at run time (an animated corner). Fixed radii come from [ParleyShapes].
  */

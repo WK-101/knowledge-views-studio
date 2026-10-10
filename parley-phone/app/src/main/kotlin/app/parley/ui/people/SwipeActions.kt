@@ -91,7 +91,7 @@ private fun SwipeAction.colors(): Pair<Color, Color> = when (this) {
  * as up or down, [SwipeGesture.classify]) and never while [listState] is still flinging, so it doesn't fight the
  * list's scrolling. It commits past a third of the row or with a quick flick; a tick is felt when the threshold is
  * crossed (and again if you go back), the action's colour and icon pop in at that point, and the row springs back.
- * Directions are physical ("swipe right" is rightwards in every language, L3).
+ * Directions are physical ("swipe right" is rightwards in every language).
  */
 @Composable
 fun SwipeActionRow(

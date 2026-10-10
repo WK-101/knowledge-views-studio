@@ -25,7 +25,7 @@ object BlockingSetup {
         runCatching { RingBoost.restore(appContext) }
         runCatching { ScreeningGuard.inEmergencyWindow(appContext) }
         runCatching { c.screener.warm() }
-        // Expected-call windows: read now so screening never opens the Keystore while a call rings (L7).
+        // Expected-call windows: read now so screening never opens the Keystore while a call rings.
         runCatching { c.familySafety.load() }
         // Caller location for unknown callers (the call screen) and Recents.
         runCatching { NumberInfo.warm(PhoneEnv.countryIso(appContext)) }

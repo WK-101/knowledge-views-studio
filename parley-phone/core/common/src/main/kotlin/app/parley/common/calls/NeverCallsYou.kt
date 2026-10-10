@@ -67,7 +67,7 @@ object NeverCallsYou {
      * copy of your calls holds every call (null when it is off or can't be read now). Never for a hidden number, an
      * emergency number or a conference.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // One argument per fact the rule weighs.
     fun shows(
         number: String?,
         line: String?,

@@ -35,8 +35,8 @@ import org.json.JSONArray
 import java.util.Locale
 
 /**
- * Extras kept in their own small store (like the Circle's config): X2 the last "Who's in…" city, X3 label
- * policies and chapters (labels with an end), X4 the simple-mode setup. All of it travels in the encrypted backup ([backupExtras]).
+ * Extras kept in their own small store (like the Circle's config): the last "Who's in…" city, label
+ * policies and chapters (labels with an end), and the simple-mode setup. All of it travels in the encrypted backup ([backupExtras]).
  */
 class ExtrasStore(private val c: DataContainer) {
     private val prefs = c.appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)

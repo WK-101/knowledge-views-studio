@@ -26,7 +26,7 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
         fun answer(session: CallSession)
         fun changed()
 
-        /** I11: the drive profile's car is connected and its auto-answer is on (checked even with the rest off). */
+        /** The drive profile's car is connected and its auto-answer is on (checked even with the rest off). */
         fun driving(): Boolean = false
     }
 

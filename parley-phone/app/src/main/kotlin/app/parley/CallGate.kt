@@ -39,7 +39,7 @@ class CallGate(private val c: DataContainer) {
         val warnings = c.dialGuard.check(number)
         // A SIM still to be chosen changes the allowance: then it's checked once the SIM is known.
         val note = if (!chooseSim) callTime.outgoingWarning(number, remembered ?: default) else null
-        // L6: abroad, the number with its country code and a local SIM (asked again in [place] once a SIM is chosen).
+        // Abroad, the number with its country code and a local SIM (asked again in [place] once a SIM is chosen).
         val roam = if (!chooseSim) abroad.questions(number, remembered ?: default) else AbroadCalls.Questions()
         val ask = listOf(confirm, chooseSim, warnings.isNotEmpty(), note != null, roam.any).any { it }
         return if (ask) {
@@ -90,7 +90,7 @@ class CallGate(private val c: DataContainer) {
         return Placed.Done(c.placer.call(number, resolved, simResolved = true, subject = subject))
     }
 
-    /** L5: the dial guard's warnings for the number assisted dialling would call instead (premium, listed numbers). */
+    /** The dial guard's warnings for the number assisted dialling would call instead (premium, listed numbers). */
     private suspend fun abroadWarnings(roam: AbroadCalls.Questions) = roam.plan?.let { c.dialGuard.check(it.dial) }.orEmpty()
 
     /** Off the main thread: the platform check may cross into the phone process. */

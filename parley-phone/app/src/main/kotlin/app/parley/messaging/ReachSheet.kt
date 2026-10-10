@@ -484,7 +484,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val isContact = known == true
     fun toast(text: String) = showMessage(context, text, long = true)
 
-    /** "Send my details" went out (the draft still carries your number): it goes into My card › Shared with (I22). */
+    /** "Send my details" went out (the draft still carries your number): it goes into My card › Shared with. */
     fun sharedDetails() {
         val mine = myCard.firstNumber.orEmpty()
         if (mine.isNotBlank() && draft.contains(mine)) CardSharing.record(c, "", e164 ?: number, ShareMethod.SEND_DETAILS, listOf(mine))

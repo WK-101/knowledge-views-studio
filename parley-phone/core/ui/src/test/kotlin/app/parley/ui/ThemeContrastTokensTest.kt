@@ -9,7 +9,7 @@ import app.parley.common.ux.ThemeContrast.Pair
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P16: the design tokens keep 4.5:1 for text (3:1 for outlines and icons) in light, dark and AMOLED. */
+/** The design tokens keep 4.5:1 for text (3:1 for outlines and icons) in light, dark and AMOLED. */
 class ThemeContrastTokensTest {
     // surfaceDim is left out: no Parley screen or kit component draws on it (brand primary there is only 4.2:1).
     private fun ColorScheme.surfaces() = listOf(

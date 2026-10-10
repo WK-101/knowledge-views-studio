@@ -97,7 +97,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Family safety during a call (WP-8): what the screen loaded for the call in front (safe-word questions, helpers) and
+ * Family safety during a call: what the screen loaded for the call in front (safe-word questions, helpers) and
  * what the user did ("Says they're family", closing the card, choosing a helper). Kept for the screen's life.
  */
 internal class FamilyCallState {
@@ -161,7 +161,7 @@ internal fun FamilySafetyCards(primary: CallUi, live: List<CallUi>, st: FamilyCa
 }
 
 /**
- * I4: "Claims to be family? Ask: what's our word?" on a call from an unknown number after 20 seconds, or at once after
+ * "Claims to be family? Ask: what's our word?" on a call from an unknown number after 20 seconds, or at once after
  * More › Says they're family. The question shows only while the phone is unlocked; the answer only while the user
  * presses and holds it, after the fingerprint or screen lock when the phone or Parley is locked.
  */
@@ -207,7 +207,7 @@ private class Reveal(private val label: String, private val appLocked: () -> Boo
     fun mayShow(locked: Boolean, unlock: () -> Unit, ask: () -> Unit): Boolean {
         when {
             locked -> unlock()
-            // Read at each reveal (L4): an app lock that engaged during the call is honoured too.
+            // Read at each reveal: an app lock that engaged during the call is honoured too.
             appLocked() && !confirmed -> ask()
             else -> return true
         }
@@ -281,7 +281,7 @@ private fun AnswerBox(reveal: Reveal, key: String, mayShow: () -> Boolean, show:
                     if (reveal.revealed) reveal.revealed = false else if (mayShow()) show()
                     true
                 }
-                // L4: never read out by itself (the caller may hear it on speaker): TalkBack says "Answer shown", and
+                // Never read out by itself (the caller may hear it on speaker): TalkBack says "Answer shown", and
                 // reads the answer only when the user moves to it.
                 if (shown != null) stateDescription = shownState
             },
@@ -299,7 +299,7 @@ private fun AnswerBox(reveal: Reveal, key: String, mayShow: () -> Boolean, show:
 }
 
 /**
- * L4: while [on], the call screen's window is secure (no screenshots, screen recording or casting of the answer); the
+ * While [on], the call screen's window is secure (no screenshots, screen recording or casting of the answer); the
  * window's own setting ("Hide screen content") is put back afterwards.
  */
 @Composable
@@ -324,16 +324,16 @@ private fun confirmItsYou(context: Context, title: String, onFallback: (android.
         return
     }
     if (Build.VERSION.SDK_INT < 30) {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // canAuthenticate() without authenticators is the only form on Android 10.
         val bio = context.getSystemService(BiometricManager::class.java)?.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
         if (!bio) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The device-credential screen is Android 10's fallback to a biometric prompt.
             km.createConfirmDeviceCredentialIntent(title, null)?.let(onFallback) ?: onResult(false)
             return
         }
     }
     val prompt = BiometricPrompt.Builder(context).setTitle(title).apply {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // setDeviceCredentialAllowed is the only form on Android 10.
         if (Build.VERSION.SDK_INT >= 30) {
             setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
         } else {
@@ -352,7 +352,7 @@ private fun confirmItsYou(context: Context, title: String, onFallback: (android.
 }
 
 /**
- * I5: bringing a helper in. "Calling Sam to join…" (Cancel) while it rings, then "Sam answered" with a big Merge now
+ * Bringing a helper in. "Calling Sam to join…" (Cancel) while it rings, then "Sam answered" with a big Merge now
  * (or Swap where the network can't merge), "Sam joined the call" once merged, and "Sam didn't answer" if not.
  */
 @Composable
@@ -420,7 +420,7 @@ internal fun HelperJoinCard(progress: HelperProgress) {
 
 private const val HELPER_NOTICE_MS = 4000L
 
-/** I5: the helpers to choose from ("Add my helper" with more than one). */
+/** The helpers to choose from ("Add my helper" with more than one). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HelperSheet(helpers: List<HelperUi>, onPick: (HelperUi) -> Unit, onDismiss: () -> Unit) {

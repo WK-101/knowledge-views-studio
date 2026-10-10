@@ -15,7 +15,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.drive.driveSummary
 
-/** Settings › Calls › On the road: the drive profile (I11), a screen of its own. */
+/** Settings › Calls › On the road: the drive profile, a screen of its own. */
 @Composable
 internal fun OnTheRoadGroup(vm: AppViewModel, open: (Destination) -> Unit) {
     val drive by vm.c.driveProfile.config.collectAsStateWithLifecycle()
@@ -26,7 +26,7 @@ internal fun OnTheRoadGroup(vm: AppViewModel, open: (Destination) -> Unit) {
 }
 
 /**
- * SIMs & plan minutes › Abroad (L6): assisted dialling and the local-SIM suggestion, both on by default since they
+ * SIMs & plan minutes › Abroad: assisted dialling and the local-SIM suggestion, both on by default since they
  * only ever act while a SIM is abroad.
  */
 @Composable

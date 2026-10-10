@@ -128,7 +128,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         if (!a.takesText && draft != null) showMessage(context, res.getString(R.string.intro_copied), long = true)
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
-        // My card › Shared with (I22): they now have your details.
+        // My card › Shared with: they now have your details.
         CardSharing.record(vm.c, t.name, t.number, ShareMethod.INTRODUCE, listOfNotNull(myCard.firstNumber))
         queue = queue.markOpened()
         awaitingReturn = true

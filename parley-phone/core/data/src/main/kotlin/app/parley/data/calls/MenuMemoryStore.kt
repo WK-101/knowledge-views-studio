@@ -16,7 +16,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * I6 menu memory ([MenuMemory]): the keys sent in the last call to each number, the saved menu shortcuts and the
+ * Menu memory ([MenuMemory]): the keys sent in the last call to each number, the saved menu shortcuts and the
  * numbers it must not remember, in one small document in its own preferences file. Sealed with the small-records key
  * (it holds numbers, a private contact's among them), so the call path can write it while the phone is locked.
  *

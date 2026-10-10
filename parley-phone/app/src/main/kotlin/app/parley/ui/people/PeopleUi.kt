@@ -23,7 +23,6 @@ import app.parley.data.messaging.Romanizer
 import app.parley.common.people.Facet
 import app.parley.common.people.FacetChoice
 import app.parley.common.people.FacetChoices
-import app.parley.common.people.FieldFilter
 import app.parley.common.people.SearchDocs
 import app.parley.common.people.LabelFilter
 import app.parley.common.people.NameOrder
@@ -353,16 +352,6 @@ class PeopleUi(
     /** Adds or removes one field filter's value (a country, "Has an email"…). */
     fun toggleField(facet: Facet, key: String, display: String? = null) {
         filter.value = filter.value.let { it.copy(fields = it.fields.toggle(facet, key, display)) }
-    }
-
-    fun clearFields() {
-        filter.value = filter.value.copy(fields = FieldFilter())
-    }
-
-    /** Stores a new custom favourites order (and switches the sort to Custom). */
-    fun moveFavorite(keys: List<String>, from: Int, to: Int) {
-        val next = FavoriteOrder.move(keys, from, to)
-        update { it.copy(favoriteOrder = next, favoriteSort = FavoriteSort.CUSTOM) }
     }
 
     fun setFavoriteOrder(keys: List<String>) = update { it.copy(favoriteOrder = keys, favoriteSort = FavoriteSort.CUSTOM) }

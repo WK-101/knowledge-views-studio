@@ -24,13 +24,13 @@ import kotlinx.coroutines.flow.map
  */
 class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) : MetaDao by dao {
     /**
-     * I21: after a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). L1: except
+     * After a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). Except
      * those written since (shown as written for as long as the hiding lasts), and a note typed over a hidden one,
      * which shows instead of it, in memory only: the hidden note is never replaced unseen.
      */
     private val hidden: Boolean get() = Concealment.hides(Concealed.NOTES)
 
-    /** Re-emits when the duress hiding starts or ends, or what it shows changes (L1). */
+    /** Re-emits when the duress hiding starts or ends, or what it shows changes. */
     private val hiding = combine(Concealment.state.map { it.hiding }.distinctUntilChanged(), Concealment.revisions) { h, r -> h to r }
 
     private fun noteToken(key: String) = "note:$key"
@@ -94,7 +94,7 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     private fun CallNoteEntity.visible() = !hidden || Concealment.writtenWhileHiding(callNoteToken(id))
 
-    /** Call notes as shown: while a duress unlock hides notes, only those written since (L1). */
+    /** Call notes as shown: while a duress unlock hides notes, only those written since. */
     private fun List<CallNoteEntity>.shown() = filter { it.visible() }.map { it.opened() }
 
     override suspend fun addJournal(e: JournalEntity): Long = dao.addJournal(e.copy(payload = crypto.sealBytes(e.payload)))
@@ -144,7 +144,7 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     override suspend fun callNote(id: Long): CallNoteEntity? = dao.callNote(id)?.takeIf { it.visible() }?.opened()
 
     override suspend fun setCallNoteText(id: Long, text: String) {
-        // Hidden notes can't be edited (none is shown); nothing reaches the stored one. One written since can (L1).
+        // Hidden notes can't be edited (none is shown); nothing reaches the stored one. One written since can.
         if (!hidden || Concealment.writtenWhileHiding(callNoteToken(id))) dao.setCallNoteText(id, crypto.sealText(text).orEmpty())
     }
 }

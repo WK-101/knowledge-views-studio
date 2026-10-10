@@ -170,7 +170,7 @@ internal object HapticPreview {
     private fun vibrator(context: Context): Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
         context.getSystemService(VibratorManager::class.java)?.defaultVibrator
     } else {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // VibratorManager needs Android 12; this is the older path.
         context.getSystemService(Vibrator::class.java)
     }
 }

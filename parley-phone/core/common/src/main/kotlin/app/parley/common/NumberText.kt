@@ -63,9 +63,6 @@ object NumberText {
     /** How many numbers the cache holds at most now (tests). */
     val cacheCapacity: Int get() = e164Cache.capacity
 
-    /** International digits without "+" ("923001234567"), as messenger links want them. */
-    fun e164Digits(e164: String): String = e164.removePrefix("+")
-
     /** Region of a number ("PK"), or null. */
     fun regionOf(e164: String): String? = parse(e164, null)?.let { util.getRegionCodeForNumber(it) }?.takeIf { it != "ZZ" }
 
@@ -77,7 +74,7 @@ object NumberText {
      * Every phone number in [text], in order, without duplicates. Finds "+1 555-123-4567" as one number (not
      * "+1" and "555…"), national numbers for [region], and numbers inside sentences. When nothing is found and the
      * whole text is a short code ("112", "*100#"), that is returned without an international form.
-     * With [distinct] false, a number written twice (even in two forms) is returned each time (M11 marks repeats).
+     * With [distinct] false, a number written twice (even in two forms) is returned each time (so repeats can be marked).
      */
     fun find(text: String, region: String?, distinct: Boolean = true): List<Found> {
         val out = ArrayList<Found>()

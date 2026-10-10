@@ -5,7 +5,7 @@ import app.parley.common.CallType
 import kotlin.math.ln
 
 /**
- * How Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: the U3 icons. Cards: the
+ * How Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: plain icons. Cards: the
  * Rich rows, each day's calls in one rounded card (stored by name, offered in this order).
  */
 enum class RecentsStyle(val rich: Boolean, val cards: Boolean) {

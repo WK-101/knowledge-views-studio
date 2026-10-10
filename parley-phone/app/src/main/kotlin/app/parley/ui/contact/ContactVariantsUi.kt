@@ -74,7 +74,7 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
                 }
             }
         }
-        // P18: what the chip means, where it first appears; private first when a contact is both.
+        // What the chip means, where it first appears; private first when a contact is both.
         if (VariantChip.Private in chips) CoachMark(Tips.CONCEPT_PRIVATE, stringResource(R.string.tip_concept_private))
         else CoachMark(Tips.CONCEPT_TEMPORARY, stringResource(R.string.tip_concept_temporary))
     }

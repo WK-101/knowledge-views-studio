@@ -207,7 +207,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     val haptics = LocalHapticFeedback.current
     var unassigned by remember { mutableStateOf<Int?>(null) }
     var messageOn by remember { mutableStateOf<String?>(null) }
-    // I12: "Call with a reason…" from a long-press on the Call pill.
+    // "Call with a reason…" from a long-press on the Call pill.
     var reasonFor by remember { mutableStateOf<ReasonTarget?>(null) }
     var imeiSheet by remember { mutableStateOf(false) }
     var saveTemporary by remember { mutableStateOf<String?>(null) }
@@ -319,7 +319,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         )
     }
 
-    /** I12: press and hold Call: "Call with a reason…" for what's typed (nothing typed: nothing to call). */
+    /** Press and hold Call: "Call with a reason…" for what's typed (nothing typed: nothing to call). */
     fun callWithReason(simId: String?) {
         if (input.isBlank()) return
         val r = if (isTextSearch()) results.firstOrNull() else null
@@ -446,7 +446,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                         Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
                         enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SpeedDial) },
                     )
-                    // I12: press and hold Call for a reason, told once (after the speed-dial tip).
+                    // Press and hold Call for a reason, told once (after the speed-dial tip).
                     CoachMark(Tips.CALL_REASON, stringResource(R.string.reason_tip), enabled = showKeypad)
                 }
             } else {
@@ -464,7 +464,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                     }
                     // No contact matches: the list is free, so the actions are full rows (as in most dialers) and
                     // the chip row stays hidden.
-                    // P12: a typed number no contact has, which Parley remembers ("you deleted Plumber Mike in March").
+                    // A typed number no contact has, which Parley remembers ("you deleted Plumber Mike in March").
                     if (numberActions.rows.isNotEmpty()) {
                         item(key = "memory") { app.parley.ui.memory.KeypadNumberMemory(vm, typedNumber, open) }
                     }
@@ -510,13 +510,13 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
             Column(Modifier.fillMaxWidth()) {
                 Column(
                     // With large text or a short screen the docked panel scrolls inside its own height, so it never
-                    // covers the list. K3: a drag down past its top folds the keypad (panelConnection).
+                    // covers the list. A drag down past its top folds the keypad (panelConnection).
                     Modifier.fillMaxWidth()
                         .then(if (dock != null) Modifier.nestedScroll(fold.panelConnection).verticalScroll(rememberScrollState()) else Modifier)
                         .padding(bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Number display. K1: only the number; backspace moved to the bottom row, beside the Call pill.
+                    // Number display. Only the number; backspace moved to the bottom row, beside the Call pill.
                     Box(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
                         // The number reads left to right in every language.
                         ForceLtr { NumberField(field, vm.countryIso, Modifier.fillMaxWidth()) }

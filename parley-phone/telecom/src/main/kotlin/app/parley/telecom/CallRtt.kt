@@ -56,7 +56,7 @@ data class RttUi(
 )
 
 /**
- * L3: RTT through Android's public `Call.RttCall`, which Telecom gives the default phone app's in-call service (no
+ * RTT through Android's public `Call.RttCall`, which Telecom gives the default phone app's in-call service (no
  * permission needed). Watches every call with a callback of its own (so [CallManager]'s stays as it is): whether its
  * calling account has `PhoneAccount.CAPABILITY_RTT`, requests both ways, mode changes and failures. While RTT is on,
  * one background thread per call reads the other side's characters (`read()` blocks until text comes or the stream
@@ -79,7 +79,7 @@ object CallRtt {
         /** The call's RTT stream now (for writing and the mode), or null while RTT is off. */
         var reading: Call.RttCall? = null
 
-        /** M1: the call's one reader thread, whichever `RttCall` object Telecom hands over. */
+        /** The call's one reader thread, whichever `RttCall` object Telecom hands over. */
         val reader = RttReader<Call.RttCall>()
         var number: String? = null
         var connectedAt = 0L
@@ -199,7 +199,7 @@ object CallRtt {
         typing = if (active) typing else "",
     )
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // Call.getState is the only one before Android 12.
     private fun stateOf(call: Call): Int = if (Build.VERSION.SDK_INT >= 31) call.details.state else call.state
 
     private fun accountSupportsRtt(w: Watched): Boolean {

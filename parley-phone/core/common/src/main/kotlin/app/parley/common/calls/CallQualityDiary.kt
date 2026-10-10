@@ -82,7 +82,7 @@ data class NumberQuality(
 )
 
 /**
- * I8, the call quality diary: drop rates per SIM and per network, patterns worth acting on, and the recent drops, from
+ * The call quality diary: drop rates per SIM and per network, patterns worth acting on, and the recent drops, from
  * the quality facts Parley keeps per call ([CallQualityFacts], 60 days). Patterns use only the person, the SIM, Wi-Fi
  * calling and the part of the day: Parley never knows where the phone was.
  */
@@ -146,7 +146,7 @@ object CallQualityDiary {
     private enum class Dim { WHO, SIM, NETWORK, DAY_PART }
 
     private class Candidate(val key: Key, val calls: List<DiaryCall>, val rate: DropRate, val dims: Int) {
-        /** The calls by identity (data-class hashing of every call, again and again, made the search slow; L9). */
+        /** The calls by identity (data-class hashing of every call, again and again, made the search slow). */
         val members: Set<DiaryCall> = identitySet(calls)
         val drops: List<DiaryCall> = calls.filter { it.facts.drop != null }
     }
@@ -200,7 +200,7 @@ object CallQualityDiary {
         }
         val part = IdentityHashMap<DiaryCall, DayPart>(calls.size * 2)
         calls.forEach { part[it] = DayPart.of(Instant.ofEpochMilli(it.facts.startedAt).atZone(zone).hour) }
-        // L9: the other calls' rate is the total less the group's, never a list rebuilt (and rehashed) per group.
+        // The other calls' rate is the total less the group's, never a list rebuilt (and rehashed) per group.
         val total = rateOf(calls)
         val grouped = subsets(dims).associateWith { groups(calls, it, part) }
 

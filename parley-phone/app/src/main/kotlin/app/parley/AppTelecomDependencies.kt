@@ -104,7 +104,7 @@ import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) :
     TelecomDependencies,
-    // I6: menu memory lives in its own bridge.
+    // Menu memory lives in its own bridge.
     MenuMemoryHooks by MenuMemoryBridge(app, c),
     // Case files too.
     CaseFileHooks by CaseFileBridge(app, c),
@@ -169,7 +169,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
-            // notifications), like an unknown caller, so nothing reveals it is in the vault (as for missed calls, F14).
+            // notifications), like an unknown caller, so nothing reveals it is in the vault (as for missed calls).
             if (c.settings.current().hideVault) return@withContext null
             // A private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
@@ -244,7 +244,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun driveProfile(): DriveProfileConfig = c.driveProfile.config.value
 
-    /** I11: a contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
+    /** A contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
     override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
         c.contacts.lookup(number) != null || c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) != null ||
             catching { c.archive.lookup(number, PhoneEnv.countryIso(app, accountId)) != null }.getOrDefault(false)
@@ -280,7 +280,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                     numberKey = PhoneIdentity.key(number, PhoneEnv.countryIso(app)), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
                 ),
             )
-            // I7: "they'll call back Tue" in a call note can expect that call, from that number only (a hidden or
+            // "they'll call back Tue" in a call note can expect that call, from that number only (a hidden or
             // unknown line opens nothing: the window would cover everyone).
             if (!number.isNullOrBlank() && id > 0) {
                 runCatching {
@@ -322,7 +322,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** "Decline & remind" and the post-call card's "Remind me": the To call list (I9). */
+    /** "Decline & remind" and the post-call card's "Remind me": the To call list. */
     override fun remindToCall(number: String, accountId: String?, at: Long) {
         c.scope.launch { runCatching { ToCallReminders.remind(app, number, accountId, at) } }
     }
@@ -404,15 +404,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** I2: "Block this range?" works from your own calls, gathered now (the call has ended). */
+    /** "Block this range?" works from your own calls, gathered now (the call has ended). */
     override suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = withContext(Dispatchers.IO) {
         if (!c.settings.current().screening.learnFromCalls) return@withContext null
         runCatching { ReputationLearner.proposeRange(c, number, accountId) }.getOrNull()
     }
 
     /**
-     * I2: a prefix rule for the range, written like "Block & decline"'s (its id lets the card undo it). It silences by
-     * default (L8): a range covers a thousand numbers, mostly strangers, and repeat callers never pass a rule.
+     * A prefix rule for the range, written like "Block & decline"'s (its id lets the card undo it). It silences by
+     * default: a range covers a thousand numbers, mostly strangers, and repeat callers never pass a rule.
      */
     override suspend fun blockRange(prefix: String, action: BlockAction): Long? = withContext(Dispatchers.IO) {
         val pattern = runCatching { RuleTools.check(prefix, RuleType.PREFIX, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
@@ -541,7 +541,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    // ---- "Check it's really them" (I3) ----
+    // ---- "Check it's really them" ----
 
     /** Parley's app lock is on and locked: the call screen lists no contacts then. */
     private fun appLocked(): Boolean = AppLock.locked.value && c.settings.settings.value.appLock
@@ -612,7 +612,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
 
-    // ---- Family safety (WP-8)
+    // ---- Family safety
 
     override suspend fun safeWordsFor(number: String?, accountId: String?): List<SafeWordPrompt> = withContext(Dispatchers.IO) {
         val words = runCatching { c.familySafety.safeWords() }.getOrDefault(emptyMap())
@@ -683,7 +683,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     /**
-     * I1: the best thing Parley remembers about [number] (not a contact), in words. The call screen shows it only while
+     * The best thing Parley remembers about [number] (not a contact), in words. The call screen shows it only while
      * the phone is unlocked; private sources only while the vault is unlocked and never in discreet mode.
      */
     override suspend fun numberMemory(number: String, accountId: String?): NumberMemoryLine? = withContext(Dispatchers.IO) {

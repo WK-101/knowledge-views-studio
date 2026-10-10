@@ -41,7 +41,7 @@ class CardDiffTest {
             listOf(
                 CardChange(CardField.COMPANY, "Acme", null, preselected = false),
                 CardChange(CardField.TITLE, null, "Boss", preselected = true),
-                // The card had no address before: Bo's own one stays, the card's is added beside it (M2).
+                // The card had no address before: Bo's own one stays, the card's is added beside it.
                 CardChange(CardField.ADDRESS, null, "2 Low St", preselected = true),
             ),
             changes,
@@ -65,7 +65,7 @@ class CardDiffTest {
         )
     }
 
-    // ---- M2: addresses are matched by the card's previous value.
+    // ---- Addresses are matched by the card's previous value.
 
     @Test fun the_users_own_address_is_never_replaced() {
         val b = before.copy(address = "5 Work Rd")
@@ -89,7 +89,7 @@ class CardDiffTest {
         assertTrue(CardDiff.changes(before, before.copy(company = "Acme Ltd"), before).single().preselected)
     }
 
-    // ---- M3: a part the new card doesn't share is unknown, not removed.
+    // ---- A part the new card doesn't share is unknown, not removed.
 
     @Test fun parts_left_out_of_a_share_are_not_removals() {
         val full = before.copy(websites = listOf("https://ana.example"), address = "1 High St")

@@ -17,7 +17,7 @@ import java.time.format.DateTimeParseException
  *
  * Properties (values are vCard text; times are RFC 3339 instants in UTC in the `X-WHEN` parameter):
  * - `X-PARLEY-PRIVATE:1`: a private contact; Parley imports it as private again.
- * - `X-PARLEY-ARCHIVED:1`: an archived contact; Parley imports it and archives it again.
+ * - `X-PARLEY-ARCHIVED:1`: an archived contact; Parley archives it again only from its own encrypted file.
  * - `X-PARLEY-NOTE-FOR-CALLS:<text>`: the note shown when they call.
  * - `X-PARLEY-CONTEXT:<text>`: a private contact's "who is this" line.
  * - `X-PARLEY-KEEP-IN-TOUCH:<days>`: in the Circle, every so many days.
@@ -51,13 +51,14 @@ data class CardNotes(
 
     /**
      * What an import of [record] keeps of these notes. Only a file locked with a passphrase ([fromSealed], an encrypted
-     * vCard) is known to come from Parley: any other card may come from anyone (a card sent in a messenger), so it keeps
-     * no more than whether it is private, which only ever keeps it out of the address book. Even then, a call note stays
+     * vCard) is taken as Parley's own: any other card may come from anyone (a card sent in a messenger), so it keeps
+     * no more than whether it is private, which only ever keeps it out of the address book. "Archived" is not kept: an
+     * archived contact is hidden yet trusted as saved ([ImportGuard]). Even from an encrypted file, a call note stays
      * only on one of the card's own numbers: a note never lands on a stranger's calls. [region] reads numbers written
      * without a country code.
      */
     fun forImport(record: ContactRecord, fromSealed: Boolean, region: String?): CardNotes {
-        if (!fromSealed) return CardNotes(private = private, archived = archived)
+        if (!fromSealed) return CardNotes(private = private)
         val own = record.raws.flatMap { it.rows }.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1] }
             .flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
         return copy(callNotes = callNotes.filter { it.line in own })

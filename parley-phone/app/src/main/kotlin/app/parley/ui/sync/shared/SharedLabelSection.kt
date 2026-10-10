@@ -118,7 +118,7 @@ internal object SharedLabelTexts {
         }
     }
 
-    /** A quiet note for a label that syncs, or null: files it can't read (M2), a header it doesn't follow (M3). */
+    /** A quiet note for a label that syncs, or null: files it can't read, a header it doesn't follow. */
     fun notice(res: Resources, s: SharedLabelState): String? = when {
         !SharedLabelMembership.syncs(s.membership) -> null
         s.headerWarning -> res.getString(R.string.shl_status_header)

@@ -3,7 +3,7 @@ package app.parley.common.calls
 import app.parley.common.PhoneIdentity
 
 /**
- * I3 "Check it's really them": end the call and dial the number saved for that person or organisation, since caller
+ * "Check it's really them": end the call and dial the number saved for that person or organisation, since caller
  * ID can be faked but a saved number reaches the real one. This picks which saved numbers to offer.
  */
 object VerifyCallBack {

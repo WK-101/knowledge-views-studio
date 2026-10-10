@@ -87,24 +87,24 @@ data class CallUi(
     val nativeName: String? = null,
     /** `elapsedRealtime` when this ringing call is answered automatically (0: it isn't); the screen shows Cancel. */
     val autoAnswerAt: Long = 0,
-    /** L10: the subject the caller sent with the call (cleaned, plain text), when the network passes it on. */
+    /** The subject the caller sent with the call (cleaned, plain text), when the network passes it on. */
     val subject: String? = null,
     /** The caller marked the call urgent (Call Composer). */
     val urgent: Boolean = false,
-    /** P1: why a ringing call rings although screening would otherwise have kept it quiet, in words. */
+    /** Why a ringing call rings although screening would otherwise have kept it quiet, in words. */
     val rangThrough: String? = null,
-    /** I7: the same line naming the note it came from ("note on Dentist"), shown only while the phone is unlocked. */
+    /** The same line naming the note it came from ("note on Dentist"), shown only while the phone is unlocked. */
     val rangThroughUnlocked: String? = null,
-    /** P5: the connected call dropped (set on the ended call only), and why, in words ("Lost signal · Wi-Fi calling"). */
+    /** The connected call dropped (set on the ended call only), and why, in words ("Lost signal · Wi-Fi calling"). */
     val drop: DropKind? = null,
     val dropText: String? = null,
-    /** I10: `elapsedRealtime` when "I'm on hold" started, or 0 when not in hold mode. */
+    /** `elapsedRealtime` when "I'm on hold" started, or 0 when not in hold mode. */
     val holdModeSince: Long = 0,
-    /** I2: looks like a sales line from your own calls (the quiet tag, "Why?", and "Block this range?" afterwards). */
+    /** Looks like a sales line from your own calls (the quiet tag, "Why?", and "Block this range?" afterwards). */
     val reputation: Reputation? = null,
-    /** I1: what Parley remembers about this number (not a contact), or null. */
+    /** What Parley remembers about this number (not a contact), or null. */
     val numberMemory: NumberMemoryLine? = null,
-    /** I11: a car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
+    /** A car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
     val driving: Boolean = false,
     /** The caller is one of your contacts or private contacts (not just a name the network sent with the call). */
     val savedCaller: Boolean = false,
@@ -158,11 +158,11 @@ data class CallUi(
     val canCallAgain: Boolean
         get() = drop != null && !hidden && !isEmergency && !number.isNullOrBlank() && !simulated
 
-    /** I3 "Check it's really them": a live, connected or ringing call that isn't an emergency call. */
+    /** "Check it's really them": a live, connected or ringing call that isn't an emergency call. */
     val canVerify: Boolean
         get() = isLive && !isEmergency && !isConference && state != CallState.SELECT_ACCOUNT && !simulated
 
-    /** I10 "I'm on hold" can start: a connected, active call. */
+    /** "I'm on hold" can start: a connected, active call. */
     val canHoldMode: Boolean
         get() = state == CallState.ACTIVE && !isEmergency && holdModeSince == 0L && !simulated
 

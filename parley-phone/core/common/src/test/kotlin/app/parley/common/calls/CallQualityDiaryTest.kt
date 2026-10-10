@@ -33,7 +33,7 @@ class CallQualityDiaryTest {
     }
 
     @Test fun a_large_history_is_searched_quickly() {
-        // L9: 60 days of heavy use: 20,000 calls with 2,000 people over two SIMs and Wi-Fi calling, and one real pattern.
+        // 60 days of heavy use: 20,000 calls with 2,000 people over two SIMs and Wi-Fi calling, and one real pattern.
         val calls = (0 until 20_000).map { i ->
             val who = "p${i % 2_000}"
             call(who, daysAgo = i % 59, hour = i % 24, sim = if (i % 3 == 0) "Work" else "Home", wifi = i % 5 == 0, drop = who == "p7" || i % 97 == 0)

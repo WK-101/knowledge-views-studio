@@ -44,7 +44,7 @@ import app.parley.ui.LinkRow
 import app.parley.ui.MenuRow
 import app.parley.ui.ParleyDialog
 
-/** Settings › Reminders › Birthdays and dates: how early date reminders come (R5), shown while they're on. */
+/** Settings › Reminders › Birthdays and dates: how early date reminders come, shown while they're on. */
 fun SegmentedGroupScope.dateLeadRow(vm: AppViewModel, cfg: CircleConfig, birthdays: Boolean) {
     if (birthdays) item("date_lead") {
         val options = CircleConfig.LEAD_CHOICES.map { d -> if (d == 0) stringResource(R.string.circle_lead_on_day) else pluralStringResource(R.plurals.circle_lead_days, d, d) }
@@ -55,7 +55,7 @@ fun SegmentedGroupScope.dateLeadRow(vm: AppViewModel, cfg: CircleConfig, birthda
 }
 
 /**
- * Settings › Reminders › Keep in touch: how the reminders arrive and the weekly cap (R4). [cfg] is read by the page,
+ * Settings › Reminders › Keep in touch: how the reminders arrive and the weekly cap. [cfg] is read by the page,
  * so the rows only exist when they apply.
  */
 fun SegmentedGroupScope.keepInTouchRows(vm: AppViewModel, cfg: CircleConfig, nudges: Boolean) {
@@ -74,7 +74,7 @@ fun SegmentedGroupScope.keepInTouchRows(vm: AppViewModel, cfg: CircleConfig, nud
     }
 }
 
-/** Settings › Contacts › Circle: "Log this?" after a chat or video call Parley opened (R3). */
+/** Settings › Contacts › Circle: "Log this?" after a chat or video call Parley opened. */
 fun SegmentedGroupScope.logPromptsRow(vm: AppViewModel, cfg: CircleConfig) = item("log_prompts") { LogPromptsRow(vm, cfg) }
 
 /** The People card in Insights and its "who reaches out first" part (Settings › Recents & history). */

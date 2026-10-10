@@ -28,12 +28,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Sharing My card (I14, I22): the vCard every share uses, signed with the card's key so a contact's Parley can tell a
+ * Sharing My card: the vCard every share uses, signed with the card's key so a contact's Parley can tell a
  * newer card from the same person, and the "Shared with" receipts.
  */
 object CardSharing {
     /**
-     * The one card every share signs (M4): My card with the phone's profile filling in what it lacks, read once the
+     * The one card every share signs: My card with the phone's profile filling in what it lacks, read once the
      * profile has loaded, so the QR code, the file, "Send my card" and the swap all sign the same content.
      */
     suspend fun shareable(c: DataContainer): MeCard =
@@ -66,7 +66,7 @@ object CardSharing {
 
     /**
      * Someone got your card: a "Shared with" receipt with the numbers it had. Nothing is recorded for an empty card.
-     * A private contact's number gets a receipt that names no one (M7): its name and number stay in the vault.
+     * A private contact's number gets a receipt that names no one: its name and number stay in the vault.
      */
     fun record(c: DataContainer, name: String, number: String?, method: ShareMethod, phones: List<String>) {
         if (name.isBlank() && number.isNullOrBlank()) return
@@ -80,7 +80,7 @@ object CardSharing {
 
     /**
      * "Shared with" as shown: private contacts' receipts get their name and number from the vault, and are left out in
-     * discreet mode or when the contact is gone (M7).
+     * discreet mode or when the contact is gone.
      */
     @Composable
     fun rememberShownReceipts(vm: AppViewModel): State<List<ShareReceipt>> {
@@ -89,7 +89,7 @@ object CardSharing {
         val receipts by store.receipts.collectAsStateWithLifecycle()
         val settings by vm.c.settings.settings.collectAsStateWithLifecycle()
         val discreet = settings.hideVault
-        // I21: after a duress unlock nobody is listed (who you gave your number to can matter as much as private contacts).
+        // After a duress unlock nobody is listed (who you gave your number to can matter as much as private contacts).
         val hidden = settings.duress != null
         return produceState(if (hidden) emptyList() else receipts.filter { it.contactKey == null }, receipts, discreet, hidden) {
             value = withContext(Dispatchers.IO) { shown(vm.c, receipts, discreet) }
@@ -126,7 +126,7 @@ object CardSharing {
         markShared(c)
     }
 
-    /** Your signed card reached someone (a swap, a file sent): its key is the one people now know (M5). */
+    /** Your signed card reached someone (a swap, a file sent): its key is the one people now know. */
     fun markShared(c: DataContainer) {
         c.scope.launch(Dispatchers.IO) { runCatching { c.people.cardIdentity.markShared() } }
     }

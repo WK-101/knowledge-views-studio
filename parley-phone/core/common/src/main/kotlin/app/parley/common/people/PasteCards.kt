@@ -21,7 +21,7 @@ internal object PasteCards {
 
     private class Names(val lines: List<Piece>, val locals: List<String>, val roleDomains: Set<String>, val domains: Set<String>)
 
-    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    @Suppress("CyclomaticComplexMethod", "LongMethod") // One step per field of the card, in order.
     fun build(pieces: List<Piece>): Card {
         val values = pieces.mapNotNull { it.field }
         val emails = values.filter { it.kind == Kind.EMAIL }.distinctBy { it.value.lowercase(Locale.ROOT) }

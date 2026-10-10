@@ -66,7 +66,7 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
             addPhone = a.addPhone,
             prefill = if (a.prefill) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
             vaultId = a.vault.takeIf { v -> v >= 0 },
-            // Taken once for this entry (L8), not on every recomposition.
+            // Taken once for this entry, not on every recomposition.
             pasteText = pasteText,
             done = { savedId ->
                 // A contact received by QR gets its "Met at…" entry once it's saved.

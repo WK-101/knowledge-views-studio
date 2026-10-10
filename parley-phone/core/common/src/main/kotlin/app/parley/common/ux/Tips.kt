@@ -36,19 +36,19 @@ object Tips {
     /** The sync watchdog, explained once in the Contact health check. */
     const val SYNC_WATCHDOG = "sync_watchdog"
 
-    /** I2: the "Looks like a sales line (your calls)" tag on the call screen, the first time it shows. */
+    /** The "Looks like a sales line (your calls)" tag on the call screen, the first time it shows. */
     const val REPUTATION_TAG = "reputation_tag"
 
     /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
     const val NUMBER_MEMORY = "number_memory"
 
-    /** I6: the in-call keypad's "Last time: 2 › 1 › 4" row, the first time it shows. */
+    /** The in-call keypad's "Last time: 2 › 1 › 4" row, the first time it shows. */
     const val MENU_MEMORY = "menu_memory"
 
-    /** I12: press and hold the keypad's Call pill (or a contact's Call) for "Call with a reason…". */
+    /** Press and hold the keypad's Call pill (or a contact's Call) for "Call with a reason…". */
     const val CALL_REASON = "call_reason"
 
-    // P18: one line on what a concept means, where it first appears (the names are fixed in docs/GLOSSARY.md).
+    // One line on what a concept means, where it first appears (the names are fixed in docs/GLOSSARY.md).
 
     /** A private contact's page: hidden from other apps, kept encrypted in Parley. */
     const val CONCEPT_PRIVATE = "concept_private"
@@ -74,7 +74,7 @@ object Tips {
     /** My card: shared cards are signed, so contacts with Parley get your updates; "Shared with" lists who has it. */
     const val SIGNED_CARD = "signed_card"
 
-    /** I11: "Drive profile on" on the call screen, the first time a marked car is connected during a call. */
+    /** "Drive profile on" on the call screen, the first time a marked car is connected during a call. */
     const val DRIVE_PROFILE = "drive_profile"
 
     /** Sonic caller ID: "Make a ringtone for …" on a contact's or a label's page, the first time it shows. */

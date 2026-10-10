@@ -72,21 +72,18 @@ class PeopleContainer(private val c: DataContainer) {
         }
     }
 
-    /** My card's id and signing key (I14). */
+    /** My card's id and signing key. */
     val cardIdentity by lazy { MyCardIdentity(c.appContext) }
 
-    /** "Shared with": who got your card (I22). */
+    /** "Shared with": who got your card. */
     val shareLedger by lazy { ShareLedgerStore(c.appContext) }
 
-    /** Contacts linked to their signed cards, and updates waiting (I14). */
+    /** Contacts linked to their signed cards, and updates waiting. */
     val cardLinks by lazy { CardLinkStore(c.appContext) }
 
     /** Opt-in local crash capture. */
     val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
-
-    /** True when any label has a ringtone, so incoming calls go through the path that plays it. */
-    fun hasLabelRingtones(): Boolean = prefs.settings.value.labelRingtones.isNotEmpty()
 
     /** Ringtone chosen for a label (by title), or null. */
     fun ringtoneForLabel(label: String): String? = prefs.settings.value.labelRingtones[label]

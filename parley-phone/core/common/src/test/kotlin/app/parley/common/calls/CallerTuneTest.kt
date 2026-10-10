@@ -88,7 +88,7 @@ class CallerTuneTest {
     }
 
     @Test fun names_with_the_same_short_hash_get_their_own_files() {
-        // L8: "aan" and "ac0" share String.hashCode, so the old 32-bit names collided and one got the other's tune.
+        // "aan" and "ac0" share String.hashCode, so the old 32-bit names collided and one got the other's tune.
         assertEquals("aan".hashCode(), "ac0".hashCode())
         assertNotEquals(CallerTune.fileName("Aan", 0), CallerTune.fileName("Ac0", 0))
         // Nor do a name and its variant meet another's (the old name was hash × 31 + variant).

@@ -40,7 +40,7 @@ class VaultTileService : TileService() {
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         } else {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The Intent form is the only one before Android 14.
             startActivityAndCollapse(intent)
         }
     }
@@ -58,7 +58,7 @@ class VaultTileService : TileService() {
         }
     }
 
-    /** Discreet mode as the switch is set: after a duress unlock the tile looks as it did before (I21). */
+    /** Discreet mode as the switch is set: after a duress unlock the tile looks as it did before. */
     private fun AppSettings.shownHidden() = duress?.hideVault ?: hideVault
 
     private fun render(hidden: Boolean) {
@@ -84,7 +84,7 @@ class DiscreetRevealActivity : ComponentActivity() {
         }
         val c = container
         lifecycleScope.launch {
-            // M6: with a Parley PIN set (a duress PIN or not), the phone's screen lock doesn't stand in for it: while
+            // With a Parley PIN set (a duress PIN or not), the phone's screen lock doesn't stand in for it: while
             // Parley is locked, it opens on its own lock screen instead, and discreet mode stays on until the user
             // turns it off from there.
             if (!c.appPin.load().deviceUnlocks && AppLock.locked.value) {

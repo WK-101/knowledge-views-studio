@@ -5,7 +5,7 @@ import app.parley.common.DuressView
 import app.parley.common.calls.LockScreenCaller
 
 /*
- * Duress unlock (I21). The threat model and the choices behind these rules are in docs/SECURITY_MODEL.md, "Duress
+ * Duress unlock. The threat model and the choices behind these rules are in docs/SECURITY_MODEL.md, "Duress
  * unlock". In short: a duress PIN opens Parley looking normal, with private contacts and the sensitive things listed in
  * [Concealed] out of sight, until the next unlock with the real Parley PIN. Nothing is deleted or changed on disk.
  */

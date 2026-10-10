@@ -35,8 +35,8 @@ import app.parley.ui.Spacing
 import app.parley.ui.rowColors
 
 /**
- * I11: "Drive profile on", a quiet line under the caller while a car the user marked is connected, with a one-line
- * explainer the first time (P18). Not a warning: icon and text in the calm secondary colour.
+ * "Drive profile on", a quiet line under the caller while a car the user marked is connected, with a one-line
+ * explainer the first time. Not a warning: icon and text in the calm secondary colour.
  */
 @Composable
 internal fun DriveStatusLine(call: CallUi?, keypadOpen: Boolean) {
@@ -60,7 +60,7 @@ internal fun DriveStatusLine(call: CallUi?, keypadOpen: Boolean) {
     }
 }
 
-/** I11: the "Driving" replies, first in the reply sheet while the car is connected. */
+/** The "Driving" replies, first in the reply sheet while the car is connected. */
 @Composable
 internal fun DrivingReplies(call: CallUi, onSent: () -> Unit) {
     if (!call.driving) return

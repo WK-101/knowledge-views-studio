@@ -32,7 +32,7 @@ data class MenuState(
 )
 
 /**
- * I6 menu memory, an offline "Direct My Call": Parley sends every DTMF tone itself, so it can remember which keys were
+ * Menu memory, an offline "Direct My Call": Parley sends every DTMF tone itself, so it can remember which keys were
  * pressed in a call to a number and when, offer them again next time ("Last time: 2 › 1 › 4", one tap replays them
  * with the same pauses), and save them as a shortcut that dials `number,,2,1,4`.
  *
@@ -227,7 +227,7 @@ object MenuMemory {
     }
 
     /**
-     * L3: whether a replay may send its next key: the call is still the active one, on its own. Merged into a
+     * Whether a replay may send its next key: the call is still the active one, on its own. Merged into a
      * conference the keys would reach everyone in it; with another call active they would go to a held call's menu.
      */
     fun replayGoesOn(active: Boolean, inConference: Boolean, otherActive: Boolean): Boolean = active && !inConference && !otherActive

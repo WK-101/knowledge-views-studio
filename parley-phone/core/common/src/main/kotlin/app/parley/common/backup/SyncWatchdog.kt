@@ -55,7 +55,7 @@ data class WatchAccounts(
 )
 
 /**
- * The sync watchdog (I13): from the daily snapshot diff and the accounts, tells a large unexplained loss apart from
+ * The sync watchdog: from the daily snapshot diff and the accounts, tells a large unexplained loss apart from
  * the user's own changes. Losses Parley made itself (journaled deletes, edits and merges) and contacts that only
  * changed key (re-joined, re-synced) never count; small losses never count either, so it only speaks up when it
  * matters: "142 contacts vanished from Google since yesterday", an account that emptied or was removed, sync turned

@@ -163,7 +163,7 @@ suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long
             vm.c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
             initial.id
         }
-        // I7: "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
+        // "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
         if (entry != null) {
             runCatching {
                 ExpectedCallHints.noteSaved(vm.c, d.displayName, note, ExpectedCallHints.loggedKey(entry), privateName = ContactRef.isPrivateKey(d.lookupKey))
@@ -284,7 +284,7 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
         is TimelineEntry.Logged -> LoggedRow(e, interactions.firstOrNull { it.id == e.id }, onEdit) { item ->
             scope.launch {
                 val gone = vm.c.circle.interactions.delete(item.id) ?: return@launch
-                // I7: a deleted note no longer expects a call (Undo brings the entry back under a new id, and its window).
+                // A deleted note no longer expects a call (Undo brings the entry back under a new id, and its window).
                 runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.loggedKey(item.id)) }
                 CircleSnacks.show(
                     CircleSnack(res.getString(R.string.circle_entry_deleted)) {

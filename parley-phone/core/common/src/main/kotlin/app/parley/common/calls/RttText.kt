@@ -7,7 +7,7 @@ enum class RttSide { THEM, ME }
 data class RttBubble(val side: RttSide, val text: String, val open: Boolean)
 
 /**
- * L3: an RTT (real-time text) conversation assembled from the two character streams. RTT sends every character as it
+ * An RTT (real-time text) conversation assembled from the two character streams. RTT sends every character as it
  * is typed (T.140): a backspace (U+0008) takes back the last character, a line break (LF, CR LF, or T.140's U+2028)
  * ends a message, U+FEFF is a keep-alive. Each side has at most one open message; their next character goes into it,
  * wherever it sits, so both people can type at once. A backspace with nothing open takes back the line break and

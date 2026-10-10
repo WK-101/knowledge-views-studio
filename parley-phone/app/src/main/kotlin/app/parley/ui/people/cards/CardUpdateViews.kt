@@ -103,7 +103,7 @@ object CardUpdateText {
 }
 
 /**
- * On a contact's page (I14): a held card about this contact is offered to link ("Link it?") or shown as a different
+ * On a contact's page: a held card about this contact is offered to link ("Link it?") or shown as a different
  * signer, never linked by itself (H1); and when a newer card from the linked key waits, "Ana sent an updated card: new
  * number" with Review. Nothing is applied until the user chooses. [key] is the contact's Parley key; [navId] its page id.
  */
@@ -142,7 +142,7 @@ fun CardUpdateBanner(vm: AppViewModel, navId: Long, key: String, details: Contac
 
 /**
  * A held card about the contact on screen: "Link it?" for a contact without a link, the different-signer warning with
- * "Trust the new card" for one linked to another card or key (H1, L3).
+ * "Trust the new card" for one linked to another card or key (H1).
  */
 @Composable
 private fun HeldCardBanner(vm: AppViewModel, key: String, name: String, linkedFingerprint: String?, offer: HeldOffer) {
@@ -168,7 +168,7 @@ private fun HeldCardBanner(vm: AppViewModel, key: String, name: String, linkedFi
     if (trust) TrustNewCardDialog(name, linkedFingerprint, held.fingerprint, onConfirm = { trust = false; linkIt() }, onDismiss = { trust = false })
 }
 
-/** "Trust the new card for Ana?" with both keys, so the user can compare them with Ana (H1, L3). */
+/** "Trust the new card for Ana?" with both keys, so the user can compare them with Ana (H1). */
 @Composable
 private fun TrustNewCardDialog(name: String, linked: String?, new: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     ConfirmDialog(
@@ -183,7 +183,7 @@ private fun TrustNewCardDialog(name: String, linked: String?, new: String, onCon
 
 /**
  * The changes, each with its tick: what the card itself changed is ticked; the name, removals and replacements of a
- * value the user wrote themselves never are (H1, M2). Apply or Ignore.
+ * value the user wrote themselves never are (H1). Apply or Ignore.
  */
 @Composable
 private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: String, fingerprint: String, changes: List<CardChange>, onDone: () -> Unit) {
@@ -243,7 +243,7 @@ private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: S
 /**
  * What the signed cards in something just received mean (a scanned code, an opened file, pasted text): one line each,
  * with "Open" for an update waiting on a contact's page, "Link" for a first card (H1) and "Trust the new card" for a
- * different signer. A note says when the same text also holds cards without a signature (M1). Nothing shows for an
+ * different signer. A note says when the same text also holds cards without a signature. Nothing shows for an
  * ordinary vCard.
  */
 @Suppress("CyclomaticComplexMethod") // One line per kind of result.
@@ -307,7 +307,7 @@ fun CardArrivalNotes(vm: AppViewModel, text: String?, onOpen: (() -> Unit)? = nu
 /** Signed cards are a few kB; larger files (whole address books) are imported without the check. */
 private const val SIGNED_CHECK_MAX = 2L shl 20
 
-/** The text of the file at [uri] when it may hold a signed card (I14), for [CardArrivalNotes]; null otherwise. */
+/** The text of the file at [uri] when it may hold a signed card, for [CardArrivalNotes]; null otherwise. */
 @Composable
 fun rememberSignedCardText(vm: AppViewModel, uri: Uri): State<String?> = produceState<String?>(null, uri) {
     value = withContext(Dispatchers.IO) {

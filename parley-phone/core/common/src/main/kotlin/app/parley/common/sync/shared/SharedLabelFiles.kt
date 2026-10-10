@@ -185,7 +185,7 @@ object SharedLabelFiles {
      * A contact file read from [fileName], checked: well formed, its sid matching its name, its signature valid for
      * its author over this label and name. Null otherwise. Whether the author is a member is the caller's question.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // Every check of a signed card in one place, each failing to null.
     fun readCard(labelId: String, fileName: String, bytes: ByteArray): CardFile? {
         val (body, sig) = unwrap(bytes) ?: return null
         val f = runCatching {
@@ -305,7 +305,7 @@ object SharedLabelFiles {
     }
 
     /** A journal read from [fileName], checked: well formed, named after its member, signed by them. Null otherwise. */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // Every check of a signed journal in one place, each failing to null.
     fun readJournal(labelId: String, fileName: String, bytes: ByteArray): Journal? {
         val (body, sig) = unwrap(bytes) ?: return null
         val j = runCatching {

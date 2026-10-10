@@ -31,7 +31,7 @@ class CallQualityStore private constructor(context: Context, keys: SealedLineSto
     fun forNumber(number: String?): List<CallQualityFacts> = store.forNumber(number)
 
     /**
-     * Every row as (line key, facts), newest first, for the quality diary (I8). The key is the keyed fingerprint of the
+     * Every row as (line key, facts), newest first, for the quality diary. The key is the keyed fingerprint of the
      * line, never the number: [keyOf] gives a known number's key to match it.
      */
     fun all(): List<Pair<String, CallQualityFacts>> = store.all()

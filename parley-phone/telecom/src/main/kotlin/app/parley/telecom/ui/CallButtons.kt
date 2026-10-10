@@ -105,7 +105,7 @@ internal data class ControlSpec(
     val toggle: Boolean = false,
     val active: Boolean = false,
     val enabled: Boolean = true,
-    /** P6: a press and hold (Speaker opens the audio output list), with what TalkBack says it does. */
+    /** A press and hold (Speaker opens the audio output list), with what TalkBack says it does. */
     val onLongClick: (() -> Unit)? = null,
     val longClickLabel: String? = null,
     val onClick: () -> Unit,

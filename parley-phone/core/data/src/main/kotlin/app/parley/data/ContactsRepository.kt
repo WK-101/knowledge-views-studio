@@ -46,7 +46,6 @@ import app.parley.common.people.NativeNames
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
-import app.parley.common.record.NewContactAccount
 import app.parley.common.record.WorkRow
 import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
@@ -380,11 +379,11 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         return rows.mapValues { ContactText.blankContactName(it.value) }
     }
 
-    /** Every contact straight from the provider, without waiting for [contacts] to load (e.g. in a worker, F17). */
+    /** Every contact straight from the provider, without waiting for [contacts] to load (e.g. in a worker). */
     suspend fun snapshot(): List<ContactSummary> = contacts.value ?: withContext(Dispatchers.IO) { loadAll() }
 
     /**
-     * Fast indexed lookup used on incoming calls. I9: when this user has a work profile, the enterprise lookup is
+     * Fast indexed lookup used on incoming calls. When this user has a work profile, the enterprise lookup is
      * used, which also finds work contacts when the work profile's policy allows caller ID across profiles (personal
      * contacts come first). If that fails (policy, older OEM builds) the personal lookup is used, as before.
      */
@@ -438,7 +437,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 starred = !strict && c.getInt(8) != 0,
             )
         } ?: return null
-        // M3: the enterprise lookup isn't asked for the star, so a personal contact it found ("personal contacts come
+        // The enterprise lookup isn't asked for the star, so a personal contact it found ("personal contacts come
         // first") reads it from its own row; without this every favourite looks unstarred on a phone with a work profile.
         return if (strict && !found.work) found.copy(starred = starredOf(found.contactId)) else found
     }
@@ -695,9 +694,6 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     fun systemDefaultAccount(): AccountRef? = DeviceAccounts.newContacts(context).cloudInstead
 
-    /** The account a new contact asked for [requested] really goes to, and whether Android redirected it. */
-    fun newContactTarget(requested: AccountRef?): NewContactAccount.Decision<AccountRef> = DeviceAccounts.newContacts(context).decide(requested)
-
     /** Whether new data can be written to raw contacts of [account]. */
     fun isWritableAccount(account: AccountRef): Boolean = isWritable(account, writableTypes(), localAccount())
 
@@ -933,7 +929,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val rawId = target.rawId
         val finalRawId = rawId ?: results.firstOrNull { it.uri != null }?.uri?.let { ContentUris.parseId(it) } ?: return null
         // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
-        // (AOSP does the same, F24). The person stays if another copy has details.
+        // (AOSP does the same). The person stays if another copy has details.
         if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
             val others = original?.rawContacts.orEmpty().map { it.id }.filter { it != rawId }
             cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
@@ -1056,13 +1052,6 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     /** The raw contact edits go to, and every writable raw contact of [contactId]. */
     suspend fun writableRaws(contactId: Long): Pair<Long?, List<Long>> =
         details(contactId)?.let { it.editRawId to it.writableRawIds } ?: (null to emptyList())
-
-    /** Deletes without a journal entry: moving a contact into the vault must leave no plaintext copy behind. */
-    suspend fun deleteUnjournaled(contactIds: Collection<Long>) {
-        withContext(Dispatchers.IO + NonCancellable) {
-            cr.applyInBatches(contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)) })
-        }
-    }
 
     /**
      * Deletes contacts, any number of them, journaled first. Once the undo copies are kept the delete always runs to
@@ -1208,7 +1197,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }.isSuccess
     }
 
-    /** AggregationExceptions for every pair, in batches small enough for the provider (F16: 33+ copies failed). */
+    /** AggregationExceptions for every pair, in batches small enough for the provider (33+ copies failed). */
     private fun setAggregation(raws: List<Long>, type: Int) {
         if (raws.size < 2) return
         val ops = Batches.pairs(raws).map { (a, b) ->

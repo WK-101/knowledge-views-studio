@@ -54,16 +54,16 @@ import kotlinx.coroutines.withContext
 /** A remembered line, ready to show: its text and what its button does (with where it goes, resolved). */
 private class Shown(val hint: MemoryHint, val text: String, val action: MemoryAction?, val noteTarget: Destination?)
 
-/** P12: the keypad's results row for a typed number no contact has ("Not in contacts" and what Parley remembers). */
+/** The keypad's results row for a typed number no contact has ("Not in contacts" and what Parley remembers). */
 @Composable
 fun KeypadNumberMemory(vm: AppViewModel, number: String, open: (Destination) -> Unit) = NumberMemoryNote(vm, number, NumberMemory.Place.KEYPAD, open)
 
-/** I1: the line in a number's history header, for a number that isn't a contact. */
+/** The line in a number's history header, for a number that isn't a contact. */
 @Composable
 fun HistoryNumberMemory(vm: AppViewModel, number: String, open: (Destination) -> Unit) = NumberMemoryNote(vm, number, NumberMemory.Place.HISTORY, open)
 
 /**
- * I1 / P12 number memory in the app: what Parley remembers about [number] (not a contact), as one quiet line with its
+ * Number memory in the app: what Parley remembers about [number] (not a contact), as one quiet line with its
  * action (Restore contact, Open note, Open snapshot…). [NumberMemory.Place.KEYPAD] is a results row under "Not in
  * contacts" (looked up once typing pauses); [NumberMemory.Place.HISTORY] a centred line in the number's history header.
  * Nothing shows when Parley remembers nothing. The first time, a one-line tip says what it is.

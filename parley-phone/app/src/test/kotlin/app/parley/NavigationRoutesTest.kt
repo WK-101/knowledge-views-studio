@@ -132,7 +132,7 @@ class NavigationRoutesTest {
     }
 
     @Test fun pastedTextOpensOnlyTheEditorItWasHandedTo() {
-        // L8: without the id PasteInbox gave the text, the action opens nothing.
+        // Without the id PasteInbox gave the text, the action opens nothing.
         assertNull(resolve(IntentRoutes.ACTION_PASTE_CONTACT))
         val dest = Routes.edit(paste = "id-1")
         assertEquals(dest, routeOf(resolve(IntentRoutes.ACTION_PASTE_CONTACT) { putExtra(IntentRoutes.EXTRA_PASTE_ID, "id-1") }))

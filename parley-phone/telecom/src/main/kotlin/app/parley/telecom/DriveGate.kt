@@ -18,7 +18,7 @@ import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.DriveProfileConfig
 
 /**
- * The drive profile on the call path (I11; [DriveProfile] decides). Whether a marked car is connected is read from
+ * The drive profile on the call path ([DriveProfile] decides). Whether a marked car is connected is read from
  * the audio outputs (a car's hands-free and media links are Bluetooth outputs with its address; BLUETOOTH_CONNECT is
  * already held; without it Android 14+ shows only the last two bytes, see [DriveProfile.connectedCar]), so nothing runs in the background and the profile is off the moment the car disconnects. While it
  * is on: the caller's name is said once through the car, the auto-answer scope is handed to [AutoAnswerGate], and
@@ -28,7 +28,7 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
     private var checkedAt = -1L
     private var car: CarDevice? = null
 
-    /** M2: the marked car connected through an output that carries calls (hands-free), checked with [car]. */
+    /** The marked car connected through an output that carries calls (hands-free), checked with [car]. */
     private var callCar: CarDevice? = null
 
     /** Calls the drive profile silenced (the status pill says why). */
@@ -58,7 +58,7 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
     fun driving(context: Context): Boolean = car(context) != null
 
     /**
-     * The drive profile's auto-answer scope now, or null. M2: only while the car carries calls (hands-free connected),
+     * The drive profile's auto-answer scope now, or null. Only while the car carries calls (hands-free connected),
      * never on a media-only link, which would leave the answered call on the phone's earpiece. Asked at arming time and
      * again at the deadline.
      */

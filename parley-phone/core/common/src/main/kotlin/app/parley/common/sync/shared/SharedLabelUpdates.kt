@@ -176,7 +176,7 @@ object SharedLabelUpdates {
         return read(plain, labelId, epoch)?.let(Opened::Ok) ?: Opened.Damaged
     }
 
-    @Suppress("CyclomaticComplexMethod", "ReturnCount")
+    @Suppress("CyclomaticComplexMethod", "ReturnCount") // Every check of a signed update in one place, each failing to null.
     private fun read(plain: ByteArray, labelId: String, epoch: Int): LabelUpdate? = runCatching {
         val signed = json.parseToJsonElement(String(Bounded.gunzip(plain, MAX_EXPANDED, "label update"), Charsets.UTF_8)).jsonObject
         val body = signed.str("body") ?: return null

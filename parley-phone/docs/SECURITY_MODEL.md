@@ -135,7 +135,19 @@ until then they stay readable. Backups contain the decrypted text inside the alr
   passphrase key wrap (scrypt, AES-256-GCM STREAM). The passphrase must reach "Strong", like a backup's, since the file
   allows offline guessing. Nothing new was invented: the same reviewed envelope code as backups.
 - **Import.** A card marked `X-PARLEY-PRIVATE` becomes a private contact again and never touches the address book; if
-  private contacts are locked it is reported as not imported rather than imported visible. The passphrase is checked
+  private contacts are locked it is reported as not imported rather than imported visible.
+- **A plain card can't plant a hidden or trusted contact** (`ImportGuard`). Anyone can write a vCard, QR code or CSV,
+  so a plain one is imported without: archived (hidden from the lists yet a saved contact for screening, the family
+  shield and scam help), favourite (rings through Do Not Disturb), straight to voicemail, a ringtone (a `content:`
+  address the system would open), and data rows of any kind but Android's own, Parley's and Google's custom field (a
+  messenger's kind would point its actions at the card's numbers). Notes for calls, call notes and the Circle were
+  already taken only from encrypted files. Before the import, the dialog lists what it leaves out. A scanned card's
+  result sheet can tick favourite, voicemail and ringtone back on, one card at a time. Only Parley's own encrypted vCard
+  (or a backup) keeps them all. An encrypted vCard is still taken as Parley's own: the format is public, so someone
+  who sends one with its passphrase can set these flags; signing exports with My card's key would close that.
+- **Bounded first look.** Before an import is confirmed, Parley reads the file once for its size, private cards and
+  flags through `Bounded.LineReader`, stopping at 128 M characters, one 1 MB line or 200,000 cards, so a share that
+  streams an endless line can't exhaust the memory of the process that also hosts the call screen. The passphrase is checked
   before anything is written, a backup picked by mistake is recognised, and passphrases live only in memory and are
   wiped after use.
 

@@ -142,7 +142,7 @@ object CallManager {
 
     private val callback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
-            // I11: the caller's name is never said over a call that stopped ringing.
+            // The caller's name is never said over a call that stopped ringing.
             if (state != Call.STATE_RINGING) drive.quiet(idOf(call))
             keys.checkReplay()
             publish()
@@ -202,7 +202,7 @@ object CallManager {
             // Screening has answered: a known caller's call may now be armed for auto-answer.
             calls.firstOrNull { sessions[idOf(it)]?.screening == false && ringing(it) }?.let { c ->
                 considerAutoAnswer(c)
-                // I11: a contact whose name waited for the verdict.
+                // A contact whose name waited for the verdict.
                 val s = session(idOf(c))
                 s.info?.let { if (::appContext.isInitialized) announceInCar(c, s, it) }
             }
@@ -313,7 +313,7 @@ object CallManager {
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
                     if (looked && calls.contains(call)) s.noContact = true
-                    // I1: what Parley remembers about the number, after the call is up (never delays the ringing).
+                    // What Parley remembers about the number, after the call is up (never delays the ringing).
                     if (looked) rememberNumber(call, s, number, accountId)
                     if (incoming) {
                         s.unknownCaller = true
@@ -355,7 +355,7 @@ object CallManager {
         }
     }
 
-    /** I11: in the car, the caller's name once through its speakers (a contact, or a private contact discreet mode shows). */
+    /** In the car, the caller's name once through its speakers (a contact, or a private contact discreet mode shows). */
     private fun announceInCar(call: Call, s: CallSession, found: CallerDisplay) {
         // Screening first: a blocked or flagged contact isn't announced (the verdict calls this again).
         if (!ringing(call) || s.screening) return
@@ -371,14 +371,14 @@ object CallManager {
                 emergency = EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency.facts(call, number, incoming = true)),
                 quiet = s.silenced || s.systemSilenced,
             ),
-            // L2: under Do Not Disturb's Priority, a caller it lets through (a favourite) is still announced.
+            // Under Do Not Disturb's Priority, a caller it lets through (a favourite) is still announced.
             handle = call.details.handle,
             starred = found.favourite,
         )
     }
 
     /**
-     * I11: in the car, with "Silence unknown callers" on, a caller who is neither a contact nor a private contact rings
+     * In the car, with "Silence unknown callers" on, a caller who is neither a contact nor a private contact rings
      * silently (still a missed call). Never an emergency call-back or a call screening let through on purpose; a
      * number that can't be checked in time rings. Returns whether it silenced the call.
      */
@@ -429,7 +429,7 @@ object CallManager {
         }
     }
 
-    /** I1: looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
+    /** Looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
     private fun rememberNumber(call: Call, s: CallSession, number: String, accountId: String?) {
         scope.launch {
             val line = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
@@ -711,7 +711,7 @@ object CallManager {
     private fun answered(id: String) {
         session(id).answeredByUser = true
         CallClock.haptic(CallHaptic.ANSWER)
-        // L3: "Answer with RTT" asks to switch once the call is up.
+        // "Answer with RTT" asks to switch once the call is up.
         CallRtt.onAnswered(id)
     }
 
@@ -915,13 +915,13 @@ object CallManager {
         publish()
     }
 
-    // ---- Hold mode (I10, [HoldModeControl]) ----
+    // ---- Hold mode ([HoldModeControl]) ----
 
     fun startHoldMode(id: String) = holdMode.start(id)
 
     fun stopHoldMode(id: String) = holdMode.stop(id)
 
-    // ---- Call again, and calling a saved number back (P5, I3) ----
+    // ---- Call again, and calling a saved number back ----
 
     /** Dismiss (or Call again) on the "Call dropped" card: it stays gone. */
     /** After a drop: a SIM that has gone better for this person, shown on the "Call dropped" card once it's known. */
@@ -950,7 +950,7 @@ object CallManager {
     }
 
     /**
-     * I3 "Check it's really them": ends the call [id] (declines it while it rings) and, once it's gone, dials [number],
+     * "Check it's really them": ends the call [id] (declines it while it rings) and, once it's gone, dials [number],
      * the number saved for who the caller said they were. Runs here rather than on the screen, which closes as the
      * call ends. [onProblem] hears why the new call couldn't be placed.
      */
@@ -1027,7 +1027,7 @@ object CallManager {
         find(childId)?.splitFromConference()
     }
 
-    // ---- The keypad and menu memory (I6, [MenuKeys]) ----
+    // ---- The keypad and menu memory ([MenuKeys]) ----
 
     /** One short DTMF tone (hardware keys, accessibility). */
     fun playDtmf(id: String, c: Char) = keys.play(id, c)
@@ -1157,7 +1157,7 @@ object CallManager {
     /** How long "This number never calls you" may take once the caller is known, before it is left out. */
     private const val NEVER_CALLS_TIMEOUT_MS = 1500L
 
-    /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
+    /** How long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
     private const val SCREEN_GRACE_MS = 500L
     private const val SCREEN_POLL_MS = 50L
 

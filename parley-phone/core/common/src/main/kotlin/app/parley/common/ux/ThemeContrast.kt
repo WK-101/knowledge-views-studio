@@ -5,7 +5,7 @@ import kotlin.math.roundToInt
 
 /**
  * Contrast of the colour roles Parley's screens pair, checked on the brand schemes' real values (core:ui's tests) and
- * on dynamic colour by *tone* (P16). Material's dynamic colour builds every role from a tonal palette of the wallpaper's
+ * on dynamic colour by *tone*. Material's dynamic colour builds every role from a tonal palette of the wallpaper's
  * colours, and a role is always the same tone (primary is tone 40 in light, 80 in dark…). Tone is CIE L*, which fixes
  * the luminance whatever the hue and chroma, so the contrast of each pair is the same for every wallpaper: checking
  * the tones covers all of them.

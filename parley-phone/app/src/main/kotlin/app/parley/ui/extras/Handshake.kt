@@ -109,7 +109,7 @@ private fun CheckLine(text: String, checked: Boolean, onChange: (Boolean) -> Uni
 
 /**
  * "Swap": your own card as a QR code (the Me card's dialog), shown right after theirs arrived. [to] is the person whose
- * card just arrived (name, number): showing them yours goes into "Shared with" (I22).
+ * card just arrived (name, number): showing them yours goes into "Shared with".
  */
 @Composable
 fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismiss: () -> Unit) {
@@ -125,7 +125,7 @@ fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismis
             dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
-        // Their card arrived and yours is on screen for them: a swap, so your card's key now counts as shared (M5).
+        // Their card arrived and yours is on screen for them: a swap, so your card's key now counts as shared.
         if (to != null) {
             LaunchedEffect(to) {
                 CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, MeCardDetails.toCard(merged).phones)

@@ -9,7 +9,7 @@ import app.parley.container
 import kotlinx.coroutines.launch
 
 /**
- * Reminder notification actions that need no screen (R4 "Not now", R5 "Mark as wished"). Not exported; the pending
+ * Reminder notification actions that need no screen ("Not now", "Mark as wished"). Not exported; the pending
  * intents are explicit and immutable.
  */
 class CircleActionReceiver : BroadcastReceiver() {

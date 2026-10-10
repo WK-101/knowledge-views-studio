@@ -130,7 +130,7 @@ object MissedCallNotifier {
                         ),
                     )
                 }
-                // Android shows three actions. P3: "Remind me" (the To call list) takes the place of "Message or call
+                // Android shows three actions. "Remind me" (the To call list) takes the place of "Message or call
                 // on…" for numbers that aren't contacts, where Block matters more; never for a number that looks
                 // like a scam.
                 if (d.isContact || risky) {

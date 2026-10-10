@@ -277,13 +277,16 @@ fun forgetScannedCard(context: Context, uri: Uri) {
     File(File(context.cacheDir, "share"), SCANNED_CARD).delete()
 }
 
-/** Writes [vcard] to the share folder so the importer can read it (all cards, every field). */
-private fun importVcard(context: Context, vm: AppViewModel, vcard: String) {
+/**
+ * Writes [vcard] to the share folder so the importer can read it (all cards, every field). [keep] are the flags the
+ * user ticked on: the importer leaves the rest out of a plain card ([app.parley.common.vcard.ImportGuard]).
+ */
+private fun importVcard(context: Context, vm: AppViewModel, vcard: String, keep: Set<ScannedCard.Flag>) {
     runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val f = File(dir, SCANNED_CARD)
         f.writeText(vcard)
-        vm.navigate(NavEvent.ImportVcf(FileProvider.getUriForFile(context, context.packageName + ".files", f)))
+        vm.navigate(NavEvent.ImportVcf(FileProvider.getUriForFile(context, context.packageName + ".files", f), keep))
     }.onFailure { vm.toast(context.getString(R.string.qs_import_failed)) }
 }
 
@@ -297,9 +300,9 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    // A signed card (I14): an update for a contact who has it, linked, or a warning when its signature doesn't hold.
+    // A signed card: an update for a contact who has it, linked, or a warning when its signature doesn't hold.
     if (p.format == ContactFormat.VCARD) CardArrivalNotes(vm, p.raw, onOpen = onDismiss)
-    // Scanned right after showing your own code: a QR swap, for "Shared with" (I22).
+    // Scanned right after showing your own code: a QR swap, for "Shared with".
     LaunchedEffect(p) {
         p.records.singleOrNull()?.let { r ->
             val d = RecordDetails.toDetails(r)
@@ -330,12 +333,12 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
         }
         Action(pluralStringResource(R.plurals.qs_import_all, p.records.size, p.records.size), Icons.Rounded.FileDownload, primary = true) {
             onDismiss()
-            importVcard(context, vm, vcard)
+            importVcard(context, vm, vcard, allowed)
         }
         return
     }
     if (p.records.size > 1) TextButton({ selected = -1 }) { Text(stringResource(R.string.qs_back_to_list)) }
-    ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) vcard else null)
+    ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) vcard else null, keep = allowed)
 }
 
 /** "This card also asks to: …", each off until ticked. */
@@ -376,7 +379,14 @@ private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed:
 private fun nameOf(r: ContactRecord, d: ContactDetails): String = r.displayName.ifBlank { d.composedName.ifBlank { d.company } }
 
 @Composable
-private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onDismiss: () -> Unit, open: (Destination) -> Unit, allCardsVcard: String?) {
+private fun ColumnScope.ContactCard(
+    vm: AppViewModel,
+    record: ContactRecord,
+    onDismiss: () -> Unit,
+    open: (Destination) -> Unit,
+    allCardsVcard: String?,
+    keep: Set<ScannedCard.Flag>,
+) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -452,7 +462,7 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
         Note(stringResource(R.string.qs_hidden_fields))
         Action(stringResource(R.string.qs_import_as_is), Icons.Rounded.FileDownload) {
             onDismiss()
-            importVcard(context, vm, allCardsVcard)
+            importVcard(context, vm, allCardsVcard, keep)
         }
     }
 }

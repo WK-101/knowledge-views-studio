@@ -2,7 +2,7 @@ package app.parley.common
 
 /**
  * The "last messaged" record (which numbers you opened a chat with through Parley, and when), as pure logic.
- * Entries are keyed by [PhoneIdentity.key]; records written before F7 were keyed by the last 9 digits and are
+ * Entries are keyed by [PhoneIdentity.key]; records written before keys became E.164 were keyed by the last 9 digits and are
  * read through [PhoneIdentity.fallbackKey] until [rekeyLegacy] moves them.
  */
 data class MessagedEntry(
@@ -62,7 +62,7 @@ object MessagedRecord {
     fun prune(entries: List<MessagedEntry>, before: Long): List<MessagedEntry> = entries.filter { it.at >= before }
 
     /**
-     * Entries kept from before F7 (no number, keyed by the last digits) moved to the line key [plan] maps those digits
+     * Entries kept from before E.164 keys (no number, keyed by the last digits) moved to the line key [plan] maps those digits
      * to ([PhoneKeyMigration.plan]); where the line already has an entry, the newer of the two stays.
      */
     fun rekeyLegacy(entries: List<MessagedEntry>, plan: Map<String, String>): List<MessagedEntry> {
@@ -75,7 +75,7 @@ object MessagedRecord {
     }
 
     /**
-     * The last digits of the entries kept from before F7, in the form [PhoneKeyMigration.plan] resolves, so they are
+     * The last digits of the entries kept from before E.164 keys, in the form [PhoneKeyMigration.plan] resolves, so they are
      * re-keyed even when no other stored row has the same digits.
      */
     fun legacyDigits(entries: List<MessagedEntry>): List<String> =

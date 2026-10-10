@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Settings › Calls › Drive profile (I11): the cars and what happens while one is connected. A small JSON document in
+ * Settings › Calls › Drive profile: the cars and what happens while one is connected. A small JSON document in
  * its own preferences file, read once and kept in memory, so the call path reads it without waiting on disk. The
  * cars' Bluetooth addresses stay on this phone (not in backups: a new phone pairs again).
  */
@@ -41,7 +41,7 @@ class DriveProfileRepository(context: Context) {
 }
 
 /**
- * Settings › Calls › Abroad (L6): assisted dialling and the local-SIM hint, the trip the hint was last shown for, and
+ * Settings › Calls › Abroad: assisted dialling and the local-SIM hint, the trip the hint was last shown for, and
  * each SIM's home and network country as telephony reports them now (READ_PHONE_STATE, already held).
  */
 // Telephony calls here are covered by READ_PHONE_STATE and the default-dialer role; each one handles SecurityException.

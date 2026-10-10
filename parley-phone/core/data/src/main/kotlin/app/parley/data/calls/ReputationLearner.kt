@@ -19,7 +19,7 @@ import java.time.ZoneId
 import kotlin.math.abs
 
 /**
- * I2: gathers your own call history for [CallReputation] (calls of the last 90 days, ring lengths, what screening
+ * Gathers your own call history for [CallReputation] (calls of the last 90 days, ring lengths, what screening
  * stopped, the numbers you blocked, your contacts and private contacts) and stores what it learned in
  * [ReputationStore]. Runs in the daily maintenance worker, and for the post-call "Block this range?" offer; never while
  * a call rings. Calls with private contacts are never part of it (the archive leaves them out).
