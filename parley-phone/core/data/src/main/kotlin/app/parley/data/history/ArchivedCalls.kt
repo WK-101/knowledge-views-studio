@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.provider.CallLog.Calls
 import app.parley.common.CallEntry
 import app.parley.common.backup.CallLogRecord
+import app.parley.common.calls.InternetCalls
 import app.parley.common.history.ProviderColumns
 import app.parley.data.CallLogRepository
 import org.json.JSONObject
@@ -13,7 +14,8 @@ import org.json.JSONObject
  * ([CallEntry]), the values written back to the call log, and the small JSON sealed into the archive.
  */
 internal object ArchivedCalls {
-    fun entry(r: CallLogRecord, id: Long) = CallEntry(
+    /** [telephony]: the phone network's packages ([app.parley.data.TelephonyPackages]), to tell internet calls apart. */
+    fun entry(r: CallLogRecord, id: Long, telephony: Set<String> = InternetCalls.TELEPHONY_PACKAGES) = CallEntry(
         id = id,
         number = r.number.orEmpty(),
         cachedName = r.name,
@@ -24,12 +26,15 @@ internal object ArchivedCalls {
         isNew = false,
         presentationHidden = r.presentation != Calls.PRESENTATION_ALLOWED || r.number.isNullOrBlank(),
         video = (r.features and Calls.FEATURES_VIDEO) != 0,
+        accountComponent = r.accountComponent,
+        appPackage = InternetCalls.appPackage(r.accountComponent, telephony),
     )
 
     fun record(e: CallEntry) = CallLogRecord(
         number = e.number, date = e.date, duration = e.durationSec, type = ProviderColumns.typeOf(e.type),
         presentation = if (e.presentationHidden) Calls.PRESENTATION_RESTRICTED else Calls.PRESENTATION_ALLOWED,
-        accountId = e.accountId, name = e.cachedName, isNew = false, isRead = true, features = if (e.video) Calls.FEATURES_VIDEO else 0,
+        accountId = e.accountId, accountComponent = e.accountComponent, name = e.cachedName,
+        isNew = false, isRead = true, features = if (e.video) Calls.FEATURES_VIDEO else 0,
     )
 
     fun values(r: CallLogRecord) = ContentValues().apply {

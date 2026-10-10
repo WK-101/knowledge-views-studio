@@ -282,6 +282,9 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     private fun lineOf(e: CallEntry): String =
         lines.getOrPut(e.accountId.orEmpty() + "\n" + e.number) { NetworkNames.line(c.appContext, e.number, e.accountId) }
 
+    /** A call's line key, or "hidden" for a withheld number. */
+    private fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
+
     private fun group(
         calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
         layout: RecentsLayout = RecentsLayout.GROUPED,
@@ -290,23 +293,24 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         network: (String) -> List<NetworkNameSeen> = NetworkNames.NONE,
     ): List<RecentGroup> {
         val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys, archived) }
-        fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
         val tz = TimeZone.getDefault()
         val privateNumber = c.appContext.getString(R.string.main_private_number)
         val unknown = c.appContext.getString(R.string.main_unknown)
+        fun rowKeyOf(e: CallEntry) = rowKey(keyOf(e), e)
+
         // Grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
-        val rows = RecentsGrouping.group(filtered, layout, ::keyOf) { e -> ListSections.localDay(e.date, tz) }
+        val rows = RecentsGrouping.group(filtered, layout, ::rowKeyOf) { e -> ListSections.localDay(e.date, tz) }
         val grouped = rows.map { list ->
             val e = list.first()
             val key = keyOf(e)
             val contact = if (key == "hidden") null else index[e.number]
             val archivedName = if (contact == null && key != "hidden") archived?.get(e.number)?.name else null
             // A number nobody saved: what the network called it (never on a private contact's calls or number).
-            val unsaved = contact == null && archivedName == null && e.id >= 0
+            val unsaved = contact == null && archivedName == null && networkMayName(e)
             // Asked as the call's SIM reads the number, as it was written.
             val names = if (unsaved && key != "hidden" && key !in vaultKeys) network(lineOf(e)) else emptyList()
             RecentGroup(
-                key + ":" + e.id, e.number, contact, e.cachedName, list, key == "hidden",
+                rowKeyOf(e) + ":" + e.id, e.number, contact, e.cachedName, list, key == "hidden",
                 fallbackTitle = if (key == "hidden") privateNumber else unknown,
                 archivedName = archivedName,
                 networkName = NetworkName.latest(names)?.name,
@@ -329,6 +333,12 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L
+
+        /** A call in an app over the internet is never grouped with phone calls: its row calls back through the app. */
+        fun rowKey(key: String, e: CallEntry): String = if (e.appPackage == null) key else key + "@" + e.appPackage
+
+        /** The network can only have named a phone call in the call log (not a private one, nor one made in an app). */
+        fun networkMayName(e: CallEntry): Boolean = e.id >= 0 && e.appPackage == null
 
         /** Chips for a look now and then: Recents never opens on them (it would look as if the calls had gone). */
         val TRANSIENT_CHIPS = setOf(RecentFilter.BLOCKED.name, RecentFilter.VOICEMAIL.name)

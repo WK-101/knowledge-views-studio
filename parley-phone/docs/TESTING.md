@@ -3203,3 +3203,27 @@ Automated: `SituationsTest` (the notice only while a Situation lets some people 
 4. Travelling by roaming: make Travelling switch on abroad, travel (or use a SIM roaming abroad) so it turns on, then come back home within the same time zone and don't call or open Parley: within about an hour Travelling is off (home line, tile and notice).
 5. Situation notice wording: let Night switch on by its window: the notice says "until 07:00" (its window's end), not "until you turn it off". A Situation on because the car connected says it turns off by itself. Meeting switched on "For 1 hour" says the time; "Until I turn it off" says so.
 6. An archived private contact's page: "Kept as" reads Archived and there is no "Delete automatically" row; unarchive it and the row is back.
+
+## 48. Proven, fast and lighter (6.5)
+
+### 48.15 Calls made in apps over the internet
+Automated: `InternetCallsTest` (rows told apart by their phone account; Call back's route, best first; a call missed in an app is never one to call back by phone, though a call in the app returns a missed phone call) (core:common); `InternetCallRowsTest` (the reader, the missed-call notice, the archive and Undo, a private contact's history keep the app) (core:data, Robolectric); `NumberSignalsTest` (an app call never shows the phone line works); `A11yChecksTest` (the Call back question) (app, Robolectric).
+1. On One UI 9 (or Android 14+ with an app that logs its calls, e.g. WhatsApp's "show calls in the phone's call history" where offered), take a WhatsApp call from the second phone, then miss one. Recents shows them as their own rows, never grouped with phone calls from the same number; the line under the name says "WhatsApp call" where a phone call shows its SIM. The number's history says the same on those calls.
+2. Tap the row's call button (and the Call back pill on the missed one, a swipe to call, and ⋮ › Call): "Call back on WhatsApp?" asks. Call on WhatsApp opens WhatsApp's call or the chat with the number (a hint says where the call button is); nothing dials through the phone network. Call by phone dials as usual. Tapping outside calls nobody.
+3. Uninstall WhatsApp, then Call back on such a row: the question says WhatsApp isn't on the phone now; Call by phone dials, Cancel does nothing.
+4. The missed WhatsApp call raises no Parley missed-call notification, isn't counted on the Missed chip or in To call, and ⋮ has no "Why did this ring?" for it. Phone calls from the same number still behave as before.
+5. A saved number whose phone line is cut off but whose WhatsApp still rings: after two failed phone calls the health check still says the number may be out of service (a WhatsApp call doesn't count as the line working).
+6. With Private call history on, have a private contact call on WhatsApp: the row leaves the system call log at the next sweep and shows in their history as "WhatsApp call". Back up and restore: still a WhatsApp call.
+
+### 48.16 Android 17's contact picker
+Automated: `A11yChecksTest` (the Android 17 line of "Who can see your contacts") (app, Robolectric).
+1. On Android 17: Settings › Privacy › Who can see your contacts › Share one contact: the text says apps can also use Android's own picker, and that it never shows private or archived contacts because they aren't in the address book. On Android 16 the line isn't there.
+2. In Messages (or any app), pick a contact with Android's own picker: no private and no archived contact is listed. With Parley's picker the same holds for archived contacts.
+
+### 48.17 Automated accessibility checks
+Automated: `UiSmokeTest` now runs `A11yChecks` on every tab, the contact page and the call screen in light, dark and the largest font right to left: a tappable control without words, under 48 dp or saying the same words as its neighbour fails the build; `A11yChecksTest` shows each check catches its problem (app, Robolectric).
+1. Nothing to do by hand: run `./gradlew :app:testDebugUnitTest --tests '*UiSmokeTest' --tests '*A11yChecksTest'`; both pass.
+
+### 48.18 Accessibility checks on a device (off by default)
+1. With one phone or emulator connected and `androidx.test.espresso:espresso-accessibility` in the instrumented tests' dependencies, run `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true`: `AccessibilitySmokeTest` runs Android's checks over the first screen and passes, or lists each error.
+2. Without the argument the test is skipped and the other smoke tests run as before; with it but without the library it fails and names the line to add.

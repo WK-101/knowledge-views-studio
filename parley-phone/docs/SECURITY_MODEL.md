@@ -28,7 +28,7 @@ Parley whenever the phone is on, including while it is locked.
 | Data | Key | Authentication | Why |
 |---|---|---|---|
 | Private contacts: name, numbers, caller card | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen |
-| Private call history (number, name, video) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
+| Private call history (number, name, video, the app of an internet call) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
 | Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark; never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
 | The Contacts list's first screen kept for a cold start (name, sort name, photo URI, star, first number, header; private rows only when they were listed and not locked) | Small-records key (`RecordCrypto`) | None | Drawn before the lists load; checked against discreet mode, duress and "Lock private contacts" before it is drawn, and rewritten without private rows the moment they are locked or a duress unlock happens |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
@@ -465,6 +465,19 @@ the expected window is well under a second (one call-log query and one delete; d
 under the `PrivateCallLog` tag, see TESTING.md §35.1), against 2.5–7.5 s before. An app holding `READ_CALL_LOG` that
 watches the call log itself can still see the row in that moment, and an OEM call-log backup that runs in it can copy
 it. If Parley's process is killed during the call and isn't started again, the row stays until Parley next runs.
+
+**Calls apps log over the internet.** From Android 14 an app (WhatsApp, Signal…) may log its own calls in the system
+call log, and One UI 9 does. Parley tells them apart by the row's phone account (`InternetCalls`, `TelephonyPackages`):
+they show with the app's name, Call back opens the app (Call by phone dials only when chosen), and the phone network's
+features leave them out (missed-call notices, To call, the out-of-service check, "Why did this ring?"). Parley never
+screened or rang them, so its call path has nothing to hide for them; the daily sweep and the after-call sweep still
+move a private contact's rows into the private history, keeping the app, sealed with the number.
+
+## Android's own contact picker
+
+From Android 17 another app can ask Android's own contact picker (`ACTION_PICK_CONTACTS`) instead of Parley's. It
+reads only Android's address book, so it never shows private or archived contacts: neither is ever there. "Who can
+see your contacts" says so on Android 17 and later.
 
 ## Lock screen and home screen
 

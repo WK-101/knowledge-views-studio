@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import androidx.annotation.StringRes
 import app.parley.security.SensitiveScreen
 import app.parley.ui.Destination
 import android.content.Intent
@@ -179,7 +180,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                     leadingContent = { Icon(Icons.Rounded.Shield, null) },
                     headlineContent = { Text(stringResource(Wording.PICK)) },
                     supportingContent = {
-                        Text(stringResource(if (Build.VERSION.SDK_INT >= 37) R.string.who_picker_text_37 else R.string.who_picker_text))
+                        Text(stringResource(whoPickerText(Build.VERSION.SDK_INT)))
                     },
                 )
                 SwitchRow(
@@ -306,3 +307,13 @@ private fun outcomeText(o: LookupOutcome): Int = when (o) {
     LookupOutcome.REJECTED -> R.string.pn_out_rejected
     LookupOutcome.RATE_LIMITED -> R.string.pn_out_rate
 }
+
+/**
+ * What "Pick a contact" says on [sdk]: from Android 17 apps can also use Android's own picker, which never shows
+ * private or archived contacts (they aren't in the address book).
+ */
+@StringRes
+internal fun whoPickerText(sdk: Int): Int = if (sdk >= SYSTEM_PICKER_SDK) R.string.who_picker_text_37 else R.string.who_picker_text
+
+/** Android 17, whose own contact picker (`ACTION_PICK_CONTACTS`) apps can use instead of Parley's. */
+private const val SYSTEM_PICKER_SDK = 37
