@@ -20,7 +20,15 @@ import androidx.compose.material.icons.rounded.PersonSearch
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
+import app.parley.common.calls.PostCallActions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -86,14 +94,15 @@ sealed interface PostCallChoice {
 }
 
 /**
- * Shown on the call-ended screen after a call with a number that isn't in your contacts: save it (a new contact, added
- * to one you have, or privately for a week), be reminded to call it back, message it on a chat app, block it (the
- * app's one Block question) or unblock it, report it, or call a saved number instead (a caller who claimed to be your
- * bank). Each opens only after the phone is unlocked, except "Remind me", which only adds to the To call list.
+ * Shown on the call-ended screen after a call with a number that isn't in your contacts ([PostCallActions]): Save (a
+ * new contact, added to one you have, or privately for 7 days), Remind me and Block (the app's one Block question) or
+ * Unblock as the big buttons; More holds Message or call on…, Ask their name, Report, Was it a scam? and Call a saved
+ * number. The last two come forward when the call matched a scam signal or the user checked the caller during the
+ * call ([safetyChecked]: a caller who claimed to be your bank). Each opens only after the phone is unlocked, except
+ * "Remind me", which only adds to the To call list.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
+internal fun PostCallCard(call: CallUi, safetyChecked: Boolean, onChoice: (PostCallChoice) -> Unit) {
     val number = call.number ?: return
     var saving by remember { mutableStateOf(false) }
     val blocked by produceState(false, number) { value = catching { TelecomGraph.dependencies.isBlocked(number) }.getOrDefault(false) }
@@ -123,29 +132,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             )
             NumberMemoryPostCall(call) { onChoice(PostCallChoice.NumberMemory(number)) }
             Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Saving is what most people do after a first call: a plain contact first, the private week as an option.
-                Action(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_save)) { onChoice(PostCallChoice.Save(number, call.networkName)) }
-                Action(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { onChoice(PostCallChoice.AddToContact(number)) }
-                Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
-                // Call them back later, from the To call list (saved without unlocking, like a note).
-                RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
-                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
-                if (!emergency) {
-                    if (blocked) {
-                        Action(Icons.Rounded.RemoveModerator, stringResource(R.string.postcall_unblock)) { onChoice(PostCallChoice.Unblock(number)) }
-                    } else {
-                        Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
-                    }
-                    Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
-                }
-                Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
-                // "Text me your name", for the user to send from the messaging app.
-                nameReplyFor(call)?.let { text ->
-                    Action(Icons.Rounded.Sms, stringResource(R.string.postcall_name_reply)) { onChoice(PostCallChoice.NameReply(number, text)) }
-                }
-                Action(Icons.Rounded.Shield, stringResource(R.string.scam_postcall)) { onChoice(PostCallChoice.ScamCheck) }
-            }
+            PostCallButtons(call, number, blocked, emergency, safetyChecked, onChoice, onSavePrivately = { saving = true })
             // After a call that looked like a sales line, "Block this range?".
             BlockRangeOffer(call)
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }
@@ -177,6 +164,114 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             },
         )
     }
+}
+
+/** The card's buttons ([PostCallActions]): the big ones in a row that wraps, then More. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+@Suppress("LongParameterList") // One argument per fact the layout weighs, and the two ways out.
+private fun PostCallButtons(
+    call: CallUi,
+    number: String,
+    blocked: Boolean,
+    emergency: Boolean,
+    safetyChecked: Boolean,
+    onChoice: (PostCallChoice) -> Unit,
+    onSavePrivately: () -> Unit,
+) {
+    // "Text me your name", for the user to send from the messaging app.
+    val nameReply = nameReplyFor(call)
+    val layout = PostCallActions.layout(
+        PostCallActions.Facts(
+            blocked = blocked, emergency = emergency, nameReply = nameReply != null,
+            suspicious = safetyChecked || call.verdictWarn || call.reputation != null,
+        ),
+    )
+    val choose: (PostCallActions.Action) -> Unit = { a -> choiceFor(a, number, call.accountId, nameReply)?.let(onChoice) }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        layout.primary.forEach { a ->
+            when (a) {
+                // Saving is what most people do after a first call: a new contact, one you have, or a private week.
+                PostCallActions.Action.SAVE -> SaveAction(
+                    onNew = { onChoice(PostCallChoice.Save(number, call.networkName)) },
+                    onAdd = { onChoice(PostCallChoice.AddToContact(number)) },
+                    onPrivately = onSavePrivately,
+                )
+                // Call them back later, from the To call list (saved without unlocking, like a note).
+                PostCallActions.Action.REMIND_ME -> RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
+                else -> postCallLabel(a).let { (icon, text) -> Action(icon, text) { choose(a) } }
+            }
+        }
+        if (layout.more.isNotEmpty()) MoreAction(layout.more, choose)
+    }
+}
+
+/** What a plain button or More item of the card chooses; Save and Remind me have menus of their own (null). */
+private fun choiceFor(a: PostCallActions.Action, number: String, accountId: String?, nameReply: String?): PostCallChoice? = when (a) {
+    PostCallActions.Action.SAVE, PostCallActions.Action.REMIND_ME -> null
+    PostCallActions.Action.BLOCK -> PostCallChoice.Block(number)
+    PostCallActions.Action.UNBLOCK -> PostCallChoice.Unblock(number)
+    PostCallActions.Action.MESSAGE_OR_CALL_ON -> PostCallChoice.MessageOn(number, accountId)
+    PostCallActions.Action.REPORT -> PostCallChoice.Report(number)
+    PostCallActions.Action.ASK_NAME -> nameReply?.let { PostCallChoice.NameReply(number, it) }
+    PostCallActions.Action.SCAM_CHECK -> PostCallChoice.ScamCheck
+    PostCallActions.Action.CALL_SAVED_NUMBER -> PostCallChoice.Verify(number)
+}
+
+/** The icon and words of a post-call action drawn as a plain button or a More item. */
+@Composable
+private fun postCallLabel(a: PostCallActions.Action): Pair<ImageVector, String> = when (a) {
+    PostCallActions.Action.BLOCK -> Icons.Rounded.Block to stringResource(R.string.postcall_block)
+    PostCallActions.Action.UNBLOCK -> Icons.Rounded.RemoveModerator to stringResource(R.string.postcall_unblock)
+    PostCallActions.Action.MESSAGE_OR_CALL_ON -> Icons.AutoMirrored.Rounded.Chat to stringResource(R.string.postcall_message_or_call)
+    PostCallActions.Action.REPORT -> Icons.Rounded.Flag to stringResource(R.string.postcall_report)
+    PostCallActions.Action.ASK_NAME -> Icons.Rounded.Sms to stringResource(R.string.postcall_name_reply)
+    PostCallActions.Action.SCAM_CHECK -> Icons.Rounded.Shield to stringResource(R.string.scam_postcall)
+    PostCallActions.Action.CALL_SAVED_NUMBER -> Icons.Rounded.VerifiedUser to stringResource(R.string.verify_postcall)
+    PostCallActions.Action.SAVE -> Icons.Rounded.PersonAdd to stringResource(R.string.postcall_save)
+    PostCallActions.Action.REMIND_ME -> Icons.Rounded.AlarmAdd to stringResource(R.string.remind_me)
+}
+
+/** Save, the card's first and strongest button: New contact · Add to a contact · Privately for 7 days. */
+@Composable
+private fun SaveAction(onNew: () -> Unit, onAdd: () -> Unit, onPrivately: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Button({ open = true }) {
+            Icon(Icons.Rounded.PersonAdd, null, Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+            Text(stringResource(R.string.postcall_save))
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            MenuItem(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_new_contact)) { open = false; onNew() }
+            MenuItem(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { open = false; onAdd() }
+            MenuItem(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { open = false; onPrivately() }
+        }
+    }
+}
+
+/** More: the card's rarer actions, in a menu. */
+@Composable
+private fun MoreAction(actions: List<PostCallActions.Action>, onAction: (PostCallActions.Action) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton({ open = true }) {
+            Icon(Icons.Rounded.MoreHoriz, null, Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+            Text(stringResource(R.string.incall_more))
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            actions.forEach { a ->
+                val (icon, text) = postCallLabel(a)
+                MenuItem(icon, text) { open = false; onAction(a) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
+    DropdownMenuItem(text = { Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
 }
 
 @Composable

@@ -3060,3 +3060,33 @@ Automated: `NumberOwnersTest` (a failed lookup reads as "maybe saved", never as 
 3. **Shield after a restart.** On the phone above, restart and open the label before unlocking once (or right after): the other phone still doesn't see the "Don't share" number, and numbers you withdrew stay withdrawn.
 4. **Time machine on a full disk.** Fill the phone's storage to within a few MB, edit a contact and open its Version history: the earlier versions show and nothing stops. Free some space and open it again: the edit is now the newest version, and restoring an earlier one works.
 5. **Delete all data during a duress unlock.** Unlock with the duress PIN, Settings › Privacy › Delete all Parley data: no "Back up first" offer and nothing about private contacts, as before.
+
+## 47. Finished and findable (6.4)
+
+### 47.8 After-call card
+Automated: `PostCallActionsTest` (Save, Remind me and Block first; the rest under More; Was it a scam? and Call a saved number come forward only for a suspicious call; never Block or Report for an emergency service) (core:common).
+1. **An ordinary unknown caller.** Call the phone from a number that isn't saved and hang up: the card shows **Save**, **Remind me**, **Block** and **More**. Save opens New contact · Add to a contact · Privately for 7 days; each does what it says (Privately asks for a name and says it's deleted after 7 days). More holds Message or call on…, Ask their name (when "Text me your name" is set), Report, Was it a scam? and Call a saved number.
+2. **A suspicious call.** Call again from a number on a spam list (or one your calls tag as a sales line), or open More › Is this a scam? or Check it's really them during the call and close it: after hanging up, Was it a scam? and Call a saved number sit beside Block, and More holds the rest.
+3. **Blocked and emergency.** After a call to a blocked number the card shows Unblock in Block's place. After a call with an emergency service there is no Block, Unblock or Report.
+4. **The card stays.** Touching Save or More keeps the call-ended screen up; TalkBack reads each button and menu item by its words. Large fonts and landscape: the buttons wrap, nothing is cut.
+
+### 47.9 Recents actions
+Automated: `MenusTest` (the Recents sheet: Remind me to call on its own row, Allow, report… holding why it rang (incoming calls only), the test, the sales line, allow and report; Edit before call and Search the web under More…; at most seven rows) (core:common); `RecentsViewModelTest.delete_on_the_selection_bar_removes_every_chosen_row_with_one_undo` (app).
+1. **Delete several.** In Recents hold a call, tap two more: the bar shows Block n and a Delete button. Delete: the rows go and a snackbar "Deleted 4 calls" offers Undo, which brings them all back (a private contact's calls too).
+2. **One call's sheet.** Hold an unsaved number's incoming call, then ⋮: Call, Message, Message or call on…, Copy, then Create contact, Add to contact (a person-search icon, not the add-person one), Remind me to call, Block, Allow, report…, More…, Delete from history. Remind me to call opens the times at once.
+3. **Allow, report….** It holds Why did this ring? (Why was this blocked? for a blocked call), Test a call, the sales line when tagged, Always allow, Allow for 24 hours and Report. Always allow and Allow for 24 hours offer Undo. More… holds Edit before call and Search number on the web.
+4. **An outgoing call.** Hold a call you made to an unsaved number: Allow, report… has no Why did this ring?. A saved number you called: the sheet shows Test a call as its own row instead of the group.
+
+### 47.10 Situations: how long
+Automated: `SituationsTest` (the three ends offered, an hour going off by itself, the window job waking at the end, a Situation held off at its end while its window still holds) (core:common); `SituationsControllerTest.aSituationOnForAnHourGoesOffByItselfAndPutsBackWhatWasSet` (core:data).
+1. **The question.** Settings › Calls › Situations, turn on Meeting: "How long should Meeting stay on?" offers For 1 hour, Until 18:00 (before 18:00 only) and Until I turn it off; Cancel leaves it off. For Night with its window it offers Until 07:00.
+2. **For 1 hour.** Choose For 1 hour: the row and the home line say "On until 11:00" (the time an hour from now). Leave the phone locked: within a few minutes of that time Meeting goes off by itself and off hours, replies and the rest are as before.
+3. **Until I turn it off.** Stays on, as before, until Turn off.
+4. **The tile.** The Quick Settings tile still steps Off → Driving → Meeting… without asking; each stays on until turned off.
+
+### 47.11 The Situation notice and Travelling abroad
+Automated: `SituationsTest` (the notice only while a Situation lets some people ring; Travelling on abroad and off at home) (core:common); `NotificationRegistryTest` (the channel, tag and request codes are their own); `NavigationRoutesTest` (the notice opens Calls › Situations, from Parley only) (app).
+1. **The notice.** Turn on Meeting (or Night): a silent notice "Meeting is on · Others ring silently and show as missed calls, until …" appears with Turn off; no sound, no badge. Turn off in it puts everything back and the notice goes; so does turning it off on the home line or the tile. Tapping it opens Calls › Situations.
+2. **Not for everyone-rings.** Turn on Driving or Travelling (or a Situation with Who may ring: Everyone): no notice.
+3. **The lock screen.** With the phone locked, the notice reads only "Situation on". After a restart with Meeting still on, the notice is back once Parley starts.
+4. **Travelling abroad.** Travelling › Turns on by itself › When connected: Abroad, on another country's network. Its row says "Turns on abroad". With a SIM roaming abroad (or an emulator with a network country that differs from the SIM's), open Parley or receive a call: Travelling turns on ("On while you're abroad"); back home it goes off at the next look. National roaming doesn't count.

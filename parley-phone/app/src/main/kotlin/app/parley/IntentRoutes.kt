@@ -17,6 +17,8 @@ import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.settings.CallsRoutes
+import app.parley.ui.settings.CallsSubPage
 import app.parley.ui.situations.SituationRoutes
 import app.parley.ui.sync.shared.SharedLabelRoutes
 
@@ -76,7 +78,7 @@ object IntentRoutes {
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
-            ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL, ACTION_OPEN_LABEL,
+            ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL, ACTION_OPEN_LABEL, ACTION_OPEN_SITUATIONS,
         )
     }
 
@@ -164,6 +166,9 @@ object IntentRoutes {
 
     /** Contacts went missing (the sync watchdog's notification): the card waits in the Contact health check. */
     const val ACTION_OPEN_HEALTH = "app.parley.OPEN_HEALTH"
+
+    /** Calls › Situations (the notice while a Situation lets only some people ring). */
+    const val ACTION_OPEN_SITUATIONS = "app.parley.OPEN_SITUATIONS"
     const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
     const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
@@ -293,6 +298,7 @@ object IntentRoutes {
             ACTION_OPEN_LABEL ->
                 go(NavEvent.Route(intent.getStringExtra(EXTRA_LABEL)?.takeIf { it.isNotBlank() }?.let(PeopleRoutes::label) ?: PeopleRoutes.Labels))
             ACTION_OPEN_HEALTH -> go(NavEvent.Route(Routes.Health))
+            ACTION_OPEN_SITUATIONS -> go(NavEvent.Route(CallsRoutes.Page(CallsSubPage.SITUATIONS.name)))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
             ACTION_PASTE_CONTACT -> intent.getStringExtra(EXTRA_PASTE_ID)?.takeIf { it.isNotEmpty() }?.let { go(NavEvent.Route(Routes.edit(paste = it))) }

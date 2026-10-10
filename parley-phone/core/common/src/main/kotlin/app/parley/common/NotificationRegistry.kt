@@ -79,6 +79,10 @@ object NotificationIds {
     const val TAG_CHAPTERS = "chapters"
     const val CHAPTERS_ID = 0
 
+    /** The silent ongoing notice while a Situation lets only some people ring. */
+    const val TAG_SITUATION = "situation"
+    const val SITUATION_ID = 0
+
     /** Once: the notes folder export that kept a folder up to date was replaced by Export contacts. */
     const val TAG_FOLDER_EXPORT = "folder_export"
     const val FOLDER_EXPORT_ID = 0
@@ -112,7 +116,7 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, TAG_SITUATION, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
@@ -189,6 +193,10 @@ object NotificationRequests {
     /** "A chapter has ended": opens its label (or Labels, for several). */
     const val CHAPTER_ENDED = 620
 
+    /** The Situation notice: opens Situations; its Turn off. */
+    const val SITUATION_OPEN = 630
+    const val SITUATION_TURN_OFF = 631
+
     const val JOB_OPEN = 700
 
     /** A finished job's file: plus the job id modulo [JOB_FILES]. */
@@ -212,6 +220,7 @@ object NotificationRequests {
         NotificationIds.Range("notices", BACKUP_FAILED, 7),
         NotificationIds.Range("temporary.due", TEMPORARY_DUE_ACTION, 3),
         NotificationIds.Range("chapter", CHAPTER_ENDED, 1),
+        NotificationIds.Range("situation", SITUATION_OPEN, 2),
         NotificationIds.Range("job.open", JOB_OPEN, 1),
         NotificationIds.Range("job.file", JOB_FILE, JOB_FILES),
     )
@@ -248,6 +257,9 @@ object NotificationChannels {
     /** Contacts that went missing (the sync watchdog): rare, so it may make a sound where housekeeping doesn't. */
     const val CONTACTS_SAFETY = "contacts_safety_v1"
 
+    /** "Meeting is on": silent and ongoing while a Situation lets only some people ring. */
+    const val SITUATION = "situation_on_v1"
+
     /**
      * The channel group "Reminders" (Settings › Reminders lists the same kinds). Only the group is new: the channels
      * keep their ids, so whatever someone set for them stays. Missed calls stay with calls, temporary contacts with
@@ -263,6 +275,6 @@ object NotificationChannels {
     val all: List<String> = listOf(
         INCOMING_CALLS, ONGOING_CALLS, SILENCED_CALLS, MISSED_CALLS, SCREEN_BLOCKED, SCREEN_REPORTED, SCREEN_LIKELY_SPAM,
         SCREEN_BUSY_REPLY, PLAN, REMINDERS, HOUSEKEEPING, BACKUPS, PRIVATE_NAMES, TO_CALL,
-        CONTACTS_SAFETY, BACKUP_REMINDER, JOBS,
+        CONTACTS_SAFETY, BACKUP_REMINDER, JOBS, SITUATION,
     )
 }

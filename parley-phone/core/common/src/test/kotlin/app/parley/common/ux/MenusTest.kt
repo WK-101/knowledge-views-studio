@@ -44,8 +44,8 @@ class MenusTest {
         assertEquals(ContactMenu.Action.entries.toSet(), contact.toSet())
         val selection = combos(3).flatMap { b -> actions(SelectionMenu.build(SelectionMenu.Facts(b[0], b[1], b[2]))) }
         assertEquals(SelectionMenu.Action.entries.toSet(), selection.toSet())
-        val recent = combos(4).flatMap { b ->
-            val f = RecentMenu.Facts(b[0], b[1], b[2], b[3])
+        val recent = combos(6).flatMap { b ->
+            val f = RecentMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5])
             RecentMenu.quick(f) + actions(RecentMenu.build(f))
         }
         assertEquals(RecentMenu.Action.entries.toSet(), recent.toSet())
@@ -98,29 +98,50 @@ class MenusTest {
         assertEquals(SelectionMenu.Action.entries.toSet(), actions(all).toSet())
     }
 
-    @Test fun a_recent_calls_sheet_has_a_row_of_buttons_and_at_most_six_rows() {
-        combos(4).forEach { b ->
-            val f = RecentMenu.Facts(b[0], b[1], b[2], b[3])
+    @Test fun a_recent_calls_sheet_has_a_row_of_buttons_and_at_most_seven_rows() {
+        combos(6).forEach { b ->
+            val f = RecentMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5])
             val rows = RecentMenu.build(f)
-            assertTrue("$f: ${rows.size} rows", rows.size <= MENU_LIMIT - 1)
+            assertTrue("$f: ${rows.size} rows", rows.size <= MENU_LIMIT)
             assertTrue(RecentMenu.quick(f).size <= 4)
             assertEquals(MenuEntry.Action(RecentMenu.Action.DELETE_FROM_HISTORY), rows.last())
             val all = actions(rows)
             assertEquals(f.hasNumber, RecentMenu.Action.REMIND_TO_CALL in all)
-            assertEquals(f.hasNumber && f.blocked, RecentMenu.Action.UNBLOCK in all)
-            assertEquals(f.hasNumber && !f.blocked, RecentMenu.Action.BLOCK in all)
+            assertEquals(f.hasNumber && f.blocked && !f.emergency, RecentMenu.Action.UNBLOCK in all)
+            assertEquals(f.hasNumber && !f.blocked && !f.emergency, RecentMenu.Action.BLOCK in all)
+            // An outgoing call never rang: no "Why did this ring?".
+            assertEquals(f.hasNumber && f.rang, RecentMenu.Action.WHY_IT_RANG in all)
+            // Remind me to call is a row of its own, never inside a group.
+            if (f.hasNumber) assertTrue(MenuEntry.Action(RecentMenu.Action.REMIND_TO_CALL) in rows)
+            rows.filterIsInstance<MenuEntry.Group<RecentMenu.Action>>().forEach { g -> assertTrue("$f: ${g.group}", g.actions.size <= MENU_LIMIT) }
         }
         val unknown = RecentMenu.Facts(hasNumber = true, saved = false, salesLine = true)
         assertEquals(
             listOf(RecentMenu.Action.CALL, RecentMenu.Action.MESSAGE, RecentMenu.Action.MESSAGE_OR_CALL_ON, RecentMenu.Action.COPY_NUMBER),
             RecentMenu.quick(unknown),
         )
-        // The screening rows (about seven) sit under one "Why it rang…" entry.
-        val groups = RecentMenu.build(unknown).filterIsInstance<MenuEntry.Group<RecentMenu.Action>>()
-        val why = groups.single { it.group == MenuGroup.WHY_IT_RANG }
-        assertEquals(7, why.actions.size)
-        // Edit before call and Remind me to call under More….
-        assertEquals(listOf(RecentMenu.Action.EDIT_BEFORE_CALL, RecentMenu.Action.REMIND_TO_CALL), groups.single { it.group == MenuGroup.MORE }.actions)
+        val rows = RecentMenu.build(unknown)
+        assertEquals(
+            listOf(RecentMenu.Action.CREATE_CONTACT, RecentMenu.Action.ADD_TO_CONTACT, RecentMenu.Action.REMIND_TO_CALL, RecentMenu.Action.BLOCK)
+                .map { MenuEntry.Action(it) },
+            rows.take(4),
+        )
+        // The screening rows sit under one "Allow, report…" entry: why it rang, the test, the sales line, allow and report.
+        val groups = rows.filterIsInstance<MenuEntry.Group<RecentMenu.Action>>()
+        val screening = groups.single { it.group == MenuGroup.WHY_IT_RANG }
+        assertEquals(
+            listOf(
+                RecentMenu.Action.WHY_IT_RANG, RecentMenu.Action.TEST_A_CALL, RecentMenu.Action.SALES_LINE,
+                RecentMenu.Action.ALWAYS_ALLOW, RecentMenu.Action.ALLOW_24H, RecentMenu.Action.REPORT,
+            ),
+            screening.actions,
+        )
+        // Edit before call and Search the web under More….
+        assertEquals(listOf(RecentMenu.Action.EDIT_BEFORE_CALL, RecentMenu.Action.SEARCH_WEB), groups.single { it.group == MenuGroup.MORE }.actions)
+        // An outgoing call to a saved number: the test alone, as its own row.
+        val savedOut = RecentMenu.build(RecentMenu.Facts(hasNumber = true, saved = true, rang = false))
+        assertTrue(MenuEntry.Action(RecentMenu.Action.TEST_A_CALL) in savedOut)
+        assertTrue(RecentMenu.Action.WHY_IT_RANG !in actions(savedOut))
         // A hidden number can only be deleted.
         assertEquals(listOf(MenuEntry.Action(RecentMenu.Action.DELETE_FROM_HISTORY)), RecentMenu.build(RecentMenu.Facts(hasNumber = false)))
     }

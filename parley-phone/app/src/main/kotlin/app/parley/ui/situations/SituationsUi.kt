@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -57,13 +59,18 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.SplitSwitchRow
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
+import app.parley.ui.rowColors
 import app.parley.ui.Spacing
 import app.parley.ui.settings.CallsRoutes
 import app.parley.ui.settings.CallsSubPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
 
 /** A Situation's icon. */
 internal fun situationIcon(kind: SituationKind): ImageVector = when (kind) {
@@ -77,7 +84,7 @@ internal fun situationIcon(kind: SituationKind): ImageVector = when (kind) {
 /** "On until 07:00", "Turns on when your car connects", "Off until next time"… and when its label is gone, that first. */
 internal fun situationStatus(context: Context, s: Situation, state: SituationState): String {
     val status = when {
-        state.activeId == s.id -> onStatus(context, s, state.cause)
+        state.activeId == s.id -> onStatus(context, s, state)
         !s.changesSomething -> context.getString(R.string.sit_nothing_yet)
         s.id in state.held -> context.getString(R.string.sit_off_held)
         else -> listOfNotNull(deviceStatus(context, s), s.schedule?.let { context.getString(R.string.sit_auto_window, BlockingText.schedule(context, it)) })
@@ -90,29 +97,43 @@ internal fun situationStatus(context: Context, s: Situation, state: SituationSta
 internal fun labelGone(context: Context, s: Situation): String? =
     s.ringLabel?.takeIf { s.ring == SituationRing.LABEL && s.ringLabelGone && it.isNotBlank() }?.let { context.getString(R.string.sit_label_gone, it.trim()) }
 
-private fun onStatus(context: Context, s: Situation, cause: SituationCause): String = when (cause) {
-    SituationCause.MANUAL -> context.getString(R.string.sit_on_manual)
-    SituationCause.DEVICE -> context.getString(R.string.sit_on_device)
+private fun onStatus(context: Context, s: Situation, state: SituationState): String = when (state.cause) {
+    SituationCause.MANUAL -> state.until?.let { context.getString(R.string.sit_on_until, Schedule.hm(minuteOfDay(it))) }
+        ?: context.getString(R.string.sit_on_manual)
+    SituationCause.DEVICE ->
+        context.getString(if (s.device == DeviceTrigger.ROAMING) R.string.sit_on_abroad else R.string.sit_on_device)
     SituationCause.SCHEDULE -> s.schedule?.takeIf { it.startMinute != it.endMinute }
         ?.let { context.getString(R.string.sit_on_until, Schedule.hm(it.endMinute)) } ?: context.getString(R.string.sit_on_manual)
 }
 
+private fun minuteOfDay(millis: Long): Int = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).let { it.hour * 60 + it.minute }
+
 private fun deviceStatus(context: Context, s: Situation): String? = when (s.device) {
     DeviceTrigger.CAR -> context.getString(R.string.sit_auto_car)
     DeviceTrigger.ANY_BLUETOOTH -> context.getString(R.string.sit_auto_any)
+    DeviceTrigger.ROAMING -> context.getString(R.string.sit_auto_roaming)
     DeviceTrigger.NAMED -> s.deviceName?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.sit_auto_named, it) }
     null -> null
 }
 
 /**
- * One Situation on Calls › Situations: the row opens it, the switch turns it on or off. Switching runs in the app's
- * scope, so leaving the screen never cuts a switch in half.
+ * One Situation on Calls › Situations: the row opens it, the switch turns it on or off. Turning it on asks how long
+ * for (For 1 hour · Until the end of its window or 18:00 · Until I turn it off), each time: a choice, not a setting.
+ * Switching runs in the app's scope, so leaving the screen never cuts a switch in half.
  */
 @Composable
 internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val name = SituationTriggers.name(context, s)
     val on = state.activeId == s.id
+    var asking by rememberSaveable { mutableStateOf(false) }
+    if (asking) {
+        HowLongDialog(name, s, onDismiss = { asking = false }) { until ->
+            asking = false
+            val c = vm.c
+            c.scope.launch { c.situations.turnOn(s.id, until) }
+        }
+    }
     SplitSwitchRow(
         title = name,
         sub = situationStatus(context, s, state),
@@ -123,8 +144,35 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
         onOpen = { open(SituationRoutes.Edit(s.id)) },
     ) { v ->
         val c = vm.c
-        c.scope.launch { if (v) c.situations.turnOn(s.id) else c.situations.turnOff() }
+        if (v) asking = true else c.scope.launch { c.situations.turnOff() }
     }
+}
+
+/** "How long?" for a Situation switched on by hand ([Situations.endChoices]): the end, or null for until turned off. */
+@Composable
+private fun HowLongDialog(name: String, s: Situation, onDismiss: () -> Unit, onPick: (Long?) -> Unit) {
+    val choices = remember(s) { Situations.endChoices(s, System.currentTimeMillis(), ZoneId.systemDefault()) }
+    ParleyDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        title = { Text(stringResource(R.string.sit_end_title, name)) },
+        text = {
+            Column {
+                choices.forEach { e ->
+                    val label = when (e) {
+                        is Situations.End.ForAnHour -> stringResource(R.string.sit_end_hour)
+                        is Situations.End.UntilTime -> stringResource(R.string.sit_end_until, Schedule.hm(e.minute))
+                        Situations.End.UntilTurnedOff -> stringResource(R.string.sit_end_off)
+                    }
+                    ParleyListItem(
+                        headlineContent = { Text(label) },
+                        colors = rowColors(),
+                        modifier = Modifier.clickable { onPick(e.at) },
+                    )
+                }
+            }
+        },
+    )
 }
 
 /** "Add a situation": asks for a name, then opens the new one to choose what it sets. */
@@ -202,8 +250,14 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
                 ) {
                     Icon(situationIcon(s.kind), null)
                     Spacer(Modifier.width(Spacing.m))
+                    val until = state.until.takeIf { state.cause == SituationCause.MANUAL }
                     Text(
-                        stringResource(R.string.sit_chip_on, name), style = MaterialTheme.typography.labelLarge,
+                        if (until != null) {
+                            stringResource(R.string.sit_chip_on_until, name, Schedule.hm(minuteOfDay(until)))
+                        } else {
+                            stringResource(R.string.sit_chip_on, name)
+                        },
+                        style = MaterialTheme.typography.labelLarge,
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                 }

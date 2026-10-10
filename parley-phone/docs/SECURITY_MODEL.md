@@ -336,6 +336,10 @@ backups, exports, Rescue call, number memory, the agenda.
 - **Call notifications.** The ringing, ongoing and silenced call notifications are private on the lock screen unless
   "Caller on the lock screen" shows names in full, each with a public version that names the caller only as the rule
   allows.
+- **The Situation notice.** While a Situation lets only some people ring, a silent ongoing notice says so ("Meeting is
+  on"). It names no contact; still, a Situation's own name can say where you are ("Hospital visit"), so the lock screen
+  shows only "Situation on". Its Turn off reaches a receiver that isn't exported, through Parley's own PendingIntent,
+  and only puts back what was set before the Situation.
 
 ### Design choices
 

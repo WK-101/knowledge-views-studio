@@ -326,12 +326,14 @@ private fun TurnsOn(s: Situation, edit: ((Situation) -> Situation) -> Unit) {
     val names = (listOfNotNull(s.deviceName?.takeIf { s.device == DeviceTrigger.NAMED }) + connected).distinctBy { it.lowercase() }
     val deviceOptions = listOf(
         stringResource(R.string.sit_device_none), stringResource(R.string.sit_device_car), stringResource(R.string.sit_device_any),
+        stringResource(R.string.sit_device_roaming),
     ) + names
     val deviceIndex = when (s.device) {
         null -> 0
         DeviceTrigger.CAR -> 1
         DeviceTrigger.ANY_BLUETOOTH -> 2
-        DeviceTrigger.NAMED -> 3 + names.indexOfFirst { it.equals(s.deviceName, ignoreCase = true) }.coerceAtLeast(0)
+        DeviceTrigger.ROAMING -> 3
+        DeviceTrigger.NAMED -> 4 + names.indexOfFirst { it.equals(s.deviceName, ignoreCase = true) }.coerceAtLeast(0)
     }
     SegmentedGroup(stringResource(R.string.sit_group_auto)) {
         item("sit_time") {
@@ -352,7 +354,8 @@ private fun TurnsOn(s: Situation, edit: ((Situation) -> Situation) -> Unit) {
                         0 -> it.copy(device = null, deviceName = null)
                         1 -> it.copy(device = DeviceTrigger.CAR, deviceName = null)
                         2 -> it.copy(device = DeviceTrigger.ANY_BLUETOOTH, deviceName = null)
-                        else -> it.copy(device = DeviceTrigger.NAMED, deviceName = names.getOrNull(i - 3))
+                        3 -> it.copy(device = DeviceTrigger.ROAMING, deviceName = null)
+                        else -> it.copy(device = DeviceTrigger.NAMED, deviceName = names.getOrNull(i - 4))
                     }
                 }
             }
