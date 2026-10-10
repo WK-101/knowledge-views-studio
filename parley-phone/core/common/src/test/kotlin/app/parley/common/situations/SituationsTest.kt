@@ -371,4 +371,82 @@ class SituationsTest {
         // Older state without the mark reads as finished.
         assertFalse(SituationState.decode("""{"activeId":"x"}""").pending)
     }
+
+    // ------------------------------------------------------------------ switched on by hand: how long, and the notice
+
+    private val utc = ZoneOffset.UTC
+    private fun at(day: Int, h: Int, m: Int = 0): Long = LocalDateTime.of(2026, 10, day, h, m).toEpochSecond(utc) * 1000
+    private fun sigAt(millis: Long, roaming: Boolean = false) = SituationSignals(PolicyClock.of(millis, utc), roaming = roaming)
+
+    @Test fun switching_on_by_hand_offers_an_hour_the_end_of_its_window_and_until_turned_off() {
+        // Monday 12 October 2026, 10:00. Meeting has no window: an hour, or 18:00 today.
+        val now = at(12, 10)
+        val meeting = Situations.endChoices(s(Situations.MEETING), now, utc)
+        assertEquals(
+            listOf(Situations.End.ForAnHour(at(12, 11)), Situations.End.UntilTime(at(12, 18), 18 * 60), Situations.End.UntilTurnedOff),
+            meeting,
+        )
+        // Night with its window ends at 07:00 the next morning.
+        val night = s(Situations.NIGHT).copy(schedule = Situations.NIGHT_WINDOW)
+        assertEquals(Situations.End.UntilTime(at(13, 7), 7 * 60), Situations.endChoices(night, at(12, 23), utc)[1])
+        // After 18:00 a day's end has passed: an hour, or until turned off.
+        assertEquals(listOf(Situations.End.ForAnHour(at(12, 20)), Situations.End.UntilTurnedOff), Situations.endChoices(s(Situations.MEETING), at(12, 19), utc))
+        // At 17:00 "until 18:00" is the same as an hour: offered once.
+        assertEquals(2, Situations.endChoices(s(Situations.MEETING), at(12, 17), utc).size)
+    }
+
+    @Test fun a_situation_on_for_an_hour_goes_off_by_itself_and_its_end_is_looked_at_then() {
+        val now = at(12, 10)
+        val on = Situations.turnOn(SituationState(), mine, s(Situations.MEETING), SituationCause.MANUAL, now, until = at(12, 11))
+        assertEquals(at(12, 11), on.state.until)
+        val list = defaults
+        assertEquals(Situations.Step.Keep, Situations.plan(on.state, list, sigAt(at(12, 10, 59))).step)
+        assertEquals(Situations.Step.Off, Situations.plan(on.state, list, sigAt(at(12, 11))).step)
+        // The window job wakes at the end even when no Situation has a window.
+        assertEquals(at(12, 11), Situations.nextChange(list, now, utc, on.state.until))
+        assertNull(Situations.nextChange(list, now, utc, null))
+        // Off puts back what was set, and the end goes with it.
+        val off = Situations.turnOff(on.state, on.behaviour, byHand = false)
+        assertEquals(mine, off.behaviour)
+        assertNull(off.state.until)
+        // Without an end it stays on, as before.
+        val forever = Situations.turnOn(SituationState(), mine, s(Situations.MEETING), SituationCause.MANUAL, now)
+        assertEquals(Situations.Step.Keep, Situations.plan(forever.state, list, sigAt(at(13, 10))).step)
+        // Only a Situation switched on by hand has an end of its own; one in the past is none.
+        assertNull(Situations.turnOn(SituationState(), mine, s(Situations.MEETING), SituationCause.SCHEDULE, now, until = at(12, 11)).state.until)
+        assertNull(Situations.turnOn(SituationState(), mine, s(Situations.MEETING), SituationCause.MANUAL, now, until = now - 1).state.until)
+        // The end survives a restart.
+        assertEquals(on.state, SituationState.decode(on.state.encode()))
+    }
+
+    @Test fun at_its_end_a_situation_whose_window_still_holds_stays_off_until_the_window_ends() {
+        val night = s(Situations.NIGHT).copy(schedule = Situations.NIGHT_WINDOW)
+        val on = Situations.turnOn(SituationState(), mine, night, SituationCause.MANUAL, at(12, 22), until = at(12, 23))
+        val plan = Situations.plan(on.state, listOf(night), sigAt(at(12, 23)))
+        assertEquals(Situations.Step.Off, plan.step)
+        assertEquals(listOf(night.id), plan.held)
+        val off = Situations.turnOff(on.state.copy(held = plan.held), on.behaviour, byHand = false).state
+        // Still in its window: not switched straight back on.
+        assertEquals(Situations.Step.Keep, Situations.plan(off, listOf(night), sigAt(at(12, 23, 5))).step)
+    }
+
+    @Test fun travelling_can_switch_itself_on_abroad() {
+        val travelling = s(Situations.TRAVELLING).copy(device = DeviceTrigger.ROAMING)
+        assertEquals(SituationCause.DEVICE, Situations.trigger(travelling, sigAt(at(12, 10), roaming = true)))
+        assertNull(Situations.trigger(travelling, sigAt(at(12, 10))))
+        val plan = Situations.plan(SituationState(), listOf(travelling), sigAt(at(12, 10), roaming = true))
+        assertEquals(Situations.Step.On(travelling, SituationCause.DEVICE), plan.step)
+        // Back home it goes off.
+        val on = Situations.turnOn(SituationState(), mine, travelling, SituationCause.DEVICE, at(12, 10))
+        assertEquals(Situations.Step.Off, Situations.plan(on.state, listOf(travelling), sigAt(at(14, 10))).step)
+    }
+
+    @Test fun the_notice_shows_only_while_a_situation_lets_some_people_ring() {
+        assertTrue(Situations.silencesAnyone(s(Situations.MEETING)))
+        assertTrue(Situations.silencesAnyone(s(Situations.NIGHT)))
+        assertFalse(Situations.silencesAnyone(s(Situations.DRIVING)))
+        assertFalse(Situations.silencesAnyone(s(Situations.TRAVELLING)))
+        assertFalse(Situations.silencesAnyone(s(Situations.MEETING).copy(ring = SituationRing.EVERYONE)))
+        assertFalse(Situations.silencesAnyone(null))
+    }
 }

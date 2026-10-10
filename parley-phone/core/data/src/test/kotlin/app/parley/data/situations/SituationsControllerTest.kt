@@ -105,6 +105,27 @@ class SituationsControllerTest {
         assertNull(restarted().state.value.activeId)
     }
 
+    @Test fun aSituationOnForAnHourGoesOffByItselfAndPutsBackWhatWasSet() = runBlocking {
+        val now = System.currentTimeMillis()
+        val until = now + 3_600_000L
+        assertTrue(c.situations.turnOn(Situations.MEETING, until))
+        assertEquals(until, c.situations.state.value.until)
+        // The window job is due at its end, though no Situation has a window.
+        assertEquals(until, c.situations.nextChange(now))
+        // Editing it while on keeps the end chosen.
+        assertTrue(c.situations.edit(Situations.MEETING) { it.copy(speaker = SpeakerDefault.ALWAYS) })
+        assertEquals(until, c.situations.state.value.until)
+        // Before its end, a look changes nothing; at its end (the job, a call, the tile), it goes off.
+        val before = restarted(SituationSignals(PolicyClock.of(until - 60_000L)))
+        assertFalse(before.reconcile())
+        assertEquals(Situations.MEETING, before.state.value.activeId)
+        val after = restarted(SituationSignals(PolicyClock.of(until)))
+        assertTrue(after.reconcile())
+        assertNull(after.state.value.activeId)
+        assertEquals(mine, c.settings.current().screening.offHours)
+        assertEquals(SpeakerDefault.UNKNOWN_NUMBERS, c.callExtras.config.value.speakerDefault)
+    }
+
     @Test fun aWindowThatEndedWhileThePhoneWasOffIsUndoneAtTheNextLook() = runBlocking {
         assertTrue(c.situations.edit(Situations.NIGHT) { it.copy(schedule = Situations.NIGHT_WINDOW) })
         val evening = restarted(at(DayOfWeek.MONDAY, 23))

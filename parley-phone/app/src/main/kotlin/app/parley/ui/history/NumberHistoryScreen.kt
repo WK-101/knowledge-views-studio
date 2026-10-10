@@ -326,6 +326,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 }
             }
             if (history.isNotEmpty()) item { Section(stringResource(R.string.hist_calls_section)) }
+            // Beside "First call from them to you": whether a call faking a saved organisation's number is warned about.
+            item(key = "never-calls") { NeverCallsWatchLine(vm, number, calls?.size) }
             items(history, key = { it.id }) { e ->
                 ParleyListItem(
                     leadingContent = { CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },

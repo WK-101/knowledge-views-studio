@@ -30,6 +30,10 @@ object NoticeChannels {
         NotificationChannels.CONTACTS_SAFETY to Spec(R.string.watch_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.PRIVATE_NAMES to Spec(R.string.privnames_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.JOBS to Spec(R.string.job_channel, NotificationManager.IMPORTANCE_LOW, description = R.string.job_channel_desc),
+        // A reminder that something is on, never news: no sound, no badge.
+        NotificationChannels.SITUATION to Spec(
+            R.string.sit_notice_channel, NotificationManager.IMPORTANCE_LOW, badge = false, description = R.string.sit_notice_channel_desc,
+        ),
     )
 
     /** Creates (or updates) the channel [id] (and its group for a reminder channel). */

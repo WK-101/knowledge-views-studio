@@ -215,4 +215,63 @@ class CaseFilesTest {
         val after = CaseFiles.recordCall(s, bank, call(999), organisation = true, name = "Old bank", private = false, region = region, newId = "new")
         assertEquals(s, after)
     }
+
+    private fun twoCases(): CaseState {
+        var s = CaseFiles.recordCall(CaseState(), bank, call(1_000), organisation = true, name = "Barclays", private = false, region = region, newId = "a")
+        s = CaseFiles.recordCall(s, clinic, call(5_000), organisation = true, name = "Clinic", private = false, region = region, newId = "b")
+        return s
+    }
+
+    @Test fun the_list_shows_kept_cases_newest_first_and_resolved_last() {
+        var s = twoCases()
+        assertEquals(listOf("b", "a"), CaseFiles.listed(s).map { it.id })
+        // A status set counts as activity: the bank moves up.
+        s = CaseFiles.setStatus(s, "a", CaseStatus.WAITING, now = 9_000)
+        assertEquals(listOf("a", "b"), CaseFiles.listed(s).map { it.id })
+        assertEquals(CaseStatus.WAITING to 9_000L, CaseFiles.byId(s, "a")!!.let { it.status to it.statusAt })
+        // Resolved ones go after the rest, whatever their activity.
+        s = CaseFiles.setStatus(s, "a", CaseStatus.RESOLVED, now = 10_000)
+        assertEquals(listOf("b", "a"), CaseFiles.listed(s).map { it.id })
+        // A stopped case isn't listed, and its status can't be set.
+        s = CaseFiles.stop(s, "b")
+        assertEquals(listOf("a"), CaseFiles.listed(s).map { it.id })
+        assertEquals(s, CaseFiles.setStatus(s, "b", CaseStatus.WAITING, now = 11_000))
+    }
+
+    @Test fun stop_for_all_stops_every_case_and_new_organisations_start_none() {
+        val stopped = CaseFiles.stopAll(CaseFiles.addReference(twoCases(), "a", CaseReference("r", "Claim", "sealed", 2_000)))
+        assertFalse(stopped.autoStart)
+        assertTrue(stopped.cases.none { it.kept || it.calls.isNotEmpty() || it.references.isNotEmpty() })
+        val council = "+442079460222"
+        val after = CaseFiles.recordCall(stopped, council, call(6_000), organisation = true, name = "Council", private = false, region = region, newId = "c")
+        assertNull(CaseFiles.find(after, listOf(council), region))
+        assertEquals(after, CaseFiles.ensure(after, "Council", listOf(council), false, 6_000, region, "c"))
+        // "Keep a case file" on a contact still works.
+        val kept = CaseFiles.setMode(after, "Council", listOf(council), false, CaseMode.ON, 7_000, region, "d")
+        assertTrue(CaseFiles.byId(kept, "d")!!.kept)
+        // Start again: organisations start cases again, the stopped ones stay stopped.
+        val again = CaseFiles.startAgain(kept)
+        assertTrue(again.autoStart)
+        assertFalse(CaseFiles.byId(again, "a")!!.kept)
+    }
+
+    @Test fun status_and_stop_for_all_survive_privacy_views_backups_and_restores() {
+        val s = CaseFiles.setStatus(twoCases(), "a", CaseStatus.WAITING, now = 9_000).copy(autoStart = false)
+        assertFalse(CaseFiles.visible(s, notesHidden = true, privateHidden = false).autoStart)
+        assertFalse(CaseFiles.visible(s, notesHidden = false, privateHidden = true).autoStart)
+        val restored = CaseFiles.decode(CaseFiles.encode(CaseFiles.forBackup(s, { false }) { it }))
+        assertEquals(CaseStatus.WAITING, CaseFiles.byId(restored, "a")!!.status)
+        assertFalse(restored.autoStart)
+        // A fresh phone takes the backup's status and its "stop for all".
+        val merged = CaseFiles.merge(CaseState(), restored, region)
+        assertEquals(CaseStatus.WAITING, CaseFiles.find(merged, listOf(bank), region)!!.status)
+        assertFalse(merged.autoStart)
+        // A status set on this phone wins over the backup's.
+        val mine = CaseFiles.setStatus(twoCases(), "a", CaseStatus.RESOLVED, now = 12_000)
+        assertEquals(CaseStatus.RESOLVED, CaseFiles.byId(CaseFiles.merge(mine, restored, region), "a")!!.status)
+        // Old stored case files have neither field: open, and organisations start cases.
+        val old = CaseFiles.decode("""{"cases":[{"id":"x","name":"Bank","numbers":["$bank"]}]}""")
+        assertEquals(CaseStatus.OPEN, old.cases.single().status)
+        assertTrue(old.autoStart)
+    }
 }

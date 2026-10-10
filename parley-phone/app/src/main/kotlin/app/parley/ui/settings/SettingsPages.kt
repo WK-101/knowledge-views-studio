@@ -115,6 +115,7 @@ import app.parley.ui.calltime.NotificationHealthCard
 import app.parley.ui.common.Format
 import app.parley.ui.contact.ContactPageRoutes
 import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.history.CallHistoryNotes
 import app.parley.ui.history.ClearHistoryRow
 import app.parley.ui.history.KeepFullHistoryRow
@@ -603,6 +604,12 @@ internal fun AboutPage(open: (Destination) -> Unit, vm: AppViewModel? = null) {
     if (vm != null) {
         val tipsReset = stringResource(R.string.ux_tips_reset_done)
         SegmentedGroup(stringResource(R.string.set_group_tips)) {
+            // Help & troubleshooting (also in Tools): short answers, each ending where it can be fixed.
+            item("help") {
+                LinkRow(stringResource(R.string.help_title), stringResource(R.string.help_intro), Icons.AutoMirrored.Rounded.HelpOutline) {
+                    open(DiscoverRoutes.Help)
+                }
+            }
             linkRow("reset_tips", Icons.Rounded.Lightbulb) {
                 vm.c.ux.resetTips()
                 vm.toast(tipsReset)

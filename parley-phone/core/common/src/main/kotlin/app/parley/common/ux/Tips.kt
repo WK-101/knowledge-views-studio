@@ -83,6 +83,19 @@ object Tips {
     /** A shared label's part of its label page: everyone sees the same contacts, each change says who made it. */
     const val SHARED_LABEL = "shared_label"
 
+    /**
+     * The Situation tile, offered once (Android's own "Add tile?" question, no permission) the first time a Situation
+     * is turned on from its row. Android 13 and later only; earlier versions have no way to ask, and never will.
+     */
+    const val SITUATION_TILE = "situation_tile"
+
+    /** Android 13, the first that lets an app ask to add its Quick Settings tile. */
+    private const val TILE_REQUEST_SDK = 33
+
+    /** Whether turning a Situation on ([turningOn]) asks to add its tile now: once, and only where Android can ask. */
+    fun offersSituationTile(turningOn: Boolean, seen: Set<String>, sdk: Int): Boolean =
+        turningOn && sdk >= TILE_REQUEST_SDK && SITUATION_TILE !in seen
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

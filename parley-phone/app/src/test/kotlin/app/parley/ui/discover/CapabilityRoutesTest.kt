@@ -12,6 +12,7 @@ import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.common.ux.CapabilityCatalog
 import app.parley.common.ux.ComingFrom
+import app.parley.common.ux.HelpTopic
 import app.parley.ui.Destination
 import app.parley.ui.Routes
 import app.parley.ui.parleyGraph
@@ -56,12 +57,30 @@ class CapabilityRoutesTest {
         CapabilityCatalog.rows.forEach { c ->
             when (val e = capabilityEvent(c.target)) {
                 is NavEvent.Route -> opens(e.route)
-                is NavEvent.Tab -> assertTrue("${c.key} opens a tab", e.tab in listOf(StartTab.CIRCLE, StartTab.KEYPAD))
+                is NavEvent.Tab -> assertTrue("${c.key} opens a tab", e.tab in listOf(StartTab.CIRCLE, StartTab.KEYPAD, StartTab.RECENTS))
                 else -> error("${c.key} opens $e")
             }
         }
         opens(DiscoverRoutes.Capabilities)
         opens(DiscoverRoutes.ComingFrom)
+        opens(DiscoverRoutes.Help)
+    }
+
+    @Test fun search_everything_opens_recents_search_with_recall_on() {
+        val row = CapabilityCatalog.rows.single { it.key == "search_everything" }
+        assertEquals(NavEvent.Tab(StartTab.RECENTS, everything = true), capabilityEvent(row.target))
+    }
+
+    @Test fun every_help_page_opens_and_leads_to_a_registered_place() {
+        HelpTopic.entries.forEach { t ->
+            opens(DiscoverRoutes.HelpPage(t.key))
+            assertTrue("$t has its texts", context.getString(HelpText.of(t).body).isNotBlank())
+            when (val e = t.target?.let(::capabilityEvent)) {
+                null -> assertEquals("$t says where instead", null, HelpText.of(t).action)
+                is NavEvent.Route -> opens(e.route)
+                else -> error("$t opens $e")
+            }
+        }
     }
 
     @Test fun every_importer_is_in_the_graph() {
@@ -121,7 +140,6 @@ class CapabilityRoutesTest {
             "$UI.history.HistoryRoutes.Case" to "an organisation's case file, from its card on the contact or number page",
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
-            "$UI.people.PeopleRoutes.Archived" to "Contacts › ⋮ › Archived (archived contacts are out of the lists by design)",
             "$UI.people.PeopleRoutes.ArchivedContact" to "One archived contact's read-only page, from Archived or Contacts search",
             "$UI.people.PeopleRoutes.Diagnostics" to "Settings › About",
             "$UI.people.PeopleRoutes.EditRaw" to "one account's copy of a contact",

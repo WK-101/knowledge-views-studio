@@ -135,6 +135,36 @@ object NeverCallsYou {
         return null
     }
 
+    /** What the number's history says about the warning, for a line [watch] has something to say about. */
+    sealed interface Watch {
+        /** "They never call me" was chosen on the contact: it warns whatever the history shows. */
+        data object Chosen : Watch
+
+        /** You have only ever called them, and Parley's own copy of your calls reaches back far enough: it warns. */
+        data object Armed : Watch
+
+        /** You have only ever called them, but your first call is older than Parley's own copy ([since]): not yet. */
+        data class From(val since: Long) : Watch
+
+        /** Parley's own copy of your calls is off (or can't be read now), so it can't say they never call. */
+        data object NoCopy : Watch
+    }
+
+    /**
+     * For the number's history: whether a call faking this saved organisation's number would be warned about, and if
+     * not, why ([Watch]). Null when there is nothing to say: not saved, not every contact an organisation, never
+     * called, or the line has called you (or made a call the log can't place), so the notice isn't for it.
+     */
+    fun watch(savedAs: List<SavedAs>, past: List<PastCall>, keptSince: Long?): Watch? = when {
+        savedAs.isEmpty() -> null
+        savedAs.any { it.neverCalls } && savedAs.all { it.neverCalls || organisation(it) } -> Watch.Chosen
+        !savedAs.all(::organisation) || past.isEmpty() -> null
+        past.any { CallReputation.kindOf(it.type) != RepKind.OUTGOING } -> null
+        keptSince == null -> Watch.NoCopy
+        reachesBack(keptSince, past.minOf { it.date }) -> Watch.Armed
+        else -> Watch.From(keptSince)
+    }
+
     private fun reachesBack(keptSince: Long?, firstCall: Long): Boolean = keptSince != null && keptSince < firstCall
 
     private fun words(text: String): List<String> =

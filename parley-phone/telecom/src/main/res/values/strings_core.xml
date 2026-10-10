@@ -185,8 +185,9 @@
     <string name="postcall_block">Block</string>
     <string name="postcall_unblock">Unblock</string>
     <string name="postcall_save">Save</string>
-    <string name="postcall_add_to_contact">Add to contact</string>
-    <string name="postcall_save_privately">Save privately</string>
+    <string name="postcall_add_to_contact">Add to a contact</string>
+    <string name="postcall_new_contact">New contact</string>
+    <string name="postcall_save_privately">Privately for 7 days</string>
     <string name="postcall_report">Report</string>
     <string name="postcall_save_title">Save privately for 7 days</string>
     <string name="postcall_name">Name</string>

@@ -519,6 +519,10 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+        <!-- Turn off on the Situation notice: only Parley's own PendingIntent reaches it. -->
+        <receiver
+            android:name=".situations.SituationNoticeReceiver"
+            android:exported="false" />
         <receiver
             android:name=".blocking.BlockingActionReceiver"
             android:exported="false" />

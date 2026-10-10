@@ -175,7 +175,7 @@ About says "Formerly married to" in place of the type. Girlfriend, boyfriend and
 
 The contact page's ⋮, the Contacts selection's ⋮ and a Recents call's sheet are built in one place
 (`core/common/.../ux/Menus.kt`: `ContactMenu`, `SelectionMenu`, `RecentMenu`) and drawn by `ui/common/MenuSheets.kt`.
-Each shows at most seven entries; the rarer actions sit under Share…, Privacy…, More… or Why it rang…, each opening a
+Each shows at most seven entries; the rarer actions sit under Share…, Privacy…, More… or Allow, report…, each opening a
 sheet of its own, and a group with a single action shows as that action. `MenusTest` checks the limit for every
 combination of facts and that no action is lost. The most used come first:
 
@@ -183,7 +183,7 @@ combination of facts and that no action is lost. The most used come first:
 |---|---|---|
 | Contact page ⋮ | Remind me to call (with a number) · Share… · Block numbers, or Unblock numbers once one is blocked (with a number) · Privacy… · More… · Delete | Share…: Share file (not for private contacts), Show QR code, Share privately. Privacy…: Make private (Make visible on a private contact), Delete automatically…. More…: Log a chat or visit (not in the Circle, where it is the page's button), Version history, Add to home screen, Set ringtone, Copy to SIM, Also allow this office's other lines, Separate (linked contacts) |
 | Contacts selection ⋮ | Edit… (bulk edit: Add to label, Remove from label, ringtone, SIM, account) · Message all · Share… · Merge (two or more device contacts) · Privacy… · Delete | Share…: Copy as text, Export .vcf file (device contacts). Privacy…: Delete automatically…, Make private (device contacts), Make visible to other apps (private contacts). Select all, Star and Share are buttons on the bar |
-| Recents call (hold a call, then ⋮ in the selection bar) | Buttons: Call · Message · Message or call on… · Copy. Rows: Create contact · Add to contact (unsaved numbers) · Block number, or Unblock number once blocked · Why it rang… · More… · Delete from history | Why it rang…: Why it rang, Test a call, the sales line, Always allow, Allow for 24 hours, Report, Search the web. More…: Edit before call, Remind me to call |
+| Recents call (hold a call, then ⋮ in the selection bar) | Buttons: Call · Message · Message or call on… · Copy. Rows: Create contact · Add to contact (unsaved numbers) · Remind me to call · Block number, or Unblock number once blocked · Allow, report… · More… · Delete from history | Allow, report…: Why did this ring? (only when a call in the row came in), Test a call, the sales line, Always allow, Allow for 24 hours, Report. More…: Edit before call, Search the web. The selection bar has Block and Delete (with Undo) for any number of calls |
 
 Remind me to call is top level on the contact page, where it is the everyday reason to open ⋮; in Recents the call's
 own sheet already leads with Call and Message, so it waits under More… with Edit before call. Version history moved

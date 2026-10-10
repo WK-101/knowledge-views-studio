@@ -144,7 +144,23 @@ private class InCallSheets {
     var agendaFor by mutableStateOf<String?>(null)
 
     /** "Check it's really them" for this call (live, or just ended from the post-call card). */
-    var verifyFor by mutableStateOf<CallUi?>(null)
+    var verifyFor: CallUi?
+        get() = verifyShown
+        set(v) {
+            verifyShown = v
+            noteSafety(v)
+        }
+    private var verifyShown by mutableStateOf<CallUi?>(null)
+
+    /**
+     * The calls whose caller made the user reach for a safety check while they were live (Is this a scam?, Check it's
+     * really them): their post-call card brings Was it a scam? and Call a saved number forward.
+     */
+    val safetyChecked = mutableSetOf<String>()
+
+    private fun noteSafety(call: CallUi?) {
+        if (call != null && call.isLive) safetyChecked += call.id
+    }
 
     /** Family safety: the safe-word card and "Add my helper". */
     val family = FamilyCallState()
@@ -153,7 +169,13 @@ private class InCallSheets {
     var handOff by mutableStateOf<String?>(null)
 
     /** "Is this a scam?" for this call (live, or just ended from the post-call card). */
-    var scamFor by mutableStateOf<CallUi?>(null)
+    var scamFor: CallUi?
+        get() = scamShown
+        set(v) {
+            scamShown = v
+            noteSafety(v)
+        }
+    private var scamShown by mutableStateOf<CallUi?>(null)
 
     /** The RTT conversation sheet for this call, and the calls whose sheet already opened by itself once. */
     var rttFor by mutableStateOf<String?>(null)
@@ -446,7 +468,7 @@ private fun NeverCallsYouNotice(s: ScreenState, sheets: InCallSheets, a: ScreenA
 private fun ColumnScope.ControlsSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions, scrollKeypad: Boolean) {
     val primary = s.primary
     when {
-        primary == null -> EndedCards(s, a)
+        primary == null -> EndedCards(s, a, sheets.safetyChecked)
         // "Block & decline" is under way: nothing left to answer.
         primary.state == CallState.RINGING && primary.blockingDecline -> BlockingDecline()
         primary.state == CallState.RINGING -> IncomingControls(
@@ -467,7 +489,7 @@ private fun ColumnScope.ControlsSection(s: ScreenState, sheets: InCallSheets, a:
 
 /** After the call: the reason it didn't go through (Retry), "Blocked · Undo", the post-call or memory card. */
 @Composable
-private fun EndedCards(s: ScreenState, a: ScreenActions) {
+private fun EndedCards(s: ScreenState, a: ScreenActions, safetyChecked: Set<String>) {
     val ended = s.ended
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 560.dp).padding(bottom = Spacing.l)) {
         when {
@@ -486,7 +508,7 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
                 onAnswered = { if (!ended.postCallCard && !ended.memoryCard) a.onPostCall(PostCallChoice.Done) },
             )
             // Block, save, message or report an unknown number right after the call.
-            ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = a.onPostCall)
+            ended != null && ended.postCallCard -> PostCallCard(ended, safetyChecked = ended.id in safetyChecked, onChoice = a.onPostCall)
             // "Anything to remember?" after a call with a contact (opt-in).
             ended != null && ended.memoryCard -> MemoryCard(ended, onChoice = a.onPostCall)
             else -> Spacer(Modifier.height(Spacing.xxl * 2))

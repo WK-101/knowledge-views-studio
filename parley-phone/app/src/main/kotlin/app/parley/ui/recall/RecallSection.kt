@@ -2,6 +2,7 @@ package app.parley.ui.recall
 
 import app.parley.ui.calls.NetworkNameTag
 import android.content.Context
+import androidx.annotation.StringRes
 import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
@@ -106,9 +107,11 @@ fun LazyListScope.recallSection(
     expanded: Set<RecallSource>,
     onExpand: (RecallSource) -> Unit,
     open: (Destination) -> Unit,
+    /** The heading when Recall ran on its own: the Contacts search's, unless the tab says otherwise (Recents). */
+    @StringRes fallbackHeader: Int = R.string.recall_fallback_header,
 ) {
     val result = state.result
-    item(key = "recall-header", contentType = "recall-header") { RecallHeader(state, fallback) }
+    item(key = "recall-header", contentType = "recall-header") { RecallHeader(state, fallback, fallbackHeader) }
     if (state.privateLocked) item(key = "recall-locked", contentType = "recall-banner") { PrivateLocked(vm) }
     if (result == null) return
     if (result.isEmpty) {
@@ -136,11 +139,11 @@ fun LazyListScope.recallSection(
 }
 
 @Composable
-private fun RecallHeader(state: RecallUi.State, fallback: Boolean) {
+private fun RecallHeader(state: RecallUi.State, fallback: Boolean, @StringRes fallbackHeader: Int) {
     val context = LocalContext.current
     val understood = state.result?.query?.takeIf { it.interpreted }?.let { describe(context, it) }
     ListSectionHeader(
-        stringResource(if (fallback) R.string.recall_fallback_header else R.string.recall_header),
+        stringResource(if (fallback) fallbackHeader else R.string.recall_header),
         inset = Spacing.xl,
         top = Spacing.m,
     )
@@ -166,7 +169,7 @@ private fun PrivateLocked(vm: AppViewModel) {
         stringResource(R.string.recall_private_locked),
         icon = Icons.Rounded.Lock,
         action = stringResource(R.string.cs_private_unlock).takeIf { activity != null },
-        onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.recall.reload() } } },
+        onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.reloadRecall() } } },
     )
 }
 

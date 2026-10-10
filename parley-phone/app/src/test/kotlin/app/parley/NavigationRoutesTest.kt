@@ -110,6 +110,8 @@ class NavigationRoutesTest {
         assertEquals(NavEvent.Tab(StartTab.RECENTS), resolve(Intent.ACTION_VIEW, type = "vnd.android.cursor.dir/calls")?.event)
         assertEquals(NavEvent.Tab(StartTab.RECENTS), resolve(Intent.ACTION_CALL_BUTTON)?.event)
         assertEquals(NavEvent.Tab(StartTab.KEYPAD, dial = ""), resolve(IntentRoutes.ACTION_ADD_CALL)?.event)
+        // The "Search everything" launcher shortcut: Recents' search with Recall on.
+        assertEquals(NavEvent.Tab(StartTab.RECENTS, everything = true), resolve(IntentRoutes.ACTION_SEARCH_EVERYTHING)?.event)
     }
 
     @Test fun shortcutsTilesAndSettingsLinksOpenTheirScreens() {
@@ -324,6 +326,11 @@ class NavigationRoutesTest {
         assertEquals(app.parley.jobs.UserJobs.Opener("calls.csv", "text/csv"), IntentRoutes.resolve(export, fromParley = true) { null }?.openExport)
         // In particular, no other app can mark every missed call as seen.
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.ACTION_SHOW_MISSED), fromParley = false) { null })
+        // The Situation notice opens Calls › Situations, from Parley only.
+        assertEquals(
+            NavEvent.Route(app.parley.ui.settings.CallsRoutes.Page(app.parley.ui.settings.CallsSubPage.SITUATIONS.name)),
+            IntentRoutes.resolve(Intent(IntentRoutes.ACTION_OPEN_SITUATIONS), fromParley = true) { null }?.event,
+        )
         // Public actions still work from anywhere.
         assertEquals(NavEvent.Tab(StartTab.RECENTS), IntentRoutes.resolve(Intent(Intent.ACTION_CALL_BUTTON), fromParley = false) { null }?.event)
     }

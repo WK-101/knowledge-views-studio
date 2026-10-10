@@ -278,6 +278,7 @@
     <string name="recents_block_number">Block number</string>
     <string name="recents_select">Select</string>
     <string name="recents_delete_from_history">Delete from history</string>
+    <string name="recents_delete_selected_cd">Delete the selected calls from history</string>
 
     <!-- Contacts list -->
     <string name="contacts_no_private">No private contacts</string>
@@ -976,5 +977,5 @@
     <string name="menu_group_share">Share…</string>
     <string name="menu_group_privacy">Privacy…</string>
     <string name="menu_group_more">More…</string>
-    <string name="menu_group_why">Why it rang…</string>
+    <string name="menu_group_why">Allow, report…</string>
 </resources>

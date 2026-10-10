@@ -62,4 +62,14 @@ class BasicsTest {
         val known = ScreeningPreset.KNOWN.apply(AppSettings())
         assertEquals(known, Basics.apply(known, BasicsChoice(screening = ScreeningPreset.KNOWN)))
     }
+
+    @Test fun restoring_a_parley_backup_skips_the_basics_it_would_overwrite() {
+        // The default phone app and the permissions still come; then the first run ends and the backup screen opens.
+        assertEquals(
+            listOf(OnboardingStep.WELCOME, OnboardingStep.DEFAULT_APP, OnboardingStep.PERMISSIONS),
+            generateSequence(OnboardingStep.WELCOME) { it.next(restoring = true) }.toList(),
+        )
+        // Without a restore the steps are the usual ones.
+        assertEquals(OnboardingStep.BASICS, OnboardingStep.PERMISSIONS.next(restoring = false))
+    }
 }

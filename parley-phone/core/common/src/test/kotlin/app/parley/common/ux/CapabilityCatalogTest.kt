@@ -3,6 +3,7 @@ package app.parley.common.ux
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class CapabilityCatalogTest {
     private val rows = CapabilityCatalog.rows
@@ -15,7 +16,9 @@ class CapabilityCatalogTest {
     }
 
     @Test fun every_job_has_rows_and_every_row_is_one_line() {
-        Job.entries.forEach { j -> assertTrue("$j has at least three rows", CapabilityCatalog.forJob(j).size >= 3) }
+        // Help is one row that opens its own pages; every other job groups several.
+        Job.entries.filter { it != Job.HELP }.forEach { j -> assertTrue("$j has at least three rows", CapabilityCatalog.forJob(j).size >= 3) }
+        assertEquals(listOf("help"), CapabilityCatalog.forJob(Job.HELP).map { it.key })
         rows.forEach { r ->
             assertTrue("${r.key} title is short", r.title.length <= 48)
             assertTrue("${r.key} summary is one line", r.summary.length <= 90 && '\n' !in r.summary)
@@ -59,6 +62,57 @@ class CapabilityCatalogTest {
         val links = rows.filter { it.action == null }
         val twice = links.groupBy { it.target }.filterValues { it.size > 1 }.mapValues { (_, v) -> v.map { it.key } }
         assertEquals(emptyMap<CapabilityTarget, List<String>>(), twice)
+    }
+
+    /**
+     * Every headline feature of a "New in" line of the README since 6.0 has its row, tagged with the release that
+     * brought it, so What's new can name it. A new headline fails here until it has a row.
+     */
+    @Test fun every_headline_feature_has_its_row() {
+        // "This number never calls you" and Dead-number radar are parts of other places (the call screen and the
+        // number's history, the Health check), not places of their own.
+        val headlines = mapOf(
+            "Recall" to ("search_everything" to "6.0"),
+            "Situations" to ("situations" to "6.0"),
+            "Case files" to ("case_files" to "6.1"),
+            "Family spam shield" to ("family_shield" to "6.1"),
+            "Chapters" to ("chapters" to "6.2"),
+            "Archive" to ("archived" to "6.2"),
+            "Agenda" to ("to_talk_about" to "6.2"),
+            "Rescue call" to ("rescue_call" to "6.2"),
+            "Help & troubleshooting" to ("help" to "6.4"),
+        )
+        headlines.forEach { (feature, row) ->
+            val (key, since) = row
+            assertEquals(feature, since, rows.single { it.key == key }.since)
+        }
+        // Dead-number radar is part of the Health check, and its row says so.
+        assertTrue(CapabilitySearch.search("dead number", rows).any { it.key == "health" })
+        // The README names each of them in its "New in" lines (when the README is there to read).
+        readme()?.let { text -> (headlines.keys - "Help & troubleshooting").forEach { assertTrue("README names $it", it in text) } }
+    }
+
+    private fun readme(): String? = listOf("../../README.md", "../README.md", "README.md").map(::File).firstOrNull { it.isFile }?.readText()
+
+    @Test fun situations_took_the_drive_profiles_place() {
+        val situations = rows.single { it.key == "situations" }
+        assertTrue(situations.featured)
+        assertEquals(Job.BETTER_CALLS, situations.job)
+        assertEquals(CapabilityTarget.Setting("situations"), situations.target)
+        assertTrue(!rows.single { it.key == "drive_profile" }.featured)
+        // The features that live on each label or contact open their help page, which leads to the place.
+        listOf("chapters" to HelpTopic.CHAPTERS, "to_talk_about" to HelpTopic.TALK_ABOUT, "family_shield" to HelpTopic.FAMILY_SHIELD).forEach { (k, t) ->
+            assertEquals(k, CapabilityTarget.Help(t), rows.single { it.key == k }.target)
+        }
+    }
+
+    @Test fun whats_new_names_the_releases_headline_rows() {
+        assertEquals(listOf("help"), CapabilityCatalog.headline("6.4.0").map { it.key })
+        // Featured rows first, at most three.
+        val six = CapabilityCatalog.headline("6.0.0")
+        assertEquals(listOf("search_everything", "situations"), six.map { it.key })
+        assertTrue(CapabilityCatalog.headline("6.2", max = 3).size == 3)
+        assertEquals(emptyList<Capability>(), CapabilityCatalog.headline("1.0"))
     }
 
     /** What arrived after 4.6 has a row (PRODUCT.md §1.2): the hub lists everything Parley does. */
@@ -112,6 +166,9 @@ class CapabilityCatalogTest {
         val grouped = ComingFrom.grouped()
         assertEquals(ComingFrom.Importer.entries.toList(), grouped.map { it.first })
         assertEquals(ComingFrom.Source.entries.size, grouped.sumOf { it.second.size })
-        assertEquals(listOf(ComingFrom.Source.GOOGLE, ComingFrom.Source.IPHONE, ComingFrom.Source.SAMSUNG), grouped.first().second)
+        // Another phone with Parley comes first: a restore brings everything, and overwrites what the first run set.
+        assertEquals(ComingFrom.Importer.PARLEY_BACKUP, grouped.first().first)
+        assertEquals(listOf(ComingFrom.Source.PARLEY), grouped.first().second)
+        assertEquals(listOf(ComingFrom.Source.GOOGLE, ComingFrom.Source.IPHONE, ComingFrom.Source.SAMSUNG), grouped[1].second)
     }
 }

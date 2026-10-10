@@ -1,7 +1,7 @@
 package app.parley.common.cases
 
 /**
- * The text of a case file's PDF, for a complaint: who, the summary, the reference numbers (only when you said yes to
+ * The text of a case file's PDF, for a complaint: who, where it stands, the summary, the reference numbers (only when you said yes to
  * including them), the open promises and every call and note, oldest first as a complaint reads. Pure: the app turns
  * the lines into pages ([paginate]) and draws them; the words come from its resources ([Words]).
  */
@@ -16,6 +16,9 @@ object CaseReport {
         fun madeOn(date: String): String
         fun numbers(numbers: List<String>): String
         val summary: String
+
+        /** Where the case stands ("Status: waiting for them, since 4 Oct 2026"); [since] null when never set. */
+        fun status(status: CaseStatus, since: String?): String
         fun calls(count: Int, first: String, last: String): String
         val noCalls: String
         fun hold(total: Long, average: Long, longest: Long, calls: Int): String
@@ -39,7 +42,8 @@ object CaseReport {
 
     /**
      * The report's lines. [references] are the opened reference numbers, or null when the person didn't choose to
-     * include them (then only how many were left out is said, [referenceCount]). [now] is when it is made.
+     * include them (then only how many were left out is said, [referenceCount]). [now] is when it is made; [status]
+     * and [statusAt] say where the case stands ([CaseFile.status]).
      */
     @Suppress("LongParameterList") // One argument per part of the report.
     fun build(
@@ -50,10 +54,13 @@ object CaseReport {
         referenceCount: Int,
         now: Long,
         w: Words,
+        status: CaseStatus = CaseStatus.OPEN,
+        statusAt: Long = 0,
     ): List<Line> = buildList {
         add(Line(Style.TITLE, w.title(name)))
         add(Line(Style.SUBTITLE, w.madeOn(w.date(now))))
         if (numbers.isNotEmpty()) add(Line(Style.SUBTITLE, w.numbers(numbers)))
+        add(Line(Style.SUBTITLE, w.status(status, statusAt.takeIf { it > 0 }?.let(w::date))))
         addAll(summary(timeline.summary, w))
         if (referenceCount > 0) {
             add(Line(Style.HEADING, w.references))

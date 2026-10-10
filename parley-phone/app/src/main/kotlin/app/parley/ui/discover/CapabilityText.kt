@@ -70,6 +70,14 @@ object CapabilityText {
         "rtt" to (R.string.discover_rtt_title to R.string.discover_rtt_summary),
         "voicemail" to (R.string.discover_voicemail_title to R.string.discover_voicemail_summary),
         "speed_dial" to (R.string.discover_speed_dial_title to R.string.discover_speed_dial_summary),
+        "search_everything" to (R.string.recall_chip to R.string.discover_search_everything_summary),
+        "archived" to (R.string.discover_archived_title to R.string.discover_archived_summary),
+        "situations" to (R.string.discover_situations_title to R.string.discover_situations_summary),
+        "case_files" to (R.string.case_list_title to R.string.discover_case_files_summary),
+        "family_shield" to (R.string.discover_family_shield_title to R.string.discover_family_shield_summary),
+        "chapters" to (R.string.discover_chapters_title to R.string.discover_chapters_summary),
+        "to_talk_about" to (R.string.agenda_title to R.string.discover_to_talk_about_summary),
+        "help" to (R.string.help_title to R.string.discover_help_summary),
     )
 
     /** Title and summary of [c]; a row without texts fails loudly in the catalog test, never silently on screen. */
@@ -85,5 +93,6 @@ object CapabilityText {
         Job.KEEP_PRIVATE -> R.string.discover_job_keep_private
         Job.MESSAGE -> R.string.discover_job_message
         Job.BETTER_CALLS -> R.string.discover_job_better_calls
+        Job.HELP -> R.string.discover_job_help
     }
 }

@@ -17,6 +17,9 @@ enum class Job(val title: String) {
     KEEP_PRIVATE("Keep it private"),
     MESSAGE("Message without saving"),
     BETTER_CALLS("Calls that work better"),
+
+    /** Help & troubleshooting: one row, shown last, that opens the task pages ([HelpTopic]). */
+    HELP("Help"),
 }
 
 /** Screens a row can open directly. The app maps each one to its route with an exhaustive `when`. */
@@ -29,6 +32,10 @@ enum class AppScreen {
     KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT, INTRODUCE,
     CALL_TIME, SIMS, SIMPLE_MODE, DRIVE_PROFILE, PHONE_MENUS, SPEED_DIAL, CALL_QUALITY,
     SHARED_LABELS, PRIVATE_NAMES, RESCUE_CALL,
+    CASE_FILES, ARCHIVED, HELP,
+
+    /** Search everything (Recall) in the Recents search: a tab, opened with its search ready. */
+    SEARCH_EVERYTHING,
 }
 
 /**
@@ -44,6 +51,12 @@ sealed interface CapabilityTarget {
 
     /** A key of [SettingsCatalog]. */
     data class Setting(val key: String) : CapabilityTarget
+
+    /**
+     * A help page that says what a feature is and opens the place it is set ([HelpTopic.target]): for a feature that
+     * lives on each label or contact rather than on a screen of its own (Chapters, To talk about, the family shield).
+     */
+    data class Help(val topic: HelpTopic) : CapabilityTarget
 }
 
 /**
@@ -66,6 +79,9 @@ data class Capability(
 object CapabilityCatalog {
     private fun screen(key: String, job: Job, title: String, summary: String, s: AppScreen, vararg kw: String, since: String? = null) =
         Capability(key, job, title, summary, CapabilityTarget.Screen(s), kw.toList(), since)
+
+    private fun help(key: String, job: Job, title: String, summary: String, topic: HelpTopic, vararg kw: String, since: String? = null) =
+        Capability(key, job, title, summary, CapabilityTarget.Help(topic), kw.toList(), since)
 
     private fun setting(key: String, job: Job, title: String, summary: String, setting: String, vararg kw: String, since: String? = null) =
         Capability(key, job, title, summary, CapabilityTarget.Setting(setting), kw.toList(), since)
@@ -98,6 +114,9 @@ object CapabilityCatalog {
             AppScreen.BLOCK_LIST_IMPORT,
             "import", "yacb", "call blocker", "nophonespam", "csv",
         ),
+        // Set on each shared label's page; the row says what it is and opens Shared labels.
+        help("family_shield", SPAM, "Family spam shield", "Share block and scam verdicts through a family label you share", HelpTopic.FAMILY_SHIELD,
+            "family", "shield", "share", "verdict", "scam", since = "6.1"),
         setting("expecting", SPAM, "Expecting a call", "Let unknown callers ring for a while, such as a delivery", "expecting_call",
             "delivery", "courier", "snooze").top(CapabilityAction.EXPECTING_CALL),
 
@@ -114,8 +133,13 @@ object CapabilityCatalog {
             "import", "switch", "iphone", "icloud", "samsung", "google", "vcf", "move", since = "4.6").top(),
         setting("import_export", LOSE, "Import & export contacts", "vCard and CSV files, the SIM card, one account", "import_file",
             "import", "export", "vcf", "vcard", "csv", "sim", "spreadsheet").top(),
-        screen("health", LOSE, "Contact health check", "Numbers without a country code, empty and stale contacts", AppScreen.HEALTH_CHECK,
-            "tidy", "clean up", "fix").top(),
+        screen("health", LOSE, "Contact health check", "Numbers without a country code or that no longer work, stale contacts", AppScreen.HEALTH_CHECK,
+            "tidy", "clean up", "fix", "dead number", "radar", "disconnected").top(),
+        // Recall: the question "who called in March?" starts in Recents, so the row opens Recents' search.
+        screen("search_everything", LOSE, "Search everything", "Calls, notes, promises and old contacts, from words like plumber march",
+            AppScreen.SEARCH_EVERYTHING, "recall", "find", "who called", "notes", "promise", "deleted", since = "6.0").top(),
+        screen("archived", LOSE, "Archived contacts", "Out of your address book and other apps, still named when they call", AppScreen.ARCHIVED,
+            "archive", "unarchive", "hidden", "old contacts", since = "6.2"),
         screen("duplicates", LOSE, "Find & merge duplicates", "Contacts saved twice, merged with one undo", AppScreen.DUPLICATES,
             "merge", "duplicate", "dedupe"),
 
@@ -135,6 +159,10 @@ object CapabilityCatalog {
             "who's in", "whos in", "trip", "travel", "city", "visiting", "abroad"),
         screen("insights", TOUCH, "Call insights", "Talk time, top people and calls you didn't return", AppScreen.CALL_INSIGHTS,
             "statistics", "stats", "talk time"),
+        help("chapters", TOUCH, "Chapters", "Give a label an end, such as a move or a hospital stay, and tidy up once", HelpTopic.CHAPTERS,
+            "chapter", "end", "label", "move", "hospital", "project", since = "6.2"),
+        help("to_talk_about", TOUCH, "To talk about", "Things to bring up, shown when you next call them or they call", HelpTopic.TALK_ABOUT,
+            "agenda", "talk", "remember", "topics", since = "6.2"),
         screen("shared_labels", TOUCH, "Shared labels", "Share a label like Family with its people, through your own folder", AppScreen.SHARED_LABELS,
             "family phonebook", "share", "syncthing", "nextcloud", "group", since = "5.0"),
 
@@ -193,8 +221,11 @@ object CapabilityCatalog {
         // Calls that work better
         setting("auto_answer", CALLS, "Answer automatically", "With a headset, in the car or for people you choose", "auto_answer",
             "headset", "bluetooth", "car", "hands-free").top(),
-        screen("drive_profile", CALLS, "Drive profile", "Say who's calling and answer chosen people while your car is connected", AppScreen.DRIVE_PROFILE,
-            "car", "driving", "bluetooth", "android auto", "announce", since = "4.7").top(),
+        // Situations took the drive profile's featured place: since 6.0 the car is part of the Driving Situation.
+        setting("situations", CALLS, "Situations", "Driving, a meeting or night: one tap sets who may ring, and puts it back", "situations",
+            "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top(),
+        screen("drive_profile", CALLS, "Drive profile", "Your car for the Driving Situation: announce callers, answer chosen people", AppScreen.DRIVE_PROFILE,
+            "car", "driving", "bluetooth", "android auto", "announce", since = "4.7"),
         screen("helpers", CALLS, "Add a helper to a call", "Someone you trust, joined in with one tap", AppScreen.HELPERS,
             "helper", "family", "conference", since = "4.5"),
         screen("call_time", CALLS, "Talk-time reminders and limits", "A quiet beep, or a call that ends on time", AppScreen.CALL_TIME,
@@ -211,6 +242,8 @@ object CapabilityCatalog {
             "rtt", "tty", "text", "deaf", "hard of hearing", "accessibility", since = "4.7"),
         setting("voicemail", CALLS, "Voicemail", "Listen in Recents while Parley is your phone app; hold 1 to call it", "voicemail",
             "voicemail", "visual voicemail", "messages").copy(action = CapabilityAction.VOICEMAIL),
+        screen("case_files", CALLS, "Case files", "Banks and other services: calls, hold times and reference numbers", AppScreen.CASE_FILES,
+            "case", "complaint", "reference", "claim", "hold", "insurance", since = "6.1"),
         screen("rescue_call", CALLS, "Rescue call", "A call that looks real, to help you leave", AppScreen.RESCUE_CALL,
             "fake call", "excuse", "escape", "leave", "safety", "date", since = "6.2"),
         screen("speed_dial", CALLS, "Speed dial", "Hold 2 to 9 on the keypad to call someone", AppScreen.SPEED_DIAL,
@@ -221,6 +254,10 @@ object CapabilityCatalog {
             "re-alert", "missed call"),
         screen("simple_mode", CALLS, "Simple mode", "Big photo buttons and a larger keypad, set up for someone else", AppScreen.SIMPLE_MODE,
             "elderly", "senior", "easy", "large").top(),
+
+        // Help
+        screen("help", Job.HELP, "Help & troubleshooting", "A call that didn't ring, the call screen, a contact gone after Archive", AppScreen.HELP,
+            "help", "faq", "problem", "troubleshoot", "not working", "support", since = "6.4").top(),
     )
 
     /** The rows of [job], in catalog order. */
@@ -237,6 +274,12 @@ object CapabilityCatalog {
         val release = majorMinor(version)
         return rows.filter { it.since != null && it.since == release }
     }
+
+    /**
+     * What the What's new card names for release [version]: up to [max] of its [newIn] rows, the featured ones first
+     * (they are the release's headline), in catalog order otherwise.
+     */
+    fun headline(version: String, max: Int = 3): List<Capability> = newIn(version).sortedByDescending { it.featured }.take(max)
 
     /** "4.6.0-debug" → "4.6". */
     fun majorMinor(version: String): String = version.substringBefore('-').split('.').take(2).joinToString(".")

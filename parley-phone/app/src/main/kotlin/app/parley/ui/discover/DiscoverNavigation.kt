@@ -6,6 +6,7 @@ package app.parley.ui.discover
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import app.parley.NavEvent
 import app.parley.common.SettingsCatalog
 import app.parley.common.SettingsCategory
@@ -13,6 +14,7 @@ import app.parley.common.StartTab
 import app.parley.common.ux.AppScreen
 import app.parley.common.ux.CapabilityTarget
 import app.parley.common.ux.ComingFrom
+import app.parley.common.ux.HelpTopic
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
 import app.parley.ui.Routes
@@ -32,17 +34,26 @@ import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.situations.SituationRoutes
 import kotlinx.serialization.Serializable
 
-/** "What Parley can do" and "Coming from another phone?". */
+/** Tools, "Coming from another phone?" and Help & troubleshooting. */
 object DiscoverRoutes {
     @Serializable data object Capabilities : Destination
 
     @Serializable data object ComingFrom : Destination
+
+    /** Help & troubleshooting: the task pages ([HelpTopic.troubleshooting]). */
+    @Serializable data object Help : Destination
+
+    /** One help page, by [HelpTopic.key]. */
+    @Serializable data class HelpPage(val topic: String) : Destination
 }
 
 fun NavGraphBuilder.discoverGraph(nav: NavController) {
     val back: () -> Unit = { nav.popBackStack() }
     composable<DiscoverRoutes.Capabilities> { CapabilitiesScreen(appVm(), back) }
     composable<DiscoverRoutes.ComingFrom> { ComingFromScreen(appVm(), back) }
+    val openTopic: (HelpTopic) -> Unit = { nav.navigate(DiscoverRoutes.HelpPage(it.key)) }
+    composable<DiscoverRoutes.Help> { HelpScreen(back, openTopic) }
+    composable<DiscoverRoutes.HelpPage> { HelpPageScreen(appVm(), HelpTopic.of(it.toRoute<DiscoverRoutes.HelpPage>().topic), back, openTopic) }
 }
 
 /**
@@ -51,9 +62,12 @@ fun NavGraphBuilder.discoverGraph(nav: NavController) {
  */
 fun capabilityEvent(target: CapabilityTarget): NavEvent = when (target) {
     is CapabilityTarget.Setting -> NavEvent.Route(settingRoute(SettingsCatalog[target.key]))
+    is CapabilityTarget.Help -> NavEvent.Route(DiscoverRoutes.HelpPage(target.topic.key))
     is CapabilityTarget.Screen -> when (target.screen) {
         AppScreen.CIRCLE -> NavEvent.Tab(StartTab.CIRCLE)
         AppScreen.KEYPAD -> NavEvent.Tab(StartTab.KEYPAD)
+        // Recall in Recents' search, where "who called in March?" starts.
+        AppScreen.SEARCH_EVERYTHING -> NavEvent.Tab(StartTab.RECENTS, everything = true)
         else -> NavEvent.Route(screenRoute(target.screen))
     }
 }
@@ -97,12 +111,16 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.SHARED_LABELS -> SharedLabelRoutes.All
     AppScreen.PRIVATE_NAMES -> PeopleRoutes.PrivateNames
     AppScreen.RESCUE_CALL -> SituationRoutes.RescueCall
+    AppScreen.CASE_FILES -> HistoryRoutes.Cases
+    AppScreen.ARCHIVED -> PeopleRoutes.Archived
+    AppScreen.HELP -> DiscoverRoutes.Help
     // Tabs, handled by capabilityEvent; Home is where they live.
-    AppScreen.CIRCLE, AppScreen.KEYPAD -> Routes.Home
+    AppScreen.CIRCLE, AppScreen.KEYPAD, AppScreen.SEARCH_EVERYTHING -> Routes.Home
 }
 
 /** The existing importer each "Coming from…" source opens. */
 fun importerRoute(importer: ComingFrom.Importer): Destination = when (importer) {
+    ComingFrom.Importer.PARLEY_BACKUP -> Routes.Backup
     ComingFrom.Importer.CONTACTS_FILE -> Routes.settingsPage(SettingsCategory.CONTACTS, "import_file")
     ComingFrom.Importer.CALL_HISTORY_CSV -> HistoryRoutes.Import
     ComingFrom.Importer.BLOCK_LIST -> BlockingRoutes.Transfer

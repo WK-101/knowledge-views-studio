@@ -37,6 +37,9 @@ enum class DeviceTrigger {
 
     /** Any car or Bluetooth audio device connects (or car mode). */
     ANY_BLUETOOTH,
+
+    /** The phone is on a network in another country (roaming abroad; national roaming doesn't count). */
+    ROAMING,
 }
 
 /** How the Situation on now was switched on. */
@@ -150,6 +153,11 @@ data class SituationState(
      * Situation before's values), so the next look writes [applied] again before anything else.
      */
     val pending: Boolean = false,
+    /**
+     * When a Situation switched on by hand goes off by itself ("For 1 hour", "Until 18:00"), or null: until it is
+     * switched off by hand. Chosen each time it is switched on, never a setting.
+     */
+    val until: Long? = null,
 ) {
     fun encode(): String = Codecs.full.encodeToString(serializer(), this)
 
@@ -173,6 +181,8 @@ data class SituationSignals(
     val audioNames: List<String> = emptyList(),
     /** Any Bluetooth audio device is connected. */
     val bluetoothAudio: Boolean = false,
+    /** A SIM is on a network in another country. */
+    val roaming: Boolean = false,
 )
 
 /** Pure rules of Situations: switching on and off, the snapshot, the triggers and the next time to look again. */
@@ -325,7 +335,7 @@ object Situations {
      * off ([SituationState.held]) like one switched off by hand: moving away from it (the tile's next Situation, then
      * Off) must not let its window or device switch it straight back on. [plan] lets go once its trigger stops.
      */
-    fun turnOn(state: SituationState, current: Behaviour, s: Situation, cause: SituationCause, now: Long): Outcome {
+    fun turnOn(state: SituationState, current: Behaviour, s: Situation, cause: SituationCause, now: Long, until: Long? = null): Outcome {
         val before = base(state, current)
         val applied = apply(before, s)
         val held = if (cause == SituationCause.MANUAL) {
@@ -333,7 +343,8 @@ object Situations {
         } else {
             state.held
         }
-        return Outcome(SituationState(s.id, cause, now, before, applied, held), applied)
+        val end = until?.takeIf { cause == SituationCause.MANUAL && it > now }
+        return Outcome(SituationState(s.id, cause, now, before, applied, held, until = end), applied)
     }
 
     /**
@@ -359,6 +370,7 @@ object Situations {
         null -> false
         DeviceTrigger.CAR -> sig.car
         DeviceTrigger.ANY_BLUETOOTH -> sig.car || sig.bluetoothAudio
+        DeviceTrigger.ROAMING -> sig.roaming
         DeviceTrigger.NAMED -> s.deviceName?.trim()?.takeIf { it.isNotEmpty() }
             ?.let { n -> sig.audioNames.any { it.trim().equals(n, ignoreCase = true) } } == true
     }
@@ -404,15 +416,16 @@ object Situations {
     data class Plan(val step: Step, val held: List<String>)
 
     /**
-     * What the triggers ask for now. A Situation switched on by hand stays on until it is switched off by hand (or
-     * deleted). One switched on by itself goes off when its window ends or its device goes, or gives way to one the
-     * triggers want more.
+     * What the triggers ask for now. A Situation switched on by hand stays on until the end chosen for it
+     * ([SituationState.until]) or, without one, until it is switched off by hand (or deleted); at its end it is held
+     * off like one switched off by hand, so its own window or device doesn't switch it straight back on. One switched
+     * on by itself goes off when its window ends or its device goes, or gives way to one the triggers want more.
      */
     fun plan(state: SituationState, list: List<Situation>, sig: SituationSignals): Plan {
         val held = state.held.filter { id -> list.firstOrNull { it.id == id }?.let { trigger(it, sig) } != null }
         val active = state.activeId?.let { id -> list.firstOrNull { it.id == id } }
         if (state.activeId != null && active == null) return Plan(Step.Off, held)
-        if (active != null && state.cause == SituationCause.MANUAL) return Plan(Step.Keep, held)
+        if (active != null && state.cause == SituationCause.MANUAL) return byHand(state, active, sig, held)
         val want = wanted(list, sig, held)
         val step = when {
             active == null -> want?.let { Step.On(it.first, it.second) } ?: Step.Keep
@@ -425,14 +438,25 @@ object Situations {
     }
 
     /**
-     * The next time a window starts or ends after [now] (within the next eight days), so the triggers are looked at
-     * again then; null when no Situation has a window. Each edge is a wall-clock time in [zone] on its own day, so a
+     * [plan] for [active], switched on by hand: kept until its chosen end, then off and held while its own window or
+     * device still holds.
+     */
+    private fun byHand(state: SituationState, active: Situation, sig: SituationSignals, held: List<String>): Plan {
+        val ended = state.until?.let { sig.clock.millis >= it } == true
+        if (!ended) return Plan(Step.Keep, held)
+        return Plan(Step.Off, if (trigger(active, sig) != null) (held + active.id).distinct() else held)
+    }
+
+    /**
+     * The next time a window starts or ends after [now] (within the next eight days), or the Situation on now reaches
+     * the end chosen for it ([until]), so the triggers are looked at again then; null when there is neither. Each edge is a wall-clock time in [zone] on its own day, so a
      * day of 23 or 25 hours (a clock change) still has its 22:00 at 22:00; an edge in the hour a clock skips is at the
      * first minute after it.
      */
-    fun nextChange(list: List<Situation>, now: Long, zone: ZoneId): Long? {
+    fun nextChange(list: List<Situation>, now: Long, zone: ZoneId, until: Long? = null): Long? {
+        val end = until?.takeIf { it > now }
         val windows = list.mapNotNull { it.schedule }
-        if (windows.isEmpty()) return null
+        if (windows.isEmpty()) return end
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val minutes = windows.flatMap { listOf(it.startMinute, it.endMinute) }.map { it.coerceIn(0, MINUTES_A_DAY) }.distinct()
         return (0..LOOK_AHEAD_DAYS).asSequence()
@@ -445,8 +469,68 @@ object Situations {
                 }
             }
             .filter { it > now }
+            .plus(listOfNotNull(end))
             .minOrNull()
     }
+
+    // ------------------------------------------------------------------ switched on by hand
+
+    /** How long a Situation switched on by hand stays on: asked each time, never a setting. */
+    sealed interface End {
+        /** When it goes off by itself; null: when switched off by hand. */
+        val at: Long?
+
+        /** For 1 hour. */
+        data class ForAnHour(override val at: Long) : End
+
+        /** Until the end of its window, or 18:00 for one without a window ([minute]: that time of day). */
+        data class UntilTime(override val at: Long, val minute: Int) : End
+
+        /** Until it is switched off by hand. */
+        data object UntilTurnedOff : End {
+            override val at: Long? get() = null
+        }
+    }
+
+    /** The end of a working day, offered to a Situation with no window of its own. */
+    const val DAY_END_MINUTE = 18 * 60
+
+    /**
+     * The ends offered when [s] is switched on by hand at [now]: For 1 hour; Until the end of its window (or 18:00
+     * today when it has none), when that is still to come and not the same as in an hour; Until I turn it off.
+     */
+    fun endChoices(s: Situation, now: Long, zone: ZoneId): List<End> {
+        val hour = now + HOUR_MS
+        val minute = s.schedule?.takeIf { it.startMinute != it.endMinute }?.endMinute?.rem(MINUTES_A_DAY)
+        val until = if (minute != null) {
+            nextTimeOfDay(minute, now, zone)
+        } else {
+            // 18:00 today only: after it, the working day has ended already.
+            atMinute(0, DAY_END_MINUTE, now, zone).takeIf { it > now }
+        }
+        return listOfNotNull(
+            End.ForAnHour(hour),
+            until?.takeIf { it != hour }?.let { End.UntilTime(it, minute ?: DAY_END_MINUTE) },
+            End.UntilTurnedOff,
+        )
+    }
+
+    /** The time [days] after [now]'s day when the clock in [zone] reads [minute]. */
+    private fun atMinute(days: Long, minute: Int, now: Long, zone: ZoneId): Long =
+        Instant.ofEpochMilli(now).atZone(zone).toLocalDate().plusDays(days)
+            .atTime(LocalTime.of(minute / 60, minute % 60)).atZone(zone).toInstant().toEpochMilli()
+
+    /** The next time the clock in [zone] reads [minute] after [now]. */
+    private fun nextTimeOfDay(minute: Int, now: Long, zone: ZoneId): Long =
+        atMinute(0, minute, now, zone).takeIf { it > now } ?: atMinute(1, minute, now, zone)
+
+    private const val HOUR_MS = 3_600_000L
+
+    /**
+     * Whether [s] silences anyone while it is on: it lets only some people ring (the others ring silently and show as
+     * missed calls). While the one on now does, a silent ongoing notice says so, with Turn off.
+     */
+    fun silencesAnyone(s: Situation?): Boolean = s != null && s.ring != null && s.ring != SituationRing.EVERYONE
 
     private const val LOOK_AHEAD_DAYS = 8
 
