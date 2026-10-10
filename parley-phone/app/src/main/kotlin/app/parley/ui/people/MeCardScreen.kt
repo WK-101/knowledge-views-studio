@@ -177,7 +177,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     val own by store.card.collectAsStateWithLifecycle()
     val parts by store.shareParts.collectAsStateWithLifecycle()
     val links by store.links.collectAsStateWithLifecycle()
-    val settings by vm.c.settings.settings.collectAsStateWithLifecycle()
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
     val card = rememberMyDetails(vm.c.people)
     val empty = MeCardDetails.isEmpty(card)
@@ -201,12 +201,12 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(bottom = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
-            MeHeader(card, links, settings.hideVault, onQr = { showQr = true }, onShare = share, onEdit = edit, open = open)
+            MeHeader(card, links, privacy.privateHidden, onQr = { showQr = true }, onShare = share, onEdit = edit, open = open)
             // "Changed my number": offered while people you shared with still have an old number.
             NewNumberBanner(vm, own, open)
             // A restored backup brought your earlier card key while this phone's was already shared (M5).
             CardKeyChoiceBanner(vm)
-            if (!empty) MeCardDetailsSections(vm, card, links, settings.hideVault, open)
+            if (!empty) MeCardDetailsSections(vm, card, links, privacy.privateHidden, open)
             // P18: signed cards and "Shared with", explained once.
             if (!empty) CoachMark(Tips.SIGNED_CARD, stringResource(R.string.card_signed_tip))
             SegmentedGroup {

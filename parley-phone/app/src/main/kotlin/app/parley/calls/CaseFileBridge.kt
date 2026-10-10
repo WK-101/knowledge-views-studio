@@ -1,23 +1,20 @@
 package app.parley.calls
 
-import app.parley.common.catching
 import android.content.Context
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuPress
 import app.parley.common.cases.CaseCall
 import app.parley.common.cases.CaseFiles
-import app.parley.common.security.Concealed
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
-import app.parley.data.security.Concealment
-import app.parley.security.AppLock
 import app.parley.telecom.CaseFileHooks
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
  * Case files for the call path ([CaseFileHooks]), on [DataContainer.cases]. A call is kept only for a number with a case
@@ -60,15 +57,14 @@ class CaseFileBridge(private val app: Context, private val c: DataContainer) : C
     }
 
     /** Never while Parley's app lock is locked or a duress unlock hides notes: the keypad shows over the lock screen. */
-    private fun mayShow(): Boolean =
-        !(AppLock.locked.value && c.settings.settings.value.appLock) && !Concealment.hides(Concealed.NOTES)
+    private fun mayShow(): Boolean = c.privacy.memory().let { !it.appLocked && it.notesShown }
 
     override suspend fun hasCaseFile(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
         if (!mayShow() || emergency(number)) return@withContext false
         val state = c.cases.load()
         val case = CaseFiles.find(state, listOf(number), PhoneEnv.countryIso(app, accountId))
         // Whether the contact is private is asked now, not taken from when the case was made.
-        case != null && case.kept && (!c.settings.current().hideVault || !c.cases.isPrivateNow(case))
+        case != null && case.kept && (c.privacy.now().privateShown || !c.cases.isPrivateNow(case))
     }
 
     override suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = withContext(Dispatchers.IO) {

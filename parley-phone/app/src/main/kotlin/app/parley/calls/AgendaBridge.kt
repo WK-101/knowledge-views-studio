@@ -27,7 +27,7 @@ class AgendaBridge(private val app: Context, private val c: DataContainer) : Age
     override suspend fun agendaFor(number: String, accountId: String?): CallerAgenda? = withContext(Dispatchers.IO) {
         val target = target(number, accountId) ?: return@withContext null
         val items = c.agenda.open(target)?.takeIf { it.isNotEmpty() } ?: return@withContext null
-        val onLock = c.circle.config.value.memoryOnLockScreen || c.settings.current().lockScreenCaller.showsNotes
+        val onLock = c.circle.config.value.memoryOnLockScreen || c.privacy.now().lockScreen.showsNotes
         CallerAgenda(items, textOnLockScreen = onLock, privateContact = target is AgendaTarget.Private)
     }
 

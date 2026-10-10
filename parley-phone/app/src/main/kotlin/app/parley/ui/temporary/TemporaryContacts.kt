@@ -1,9 +1,12 @@
 package app.parley.ui.temporary
 
-import app.parley.ui.Destination
+import android.content.res.Resources
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreTime
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -36,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,47 +54,42 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
+import app.parley.R
 import app.parley.common.StartTab
-import app.parley.data.TemporaryContacts
-import kotlinx.coroutines.CancellationException
-import app.parley.security.withVaultUnlock
-import app.parley.security.VaultUnlockDeclined
-import app.parley.data.vault.VaultCrypto
-import androidx.activity.ComponentActivity
 import app.parley.common.people.ContactRef
 import app.parley.common.people.TemporaryDue
-import app.parley.work.DueTemporaries
-import app.parley.ui.ParleyShapes
-import app.parley.ui.SwitchRow
-import androidx.compose.material.icons.rounded.QuestionAnswer
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.TextButton
-import app.parley.ui.Avatar
-import app.parley.ui.EmptyState
-import app.parley.ui.Routes
-import app.parley.ui.common.Format
-import app.parley.ui.segmentShape
-import kotlinx.coroutines.launch
-import android.content.res.Resources
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
-import app.parley.R
 import app.parley.common.ux.Tips
-import app.parley.ui.common.tipPending
-import app.parley.ui.common.CoachMark
-import app.parley.ui.DataL10n
-import app.parley.ui.ParleyTopBar
-import app.parley.ui.ParleyScaffold
+import app.parley.data.TemporaryContacts
+import app.parley.data.vault.VaultCrypto
+import app.parley.security.VaultUnlockDeclined
+import app.parley.security.withVaultUnlock
+import app.parley.ui.Avatar
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.DataL10n
+import app.parley.ui.Destination
+import app.parley.ui.EmptyState
 import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.Routes
+import app.parley.ui.SwitchRow
 import app.parley.ui.avatarSize
+import app.parley.ui.common.CoachMark
+import app.parley.ui.common.Format
+import app.parley.ui.common.tipPending
+import app.parley.ui.segmentShape
+import app.parley.work.DueTemporaries
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private const val DAY_MS = 86_400_000L
 
@@ -241,7 +241,7 @@ fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
     val temps by tempsFlow.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     // Discreet mode (and a duress unlock, which forces it) leaves private contacts out here too.
-    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val hidden = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     val vault = vm.c.vault.contacts.collectAsStateWithLifecycle().value.takeUnless { hidden }.orEmpty()
     val fallback = stringResource(R.string.temp_fallback_name)
     return remember(temps, contacts, vault, fallback) {

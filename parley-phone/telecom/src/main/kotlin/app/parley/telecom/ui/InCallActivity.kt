@@ -1,6 +1,5 @@
 package app.parley.telecom.ui
 
-import app.parley.common.NotificationRequests
 import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
@@ -27,32 +26,33 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import app.parley.common.NotificationRequests
+import app.parley.common.calls.CallWaiting
+import app.parley.common.calls.LockScreenCaller
+import app.parley.common.calls.RingKeys
+import app.parley.telecom.AudioUi
 import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
-import app.parley.telecom.forLockScreen
 import app.parley.telecom.InCallAppearance
+import app.parley.telecom.PostCallAction
 import app.parley.telecom.R
 import app.parley.telecom.RescueCall
 import app.parley.telecom.RescueState
-import app.parley.telecom.AudioUi
-import app.parley.telecom.live
-import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
+import app.parley.telecom.forLockScreen
+import app.parley.telecom.live
 import app.parley.ui.ParleyTheme
 import app.parley.ui.startOrSay
+import app.parley.ui.systemMessage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.lifecycle.lifecycleScope
-import app.parley.common.calls.CallWaiting
-import app.parley.common.calls.RingKeys
-import app.parley.common.calls.LockScreenCaller
-import app.parley.ui.systemMessage
 
 class InCallActivity : ComponentActivity() {
 
@@ -123,9 +123,9 @@ class InCallActivity : ComponentActivity() {
             val locked = rememberKeyguardLocked()
             val incoming = stringResource(R.string.notif_incoming_call)
             val ongoing = stringResource(R.string.notif_ongoing_call)
-            fun shown(c: CallUi) = if (!locked) c else c.forLockScreen(look.lockScreenCaller, if (c.state == CallState.RINGING) incoming else ongoing)
-            val shownCalls = remember(calls, locked, look.lockScreenCaller) { calls.map(::shown) }
-            val shownEnded = remember(ended, locked, look.lockScreenCaller) { ended?.let(::shown) }
+            fun shown(c: CallUi) = if (!locked) c else c.forLockScreen(look.lockScreen, if (c.state == CallState.RINGING) incoming else ongoing)
+            val shownCalls = remember(calls, locked, look.lockScreen) { calls.map(::shown) }
+            val shownEnded = remember(ended, locked, look.lockScreen) { ended?.let(::shown) }
             if (look.speakCallerName) SpeakCallerName(ringingCall?.id, spokenName(ringingCall, shownCalls))
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
                 if (inPip) PipCallCard(shownCalls, audio, shownEnded, look.callBackground) else InCallScreen(
@@ -143,7 +143,7 @@ class InCallActivity : ComponentActivity() {
                     failed = failed?.let(::shown),
                     onRetry = ::retry,
                     onDismissFailure = ::dismissFailure,
-                    declineBlock = blockedHere?.let { masked(it, calls + listOfNotNull(ended), locked, look.lockScreenCaller) },
+                    declineBlock = blockedHere?.let { masked(it, calls + listOfNotNull(ended), locked, look.lockScreen) },
                     onUndoBlock = {
                         keepEnded = true
                         CallManager.undoDeclineBlock()

@@ -1,34 +1,32 @@
 package app.parley.ui.contact
 
-import app.parley.data.security.Concealment
-import app.parley.calls.ExpectedCallHints
-import app.parley.calls.NumberSignals
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.R
+import app.parley.calls.ExpectedCallHints
+import app.parley.calls.NumberSignals
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.circle.InteractionType
+import app.parley.common.circle.Interactions
 import app.parley.common.history.CallLogIndex
+import app.parley.common.people.Collation
+import app.parley.common.people.ContactLabels
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ContactStorage
 import app.parley.common.people.ContactVariants
-import app.parley.common.people.storage
-import app.parley.common.circle.InteractionType
-import app.parley.common.circle.Interactions
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
+import app.parley.common.people.storage
 import app.parley.common.suspendRunCatching
-import app.parley.data.ContactDetails
-import app.parley.ui.home.BulkContactActions
-import app.parley.data.GroupInfo
 import app.parley.data.AccountRef
-import app.parley.common.people.ContactLabels
-import app.parley.common.people.Collation
+import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
+import app.parley.data.GroupInfo
 import app.parley.data.MessengerAction
 import app.parley.data.Messengers
 import app.parley.data.circle.CircleRepository
@@ -38,14 +36,14 @@ import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
-import app.parley.data.vault.VaultCrypto
 import app.parley.data.people.ParleyRelationRows
 import app.parley.data.people.RelationFromOther
 import app.parley.data.people.RelationsFromOthers
-import java.time.ZoneId
+import app.parley.data.security.Privacy
+import app.parley.data.vault.VaultCrypto
 import app.parley.ui.circle.PersonMemory
 import app.parley.ui.circle.addToAgenda
-import java.util.UUID
+import app.parley.ui.home.BulkContactActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -67,6 +65,8 @@ import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
+import java.util.UUID
 
 /** Everything a contact's page shows, read for this one person. */
 data class ContactDetailUiState(
@@ -207,7 +207,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } ?: c.vault.summary(r.vaultId) }.distinctUntilChanged()
         var shown: Loaded? = null
         // I21: after a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
-        val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
+        val hiding = Privacy.hidingFlow
         // "Lock private contacts" ([app.parley.data.vault.VaultRepository.lockAll]) reads the entry again: locked now.
         return combine(entry, reloads, hiding, c.vault.lock.locks) { s, _, hidden, _ -> s.takeUnless { hidden } }.transformLatest { summary ->
             if (summary == null) {
@@ -358,7 +358,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
      * discreet mode (they name private contacts).
      */
     val parleyRelations: StateFlow<List<DataItem>> =
-        combine(state.map { it.meta?.parleyRelations }.distinctUntilChanged(), c.settings.settings.map { it.hideVault }.distinctUntilChanged()) { s, hide ->
+        combine(state.map { it.meta?.parleyRelations }.distinctUntilChanged(), c.privacy.privateHidden) { s, hide ->
             if (hide) emptyList() else ParleyRelationRows.decode(s)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
 
@@ -589,7 +589,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         // A link to a private contact follows its private key, never the address book.
         ContactRef.vaultIdOf(link?.lookupKey)?.let { v ->
             // Discreet mode hides private contacts everywhere, a relation's link included.
-            val shown = !c.settings.current().hideVault && c.vault.summariesNow().any { it.id == v }
+            val shown = !c.privacy.now().privateHidden && c.vault.summariesNow().any { it.id == v }
             if (shown) return@launch onResult(RelationTarget.Contact(ContactRef.Private(v).navId))
         }
         val all = c.directory.contacts.value ?: c.contacts.snapshot()

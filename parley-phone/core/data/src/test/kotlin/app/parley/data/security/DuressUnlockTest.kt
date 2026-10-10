@@ -343,16 +343,16 @@ class DuressUnlockTest {
         // M6: the Quick Settings tile (or anything else) while Parley is locked after a duress unlock.
         pins()
         c.settings.update { it.copy(hideVault = false) }
-        assertFalse(c.settings.hidesPrivateNames())
+        assertFalse(c.privacy.now().privateHidden)
         assertEquals(PinVerdict.DURESS, unlock("1357"))
         LockTransitions.locked(c)
         c.settings.update { it.copy(hideVault = true) }
         c.settings.update { it.copy(hideVault = false) }
         assertEquals("b:false", c.settings.exportMap()["hide_vault"] ?: "b:false")
         // M8: the private-name providers read the settings themselves, and fail closed.
-        assertTrue(c.settings.hidesPrivateNames())
+        assertTrue(c.privacy.now().privateHidden)
         assertEquals(PinVerdict.NORMAL, unlock("246810"))
-        assertFalse(c.settings.hidesPrivateNames())
-        assertTrue("a read that doesn't finish in time counts as hidden", c.settings.hidesPrivateNames(timeoutMs = 0))
+        assertFalse(c.privacy.now().privateHidden)
+        assertTrue("a read that doesn't finish in time counts as hidden", c.privacy.now(timeoutMs = 0).privateHidden)
     }
 }

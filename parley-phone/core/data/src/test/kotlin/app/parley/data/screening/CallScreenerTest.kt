@@ -153,8 +153,18 @@ class CallScreenerTest {
         provider.phoneLookups = 0
         val r = screen("+1 202 555 0188")
         assertFalse(r.blocked)
-        assertEquals(1, VaultCrypto.Meter.hmacs.get())
+        // Who owns the number was found a moment ago (NumberOwners keeps it for the ring): no Keystore operation now.
+        assertEquals(0, VaultCrypto.Meter.hmacs.get())
         assertEquals(1, provider.phoneLookups)
+        // Found again from scratch, the number's fingerprint is still remembered (VaultCrypto's own small cache)...
+        c.numberOwners.forget()
+        screen("+1 202 555 0188")
+        assertEquals(0, VaultCrypto.Meter.hmacs.get())
+        // ...until the key's handles are dropped (as when all data is deleted): then it is made again, once.
+        VaultCrypto.forgetKeyHandles()
+        c.numberOwners.forget()
+        screen("+1 202 555 0188")
+        assertEquals(1, VaultCrypto.Meter.hmacs.get())
     }
 
     @Test fun theUnknownCallerLookupsStartedAlongsideDecideOnlyForUnknownCallers() = runBlocking {

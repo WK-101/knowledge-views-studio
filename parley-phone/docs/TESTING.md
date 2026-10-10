@@ -2940,3 +2940,48 @@ Setup: ring volume 6 of 7, Ring style Increasing.
 3. **Vibrate first, then silent.** Ring style Vibrate first, then ring. Call the phone and, during the first 4 s of vibration alone, switch the ringer to silent: the vibration stops at once and nothing plays.
 4. **My card restore.** On a fresh install, fill My card with only a birthday and pronouns, then restore a backup that has another My card: the birthday and pronouns stay; the backup's card doesn't replace them.
 5. **Archived private contact.** Archive a private contact, open its page from its calls › ⋮ › Privacy…: Make visible is there, Delete automatically and Archive are not.
+
+## 46. Safe and whole (6.3)
+
+### 46.1 One privacy rule
+Automated: `DuressWalkTest` (with a duress unlock: no notice names a private contact, Rescue call shows none of its last choices, no part of a backup and no section of a whole backup read back holds a private name, a case file, a safe word or a Rescue choice; all back after the real PIN) (app); `BlockingNoticePrivacyTest` (the lock-screen rule fails closed through the privacy view) (app); `CallNotifierLockScreenTest` (a silenced call has a lock-screen version naming nobody) (telecom); `DuressUnlockTest` (the privacy view fails closed when the settings can't be read in time) (core:data); `./gradlew detekt` (RawPrivacySwitch: no feature reads the raw switches).
+Set up: a private contact "Rahman" on phone B; a case file with a reference number; a family safe word; Rescue call used once with Rahman; Hide private contacts off.
+1. **Silenced call on the lock screen.** Turn on a Situation that lets only favourites ring. Lock the phone and call from B: the silenced-call notification on the lock screen says "Silenced call" with nothing about who it is when Caller on the lock screen is Initials or Just "Incoming call"; with Name it shows the name. Unlock: the full notification shows.
+2. **Duress walk.** Open Parley with the duress PIN. Call from B and let it be silenced, then missed: neither notification names Rahman (the number shows). Open Rescue call: no call waiting and no last choices. Back up now: open the backup on another phone (or restore it to a fresh install) and check there are no private contacts, no case files and no safe word.
+3. **After a restart.** Still hiding, restart the phone and repeat the call before opening Parley: nothing names Rahman. Open Parley with the real PIN: everything is back, the backup schedule runs as usual.
+4. **Cold start.** Force-stop Parley, set Hide private contacts on beforehand, and call from B: from the first ring the call screen and notifications show only the number.
+
+### 46.2 Who owns a number
+Automated: `NumberOwnersTest` (every owner kind for every use; a hidden private contact reads as nobody with no network name; the network name needs the setting and a number known not private; one ring finds the owner once for a minute; the region of the call's SIM; the lock-screen rule in notification names) (core:data); `CallScreenerTest` (a ring's second lookup costs no Keystore operation) (core:data); `ToCallRemindersTest` (an archived contact is named in the To call reminder) (app).
+1. **Archived contact, everywhere the same.** Archive a contact, then add their number to the To call list due now, and miss a call from them: the To call reminder and the missed-call notification both name them.
+2. **Expecting a call.** Add an archived contact's number to the To call list: no "expecting a call" window is offered (they're saved), as for any contact.
+3. **Dual SIM abroad.** With two SIMs from different countries, save a private contact under a national number of SIM 2's country and call from it on SIM 2: the call screen, the missed call and the To call reminder all name them.
+4. **Just saved.** Take a call from an unknown number, save it from the post-call card, and call again within a minute: the call shows the new name.
+
+### 46.3 Name rules only block
+Automated: `ScreeningPrecedenceTest` (an allow-by-name rule opens the door only for a verified call; a block-by-name rule matches the cleaned name: zero-width, direction and full-width characters, placeholders such as "Scam likely") (core:common); `RuleTemplateTest` (allow-by-name rules are neither installed nor shared) (core:common).
+1. **New rules.** Blocking & screening › New rule: with Always allow chosen, "Name contains" isn't offered; with Name contains chosen, Always allow is greyed out. A Block rule for "survey" saves as before.
+2. **An old allow-by-name rule.** Restore a backup (or a phone) with "Always allow: name contains Hospital": its row says in red "Only for calls the network verified: anyone can send any name"; opening it shows the same warning under the field. An unverified call whose network name contains "Hospital" from a blocked number stays blocked.
+3. **Templates.** Open a shared template that holds an allow-by-name rule: its description says the rule is left out; installing it adds every other rule. Share my rules: an allow-by-name rule isn't in the file.
+4. **Call title.** A call whose network name carries a zero-width or right-to-left character shows the cleaned name on the call screen and in the call notification.
+
+### 46.4 "Never calls you" stays armed
+Automated: `NeverCallsYouTest` (a call you said wasn't them leaves the notice armed; "They never call me" keeps it on whatever the history shows, not when a person shares the line, never for a hidden or emergency call) (core:common).
+Set up as 39.1.
+1. **It wasn't them.** Call this phone from B: the card shows. Tap Is this a scam?: the sheet ends with "It wasn't them". Tap it, end the call, and call from B again: the card shows again.
+2. **After the call.** Repeat, but tap Is this a scam? only on the call-ended screen: "It wasn't them" is there too and works the same.
+3. **Without it.** Call from B and don't say anything: the next call from B shows no card (it really called you).
+4. **They never call me.** Open the bank's contact page › settings for this contact: "They never call me" is a switch, off. Turn it on: every call from B shows the card, whatever the history; on a person's contact too. Turn it off: as before. A private contact has the same switch.
+
+### 46.5 Tile long press
+Automated: `ExportedComponentsTest` (the tile long press relays no internal action, for any tile named) and `NavigationRoutesTest` (only the Situation tile's long press opens Rescue call, through the exported main screen) (app).
+1. **Situation tile.** Long-press the Situation tile in Quick Settings: Rescue call opens (behind the app lock when it's on).
+2. **Other tiles.** Long-press any other Parley tile: App info opens, as before.
+
+### 46.6 Family shield: two voices to block
+Automated: `FamilyShieldTest` (Block needs two members or the anchor; Warn and Silence act on one; a block kept private is never shared) (core:common); `FamilyShieldExchangeTest` (one member's word only warns in Block mode; the anchor's blocks) (core:data).
+Set up: a shared label "Family" on four phones (A shared it; B, C and D joined), the shield on everywhere; on C, mode Block.
+1. **One voice warns.** On B, block a number. Sync. Call C from that number: it rings with "Blocked by someone in Family", not declined. On the shield's page, Block says it needs two people to agree, or the one who shared the label.
+2. **Two voices block.** On D, block the same number. Sync. Call C from it: declined.
+3. **The anchor.** On A alone, block another number. Sync. Call C from it: declined.
+4. **Said when blocking.** On B, Block a number from Recents: the question says "Also shared with Family, so they're warned if this number calls them", with Don't share. Tick it and block: the shield's page doesn't list the number, and after a sync C gets no warning. Block another without ticking: it's listed.

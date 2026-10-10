@@ -1,6 +1,5 @@
 package app.parley.ui.cases
 
-import app.parley.common.catching
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,12 +16,11 @@ import app.parley.common.cases.CaseNote
 import app.parley.common.cases.CaseState
 import app.parley.common.cases.CaseTimeline
 import app.parley.common.cases.CaseTimelines
+import app.parley.common.catching
 import app.parley.common.circle.Promises
 import app.parley.common.people.ContactRef
-import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.circle.CircleRepository
-import app.parley.data.security.Concealment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -62,10 +60,11 @@ object CaseData {
      */
     suspend fun ownerKey(vm: AppViewModel, numbers: List<String>): String? = withContext(Dispatchers.IO) {
         numbers.firstNotNullOfOrNull { vm.numberIndex.value[it]?.lookupKey?.takeIf { k -> k.isNotEmpty() } }
-            ?: if (vm.c.settings.current().hideVault) {
+            ?: if (vm.c.privacy.now().privateHidden) {
                 null
             } else {
-                numbers.firstNotNullOfOrNull { n -> catching { vm.c.vault.lookup(n, vm.countryIso) }.getOrNull()?.first }?.let(ContactRef::privateKey)
+                numbers.firstNotNullOfOrNull { n -> catching { vm.c.numberOwners.findIn(n, vm.countryIso).private }.getOrNull()?.first }
+                    ?.let(ContactRef::privateKey)
             }
     }
 
@@ -87,7 +86,7 @@ fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
     val case = remember(state, owner.numbers) { CaseFiles.find(state, owner.numbers, vm.countryIso) }
     // A saved organisation shows its case file before anything was kept: its calls are already there.
     val organisation by produceState(false, owner.numbers, case == null) {
-        value = case == null && owner.numbers.isNotEmpty() && !Concealment.hides(Concealed.NOTES) &&
+        value = case == null && owner.numbers.isNotEmpty() && vm.c.privacy.now().notesShown &&
             withContext(Dispatchers.IO) {
                 owner.numbers.any { n -> catching { NeverCallsYouFacts.organisation(vm.c, n, vm.countryIso) }.getOrNull() != null }
             }

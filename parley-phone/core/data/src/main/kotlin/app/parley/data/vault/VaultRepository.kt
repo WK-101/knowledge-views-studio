@@ -1,21 +1,21 @@
 package app.parley.data.vault
 
-import app.parley.common.circle.Agenda
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.SystemClock
 import android.provider.CallLog
 import android.util.Base64
+import androidx.room.withTransaction
+import app.parley.common.NotificationPrivacy
+import app.parley.common.VaultNumberKeys
 import app.parley.common.backup.RecordJson
 import app.parley.common.catching
+import app.parley.common.circle.Agenda
 import app.parley.common.people.CallerCard
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
-import app.parley.common.NotificationPrivacy
-import app.parley.common.VaultNumberKeys
-import androidx.room.withTransaction
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
@@ -28,25 +28,25 @@ import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
-import app.parley.data.vault.CallerIdCopy.C_TITLE
-import app.parley.data.vault.CallerIdCopy.C_COMPANY
-import app.parley.data.vault.CallerIdCopy.C_REGION
-import app.parley.data.vault.CallerIdCopy.C_STAR
-import app.parley.data.vault.CallerIdCopy.C_LABELS
-import app.parley.data.vault.CallerIdCopy.C_TONE
-import app.parley.data.vault.CallerIdCopy.C_VOICEMAIL
-import app.parley.data.vault.CallerIdCopy.C_VIBRATION
 import app.parley.data.vault.CallerIdCopy.C_AUTO_ANSWER
-import app.parley.data.vault.CallerIdCopy.C_PRONOUNS
+import app.parley.data.vault.CallerIdCopy.C_COMPANY
+import app.parley.data.vault.CallerIdCopy.C_LABELS
 import app.parley.data.vault.CallerIdCopy.C_NAME_ALT
+import app.parley.data.vault.CallerIdCopy.C_PRONOUNS
+import app.parley.data.vault.CallerIdCopy.C_REGION
 import app.parley.data.vault.CallerIdCopy.C_SEEDED
-import java.io.File
+import app.parley.data.vault.CallerIdCopy.C_STAR
+import app.parley.data.vault.CallerIdCopy.C_TITLE
+import app.parley.data.vault.CallerIdCopy.C_TONE
+import app.parley.data.vault.CallerIdCopy.C_VIBRATION
+import app.parley.data.vault.CallerIdCopy.C_VOICEMAIL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -56,6 +56,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /** Readable without unlocking: enough to show who is calling and list the vault. */
 data class VaultSummary(
@@ -223,6 +224,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .map { list -> summarizeAll(list).sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, null)
+
+    /** Emits whenever private contacts are saved, changed or deleted: the rows only, nothing opened. */
+    val callerRowsChanged: Flow<Unit> get() = dao.callerRows().map { }
 
     /** [listing], empty until it has loaded. */
     val contacts: StateFlow<List<VaultSummary>> = listing.map { it.orEmpty() }

@@ -11,7 +11,6 @@ import app.parley.common.calls.SimAdvice
 import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
-import app.parley.data.security.Concealment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
@@ -165,7 +164,7 @@ object NumberSignals {
     private fun simIdOf(f: CallQualityFacts, sims: List<SimAccount>): String? =
         f.simId?.takeIf { id -> sims.any { it.id == id } } ?: f.sim?.let { label -> sims.singleOrNull { it.label == label }?.id }
 
-    private suspend fun showPrivate(c: DataContainer): Boolean = !c.settings.current().hideVault && !Concealment.hiding
+    private suspend fun showPrivate(c: DataContainer): Boolean = c.privacy.now().privateShown
 
     /** The latest call per line that shows it works: any call from it, or one to it that was answered. */
     internal fun aliveSince(calls: List<CallEntry>, iso: String): PhoneIdentity.LineMap<Long> {

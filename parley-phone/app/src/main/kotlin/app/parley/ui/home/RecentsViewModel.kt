@@ -5,30 +5,29 @@ import androidx.lifecycle.viewModelScope
 import app.parley.R
 import app.parley.RecentFilter
 import app.parley.RecentGroup
+import app.parley.calls.NetworkNames
 import app.parley.common.CallEntry
 import app.parley.common.CallPolicy
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
-import app.parley.common.people.Archive
-import app.parley.common.people.ArchivedCard
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.TextSearch
-import app.parley.calls.NetworkNames
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.NetworkNameSeen
 import app.parley.common.calls.RecentsCallers
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.history.HistoryFilter
+import app.parley.common.people.Archive
+import app.parley.common.people.ArchivedCard
 import app.parley.common.ux.CallGlance
 import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.history.CallHistory
 import app.parley.ui.calls.ToCallModel
-import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -48,6 +47,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
 import java.util.TimeZone
 
 /** One row of the Recents list: a day header or a call row. */
@@ -141,7 +141,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
     // Until the full log (and the archive) have loaded, the first page of the call log is shown.
     private val allCalls: StateFlow<List<CallEntry>?> = combine(
-        c.history.calls, c.callLog.preview, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged(),
+        c.history.calls, c.callLog.preview, c.vault.privateCalls, c.privacy.privateHidden,
     ) { full, preview, priv, hidden ->
         val sys = full ?: preview ?: return@combine null
         if (hidden || priv.isEmpty()) return@combine sys
@@ -150,7 +150,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     // Keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
     // In discreet mode private contacts count as unknown numbers everywhere, the Contacts chip included.
-    private val vaultByKey = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged()) { list, hidden ->
+    private val vaultByKey = combine(c.vault.contacts, c.privacy.privateHidden) { list, hidden ->
         if (hidden) emptyMap() else list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap()
     }
 

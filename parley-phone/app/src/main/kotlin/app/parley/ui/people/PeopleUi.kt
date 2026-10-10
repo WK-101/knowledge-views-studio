@@ -1,66 +1,66 @@
 package app.parley.ui.people
 
 import android.os.SystemClock
+import app.parley.R
 import app.parley.StartTimings
-import app.parley.common.people.ListHead
-import app.parley.common.people.PrivateArchive
-import app.parley.common.security.Concealed
-import app.parley.data.security.Concealment
-import app.parley.data.vault.VaultCrypto
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.withTimeoutOrNull
-import app.parley.common.catching
-import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
-import app.parley.common.people.FavoriteOrder
-import app.parley.common.people.FavoriteSort
+import app.parley.common.PhoneIdentity
+import app.parley.common.catching
+import app.parley.common.people.Collation
 import app.parley.common.people.ContactListSearch
+import app.parley.common.people.ContactRef
 import app.parley.common.people.ContactSearch
-import app.parley.data.messaging.Romanizer
+import app.parley.common.people.ContactSort
+import app.parley.common.people.ContactSorting
 import app.parley.common.people.Facet
 import app.parley.common.people.FacetChoice
 import app.parley.common.people.FacetChoices
+import app.parley.common.people.FavoriteOrder
+import app.parley.common.people.FavoriteSort
 import app.parley.common.people.FieldFilter
-import app.parley.common.people.SearchDocs
 import app.parley.common.people.LabelFilter
+import app.parley.common.people.ListHead
 import app.parley.common.people.NameOrder
-import app.parley.common.people.ContactRef
-import app.parley.common.people.Collation
-import app.parley.common.people.PrivateLabels
 import app.parley.common.people.PersonExtra
+import app.parley.common.people.PrivateArchive
+import app.parley.common.people.PrivateLabels
+import app.parley.common.people.SearchDocs
 import app.parley.common.people.SecondLines
-import app.parley.common.people.ContactSort
-import app.parley.common.people.ContactSorting
 import app.parley.common.people.SortFacts
-import app.parley.R
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import app.parley.common.security.Concealed
 import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
+import app.parley.data.messaging.Romanizer
 import app.parley.data.people.PeopleIndexData
 import app.parley.data.people.PeopleSettings
-import app.parley.ui.common.Format
+import app.parley.data.security.Privacy
+import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
+import app.parley.ui.common.Format
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Contacts-tab and Favorites state for the contacts features: label/account filters, the second line under names,
@@ -264,7 +264,7 @@ class PeopleUi(
         }
         // Locking private contacts or a duress unlock: nothing kept stays on screen (the head is rewritten without them).
         scope.launch {
-            merge(c.vault.lock.locks.drop(1), Concealment.state.filter { it.hiding }).collect {
+            merge(c.vault.lock.locks.drop(1), Privacy.hidingFlow.filter { it }).collect {
                 if (listHead.value?.any { r -> r is ListSections.Row.Item && r.item.id < 0 } == true || headFavourites.value.any { it.id < 0 }) {
                     listHead.value = null
                     headFavourites.value = emptyList()
@@ -279,9 +279,10 @@ class PeopleUi(
      */
     @Suppress("TooGenericExceptionCaught") // Whatever can't be read, nothing private is shown.
     private suspend fun headAccess(): ListHead.Access = try {
-        val hidden = c.settings.current().hideVault || Concealment.hiding
+        val privacy = c.privacy.now()
+        val hidden = privacy.privateHidden
         val privateListed = !hidden && c.vault.countNow() > 0
-        val mayShow = PrivateArchive.mayShow(hidden = hidden, hiding = Concealment.hides(Concealed.PRIVATE_CONTACTS), locked = VaultCrypto.lockedByPerson)
+        val mayShow = PrivateArchive.mayShow(hidden = hidden, hiding = privacy.hides(Concealed.PRIVATE_CONTACTS), locked = VaultCrypto.lockedByPerson)
         ListHead.Access(privateListed, mayShow, c.people.prefs.current().contactSort.name)
     } catch (e: CancellationException) {
         throw e

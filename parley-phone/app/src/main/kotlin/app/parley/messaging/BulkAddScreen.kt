@@ -1,14 +1,8 @@
 package app.parley.messaging
 
-import app.parley.security.AppLock
-import app.parley.data.vault.VaultCrypto
-import androidx.activity.ComponentActivity
-import app.parley.ui.Clipboard
-import app.parley.ui.Destination
-import app.parley.common.catching
-import app.parley.jobs.UserErrorText
 import android.content.res.Resources
 import android.text.format.DateUtils
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +20,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -39,7 +34,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -73,12 +67,10 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.messaging.BulkAdd
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
-import app.parley.ui.ParleyListItem
-import app.parley.ui.common.AccountRefSaver
-import app.parley.ui.common.BooleanListSaver
 import app.parley.data.GroupInfo
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
@@ -86,18 +78,27 @@ import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.BulkBatch
 import app.parley.data.messaging.BulkDestination
 import app.parley.data.messaging.BulkItem
+import app.parley.data.people.NumberOwners
+import app.parley.data.vault.VaultCrypto
+import app.parley.jobs.UserErrorText
+import app.parley.security.AppLock
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
+import app.parley.ui.Clipboard
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.Destination
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.LocalSnackbar
+import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.Spacing
+import app.parley.ui.common.AccountRefSaver
+import app.parley.ui.common.BooleanListSaver
 import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import app.parley.ui.ParleyTopBar
-import app.parley.ui.ParleyScaffold
-import app.parley.ui.LocalSnackbar
-import app.parley.ui.ConfirmDialog
-import app.parley.ui.ListSectionHeader
-import app.parley.ui.Spacing
 
 private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
 
@@ -176,11 +177,14 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                 val contacts = HashMap<String, String?>()
                 val privates = HashMap<String, String?>()
                 withContext(Dispatchers.IO) {
+                    // Who owns each number, as everywhere; a private contact only while private contacts show.
+                    val privacy = c.privacy.now()
                     found.take(BulkAdd.MAX_NUMBERS).forEach { f ->
                         val n = f.e164 ?: PhoneIdentity.clean(f.raw)
                         if (n in contacts) return@forEach
-                        contacts[n] = runCatching { c.contacts.lookup(n)?.name }.getOrNull()
-                        privates[n] = if (contacts[n] == null) runCatching { c.vault.lookup(n)?.second?.name }.getOrNull() else null
+                        val owner = catching { c.numberOwners.owner(n, null, NumberOwners.Use.SCREEN, privacy) }.getOrNull()
+                        contacts[n] = (owner as? NumberOwners.Owner.Contact)?.name ?: (owner as? NumberOwners.Owner.Archived)?.name
+                        privates[n] = (owner as? NumberOwners.Owner.Private)?.name
                     }
                 }
                 BulkAdd.review(found, region, { contacts[it] }, { privates[it] })

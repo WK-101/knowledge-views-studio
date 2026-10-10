@@ -307,6 +307,14 @@ step 5a of `CallPolicy`, and `ui/sync/shared/FamilyShieldScreen.kt`.
 - **Signed like everything else.** The verdicts are inside the journal's signed body: a folder writer can't add, change
   or move one, and the journal is sealed with the label key like every other file. Update files carry journals as they
   are, so a verdict is relayed through members who never exchange directly. Older Parley versions ignore the field.
+- **Two voices to block.** A label set to **Block** declines a number only when at least two members shared a verdict
+  on it, or when one of them is the label's anchor (who shared the label first); with one member's word it warns, as
+  Warn only does (`FamilyShield.modeFor`). Warn only and Silence act on one. Only the label's members now count: a
+  member who left or was removed, or who held the key before it changed, adds no voice.
+- **Said when you block.** When a block will be shared (an exact block rule, while a shielded label syncs), the Block
+  question says "Also shared with Family, so they're warned if this number calls them", with **Don't share** for that
+  block alone: the number is remembered as withdrawn before its rule is written, so it is never shared, not even once.
+  No setting.
 - **On a call.** For an unknown caller (never a saved or private contact, never an emergency number or a call within
   the emergency window), the number's hash is looked up in memory for each shielded label. A match warns ("Blocked by
   someone in Family", "Called a scam by someone in Family", "Called spam by someone in Family") or is silenced or

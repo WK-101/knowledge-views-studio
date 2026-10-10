@@ -89,6 +89,19 @@ class CallNotifierLockScreenTest {
         assertFalse(shown.mentions("7946"))
     }
 
+    @Test fun a_silenced_call_has_a_lock_screen_version_too() {
+        // Posted while unlocked; the lock screen then shows only its public version (as for a ringing call).
+        val n = CallNotifier(context, { LockScreenCaller.NONE }, { false })
+        notifier = n
+        n.update(listOf(call().copy(silenced = true)))
+        val posted = shadowOf(nm).allNotifications.single()
+        assertEquals(Notification.VISIBILITY_PRIVATE, posted.visibility)
+        val public = texts(posted.publicVersion!!)
+        assertFalse(public.mentions("Ada"))
+        assertFalse(public.mentions("7946"))
+        assertTrue(public.mentions("Silenced call"))
+    }
+
     @Test fun initials_keep_an_unknown_number_to_decide_by() {
         val shown = post(LockScreenCaller.INITIALS, locked = true, call(name = null))
         assertTrue(shown.mentions("7946"))

@@ -1,6 +1,5 @@
 package app.parley.ui.extras
 
-import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -51,13 +50,14 @@ import app.parley.common.calls.CallSource
 import app.parley.common.extras.TripMatch
 import app.parley.data.PhoneEnv
 import app.parley.data.extras.ExtrasStore
+import app.parley.ui.Destination
 import app.parley.ui.EmptyState
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyTopBar
 import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
-import app.parley.ui.ParleyTopBar
-import app.parley.ui.ParleyScaffold
 
 /**
  * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
@@ -73,7 +73,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     var city by rememberSaveable { mutableStateOf(store.lastTripCity.orEmpty()) }
     // Everyone Parley lists, private contacts included while they are shown (discreet mode hides them here too).
     val contacts by vm.everyone.collectAsStateWithLifecycle()
-    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val hidden = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     val unlocked by vm.c.vault.lock.unlocked.collectAsStateWithLifecycle()
     val data by produceState<ExtrasStore.TripData?>(null, contacts, hidden, unlocked) {
         value = runCatching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }

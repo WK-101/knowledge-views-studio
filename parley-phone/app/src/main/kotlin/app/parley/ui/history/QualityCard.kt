@@ -47,9 +47,9 @@ import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.common.Format
-import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
 
 /** Who a diary row was with, as the card names them: a contact, a private contact (outside discreet mode) or a number. */
 private data class DiaryPerson(val title: String, val number: String, val contactNav: Long?)
@@ -67,8 +67,8 @@ private data class QualityData(val report: QualityReport, val people: Map<String
 @Composable
 fun QualityCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit) {
     val version by vm.c.callQuality.version.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    val hideVault = settings.hideVault
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    val hideVault = privacy.privateHidden
     val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
     val data by produceState<QualityData?>(null, idx, version, hideVault, priv) {
         value = withContext(Dispatchers.IO) { runCatching { qualityData(vm, idx, if (hideVault) emptyList() else priv) }.getOrNull() }

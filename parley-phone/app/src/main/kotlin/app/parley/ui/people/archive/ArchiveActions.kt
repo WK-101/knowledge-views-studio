@@ -39,10 +39,9 @@ import app.parley.common.catching
 import app.parley.common.people.Archive
 import app.parley.common.people.ArchivedCard
 import app.parley.common.people.ContactRef
-import app.parley.data.AccountRef
 import app.parley.common.people.PrivateArchive
+import app.parley.data.AccountRef
 import app.parley.data.archive.ArchiveStore
-import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultSummary
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
@@ -50,10 +49,10 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.Destination
 import app.parley.ui.EmptyState
 import app.parley.ui.ListSectionHeader
-import app.parley.ui.PrivateBadge
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTopBar
+import app.parley.ui.PrivateBadge
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.avatarSize
@@ -132,8 +131,9 @@ fun ArchiveContactDialog(vm: AppViewModel, contactId: Long, name: String, onDism
 @Composable
 fun privateArchived(vm: AppViewModel): List<VaultSummary> {
     val listed by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
-    val duress by Concealment.state.collectAsStateWithLifecycle()
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    val hidden = privacy.privateHidden
+    val duress = privacy.duress
     val locked by vm.c.vault.lock.lockedByPerson.collectAsStateWithLifecycle()
     if (!PrivateArchive.mayShow(hidden = hidden, hiding = duress.hiding, locked = locked)) return emptyList()
     return remember(listed) { listed.filter { it.archived }.sortedBy { it.name.lowercase() } }

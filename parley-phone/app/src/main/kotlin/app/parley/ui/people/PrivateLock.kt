@@ -24,7 +24,7 @@ import app.parley.ui.ParleyListItem
 fun privateContactsUnlocked(vm: AppViewModel): Boolean {
     val unlocked by vm.c.vault.lock.unlocked.collectAsStateWithLifecycle()
     val listed by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val hidden = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     return unlocked && !hidden && listed.isNotEmpty()
 }
 

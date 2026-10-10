@@ -1,41 +1,42 @@
 package app.parley.data.backup
 
-import app.parley.common.catching
-import app.parley.common.people.Batches
-import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.provider.ContactsContract
 import android.provider.DocumentsContract
 import android.util.Base64
 import android.util.Log
+import androidx.room.withTransaction
+import app.parley.common.BlockAction
+import app.parley.common.BlockRule
 import app.parley.common.LabelRefs
 import app.parley.common.NotifyLevel
 import app.parley.common.RuleKind
+import app.parley.common.RuleType
 import app.parley.common.Schedule
 import app.parley.common.StoredStatus
-import app.parley.common.backup.BackupArchiveReader
-import app.parley.common.backup.BackupArchiveWriter
 import app.parley.common.backup.ArchiveMeta
 import app.parley.common.backup.ArchiveOrigin
 import app.parley.common.backup.ArchiveSignatures
 import app.parley.common.backup.ArchiveSigning
-import app.parley.common.backup.KeyBundle
-import app.parley.common.backup.WrongKeyException
+import app.parley.common.backup.BackupArchiveReader
+import app.parley.common.backup.BackupArchiveWriter
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.BackupFile
 import app.parley.common.backup.BlockRuleRecord
 import app.parley.common.backup.BlockedCallRecord
 import app.parley.common.backup.BlockingSnapshot
+import app.parley.common.backup.KeyBundle
 import app.parley.common.backup.MergeAction
 import app.parley.common.backup.MergePlan
 import app.parley.common.backup.MergePlanner
-import app.parley.common.backup.PhotoRefs
 import app.parley.common.backup.NumberSimRecord
+import app.parley.common.backup.PhotoRefs
 import app.parley.common.backup.Recipient
 import app.parley.common.backup.RecordJson
 import app.parley.common.backup.RecoveryKey
@@ -43,30 +44,31 @@ import app.parley.common.backup.RestoreMode
 import app.parley.common.backup.RetentionDecider
 import app.parley.common.backup.SpeedDialRecord
 import app.parley.common.backup.Unlock
-import app.parley.common.BlockAction
-import app.parley.common.BlockRule
-import app.parley.common.RuleType
-import app.parley.common.record.Messengers
-import app.parley.common.suspendRunCatching
+import app.parley.common.backup.WrongKeyException
+import app.parley.common.catching
+import app.parley.common.history.RetentionDefaults
+import app.parley.common.people.Batches
+import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
+import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
-import androidx.room.withTransaction
 import app.parley.common.storage.PersistentStores
+import app.parley.common.suspendRunCatching
 import app.parley.data.BlockRepository
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactsRepository
 import app.parley.data.PrefsRepository
+import app.parley.data.R
 import app.parley.data.SettingsRepository
-import app.parley.common.history.RetentionDefaults
+import app.parley.data.applyInBatches
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
-import app.parley.data.security.Concealment
-import app.parley.common.people.PrivateLabels
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -75,12 +77,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.PrivateKey
 import java.time.Instant
 import java.time.ZoneId
 import javax.crypto.SecretKey
-import java.security.PrivateKey
-import android.content.res.Resources
-import app.parley.data.R
 
 data class BackupOutcome(
     val ok: Boolean,
@@ -399,7 +399,7 @@ class BackupRepository(
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
-        val hiding = Concealment.hiding
+        val hiding = Privacy.duressOnly().hiding
         val vaultMissing = !vaultIncluded && !hiding && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
         // L4: a backup made after a duress unlock never rotates out older ones, nor becomes the count rotation compares with.
         val rotates = RetentionDecider.rotates(paused, safety, incomplete, hiding)
@@ -485,7 +485,7 @@ class BackupRepository(
      * key lost for good still lets what's left (the caller-ID copies) be saved.
      */
     // I21: never after a duress unlock, even when the phone's own unlock left the detail key open.
-    private fun vaultReadable(): Boolean = !Concealment.hiding && (!VaultCrypto.detailNeedsUnlock() || VaultCrypto.detailKeyLost())
+    private fun vaultReadable(): Boolean = !Privacy.duressOnly().hiding && (!VaultCrypto.detailNeedsUnlock() || VaultCrypto.detailKeyLost())
 
     /** Private contacts, re-encrypted under the archive key. Needs the vault unlocked (otherwise skipped). */
     private suspend fun vaultBlob(): ByteArray? {

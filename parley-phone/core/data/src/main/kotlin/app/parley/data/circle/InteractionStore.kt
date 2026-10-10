@@ -2,16 +2,16 @@ package app.parley.data.circle
 
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
+import app.parley.common.security.Concealed
 import app.parley.data.db.InteractionDao
 import app.parley.data.db.InteractionEntity
 import app.parley.data.db.InteractionTouchRow
-import app.parley.common.security.Concealed
 import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -53,7 +53,7 @@ class InteractionStore(private val dao: InteractionDao) {
      */
     private fun open(e: InteractionEntity, reveal: Boolean = false): String? {
         val blob = e.noteBlob
-        if (!reveal && Concealment.hides(Concealed.CIRCLE_NOTES)) {
+        if (!reveal && Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)) {
             // L1: a note written while hiding shows as written; one typed over a hidden note shows instead of it.
             val t = token(e.id)
             if (Concealment.hasOverlay(t)) return Concealment.overlay(t)
@@ -70,7 +70,7 @@ class InteractionStore(private val dao: InteractionDao) {
      * replaced unseen ([note] then shows instead of it, in memory, L1); a note written while hiding is stored.
      */
     private fun noteToStore(e: InteractionEntity, note: String?): ByteArray? {
-        if (!Concealment.hides(Concealed.CIRCLE_NOTES)) return seal(note)
+        if (!Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)) return seal(note)
         val t = token(e.id)
         if (e.noteBlob != null && !Concealment.writtenWhileHiding(t)) {
             if (note != null || Concealment.hasOverlay(t)) Concealment.setOverlay(t, note)
@@ -87,7 +87,7 @@ class InteractionStore(private val dao: InteractionDao) {
     )
 
     /** Re-emits when the duress hiding starts or ends, or what it shows changes (L1). */
-    private val hiding = combine(Concealment.state.map { it.hiding }.distinctUntilChanged(), Concealment.revisions) { h, r -> h to r }
+    private val hiding = Privacy.duressChanges
 
     /** [lookupKey]'s interactions, newest first (again when a duress unlock hides or shows the notes). */
     fun interactions(lookupKey: String): Flow<List<Interaction>> =

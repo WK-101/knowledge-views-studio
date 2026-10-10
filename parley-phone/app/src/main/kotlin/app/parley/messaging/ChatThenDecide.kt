@@ -1,9 +1,7 @@
 package app.parley.messaging
 
-import app.parley.ui.temporary.TemporaryContactActions
-import app.parley.security.VaultUnlockDeclined
-import androidx.activity.ComponentActivity
 import android.content.res.Resources
+import androidx.activity.ComponentActivity
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -25,7 +23,9 @@ import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.OpenedChat
+import app.parley.security.VaultUnlockDeclined
 import app.parley.ui.Bidi
+import app.parley.ui.temporary.TemporaryContactActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,9 +82,8 @@ object ChatThenDecide {
     /** The number is still not a contact (nor a private one), so the offer makes sense. */
     suspend fun stillUnknown(c: DataContainer, chat: OpenedChat): Boolean = stillUnknown(c, chat.number)
 
-    /** [number] is neither a contact nor a private one. */
-    suspend fun stillUnknown(c: DataContainer, number: String): Boolean =
-        c.contacts.lookup(number) == null && c.vault.lookup(number) == null
+    /** [number] is neither a contact, a private one nor an archived one ([app.parley.data.people.NumberOwners]). */
+    suspend fun stillUnknown(c: DataContainer, number: String): Boolean = c.numberOwners.find(number, null).let { !it.saved && !it.unsure }
 
     suspend fun save(c: DataContainer, chat: OpenedChat, region: String, private: Boolean = true): TemporaryContacts.Saved? = withContext(Dispatchers.IO) {
         runCatching { TemporaryContact.save(c, chat.number, TemporaryContact.suggestedName(chat.number, chat.appLabel, region), private = private) }.getOrNull()

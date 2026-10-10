@@ -371,7 +371,7 @@ class ExtrasStore(private val c: DataContainer) {
             TripMatch.Person(s.id, s.displayName, places[s.id].orEmpty(), notes[s.id].orEmpty(), numberPlaces(s.phones.map { it.number }))
         }
         // Private contacts too, while they are listed (discreet mode and a duress unlock hide them, failing closed).
-        val privateShown = !c.settings.hidesPrivateNames()
+        val privateShown = c.privacy.now().privateShown
         val private = if (privateShown) privatePeople(cities, ::numberPlaces) else emptyList()
         TripData(TripMatch.people(people, private, privateShown), cities)
     }

@@ -35,8 +35,9 @@ object RelationsFromOthers {
     /** The relations [self]'s page shows from others' relations to it; [metas]: Parley's rows of every contact. */
     suspend fun load(c: DataContainer, self: ContactDetails, selfPrivate: Boolean, metas: List<ContactMetaEntity>, s: AppSettings): List<RelationFromOther> {
         val key = self.lookupKey
-        if (key.isEmpty() || selfPrivate && s.hideVault) return emptyList()
-        return fromMyCard(c, key) + fromContacts(c, self, selfPrivate, metas, s)
+        val privateShown = c.privacy.now().privateShown
+        if (key.isEmpty() || selfPrivate && !privateShown) return emptyList()
+        return fromMyCard(c, key) + fromContacts(c, self, selfPrivate, metas, s, privateShown)
     }
 
     /**
@@ -63,9 +64,9 @@ object RelationsFromOthers {
         selfPrivate: Boolean,
         metas: List<ContactMetaEntity>,
         s: AppSettings,
+        privateShown: Boolean,
     ): List<RelationFromOther> {
         val key = self.lookupKey
-        val privateShown = !s.hideVault
         if (!s.mirrorRelations) return emptyList()
         if (selfPrivate && !privateShown) return emptyList()
         val incoming = ArrayList<RelationMirror.Incoming>()

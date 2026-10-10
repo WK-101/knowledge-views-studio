@@ -3,6 +3,7 @@ package app.parley.calls
 import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
+import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
@@ -12,7 +13,9 @@ import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.parley.common.NotificationIds
 import app.parley.common.calls.ToCall
+import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
+import app.parley.data.DataItem
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import app.parley.data.vault.VaultCrypto
@@ -42,7 +45,7 @@ class ToCallRemindersTest {
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
         FakeContactsProvider.install()
-        shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.POST_NOTIFICATIONS)
+        shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.POST_NOTIFICATIONS)
         VaultCrypto.appContext = context
         WorkManagerTestInitHelper.initializeTestWorkManager(
             context, Configuration.Builder().setMinimumLoggingLevel(Log.DEBUG).setExecutor(SynchronousExecutor()).build(),
@@ -93,6 +96,20 @@ class ToCallRemindersTest {
         context.getSystemService(NotificationManager::class.java).cancel(NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID)
         runAll()
         assertEquals(0, posted())
+    }
+
+    /** Who the reminder names is "who owns this number" for every notice: an archived contact by name, as a missed call. */
+    @Test fun an_archived_contact_is_named_like_on_the_missed_call_notice() = runBlocking {
+        val number = "+44 20 7946 0000"
+        val id = c.contacts.save(
+            null, ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, number, Phone.TYPE_MOBILE))), null, null, false,
+        )!!.contactId!!
+        assertTrue(c.archive.archive(id) != null)
+        val now = System.currentTimeMillis()
+        assertTrue(ToCallReminders.remind(context, number, null, at = now - 60_000, now = now - 120_000))
+        runAll()
+        val shown = shadowOf(context.getSystemService(NotificationManager::class.java)).allNotifications.single()
+        assertEquals("Call Ada Lovelace", shown.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
     }
 
     @Test fun a_change_that_changes_nothing_schedules_nothing() = runBlocking {

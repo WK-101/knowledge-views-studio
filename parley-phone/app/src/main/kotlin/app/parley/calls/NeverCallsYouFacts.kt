@@ -2,8 +2,8 @@ package app.parley.calls
 
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import app.parley.common.PhoneIdentity
-import app.parley.common.catching
 import app.parley.common.calls.NeverCallsYou
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
@@ -83,7 +83,7 @@ object NeverCallsYouFacts {
             )
         }
         // Discreet mode: a private contact is a plain number everywhere, so it is no organisation here either.
-        val private = if (c.settings.current().hideVault) null else catching { c.vault.lookup(number, iso) }.getOrNull()
+        val private = if (c.privacy.now().privateHidden) null else catching { c.numberOwners.findIn(number, iso).private }.getOrNull()
         val privateOwner = private?.let { (id, info) ->
             val summary = catching { c.vault.summary(id) }.getOrNull()
             NeverCallsYou.SavedAs(

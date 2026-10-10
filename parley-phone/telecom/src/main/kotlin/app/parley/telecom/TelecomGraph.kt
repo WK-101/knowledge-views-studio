@@ -1,15 +1,13 @@
 package app.parley.telecom
 
-import app.parley.common.BlockAction
 import android.content.Context
 import android.content.Intent
 import app.parley.common.AnswerGesture
+import app.parley.common.BlockAction
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calls.CallExtrasConfig
-import app.parley.common.calls.RingStyle
-import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.EmergencyPolicy
@@ -18,8 +16,10 @@ import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.MenuStep
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.RingStyle
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.VerifyCallBack
+import app.parley.common.calltime.CallTimePlan
 import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
@@ -106,8 +106,11 @@ data class InCallAppearance(
     val speakCallerName: Boolean = false,
     /** Settings › Calls › "Call screen background": the caller's colour or plain. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
-    /** Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked. */
-    val lockScreenCaller: LockScreenCaller = LockScreenCaller.NAME,
+    /**
+     * Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked.
+     * The app sends it from its privacy view (Nothing until the settings are read).
+     */
+    val lockScreen: LockScreenCaller = LockScreenCaller.NAME,
     /** "Text me your name": the reply offered first to numbers that aren't saved; blank: off. */
     val nameReply: String = "",
 )

@@ -6,8 +6,8 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
 import app.parley.common.ExplainedFailure
-import app.parley.common.catching
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Promises
 import app.parley.common.people.ContactRef
@@ -28,7 +28,7 @@ import app.parley.data.RecordDetails
 import app.parley.data.VCardIO
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
-import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -150,7 +150,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
      * can tell). Throws when they can't be opened now (a key lost for good still exports what's left).
      */
     private suspend fun privatesFor(choice: Choice): List<app.parley.data.vault.VaultSummary> {
-        if (!choice.includePrivate || Concealment.hiding) return emptyList()
+        if (!choice.includePrivate || Privacy.duressOnly().hiding) return emptyList()
         val list = c.vault.summariesNow()
         if (list.isNotEmpty() && VaultCrypto.detailNeedsUnlock() && !VaultCrypto.detailKeyLost()) {
             throw ExplainedFailure(context.getString(R.string.data_export_private_locked))

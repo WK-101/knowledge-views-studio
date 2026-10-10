@@ -1,106 +1,105 @@
 package app.parley
 
-import app.parley.common.BlockAction
-import android.text.format.DateUtils
-import android.util.Log
-import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.content.Intent
+import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.text.format.DateUtils
+import android.util.Log
+import app.parley.blocking.BlockFlow
+import app.parley.calls.AgendaBridge
+import app.parley.calls.CaseFileBridge
+import app.parley.calls.ExpectedCallHints
+import app.parley.calls.MenuMemoryBridge
+import app.parley.calls.NetworkNames
+import app.parley.calls.NeverCallsYouFacts
+import app.parley.calls.NumberSignals
+import app.parley.calls.PrivateCallLogSweep
+import app.parley.calls.ToCallReminders
+import app.parley.calltime.CallTimePlanner
+import app.parley.common.AllowReason
+import app.parley.common.BlockAction
+import app.parley.common.BlockReason
 import app.parley.common.BlockRule
+import app.parley.common.CallType
+import app.parley.common.Decision
+import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleTools
 import app.parley.common.RuleType
-import app.parley.data.PlaceResult
-import app.parley.blocking.DialText as PlaceFailureText
-import app.parley.common.people.CallerCard
-import app.parley.common.people.NameOrder
-import app.parley.common.CallType
-import app.parley.data.db.CallNoteEntity
-import app.parley.data.db.CallUsageEntity
+import app.parley.common.ScreeningResult
+import app.parley.common.VerdictKind
 import app.parley.common.Verification
+import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.CallerHaptics
+import app.parley.common.calls.CallerPhoto
+import app.parley.common.calls.DriveProfileConfig
+import app.parley.common.calls.NetworkName
+import app.parley.common.calls.RingFacts
+import app.parley.common.calls.RingStyle
+import app.parley.common.calls.RingtoneSource
+import app.parley.common.calls.SafeWords
+import app.parley.common.calls.SpeakerDefault
+import app.parley.common.calls.ToCall
+import app.parley.common.calls.ToCallSource
+import app.parley.common.calls.VerifyCallBack
 import app.parley.common.calltime.CallTimePlan
-import app.parley.calltime.CallTimePlanner
+import app.parley.common.catching
+import app.parley.common.circle.Agenda
+import app.parley.common.circle.Promises
+import app.parley.common.extras.CallerChoice
+import app.parley.common.extras.CallerChoices
+import app.parley.common.memory.NumberMemory
+import app.parley.common.people.ArchivedCard
+import app.parley.common.people.CallerCard
+import app.parley.common.people.ContactRef
+import app.parley.common.people.NameOrder
+import app.parley.common.spam.RangeProposal
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
-import app.parley.data.vault.VaultCallChoices
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
+import app.parley.data.PlaceResult
+import app.parley.data.ScreenRequest
+import app.parley.data.TemporaryContacts
+import app.parley.data.calls.ReputationLearner
+import app.parley.data.circle.CircleRepository
+import app.parley.data.db.CallNoteEntity
+import app.parley.data.db.CallUsageEntity
+import app.parley.data.vault.VaultCallChoices
+import app.parley.messaging.TemporaryContact
+import app.parley.telecom.AgendaHooks
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
-import app.parley.common.circle.Promises
-import app.parley.common.circle.Agenda
-import app.parley.calls.AgendaBridge
-import app.parley.telecom.AgendaHooks
-import app.parley.data.circle.CircleRepository
-import app.parley.calls.PrivateCallLogSweep
-import app.parley.calls.ToCallReminders
-import app.parley.common.calls.ToCall
-import app.parley.common.calls.ToCallSource
-import java.time.ZoneId
-import app.parley.telecom.InCallAppearance
-import app.parley.telecom.HelperUi
-import app.parley.telecom.SafeWordPrompt
-import app.parley.common.calls.SafeWords
-import app.parley.calls.ExpectedCallHints
-import app.parley.calls.NeverCallsYouFacts
-import app.parley.telecom.TelecomDependencies
-import app.parley.telecom.SimTip
-import app.parley.common.catching
-import app.parley.data.security.Concealment
-import app.parley.calls.NumberSignals
-import app.parley.telecom.MenuMemoryHooks
-import app.parley.calls.MenuMemoryBridge
-import app.parley.calls.CaseFileBridge
 import app.parley.telecom.CaseFileHooks
-import app.parley.ui.common.Format
-import app.parley.work.HistoryWorker
-import app.parley.telecom.ScreenOutcome
-import app.parley.telecom.PostCallAction
-import app.parley.blocking.BlockFlow
+import app.parley.telecom.HelperUi
+import app.parley.telecom.InCallAppearance
+import app.parley.telecom.MenuMemoryHooks
 import app.parley.telecom.NumberMemoryLine
-import app.parley.common.memory.NumberMemory
+import app.parley.telecom.PostCallAction
+import app.parley.telecom.SafeWordPrompt
+import app.parley.telecom.ScreenOutcome
+import app.parley.telecom.SimTip
+import app.parley.telecom.TelecomDependencies
+import app.parley.ui.common.Format
 import app.parley.ui.memory.NumberMemoryText
-import app.parley.common.calls.CallQualityFacts
-import app.parley.common.calls.NetworkName
-import app.parley.calls.NetworkNames
-import app.parley.common.calls.CallerPhoto
-import app.parley.common.people.ContactRef
-import app.parley.common.calls.RingFacts
-import app.parley.common.calls.SpeakerDefault
-import app.parley.common.calls.VerifyCallBack
-import app.parley.security.AppLock
-import android.provider.ContactsContract.CommonDataKinds.Phone
-import app.parley.common.AllowReason
-import app.parley.common.ScreeningResult
-import app.parley.data.TemporaryContacts
-import app.parley.messaging.TemporaryContact
-import app.parley.common.calls.RingtoneSource
-import app.parley.common.calls.CallExtrasConfig
-import app.parley.common.calls.DriveProfileConfig
-import app.parley.common.calls.CallerHaptics
-import app.parley.common.calls.RingStyle
-import app.parley.common.extras.CallerChoice
-import app.parley.common.extras.CallerChoices
-import app.parley.data.ScreenRequest
-import app.parley.common.VerdictKind
-import app.parley.common.BlockReason
-import app.parley.common.Decision
-import app.parley.common.spam.RangeProposal
-import app.parley.data.calls.ReputationLearner
+import app.parley.work.HistoryWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.ZoneId
+import app.parley.blocking.DialText as PlaceFailureText
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) :
     TelecomDependencies,
@@ -115,10 +114,11 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         const val CALL_SETTLE_MS = 10_000L
     }
 
-    override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
-        // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
+    override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded, c.privacy.flow) { s, loaded, privacy ->
+        // "Hide screen content" reaches the call screen; it stays secure until the settings are read. "Caller on the
+        // lock screen" comes from the privacy view, which shows nothing about a caller until then.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded,
-            callBackground = s.callBackground, lockScreenCaller = s.lockScreenCaller, nameReply = s.nameReply,
+            callBackground = s.callBackground, lockScreen = privacy.lockScreen, nameReply = s.nameReply,
         )
         // Built inside the flow (on the container's scope), not here on the main thread in Application.onCreate.
     }.combine(flow { emitAll(c.extras.simple) }) { look, simple ->
@@ -127,8 +127,11 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = withContext(Dispatchers.IO) {
-        val last = lastCallSummary(number, PhoneEnv.countryIso(app, accountId))
-        c.contacts.lookup(number)?.let {
+        val region = PhoneEnv.countryIso(app, accountId)
+        val last = lastCallSummary(number, region)
+        // Who owns the number was likely found by screening a moment ago (NumberOwners keeps it for the ring).
+        val found = c.numberOwners.findIn(number, region)
+        found.contact?.let {
             if (it.work) {
                 // A work-profile contact: its name and photo only (it can't be opened or noted from here).
                 val photo = it.photoUri.takeIf { c.settings.settings.value.showCallerPhoto }
@@ -167,10 +170,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 favourite = it.starred,
                 networkNameUnder = networkNamesOn(),
             )
-        } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
+        } ?: found.private?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
             // notifications), like an unknown caller, so nothing reveals it is in the vault (as for missed calls, F14).
-            if (c.settings.current().hideVault) return@withContext null
+            if (c.privacy.now().privateHidden) return@withContext null
             // A private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
             // Its vibration, auto-answer and labels are in the same caller-ID copy (readable while the phone is locked).
@@ -186,15 +189,14 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // Reached only while its name may show (discreet mode and a duress session returned above).
                 networkNameUnder = networkNamesOn(),
             )
-        } ?: archivedCaller(number, PhoneEnv.countryIso(app, accountId), last)
+        } ?: found.archived?.let { archivedCaller(it, last) }
     }
 
     /**
      * An archived contact: out of the address book, still named here (and on the lock screen as the call screen's rules
      * allow), with its note for calls, which waits under its archived key.
      */
-    private suspend fun archivedCaller(number: String, region: String, last: String?): CallerDisplay? {
-        val card = catching { c.archive.lookup(number, region) }.getOrNull() ?: return null
+    private suspend fun archivedCaller(card: ArchivedCard, last: String?): CallerDisplay {
         // The agenda's items have their card of their own (AgendaStore finds the archived contact too).
         val note = catching { Agenda.withoutItems(c.meta.meta(card.parleyKey)?.pinnedNote) }.getOrNull()
         val subtitle = if (card.company.isBlank()) app.getString(R.string.archive_caller) else app.getString(R.string.archive_caller_at, card.company)
@@ -246,8 +248,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** I11: a contact, a private contact (discreet mode or not) or an archived one; only the yes or no reaches the call path. */
     override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
-        c.contacts.lookup(number) != null || c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) != null ||
-            catching { c.archive.lookup(number, PhoneEnv.countryIso(app, accountId)) != null }.getOrDefault(false)
+        val found = c.numberOwners.find(number, accountId)
+        found.contact != null || found.private != null || found.archived != null
     }
 
     /**
@@ -511,7 +513,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.scope.launch(Dispatchers.IO) {
             runCatching {
                 // Like ring facts: calls with private contacts leave no trace outside the vault with "Private call history" on.
-                if (number != null && c.settings.current().privateVaultHistory && c.vault.lookup(number) != null) return@runCatching
+                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@runCatching
                 c.callQuality.add(number, facts)
             }
         }
@@ -522,12 +524,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun simTipAfterDrop(number: String, facts: CallQualityFacts?): SimTip? = withContext(Dispatchers.IO) {
         // Names a person: not while Parley is locked, and never a private contact that's hidden.
         if (appLocked()) return@withContext null
-        val contact = c.contacts.lookup(number)?.takeIf { !it.work }
+        val found = c.numberOwners.find(number, null)
+        val contact = found.contact?.takeIf { !it.work }
         val (name, numbers) = if (contact != null) {
             contact.name to c.contacts.numbersOf(contact.contactId)
         } else {
-            if (c.settings.current().hideVault || Concealment.hiding) return@withContext null
-            val (vaultId, info) = c.vault.lookup(number) ?: return@withContext null
+            if (c.privacy.now().privateHidden) return@withContext null
+            val (vaultId, info) = found.private ?: return@withContext null
             info.name to (c.vault.summary(vaultId)?.numbers ?: listOf(number))
         }
         val tip = NumberSignals.simTip(c, numbers.ifEmpty { listOf(number) }, c.sims.accounts(), facts) ?: return@withContext null
@@ -543,13 +546,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     // ---- "Check it's really them" (I3) ----
 
-    /** Parley's app lock is on and locked: the call screen lists no contacts then. */
-    private fun appLocked(): Boolean = AppLock.locked.value && c.settings.settings.value.appLock
+    /** Parley's app lock is on and locked (or the settings aren't read yet): the call screen lists no contacts then. */
+    private fun appLocked(): Boolean = c.privacy.memory().appLocked
 
     override suspend fun savedNumbersFor(number: String, accountId: String?): List<VerifyCallBack.Saved> = withContext(Dispatchers.IO) {
-        val iso = PhoneEnv.countryIso(app, accountId)
         val res = app.resources
-        c.contacts.lookup(number)?.takeIf { !it.work }?.let { info ->
+        val found = c.numberOwners.find(number, accountId)
+        found.contact?.takeIf { !it.work }?.let { info ->
             // While Parley is locked, only the number the call screen already shows.
             if (appLocked()) return@withContext listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel))
             val summary = c.contacts.contacts.value?.firstOrNull { it.id == info.contactId } ?: c.contacts.loadNow().firstOrNull { it.id == info.contactId }
@@ -560,8 +563,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             return@withContext phones.ifEmpty { listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel)) }
         }
         // A private contact (never in discreet mode, where it shows as a plain number).
-        if (c.settings.current().hideVault) return@withContext emptyList()
-        c.vault.lookup(number, iso)?.let { (id, info) ->
+        if (c.privacy.now().privateHidden) return@withContext emptyList()
+        found.private?.let { (id, info) ->
             if (appLocked()) return@withContext listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel))
             val numbers = c.vault.summary(id)?.numbers.orEmpty()
             return@withContext numbers.map { VerifyCallBack.Saved(info.name, it) }.ifEmpty { listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel)) }
@@ -576,7 +579,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val contacts = (c.contacts.contacts.value ?: c.contacts.loadNow()).flatMap { s ->
             s.phones.map { p -> VerifyCallBack.Saved(s.displayName, p.number, Phone.getTypeLabel(res, p.type, p.label).toString()) }
         }
-        if (c.settings.current().hideVault) return@withContext contacts
+        if (c.privacy.now().privateHidden) return@withContext contacts
         contacts + c.vault.summariesNow().flatMap { v -> v.numbers.map { VerifyCallBack.Saved(v.name, it) } }
     }
 
@@ -598,7 +601,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.scope.launch(Dispatchers.IO) {
             runCatching {
                 // Calls with private contacts leave no trace outside the vault when "Private call history" is on.
-                if (number != null && c.settings.current().privateVaultHistory && c.vault.lookup(number) != null) return@runCatching
+                if (number != null && c.settings.current().privateVaultHistory && isPrivate(number)) return@runCatching
                 // Android played the tone: say whether it was the contact's own or the default.
                 val refined = if (facts.ringtone == RingtoneSource.SYSTEM && number != null) {
                     facts.copy(ringtone = if (contactRingtone(number) != null) RingtoneSource.CONTACT else RingtoneSource.DEFAULT)
@@ -609,6 +612,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             }
         }
     }
+
+    /** A private contact's number (one that can't be checked counts as one: nothing is kept then). */
+    private suspend fun isPrivate(number: String): Boolean = c.numberOwners.find(number, null).let { it.private != null || it.privateFailed }
 
     private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
 
@@ -625,9 +631,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** The labels [number] is a saved member of (a private contact's too, unless discreet mode hides it); null when unknown. */
     private suspend fun callerLabels(number: String, accountId: String?): Set<String>? {
-        c.contacts.lookup(number)?.takeIf { !it.work }?.let { return runCatching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
-        if (c.settings.current().hideVault) return null
-        val (id, _) = c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) ?: return null
+        val found = c.numberOwners.find(number, accountId)
+        found.contact?.takeIf { !it.work }?.let { return runCatching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
+        if (c.privacy.now().privateHidden) return null
+        val (id, _) = found.private ?: return null
         return runCatching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet())
     }
 
@@ -636,7 +643,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun appLockLocked(): Boolean = appLocked()
 
     override suspend fun helpers(): List<HelperUi> = withContext(Dispatchers.IO) {
-        val discreet = c.settings.current().hideVault
+        val discreet = c.privacy.now().privateHidden
         // A private helper shows as their number in discreet mode, like a private caller.
         c.familySafety.helpers().map { h -> HelperUi(if (h.private && discreet) h.number else h.name, h.number) }
     }
@@ -663,7 +670,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             catching {
                 val enabled = catching { c.settings.current().rememberNetworkNames }.getOrDefault(false)
                 val region = PhoneEnv.countryIso(app, accountId)
-                val private = catching { c.vault.lookup(number, region) != null }.getOrNull()
+                val found = c.numberOwners.findIn(number, region)
+                val private = if (found.privateFailed) null else found.private != null
                 when (NetworkName.keep(enabled, private)) {
                     NetworkName.Keep.RECORD -> c.networkNames.record(number, name, at, accountId, region)
                     NetworkName.Keep.FORGET -> c.networkNames.forget(number, listOf(region))

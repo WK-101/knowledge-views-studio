@@ -1,18 +1,12 @@
 package app.parley.data
 
+import android.content.Context
+import android.util.Log
+import app.parley.common.LabelRefs
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.catching
-import app.parley.common.LabelRefs
-import app.parley.data.security.AppPinStore
-import app.parley.data.security.Concealment
-import app.parley.data.security.RecordSealing
-import app.parley.data.security.SealedMetaDao
-import app.parley.data.security.RecordCrypto
-import app.parley.data.db.MetaDao
-import android.content.Context
-import android.util.Log
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.BackupPrefs
 import app.parley.data.backup.BackupRepository
@@ -29,50 +23,55 @@ import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
 import app.parley.data.calls.DisownedCalls
+import app.parley.data.calls.DriveProfileRepository
+import app.parley.data.calls.FamilySafetyStore
+import app.parley.data.calls.MenuMemoryStore
 import app.parley.data.calls.NetworkNameStore
 import app.parley.data.calls.NumberAdviceStore
 import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
-import app.parley.data.calls.ToCallStore
-import app.parley.data.calls.MenuMemoryStore
-import app.parley.data.cases.CaseFileStore
-import app.parley.data.calls.FamilySafetyStore
-import app.parley.data.calls.VoicemailRepository
-import app.parley.data.calls.DriveProfileRepository
 import app.parley.data.calls.RoamingRepository
+import app.parley.data.calls.ToCallStore
+import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calltime.CallUsageLedger
 import app.parley.data.calltime.CallingRepository
+import app.parley.data.cases.CaseFileStore
 import app.parley.data.circle.AgendaStore
 import app.parley.data.circle.CircleRepository
 import app.parley.data.circle.InteractionStore
 import app.parley.data.db.AppDatabase
+import app.parley.data.db.MetaDao
 import app.parley.data.extras.ExtrasStore
 import app.parley.data.history.CallHistory
+import app.parley.data.memory.NumberMemoryStore
 import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.MessagingStore
-import app.parley.data.memory.NumberMemoryStore
 import app.parley.data.people.ContactKeys
 import app.parley.data.people.PeopleContainer
 import app.parley.data.people.PeoplePrefs
 import app.parley.data.people.TemporaryContactStore
 import app.parley.data.records.ContactRecordStore
+import app.parley.data.security.AppPinStore
+import app.parley.data.security.Concealment
+import app.parley.data.security.RecordCrypto
+import app.parley.data.security.RecordSealing
+import app.parley.data.security.SealedMetaDao
 import app.parley.data.situations.SituationsController
 import app.parley.data.sync.FolderSync
-import app.parley.data.vault.VaultMoves
-import app.parley.data.vault.VaultCrypto
-import app.parley.data.vault.VaultRepository
 import app.parley.data.vault.PrivateLabelStore
 import app.parley.data.vault.PrivateTrash
+import app.parley.data.vault.VaultCrypto
+import app.parley.data.vault.VaultMoves
+import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Manual dependency container: one instance per process. */
@@ -101,6 +100,9 @@ class DataContainer(context: Context) {
 
     val db: AppDatabase by lazy { AppDatabase.create(appContext) }
     val settings = SettingsRepository(appContext, scope)
+
+    /** The one answer to "may private data show now?" ([app.parley.common.security.PrivacyView]). */
+    val privacy = app.parley.data.security.Privacy(settings, scope)
     val contacts = ContactsRepository(appContext, scope, fullStart.sharing)
 
     /** Read-only search of the work profile's contacts (memory only; never stored or backed up). */
@@ -120,8 +122,10 @@ class DataContainer(context: Context) {
             .also { s ->
                 s.situationsWatching = { situations.watching() }
                 s.beforeScreen = { situations.lookBriefly(CallScreener.SITUATION_LOOK_MS) }
-                // An archived contact is a saved contact to screening (never an "unknown caller").
-                s.archivedCaller = { n, iso -> archive.lookup(n, iso) != null }
+                // An archived contact is a saved contact to screening (never an "unknown caller"). Who owns the number is
+                // found once per ring and shared with the call screen and everything else that asks.
+                s.archivedCaller = { n, iso -> numberOwners.archivedIn(n, iso).getOrNull() != null }
+                s.privateLookup = { n, iso -> numberOwners.privateIn(n, iso) }
             }
             // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->
@@ -130,7 +134,7 @@ class DataContainer(context: Context) {
                     val windows = familySafety.windowsNow()
                         ?: emptyList<ExpectedWindow>().also { scope.launch(warmDispatcher) { runCatching { familySafety.load() } } }
                     // A private contact's name stays out of "expecting a call (note on …)" in discreet mode.
-                    val discreet = settings.current().hideVault
+                    val discreet = privacy.now().privateHidden
                     windows.map { w -> if (w.label != null && w.shownLabel(discreet) == null) w.copy(label = null) else w }
                 }
             }
@@ -174,6 +178,9 @@ class DataContainer(context: Context) {
     /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
     val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
 
+    /** Who owns a number: contact, private, archived, network name ([app.parley.data.people.NumberOwners]). */
+    val numberOwners by lazy { app.parley.data.people.NumberOwners(this) }
+
     /** "It wasn't them" marks, read by "This number never calls you". */
     val disownedCalls: DisownedCalls by lazy { DisownedCalls(appContext) { history } }
 
@@ -196,7 +203,7 @@ class DataContainer(context: Context) {
     /** Case files: calls, hold times, menu keys and reference numbers per organisation (sealed at rest). */
     val cases by lazy {
         CaseFileStore(
-            appContext, { n -> vault.lookup(n) != null }, { settings.settings.map { it.hideVault }.distinctUntilChanged() }, { vault.contacts },
+            appContext, { n -> vault.lookup(n) != null }, { privacy.privateHidden }, { vault.contacts },
         ) { PhoneEnv.countryIso(appContext) }
     }
 

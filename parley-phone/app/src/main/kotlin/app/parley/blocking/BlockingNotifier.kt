@@ -1,9 +1,6 @@
 package app.parley.blocking
 
 import android.app.KeyguardManager
-import android.os.Build
-import app.parley.common.BlockAction
-import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
@@ -11,24 +8,27 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
+import app.parley.calls.NoticeCaller
+import app.parley.common.BlockAction
 import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
-import app.parley.calls.NoticeCaller
-import app.parley.common.catching
-import app.parley.common.suspendRunCatching
-import app.parley.data.DataContainer
 import app.parley.common.NotificationRequests
 import app.parley.common.NotifyLevel
+import app.parley.common.PhoneIdentity
 import app.parley.common.VerdictKind
+import app.parley.common.catching
+import app.parley.common.suspendRunCatching
 import app.parley.container
+import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.ScreenedCall
 import app.parley.ui.common.Format
@@ -122,15 +122,16 @@ object BlockingNotifier {
     internal suspend fun build(context: Context, c: DataContainer, e: ScreenedCall, locked: Boolean): Built? {
         val number = e.request.number?.takeIf { it.isNotBlank() && !e.request.hidden }
         val region = PhoneEnv.countryIso(context, e.request.simId)
-        val hideVault = c.settings.hidesPrivateNames()
-        val lockScreen = NoticeCaller.lockScreenRule { c.settings.current().lockScreenCaller }
-        val found = NoticeCaller.find(c, number, region, hideVault)
+        // One view for the whole notice; closed (nothing private, nothing on the lock screen) when it can't be read.
+        val privacy = c.privacy.now()
+        val lockScreen = NoticeCaller.lockScreenRule(privacy)
+        val found = NoticeCaller.find(c, number, region, privacy)
         // Screening knew the caller as one of yours, but the notice may not name them: a private contact while private
         // contacts are hidden, or one whose status couldn't be read. Their notice reads like a stranger's, without the
         // rule that caught them (it can name their label) and without the quiet-hours reply only contacts get.
         val unnamed = e.isContact && !found.isContact
         val shownNumber = number?.let { bidiLtr(Format.number(it, region)) } ?: context.getString(R.string.blk_private_number)
-        val who = NotificationPrivacy.screenedCallName(found.savedName, found.vaultName, hideVault, found.network, shownNumber, lockScreen, locked)
+        val who = NotificationPrivacy.screenedCallName(found.savedName, found.vaultName, privacy.privateHidden, found.network, shownNumber, lockScreen, locked)
         val decision = e.result.decision
         val quietHours = decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS
         val replies = e.isContact && !unnamed && e.settings.busyReply

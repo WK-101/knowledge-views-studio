@@ -1,52 +1,52 @@
 package app.parley.ui.journal
 
-import app.parley.ui.Destination
+import android.content.res.Resources
+import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.ui.ConfirmDialog
-import app.parley.ui.EmptyState
-import app.parley.ui.PersonRow
-import app.parley.ui.Routes
-import app.parley.ui.common.Format
-import kotlinx.coroutines.launch
-import androidx.annotation.StringRes
-import androidx.compose.ui.res.stringResource
 import app.parley.R
-import app.parley.ui.ParleyListItem
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.lazy.LazyListScope
-import android.content.res.Resources
-import kotlinx.coroutines.CoroutineScope
-import androidx.compose.ui.res.pluralStringResource
-import androidx.activity.ComponentActivity
 import app.parley.common.people.ContactRef
 import app.parley.data.vault.PrivateTrash
 import app.parley.security.AppLock
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.Destination
+import app.parley.ui.EmptyState
+import app.parley.ui.ParleyListItem
+import app.parley.ui.PersonRow
+import app.parley.ui.Routes
+import app.parley.ui.common.Format
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @StringRes private fun actionText(a: String): Int? = when (a) {
@@ -189,9 +189,9 @@ private fun rememberPrivateTrash(vm: AppViewModel, open: (Destination) -> Unit):
     val scope = rememberCoroutineScope()
     val ui = remember(vm) { PrivateTrashUi(vm, scope, context as? ComponentActivity, open) }
     // Discreet mode ("Hide private contacts") hides that there are any, here too.
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    LaunchedEffect(ui.round, settings.hideVault) {
-        ui.count = if (settings.hideVault) 0 else withContext(Dispatchers.IO) { vm.c.privateTrash.count() }
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    LaunchedEffect(ui.round, privacy.privateHidden) {
+        ui.count = if (privacy.privateHidden) 0 else withContext(Dispatchers.IO) { vm.c.privateTrash.count() }
     }
     return ui
 }
