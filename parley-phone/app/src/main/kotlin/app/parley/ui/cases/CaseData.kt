@@ -60,10 +60,10 @@ object CaseData {
      */
     suspend fun ownerKey(vm: AppViewModel, numbers: List<String>): String? = withContext(Dispatchers.IO) {
         numbers.firstNotNullOfOrNull { vm.numberIndex.value[it]?.lookupKey?.takeIf { k -> k.isNotEmpty() } }
-            ?: if (vm.c.privacy.now().privateHidden) {
+            ?: if (vm.privacyNow().privateHidden) {
                 null
             } else {
-                numbers.firstNotNullOfOrNull { n -> catching { vm.c.numberOwners.findIn(n, vm.countryIso).private }.getOrNull()?.first }
+                numbers.firstNotNullOfOrNull { n -> catching { vm.numberOwners.findIn(n, vm.countryIso).private }.getOrNull()?.first }
                     ?.let(ContactRef::privateKey)
             }
     }
@@ -86,7 +86,7 @@ fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
     val case = remember(state, owner.numbers) { CaseFiles.find(state, owner.numbers, vm.countryIso) }
     // A saved organisation shows its case file before anything was kept: its calls are already there.
     val organisation by produceState(false, owner.numbers, case == null) {
-        value = case == null && owner.numbers.isNotEmpty() && vm.c.privacy.now().notesShown &&
+        value = case == null && owner.numbers.isNotEmpty() && vm.privacyNow().notesShown &&
             withContext(Dispatchers.IO) {
                 owner.numbers.any { n -> catching { NeverCallsYouFacts.organisation(vm.c, n, vm.countryIso) }.getOrNull() != null }
             }

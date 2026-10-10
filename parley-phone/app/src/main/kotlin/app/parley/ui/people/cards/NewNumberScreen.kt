@@ -198,7 +198,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
 private fun rememberOutdated(vm: AppViewModel, phones: List<String>): State<List<IntroQueue.Target>?> = produceState<List<IntroQueue.Target>?>(null) {
     val ledger = vm.c.people.shareLedger
     ledger.load()
-    val shown = CardSharing.shown(vm.c, ledger.receipts.value, vm.c.privacy.memory().privateHidden)
+    val shown = CardSharing.shown(vm.c, ledger.receipts.value, vm.privacy.value.privateHidden)
     value = ShareLedger.outdated(shown, phones, vm.countryIso).mapNotNull { p ->
         p.number?.let { NumberText.toE164(it, vm.countryIso) }?.let { IntroQueue.Target(p.name, it) }
     }

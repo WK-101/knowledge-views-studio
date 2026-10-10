@@ -53,7 +53,7 @@ class InteractionStore(private val dao: InteractionDao) {
      */
     private fun open(e: InteractionEntity, reveal: Boolean = false): String? {
         val blob = e.noteBlob
-            // A note written while hiding shows as written; one typed over a hidden note shows instead of it.
+        // A note written while hiding shows as written; one typed over a hidden note shows instead of it.
         if (!reveal && Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)) {
             val t = token(e.id)
             if (Concealment.hasOverlay(t)) return Concealment.overlay(t)

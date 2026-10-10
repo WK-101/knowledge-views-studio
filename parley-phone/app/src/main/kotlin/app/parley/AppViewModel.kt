@@ -159,6 +159,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** "May private data show now?" for every screen ([app.parley.common.security.PrivacyView]); closed until the settings are read. */
     val privacy = c.privacy.flow
+
+    /** The privacy view read from the stored settings, for work off the main thread ([app.parley.data.security.Privacy.now]). */
+    suspend fun privacyNow(): app.parley.common.security.PrivacyView = c.privacy.now()
+
+    /** Who owns a number ([app.parley.data.people.NumberOwners]), for screens. */
+    val numberOwners: app.parley.data.people.NumberOwners get() = c.numberOwners
     val countryIso: String = c.directory.countryIso
 
     val isDefaultDialer = MutableStateFlow(Permissions.isDefaultDialer(app))

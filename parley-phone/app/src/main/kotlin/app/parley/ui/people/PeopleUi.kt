@@ -17,7 +17,6 @@ import app.parley.common.people.FacetChoice
 import app.parley.common.people.FacetChoices
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
-import app.parley.common.people.FieldFilter
 import app.parley.common.people.LabelFilter
 import app.parley.common.people.ListHead
 import app.parley.common.people.NameOrder

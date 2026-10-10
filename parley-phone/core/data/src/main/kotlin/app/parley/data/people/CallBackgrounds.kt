@@ -141,7 +141,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
     }
 
     /** Private contacts' pictures written plain by older versions, sealed now; false while one still can't be. */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // A picture that can't be sealed now is tried again next time.
     override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
         var left = 0
         for (key in indexedKeys().filter(ContactRef::isPrivateKey)) {
