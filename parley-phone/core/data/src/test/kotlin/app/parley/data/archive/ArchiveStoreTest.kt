@@ -288,7 +288,7 @@ class ArchiveStoreTest {
     }
 
     @Test fun an_archived_photo_is_kept_whole_at_full_size() = runBlocking {
-        // A 2 MB display photo: kept as it is (AUDIT_3 D7), through the sealed files and a backup.
+        // A 2 MB display photo: kept as it is (photos are kept whole), through the sealed files and a backup.
         val photo = ByteArray(2 * 1024 * 1024) { (it * 31 % 251).toByte() }
         val record = ContactRecord(
             "lk-ada", "Ada Lovelace",

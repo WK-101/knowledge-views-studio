@@ -151,7 +151,7 @@ fun ringtoneTitle(context: Context, uri: String?): String? =
 fun rememberRingtonePicker(onPicked: (String?) -> Unit): (current: String?) -> Unit {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The ringtone picker returns its pick in an untyped extra.
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             onPicked(uri?.toString())
         }

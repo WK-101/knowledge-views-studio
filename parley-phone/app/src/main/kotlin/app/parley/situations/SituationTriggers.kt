@@ -49,6 +49,10 @@ import java.util.concurrent.TimeUnit
 object SituationTriggers {
     private const val WORK = "situation_window"
 
+    /** Whether the window job may be queued (so a start with no window needs to cancel it). */
+    private const val PREFS = "situation_triggers"
+    private const val K_QUEUED = "queued"
+
     /** A device announces itself in steps (media first, then calls): look once it has settled. */
     private const val SETTLE_MS = 2_500L
 
@@ -133,17 +137,36 @@ object SituationTriggers {
 
     /** The one job for the next window edge; none when no Situation has a window. */
     fun schedule(context: Context, c: DataContainer, fromWorker: Boolean = false) {
-        val wm = runCatching { WorkManager.getInstance(context) }.getOrNull() ?: return
         val now = System.currentTimeMillis()
-        val next = c.situations.nextChange(now)
+        schedule(context, c.situations.nextChange(now), fromWorker, now)
+    }
+
+    /**
+     * Schedules the job for window edge [next] (null: none). This runs at every process start, a ringing call's
+     * included, and most phones have no Situation with a window: then WorkManager (its database and scheduler) isn't
+     * even started, unless a job is known to be queued from before ([K_QUEUED], true until first known).
+     */
+    internal fun schedule(
+        context: Context,
+        next: Long?,
+        fromWorker: Boolean,
+        now: Long = System.currentTimeMillis(),
+        workManager: () -> WorkManager? = { runCatching { WorkManager.getInstance(context) }.getOrNull() },
+    ) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (next == null) {
-            if (!fromWorker) wm.cancelUniqueWork(WORK)
+            if (fromWorker || !prefs.getBoolean(K_QUEUED, true)) return
+            val wm = workManager() ?: return
+            wm.cancelUniqueWork(WORK)
+            prefs.edit().putBoolean(K_QUEUED, false).apply()
             return
         }
+        val wm = workManager() ?: return
         wm.enqueueUniqueWork(
             WORK, if (fromWorker) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<SituationWorker>().setInitialDelay((next - now).coerceAtLeast(0) + AFTER_EDGE_MS, TimeUnit.MILLISECONDS).build(),
         )
+        prefs.edit().putBoolean(K_QUEUED, true).apply()
     }
 
     /** The worker's run: switch as the triggers say, then schedule the next edge. */

@@ -55,6 +55,7 @@ class SimRepository(private val context: Context) {
         val subs = sm.activeSubscriptionInfoList.orEmpty()
         subs.mapNotNull { info ->
             if (Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId).ifBlank { null }
+            // getPhoneNumber needs Android 13; this is the older path.
             else @Suppress("DEPRECATION") info.number?.ifBlank { null }
         }
     } catch (_: SecurityException) {
@@ -68,7 +69,7 @@ class SimRepository(private val context: Context) {
         emptyMap()
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // The ICCID is deprecated for apps but still read where Android gives it.
     private fun iccIdSlots(): Map<String, Int> = try {
         context.getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()
             .mapNotNull { info -> info.iccId?.takeIf { it.isNotBlank() }?.let { it to info.simSlotIndex } }.toMap()

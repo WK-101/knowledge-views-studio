@@ -1,6 +1,7 @@
 package app.parley.data.sync.shared
 
 import app.parley.common.catching
+import app.parley.common.storage.DurableFiles
 import app.parley.common.sync.shared.SharedLabelFiles
 import app.parley.common.sync.shared.SharedLabelUpdates
 import java.io.File
@@ -24,13 +25,7 @@ class LocalLabelFolder(private val dir: File) : LabelFolder {
     override fun write(name: String, bytes: ByteArray): String? {
         val target = fileOf(name) ?: return null
         return runCatching {
-            dir.mkdirs()
-            val tmp = File(dir, "$name.tmp")
-            tmp.writeBytes(bytes)
-            if (!tmp.renameTo(target)) {
-                target.delete()
-                check(tmp.renameTo(target)) { "Can't write $name" }
-            }
+            DurableFiles.writeOrThrow(target, bytes)
             SharedLabelUpdates.stamp(bytes)
         }.getOrNull()
     }

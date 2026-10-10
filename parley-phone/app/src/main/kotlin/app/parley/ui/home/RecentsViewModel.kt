@@ -226,7 +226,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         calls?.let { CallGlance.unreturnedMissed(it, { n -> PhoneIdentity.key(n, countryIso) }, now, excluded = excluded) } ?: emptySet()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptySet())
 
-    /** The To call list (I9): its strip tops Recents; fed by these calls and the missed calls still to return. */
+    /** The To call list: its strip tops Recents; fed by these calls and the missed calls still to return. */
     val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed) }
 
     /**

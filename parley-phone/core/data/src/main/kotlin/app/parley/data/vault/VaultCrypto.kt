@@ -13,6 +13,7 @@ import android.security.keystore.UserNotAuthenticatedException
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import app.parley.common.Hex
+import app.parley.common.storage.DurableFiles
 import app.parley.data.security.KeystoreSeal
 import kotlinx.coroutines.CancellationException
 import java.io.File
@@ -21,7 +22,6 @@ import java.security.InvalidAlgorithmParameterException
 import java.security.InvalidKeyException
 import java.security.KeyStore
 import java.security.ProviderException
-import java.security.SecureRandom
 import java.security.UnrecoverableKeyException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
@@ -85,7 +85,6 @@ object VaultCrypto {
     )
 
     private val ks: KeyStore by lazy { KeyStore.getInstance(STORE).apply { load(null) } }
-    private val random = SecureRandom()
 
     /**
      * Key handles already looked up, by alias. A handle is only a reference (the key never leaves the Keystore), but
@@ -140,7 +139,7 @@ object VaultCrypto {
     @Volatile var appContext: Context? = null
 
     /**
-     * I21: after a duress unlock (with "Keep private details locked"), details refuse to open as if the key needed a
+     * After a duress unlock (with "Keep private details locked"), details refuse to open as if the key needed a
      * fresh unlock, until the real Parley PIN ends it ([app.parley.data.security.Concealment]). Nothing is changed in
      * the Keystore: it is Parley declining to use the key, and every caller already treats "locked" as temporary.
      */
@@ -161,7 +160,10 @@ object VaultCrypto {
             lockedNow = value
             appContext?.let { ctx ->
                 lockedRead = true
-                runCatching { lockedFile(ctx).let { f -> if (value) f.createNewFile() else f.delete() } }
+                // Durable, and a failure is reported: a lock that doesn't survive a restart would quietly open them.
+                val f = lockedFile(ctx)
+                val stored = if (value) DurableFiles.write(f, ByteArray(0)) else (!f.exists() || f.delete())
+                if (!stored) Log.w("VaultCrypto", "The private-contacts lock flag couldn't be stored")
             }
         }
 
@@ -260,7 +262,7 @@ object VaultCrypto {
                     if (Build.VERSION.SDK_INT >= 30) {
                         setUserAuthenticationParameters(AUTH_SECONDS, KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL)
                     } else {
-                        @Suppress("DEPRECATION")
+                        @Suppress("DEPRECATION") // The timeout-only form is the one before Android 11.
                         setUserAuthenticationValidityDurationSeconds(AUTH_SECONDS)
                     }
                     // Details are only ever shown on an unlocked phone; a locked one can't decrypt them at all.
@@ -530,7 +532,7 @@ object VaultCrypto {
             ?: return KeyAudit(gen, true, false, false, false, false)
         val level = if (Build.VERSION.SDK_INT >= 31) info.securityLevel else null
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // KeyInfo.securityLevel needs Android 12; this is the older check.
         val secure = if (level != null) level != KeyProperties.SECURITY_LEVEL_SOFTWARE else info.isInsideSecureHardware
         return KeyAudit(
             generation = gen,
@@ -615,6 +617,4 @@ object VaultCrypto {
         synchronized(fingerprints) { fingerprints[value] = made }
         return made
     }
-
-    fun randomBytes(n: Int) = ByteArray(n).also { random.nextBytes(it) }
 }

@@ -3,6 +3,7 @@ package app.parley.data.people
 import android.content.Context
 import app.parley.common.catching
 import app.parley.common.people.ListHead
+import app.parley.common.storage.DurableFiles
 import app.parley.data.security.RecordCrypto
 import app.parley.data.security.RecordSealing
 import java.io.File
@@ -58,9 +59,7 @@ class ContactListHead(context: Context, private val crypto: RecordCrypto) : Reco
     }
 
     private fun write(bytes: ByteArray): Boolean {
-        val tmp = File(file.path + ".tmp")
-        tmp.writeBytes(bytes)
-        return tmp.renameTo(file)
+        return DurableFiles.write(file, bytes)
     }
 
     /**

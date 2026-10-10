@@ -110,7 +110,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     val undoLabel = stringResource(R.string.dc_undo)
     var tabRequest by remember { mutableStateOf<NavEvent.Tab?>(null) }
     var insertOrEdit by remember { mutableStateOf<ContactDetails?>(null) }
-    var importUri by remember { mutableStateOf<Uri?>(null) }
+    var importAsk by remember { mutableStateOf<NavEvent.ImportVcf?>(null) }
     var secureQrUri by remember { mutableStateOf<Uri?>(null) }
 
     LaunchedEffect(Unit) {
@@ -121,7 +121,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                     nav.navigate(Routes.edit(prefill = true))
                 }
                 is NavEvent.InsertOrEdit -> insertOrEdit = e.prefill
-                is NavEvent.ImportVcf -> importUri = e.uri
+                is NavEvent.ImportVcf -> importAsk = e
                 is NavEvent.SecureQr -> secureQrUri = e.uri
                 is NavEvent.Tab -> {
                     nav.popBackStack(Routes.Home, inclusive = false)
@@ -206,7 +206,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     CallDialogs(vm)
     UssdDialog(vm)
     BlockingDialogHost(vm)
-    // "Expecting a call?" the first time a note, To call item or delivery QR code could turn it on (I7).
+    // "Expecting a call?" the first time a note, To call item or delivery QR code could turn it on.
     ExpectedCallOfferHost(vm)
 
     insertOrEdit?.let { p ->
@@ -237,7 +237,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
             },
         )
     }
-    importUri?.let { uri -> ImportVcfDialog(vm, uri) { importUri = null } }
+    importAsk?.let { ask -> ImportVcfDialog(vm, ask.uri, ask.keep) { importAsk = null } }
     secureQrUri?.let { uri ->
         ReceiveSecureQrDialog(vm, uri, onDone = { secureQrUri = null }) { details, handshake ->
             vm.pendingPrefill = details

@@ -413,7 +413,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         private fun vibratorOf(context: Context): Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
         } else {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // VibratorManager needs Android 12; this is the older path.
             context.getSystemService(Vibrator::class.java)
         }
 
@@ -431,7 +431,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
                     v.vibrate(effect, VibrationAttributes.createForUsage(u))
                 } else {
                     val u = if (usage == RingVibration.Usage.ALARM) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_NOTIFICATION_RINGTONE
-                    @Suppress("DEPRECATION")
+                    @Suppress("DEPRECATION") // The AudioAttributes form keeps the ring vibration on the ringtone's volume rules.
                     v.vibrate(effect, AudioAttributes.Builder().setUsage(u).build())
                 }
                 v

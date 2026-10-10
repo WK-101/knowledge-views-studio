@@ -102,7 +102,7 @@ object ContactMenu {
  * bulk edit sheet: labels (Add to label lives there), ringtone, SIM and account for all of them at once.
  */
 object SelectionMenu {
-    enum class Action { EDIT, MESSAGE_ALL, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, DELETE }
+    enum class Action { EDIT, MESSAGE_ALL, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
 
     data class Facts(
         /** Some chosen contacts are device contacts (the clipboard, files and "Make private" are for those only). */
@@ -120,7 +120,8 @@ object SelectionMenu {
         add(Action.MERGE, f.canMerge)
         group(
             MenuGroup.PRIVACY,
-            listOfNotNull(Action.DELETE_AUTOMATICALLY, Action.MAKE_PRIVATE.takeIf { f.hasDevice }, Action.MAKE_VISIBLE.takeIf { f.hasPrivate }),
+            // Archive works for both kinds: device contacts leave the address book, private ones stay in the vault.
+            listOfNotNull(Action.DELETE_AUTOMATICALLY, Action.MAKE_PRIVATE.takeIf { f.hasDevice }, Action.MAKE_VISIBLE.takeIf { f.hasPrivate }, Action.ARCHIVE),
         )?.let(::add)
         add(Action.DELETE)
     }

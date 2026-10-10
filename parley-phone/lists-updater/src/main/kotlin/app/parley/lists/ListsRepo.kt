@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Resources
 import app.parley.common.Codecs
 import app.parley.common.spam.Ed25519
+import app.parley.common.storage.DurableFiles
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,12 +92,7 @@ class ListsRepo private constructor(context: Context) {
     @Synchronized
     fun update(f: (UpdaterState) -> UpdaterState): UpdaterState {
         val s = f(_state.value)
-        val tmp = File(app.filesDir, "state.json.tmp")
-        tmp.writeText(CODEC.encodeToString(UpdaterState.serializer(), s))
-        if (!tmp.renameTo(stateFile)) {
-            stateFile.writeText(tmp.readText())
-            tmp.delete()
-        }
+        DurableFiles.writeText(stateFile, CODEC.encodeToString(UpdaterState.serializer(), s))
         _state.value = s
         return s
     }

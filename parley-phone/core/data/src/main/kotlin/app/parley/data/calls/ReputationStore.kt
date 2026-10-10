@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * I2 personal reputation, as the call path reads it: what [CallReputation] learned in the daily maintenance run, keyed by
+ * Personal reputation, as the call path reads it: what [CallReputation] learned in the daily maintenance run, keyed by
  * the call-history archive's keyed fingerprints (of a line, or of a range) and sealed with the archive key, so neither
  * numbers nor scores are readable at rest. The call path only looks a number up in memory (two HMACs and two map reads);
  * nothing is worked out while a call rings.

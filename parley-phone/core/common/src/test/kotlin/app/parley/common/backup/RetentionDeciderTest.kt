@@ -122,7 +122,7 @@ class RetentionDeciderTest {
     }
 
     @Test fun backups_made_while_a_duress_unlock_hides_things_never_rotate() {
-        // L4: however many are made then, the older backups (with the hidden notes) stay.
+        // However many are made then, the older backups (with the hidden notes) stay.
         assertTrue(RetentionDecider.rotates(paused = false, safety = false, incomplete = false, hiding = false))
         assertFalse(RetentionDecider.rotates(paused = false, safety = false, incomplete = false, hiding = true))
         assertFalse(RetentionDecider.rotates(paused = true, safety = false, incomplete = false, hiding = false))

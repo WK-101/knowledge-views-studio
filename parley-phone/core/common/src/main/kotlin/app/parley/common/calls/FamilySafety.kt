@@ -5,11 +5,11 @@ import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
 import kotlinx.serialization.Serializable
 
-/** I4: a label's private question and the answer only family knows ("What's our word?" · "Blue heron"). */
+/** A label's private question and the answer only family knows ("What's our word?" · "Blue heron"). */
 @Serializable
 data class SafeWord(val question: String, val answer: String)
 
-/** I5: a trusted person who can be added to a call. [private] is a private contact (named only outside discreet mode). */
+/** A trusted person who can be added to a call. [private] is a private contact (named only outside discreet mode). */
 @Serializable
 data class Helper(val name: String, val number: String, val private: Boolean = false)
 
@@ -57,7 +57,7 @@ data class FamilySafetyState(
     }
 }
 
-/** I4's rules: when the in-call card "Claims to be family? Ask: …" shows, and what the label page may store. */
+/** The family check's rules: when the in-call card "Claims to be family? Ask: …" shows, and what the label page may store. */
 object SafeWords {
     /** A call from an unknown number shows the card once it has lasted this long. */
     const val AFTER_SECONDS = 20L
@@ -119,7 +119,7 @@ object SafeWords {
     fun deleted(words: Map<String, SafeWord>, titles: Set<String>): Map<String, SafeWord> = words.filterKeys { !LabelRefs.refersTo(it, titles) }
 }
 
-/** I5's rules: who can be a helper and when "Add my helper" is offered. */
+/** The helper's rules: who can be a helper and when "Add my helper" is offered. */
 object Helpers {
     const val MAX = 3
 

@@ -116,7 +116,7 @@ class FamilyShieldExchangeTest {
     private val scam = "+447700900123"
     private val spam = "+12025550143"
 
-    @Suppress("LongMethod")
+    @Suppress("LongMethod") // One exchange followed end to end.
     @Test
     fun verdicts_travel_hashed_merge_and_go_away() = runBlocking {
         shareByFile()

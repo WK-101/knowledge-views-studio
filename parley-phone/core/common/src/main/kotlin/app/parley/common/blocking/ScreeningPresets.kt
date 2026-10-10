@@ -11,14 +11,14 @@ import app.parley.common.TraceStep
 
 /**
  * The quick setups of Blocking & screening: situations, not mechanisms. Each changes a few switches; [current] names
- * the ones the switches match now, so the screen can say "You're on: Only people I know" (P9).
+ * the ones the switches match now, so the screen can say "You're on: Only people I know".
  */
 enum class ScreeningPreset {
     KNOWN, TELEMARKETERS, NIGHTS, EVERYONE;
 
     /**
      * The settings with this setup applied. "Only people I know" silences strangers at all times, so it replaces a
-     * schedule for unknown callers, unless [keepSchedule] (the confirm dialog says so and offers to keep it, M9).
+     * schedule for unknown callers, unless [keepSchedule] (the confirm dialog says so and offers to keep it).
      */
     fun apply(a: AppSettings, keepSchedule: Boolean = false): AppSettings = when (this) {
         KNOWN -> a.copy(
@@ -67,7 +67,7 @@ enum class ScreeningPreset {
 
 /**
  * One stopped call from the screening log: when, from which number, silenced or declined, and whether a contact.
- * [person] names the contact (its key) when known, so one person calling from two numbers counts once (L5).
+ * [person] names the contact (its key) when known, so one person calling from two numbers counts once.
  */
 data class StoppedCall(val time: Long, val number: String?, val silenced: Boolean, val fromContact: Boolean, val person: String? = null)
 

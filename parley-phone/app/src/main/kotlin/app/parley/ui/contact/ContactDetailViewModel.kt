@@ -206,7 +206,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         // later isn't a change (it would open the details a second time).
         val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } ?: c.vault.summary(r.vaultId) }.distinctUntilChanged()
         var shown: Loaded? = null
-        // I21: after a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
+        // After a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
         val hiding = Privacy.hidingFlow
         // "Lock private contacts" ([app.parley.data.vault.VaultRepository.lockAll]) reads the entry again: locked now.
         return combine(entry, reloads, hiding, c.vault.lock.locks) { s, _, hidden, _ -> s.takeUnless { hidden } }.transformLatest { summary ->
@@ -420,7 +420,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** The contact's ringtone: the address book's, or for a private contact Parley's own (its ringer plays it). */
     fun setRingtone(uri: Uri?) = launch {
         if (vaultId != null) updatePrivateChoices { it.copy(ringtone = uri?.toString()) } else c.contacts.setRingtone(id, uri?.toString())
-        // A tune made from a name that this one replaced goes once nothing else uses it (L8).
+        // A tune made from a name that this one replaced goes once nothing else uses it.
         CallerTunes.sweep(c)
     }
 
@@ -546,7 +546,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
                 initial.id
             }
-            // I7: "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
+            // "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
             if (entry != null) {
                 val key = ExpectedCallHints.loggedKey(entry)
                 runCatching { ExpectedCallHints.noteSaved(c, d.displayName, note, key, privateName = ContactRef.isPrivateKey(d.lookupKey)) }

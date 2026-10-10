@@ -51,7 +51,7 @@ import kotlinx.coroutines.withContext
  * clear above the caller's text, whose top edge [textTop] gives in pixels from the top of this background (negative
  * while not yet measured); the readable scrim starts just above it.
  */
-@Suppress("LongParameterList")
+@Suppress("LongParameterList") // One argument per call-screen state the background follows.
 @Composable
 internal fun CallBackground(
     call: CallUi?,

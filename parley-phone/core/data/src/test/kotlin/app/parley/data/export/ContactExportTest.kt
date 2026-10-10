@@ -9,6 +9,7 @@ import app.parley.common.AppSettings
 import app.parley.common.backup.WrongKeyException
 import app.parley.common.circle.InteractionType
 import app.parley.common.vcard.CardNotes
+import app.parley.common.vcard.ImportGuard
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
@@ -175,6 +176,31 @@ class ContactExportTest {
         assertEquals(null, c.meta.meta(bank.lookupKey)?.pinnedNote)
         assertTrue(c.meta.allCallNotesNow().isEmpty())
         assertFalse(c.circle.isMember(bank.lookupKey))
+    }
+
+    @Test fun aPlainCardCantPlantAHiddenOrTrustedContact() = runBlocking {
+        val card = file("fraud-team.vcf")
+        card.writeText(
+            listOf(
+                "BEGIN:VCARD", "VERSION:4.0", "FN:Bank Fraud Team", "TEL:+44 20 7946 0999",
+                "X-PARLEY-ARCHIVED:1", "X-PARLEY-STARRED:1", "X-PARLEY-SEND-TO-VOICEMAIL:1",
+                "X-PARLEY-RINGTONE:content://media/external/audio/media/7",
+                "X-ANDROID-CUSTOM:vnd.android.cursor.item/vnd.com.whatsapp.profile;+447700900999;;;;;;;;;;;;;;",
+                "END:VCARD", "",
+            ).joinToString("\r\n"),
+        )
+        val scan = c.vcards.preScan(Uri.fromFile(card))
+        assertEquals(1, scan.entries)
+        assertEquals(ImportGuard.Dropped(archived = 1, starred = 1, voicemail = 1, ringtone = 1, otherApps = 1), scan.dropped)
+
+        val report = c.vcards.import(Uri.fromFile(card), AccountRef(null, null))
+        assertEquals(report.failures.toString(), 1, report.imported)
+        // In the lists like any new contact: not archived, not a favourite, nothing for another app.
+        val bank = c.contacts.loadNow().single()
+        assertFalse(bank.starred)
+        assertTrue(c.archive.all().isEmpty())
+        assertFalse(provider.rows("data").any { it["mimetype"].toString().contains("whatsapp") })
+        assertTrue(provider.rows("raw_contacts").none { it["starred"] == "1" || it["send_to_voicemail"] == "1" || it["custom_ringtone"] != null })
     }
 
     @Test fun aFailedExportRemovesTheFileSaveAsCreated() = runBlocking {

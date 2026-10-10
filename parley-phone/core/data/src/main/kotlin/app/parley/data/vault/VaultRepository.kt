@@ -16,6 +16,7 @@ import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
+import app.parley.common.storage.DurableFiles
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
@@ -527,9 +528,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             }
         }
         s.photo?.let { bytes ->
-            val tmp = File(photoDir(), "$id.tmp")
-            tmp.writeBytes(bytes)
-            tmp.renameTo(photoFile(id))
+            DurableFiles.write(photoFile(id), bytes)
         }
         if (caller.optBoolean(C_VOICEMAIL) || caller.has(C_TONE) || caller.has(C_LABELS)) noteCallChoices(true)
         id
@@ -538,7 +537,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /**
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
      * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
-     * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
+     * contact it came from ("Move to private"); it is sealed with the details (photo included) so moving back out
      * restores every field. Editing an entry later keeps the stored record (see [storedRecord]). [interactions]: the
      * contact's logged interactions ([app.parley.common.circle.Interactions.encodeCarried]), sealed with the details
      * so they come back on "Move out" and are never shown while the contact is private; edits keep them too.
@@ -917,7 +916,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      *
      * Matched on the E.164 form, reading a national number with [countryIso] (the country of the SIM that took
      * the call when known, else this phone's region); the last digits are only a fallback for entries stored without
-     * an E.164 form, and [exact] (the private-name provider) never uses them. F15: expired entries never match, and
+     * an E.164 form, and [exact] (the private-name provider) never uses them. Expired entries never match (a temporary contact that ran out names nobody), and
      * of several entries sharing a number the most recently updated wins.
      */
     suspend fun lookup(number: String, countryIso: String? = null, exact: Boolean = false): Pair<Long, CallerInfo>? = withContext(Dispatchers.IO) {
@@ -980,9 +979,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
         // Bounded decode, upright, centre square (512 px is plenty for a caller photo).
         val jpeg = ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
-        val tmp = File(photoDir(), "$id.tmp")
-        tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
-        tmp.renameTo(photoFile(id))
+        DurableFiles.write(photoFile(id), VaultCrypto.sealCallerId(jpeg))
     }
 
     /** Deletes entry [id]'s photo; off the main thread, like [setPhoto] (the editor's save calls it from there). */
@@ -1128,7 +1125,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** How many private calls entry [vaultId] holds, whether or not each can be opened now. */
     suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.privateCallCount(vaultId) }
 
-    /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
+    /** Every private contact's numbers, read straight from the database (import duplicate checks). */
     suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { summarizeAll(dao.callerRowsNow()).flatMap { it.numbers } }
 
     private companion object {
@@ -1138,7 +1135,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
 
         /**
-         * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
+         * 1: last 9 digits (the oldest entries); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
          * digits as an extra fallback for every number, with the region stored at save time; 4: the E.164 form
          * libphonenumber reads (an Argentine "15" mobile, a country the older table missed), keeping the older form too.
          */

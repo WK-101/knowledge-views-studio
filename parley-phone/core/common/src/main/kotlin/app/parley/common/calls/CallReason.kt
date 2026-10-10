@@ -24,14 +24,14 @@ data class ReasonFacts(
 )
 
 /**
- * I12 the call-subject bridge, sending side: "Call with a reason…" (long-press on the keypad's Call pill or a contact's
+ * The call-subject bridge, sending side: "Call with a reason…" (long-press on the keypad's Call pill or a contact's
  * Call). When the SIM's network carries call subjects, the reason goes with the call; otherwise, or as a second choice,
  * "Text first" prefills "Calling you about …" in the messaging app. Nothing is sent without the user doing it.
  */
 object CallReason {
     /**
      * Whether "Call with a reason…" is offered for [number] at all: not for service codes, an empty number or an emergency
-     * number (M4: nothing, not even a check of the SIMs, may stand before an emergency call; the long-press then does
+     * number (nothing, not even a check of the SIMs, may stand before an emergency call; the long-press then does
      * nothing special). The platform's own emergency list is checked again before the flow gathers anything.
      */
     fun offered(number: String?): Boolean {

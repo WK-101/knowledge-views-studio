@@ -92,7 +92,7 @@ private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
     }
 }
 
-/** The window's status line: why it ended, hold mode's wait (I10, so the app can be used meanwhile), or null for the timer. */
+/** The window's status line: why it ended, hold mode's wait (so the app can be used meanwhile), or null for the timer. */
 @Composable
 private fun pipStatus(call: CallUi): String? {
     val holdNow = if (call.isLive && call.holdModeSince > 0) rememberElapsedNow().value else 0L

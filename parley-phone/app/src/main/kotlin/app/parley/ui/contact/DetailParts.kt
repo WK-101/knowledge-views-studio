@@ -26,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -201,12 +199,8 @@ fun HeaderFacts(parts: List<String>, separator: String, links: List<HeaderLink> 
 fun relationLabel(res: android.content.res.Resources, typeKey: String?, known: String?): String? =
     if (RelationshipStatus.kindOf(typeKey) == RelationshipStatus.Kind.FORMERLY_MARRIED) res.getString(R.string.detail_formerly_married) else known
 
-/** Transparent rows for grouped cards. */
-@Composable
-fun groupRowColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
-
 /**
- * One row of a grouped section. U2: the section's icon only on the first row ([showIcon]); the others keep the
+ * One row of a grouped section. The section's icon only on the first row ([showIcon]); the others keep the
  * space so the text lines up. [menu] items appear on long-press (copy, set default…). Drawn as a compact [InfoRow].
  * Without [onClick] (a fact with nothing to open) a tap copies the value, so the row never offers an action that does
  * nothing.

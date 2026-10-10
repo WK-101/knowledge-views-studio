@@ -133,7 +133,7 @@ sealed interface CardCheck {
 }
 
 /**
- * I14: signed card updates. My card is shared as a plain vCard 3.0 with two extra properties, which other apps keep
+ * Signed card updates. My card is shared as a plain vCard 3.0 with two extra properties, which other apps keep
  * or ignore like any `X-` property and plain QR scanners never show:
  *
  * ```
@@ -147,7 +147,7 @@ sealed interface CardCheck {
  * The checker reads the card the strict way: a signed card must be exactly what [MeCards.vcard] writes (each
  * property once where it writes it once, no other properties or parameters, canonical escaping, within the size
  * caps). Anything else is reported as [CardCheck.Broken], so what a contacts importer saves from a card that shows
- * as signed is what the signature covers (M1).
+ * as signed is what the signature covers.
  */
 object SignedCards {
     const val PROP_CARD = "X-PARLEY-CARD"
@@ -183,7 +183,7 @@ object SignedCards {
     }
 
     /**
-     * The next version after [stored] (M6): it never repeats, also across phones. A restored backup can be behind
+     * The next version after [stored]: it never repeats, also across phones. A restored backup can be behind
      * versions the old phone shared later, so a version is at least the current time in seconds.
      */
     fun nextVersion(stored: Long, nowMs: Long): Long = maxOf(stored + 1, nowMs / 1000)
@@ -204,7 +204,7 @@ object SignedCards {
         line("org", f.company)
         line("title", f.title)
         f.websites.forEach { line("url", it) }
-        // Label and link escaped each, then joined by a bare tab: ("a\tb", "c") and ("a", "b\tc") differ (L4).
+        // Label and link escaped each, then joined by a bare tab: ("a\tb", "c") and ("a", "b\tc") differ.
         f.profiles.forEach { append("profile:").append(esc(it.label)).append('\t').append(esc(it.url)).append('\n') }
         line("adr", f.address)
     }.toByteArray(Charsets.UTF_8)
@@ -278,7 +278,7 @@ object SignedCards {
                 }
                 u == "END:VCARD" -> { cur?.let { out += Block(it, damaged) }; cur = null }
                 cur == null -> Unit
-                // Never cut a card short quietly: an importer would read the rest (M1).
+                // Never cut a card short quietly: an importer would read the rest.
                 cur.size >= MAX_LINES -> damaged = true
                 else -> cur += l
             }

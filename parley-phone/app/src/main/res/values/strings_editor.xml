@@ -106,7 +106,6 @@
     <string name="edit_custom_field_value">Value</string>
     <string name="edit_remove_custom_field">Remove custom field</string>
     <string name="edit_language">Language</string>
-    <string name="edit_language_hint">The language to use with them, like Spanish or pt-BR</string>
     <string name="edit_language_saved_as">Saved as %1$s</string>
     <!-- Several languages in one field, in order: the first is the one to use with them. -->
     <string name="edit_languages">Languages</string>

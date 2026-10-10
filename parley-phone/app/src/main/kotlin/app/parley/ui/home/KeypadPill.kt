@@ -68,7 +68,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import app.parley.ui.ParleyShapes
 
-/** The pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
+/** The pill's height; the bottom row around it keeps one height whatever the SIMs (the keys never move). */
 internal val CALL_PILL_HEIGHT = 56.dp
 
 /** The side slots of the bottom row (keypad toggle, backspace), equal so the pill stays centred. */
@@ -92,7 +92,7 @@ internal fun KeypadBottomRow(
     onCallWith: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
-    /** I12: press and hold the pill (or a SIM's segment, with its id) for "Call with a reason…"; null: no long-press. */
+    /** Press and hold the pill (or a SIM's segment, with its id) for "Call with a reason…"; null: no long-press. */
     onCallLongPress: ((simId: String?) -> Unit)? = null,
 ) {
     Row(

@@ -23,9 +23,6 @@ object Bidi {
      * direction, and no direction character in it reaches the text around it.
      */
     fun isolate(text: String): String = "\u2068$text\u2069"
-
-    /** Nullable convenience for [ltr]. */
-    fun ltrOrNull(text: String?): String? = text?.let(::ltr)
 }
 
 /** Lays out [content] left to right (a keypad, a number field), whatever the language. */

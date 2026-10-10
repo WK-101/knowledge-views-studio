@@ -36,7 +36,7 @@ data class BasicsChoice(
 )
 
 /**
- * The first run's "Set up the basics" (D11). It only uses what Settings already has, so every answer can be changed
+ * The first run's "Set up the basics". It only uses what Settings already has, so every answer can be changed
  * later in its usual place: the presets on Blocking & screening, Simple mode and the layout on Layout & gestures.
  */
 object Basics {

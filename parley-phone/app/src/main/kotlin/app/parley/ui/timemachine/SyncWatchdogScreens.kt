@@ -203,7 +203,7 @@ private class RestoreState(val numbers: Boolean) {
     var cameBack by mutableStateOf(0)
 }
 
-/** Brings [selected] back; contacts that came back since the screen opened are skipped and said (M2). */
+/** Brings [selected] back; contacts that came back since the screen opened are skipped and said. */
 private suspend fun restoreContacts(vm: AppViewModel, st: RestoreState, event: WatchEvent?, selected: List<Pick>): SyncWatch.Restored {
     val res = vm.getApplication<Application>().resources
     val r = vm.c.syncWatch.restore(selected.mapNotNull { it.record })

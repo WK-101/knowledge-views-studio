@@ -15,7 +15,7 @@ import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
 /**
- * I7 expected-call hints: notes and promises with a day ("dentist will call Tue"), To call items for numbers nobody
+ * Expected-call hints: notes and promises with a day ("dentist will call Tue"), To call items for numbers nobody
  * saved, and delivery-like QR codes turn on "Expecting a call" for a window (the same exception as the tile, read by
  * screening with the rest of it). Each kind is asked about once ([offer], shown by the app's root): off until the user
  * says yes, and Settings › Blocking & spam › "Expecting a call from your notes" changes it later.

@@ -51,7 +51,7 @@ data class SurfaceLayout(
 
         /**
          * The layout a fresh install starts with. Deliberately the same as before (Separate / Off): the research
-         * behind S1/S2 found every vendor that merged tabs by default had to add a way back or partly revert
+         * behind the merged layouts found every vendor that merged tabs by default had to add a way back or partly revert
          * (Google Phone 2025, iOS 26 Unified), so merging stays something people choose.
          */
         val FRESH_INSTALL = SurfaceLayout()

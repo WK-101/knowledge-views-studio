@@ -14,9 +14,9 @@ import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
 import app.parley.R
 import app.parley.common.people.DirectoryPolicy
-import app.parley.data.DataContainer
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
+import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -32,7 +32,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * forwards the query here, again as itself, adding the app's package as `callerPackage`
  * (Directory.CALLER_PACKAGE_PARAM_KEY). That parameter is trusted only when the Contacts Provider is the caller.
  *
- * Rules (C15): off by default (the component itself is disabled until
+ * Rules: off by default (the component itself is disabled until
  * you turn it on, so no directory exists), one exact number per query (E.164 by keyed hash, never the last digits),
  * only for apps you approved (a notification asks the first time), 60 lookups per app per hour, every request
  * logged without the number, nothing in discreet mode, and no other query is ever answered: no lists, no filters,
@@ -91,7 +91,7 @@ class PrivateDirectoryProvider : ContentProvider() {
                 PrivateNameRequests.askUser(ctx, caller)
             }
             LookupOutcome.ANSWERED -> {
-                // M8: read from storage, not the settings flow (its first value in a cold process is the defaults); fails closed.
+                // Read from storage, not the settings flow (its first value in a cold process is the defaults); fails closed.
                 val hidden = runBlocking(Dispatchers.IO) { c.privacy.now().privateHidden }
                 val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { c.vault.lookup(number!!, exact = true) } }
                 if (hit == null) {
@@ -140,7 +140,7 @@ class PrivateDirectoryProvider : ContentProvider() {
         @Volatile private var cp2: String? = null
 
         /** The package of the Contacts Provider ("com.android.providers.contacts" on AOSP; OEMs may differ). */
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The flags overload of resolveContentProvider is deprecated only from Android 13.
         private fun contactsProviderPackage(ctx: Context): String? = cp2 ?: runCatching {
             ctx.packageManager.resolveContentProvider(ContactsContract.AUTHORITY, 0)?.packageName
         }.getOrNull().also { cp2 = it }

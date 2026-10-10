@@ -81,7 +81,7 @@ data class CallerMemory(
 }
 
 /**
- * I1 number memory: what Parley remembers about a caller who isn't a contact, in one line ("You deleted Plumber Mike in
+ * Number memory: what Parley remembers about a caller who isn't a contact, in one line ("You deleted Plumber Mike in
  * March with this number"), already in the user's language. The call screen shows [text] only while the phone is
  * unlocked; on the lock screen it says only that Parley knows the number.
  */
@@ -130,7 +130,7 @@ interface CallerInfoSource {
     fun callerZone(number: String, accountId: String?): String? = null
 
     /**
-     * I1: what Parley remembers about [number], which isn't a contact (deleted contacts, notes, the call history…), or
+     * What Parley remembers about [number], which isn't a contact (deleted contacts, notes, the call history…), or
      * null. Asked off the main thread within the caller lookup's time; a failure or a timeout shows nothing.
      */
     suspend fun numberMemory(number: String, accountId: String?): NumberMemoryLine? = null
@@ -155,7 +155,7 @@ interface CallerInfoSource {
     fun unknownRingtone(): String? = null
 
     /**
-     * I3 "Check it's really them": the numbers saved for the person or organisation [number] belongs to (a contact or,
+     * "Check it's really them": the numbers saved for the person or organisation [number] belongs to (a contact or,
      * unless discreet mode hides them, a private contact), or empty for an unknown number.
      */
     suspend fun savedNumbersFor(number: String, accountId: String?): List<VerifyCallBack.Saved> = emptyList()
@@ -210,7 +210,7 @@ interface ScreeningHooks {
     suspend fun undoBlockForDecline(ruleId: Long) {}
 
     /**
-     * I2 "Block this range?" after a call that looked like a sales line: the narrowest prefix covering the related
+     * "Block this range?" after a call that looked like a sales line: the narrowest prefix covering the related
      * numbers from your calls and how many past calls it would have matched, or null when there's no range to offer.
      */
     suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = null
@@ -232,11 +232,11 @@ interface CallPolicyHooks {
     /** Settings › Calls › Answer automatically, read from memory on the call path (off by default). */
     fun autoAnswer(): CallExtrasConfig = CallExtrasConfig()
 
-    /** I11: Settings › Calls › Drive profile, read from memory on the call path (off until a car is marked). */
+    /** Settings › Calls › Drive profile, read from memory on the call path (off until a car is marked). */
     fun driveProfile(): DriveProfileConfig = DriveProfileConfig()
 
     /**
-     * I11: [number] is a contact or a private contact, also while discreet mode hides private contacts from the call
+     * [number] is a contact or a private contact, also while discreet mode hides private contacts from the call
      * screen (the drive profile never silences a saved caller as "unknown"). Only a yes or no leaves the app side.
      */
     suspend fun isSavedCaller(number: String, accountId: String?): Boolean = false
@@ -247,7 +247,7 @@ interface CallPolicyHooks {
     /** Retry on the failure banner. Returns what to tell the user when the call couldn't be placed, else null. */
     suspend fun redial(number: String, accountId: String?): String? = null
 
-    /** L3: Settings › Calls › "Answer with RTT": ask to switch an answered call to RTT where the SIM supports it. */
+    /** Settings › Calls › "Answer with RTT": ask to switch an answered call to RTT where the SIM supports it. */
     fun answerWithRtt(): Boolean = false
 
     /** Settings › Calls › "Start calls on speaker", read from memory on the call path (off by default). */
@@ -345,26 +345,26 @@ interface UiHooks {
     fun markTipSeen(id: String) {}
 }
 
-/** Family safety on the call screen (WP-8): safe words (I4) and helpers (I5). Read off the main thread. */
+/** Family safety on the call screen: safe words and helpers. Read off the main thread. */
 interface FamilySafetyHooks {
     /**
-     * I4: the labels whose safe word the call screen may offer for this caller (each label with one, except those
+     * The labels whose safe word the call screen may offer for this caller (each label with one, except those
      * the caller is a saved member of), with their questions. Answers are read only with [safeWordAnswer].
      */
     suspend fun safeWordsFor(number: String?, accountId: String?): List<SafeWordPrompt> = emptyList()
 
-    /** I4: the answer of [label]'s safe word, once the user held to see it (and unlocked when needed). */
+    /** The answer of [label]'s safe word, once the user held to see it (and unlocked when needed). */
     suspend fun safeWordAnswer(label: String): String? = null
 
     /** Parley's app lock is on and locked: seeing a safe word's answer asks for the fingerprint or screen lock first. */
     fun appLockLocked(): Boolean = false
 
-    /** I5: the helpers chosen in Settings › Calls › Helpers (names as they may show on this screen). */
+    /** The helpers chosen in Settings › Calls › Helpers (names as they may show on this screen). */
     suspend fun helpers(): List<HelperUi> = emptyList()
 }
 
 /**
- * I6 menu memory on the call screen: the digits the user sent in a call to a number, offered again next time ("Last
+ * Menu memory on the call screen: the digits the user sent in a call to a number, offered again next time ("Last
  * time: 2 › 1 › 4") and saved as menu shortcuts. Never for emergency calls ([app.parley.common.calls.MenuMemory]).
  */
 interface MenuMemoryHooks {

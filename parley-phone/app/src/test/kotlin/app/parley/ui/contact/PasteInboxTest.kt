@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** L8: shared text reaches only the editor it was handed to, once, and not after a few minutes. */
+/** Shared text reaches only the editor it was handed to, once, and not after a few minutes. */
 class PasteInboxTest {
     @Test fun the_text_is_bound_to_its_editor_and_read_once() {
         val id = PasteInbox.put("Ana Pérez +44 7700 900123", now = 1_000)

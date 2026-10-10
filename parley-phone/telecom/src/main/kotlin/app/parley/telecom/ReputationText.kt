@@ -5,7 +5,7 @@ import app.parley.common.spam.RepReason
 import app.parley.common.spam.RepSignal
 import app.parley.common.spam.Reputation
 
-/** I2: the "Why?" of a sales-line tag in the app's language (the call screen, Recents and number history share it). */
+/** The "Why?" of a sales-line tag in the app's language (the call screen, Recents and number history share it). */
 object ReputationText {
     fun reasons(res: Resources, rep: Reputation): List<String> = rep.reasons.map { reason(res, it) }
 

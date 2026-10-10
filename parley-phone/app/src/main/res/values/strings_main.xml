@@ -119,6 +119,33 @@
         <item quantity="one">%d field not mapped</item>
         <item quantity="other">%d fields not mapped</item>
     </plurals>
+    <!-- Before a plain (unencrypted) import: what it leaves out, one bulleted line each. -->
+    <string name="import_left_out">Left out of this import:</string>
+    <plurals name="import_left_out_archived">
+        <item quantity="one">%d card asks to be archived, out of your lists</item>
+        <item quantity="other">%d cards ask to be archived, out of your lists</item>
+    </plurals>
+    <plurals name="import_left_out_favourite">
+        <item quantity="one">%d card asks to be a favourite (favourites can ring through Do Not Disturb)</item>
+        <item quantity="other">%d cards ask to be favourites (favourites can ring through Do Not Disturb)</item>
+    </plurals>
+    <plurals name="import_left_out_voicemail">
+        <item quantity="one">%d card asks to send calls straight to voicemail</item>
+        <item quantity="other">%d cards ask to send calls straight to voicemail</item>
+    </plurals>
+    <plurals name="import_left_out_ringtone">
+        <item quantity="one">%d card asks for its own ringtone</item>
+        <item quantity="other">%d cards ask for their own ringtone</item>
+    </plurals>
+    <plurals name="import_left_out_other_apps">
+        <item quantity="one">%d card carries details for another app</item>
+        <item quantity="other">%d cards carry details for another app</item>
+    </plurals>
+    <string name="import_left_out_why">Anyone can write a file like this, so only Parley\'s own encrypted export brings these back.</string>
+    <plurals name="import_private_cards">
+        <item quantity="one">%d card becomes a private contact, kept only in Parley.</item>
+        <item quantity="other">%d cards become private contacts, kept only in Parley.</item>
+    </plurals>
 
     <!-- Settings › Appearance › Language -->
 

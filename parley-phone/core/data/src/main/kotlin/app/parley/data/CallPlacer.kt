@@ -37,7 +37,7 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /**
      * Places a call to [rawNumber] on [accountId]. Without one, the remembered or label SIM is looked up (off the main
-     * thread) unless [simResolved] says the caller already did that and found none. [subject] (I12) goes with the call
+     * thread) unless [simResolved] says the caller already did that and found none. [subject] goes with the call
      * as `EXTRA_CALL_SUBJECT`; only offered when the SIM's account has `CAPABILITY_CALL_SUBJECT`.
      */
     suspend fun call(rawNumber: String, accountId: String? = null, simResolved: Boolean = false, subject: String? = null): PlaceResult {

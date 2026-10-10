@@ -104,7 +104,7 @@ class ParleyInCallService : InCallService() {
         }
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // Telecom's route API before Android 14's call endpoints.
     private fun legacyRoute(route: AudioRoute) {
         when (route.type) {
             RouteType.EARPIECE -> setAudioRoute(CallAudioState.ROUTE_EARPIECE)

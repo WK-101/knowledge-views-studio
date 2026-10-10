@@ -48,7 +48,7 @@ class CardUpdateApplyTest {
     }
 
     @Test fun the_users_own_address_is_never_overwritten() {
-        // M2: Bo typed the home address; the work one came from Ana's card.
+        // Bo typed the home address; the work one came from Ana's card.
         val bo = contact.copy(addresses = listOf(PostalItem(street = "9 Home Lane", type = 1), PostalItem(street = "1 High St", city = "London", type = 2)))
         val after = before.copy(address = "2 Low St, Leeds")
         val changes = CardDiff.changes(

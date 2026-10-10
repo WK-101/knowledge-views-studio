@@ -46,7 +46,7 @@ object CircleDigest {
 
     /**
      * Up to three people: the most overdue Circle member; one with an upcoming date or a life event remembered
-     * yearly (R10; whichever is sooner, a birthday on a tie); and one serendipity pick, someone you haven't
+     * yearly (whichever is sooner, a birthday on a tie); and one serendipity pick, someone you haven't
      * been in touch with for over a year, never the same person as last week's. A remaining date or yearly event
      * fills a free place. Each person appears once.
      *

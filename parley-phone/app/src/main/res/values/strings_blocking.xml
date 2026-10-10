@@ -138,12 +138,7 @@
         <item quantity="one">%1$d call ended within 3 s</item>
         <item quantity="other">%1$d calls ended within 3 s</item>
     </plurals>
-    <string name="blk_replay_none">No calls from unknown numbers in this period</string>
     <!-- %1$d blocked, %2$d unknown calls (the plural follows %2$d). -->
-    <plurals name="blk_replay_summary">
-        <item quantity="one">Would have blocked %1$d of %2$d call from unknown numbers</item>
-        <item quantity="other">Would have blocked %1$d of %2$d calls from unknown numbers</item>
-    </plurals>
 
     <!-- Blocking screen -->
     <string name="blk_title">Blocking &amp; screening</string>
@@ -408,8 +403,6 @@
     </plurals>
     <string name="blk_screening">Screening</string>
     <string name="blk_label_menu">Screening for this label…</string>
-    <string name="blk_snooze_stop">Stop letting unknown callers ring</string>
-    <string name="blk_snooze_menu">Expecting a call…</string>
 
     <!-- Screening status card -->
     <string name="blk_status_screener_gap">Hidden numbers and the SIM can\'t be seen in screening-only mode, so those rules are off.</string>

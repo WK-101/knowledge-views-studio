@@ -104,7 +104,7 @@ object CallBackdrop {
      * is, and the caller keeps their photo, ringing frame and time ring). Two panes (landscape, tablets), a short
      * window, the open keypad and a waiting second call keep the classic layout over the same picture.
      */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // One flag per thing on screen that rules the poster out.
     fun posterLayout(plan: Plan, twoPane: Boolean, short: Boolean, keypadOpen: Boolean, callWaiting: Boolean, pictureShown: Boolean): Boolean =
         plan.poster && pictureShown && !twoPane && !short && !keypadOpen && !callWaiting
 

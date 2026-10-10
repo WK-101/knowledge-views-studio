@@ -95,7 +95,7 @@ class PasteFillTest {
     }
 
     @Test fun add_to_an_existing_contact_skips_what_it_already_has() {
-        // L9: pasting Ana's signature into "Add to Ana" doesn't double her website, address or birthday.
+        // Pasting Ana's signature into "Add to Ana" doesn't double her website, address or birthday.
         val ana = PasteFill.into(ContactDetails(), fields())
         val draft = PasteFill.into(ContactDetails(phones = listOf(DataItem(value = "", type = Phone.TYPE_MOBILE))), fields())
             .copy(phones = listOf(DataItem(value = "", type = Phone.TYPE_MOBILE)) + PasteFill.into(ContactDetails(), fields()).phones)

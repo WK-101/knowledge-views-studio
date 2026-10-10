@@ -122,7 +122,7 @@ object QrImageDecoder {
     internal fun textOf(r: Result): String {
         val text = r.text.orEmpty()
 
-        @Suppress("UNCHECKED_CAST")
+        @Suppress("UNCHECKED_CAST") // ZXing documents BYTE_SEGMENTS as a list of byte arrays.
         val segments = r.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List<ByteArray> ?: return text
         if (segments.size != 1) return text
         val bytes = segments[0]

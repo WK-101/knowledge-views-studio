@@ -361,7 +361,7 @@ internal object FramingDone {
     }
 
     /** Done on the framing screen: [onUnchanged] when given and nothing changed, else [onDone] with [frame]. */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // The framing screen's state at Done, passed as it is.
     fun finish(frame: PhotoFrame?, moved: Boolean, start: PhotoFrame?, bitmap: Bitmap?, onDone: (PhotoFrame?) -> Unit, onUnchanged: (() -> Unit)?) {
         if (onUnchanged != null && unchanged(moved, start, frame, bitmap?.width ?: 0, bitmap?.height ?: 0)) onUnchanged() else onDone(frame)
     }

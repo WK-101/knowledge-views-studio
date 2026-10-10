@@ -48,7 +48,7 @@ data class ExpectedWindow(
 }
 
 /**
- * I7 expected-call hints: windows for "Expecting a call" worked out from notes, the To call list and delivery QR codes.
+ * Expected-call hints: windows for "Expecting a call" worked out from notes, the To call list and delivery QR codes.
  * No language model: a note counts when one line promises an incoming call ([promisesCall]) and names a day in plain English ("today",
  * "tomorrow", a weekday, "in 3 days", "12 Oct", "2026-10-12"), optionally a time ("at 3pm", "morning").
  */

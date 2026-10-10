@@ -31,7 +31,7 @@ import app.parley.common.ListDensity
 fun avatarSize(): Dp = if (LocalDensityPref.current == ListDensity.COMPACT) 36.dp else 44.dp
 
 /**
- * An empty list. U5: say whether nothing matches a search ("No matches for …") or nothing is there yet, and offer
+ * An empty list. Say whether nothing matches a search ("No matches for …") or nothing is there yet, and offer
  * one clear way on ([action], [onAction]).
  */
 @Composable

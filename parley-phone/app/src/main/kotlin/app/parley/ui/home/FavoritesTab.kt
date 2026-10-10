@@ -164,7 +164,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                 }) { Text(stringResource(if (reordering) R.string.main_done else R.string.fav_reorder)) }
             }
         }
-        // P18: what Favourites are, the first time there are some.
+        // What Favourites are, the first time there are some.
         if (q.isEmpty() && !reordering && favouritesTip) item(span = { GridItemSpan(maxLineSpan) }, key = "tip") {
             CoachMark(Tips.CONCEPT_FAVOURITES, stringResource(R.string.tip_concept_favourites))
         }

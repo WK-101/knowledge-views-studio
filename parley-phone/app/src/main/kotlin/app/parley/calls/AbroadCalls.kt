@@ -7,7 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * L6: the questions a call abroad adds to [app.parley.CallGate]'s one question: the number with its country code
+ * The questions a call abroad adds to [app.parley.CallGate]'s one question: the number with its country code
  * ([AssistedDial.convert]) and, once per trip, a local SIM ([AssistedDial.localSimHint]). Asked only when the SIM the
  * call goes out on is known; the gate never asks it for emergency numbers.
  */

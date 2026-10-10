@@ -89,9 +89,9 @@ import kotlinx.coroutines.launch
 
 /**
  * First run, in short steps: what Parley promises, the default phone app (with a word about Android's
- * restricted settings first when Parley was installed from a file), then U1's permissions page: one row per
+ * restricted settings first when Parley was installed from a file), then the permissions page: one row per
  * permission with why it's asked and what still works without it, a single "Allow all" and a switch per row.
- * Then "Set up the basics" (who can ring, who the phone is for, the layout), and last P7's optional "Coming from
+ * Then "Set up the basics" (who can ring, who the phone is for, the layout), and last the optional "Coming from
  * another phone?": skip it, or pick a source to finish and land in its importer. Each step after the welcome can be
  * skipped ([OnboardingStep]).
  */
@@ -162,7 +162,7 @@ private fun installerOf(context: Context): String? = runCatching {
     if (Build.VERSION.SDK_INT >= 30) {
         context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
     } else {
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // getInstallSourceInfo needs Android 11; this is the older path.
         context.packageManager.getInstallerPackageName(context.packageName)
     }
 }.getOrNull()
@@ -330,7 +330,7 @@ private fun ColumnScope.PermissionsStep(vm: AppViewModel, done: () -> Unit) {
     Button(done, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(if (allGranted) R.string.main_done else R.string.ux_perm_continue)) }
 }
 
-/** P7: where the person is coming from, each source with where to export it; entirely optional. */
+/** Where the person is coming from, each source with where to export it; entirely optional. */
 @Composable
 private fun ColumnScope.ComingFromStep(onImport: (ComingFrom.Importer) -> Unit, skip: () -> Unit) {
     Spacer(Modifier.height(24.dp))

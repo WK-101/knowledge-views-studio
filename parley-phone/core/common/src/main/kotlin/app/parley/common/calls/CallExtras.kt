@@ -31,7 +31,7 @@ data class CallExtrasConfig(
     val autoAnswerChosen: Boolean = false,
     /** …after this many seconds of ringing, with Cancel on the call screen. */
     val autoAnswerSeconds: Int = AutoAnswer.DEFAULT_SECONDS,
-    /** I6: remember the keys sent to phone menus ([MenuMemory], with its guard against PINs); off forgets them all. */
+    /** Remember the keys sent to phone menus ([MenuMemory], with its guard against PINs); off forgets them all. */
     val rememberMenuKeys: Boolean = true,
 ) {
     companion object {
@@ -108,6 +108,4 @@ object PocketGuard {
 
     /** Ask before calling when the guard is on, the call came from a one-tap place and the sensor reads "near". */
     fun shouldAsk(enabled: Boolean, source: CallSource, covered: Boolean?): Boolean = enabled && source in GUARDED && covered == true
-
-    const val QUESTION = "Your phone's proximity sensor is covered. Is it in a pocket or a bag?"
 }

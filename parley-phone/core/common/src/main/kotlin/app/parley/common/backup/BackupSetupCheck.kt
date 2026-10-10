@@ -1,6 +1,6 @@
 package app.parley.common.backup
 
-/** Where the backup folder lives, judged from its tree URI alone (P13). */
+/** Where the backup folder lives, judged from its tree URI alone. */
 enum class FolderPlace {
     /** No folder chosen. */
     NONE,
@@ -30,7 +30,7 @@ enum class BackupStatus { NO_PASSPHRASE, NO_FOLDER, FOLDER_GONE, FAILED, NOT_VER
 enum class BackupFix { SET_PASSPHRASE, CHOOSE_FOLDER, BACK_UP_NOW, NONE }
 
 /**
- * The Backup setup checker (P13): where the backup folder is (from the tree URI's authority and volume only; no file
+ * The Backup setup checker: where the backup folder is (from the tree URI's authority and volume only; no file
  * is ever read), how old the last good backup is and whether it was verified, as one status line with one fix.
  */
 object BackupSetupCheck {

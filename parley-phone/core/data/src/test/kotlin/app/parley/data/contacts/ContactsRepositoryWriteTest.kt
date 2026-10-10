@@ -182,7 +182,7 @@ class ContactsRepositoryWriteTest {
         val id = create()
         repo.setStarred(id, true)
         assertEquals(true, repo.lookup("+44 20 7946 0000")?.starred)
-        // M3: with a work profile the enterprise lookup answers (it isn't asked for the star); the star is still read.
+        // With a work profile the enterprise lookup answers (it isn't asked for the star); the star is still read.
         shadowOf(app.getSystemService(UserManager::class.java)).addProfile(0, 10, "Work", 0x20 /* UserInfo.FLAG_MANAGED_PROFILE */)
         resetWorkProfileCache()
         val found = repo.lookup("+44 20 7946 0000")!!

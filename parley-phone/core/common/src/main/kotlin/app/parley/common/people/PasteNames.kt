@@ -41,7 +41,7 @@ internal object PasteNames {
     )
 
     /** [text] as a name, or null. [loose]: the text said it is a name ("Name: …"), so only the form is checked. */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One rule per name form.
     fun parse(text: String, loose: Boolean = false): Name? {
         var t = text.trim().trim(',', ';', ':', '|', '-').trim()
         if (t.isEmpty() || t.length > MAX_LENGTH) return null

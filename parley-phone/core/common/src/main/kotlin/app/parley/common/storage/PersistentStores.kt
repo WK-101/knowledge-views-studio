@@ -201,6 +201,7 @@ object PersistentStores {
             "parley_situation_state", StoreKind.PREFS,
             local("The Situation on now and what to put back when it goes off: this phone's moment, not a preference"),
         ),
+        PersistentStore("situation_triggers", StoreKind.PREFS, local("Whether this phone's job for a Situation's next window is queued")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
@@ -265,7 +266,7 @@ object PersistentStores {
             "vault_trash", StoreKind.FILES, local("The 30-day undo of deleted private contacts, sealed like the vault"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
-        // I21: the app lock's PINs (scrypt hashes, sealed) and whether a duress unlock's hiding is on. Never exported:
+        // The app lock's PINs (scrypt hashes, sealed) and whether a duress unlock's hiding is on. Never exported:
         // a PIN is set again on a new phone, and the hiding is about this phone in someone else's hands.
         PersistentStore(
             "app_pin", StoreKind.FILES, StorePolicy.Secret("Hashes of the Parley PIN and the duress PIN"),

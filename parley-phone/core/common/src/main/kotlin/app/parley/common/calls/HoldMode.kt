@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
 /**
- * I10 "I'm on hold": a manual waiting mode for queues and phone menus. Parley can't hear the call (no microphone
+ * "I'm on hold": a manual waiting mode for queues and phone menus. Parley can't hear the call (no microphone
  * access), so it only keeps time and buzzes at [REMINDER_MINUTES] to say how long it has been.
  */
 object HoldMode {

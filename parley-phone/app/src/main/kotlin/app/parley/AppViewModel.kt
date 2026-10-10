@@ -107,13 +107,13 @@ data class PendingCall(
     val simId: String? = null,
     /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
     val warnings: List<DialWarning> = emptyList(),
-    /** I12: the reason sent with the call (`EXTRA_CALL_SUBJECT`), or null. */
+    /** The reason sent with the call (`EXTRA_CALL_SUBJECT`), or null. */
     val subject: String? = null,
-    /** L6: abroad, the number with its country code (Call, or Dial as typed). */
+    /** Abroad, the number with its country code (Call, or Dial as typed). */
     val abroad: AssistedDial.Plan? = null,
-    /** L6: the call's SIM is roaming and another one is local (once per trip). */
+    /** The call's SIM is roaming and another one is local (once per trip). */
     val localSim: AssistedDial.LocalSimHint? = null,
-    /** L5: the dial guard's warnings for [abroad]'s number, shown instead of [warnings] once the user takes it. */
+    /** The dial guard's warnings for [abroad]'s number, shown instead of [warnings] once the user takes it. */
     val abroadWarnings: List<DialWarning> = emptyList(),
 )
 
@@ -137,7 +137,10 @@ sealed interface NavEvent {
     data class History(val number: String) : NavEvent
     data class NewContact(val prefill: ContactDetails) : NavEvent
     data class InsertOrEdit(val prefill: ContactDetails) : NavEvent
-    data class ImportVcf(val uri: Uri) : NavEvent
+
+    /** A vCard to import; [keep] are the flags ticked back on for a scanned card (ScannedCard). */
+    data class ImportVcf(val uri: Uri, val keep: Set<app.parley.common.qr.ScannedCard.Flag> = emptySet()) : NavEvent
+
     data class SecureQr(val uri: Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
     data class Route(val route: Destination) : NavEvent

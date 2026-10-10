@@ -82,9 +82,6 @@ interface HistoryDao {
     @Query("SELECT * FROM archived_calls WHERE personKey IN (:personKeys) ORDER BY date DESC, id DESC")
     suspend fun byPersons(personKeys: List<String>): List<ArchivedCallEntity>
 
-    @Query("DELETE FROM archived_calls WHERE personKey IN (:personKeys)")
-    suspend fun deleteByPersons(personKeys: List<String>): Int
-
     @Query("SELECT * FROM archived_calls WHERE id IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<ArchivedCallEntity>
 

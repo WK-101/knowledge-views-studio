@@ -47,7 +47,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
-/** Settings › Privacy & security › App lock › Unlock with (I21). */
+/** Settings › Privacy & security › App lock › Unlock with. */
 object AppLockRoutes {
     @Serializable data object UnlockWith : Destination
 }
@@ -64,7 +64,7 @@ private enum class PinDialog { SET_PIN, PIN_OFF, DURESS_ABOUT, DURESS_SET, DURES
 
 /**
  * The Parley PIN, and the duress PIN with its option. During a duress session ([app.parley.common.AppSettings.duress])
- * the page looks exactly like one where no duress PIN was ever set (M7): the same rows, the duress PIN "Off", and
+ * the page looks exactly like one where no duress PIN was ever set: the same rows, the duress PIN "Off", and
  * setting one there works for the session's screens only. A new PIN becomes the duress PIN and turning the PIN off
  * lasts until the next lock (see [AppPinStore]). Every change asks for the fingerprint or screen lock first, like
  * turning the app lock on or off.
@@ -75,7 +75,7 @@ internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
     val res = LocalResources.current
     val store = vm.c.appPin
     val settings by vm.settings.collectAsStateWithLifecycle()
-    // In a duress session, the session's view: the duress PIN off unless set in the session (M7).
+    // In a duress session, the session's view: the duress PIN off unless set in the session.
     val summary by store.shown.collectAsStateWithLifecycle()
     val shownOff by store.sessionShownOff.collectAsStateWithLifecycle()
     val inDuress = settings.duress != null
@@ -142,7 +142,7 @@ private fun PinDialogs(
             title = stringResource(R.string.pin_set_title),
             body = stringResource(R.string.pin_set_body),
             check = { pin ->
-                // M5: changes wait after a few, the same for any PIN in any session. The duress PIN as this page shows
+                // Changes wait after a few, the same for any PIN in any session. The duress PIN as this page shows
                 // it can't also be the Parley PIN (in a session: one set there; never compared with the real PIN).
                 val wait = store.changeWait()
                 when {

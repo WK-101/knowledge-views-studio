@@ -104,6 +104,12 @@ class RecordCrypto private constructor(private val context: Context) {
         plain
     }
 
+    /**
+     * [plain] sealed, or an exception when sealing isn't possible right now: for what must never sit plain on the disk
+     * (the PIN hashes, archived contacts). The caller keeps the value in memory and tries again, or refuses.
+     */
+    fun sealBytesOrThrow(plain: ByteArray): ByteArray = BYTES_MAGIC + seal(plain)
+
     /** The plain bytes of [stored]; older plain payloads pass through. Throws when a sealed payload can't be opened. */
     fun openBytes(stored: ByteArray): ByteArray = if (isSealed(stored)) open(stored.copyOfRange(BYTES_MAGIC.size, stored.size)) else stored
 

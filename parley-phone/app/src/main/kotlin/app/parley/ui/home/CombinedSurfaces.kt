@@ -116,7 +116,7 @@ fun CallsSurface(vm: AppViewModel, open: (Destination) -> Unit, searching: Boole
 }
 
 /**
- * The folded keypad: a keypad button. K3: a Material 3 FAB with the keypad icon that springs in as the
+ * The folded keypad: a keypad button. A Material 3 FAB with the keypad icon that springs in as the
  * keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the keypad follows), to bring
  * the keypad back.
  */

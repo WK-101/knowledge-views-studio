@@ -93,7 +93,7 @@ class CardTrustTest {
         val link = b.links.getValue("ana-key")
         val offer = CardLinks.offer(link, b.held, now) { "+447700900123" in it.phones }
         assertEquals(HeldOffer.Kind.DIFFERENT_SIGNER, offer?.kind)
-        // "Trust the new card" is the only way to change the link, and it is explicit (L3: a real key change).
+        // "Trust the new card" is the only way to change the link, and it is explicit (a real key change).
         val trusted = b.linkHeld("ana-key", forged.cardId, forged.publicKey, now)!!
         assertEquals(forged.publicKey, trusted.links["ana-key"]?.publicKey)
         // The linked card's own newer versions are updates, never held offers.

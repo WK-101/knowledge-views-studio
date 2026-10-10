@@ -172,9 +172,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         ParleyTopBar(stringResource(R.string.blk_title), onBack = back, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            // P9: the setups first, with the one you're on named and what the last week looked like.
+            // The setups first, with the one you're on named and what the last week looked like.
             item(key = "presets") {
-                // L5: every stopped call of the week (the log shows only the latest 500), contacts counted as people.
+                // Every stopped call of the week (the log shows only the latest 500), contacts counted as people.
                 val shown = remember(log, now) { weekOf(log, now) { vm.contactFor(it)?.lookupKey } }
                 val week by produceState(shown, log.firstOrNull()?.id, log.size, now) {
                     value = withContext(Dispatchers.IO) {
@@ -607,7 +607,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     }
 
     presetToApply?.let { pr ->
-        // M9: what the setup would replace is said here, and can be kept.
+        // What the setup would replace is said here, and can be kept.
         val removed = pr.removedSchedule(s)
         var keep by remember(pr) { mutableStateOf(false) }
         ConfirmDialog(

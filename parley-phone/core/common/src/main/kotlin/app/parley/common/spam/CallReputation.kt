@@ -117,7 +117,7 @@ data class RangeProposal(
 )
 
 /**
- * I2 personal reputation: a deterministic, explainable score learned only from *your* history with a number or the
+ * Personal reputation: a deterministic, explainable score learned only from *your* history with a number or the
  * range (the number without its last [RANGE_DROP] digits) it belongs to. Pure: the maintenance worker gathers the
  * calls, this works out which lines and ranges look like sales lines, and the call path only looks the answer up.
  *

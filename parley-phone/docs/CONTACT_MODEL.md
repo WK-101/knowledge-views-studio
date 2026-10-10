@@ -52,7 +52,18 @@ so the call path names it while the phone is locked.
   before this kept the thumbnail they were archived with (nothing is rewritten). Make private still keeps a photo
   larger than 512 KB as its thumbnail (`readCapped`, `MAX_KEPT_PHOTO`). When the
   address book refuses to remove the contact (a read-only copy, a provider error), the archive gives its copy back
-  and nothing is archived: a person is never both archived and in the address book.
+  and nothing is archived: a person is never both archived and in the address book. The files are synced to the disk
+  before the purge (`DurableFiles`), and written sealed or not at all: while the Keystore can't seal, archiving is
+  refused and nothing changes.
+- **Honest about where it goes.** Leaving the address book means leaving the account the contact is saved in (Google,
+  say), so the person also goes from the user's other phones and computers: the confirmation says so, and that old
+  calls in Android's call log may still show the name. The relation rows Parley wrote on other contacts for this one
+  ("Child: Sam" on Ana) are taken back where still as Parley left them (`RelationMirrors.takeBack`), so the name doesn't
+  stay in the address book; the archived record keeps its own relations, and Unarchive writes the other side again
+  when "Add relations to both contacts" is on.
+- **Undo and many at once.** The snackbar after archiving offers Undo, which puts the contact back into the accounts it
+  came from (a private one back among the private contacts). The Contacts selection's ⋮ › Privacy… › Archive archives
+  every selected contact (device ones out of the address book, private ones inside the vault), also with Undo.
 - **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"; its agenda items show
   on their own card and can be ticked, `AgendaStore.targetFor` finds the archived contact by number), missed-call
   notifications, Recents, a number's history, Recall ("Archived contacts"), and screening, which counts an archived
@@ -65,8 +76,10 @@ so the call path names it while the phone is locked.
   links, Circle rhythm and dates, logged moments, call time, vibration and auto-answer) follows the same person to
   their key here (`Archive.restoredKeys`, matched by the key before archiving or by name and numbers), never the bare
   id, which may name someone else; an archived key never matches anyone in the address book. **Exports** include
-  archived contacts: a vCard with `X-PARLEY-ARCHIVED:1` and Parley's CSV with an Archived column are both archived
-  again on import; Google's CSV carries an "Archived" label.
+  archived contacts: a vCard with `X-PARLEY-ARCHIVED:1` and Parley's CSV with an Archived column. Only Parley's own
+  **encrypted** vCard archives them again on import; a plain file imports them as ordinary contacts and says so before
+  the import (`ImportGuard`), because an archived contact is hidden yet trusted as saved. Google's CSV carries an
+  "Archived" label.
 - **Private contacts are archived inside the vault**, never moved here. Archive on a private contact's page sets an
   "archived" mark (the time) in its caller-ID copy (`VaultRepository.setArchived`, `CallerIdCopy.C_ARCHIVED`); nothing
   else changes: the contact stays sealed under the vault's keys and behind the private lock, its details, photo, record
@@ -154,7 +167,8 @@ calls, "Who is this" line, labels (by title), photo, call notes and Circle momen
 A plain file says, before it is written, that anyone who gets it can read them; the **Encrypted vCard** locks the same
 file with a passphrase ([ENCRYPTED_VCARD.md](ENCRYPTED_VCARD.md)). Importing such a file (plain or encrypted) brings a
 card marked private back as a private contact: it never goes through the address book. With private contacts locked,
-the card is reported as not imported rather than made visible.
+the card is reported as not imported rather than made visible. A plain file brings back nothing else that changes how
+a caller is treated (see SECURITY_MODEL.md, "Import").
 
 ### Labels of a private contact
 

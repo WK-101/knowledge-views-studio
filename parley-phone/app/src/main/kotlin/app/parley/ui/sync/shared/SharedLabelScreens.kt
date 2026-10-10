@@ -452,7 +452,7 @@ private fun PassphraseDialog(title: String, text: String, onDismiss: () -> Unit,
 @Composable
 private fun InviteQrDialog(vm: AppViewModel, id: String, title: String, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    // L3: a longer code than a contact QR's (about 78 bits), since this one holds the label's key.
+    // A longer code than a contact QR's (about 78 bits), since this one holds the label's key.
     val passcode = remember { SharedLabelInvites.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, id) {
         val link = vm.c.sharedLabels.inviteLink(id, passcode)
@@ -655,7 +655,7 @@ private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit
 }
 
 /**
- * The members found in the folder (with their keys), the label it joins as, your name, and Join. M4: a joined label is
+ * The members found in the folder (with their keys), the label it joins as, your name, and Join. A joined label is
  * always a new label here ("Family (shared)" when "Family" exists); going into a label you already have is a choice
  * you make, after being told how many of its contacts the first sync shares.
  */

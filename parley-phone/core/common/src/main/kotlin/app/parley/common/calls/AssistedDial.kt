@@ -12,7 +12,7 @@ import java.util.Locale
 import kotlinx.serialization.Serializable
 
 /**
- * Assisted dialling abroad (L6), offline with libphonenumber. While a SIM is abroad (its network's country isn't the
+ * Assisted dialling abroad, offline with libphonenumber. While a SIM is abroad (its network's country isn't the
  * SIM's), a number typed or saved in the SIM's home format ("020 7946 0958") would reach the visited country's
  * network as a local number. [convert] offers the international form ("+44 20 7946 0958") instead; the user can
  * still dial it as typed. [localSimHint] suggests, once per trip, a second SIM that is local where the user is.
@@ -97,7 +97,7 @@ object AssistedDial {
     }
 
     /**
-     * [digits] read as a personal line in [home]'s national format, or null (another form, invalid, a service). L4: also
+     * [digits] read as a personal line in [home]'s national format, or null (another form, invalid, a service). Also
      * the home country code typed without "+" ("1 201 555 0123" for the US, "7 912 …" for Russia), which libphonenumber
      * only reads so when it is unambiguous: the code is the home country's and the rest is a valid home number.
      */

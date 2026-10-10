@@ -143,10 +143,10 @@ internal fun CallerHeader(
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
-        // P16: TalkBack hears "Call connected", "On hold" and "Call ended" without looking for the pill.
+        // TalkBack hears "Call connected", "On hold" and "Call ended" without looking for the pill.
         CallStateAnnouncer(call, ended)
         if (!ended && call.state == CallState.RINGING) RangThroughLine(call)
-        // I2: "Looks like a sales line (your calls)", with Why?
+        // "Looks like a sales line (your calls)", with Why?
         ReputationLine(call, ended, compact)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
         if (!compact) CallerCard(call, ended)
@@ -269,7 +269,7 @@ private fun SecondaryLine(call: CallUi) {
 }
 
 /**
- * L10: the subject the caller sent with the call (RCS Call Composer, `EXTRA_CALL_SUBJECT`), in quotes as their own
+ * The subject the caller sent with the call (RCS Call Composer, `EXTRA_CALL_SUBJECT`), in quotes as their own
  * words. It's plain text that [app.parley.common.calls.CallSubject] already cleaned, never a link.
  */
 @Composable
@@ -287,12 +287,12 @@ private fun SubjectLine(call: CallUi) {
 }
 
 /**
- * P1: why a ringing call gets through although screening would otherwise have kept it quiet ("Rang through: called
+ * Why a ringing call gets through although screening would otherwise have kept it quiet ("Rang through: called
  * twice in 3 min", "Rang through: expecting a call"), under the status pill: it shows the blocking rules at work.
  */
 @Composable
 private fun RangThroughLine(call: CallUi) {
-    // I7: the note it came from is named only while the phone is unlocked.
+    // The note it came from is named only while the phone is unlocked.
     val text = (call.rangThroughUnlocked?.takeIf { !rememberKeyguardLocked() } ?: call.rangThrough)?.takeIf { !call.silenced } ?: return
     Row(Modifier.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Shield, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

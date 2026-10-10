@@ -6,22 +6,29 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import app.parley.ParleyApp
+import app.parley.data.people.CallBackgrounds
 import java.io.FileNotFoundException
 
 /**
  * Serves private contacts' photos, decrypted in memory, to Parley itself (lists, the contact page and the call
  * screen load photos by URI). Not exported: no other app can open these URIs, and nothing decrypted is written to
- * storage. `content://<package>.vaultphotos/<vault id>/<version>`.
+ * storage. `content://<package>.vaultphotos/<vault id>/<version>`; private contacts' call-screen pictures, sealed with
+ * the same key, at `content://<package>.vaultphotos/bg/<hash>/<version>`.
  */
 class VaultPhotoProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         if (mode != "r") throw FileNotFoundException("Read only")
-        val id = uri.pathSegments.firstOrNull()?.toLongOrNull() ?: throw FileNotFoundException(uri.toString())
         val app = context?.applicationContext as? ParleyApp ?: throw FileNotFoundException(uri.toString())
+        val first = uri.pathSegments.firstOrNull()
         // Never waits for the app to finish starting (the shared non-blocking helper): no photo until then.
-        val bytes = app.containerOrNull?.vault?.photoBytes(id) ?: throw FileNotFoundException(uri.toString())
+        val c = app.containerOrNull ?: throw FileNotFoundException(uri.toString())
+        val bytes = if (first == CallBackgrounds.SEALED_PATH) {
+            uri.pathSegments.getOrNull(1)?.let(c.people.backgrounds::sealedBytes)
+        } else {
+            first?.toLongOrNull()?.let(c.vault::photoBytes)
+        } ?: throw FileNotFoundException(uri.toString())
         val (read, write) = ParcelFileDescriptor.createPipe()
         Thread {
             runCatching { ParcelFileDescriptor.AutoCloseOutputStream(write).use { it.write(bytes) } }

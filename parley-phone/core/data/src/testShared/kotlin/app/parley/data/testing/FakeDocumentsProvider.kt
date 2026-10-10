@@ -82,7 +82,7 @@ class FakeDocumentsProvider : ContentProvider() {
             Bundle().apply { putParcelable(EXTRA_URI, docUri(name)) }
         }
         METHOD_DELETE -> {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The fake reads extras the way older Androids do.
             val u = extras!!.getParcelable<Uri>(EXTRA_URI)!!
             fileOf(DocumentsContract.getDocumentId(u)).delete()
             Bundle()

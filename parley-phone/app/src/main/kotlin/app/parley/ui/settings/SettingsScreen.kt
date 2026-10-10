@@ -286,7 +286,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
     val context = LocalContext.current
     val locales = LocalConfiguration.current.locales
     // Localised titles, summaries and keywords; English words keep matching (SettingEntry.localized).
-    // M7: the same entries in a duress session (the duress PIN's row is there, shown off), so search gives nothing away.
+    // The same entries in a duress session (the duress PIN's row is there, shown off), so search gives nothing away.
     val catalog = remember(locales) { SettingsText.localizedCatalog(context) }
     val results = remember(query, catalog) { SettingsSearch.search(query, catalog).filter { it.key !in unavailableHere } }
     if (query.isBlank()) {

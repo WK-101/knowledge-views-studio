@@ -23,7 +23,7 @@ import app.parley.ui.Spacing
 import java.util.Locale
 
 /**
- * L6, the first questions of a call abroad (see [CallQuestions]): "Call +44 20 7946 0958?" with Dial as typed, then,
+ * The first questions of a call abroad (see [CallQuestions]): "Call +44 20 7946 0958?" with Dial as typed, then,
  * once per trip, "Use SIM 2?". Each answer moves the [PendingCall] on to its next question, or places the call when
  * none is left. Answering either also answers "confirm before calling": it already asked about this call.
  */
@@ -63,7 +63,7 @@ internal fun AbroadQuestions(
 }
 
 /**
- * L5: [plan]'s number taken: the call now goes to it, so the dial guard's warnings are the ones checked for it
+ * [plan]'s number taken: the call now goes to it, so the dial guard's warnings are the ones checked for it
  * ([PendingCall.abroadWarnings]), not those of the number as typed.
  */
 internal fun PendingCall.dialling(plan: AssistedDial.Plan): PendingCall =

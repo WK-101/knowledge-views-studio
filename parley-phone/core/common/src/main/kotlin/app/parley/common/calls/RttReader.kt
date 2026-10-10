@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
 /**
- * L3/M1: which RTT stream the one reader thread of a call reads. Android builds a new `Call.RttCall` over the same pipe
+ * Which RTT stream the one reader thread of a call reads. Android builds a new `Call.RttCall` over the same pipe
  * on every RTT change (a mode switch, the other side's mode), without closing the old one; a second reader on the same
  * pipe would race the first and lose characters. So each call has exactly one reader: Telecom's latest stream is
  * handed in with [follow] (main thread), and the reader asks [next] after every read which stream to read from now.

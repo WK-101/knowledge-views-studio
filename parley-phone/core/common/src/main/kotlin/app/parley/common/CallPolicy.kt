@@ -169,13 +169,13 @@ data class ScreeningSettings(
     val repeatRingtone: String? = null,
     val likelySpamRingtone: String? = null,
     val reputationSuggestions: Boolean = true,
-    /** I2 "Learn from your calls": tag numbers that look like sales lines from your own history (tags only). */
+    /** "Learn from your calls": tag numbers that look like sales lines from your own history (tags only). */
     val learnFromCalls: Boolean = true,
-    /** I2: silence numbers that look like sales lines (your calls). Off by default; soft, below lists. */
+    /** Silence numbers that look like sales lines (your calls). Off by default; soft, below lists. */
     val silenceSalesLines: Boolean = false,
     val webSearchUrl: String = "https://duckduckgo.com/?q=",
     /**
-     * I7: "Expecting a call" windows from notes, the To call list and delivery QR codes. Never stored here: they are
+     * "Expecting a call" windows from notes, the To call list and delivery QR codes. Never stored here: they are
      * kept sealed in their own store and handed to the policy for each call.
      */
     @Transient
@@ -251,7 +251,7 @@ data class IncomingCallFacts(
     /** Earlier incoming attempts from this number that Parley blocked (ms). */
     val blockedAttempts: List<Long> = emptyList(),
     val inEmergencyWindow: Boolean = false,
-    /** I2: what your own calls say about this number or its range (looked up, never worked out on the call path). */
+    /** What your own calls say about this number or its range (looked up, never worked out on the call path). */
     val reputation: Reputation? = null,
     /** Someone in a shared label with the family spam shield on blocked this number or called it a scam (memory lookup). */
     val family: FamilyHit? = null,
@@ -261,7 +261,7 @@ enum class BlockReason {
     SYSTEM_LIST, RULE, HIDDEN, NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED,
     LIST, INVALID_NUMBER, OFF_HOURS,
 
-    /** I2: looks like a sales line from your own calls, with "Silence numbers that look like sales lines" on. */
+    /** Looks like a sales line from your own calls, with "Silence numbers that look like sales lines" on. */
     PERSONAL_REPUTATION,
 
     /** Someone in a shared label blocked the number or called it a scam, and the label's shield silences or blocks. */
@@ -324,7 +324,7 @@ data class ScreeningResult(
     val deferredToSim: Boolean = false,
     /** Why the call rings although screening would otherwise have blocked or silenced it (null when nothing would have). */
     val rangThrough: RangThrough? = null,
-    /** I2: the caller looks like a sales line from your own calls (the quiet tag and its "Why?"); null otherwise. */
+    /** The caller looks like a sales line from your own calls (the quiet tag and its "Why?"); null otherwise. */
     val reputation: Reputation? = null,
 ) {
     val failedOpen: Boolean get() = trace.any { it.mark == TraceMark.FAILED_OPEN }
@@ -359,7 +359,7 @@ data class RangThrough(
     val minutes: Int = 0,
     val name: String? = null,
     val until: Long? = null,
-    /** I7: for [RangThroughKind.EXPECTING], the hint that turned it on ([name] then names where it came from). */
+    /** For [RangThroughKind.EXPECTING], the hint that turned it on ([name] then names where it came from). */
     val expected: ExpectedSource? = null,
 )
 
@@ -380,7 +380,7 @@ data class PolicyClock(val millis: Long, val day: DayOfWeek, val minuteOfDay: In
  * emergency › contacts & vault › allow rules (incl. "Expecting a call" turned on by hand, dialled/answered) › block rules
  * › lists › sales lines › default toggles.
  * A repeat caller overrides soft reasons only (lists, toggles, off hours), never an explicit rule, and
- * redials faster than the minimum interval don't count. An automatic expected-call window (I7) comes last: it lets an
+ * redials faster than the minimum interval don't count. An automatic expected-call window comes last: it lets an
  * unknown caller past "who may ring" toggles only ([BlockReason.expectedMayOverride]), never past a rule or a list.
  */
 object CallPolicy {
@@ -396,7 +396,7 @@ object CallPolicy {
     }
 
     /**
-     * I2: the quiet tag rides along with the decision for unknown callers only (never contacts, emergency calls or a
+     * The quiet tag rides along with the decision for unknown callers only (never contacts, emergency calls or a
      * call an allow rule or "Expecting a call" let through), and only while "Learn from your calls" is on.
      */
     private fun ScreeningResult.withReputation(f: IncomingCallFacts, s: ScreeningSettings): ScreeningResult {
@@ -408,7 +408,7 @@ object CallPolicy {
     }
 
     /**
-     * P1: why an allowed call rang although screening would otherwise have kept it quiet. A repeat caller always
+     * Why an allowed call rang although screening would otherwise have kept it quiet. A repeat caller always
      * overrode a block; for the other exceptions (allow rules, "Expecting a call", numbers you called or talked to,
      * a label allowed in off hours) the call is screened again [without] them, and only a block there counts.
      */
@@ -450,7 +450,7 @@ object CallPolicy {
         val clock: PolicyClock,
         val withoutExceptions: Boolean = false,
     ) {
-        /** I7: the expected-call window that let the call ring, when one did. */
+        /** The expected-call window that let the call ring, when one did. */
         var expectedHit: ExpectedWindow? = null
 
         /** The repeat caller's calls within the window (this one included) and the minutes they span. */
@@ -518,7 +518,7 @@ object CallPolicy {
 
             // The system block list is the user's explicit choice, even for contacts.
             if (f.inSystemBlockList) {
-                // Noted for the weekly line (L5): a contact stopped by the list is still a contact affected.
+                // Noted for the weekly line: a contact stopped by the list is still a contact affected.
                 if (f.isContact && !f.contactLookupFailed) step("Contact?", "yes", TraceMark.MATCH)
                 step("Blocked numbers list", "listed", TraceMark.MATCH)
                 return block(BlockAction.REJECT, BlockReason.SYSTEM_LIST)
@@ -637,7 +637,7 @@ object CallPolicy {
                 }
             }
 
-            // 5b. I2 personal reputation, below lists (a soft reason: a repeat caller still rings).
+            // 5b. Personal reputation (from your own calls), below lists (a soft reason: a repeat caller still rings).
             f.reputation?.takeIf { it.looksLikeSales && s.learnFromCalls }?.let { rep ->
                 if (s.silenceSalesLines) {
                     step("Your calls", "looks like a sales line: ${rep.describe()}", TraceMark.MATCH)
@@ -689,7 +689,7 @@ object CallPolicy {
         var callerNumber: String? = null
 
         /**
-         * I7: an unknown caller about to be stopped for [reason] rings when an automatic expected-call window covers
+         * An unknown caller about to be stopped for [reason] rings when an automatic expected-call window covers
          * them, and [reason] is one such a window may override (never a rule, a list or a scam signal); null otherwise.
          */
         fun expected(reason: BlockReason): ScreeningResult? {
@@ -756,7 +756,7 @@ object CallPolicy {
 
     private const val DAY = 86_400_000L
 
-    /** I2's verdict ("Why it rang, or not" and Recents show it in the app's language). */
+    /** The personal-reputation verdict ("Why it rang, or not" and Recents show it in the app's language). */
     const val SALES_LINE_SILENCED = "Silenced: looks like a sales line (your calls)"
 
     /** The family spam shield's verdict ("Blocked by someone in Family"); Recents and the call screen show it in the app's language. */

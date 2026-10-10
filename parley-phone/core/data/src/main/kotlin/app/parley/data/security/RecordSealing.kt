@@ -96,12 +96,18 @@ class RecordSealing(
     companion object {
         private const val TAG = "RecordSealing"
         private const val FILE = "record_sealing"
-        private const val DONE = "done_v1"
 
-        /** A value was just stored plain as a fallback: the next run seals it. */
+        // Raised when a store joins [stores] (archived contacts, private call-screen pictures), so phones that had
+        // finished run once more for it.
+        private const val DONE = "done_v2"
+
+        /**
+         * A value was just stored plain as a fallback: the next run seals it. Written at once (commit, not apply): if
+         * the process died before an asynchronous write, the plain value would never be sealed.
+         */
         fun markPending(context: Context) {
             val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            if (prefs.getBoolean(DONE, false)) prefs.edit().putBoolean(DONE, false).apply()
+            if (prefs.getBoolean(DONE, false)) prefs.edit().putBoolean(DONE, false).commit()
         }
     }
 }

@@ -99,9 +99,9 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 /**
- * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
- * collapsed); U3: labelled Call / Message / Video / Email tiles; M6/M7: "Message or call on…" with a remembered
- * choice per person; I1 handles, I3 default number or email, I4 other fields, I5 relation types.
+ * A contact's page. The photo and name dock into the top bar as you scroll ("last talked" shows there once
+ * collapsed); labelled Call / Message / Video / Email tiles; "Message or call on…" with a remembered choice per
+ * person; handles, the default number or email, other fields and relation types.
  *
  * Laid out to be calm and compact (docs/CONTACT_PAGE_DESIGN.md): a modest photo with an "at a glance" line under
  * the name (last talked, the next date, open promises); one "Contact info" group where each number says which apps
@@ -208,7 +208,7 @@ private fun pageContext(
     // Registered before the contact has loaded, so a ringtone picked meanwhile still comes back.
     val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The ringtone picker returns its pick in an untyped extra.
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             page.setRingtone(uri)
         }
@@ -357,11 +357,11 @@ private fun LazyListScope.pageNotices(ctx: ContactPageContext, locked: Boolean, 
     val vm = ctx.vm
     val ui = ctx.ui
     val d = ctx.d
-    // I14: a newer signed card from this person, waiting for review (never applied by itself).
+    // A newer signed card from this person, waiting for review (never applied by itself).
     if (ui.access == PrivateAccess.OPEN && d.lookupKey.isNotEmpty()) item(key = "card_update") { CardUpdateBanner(vm, ctx.contactId, d.lookupKey, d) }
     // Case files: an organisation's calls, hold times and reference numbers (also in the pre-call peek).
     if (!locked && ctx.case.shown) item(key = "case_file") { CaseCard(vm, ctx.caseOwner, ctx.open) }
-    // I6: menu shortcuts saved for this person's numbers (from the call screen's keypad).
+    // Menu shortcuts saved for this person's numbers (from the call screen's keypad).
     if (!locked && d.phones.isNotEmpty()) item(key = "menu_shortcuts") { MenuShortcutsBlock(vm, d.phones.map { it.value }, d.displayName, d.photoUri) }
     // "Calls to Ana drop less on SIM 2": on a dual-SIM phone, until answered either way.
     if (!locked && d.phones.isNotEmpty()) item(key = "sim_advice") { SimAdviceBanner(ctx) }

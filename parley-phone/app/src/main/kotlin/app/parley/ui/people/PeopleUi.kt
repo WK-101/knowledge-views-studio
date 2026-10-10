@@ -356,16 +356,6 @@ class PeopleUi(
         filter.value = filter.value.let { it.copy(fields = it.fields.toggle(facet, key, display)) }
     }
 
-    fun clearFields() {
-        filter.value = filter.value.copy(fields = FieldFilter())
-    }
-
-    /** Stores a new custom favourites order (and switches the sort to Custom). */
-    fun moveFavorite(keys: List<String>, from: Int, to: Int) {
-        val next = FavoriteOrder.move(keys, from, to)
-        update { it.copy(favoriteOrder = next, favoriteSort = FavoriteSort.CUSTOM) }
-    }
-
     fun setFavoriteOrder(keys: List<String>) = update { it.copy(favoriteOrder = keys, favoriteSort = FavoriteSort.CUSTOM) }
 
     /** Account labels that hold contacts, with counts ("Google · me@x (212)"). */

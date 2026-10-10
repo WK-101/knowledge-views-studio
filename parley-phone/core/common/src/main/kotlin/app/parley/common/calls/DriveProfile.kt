@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 data class CarDevice(val address: String, val name: String)
 
 /**
- * Settings › Calls › Drive profile (I11). Off until a car is marked. While one of [cars] is connected, and only then:
+ * Settings › Calls › Drive profile. Off until a car is marked. While one of [cars] is connected, and only then:
  * the caller's name is said once through the car, favourites and/or chosen people are answered after a few seconds,
  * unknown callers can ring silently, and the reply sheet offers "Driving" messages first. No location is used: the
  * car's Bluetooth connection is the only signal.
@@ -85,7 +85,7 @@ object DriveProfile {
     }
 
     /**
-     * The marked car among the [connected] devices, or null. By address (L1: by its last two bytes and the name when
+     * The marked car among the [connected] devices, or null. By address (by its last two bytes and the name when
      * Android shows only those); by name only when Android hides the connected device's address altogether (then the
      * name the car had when it was marked must match exactly, see [genericName]).
      */
@@ -105,7 +105,7 @@ object DriveProfile {
     }
 
     /**
-     * M2: the marked car connected through an output that carries calls (hands-free, LE Audio headset, hearing aid), or
+     * The marked car connected through an output that carries calls (hands-free, LE Audio headset, hearing aid), or
      * null. A car connected for media only (A2DP, cars connect it first; or "Phone calls" off for it) would leave an
      * answered call on the phone's earpiece, so the drive profile never answers on it.
      */
@@ -113,7 +113,7 @@ object DriveProfile {
         connectedCar(cfg, connected.filter { d -> d.type?.let(CallAudioOutputs::carriesCalls) == true })
 
     /**
-     * L1: a name many devices share ("Car Multimedia", "MY CAR", "Bluetooth"): matched by name alone it could be a
+     * A name many devices share ("Car Multimedia", "MY CAR", "Bluetooth"): matched by name alone it could be a
      * friend's car or headphones, so the drive profile asks for "Nearby devices" to tell the car by its address.
      */
     fun genericName(name: String): Boolean {
@@ -195,7 +195,7 @@ object DriveProfile {
     enum class Dnd { OFF, PRIORITY, SILENT }
 
     /**
-     * L2: whether the phone rings aloud for this caller: the ringer is on, and Do Not Disturb is off, or set to Priority
+     * Whether the phone rings aloud for this caller: the ringer is on, and Do Not Disturb is off, or set to Priority
      * and lets this caller through ([callerAllowed], e.g. a starred contact): the call the driver most wants to hear about.
      */
     fun ringsAloud(ringerNormal: Boolean, dnd: Dnd, callerAllowed: Boolean): Boolean = ringerNormal && when (dnd) {

@@ -124,7 +124,7 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val set = rememberSettingsSetter(vm)
     val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The ringtone picker returns its pick in an untyped extra.
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             set { it.copy(unknownRingtone = uri?.toString()) }
         }

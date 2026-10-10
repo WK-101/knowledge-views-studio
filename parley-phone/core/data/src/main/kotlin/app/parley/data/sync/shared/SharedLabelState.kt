@@ -1,6 +1,7 @@
 package app.parley.data.sync.shared
 
 import android.util.Base64
+import app.parley.common.storage.DurableFiles
 import app.parley.common.sync.shared.CardField
 import app.parley.common.sync.shared.Carried
 import app.parley.common.sync.shared.ChangeKind
@@ -324,15 +325,7 @@ class SharedLabelStateStore(private val dir: File, private val sealer: StateSeal
     /** Written to a temporary file and renamed, so a crash never leaves half a state. False when it can't be sealed. */
     fun put(s: SharedLabelState): Boolean {
         val sealed = sealer.seal(s.toJson().toString()) ?: return false
-        dir.mkdirs()
-        val tmp = File(dir, "${s.labelId}.json.tmp")
-        tmp.writeText(sealed)
-        val target = fileOf(s.labelId)
-        if (!tmp.renameTo(target)) {
-            target.delete()
-            if (!tmp.renameTo(target)) return false
-        }
-        return true
+        return DurableFiles.writeText(fileOf(s.labelId), sealed)
     }
 
     fun remove(id: String) {

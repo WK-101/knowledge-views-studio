@@ -61,7 +61,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** I6: menu memory is offered in a connected call the user placed, never an emergency call or a conference. */
+/** Menu memory is offered in a connected call the user placed, never an emergency call or a conference. */
 private fun menuMemoryApplies(call: CallUi): Boolean =
     !call.incoming && !call.hidden && !call.isEmergency && !call.isConference && !call.number.isNullOrBlank() &&
         (call.state == CallState.ACTIVE || call.state == CallState.HOLDING)
@@ -85,7 +85,7 @@ private class MenuRowState {
 }
 
 /**
- * I6, the in-call keypad's top row: "Last time: 2 › 1 › 4" for a number Parley remembers digits for, with **Replay**
+ * The in-call keypad's top row: "Last time: 2 › 1 › 4" for a number Parley remembers digits for, with **Replay**
  * (sends them again with the recorded pauses; Stop, or any key, stops it) and ⋮ with "Save as shortcut…" and "Don't
  * remember digits for this number". Shows nothing when there is nothing remembered.
  */
@@ -182,7 +182,7 @@ private fun ReplayButton(call: CallUi, p: MenuPath, label: String?) {
 @Composable
 private fun MenuSaveDialog(call: CallUi, p: MenuPath, st: MenuRowState) {
     val number = call.number.orEmpty()
-    // L6: a private contact (no device contact behind the name) is suggested by number: the name would reach the
+    // A private contact (no device contact behind the name) is suggested by number: the name would reach the
     // launcher's shortcut store and pages that discreet mode or the vault's lock hide.
     val private = call.contactId == null || NotificationPrivacy.isVaultLabel(call.label)
     val who = MenuMemory.shortcutWho(call.name, number, private)
@@ -228,7 +228,7 @@ private fun MenuStopDialog(call: CallUi, st: MenuRowState) {
     )
 }
 
-/** The one-time explainer above the row (P18): what is remembered, and what never is. */
+/** The one-time explainer above the row: what is remembered, and what never is. */
 @Composable
 private fun MenuTip() {
     if (tipClosedHere) return

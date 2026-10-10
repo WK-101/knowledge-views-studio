@@ -243,7 +243,7 @@ class NumberActionActivity : LockedActivity() {
         authenticating = true
         AppLock.authenticate(this) { ok ->
             authenticating = false
-            // With a Parley PIN set only a PIN opens Parley (I21, M7), and this sheet has no PIN field: it closes.
+            // With a Parley PIN set only a PIN opens Parley, and this sheet has no PIN field: it closes.
             if (!ok || AppLock.locked.value) return@authenticate finish()
             appLock = false
             hidden = false
@@ -330,7 +330,7 @@ class NumberActionActivity : LockedActivity() {
     private var contactCheck: Job? = null
 
     /**
-     * L6: whether [text] is worth "Make a contact from this text" is the whole paste parser's work (number search per
+     * Whether [text] is worth "Make a contact from this text" is the whole paste parser's work (number search per
      * line), so it runs off the main thread and the row appears when it's known.
      */
     private fun offerContactLater(text: String, region: String?) {
@@ -813,7 +813,7 @@ class NumberActionActivity : LockedActivity() {
 }
 
 /**
- * Name for a temporary contact, prefilled with "WhatsApp · +92 300 1234567". F5: saved privately unless
+ * Name for a temporary contact, prefilled with "WhatsApp · +92 300 1234567". Saved privately unless
  * "Save visible to other apps" is ticked; [onSave] gets the name and that choice. [notice] is an extra line shown
  * first.
  */

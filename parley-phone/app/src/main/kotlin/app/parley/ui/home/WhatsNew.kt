@@ -46,7 +46,7 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
 /**
  * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
- * anything new arrives switched off. The one link is P8's "What Parley can do", which lists this release's rows first.
+ * anything new arrives switched off. The one link is "What Parley can do", which lists this release's rows first.
  * A fresh install gets a short "What Parley can do" introduction once instead ([IntroCard]).
  */
 @Composable

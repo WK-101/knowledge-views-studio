@@ -76,7 +76,7 @@ object NewNumberText {
 }
 
 /**
- * I14 "Changed my number": the people "Shared with" says still have an old number of yours, one at a time. Parley opens
+ * "Changed my number": the people "Shared with" says still have an old number of yours, one at a time. Parley opens
  * a chat (or an SMS) with the message filled in, like "Introduce myself": you press Send there, and when you come back
  * the next person is ready. "Send my card" shares your signed card instead, so their Parley offers the update by itself.
  * Nothing is ever sent for you.
@@ -94,7 +94,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     val parts by c.people.me.shareParts.collectAsStateWithLifecycle()
     val phones = own.cleaned().phones
     val number = phones.firstOrNull()
-    // M8: who to tell is read once and kept in saved state (name and number of each), so nobody drops out of the list
+    // Who to tell is read once and kept in saved state (name and number of each), so nobody drops out of the list
     // or gets skipped when the screen is recreated while you're in a chat.
     var saved by rememberSaveable { mutableStateOf<List<String>?>(null) }
     val read by rememberOutdated(vm, phones)
@@ -133,7 +133,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     }
 
     /**
-     * The person on screen counts as told only when you move on with Next (M8): opening a chat alone doesn't mean the
+     * The person on screen counts as told only when you move on with Next: opening a chat alone doesn't mean the
      * message was sent. Their "Shared with" receipt is written then.
      */
     fun next() {
@@ -157,7 +157,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     fun sendCard() {
         if (queue.current == null) return
         scope.launch {
-            // Name and numbers at least, so their Parley can match it to you; signed from the one card source (M4).
+            // Name and numbers at least, so their Parley can match it to you; signed from the one card source.
             val withNumbers = parts + MeCards.Part.NAME + MeCards.Part.PHONES
             val text = CardSharing.vcard(c, withNumbers)
             if (CardSharing.shareFile(c, context, text, subject)) opened(ShareMethod.CARD_FILE)
@@ -192,7 +192,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
 
 /**
  * The people "Shared with" says have an old number of yours (null while it's read). Private contacts are named from
- * the vault, and left out in discreet mode (M7).
+ * the vault, and left out in discreet mode.
  */
 @Composable
 private fun rememberOutdated(vm: AppViewModel, phones: List<String>): State<List<IntroQueue.Target>?> = produceState<List<IntroQueue.Target>?>(null) {

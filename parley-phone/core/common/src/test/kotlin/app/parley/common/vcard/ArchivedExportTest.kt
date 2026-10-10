@@ -24,8 +24,9 @@ class ArchivedExportTest {
         val notes = cards.single().notes!!
         assertTrue(notes.archived)
         assertFalse(notes.isEmpty)
-        // Any card keeps the flag on import, like "private": it only ever keeps a contact out of the lists.
-        assertTrue(notes.forImport(cards.single().record, fromSealed = false, region = "GB").archived)
+        // Only Parley's own encrypted file archives it again: a plain card can't plant a hidden, trusted contact.
+        assertFalse(notes.forImport(cards.single().record, fromSealed = false, region = "GB").archived)
+        assertTrue(notes.forImport(cards.single().record, fromSealed = true, region = "GB").archived)
     }
 
     @Test fun parleys_csv_has_an_archived_column_only_when_needed_and_reads_it_back_quietly() {
@@ -48,9 +49,9 @@ class ArchivedExportTest {
         val cards = ArrayList<ParsedCard>()
         ContactCsv.read(sb.toString().reader(), ImportReportBuilder()) { cards += it }
         assertEquals(2, cards.size)
-        // The import archives Ana again (as for a vCard), never puts her back in every app's address book.
+        // The column reads back, but a plain file doesn't archive anyone on import (ImportGuard).
         assertTrue(cards[0].notes!!.archived)
-        assertTrue(cards[0].notes!!.forImport(cards[0].record, fromSealed = false, region = "GB").archived)
+        assertFalse(cards[0].notes!!.forImport(cards[0].record, fromSealed = false, region = "GB").archived)
         assertEquals(null, cards[1].notes)
     }
 

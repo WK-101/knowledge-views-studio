@@ -2,6 +2,7 @@ package app.parley.data.sync.shared
 
 import app.parley.common.PhoneIdentity
 import app.parley.common.catching
+import app.parley.common.storage.DurableFiles
 import app.parley.common.sync.shared.FamilyHit
 import app.parley.common.sync.shared.FamilyShield
 import app.parley.common.sync.shared.OwnVerdict
@@ -111,10 +112,7 @@ class FamilyShieldStore(
             list.forEach { put(JSONObject().put("n", it.e164).put("k", it.kind.code).put("at", it.at).put("r", it.fromRule).put("w", it.withdrawn)) }
         }
         val sealed = sealer.seal(json.toString()) ?: return false
-        dir.mkdirs()
-        val tmp = File(dir, "$OWN_FILE.tmp")
-        tmp.writeText(sealed)
-        return tmp.renameTo(file) || (file.delete() && tmp.renameTo(file))
+        return DurableFiles.writeText(file, sealed)
     }
 
     /** The own verdicts with the block rules as they are now: a number blocked since is added, one unblocked goes. */

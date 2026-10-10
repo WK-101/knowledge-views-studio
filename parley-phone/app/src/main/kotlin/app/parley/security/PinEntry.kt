@@ -48,9 +48,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * I21: the lock screen's PIN field. The Parley PIN and the duress PIN behave exactly alike here (same wait, same
+ * The lock screen's PIN field. The Parley PIN and the duress PIN behave exactly alike here (same wait, same
  * screen after), so nobody watching can tell which was typed. Wrong PINs wait as [app.parley.common.security.PinBackoff]
- * says; the field is never kept in saved state. M7: with a Parley PIN only a PIN opens Parley, duress PIN or not, so
+ * says; the field is never kept in saved state. With a Parley PIN only a PIN opens Parley, duress PIN or not, so
  * this screen is the same either way (no fingerprint button that comes and goes).
  */
 @Composable

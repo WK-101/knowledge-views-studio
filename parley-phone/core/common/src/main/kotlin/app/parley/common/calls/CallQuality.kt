@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
 /**
- * Quality facts of one call as Telecom reported them (L2): which SIM, Wi-Fi calling, HD voice, how and why it ended,
- * how long it lasted, and the subject the caller sent (L10). Kept on this phone for the call history and a later
+ * Quality facts of one call as Telecom reported them: which SIM, Wi-Fi calling, HD voice, how and why it ended,
+ * how long it lasted, and the subject the caller sent. Kept on this phone for the call history and a later
  * quality diary; nothing here is sent anywhere.
  */
 @Serializable

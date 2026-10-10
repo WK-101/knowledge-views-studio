@@ -122,7 +122,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     var messageOn by remember { mutableStateOf(false) }
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
-    // L6: a private contact's menu shortcuts are on its own page (which hides them while the vault is locked); their
+    // A private contact's menu shortcuts are on its own page (which hides them while the vault is locked); their
     // names may hold the private name, so they never show here. Unknown until checked, so hidden until then.
     var privateNumber by remember(number) { mutableStateOf<Boolean?>(null) }
     // Checked again when the private contacts change: a number made private while the page is open loses its
@@ -243,7 +243,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     val flag = remember(number) { NumberInfo.flag(NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     LastMessagedNote(number)
-                    // I1: what Parley remembers about a number that isn't a contact, with its action.
+                    // What Parley remembers about a number that isn't a contact, with its action.
                     if (contact == null) app.parley.ui.memory.HistoryNumberMemory(vm, number, open)
                     // The same tiles as a contact's page: one icon per action, even widths, labels that wrap
                     // rather than break mid-word.
@@ -305,7 +305,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             item { ScreeningHistorySection(vm, number, contact?.displayName) }
             item { RingFactsHistorySection(vm, number) }
             item { CallFactsHistorySection(vm, number) }
-            // I6: menu shortcuts for this number (the only place for a number that isn't a contact).
+            // Menu shortcuts for this number (the only place for a number that isn't a contact).
             if (privateNumber == false) item { app.parley.ui.menus.MenuShortcutsBlock(vm, listOf(number), contact?.displayName ?: number, contact?.photoUri) }
             if (notes.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_call_notes)) }
@@ -317,7 +317,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                             IconButton({
                                 scope.launch {
                                     vm.c.meta.deleteCallNote(n.id)
-                                    // I7: a deleted call note no longer expects a call.
+                                    // A deleted call note no longer expects a call.
                                     runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.callNoteKey(n.id)) }
                                 }
                             }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_delete_note)) }

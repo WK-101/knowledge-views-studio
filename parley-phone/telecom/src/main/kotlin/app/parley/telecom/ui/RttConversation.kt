@@ -81,7 +81,7 @@ internal fun rttOf(callId: String?): RttUi {
 }
 
 /**
- * L3, under the caller: the other person's request to switch to RTT (Switch to RTT / Not now), "Asking to switch…",
+ * Under the caller: the other person's request to switch to RTT (Switch to RTT / Not now), "Asking to switch…",
  * a request that didn't work, or, with RTT on, the way back into the conversation. [onOpen] opens the sheet; it also
  * opens by itself the first time RTT comes on for the call.
  */
@@ -133,7 +133,7 @@ internal fun RttCallCard(call: CallUi, onOpen: () -> Unit, autoOpened: MutableSe
 }
 
 /**
- * L3: the RTT conversation, chat-like: their messages on the start side as they type them (an open one says it's
+ * The RTT conversation, chat-like: their messages on the start side as they type them (an open one says it's
  * still being typed), yours on the end side. Each letter typed in the field goes out at once ([CallRtt.type]); Send
  * ends the message. Audio mode, Save to the call's note (only when tapped) and Turn off RTT. After the call ends it
  * stays readable, and savable, until closed.

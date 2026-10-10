@@ -54,7 +54,7 @@ enum class CardArrival {
     DIFFERENT_SIGNER,
 }
 
-/** I14's rules for linking contacts to signed cards and taking in newer versions. */
+/** The rules for linking contacts to signed cards and taking in newer versions. */
 object CardLinks {
     fun arrival(link: CardLink?, card: SignedCard): CardArrival {
         val pending = link?.pending
@@ -68,7 +68,7 @@ object CardLinks {
         }
     }
 
-    /** A later version, or the same version sharing parts not seen yet (M3: a wider share isn't "the same card"). */
+    /** A later version, or the same version sharing parts not seen yet (a wider share isn't "the same card"). */
     private fun newer(version: Long, parts: Set<MeCards.Part>, seen: Long, seenParts: Set<MeCards.Part>): Boolean =
         version > seen || (version == seen && !seenParts.containsAll(parts))
 
@@ -122,7 +122,7 @@ enum class CardField { NAME, PHONE, EMAIL, COMPANY, TITLE, WEBSITE, ADDRESS }
 /**
  * One change an update offers for the contact: [old] → [new]. Added has no [old], removed no [new]. [label] is a
  * profile's service ("Instagram") for a website row. [preselected]: ticked when the dialog opens. Removals, names and
- * replacements of a value the user wrote themselves never are (H1, M2).
+ * replacements of a value the user wrote themselves never are (H1).
  */
 data class CardChange(
     val field: CardField,
@@ -142,8 +142,8 @@ data class CardChange(
  * only if it's missing, and a number that replaced another shows as one change. Numbers and fields the user added to
  * the contact themselves are never touched.
  *
- * Parts (M3): a part the new card doesn't share ([afterParts]) is unknown, never "removed"; a part the earlier card
- * didn't share ([beforeParts]) is compared as on a first link (only what is missing is added). Addresses (M2) are
+ * Parts: a part the new card doesn't share ([afterParts]) is unknown, never "removed"; a part the earlier card
+ * didn't share ([beforeParts]) is compared as on a first link (only what is missing is added). Addresses are
  * matched by the card's previous address among all of the contact's ([contactAddresses]), never "the first one".
  */
 object CardDiff {
@@ -186,7 +186,7 @@ object CardDiff {
         return out
     }
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // One field's comparison, with its options.
     private fun scalar(
         out: MutableList<CardChange>, field: CardField, before: String?, after: String, contact: String,
         removable: Boolean = true, same: (String, String) -> Boolean = { x, y -> x == y },
@@ -205,7 +205,7 @@ object CardDiff {
         }
     }
 
-    /** One address among the contact's: the card's previous one is replaced where the contact still has it (M2). */
+    /** One address among the contact's: the card's previous one is replaced where the contact still has it. */
     private fun address(out: MutableList<CardChange>, before: String?, after: String, contact: List<String>) {
         val same = { x: String, y: String -> letters(x) == letters(y) }
         if (before != null && same(before, after)) return

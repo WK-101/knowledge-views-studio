@@ -34,7 +34,7 @@ fun folderPlaceText(res: Resources, where: FolderLocation): String? = when (wher
 }
 
 /**
- * The Backup setup checker (P13): one status line at the top of the Backup screen, the most urgent thing first
+ * The Backup setup checker: one status line at the top of the Backup screen, the most urgent thing first
  * (passphrase, folder, a failed or unchecked backup, age, then where the folder lives), with the one fix it needs.
  * The folder is judged by its location alone; no file in it is read.
  */

@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The Parley PIN and the duress PIN: hashing, verification, the stored form and the backoff (I21). */
+/** The Parley PIN and the duress PIN: hashing, verification, the stored form and the backoff. */
 class AppPinTest {
     // A small scrypt cost keeps the tests fast; the app uses PinHasher.LOG2N.
     private fun record(pin: String = "246810") = PinHasher.create(pin, log2N = 10, r = 1, p = 1)

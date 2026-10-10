@@ -100,10 +100,6 @@
     <string name="set_contact_page_summary">Order, fold or hide the sections of a contact\'s page</string>
     <string name="set_contact_page_kw">contact page, sections, order, reorder, fold, collapse, expand, hide, timeline, layout, jump</string>
     <!-- Block from a swipe, with Undo -->
-    <plurals name="contacts_swipe_blocked">
-        <item quantity="one">Blocked %1$s</item>
-        <item quantity="other">Blocked %2$d numbers</item>
-    </plurals>
     <string name="contacts_swipe_already_blocked">Already blocked</string>
 
     <!-- One contact, several variants (docs/CONTACT_MODEL.md): private and temporary are shown as small chips, and the

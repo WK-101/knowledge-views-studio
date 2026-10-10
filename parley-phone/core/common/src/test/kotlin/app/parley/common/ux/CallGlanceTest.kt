@@ -25,7 +25,7 @@ class CallGlanceTest {
         assertEquals(CallClass.NO_ANSWER, CallClass.of(CallType.OUTGOING, 0))
         assertEquals(CallClass.BLOCKED, CallClass.of(CallType.BLOCKED, 0))
         assertEquals(CallClass.UNKNOWN, CallClass.of(CallType.UNKNOWN, 0))
-        // The class keeps the U3 colour family of its type.
+        // The class keeps the colour family of its call type.
         CallType.entries.forEach { t -> assertEquals(CallHue.of(t), CallClass.of(t, 5).hue) }
     }
 

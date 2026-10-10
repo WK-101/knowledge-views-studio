@@ -172,7 +172,7 @@ class SharedLabels(
     }
 
     /**
-     * The name a label joined from an invitation titled [base] gets here (M4): [base] when no label has it, else the
+     * The name a label joined from an invitation titled [base] gets here: [base] when no label has it, else the
      * first of [suffixed] that is free ("Family (shared)"). Joining never lands in a label because the names match.
      */
     suspend fun titleForJoin(base: String, suffixed: (Int) -> String): String =
@@ -198,7 +198,7 @@ class SharedLabels(
             val existing = store.get(i.labelId)
             val t = existing?.title ?: title.trim()
             val there = labels.label(t) != null
-            // M4: a new label's name was free when the screen offered it; taken since, it is not merged into.
+            // A new label's name was free when the screen offered it; taken since, it is not merged into.
             if (existing == null && there && !intoExisting) return@withContext null
             if (!there) {
                 val account = defaultAccount() ?: contacts.accounts().firstOrNull() ?: return@withContext null
@@ -384,7 +384,7 @@ class SharedLabels(
     }
 
     /**
-     * M4: whether renaming [old] to [new] would merge it with another label while either is shared: refused, since
+     * Whether renaming [old] to [new] would merge it with another label while either is shared: refused, since
      * the merged label's contacts would all be shared (renaming onto an existing name merges the two).
      */
     suspend fun renameWouldMerge(old: String, new: String): Boolean {

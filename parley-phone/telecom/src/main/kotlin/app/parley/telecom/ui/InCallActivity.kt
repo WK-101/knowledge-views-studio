@@ -241,7 +241,7 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
-    /** I10: hold mode dims the screen (the call goes on the speaker, the phone can lie on the table). */
+    /** Hold mode dims the screen (the call goes on the speaker, the phone can lie on the table). */
     @Composable
     private fun HoldModeEffects(calls: List<CallUi>) {
         val holdMode = calls.any { it.isLive && it.holdModeSince > 0 }
@@ -341,7 +341,7 @@ class InCallActivity : ComponentActivity() {
             CallActionReceiver.ACTION_MUTE, NotificationRequests.PIP_MUTE,
         ).apply { isEnabled = call.canMute }
         val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, NotificationRequests.PIP_HANG_UP)
-        // I10: in hold mode the window offers the way out ("They're back") first.
+        // In hold mode the window offers the way out ("They're back") first.
         val holdEnd = if (call.holdModeSince > 0) {
             action(R.drawable.ic_pip_hold_end, getString(R.string.holdmode_end), CallActionReceiver.ACTION_HOLD_MODE_END, NotificationRequests.PIP_HOLD_END)
         } else {

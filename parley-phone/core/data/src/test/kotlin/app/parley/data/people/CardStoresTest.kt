@@ -45,7 +45,7 @@ class CardStoresTest {
         val id = MyCardIdentity(context)
         val v1 = (SignedCards.check(signedVcard(id, ana)).single() as CardCheck.Signed).card
         assertTrue(v1.version > 0)
-        // Sharing again, or sharing fewer parts, is the same version (M4); the parts are signed with it (M3).
+        // Sharing again, or sharing fewer parts, is the same version; the parts are signed with it.
         val narrow = id.sign(ana, setOf(MeCards.Part.NAME))!!
         assertEquals(v1.version, narrow.version)
         assertEquals(setOf(MeCards.Part.NAME), narrow.parts)
@@ -67,7 +67,7 @@ class CardStoresTest {
         val oldKey = old.sign(ana, MeCards.defaultParts)!!.publicKey
         val oldVersion = old.version
         context.getSharedPreferences("my_card_identity", Context.MODE_PRIVATE).edit().clear().commit()
-        // M5: showing the QR code (signing) on the new phone doesn't make its own key "used".
+        // Showing the QR code (signing) on the new phone doesn't make its own key "used".
         val fresh = MyCardIdentity(context)
         val shown = fresh.sign(ana.copy(name = "Shown"), MeCards.defaultParts)!!.publicKey
         fresh.importJson(json)
@@ -75,7 +75,7 @@ class CardStoresTest {
         val after = fresh.sign(ana, MeCards.defaultParts)!!
         assertEquals(oldKey, after.publicKey)
         assertTrue(shown != after.publicKey)
-        // M6: versions never go back across a restore.
+        // Versions never go back across a restore.
         assertTrue(after.version >= oldVersion)
     }
 

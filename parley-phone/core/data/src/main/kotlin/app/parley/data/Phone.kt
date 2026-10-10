@@ -68,7 +68,7 @@ object PhoneEnv {
                 null
             }
 
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The ICCID is deprecated for apps but still read where Android gives it.
             val info = subs.firstOrNull { subId != null && it.subscriptionId == subId }
                 // Android 10 and some OEMs: the handle id is the ICCID or the subscription id itself.
                 ?: subs.firstOrNull { it.iccId == accountId || it.subscriptionId.toString() == accountId }

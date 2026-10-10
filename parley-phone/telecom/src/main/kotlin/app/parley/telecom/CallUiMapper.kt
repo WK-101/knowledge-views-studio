@@ -127,14 +127,14 @@ internal class CallUiMapper(
     /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
     private fun savedCaller(found: CallerDisplay?, d: Call.Details): Boolean = found != null || d.contactDisplayNameCompat() != null
 
-    /** Why a call rings silently when it isn't a blocking rule: an allowance used up, or the drive profile (I11). */
+    /** Why a call rings silently when it isn't a blocking rule: an allowance used up, or the drive profile. */
     private fun silenceReasonOf(s: CallSession): String? = when {
         s.quotaSilenced -> texts.str(R.string.call_silenced_quota)
         drive.silencedHere(s.id) -> texts.str(R.string.drive_silenced)
         else -> null
     }
 
-    /** I11: "Drive profile on" for a live call while the marked car is connected. */
+    /** "Drive profile on" for a live call while the marked car is connected. */
     private fun drivingNow(state: CallState): Boolean =
         state != CallState.DISCONNECTED && state != CallState.DISCONNECTING && context()?.let { drive.driving(it) } == true
 
@@ -142,11 +142,11 @@ internal class CallUiMapper(
     private fun neverCalls(s: CallSession, call: Call, number: String?, hidden: Boolean) =
         s.neverCallsYou && s.info != null && !hidden && !emergency.isCall(call, number)
 
-    /** I2's tag, for an unknown, visible, non-emergency caller only. */
+    /** The personal-reputation tag, for an unknown, visible, non-emergency caller only. */
     private fun reputationTag(s: CallSession, call: Call, number: String?, hidden: Boolean) =
         s.outcome?.reputation?.takeIf { !hidden && s.info == null && !emergency.isCall(call, number) }
 
-    /** P1 while it rings; the "rang through" line says it better than the quiet "Allowed by …" tag (a warning stays). */
+    /** While it rings; the "rang through" line says it better than the quiet "Allowed by …" tag (a warning stays). */
     private fun CallUi.withRangThrough(s: CallSession): CallUi {
         if (state != CallState.RINGING || s.silenced) return this
         val text = texts.rangThrough(s.outcome?.rangThrough) ?: return this

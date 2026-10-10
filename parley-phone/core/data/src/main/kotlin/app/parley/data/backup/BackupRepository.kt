@@ -77,6 +77,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.security.PrivateKey
 import java.time.Instant
 import java.time.ZoneId
@@ -323,10 +324,16 @@ class BackupRepository(
                 dataKey = enc.dataKey
                 // Signed with this phone's Keystore key, so a restore can tell this backup from one planted in the folder.
                 val signing = signer(bundle)?.let { ArchiveSigning(enc.header.bytes, it) }
-                val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device(), signing))
+                // Photos wait in a sealed temporary file, not in memory, until they are written at the end.
+                val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device(), signing), spoolDir())
                 writer.writeContacts(records.readAll(fullPhoto = true).onEach { contactCount++ })
                 writer.writeCallLog(callLog.exportAll().onEach { callCount++ })
-                callHistory?.let { h -> writer.writeCallHistory(h.backupLines()) }
+                callHistory?.let { h ->
+                    // Streamed: each archived call goes to the archive as it is read.
+                    val section = writer.callHistory()
+                    h.backupLines(section::add)
+                    section.end()
+                }
                 writer.writeBlocking(blocking())
                 writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
                 writer.writeNumberSims(prefsRepo.numberSims.first().map { NumberSimRecord(it.matchKey, it.phoneAccountId) })
@@ -350,8 +357,9 @@ class BackupRepository(
 
         // Verify: decrypt with this archive's key and check every entry's hash.
         val verified = try {
-            val reader = BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(doc)!!, dataKey) })
-            reader.contactCount == contactCount.toLong()
+            BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(doc)!!, dataKey) }, spoolDir = spoolDir()).use { reader ->
+                reader.contactCount == contactCount.toLong()
+            }
         } catch (_: Exception) {
             false
         }
@@ -583,6 +591,9 @@ class BackupRepository(
         files.filter { it.name in toDelete }.forEach { runCatching { DocumentsContract.deleteDocument(cr, it.uri) } }
     }
 
+    /** Where a backup's photos wait while it is written or read (each spool file is unlinked as soon as it is open). */
+    private fun spoolDir() = File(context.cacheDir, "backup_spool")
+
     // ------------------------------------------------------------------ restore
 
     /**
@@ -593,7 +604,8 @@ class BackupRepository(
         val header = cr.openInputStream(uri)!!.use { BackupCrypto.readHeader(it) }
         val opened = BackupCrypto.open(header, unlock)
         val key = opened.dataKey
-        val reader = BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(uri)!!, key) })
+        // Photos are spooled, sealed, to a temporary file the reader lets go of when it is no longer used.
+        val reader = BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(uri)!!, key) }, spoolDir = spoolDir())
         // The user just proved they hold this phone's backup secret: let it vouch for this phone if it didn't yet.
         val mine = prefs.keyBundle()
         if (mine != null && opened.bundle?.keyId == mine.keyId && !prefs.state.value.signedAsYours) {

@@ -52,7 +52,7 @@ class AgendaBridge(private val app: Context, private val c: DataContainer) : Age
 object AgendaTicks {
     suspend fun setDone(c: DataContainer, target: AgendaTarget, text: String, done: Boolean): Boolean {
         val note = c.agenda.setDone(target, text, done) ?: return false
-        // I7: a number's note may have opened an expected call; it follows the note as it is now.
+        // A number's note may have opened an expected call; it follows the note as it is now.
         catching { ExpectedCallHints.promiseTicked(c, target.parleyKey.orEmpty(), note) }
         return true
     }

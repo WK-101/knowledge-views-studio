@@ -68,7 +68,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     val screenedCalls: Flow<List<BlockedCallEntity>> = dao.screenedCalls()
 
     /**
-     * Latest screening verdict per line ([verdictKey]: E.164 read with the country of the SIM that took the call, F7),
+     * Latest screening verdict per line ([verdictKey]: E.164 read with the country of the SIM that took the call),
      * for Recents' second line.
      */
     val verdictIndex: StateFlow<Map<String, VerdictSummary>> = dao.screenedCalls()
@@ -176,7 +176,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     /** Ring lengths recorded since [since] (personal reputation reads them in the daily run). */
     suspend fun ringsSince(since: Long): List<CallRingEntity> = dao.rings(since).first()
 
-    /** Rings of this line; rows written before F7 were keyed by the last 9 digits and are still read. */
+    /** Rings of this line; rows written before keys became E.164 were keyed by the last 9 digits and are still read. */
     suspend fun ringsFor(number: String) =
         PhoneIdentity.lookupKeys(number, PhoneEnv.countryIso(context)).flatMap { dao.ringsFor(it) }.distinctBy { it.id }.sortedByDescending { it.startedAt }
 

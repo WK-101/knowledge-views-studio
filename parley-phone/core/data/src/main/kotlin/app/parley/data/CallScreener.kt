@@ -93,7 +93,7 @@ class CallScreener(
     private val labelRingtones: suspend () -> Map<String, String> = { emptyMap() },
     /** Earlier calls with the caller (repeat callers, "called back"), read from the system log. */
     private val callLog: CallLogRepository? = null,
-    /** I2: what your own calls say about a number, learned daily; looked up in memory here. */
+    /** What your own calls say about a number, learned daily; looked up in memory here. */
     private val reputation: ReputationStore? = null,
     /** The family spam shield: verdicts shared in shared labels, looked up in memory. */
     private val family: app.parley.data.sync.shared.FamilyShieldStore? = null,
@@ -268,7 +268,7 @@ class CallScreener(
         it.screening.copy(repeatCallers = it.repeatCallerRingsThrough, expected = runCatching { expectedWindows() }.getOrDefault(emptyList()))
     }
 
-    /** I7: the expected-call windows in force (sealed in their own store); none until set at start. */
+    /** The expected-call windows in force (sealed in their own store); none until set at start. */
     @Volatile
     var expectedWindows: suspend () -> List<ExpectedWindow> = { emptyList() }
 
@@ -457,13 +457,13 @@ class CallScreener(
     }
 
     /**
-     * I2: a lookup only (learned in the daily run). Only for [unknown] callers: never contacts or emergency numbers, nor
+     * A lookup only (learned in the daily run, so the ring never waits for it). Only for [unknown] callers: never contacts or emergency numbers, nor
      * replays of past calls (today's index was learned from those very calls).
      */
     private fun reputationOf(number: String, iso: String, s: ScreeningSettings, unknown: Boolean): Reputation? {
         if (!unknown || !s.learnFromCalls) return null
         val store = reputation ?: return null
-        // From memory only (L7): an index not read yet gives no tag this time and is read in the background.
+        // From memory only, so the ring never waits on storage: an index not read yet gives no tag this time and is read in the background.
         if (!store.isLoaded) scope.launch(Dispatchers.IO) { runCatching { store.load() } }
         return runCatching { store.lookupLoaded(number, iso) }.getOrNull()
     }
@@ -496,7 +496,7 @@ class CallScreener(
         } else {
             emptySet()
         }
-        // I21: after a duress unlock their own ringtone would set the call apart from an unknown number's; rules,
+        // After a duress unlock their own ringtone would set the call apart from an unknown number's; rules,
         // labels and "send to voicemail" still apply, so nobody who was kept out rings through.
         val ringtone = p.ringtone.takeUnless { Privacy.duressOnly().hides(Concealed.PRIVATE_RINGTONES) }
         return PrivateCaller(hit.second.name, p.starred, labels, ringtone, p.sendToVoicemail)

@@ -197,7 +197,7 @@ class FavoritesWidget : AppWidgetProvider() {
          * Widget [id] drawn for each size it can take ([FavoritesWidgetPlan.layouts]): the launcher picks the one for the
          * screen as it is, so a rotation needs no redraw and the grid never plans for room it doesn't have.
          */
-        @Suppress("LongParameterList")
+        @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
         private fun views(
             ctx: Context, id: Int, manager: AppWidgetManager, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
             unlockInParley: Boolean,
@@ -231,7 +231,7 @@ class FavoritesWidget : AppWidgetProvider() {
         }
 
         /** One drawing of widget [id] with [grid]. [unlockInParley]: only Parley is locked, so a tap opens it to unlock. */
-        @Suppress("LongParameterList")
+        @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
         private fun sized(
             ctx: Context, id: Int, grid: FavoritesWidgetPlan.Grid, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
             unlockInParley: Boolean,
@@ -279,7 +279,7 @@ class FavoritesWidget : AppWidgetProvider() {
             return v
         }
 
-        @Suppress("LongParameterList")
+        @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
         private fun cell(
             ctx: Context, id: Int, index: Int, t: FavoritesWidgetPlan.Tile, tap: FavoritesWidgetPlan.Tap, photos: HashMap<Long, Bitmap>,
         ): RemoteViews {

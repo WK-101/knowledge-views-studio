@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.drop
 import java.io.File
 
 /**
- * Number memory (I1, P12): "who is this?" for a number that isn't a contact, from what Parley already keeps on this
+ * Number memory: "who is this?" for a number that isn't a contact, from what Parley already keeps on this
  * phone. The index ([NumberMemoryIndex]) covers the stores that must be opened or scanned to be searched: contacts
  * deleted in Parley, deleted private contacts, the daily snapshots, the call-history archive (with the names calls
  * showed then), notes, moments and promises that mention a number, and relations that still name a deleted contact.

@@ -163,7 +163,7 @@ object CallerTune {
 
     /**
      * The file a tune is kept in. Made from a hash, never the name itself, so the file name (which other apps may
-     * show as the ringtone's title) doesn't say who it is for. L8: 64 bits of SHA-256 over the name's letters and the
+     * show as the ringtone's title) doesn't say who it is for. 64 bits of SHA-256 over the name's letters and the
      * variant, so two people's tunes never share a file (a 32-bit hash could, and `save` would hand out the other's).
      */
     fun fileName(name: String, variant: Int): String {

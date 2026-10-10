@@ -302,7 +302,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
         }
         val temporaryTip = tipPending(Tips.CONCEPT_TEMPORARY)
         LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp)) {
-            // P18: what temporary means, once.
+            // What temporary means, once.
             if (temporaryTip) item(key = "tip") { CoachMark(Tips.CONCEPT_TEMPORARY, stringResource(R.string.tip_concept_temporary)) }
             // Due ones wait for an answer (never deleted without one): the notification's choice, here too.
             if (settings.askBeforeDeletingTemporary && due.isNotEmpty()) {

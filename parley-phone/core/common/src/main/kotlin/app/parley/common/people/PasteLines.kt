@@ -92,7 +92,7 @@ internal object PasteLines {
 
     private fun value(line: Int, f: Field) = Piece(line, Role.VALUE, f.value, f)
 
-    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    @Suppress("CyclomaticComplexMethod", "LongMethod") // One rule per field a line can hold, in order.
     private fun segment(line: Int, seg: String, region: String?, hinted: Hinted, addressOpen: Boolean): Out {
         var text = seg
         var forced: Label? = null
@@ -190,6 +190,7 @@ internal object PasteLines {
      * there, or when the text marks it as one (a label, a leading "+", the classifier). Each found number and its
      * label are blanked in [mask].
      */
+    // A single scan over the line, as phone numbers can sit anywhere in it.
     @Suppress("CyclomaticComplexMethod", "NestedBlockDepth", "LoopWithTooManyJumpStatements")
     private fun phones(line: Int, mask: StringBuilder, region: String?, forced: Label?, hinted: Hinted): List<Piece> {
         val text = mask.toString()

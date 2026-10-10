@@ -4,7 +4,7 @@ import app.parley.common.SettingsCatalog
 import app.parley.common.TextSearch
 
 /**
- * Tools (P8, once "What Parley can do"): the one hub, grouped by what people want done rather than by where a feature
+ * Tools (once "What Parley can do"): the one hub, grouped by what people want done rather than by where a feature
  * lives. Each row is one line and opens the feature; each job shows its [Capability.featured] rows and folds the rest
  * under "More". The rows come from [CapabilityCatalog] only, so the page, its search and the What's new card can't
  * disagree, and a test checks that every row still leads somewhere.

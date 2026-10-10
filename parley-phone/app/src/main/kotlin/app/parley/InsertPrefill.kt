@@ -58,7 +58,7 @@ object InsertPrefill {
         val sites = ArrayList<DataItem>()
         val events = ArrayList<EventItem>()
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION") // The untyped getter is the only one before Android 13.
         val rows: List<ContentValues> = (
             if (Build.VERSION.SDK_INT >= 33) intent.getParcelableArrayListExtra(Insert.DATA, ContentValues::class.java)
             else intent.getParcelableArrayListExtra(Insert.DATA)
@@ -109,7 +109,7 @@ object InsertPrefill {
     }
 
     /**
-     * Adds the prefill's multi-value rows to an existing contact draft ("add to existing", "Add to <name>"). L9: values
+     * Adds the prefill's multi-value rows to an existing contact draft ("add to existing", "Add to <name>"). Values
      * the contact already has aren't added twice (numbers, emails, websites, addresses, dates; a second birthday
      * never), and the prefill's blank rows (a new editor's empty phone row) aren't carried along.
      */

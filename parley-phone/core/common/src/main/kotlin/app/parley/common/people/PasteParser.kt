@@ -119,7 +119,7 @@ object PasteParser {
      * the next person. A "person" without any phone or email isn't one (a city, a slogan): its lines go back to the
      * one before.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod") // One rule per sign that a new person starts.
     private fun people(pieces: List<Piece>): List<List<Piece>> {
         val out = ArrayList<MutableList<Piece>>()
         var cur = ArrayList<Piece>()

@@ -48,13 +48,13 @@ class InteractionStore(private val dao: InteractionDao) {
     }
 
     /**
-     * A note that can't be opened (key reset) reads as none; the entry itself stays. After a duress unlock (I21) every
+     * A note that can't be opened (key reset) reads as none; the entry itself stays. After a duress unlock every
      * note reads as none too, promises included ([reveal]: the undo copy of a deleted entry, never shown).
      */
     private fun open(e: InteractionEntity, reveal: Boolean = false): String? {
         val blob = e.noteBlob
+            // A note written while hiding shows as written; one typed over a hidden note shows instead of it.
         if (!reveal && Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)) {
-            // L1: a note written while hiding shows as written; one typed over a hidden note shows instead of it.
             val t = token(e.id)
             if (Concealment.hasOverlay(t)) return Concealment.overlay(t)
             if (!Concealment.writtenWhileHiding(t)) return null
@@ -67,7 +67,7 @@ class InteractionStore(private val dao: InteractionDao) {
 
     /**
      * What an edit stores for [note]: while notes are hidden an existing note is kept as it is, never cleared or
-     * replaced unseen ([note] then shows instead of it, in memory, L1); a note written while hiding is stored.
+     * replaced unseen ([note] then shows instead of it, in memory); a note written while hiding is stored.
      */
     private fun noteToStore(e: InteractionEntity, note: String?): ByteArray? {
         if (!Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)) return seal(note)
@@ -86,7 +86,7 @@ class InteractionStore(private val dao: InteractionDao) {
         InteractionChannel.decode(channel), time, open(this, reveal), dedupeKey,
     )
 
-    /** Re-emits when the duress hiding starts or ends, or what it shows changes (L1). */
+    /** Re-emits when the duress hiding starts or ends, or what it shows changes. */
     private val hiding = Privacy.duressChanges
 
     /** [lookupKey]'s interactions, newest first (again when a duress unlock hides or shows the notes). */
@@ -137,7 +137,7 @@ class InteractionStore(private val dao: InteractionDao) {
                 dedupeKey = dedupeKey,
             ),
         )
-        // L1: a note written while hiding shows as written (not one put back by Undo: that one was hidden).
+        // A note written while hiding shows as written (not one put back by Undo: that one was hidden).
         if (id > 0 && written && !note.isNullOrBlank()) Concealment.markWritten(token(id))
         id.takeIf { it > 0 }
     }
@@ -160,7 +160,7 @@ class InteractionStore(private val dao: InteractionDao) {
     /** (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
     suspend fun touchesSince(since: Long): List<InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
 
-    /** Changes whenever any interaction is added, edited or deleted (R7 widget refresh). */
+    /** Changes whenever any interaction is added, edited or deleted (the widget refreshes on it). */
     val changes: Flow<Int> get() = dao.countFlow()
 
     /** Deletes one entry and returns it, so the caller can offer Undo ([restore]). */

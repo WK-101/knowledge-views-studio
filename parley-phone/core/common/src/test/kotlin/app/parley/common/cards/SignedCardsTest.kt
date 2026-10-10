@@ -111,7 +111,7 @@ class SignedCardsTest {
         assertEquals(CardArrival.OLDER, CardLinks.arrival(settled, v1))
     }
 
-    // ---- M1: what shows as signed is what an importer saves.
+    // ---- What shows as signed is what an importer saves.
 
     private fun broken(text: String) = assertTrue(text, only(text) is CardCheck.Broken)
 
@@ -188,7 +188,7 @@ class SignedCardsTest {
         assertEquals(2, SignedCards.count(text))
     }
 
-    // ---- M3: the parts a share includes are signed.
+    // ---- The parts a share includes are signed.
 
     @Test fun the_shared_parts_are_signed() {
         val parts = setOf(MeCards.Part.NAME, MeCards.Part.PHONES)
@@ -202,7 +202,7 @@ class SignedCardsTest {
         broken(text.replace("END:VCARD", "EMAIL:mallory@example.org\r\nEND:VCARD"))
     }
 
-    // ---- L4, M6.
+    // ---- Parts never repeat.
 
     @Test fun profile_label_and_link_cannot_be_shifted() {
         val a = CardFields(profiles = listOf(CardProfile("a\tb", "c")))

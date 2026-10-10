@@ -17,7 +17,7 @@ import app.parley.common.calls.FailureKind
 internal class CallTexts(private val context: () -> Context?) {
     fun str(res: Int): String? = context()?.getString(res)
 
-    /** P1: "Rang through: called twice in 3 min", "Rang through: expecting a call", … */
+    /** "Rang through: called twice in 3 min", "Rang through: expecting a call", … */
     fun rangThrough(r: RangThrough?): String? {
         val ctx = context()
         if (r == null || ctx == null) return null
@@ -33,7 +33,7 @@ internal class CallTexts(private val context: () -> Context?) {
         }
     }
 
-    /** I7: what turned "Expecting a call" on; the note's name shows only while unlocked (see [expectedNote]). */
+    /** What turned "Expecting a call" on; the note's name shows only while unlocked (see [expectedNote]). */
     private fun expecting(source: ExpectedSource?): Int = when (source) {
         ExpectedSource.NOTE -> R.string.call_rang_expecting_notes
         ExpectedSource.TO_CALL -> R.string.call_rang_expecting_to_call
@@ -41,7 +41,7 @@ internal class CallTexts(private val context: () -> Context?) {
         null -> R.string.call_rang_expecting
     }
 
-    /** I7: "Rang through: expecting a call (note on Dentist)", for the unlocked screen only; null for anything else. */
+    /** "Rang through: expecting a call (note on Dentist)", for the unlocked screen only; null for anything else. */
     fun expectedNote(r: RangThrough?): String? {
         val ctx = context()
         if (r?.kind != RangThroughKind.EXPECTING || r.expected != ExpectedSource.NOTE || ctx == null) return null

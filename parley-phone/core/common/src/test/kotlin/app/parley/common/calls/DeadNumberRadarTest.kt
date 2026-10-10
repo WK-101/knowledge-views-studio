@@ -15,7 +15,7 @@ class DeadNumberRadarTest {
     private fun at(day: Int, hour: Int = 10): Long = LocalDateTime.of(2026, 9, day, hour, 0).toInstant(zone).toEpochMilli()
 
     /** An outgoing call on September [day] that failed with telephony's [cause] after [after] seconds. */
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList") // A test builder: every fact of the call can be set.
     private fun failed(
         day: Int,
         cause: String? = "UNOBTAINABLE_NUMBER",

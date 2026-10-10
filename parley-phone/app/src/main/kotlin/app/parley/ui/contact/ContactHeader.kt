@@ -129,7 +129,7 @@ private fun ActionTiles(ctx: ContactPageContext) {
     val primary = ctx.primary
     val preferredCall = ctx.preferredCall
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        // Press and hold Call (through the phone) for "Call with a reason…" (I12).
+        // Press and hold Call (through the phone) for "Call with a reason…".
         val reasonNumber = primary?.value?.takeIf { preferredCall == null && CallReason.offered(it) }
         ActionTile(
             Icons.Rounded.Call, preferredCall?.appName ?: stringResource(R.string.main_call), ctx.canCall,

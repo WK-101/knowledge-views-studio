@@ -40,7 +40,7 @@ import app.parley.ui.startOrSay
 import app.parley.ui.systemMessage
 import java.time.ZoneId
 
-/** The fixed times of "Remind me" (L1/P2), in words, for the call screen and the app's To call list. */
+/** The fixed times of "Remind me", in words, for the call screen and the app's To call list. */
 object RemindTimes {
     /** "In 1 hour", "This evening, 18:00", "Tomorrow morning, 09:00". */
     fun label(context: Context, choice: RemindTime, at: Long): String = when (choice) {
@@ -68,7 +68,7 @@ object RemindTimes {
 internal fun offersDeclineFollowUp(call: CallUi): Boolean = !call.hidden && !call.number.isNullOrBlank() && !call.isEmergency
 
 /**
- * The incoming ⋮ menu's follow-ups (P2): "Decline & remind" opens its three fixed times in place, and "Decline &
+ * The incoming ⋮ menu's follow-ups: "Decline & remind" opens its three fixed times in place, and "Decline &
  * message or call on…" declines, then opens that sheet once the phone is unlocked. [close] closes the menu.
  */
 @Composable
@@ -133,7 +133,7 @@ private fun messageOnIntent(context: Context, number: String, accountId: String?
 private const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
 private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivity"
 
-/** "Remind me" on the post-call card (L1): the three fixed times, then [onDone]. */
+/** "Remind me" on the post-call card: the three fixed times, then [onDone]. */
 @Composable
 internal fun RemindMeAction(number: String, accountId: String?, onDone: () -> Unit) {
     val context = LocalContext.current

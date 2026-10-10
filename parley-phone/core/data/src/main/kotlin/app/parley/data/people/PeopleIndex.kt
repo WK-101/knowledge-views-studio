@@ -32,9 +32,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-/** An account with how many contacts it holds (shown wherever accounts are listed). */
-data class AccountCount(val account: AccountRef, val contacts: Int)
-
 data class PeopleIndexData(
     val extras: Map<Long, PersonExtra> = emptyMap(),
     /** Distinct contacts per account. */

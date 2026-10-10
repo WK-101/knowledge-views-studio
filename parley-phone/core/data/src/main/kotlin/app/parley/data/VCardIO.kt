@@ -21,6 +21,8 @@ import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
 import app.parley.common.vcard.VCardStream
 import app.parley.common.vcard.CardNotes
+import app.parley.common.vcard.ImportGuard
+import app.parley.common.qr.ScannedCard
 import app.parley.common.vcard.SealedVCard
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.CancellationException
@@ -126,7 +128,8 @@ class VCardIO(
     /**
      * Imports a .vcf (2.1, 3.0 or 4.0) or a CSV in [ContactCsv] format from [source] into [account]; the format is
      * detected from the content. With [skipDuplicates], cards matching an existing contact (same number or e-mail,
-     * or same name when the card has neither) are not imported, and neither are repeats within the file.
+     * or same name when the card has neither) are not imported, and neither are repeats within the file. A file that
+     * isn't encrypted plants no hidden or trusted contact ([ImportGuard]).
      */
     suspend fun import(
         source: Uri,
@@ -142,7 +145,8 @@ class VCardIO(
 
     /**
      * Imports a vCard file; with [passphrase], an encrypted one ([SealedVCard]). Cards marked private by an open export
-     * become private contacts again ([NotesSink]).
+     * become private contacts again ([NotesSink]). [keep] are the flags the user ticked back on for a scanned card
+     * ([ScannedCard]); a plain file keeps no other ([ImportGuard]).
      */
     suspend fun importVCard(
         source: Uri,
@@ -150,10 +154,11 @@ class VCardIO(
         progress: (Int, Int) -> Unit = { _, _ -> },
         skipDuplicates: Boolean = false,
         passphrase: CharArray? = null,
+        keep: Set<ScannedCard.Flag> = emptySet(),
     ): ImportReport = withContext(Dispatchers.IO) {
         // An encrypted file can't be counted without opening it: its progress has no total.
         val total = if (passphrase == null) countCards(source) else 0
-        runImport(account, total, progress, skipDuplicates, fromSealed = passphrase != null) { report, sink ->
+        runImport(account, total, progress, skipDuplicates, fromSealed = passphrase != null, keep = keep) { report, sink ->
             val raw = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
             val input = if (passphrase != null) SealedVCard.open(raw, passphrase) else raw
             VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
@@ -207,6 +212,7 @@ class VCardIO(
         progress: (Int, Int) -> Unit,
         skipDuplicates: Boolean,
         fromSealed: Boolean = false,
+        keep: Set<ScannedCard.Flag> = emptySet(),
         parse: (ImportReportBuilder, (ParsedCard) -> Unit) -> Unit,
     ): ImportReport {
         val region = PhoneEnv.countryIso(context)
@@ -235,8 +241,11 @@ class VCardIO(
         }
         parse(report) { read ->
             ctx.ensureActive()
-            // Parley's notes count only from a file Parley encrypted, and only on the card's own numbers (CardNotes.forImport).
-            val card = read.notes?.let { ParsedCard(read.index, read.record, read.raw, it.forImport(read.record, fromSealed, region)) } ?: read
+            // Parley's notes count only from a file Parley encrypted, and only on the card's own numbers (CardNotes.forImport);
+            // a plain file's archive, favourite, voicemail, ringtone and other apps' data are left out (ImportGuard).
+            val notes = read.notes?.forImport(read.record, fromSealed, region)
+            val guarded = ImportGuard.guard(read.record, notes, fromSealed, keep)
+            val card = ParsedCard(read.index, guarded.record, read.raw, guarded.notes)
             seen++
             if (existing?.matches(card.record) == true) {
                 report.skippedDuplicates++
@@ -289,40 +298,31 @@ class VCardIO(
     }
 
     /**
-     * About how many contacts a file holds (vCards, or non-blank CSV lines less a header), without parsing it,
-     * so a large import can offer "Back up first?". 0 when the file can't be read.
+     * A quick, bounded look at [source] before it is imported ([ImportGuard.Scan]): about how many contacts (vCards, or
+     * non-blank CSV lines less a header), so a large import can offer "Back up first?"; how many marked private, so
+     * their unlock can be asked first; and what a plain import will leave out. It never
+     * reads more than [ImportGuard.SCAN_CHARS] or one over-long line, so a crafted endless file can't exhaust the
+     * memory of the process that also hosts the call screen. Empty when the file can't be read.
      */
-    suspend fun estimateCount(source: Uri): Int = withContext(Dispatchers.IO) {
-        if (!looksLikeCsv(source)) return@withContext countCards(source)
+    suspend fun preScan(source: Uri): ImportGuard.Scan = withContext(Dispatchers.IO) {
+        val csv = looksLikeCsv(source)
         try {
             cr.openInputStream(source)?.use { input ->
-                VCardStream.reader(input).buffered().useLines { lines -> (lines.count { it.isNotBlank() } - 1).coerceAtLeast(0) }
-            } ?: 0
+                VCardStream.reader(input).use { r ->
+                    if (!csv) return@use ImportGuard.scanVCards(r)
+                    ImportGuard.scanLines(r).let { it.copy(entries = (it.entries - 1).coerceAtLeast(0)) }
+                }
+            } ?: EMPTY_SCAN
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
-            0
+            EMPTY_SCAN
         }
     }
 
-    /**
-     * Whether the file holds a card marked private (an open export with private contacts), so the import can ask for
-     * the private contacts' unlock before it starts instead of reporting those cards as not imported. One streaming
-     * pass, no parsing; false when the file can't be read.
-     */
-    suspend fun holdsPrivate(source: Uri): Boolean = withContext(Dispatchers.IO) {
-        try {
-            cr.openInputStream(source)?.use { input ->
-                VCardStream.reader(input).buffered().useLines { lines -> lines.any { it.trimStart().startsWith(CardNotes.X_PRIVATE, ignoreCase = true) } }
-            } ?: false
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    /** Counts BEGIN:VCARD lines so progress can show a total. Cheap: one streaming pass, no parsing. */
+    /** Counts cards so progress can show a total ([preScan], bounded). */
     private fun countCards(source: Uri): Int = try {
-        cr.openInputStream(source)?.use { input ->
-            VCardStream.reader(input).buffered().useLines { lines -> lines.count { it.trimStart().startsWith("BEGIN:VCARD", ignoreCase = true) } }
-        } ?: 0
+        cr.openInputStream(source)?.use { input -> VCardStream.reader(input).use { ImportGuard.scanVCards(it).entries } } ?: 0
     } catch (_: Exception) {
         0
     }
@@ -349,5 +349,6 @@ class VCardIO(
         private const val TAG = "VCardIO"
         private const val INSERT_BATCH = 50
         private const val PROGRESS_EVERY = 25
+        private val EMPTY_SCAN = ImportGuard.Scan(0, 0, ImportGuard.Dropped.NONE, capped = false)
     }
 }

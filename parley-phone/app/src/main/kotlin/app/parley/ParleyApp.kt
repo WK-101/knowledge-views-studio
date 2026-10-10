@@ -64,7 +64,7 @@ class ParleyApp : Application() {
         container = DataContainer(this)
         // The privacy view knows when Parley's own lock is engaged (case files and the call path read it).
         container.privacy.bindAppLock(AppLock.locked)
-        // Parley is English-only: a language picked in an older version is dropped once, off the main thread (L7).
+        // Parley is English-only: a language picked in an older version is dropped once, off the main thread.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)
@@ -93,14 +93,18 @@ class ParleyApp : Application() {
             // A private contact's picture shared from the cache (decrypted) goes with the rest.
             container.scope.launch(Dispatchers.IO) { ImageExport.forgetPrivate(this@ParleyApp) }
         }
-        // I21: locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
+        // Locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
         // real Parley PIN.
         AppLock.onEngaged = { LockTransitions.locked(container) }
         // Widgets hide names when Parley's lock delay runs out after leaving it, not only at the next screen-on.
         AppLock.onAway = { delay -> WidgetLockRefresh.schedule(this, delay) }
         AppLock.onBack = { WidgetLockRefresh.cancel(this) }
-        // The lock screen asks for a Parley PIN or the fingerprint: which one is read before it shows.
-        container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.appPin.load() } }
+        // The lock screen asks for a Parley PIN or the fingerprint: which one is read as the UI starts (the lock screen
+        // reads it itself if it comes first). Not in a process started for a ringing call: it is a Keystore operation.
+        container.scope.launch(Dispatchers.IO) {
+            container.fullStart.await()
+            suspendRunCatching { container.appPin.load() }
+        }
         // The screen going off forgets opened private details (and the Contacts search's docs made from them),
         // whether or not the app lock is on: the vault never keeps them while the phone is locked.
         ContextCompat.registerReceiver(

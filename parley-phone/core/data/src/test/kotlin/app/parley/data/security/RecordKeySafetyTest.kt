@@ -85,9 +85,9 @@ class RecordKeySafetyTest {
         FakeAndroidKeyStore.failure = { UnrecoverableKeyException("keystore2 system error") }
         val crypto = RecordCrypto.fresh(context)
         val context2 = context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE)
-        context2.edit().putBoolean("done_v1", true).commit()
+        context2.edit().putBoolean("done_v2", true).commit()
         assertEquals("kept plain rather than lost", "New note", crypto.sealText("New note"))
-        assertFalse("the next sealing run picks it up", context2.getBoolean("done_v1", true))
+        assertFalse("the next sealing run picks it up", context2.getBoolean("done_v2", true))
         assertNull(crypto.openText(sealed))
         // Nothing was replaced or deleted, and there is nothing to tell the user.
         assertEquals(aliases, recordAliases())

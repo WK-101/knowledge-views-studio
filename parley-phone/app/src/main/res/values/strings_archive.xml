@@ -3,7 +3,7 @@
     <!-- Archive: a contact out of the lists and other apps, kept by Parley and still named on calls. -->
     <string name="archive_action">Archive</string>
     <string name="archive_title">Archive %1$s?</string>
-    <string name="archive_body">They leave your contact lists, search, widgets and other apps. Parley still names their calls and finds them when you search everything. You can bring them back from Contacts › ⋮ › Archived.</string>
+    <string name="archive_body">They leave your contact lists, search, widgets and other apps. They also leave the account they\'re saved in, such as Google, so your other phones and computers lose them too. Parley still names their calls and finds them when you search everything. Old calls in Android\'s call log may still show the name. You can bring them back from Contacts › ⋮ › Archived.</string>
     <string name="archive_done">%1$s is archived</string>
     <string name="archive_done_synced">%1$s is archived. Other apps lose it after the account\'s next sync.</string>
     <string name="archive_failed">Couldn\'t archive this contact. Nothing changed.</string>
@@ -26,6 +26,13 @@
         <item quantity="one">%d contact archived. Find it in Contacts › ⋮ › Archived.</item>
         <item quantity="other">%d contacts archived. Find them in Contacts › ⋮ › Archived.</item>
     </plurals>
+    <plurals name="archive_n_title">
+        <item quantity="one">Archive %d contact?</item>
+        <item quantity="other">Archive %d contacts?</item>
+    </plurals>
+    <string name="archive_n_body">They leave your contact lists, search, widgets and other apps. Saved contacts also leave the account they\'re in, such as Google, so your other phones and computers lose them too. Private ones stay private. Parley still names their calls. Old calls in Android\'s call log may still show the names. You can bring them back from Contacts › ⋮ › Archived.</string>
+    <string name="archive_n_failed">Couldn\'t archive these contacts. Nothing changed.</string>
+    <string name="archive_undo_failed">Couldn\'t put everyone back. Find them in Contacts › ⋮ › Archived.</string>
     <string name="archive_private_body">They leave your contact lists and search, and stay private: kept only in Parley, behind your private-contacts lock. Parley still names their calls as it does for private contacts. You can bring them back from Contacts › ⋮ › Archived.</string>
     <string name="archive_private_unarchived">%1$s is back in your private contacts</string>
     <string name="archive_private_failed">Couldn\'t archive this private contact. Nothing changed.</string>

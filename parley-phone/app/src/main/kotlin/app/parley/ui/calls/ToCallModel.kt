@@ -46,7 +46,7 @@ data class ToCallRow(
 }
 
 /**
- * The To call list (I9) as Recents and its screen show it: the stored items and the missed calls not returned yet
+ * The To call list as Recents and its screen show it: the stored items and the missed calls not returned yet
  * ([ToCall.entries]), named like Recents names calls (a private contact only outside discreet mode). Calls made or
  * answered since an item was set settle it ([ToCall.settle]). Lives in [app.parley.ui.home.RecentsViewModel], which
  * already holds the merged calls and the missed calls to return.

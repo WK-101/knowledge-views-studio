@@ -102,7 +102,7 @@ sealed interface ContactDialog {
             else -> arrayListOf<Any>(d.toString())
         }
 
-        @Suppress("UNCHECKED_CAST")
+        @Suppress("UNCHECKED_CAST") // The saved list is the one save() wrote, so each slot has the type read back.
         fun restore(v: List<Any>): ContactDialog? = when (v.firstOrNull()) {
             "MenuSheet" -> MenuGroup.entries.firstOrNull { it.name == v[1] }?.let(::MenuSheet)
             "EditInteraction" -> EditInteraction(v[1] as Long)

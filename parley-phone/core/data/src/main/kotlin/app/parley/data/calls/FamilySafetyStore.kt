@@ -23,8 +23,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Family safety (WP-8): the safe words per label (I4), the helpers (I5) and the expected-call windows with the answers
- * to "Expecting a call from your notes?" (I7). One small document in its own preferences file, sealed with the vault's
+ * Family safety: the safe words per label, the helpers and the expected-call windows with the answers
+ * to "Expecting a call from your notes?". One small document in its own preferences file, sealed with the vault's
  * caller-ID key like private contacts' caller cards and Circle notes: the call path reads it while the phone is locked,
  * and nothing in it is readable at rest. Backups carry it inside their own encryption ([backupState], [restore]), so a
  * move to a new phone keeps the safe words, helpers and windows.
@@ -78,15 +78,15 @@ class FamilySafetyStore(context: Context) {
         _summary.value = Summary(visibleWords().keys, doc.helpers, doc.consents, doc.windows)
     }
 
-    /** I21: after a duress unlock no safe word shows, not even which labels have one. */
+    /** After a duress unlock no safe word shows, not even which labels have one. */
     private val wordsHidden: Boolean get() = Privacy.duressOnly().hides(Concealed.SAFE_WORDS)
 
-    /** L1: safe words set over a hidden one while hiding, by label: shown instead of it, in memory, never stored over it. */
+    /** Safe words set over a hidden one while hiding, by label: shown instead of it, in memory, never stored over it. */
     private val overWords = HashMap<String, SafeWord>()
 
     private fun token(label: String) = "safeword:${label.trim()}"
 
-    /** The safe words that show now: all, or while hiding only those set since (L1). */
+    /** The safe words that show now: all, or while hiding only those set since. */
     private fun visibleWords(): Map<String, SafeWord> =
         if (!wordsHidden) doc.safeWords else doc.safeWords.filterKeys { Concealment.writtenWhileHiding(token(it)) } + overWords
 
@@ -130,7 +130,7 @@ class FamilySafetyStore(context: Context) {
     suspend fun restore(backup: FamilySafetyState, region: String?): Boolean =
         write { it.restoredFrom(backup, System.currentTimeMillis(), region) }
 
-    // ---- I4 safe words
+    // ---- Safe words
 
     /** The safe word of [label] (question and answer), for a screen the user just unlocked; null when none. */
     suspend fun safeWord(label: String): SafeWord? = withContext(Dispatchers.IO) {
@@ -143,7 +143,7 @@ class FamilySafetyStore(context: Context) {
     }
 
     /**
-     * Sets or removes [label]'s safe word. L1: while safe words are hidden a new one is stored and shows as set, as on
+     * Sets or removes [label]'s safe word. While safe words are hidden a new one is stored and shows as set, as on
      * any phone; one set over a hidden safe word shows instead of it, in memory only, since storing it would replace
      * one the screen can't show.
      */
@@ -193,7 +193,7 @@ class FamilySafetyStore(context: Context) {
         if (words.isNotEmpty()) write { it.copy(safeWords = LabelRefs.undoDeleteEntries(it.safeWords, words)) }
     }
 
-    // ---- I5 helpers
+    // ---- Helpers
 
     suspend fun helpers(): List<Helper> {
         load()
@@ -202,7 +202,7 @@ class FamilySafetyStore(context: Context) {
 
     suspend fun setHelpers(list: List<Helper>): Boolean = write { it.copy(helpers = list) }
 
-    // ---- I7 expected-call hints
+    // ---- Expected-call hints
 
     /** The windows that are on now or still to come, for screening (each call reads them; nothing heavy). */
     suspend fun windows(now: Long = System.currentTimeMillis()): List<ExpectedWindow> {

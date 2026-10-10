@@ -30,7 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 /**
- * What a cold start costs to list the private contacts (PERFORMANCE B9), with a stand-in Keystore that counts its
+ * What a cold start costs to list the private contacts, with a stand-in Keystore that counts its
  * operations: before, one AndroidKeyStore decryption per private contact; now, the rows kept from the last run open
  * with one key unwrap for all of them, and only a changed or new contact is opened itself. The rows are the same
  * either way. Timings print to the test log, with each Keystore operation costed as on a mid-range phone.
@@ -194,7 +194,7 @@ class PrivateListingCostTest {
         const val PRIVATE = 500
         const val WRAP = "parley_vault_summaries_wrap"
 
-        /** One AndroidKeyStore AES operation on a mid-range phone's TEE (PERFORMANCE B1/B9: 2–5 ms). */
+        /** One AndroidKeyStore AES operation on a mid-range phone's TEE (2–5 ms). */
         const val KEYSTORE_OP_MS = 3L
     }
 }

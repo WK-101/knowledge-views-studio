@@ -32,7 +32,7 @@ class QrScanTileService : TileService() {
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         } else {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION") // The Intent form is the only one before Android 14.
             startActivityAndCollapse(intent)
         }
     }

@@ -1,6 +1,7 @@
 package app.parley.data.people
 
 import app.parley.common.Hex
+import app.parley.common.storage.DurableFiles
 import java.io.ByteArrayOutputStream
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,7 +9,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.CallerPhoto
+import app.parley.common.people.ContactRef
 import app.parley.data.ContactsRepository
+import app.parley.data.security.RecordSealing
+import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,14 +20,19 @@ import kotlinx.coroutines.withContext
 import android.util.Log
 import java.io.File
 import java.io.IOException
+import java.security.GeneralSecurityException
 import java.security.MessageDigest
 
 /**
  * Per-contact call-screen backgrounds. The picked image is copied (downscaled) into Parley's private storage,
  * keyed by the contact's lookup key, so it keeps working when the original is deleted and when contact ids change
  * (unlike a stored content URI or contact id). Included in the encrypted backup through [PeopleBackupExtras].
+ *
+ * A private contact's picture is sealed with the caller-ID key, like its photo (`<hash>.sealed`, opened in memory by
+ * the vault photo provider for Parley's own screens); a device contact's is a plain JPEG (`<hash>.jpg`), as its photo
+ * in the address book is. One written plain before this rule is sealed by [resealPlain].
  */
-class CallBackgrounds(context: Context, private val contacts: ContactsRepository) {
+class CallBackgrounds(context: Context, private val contacts: ContactsRepository) : RecordSealing.Resealable {
     private val app = context.applicationContext
     private val dir = File(app.filesDir, "call_backgrounds")
 
@@ -33,14 +42,30 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     private fun fileFor(lookupKey: String): File = File(dir, sha256(lookupKey) + ".jpg")
 
+    private fun sealedFor(lookupKey: String): File = File(dir, sha256(lookupKey) + SEALED)
+
+    /** Whether [lookupKey] has a picture, sealed or plain. */
+    private fun has(lookupKey: String) = sealedFor(lookupKey).isFile || fileFor(lookupKey).isFile
+
     /**
      * The background of a contact, as a file URI string, or null. The file keeps its name when the picture is
      * replaced, so the URI carries the file's time: image caches keyed by URI (the preview, the call screen) then
      * load the new picture instead of showing the old one. Opening a `file:` URI ignores the query.
      */
-    fun forLookupKey(lookupKey: String?): String? =
-        lookupKey?.takeIf { it.isNotEmpty() }?.let(::fileFor)?.takeIf { it.isFile }
+    fun forLookupKey(lookupKey: String?): String? {
+        if (lookupKey.isNullOrEmpty()) return null
+        sealedFor(lookupKey).takeIf { it.isFile }?.let { f ->
+            return "content://${app.packageName}.vaultphotos/$SEALED_PATH/${sha256(lookupKey)}/${f.lastModified()}"
+        }
+        return fileFor(lookupKey).takeIf { it.isFile }
             ?.let { Uri.fromFile(it).buildUpon().appendQueryParameter("v", it.lastModified().toString()).build().toString() }
+    }
+
+    /** A sealed picture by its hashed key, opened in memory (for the vault photo provider); null when there is none. */
+    fun sealedBytes(hash: String): ByteArray? {
+        if (!HASH.matches(hash)) return null
+        return runCatching { File(dir, hash + SEALED).takeIf { it.isFile }?.readBytes()?.let(VaultCrypto::openCallerId) }.getOrNull()
+    }
 
     /**
      * Hook for the in-call screen: the background for a caller's number, or null. Blocking (a contacts lookup);
@@ -80,25 +105,55 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         } catch (e: IOException) {
             Log.w(TAG, "Couldn't store the call screen picture", e)
             SetResult.NOT_SAVED
+        } catch (e: GeneralSecurityException) {
+            // A private contact's picture is never stored plain: nothing is saved while the key can't be used.
+            Log.w(TAG, "Couldn't seal the call screen picture", e)
+            SetResult.NOT_SAVED
         }
     }
 
     suspend fun clear(lookupKey: String) = withContext(Dispatchers.IO) {
         fileFor(lookupKey).delete()
+        sealedFor(lookupKey).delete()
         _version.value++
     }
 
+    /** Stores [jpeg] for [lookupKey]: sealed for a private contact (throws when it can't be sealed), plain otherwise. */
     internal fun write(lookupKey: String, jpeg: ByteArray) {
-        dir.mkdirs()
-        val target = fileFor(lookupKey)
-        val tmp = File(dir, target.name + ".tmp")
-        tmp.writeBytes(jpeg)
-        if (!tmp.renameTo(target)) {
-            tmp.delete()
-            throw IOException("Couldn't move the call screen picture into place")
+        if (ContactRef.isPrivateKey(lookupKey)) {
+            DurableFiles.writeOrThrow(sealedFor(lookupKey), sealCallerId(jpeg))
+            fileFor(lookupKey).delete()
+        } else {
+            DurableFiles.writeOrThrow(fileFor(lookupKey), jpeg)
+            sealedFor(lookupKey).delete()
         }
         remember(lookupKey)
         _version.value++
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Whatever the Keystore throws means the same: not sealed now.
+    private fun sealCallerId(jpeg: ByteArray): ByteArray = try {
+        VaultCrypto.sealCallerId(jpeg)
+    } catch (e: GeneralSecurityException) {
+        throw e
+    } catch (e: Exception) {
+        throw GeneralSecurityException("The caller-ID key can't be used now", e)
+    }
+
+    /** Private contacts' pictures written plain by older versions, sealed now; false while one still can't be. */
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
+        var left = 0
+        for (key in indexedKeys().filter(ContactRef::isPrivateKey)) {
+            val plain = fileFor(key).takeIf { it.isFile } ?: continue
+            try {
+                synchronized(this@CallBackgrounds) { if (plain.isFile) write(key, plain.readBytes()) }
+            } catch (e: Exception) {
+                Log.w(TAG, "A private call screen picture stays unsealed for now: ${e.javaClass.simpleName}")
+                left++
+            }
+        }
+        left == 0
     }
 
     // ---- Keys. File names are hashes, so an index remembers which lookup key each background belongs to;
@@ -108,20 +163,17 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     /** Lookup keys that have a background, as far as the index knows. */
     @Synchronized
-    fun indexedKeys(): Set<String> = runCatching { indexFile.readLines().filter { it.isNotBlank() && fileFor(it).isFile }.toSet() }.getOrDefault(emptySet())
+    fun indexedKeys(): Set<String> = runCatching { indexFile.readLines().filter { it.isNotBlank() && has(it) }.toSet() }.getOrDefault(emptySet())
 
     @Synchronized
     private fun writeIndex(keys: Set<String>) {
-        dir.mkdirs()
-        val tmp = File(dir, "index.txt.tmp")
-        tmp.writeText(keys.sorted().joinToString("\n"))
-        tmp.renameTo(indexFile)
+        DurableFiles.writeText(indexFile, keys.sorted().joinToString("\n"))
     }
 
     /** Records that [lookupKey] has a background (also used to index backgrounds made before the index existed). */
     @Synchronized
     fun remember(lookupKey: String) {
-        if (!fileFor(lookupKey).isFile) return
+        if (!has(lookupKey)) return
         val keys = indexedKeys()
         if (lookupKey !in keys) writeIndex(keys + lookupKey)
     }
@@ -131,10 +183,19 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
     fun move(from: String, to: String) {
         if (from == to) return
         movePhotoChoice(from, to)
-        val src = fileFor(from)
-        if (!src.isFile) return
-        val dst = fileFor(to)
-        if (dst.isFile) src.delete() else src.renameTo(dst)
+        if (!has(from)) return
+        if (has(to)) {
+            fileFor(from).delete()
+            sealedFor(from).delete()
+        } else if (fileFor(from).isFile && !ContactRef.isPrivateKey(to)) {
+            DurableFiles.move(fileFor(from), fileFor(to))
+        } else {
+            // Into or out of the private side: sealed or opened on the way (left where it is if that can't be done).
+            val bytes = read(from) ?: return
+            runCatching { write(to, bytes) }.onFailure { Log.w(TAG, "A call screen picture couldn't follow its contact now") }.getOrNull() ?: return
+            fileFor(from).delete()
+            sealedFor(from).delete()
+        }
         writeIndex(indexedKeys() - from + to)
         _version.value++
     }
@@ -177,20 +238,17 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     @Synchronized
     private fun writeChoices(next: Map<String, Boolean>) {
-        dir.mkdirs()
-        val tmp = File(dir, choicesFile.name + ".tmp")
-        runCatching {
-            tmp.writeText(CallerPhoto.encode(next))
-            if (!tmp.renameTo(choicesFile)) tmp.delete()
-        }
+        DurableFiles.writeText(choicesFile, CallerPhoto.encode(next))
         choices = next
         _version.value++
     }
 
-    internal fun read(lookupKey: String): ByteArray? = fileFor(lookupKey).takeIf { it.isFile }?.readBytes()
+    internal fun read(lookupKey: String): ByteArray? = sealedFor(lookupKey).takeIf { it.isFile }?.let { sealedBytes(sha256(lookupKey)) }
+        ?: fileFor(lookupKey).takeIf { it.isFile }?.readBytes()
 
     /** Every stored background by hashed key (the key itself isn't recoverable from the file name). */
-    internal fun storedHashes(): Set<String> = dir.listFiles().orEmpty().filter { it.name.endsWith(".jpg") }.map { it.name.removeSuffix(".jpg") }.toSet()
+    internal fun storedHashes(): Set<String> = dir.listFiles().orEmpty()
+        .filter { it.name.endsWith(".jpg") || it.name.endsWith(SEALED) }.map { it.name.substringBefore('.') }.toSet()
 
     internal fun hashOf(lookupKey: String) = sha256(lookupKey)
 
@@ -215,5 +273,10 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
     companion object {
         const val MAX_SIDE = 1280
         private const val TAG = "CallBackgrounds"
+        private const val SEALED = ".sealed"
+
+        /** The vault photo provider's path for sealed call-screen pictures: `bg/<hash>/<version>`. */
+        const val SEALED_PATH = "bg"
+        private val HASH = Regex("[0-9a-f]{64}")
     }
 }

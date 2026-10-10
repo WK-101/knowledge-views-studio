@@ -23,7 +23,7 @@ import app.parley.common.circle.Interactions
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 
-/** A Circle message with an optional Undo (R2 delete, removing someone from the Circle). */
+/** A Circle message with an optional Undo (a deletion, or removing someone from the Circle). */
 class CircleSnack(val text: String, val undo: (suspend () -> Unit)? = null)
 
 /** Circle messages for the app's snackbar ([CircleSnackHost]). */

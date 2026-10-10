@@ -31,9 +31,6 @@ object ParleyMotion {
     fun <T> fastSpatial(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.fastSpatialSpec()
 
     @Composable @ReadOnlyComposable
-    fun <T> slowSpatial(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.slowSpatialSpec()
-
-    @Composable @ReadOnlyComposable
     fun <T> effects(): FiniteAnimationSpec<T> = MaterialTheme.motionScheme.defaultEffectsSpec()
 
     @Composable @ReadOnlyComposable

@@ -92,7 +92,7 @@ data class ToCallCount(val due: Int, val later: Int) {
 }
 
 /**
- * The "To call" list (I9): one list of the calls you owe, fed by "Remind me" (on a declined call, a missed-call
+ * The "To call" list: one list of the calls you owe, fed by "Remind me" (on a declined call, a missed-call
  * notification, the post-call card), follow-ups set after a call, and unreturned missed calls. Pure: the app stores
  * [ToCallState], feeds in the missed calls and the calls that settle items, and schedules one inexact reminder at
  * [nextAlarm].

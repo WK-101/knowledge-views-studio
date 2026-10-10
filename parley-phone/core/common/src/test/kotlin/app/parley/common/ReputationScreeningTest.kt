@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek
 
-/** I2: personal reputation in the screening precedence (a tag by default, a soft silence when asked). */
+/** Personal reputation in the screening precedence (a tag by default, a soft silence when asked). */
 class ReputationScreeningTest {
     private val clock = PolicyClock(1_700_000_000_000L, DayOfWeek.MONDAY, 12 * 60)
     private val n = "+33612345601"
@@ -90,7 +90,7 @@ class ReputationScreeningTest {
         val f = facts().copy(history = listOf(PastCall(clock.millis - 90_000, outgoing = false, durationSec = 0)))
         val r = decide(f, ScreeningSettings(silenceSalesLines = true))
         assertEquals(AllowReason.REPEAT, r.allowedBy)
-        // P1: it says why it rang.
+        // It says why it rang.
         assertEquals(RangThroughKind.REPEAT_CALLER, r.rangThrough?.kind)
     }
 
