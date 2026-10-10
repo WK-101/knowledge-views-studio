@@ -1,8 +1,8 @@
 package app.parley.calls
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
+import app.parley.common.testing.testCall
 import app.parley.data.DataItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -25,7 +25,7 @@ class NumberSignalsTest {
     }
 
     @Test fun the_call_history_passed_in_clears_a_line_that_works() {
-        fun call(type: CallType, date: Long, sec: Long = 0) = CallEntry(date, "07700 900123", null, type, date, sec, null, false, false)
+        fun call(type: CallType, date: Long, sec: Long = 0) = testCall(date, "07700 900123", null, type, date, sec)
         val calls = listOf(call(CallType.OUTGOING, 30), call(CallType.OUTGOING, 20, sec = 45), call(CallType.MISSED, 10))
         assertEquals(20L, NumberSignals.aliveSince(calls, "GB")["+447700900123"])
         assertNull(NumberSignals.aliveSince(listOf(call(CallType.OUTGOING, 30)), "GB")["+447700900123"])

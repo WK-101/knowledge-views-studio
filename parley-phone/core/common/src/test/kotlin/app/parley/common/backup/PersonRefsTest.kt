@@ -1,18 +1,16 @@
 package app.parley.common.backup
 
-import app.parley.common.ContactSummary
-import app.parley.common.PhoneEntry
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
 import app.parley.common.calltime.ReminderSettings
+import app.parley.common.testing.testContact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class PersonRefsTest {
-    private fun contact(id: Long, key: String, name: String, vararg numbers: String) =
-        ContactSummary(id, key, name, null, false, numbers.map { PhoneEntry(it, 2, null) })
+    private fun contact(id: Long, key: String, name: String, vararg numbers: String) = testContact(id, name, key, *numbers)
 
     private val here = listOf(
         contact(1, "k-ana", "Ana Silva", "+33 6 12 34 56 78"),

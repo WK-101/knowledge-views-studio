@@ -1,14 +1,14 @@
 package app.parley.common.calls
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.SettingsCatalog
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RecentsGroupingTest {
     private fun call(id: Long, number: String, day: Long, type: CallType = CallType.INCOMING, hidden: Boolean = false) =
-        CallEntry(id, number, null, type, day * 86_400_000L + id, 0, null, false, hidden)
+        testCall(id, number, null, type, day * 86_400_000L + id, 0, presentationHidden = hidden)
 
     private val calls = listOf(
         call(9, "111", 2), call(8, "111", 2), call(7, "222", 2), call(6, "111", 2),

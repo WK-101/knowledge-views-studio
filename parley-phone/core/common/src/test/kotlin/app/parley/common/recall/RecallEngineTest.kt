@@ -1,11 +1,11 @@
 package app.parley.common.recall
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.people.ContactListSearch
 import app.parley.common.people.ContactSearch
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -37,7 +37,7 @@ class RecallEngineTest {
     private val ana = contact(-7, "Ana Private", "+351 913 000 007")
 
     private fun call(id: Long, number: String, type: CallType, date: Long, name: String? = null, sec: Long = 60) =
-        CallEntry(id, number, name, type, date, sec, null, isNew = false, presentationHidden = false)
+        testCall(id, number, name, type, date, sec)
 
     private val calls = listOf(
         call(10, "+351 213 000 002", CallType.INCOMING, at(2026, 9, 29)),

@@ -1,6 +1,7 @@
 package app.parley.common
 
 import app.parley.common.blocking.PersonalReputation
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -66,7 +67,7 @@ class LineMatchingTest {
     @Test fun reputation_groups_by_line() {
         val h = 3_600_000L
         val now = 100 * h
-        fun call(n: String, t: Long) = CallEntry(t, n, null, CallType.REJECTED, t, 0, null, false, false)
+        fun call(n: String, t: Long) = testCall(t, n, null, CallType.REJECTED, t, 0)
         // One rejection each from two different countries sharing the last 9 digits: neither reaches the threshold.
         val calls = listOf(call(fr, now - 5 * h), call(es, now - 4 * h))
         assertTrue(PersonalReputation.suggestions(calls, now, countryOf = { "FR" }) { false }.isEmpty())
