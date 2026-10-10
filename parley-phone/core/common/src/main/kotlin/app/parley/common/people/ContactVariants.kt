@@ -123,6 +123,9 @@ enum class KeptAs {
         else -> null
     }
 
+    /** "Delete automatically" is offered: an archived contact is kept until Unarchive and never deletes itself. */
+    val offersDeleteAutomatically: Boolean get() = this != ARCHIVED
+
     /** The choices offered from here, each with whether it can be picked now (Visible waits for Unarchive). */
     fun choices(): List<Pair<KeptAs, Boolean>> = entries.map { it to (it == this || stepTo(it) != null) }
 

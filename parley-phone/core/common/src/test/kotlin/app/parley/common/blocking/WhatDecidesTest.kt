@@ -40,12 +40,19 @@ class WhatDecidesTest {
 
     /** The older lock-screen notes switch folds into "Caller on the lock screen": never more than the person chose. */
     @Test fun the_lock_screen_notes_switch_folds_into_one_rule() {
-        assertEquals(LockScreenCaller.NAME_AND_NOTES, LockScreenCaller.folded(LockScreenCaller.NAME, notesSwitch = true))
+        // Under Name the switch showed only the last note and promises; "Name and notes" would add the pinned note,
+        // "Who is this?" and the last call, so Name stays Name.
+        assertEquals(LockScreenCaller.NAME, LockScreenCaller.folded(LockScreenCaller.NAME, notesSwitch = true))
         assertEquals(LockScreenCaller.NAME, LockScreenCaller.folded(LockScreenCaller.NAME, notesSwitch = false))
+        assertEquals(LockScreenCaller.NAME_AND_NOTES, LockScreenCaller.folded(LockScreenCaller.NAME_AND_NOTES, notesSwitch = false))
         // Initials or nothing stay so: the switch no longer adds notes under them.
         assertEquals(LockScreenCaller.INITIALS, LockScreenCaller.folded(LockScreenCaller.INITIALS, notesSwitch = true))
         assertEquals(LockScreenCaller.NONE, LockScreenCaller.folded(LockScreenCaller.NONE, notesSwitch = true))
-        assertEquals(LockScreenCaller.NAME_AND_NOTES, app.parley.common.AppSettings().withLockScreenNotes(notesSwitch = true).lockScreenCaller)
+        assertEquals(LockScreenCaller.NAME, app.parley.common.AppSettings().withLockScreenNotes(notesSwitch = true).lockScreenCaller)
+        // Never more on the lock screen than before, whatever was chosen.
+        LockScreenCaller.entries.forEach { c ->
+            assertTrue(c.name, LockScreenCaller.folded(c, notesSwitch = true).ordinal >= c.ordinal)
+        }
     }
 
     @Test fun the_people_card_is_one_choice() {

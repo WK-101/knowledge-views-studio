@@ -47,8 +47,9 @@ object BlockingSetup {
     }
 
     /**
-     * The older "Notes on the lock screen" switch (a Circle setting) folds into "Caller on the lock screen": on with
-     * names shown, it becomes "Name and notes"; then it is off for good. Also after restoring an older backup.
+     * The older "Notes on the lock screen" switch (a Circle setting) folds into "Caller on the lock screen": the choice
+     * there stays as it is ([app.parley.common.calls.LockScreenCaller.folded], never more on the lock screen than
+     * before) and the switch is off for good. Also after restoring an older backup.
      */
     suspend fun foldLockScreenNotes(c: DataContainer) {
         if (!c.circle.config.value.memoryOnLockScreen) return

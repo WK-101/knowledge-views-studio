@@ -107,11 +107,11 @@ class CapabilityCatalogTest {
     }
 
     @Test fun whats_new_names_the_releases_headline_rows() {
-        assertEquals(listOf("help"), CapabilityCatalog.headline("6.4.0").map { it.key })
-        // Featured rows first, at most three.
-        val six = CapabilityCatalog.headline("6.0.0")
-        assertEquals(listOf("search_everything", "situations"), six.map { it.key })
-        assertTrue(CapabilityCatalog.headline("6.2", max = 3).size == 3)
+        // 6.4 gave the 6.x features their rows: its headline is what became visible, featured first.
+        assertEquals(listOf("search_everything", "situations", "help"), CapabilityCatalog.headline("6.4.0").map { it.key })
+        // Rows Tools didn't show in 6.0 aren't "new in 6.0".
+        assertEquals(emptyList<String>(), CapabilityCatalog.headline("6.0.0").map { it.key })
+        assertEquals(listOf("rescue_call"), CapabilityCatalog.headline("6.2", max = 3).map { it.key })
         assertEquals(emptyList<Capability>(), CapabilityCatalog.headline("1.0"))
     }
 

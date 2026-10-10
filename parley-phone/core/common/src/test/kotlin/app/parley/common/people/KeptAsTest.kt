@@ -29,6 +29,13 @@ class KeptAsTest {
         assertTrue(KeptAs.VISIBLE.choices().all { it.second })
     }
 
+    /** An archived contact is kept until Unarchive: "Delete automatically" isn't offered on its page. */
+    @Test fun an_archived_contact_never_deletes_itself() {
+        assertTrue(KeptAs.VISIBLE.offersDeleteAutomatically)
+        assertTrue(KeptAs.PRIVATE.offersDeleteAutomatically)
+        assertEquals(false, KeptAs.ARCHIVED.offersDeleteAutomatically)
+    }
+
     private fun card(id: Long, name: String, number: String, private: Boolean = false) =
         ArchivedView.Match(id, name, private) to listOf(number)
 

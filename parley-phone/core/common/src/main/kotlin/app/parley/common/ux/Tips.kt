@@ -136,4 +136,25 @@ object WhatsNew {
         freshInstall -> Decision.INTRO
         else -> Decision.SHOW
     }
+
+    /**
+     * The release ("6.2") the user last saw a card for. Builds before 6.4 stored only the version code, so those
+     * codes are looked up here; null when nothing usable was stored (the card then names this release's rows).
+     */
+    fun lastSeenRelease(seenName: String?, seenVersion: Int): String? =
+        seenName?.takeIf { it.isNotBlank() }?.let(CapabilityCatalog::majorMinor) ?: RELEASE_OF_CODE[seenVersion]
+
+    /** Version codes of the releases that stored no name (from the build file's history). */
+    private val RELEASE_OF_CODE: Map<Int, String> = mapOf(
+        16 to "4.5", 17 to "4.6", 18 to "4.7", 19 to "5.0", 20 to "5.0", 21 to "5.1", 22 to "5.2", 23 to "5.3",
+        24 to "5.3", 25 to "5.4", 26 to "5.5", 27 to "5.6", 28 to "5.7", 29 to "6.0", 30 to "6.1", 31 to "6.2",
+        32 to "6.2", 33 to "6.2", 34 to "6.2", 35 to "6.3",
+    )
+
+    /**
+     * The rows an update card names: what Tools started showing since the release seen last ([CapabilityCatalog.visibleSince]).
+     * A fresh install never gets here (it has the introduction instead).
+     */
+    fun named(seenName: String?, seenVersion: Int, currentName: String, max: Int = 5): List<Capability> =
+        CapabilityCatalog.visibleSince(lastSeenRelease(seenName, seenVersion), currentName, max)
 }

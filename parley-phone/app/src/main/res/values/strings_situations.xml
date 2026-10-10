@@ -123,4 +123,6 @@
     <string name="sit_notice_text">Others ring silently and show as missed calls, until you turn it off</string>
     <!-- %1$s a time ("11:00"). -->
     <string name="sit_notice_text_until">Others ring silently and show as missed calls, until %1$s</string>
+    <!-- On because a device is connected or the phone is abroad: it goes off by itself when that ends. -->
+    <string name="sit_notice_text_while">Others ring silently and show as missed calls, until it turns off by itself</string>
 </resources>

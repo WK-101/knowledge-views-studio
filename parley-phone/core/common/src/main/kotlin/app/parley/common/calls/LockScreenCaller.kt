@@ -55,10 +55,12 @@ enum class LockScreenCaller {
     companion object {
         /**
          * The rule once the older "Notes on the lock screen" switch ([notesSwitch], a Circle setting) is folded into
-         * this one: someone who showed names and had the switch on keeps their notes ("Name and notes"). Every other
-         * choice stays as it is, so the switch no longer adds notes under Initials or Nothing, as it used to.
+         * this one: the choice stays exactly as it is. The switch only ever added the last note and open promises
+         * under Name; turning Name into "Name and notes" would also bring the pinned note, "Who is this?" and the
+         * last call to the lock screen, more than the person ever chose. So the switch retires, the lock screen never
+         * shows more than before, and "Name and notes" is one tap away for anyone who wants notes there.
          */
-        fun folded(current: LockScreenCaller, notesSwitch: Boolean): LockScreenCaller =
-            if (notesSwitch && current == NAME) NAME_AND_NOTES else current
+        @Suppress("UNUSED_PARAMETER", "UnusedParameter") // The switch is named so callers and tests say what they fold.
+        fun folded(current: LockScreenCaller, notesSwitch: Boolean): LockScreenCaller = current
     }
 }
