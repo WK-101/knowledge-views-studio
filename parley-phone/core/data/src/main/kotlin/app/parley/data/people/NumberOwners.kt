@@ -119,6 +119,12 @@ class NumberOwners internal constructor(
 
         /** Some lookup failed: "nobody saved it" can't be said for sure. */
         val unsure: Boolean get() = contactFailed || privateFailed || archivedFailed
+
+        /**
+         * [saved] as the call path must read it: true or false when that is known, null when nobody was found but a
+         * lookup failed. A caller that silences or warns about unknown numbers treats null as saved (it fails open).
+         */
+        val savedOrUnknown: Boolean? get() = if (saved) true else if (unsure) null else false
     }
 
     /** The lookups behind [Found] (tests give their own). */

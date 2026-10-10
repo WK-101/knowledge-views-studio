@@ -97,15 +97,23 @@ class FamilyShieldStore(
 
     // ---------------------------------------------------------------- this phone's own verdicts
 
-    private fun read(): List<ShieldOwn> = runCatching {
-        val text = sealer.open(file.readText()) ?: return emptyList()
-        val a = JSONArray(text)
-        (0 until a.length()).mapNotNull { i ->
-            val o = a.optJSONObject(i) ?: return@mapNotNull null
-            val kind = ShieldKind.of(o.optString("k")) ?: return@mapNotNull null
-            ShieldOwn(o.getString("n"), kind, o.optLong("at"), o.optBoolean("r"), o.optBoolean("w"))
-        }
-    }.getOrDefault(emptyList())
+    /**
+     * The stored own verdicts: empty when there are none yet (or the file is damaged), null when it is there but can't
+     * be opened now (the Keystore busy). Null is never written over: it holds the "Don't share" and withdrawn entries.
+     */
+    private fun read(): List<ShieldOwn>? {
+        if (!file.exists()) return emptyList()
+        val text = runCatching { file.readText() }.getOrNull() ?: return null
+        val opened = runCatching { sealer.open(text) }.getOrNull() ?: return null
+        return runCatching {
+            val a = JSONArray(opened)
+            (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                val kind = ShieldKind.of(o.optString("k")) ?: return@mapNotNull null
+                ShieldOwn(o.getString("n"), kind, o.optLong("at"), o.optBoolean("r"), o.optBoolean("w"))
+            }
+        }.getOrDefault(emptyList())
+    }
 
     private fun write(list: List<ShieldOwn>): Boolean {
         val json = JSONArray().apply {
@@ -115,41 +123,65 @@ class FamilyShieldStore(
         return DurableFiles.writeText(file, sealed)
     }
 
-    /** The own verdicts with the block rules as they are now: a number blocked since is added, one unblocked goes. */
-    private suspend fun refreshed(): List<ShieldOwn> {
-        val stored = read()
-        val rules = catching { blockedNumbers() }.getOrNull() ?: return stored
-        val out = FamilyShieldOwn.withRules(stored, rules.toSet(), clock())
-        if (out != stored) write(out)
+    /**
+     * Numbers blocked here with "Don't share" until their block rule is seen and the choice is stored: the rule is
+     * written just after the choice, and the choice may not reach storage at once (the Keystore busy). Kept in memory
+     * so that, meanwhile, no look at the rules shares them.
+     */
+    private val pendingPrivate = LinkedHashSet<String>()
+
+    /** [stored] with every pending "Don't share" choice in it. */
+    private fun withPending(stored: List<ShieldOwn>): List<ShieldOwn> = pendingPrivate.fold(stored) { list, e164 ->
+        if (list.any { it.e164 == e164 && it.withdrawn }) list else FamilyShieldOwn.keepPrivate(list, e164, clock())
+    }
+
+    /**
+     * The own verdicts with the block rules as they are now: a number blocked since is added, one unblocked goes. Null
+     * while the stored ones can't be opened: nothing is shared then, and nothing written over them.
+     */
+    private suspend fun refreshed(): List<ShieldOwn>? {
+        val stored = read() ?: return null
+        val now = withPending(stored)
+        val rules = catching { blockedNumbers() }.getOrNull()?.toSet() ?: return now
+        // A pending choice counts as blocked: its withdrawn entry stays until the rule it is about exists.
+        val out = FamilyShieldOwn.withRules(now, rules + pendingPrivate, clock())
+        if (out == stored || write(out)) pendingPrivate.removeAll(rules)
         return out
     }
 
     /** What this phone shares in every shielded label (withdrawn ones left out). */
     suspend fun outgoing(): List<OwnVerdict> = mutex.withLock {
-        withContext(Dispatchers.IO) { refreshed().filter { !it.withdrawn }.map { OwnVerdict(it.e164, it.kind, it.at) } }
+        withContext(Dispatchers.IO) { refreshed().orEmpty().filter { !it.withdrawn }.map { OwnVerdict(it.e164, it.kind, it.at) } }
     }
 
     /** This phone's verdicts as the shield page lists them, newest first, withdrawn ones out. */
-    suspend fun mine(): List<ShieldOwn> = mutex.withLock { withContext(Dispatchers.IO) { refreshed().filter { !it.withdrawn }.sortedByDescending { it.at } } }
+    suspend fun mine(): List<ShieldOwn> =
+        mutex.withLock { withContext(Dispatchers.IO) { refreshed().orEmpty().filter { !it.withdrawn }.sortedByDescending { it.at } } }
 
-    /** Marks [number] as [kind] ("It's a scam"), shared from the next run; false when it isn't a full number. */
+    /** Marks [number] as [kind] ("It's a scam"), shared from the next run; false when it isn't a full number or can't be stored. */
     suspend fun mark(number: String, region: String?, kind: ShieldKind): Boolean = mutex.withLock {
         withContext(Dispatchers.IO) {
             val e164 = canonical(number, region) ?: return@withContext false
-            write(FamilyShieldOwn.mark(refreshed(), e164, kind, clock()))
+            pendingPrivate -= e164
+            write(FamilyShieldOwn.mark(refreshed() ?: return@withContext false, e164, kind, clock()))
         }
     }
 
     /** Stops sharing [e164] (the number stays blocked here when it was). */
     suspend fun withdraw(e164: String): Boolean = mutex.withLock {
-        withContext(Dispatchers.IO) { write(FamilyShieldOwn.withdraw(refreshed(), e164)) }
+        withContext(Dispatchers.IO) { write(FamilyShieldOwn.withdraw(refreshed() ?: return@withContext false, e164)) }
     }
 
-    /** [number] is being blocked with "Don't share": never shared, though its block rule is (false: not a full number). */
+    /**
+     * [number] is being blocked with "Don't share": never shared, though its block rule is. False when it isn't a full
+     * number, or when the choice couldn't be stored yet: it is still kept out of what is shared, and stored with the
+     * next write that works.
+     */
     suspend fun keepPrivate(number: String, region: String?): Boolean = mutex.withLock {
         withContext(Dispatchers.IO) {
             val e164 = canonical(number, region) ?: return@withContext false
-            write(FamilyShieldOwn.keepPrivate(read(), e164, clock()))
+            pendingPrivate += e164
+            write(withPending(read() ?: return@withContext false))
         }
     }
 

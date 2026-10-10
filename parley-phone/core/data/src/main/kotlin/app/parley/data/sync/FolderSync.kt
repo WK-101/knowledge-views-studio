@@ -419,8 +419,9 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         if (gone.isEmpty()) goneFile.delete() else writeAtomically(goneFile, JSONObject(gone).toString())
     }
 
+    /** Throws when it can't be written: a sync must stop rather than go on from a state it couldn't keep. */
     private fun writeAtomically(file: File, text: String) {
-        DurableFiles.writeText(file, text)
+        DurableFiles.writeOrThrow(file, text.toByteArray(Charsets.UTF_8))
     }
 
     private fun sha(bytes: ByteArray) = RecordJson.sha256Hex(bytes)

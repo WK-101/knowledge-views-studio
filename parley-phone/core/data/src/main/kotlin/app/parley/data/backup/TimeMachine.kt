@@ -43,7 +43,8 @@ class FileBlobStore(private val dir: File, private val crypto: RecordCrypto? = n
     override fun put(hash: String, bytes: ByteArray) {
         val f = file(hash)
         if (f.exists()) return
-        DurableFiles.write(f, seal(gzip(bytes)))
+        // Throws when it can't be written: a snapshot must never name a version that isn't stored.
+        DurableFiles.writeOrThrow(f, seal(gzip(bytes)))
     }
     override fun get(hash: String): ByteArray? = file(hash).takeIf { it.exists() }?.let { f -> gunzip(open(f.readBytes())) }
 

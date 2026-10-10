@@ -6,6 +6,7 @@ import android.app.Notification
 import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.test.core.app.ApplicationProvider
+import app.parley.AppTelecomDependencies
 import app.parley.blocking.BlockingNotifier
 import app.parley.calls.NoticeCaller
 import app.parley.common.AppSettings
@@ -118,6 +119,16 @@ class DuressWalkTest {
         ).joinToString(" | ")
     }
 
+    /**
+     * What the call screen shows for a call from the private contact (the ringing call asks through the same memo as
+     * screening, so a name found before the hiding must not come back from it), and whether the call path still knows
+     * the caller is saved (so nothing treats them as a stranger).
+     */
+    private suspend fun callScreen(): Pair<String?, Boolean> {
+        val deps = AppTelecomDependencies(context, c)
+        return deps.callerInfo(private, null)?.name to deps.isSavedCaller(private, null)
+    }
+
     /** Every feature part of a backup, as the backup would write it now (a part that can't be read is left out). */
     private suspend fun backupParts(): String = buildList {
         for (part in c.backup.extras()) add(catching { part.export().values.joinToString(" ") }.getOrDefault(""))
@@ -145,6 +156,7 @@ class DuressWalkTest {
     @Test fun a_duress_unlock_hides_every_private_trace_in_notifications_rescue_and_backups() = runBlocking {
         // Before: the private contact is named, and what the hiding will cover is really there.
         assertTrue(notices().contains(name))
+        assertEquals(name to true, callScreen())
         assertEquals(name, RescueCalls.choices(context).name)
         assertTrue(backupParts().contains("CLM-77815"))
         c.backup.setupKeys(passphrase.toCharArray())
@@ -157,6 +169,8 @@ class DuressWalkTest {
 
         val said = notices()
         assertFalse(said, said.contains(name))
+        // The call screen names nobody, yet the call path still knows the caller is saved (they ring as before).
+        assertEquals(null to true, callScreen())
         val rescue = RescueCalls.choices(context)
         assertEquals(RescueCalls.Choices(), rescue)
         val parts = backupParts()
@@ -174,6 +188,7 @@ class DuressWalkTest {
         // The real PIN brings everything back, nothing lost.
         Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.NORMAL, false))
         assertTrue(notices().contains(name))
+        assertEquals(name to true, callScreen())
         assertEquals(name, RescueCalls.choices(context).name)
         assertTrue(backupParts().contains("CLM-77815"))
     }
