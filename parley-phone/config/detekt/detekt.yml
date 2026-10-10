@@ -102,6 +102,24 @@ parley:
   RunCatchingInSuspend:
     active: true
     excludes: ['**/test/**', '**/testShared/**', '**/tools/**']
+  # The raw privacy switches ("Hide private contacts", the duress hiding, "Caller on the lock screen") outside the one
+  # place that combines them: features read PrivacyView (c.privacy). The settings, their screens and the duress
+  # machinery are where the switches live.
+  RawPrivacySwitch:
+    active: true
+    excludes:
+      - '**/test/**'
+      - '**/testShared/**'
+      - '**/tools/**'
+      - '**/core/common/src/main/kotlin/app/parley/common/Settings.kt'
+      - '**/core/common/src/main/kotlin/app/parley/common/security/**'
+      - '**/core/data/src/main/kotlin/app/parley/data/security/**'
+      - '**/core/data/src/main/kotlin/app/parley/data/SettingsRepository.kt'
+      - '**/core/data/src/main/kotlin/app/parley/data/people/Diagnostics.kt'
+      - '**/app/src/main/kotlin/app/parley/ui/settings/**'
+      - '**/app/src/main/kotlin/app/parley/security/AppLock.kt'
+      - '**/app/src/main/kotlin/app/parley/security/VaultTileService.kt'
+      - '**/app/src/main/kotlin/app/parley/security/PinConfirm.kt'
   # File.renameTo outside DurableFiles: replacing a file must sync it first (see DurableFiles).
   RawRename:
     active: true

@@ -229,7 +229,13 @@ internal fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> U
         modifier = Modifier.clickable(onClick = onClick),
         leadingContent = { Icon(if (r.kind == RuleKind.ALLOW) Icons.Rounded.VerifiedUser else Icons.Rounded.Rule, null) },
         headlineContent = { Text(title) },
-        supportingContent = { Text(ruleSummary(vm, r, now, expired)) },
+        supportingContent = {
+            Column {
+                Text(ruleSummary(vm, r, now, expired))
+                // A name rule kept from before name rules could only block: the caller's side sets the name.
+                if (r.allowsByName) Text(stringResource(R.string.blk_name_allow_row), color = MaterialTheme.colorScheme.error)
+            }
+        },
         // The row opens the rule; the switch is its own control and says which rule it turns on or off.
         trailingContent = {
             Switch(

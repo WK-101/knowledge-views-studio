@@ -31,10 +31,8 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.catching
 import app.parley.common.people.ContactSearch
-import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.circle.AgendaTarget
-import app.parley.data.security.Concealment
 import app.parley.ui.ParleyListItem
 import app.parley.ui.circle.AgendaAddDialog
 import app.parley.ui.circle.addToAgenda
@@ -93,7 +91,7 @@ internal fun AgendaPick(c: DataContainer, text: String, done: () -> Unit) {
             val device = catching { c.contacts.contacts.value ?: c.contacts.loadNow() }.getOrDefault(emptyList())
                 .filter { it.lookupKey.isNotEmpty() }
                 .map { it.displayName to (AgendaTarget.Contact(it.lookupKey, it.id) as AgendaTarget) }
-            val hidden = catching { c.settings.current().hideVault }.getOrDefault(true) || Concealment.hides(Concealed.PRIVATE_CONTACTS)
+            val hidden = c.privacy.now().privateHidden
             val private = if (hidden) {
                 emptyList()
             } else {

@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +52,7 @@ import kotlinx.coroutines.launch
  * "Settings for this contact": the person's haptic caller ID (a vibration of their own, so the phone in a pocket says
  * who is calling), a ringtone made from their name ([onTune] sets it; null where the contact can't have one) and,
  * when Settings › Calls › Answer automatically › "For chosen people and labels" is on, whether their calls are
- * answered on their own. [key] is the Parley key: a private contact's choices are sealed in its
+ * answered on their own; and "They never call me", which keeps "This number never calls you" on for their numbers. [key] is the Parley key: a private contact's choices are sealed in its
  * caller-ID copy (read while the phone is locked), a device contact's kept by Parley ([app.parley.data.extras.ExtrasStore]).
  */
 @Composable
@@ -76,6 +77,11 @@ internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String, onTun
         if (cfg.autoAnswerChosen) {
             AutoAnswerRow(choice.autoAnswer, stringResource(R.string.caller_auto_answer_summary)) { v -> set { it.copy(autoAnswer = v) } }
         }
+        // A bank or a clinic that only ever takes your calls: a call "from" them is worth checking, every time.
+        SwitchRow(
+            stringResource(R.string.caller_never_calls), stringResource(R.string.caller_never_calls_summary), choice.neverCalls,
+            icon = Icons.Rounded.Shield,
+        ) { v -> set { it.copy(neverCalls = v) } }
     }
     if (picking) {
         VibrationPatternDialog(

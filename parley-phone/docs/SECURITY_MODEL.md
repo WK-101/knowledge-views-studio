@@ -221,6 +221,11 @@ passphrase for a file). Removing a member changes the key; what the removed memb
 phone keeps the key and its bookkeeping sealed with the small-records key, outside backups. Private contacts are never
 shared.
 
+The **family spam shield** (docs/SHARED_LABELS.md) shares keyed hashes of blocked and reported numbers. In **Block**
+mode a number is declined only when two members agree or the label's anchor said so; one member's word (or one stolen
+phone's) only warns. Only the label's members now count: someone who left, was removed or held the key before it
+changed adds no voice. The Block question says when a block will also be shared, with **Don't share** for that block.
+
 A label can also travel as **update files** sent by any app. An update carries the label's files exactly as a folder
 would hold them (each still sealed and signed), sealed again as a whole with the label's key (AES-256-GCM, bound to
 the label and the key's epoch) and signed by its sender's My card key over its own header (`PARLEY-LABEL-UPDATE-1`).
@@ -237,6 +242,13 @@ Every file, link and code from outside is read through `Bounded` (core/common): 
 and decompression ratio for vCard and CSV imports, QR payloads, simple-mode files, list packs and backups. Shares
 from other apps are accepted only as `content://` URIs that don't belong to Parley itself. Links in notes open
 through the same look-alike and shortener checks as scanned codes.
+
+**The network's caller name** (CNAP) is set by the caller's side, so it never opens the door. A "name contains" rule
+can only block; one saved as "Always allow" before 6.3 still works, but only for a call the network verified
+(STIR/SHAKEN "passed"), and Blocking & screening and its editor say so in red. Shared rule templates never install an
+allow-by-name rule and say how many they left out. Names are matched as names are compared (`NetworkName.contains`:
+zero-width and direction characters dropped, case, accents and full-width forms ignored), so a hidden character can't
+slip past a block rule, and the call screen's title uses the cleaned name (`NetworkName.clean`), never the raw one.
 
 ## Duress unlock
 
@@ -299,6 +311,31 @@ What is written during the hiding is kept and shows (`Concealment.markWritten`):
 none, a call note, a moment's note, a safe word for a label without one. A note or safe word typed over a hidden one
 shows instead of it until the real PIN, in memory only, so nothing hidden is ever replaced unseen; it is gone after
 the real PIN (or a restart), like the session's other changes.
+
+### One privacy rule
+
+"May private data show now?" has one answer, `PrivacyView` (core/common `security/`), built by `Privacy` (core/data,
+`c.privacy`) from the settings Parley runs on, the duress state (`Concealment`) and the app lock. It carries discreet
+mode as it holds now (forced on while hiding), the duress state, "Caller on the lock screen" and whether Parley's lock
+is engaged, and answers `privateShown` / `privateHidden`, `hides(Concealed)`, `notesShown`, `circleNotesShown`,
+`safeWordsShown` and `lockScreenName`. Every feature asks it: notifications, the call path, lists, Recall, case files,
+backups, exports, Rescue call, number memory, the agenda.
+
+- **It fails closed.** Until the stored settings have been read, and whenever they can't be read in time (1.5 s), the
+  view is `PrivacyView.CLOSED`: private contacts hidden, notes hidden, Parley counted as locked, and "Nothing" about a
+  caller on the lock screen. `c.privacy.now()` reads the stored settings (the first thing a process woken by a call
+  reads); `c.privacy.flow` is for screens; `Privacy.duressOnly()` is for stores with no settings at hand (it can only
+  show the duress-only items, never a private contact).
+- **Nothing else reads the switches.** The detekt rule `RawPrivacySwitch` (tools/detekt-rules) reports a read of
+  `hideVault` or `lockScreenCaller` off the settings, and `Concealment.hiding`, `hides`, `state` or `phase`, anywhere
+  but the settings, their screens and the duress machinery (config/detekt/detekt.yml lists them). A new feature can't
+  pick its own mix by accident.
+- **One test walks the promise.** `DuressWalkTest` (app) enters a duress unlock and checks every notice path, Rescue
+  call's last choices, every feature part of a backup and a whole backup read back: no private contact's name, case
+  file, safe word or Rescue choice anywhere, and all of it back after the real PIN.
+- **Call notifications.** The ringing, ongoing and silenced call notifications are private on the lock screen unless
+  "Caller on the lock screen" shows names in full, each with a public version that names the caller only as the rule
+  allows.
 
 ### Design choices
 
@@ -370,6 +407,10 @@ Sensitive screens hide non-system overlays (Android 12+) and ignore touches thro
   Block and Report, Back up, the private-name approval…) count only when they come through it
   (`IntentRoutes.INTERNAL_ACTIONS`); sent by any other app to the exported MainActivity, they open nothing. Missed
   calls count as seen only once Recents shows unlocked.
+- **A Quick Settings tile's long press.** Android sends it to `TileLongPressActivity`, which is exported, so whatever
+  it is sent is untrusted: it hands on only a public request to the exported MainActivity (the Situation tile's opens
+  Rescue call's screen, behind the app lock; any other opens App info), never an internal action through
+  `InternalEntry` (`ExportedComponentsTest`).
 - **Contact links from other apps** (View, Edit, Quick Contact) are looked up only when they point at Android's
   contacts provider and pass `SharedUris`.
 - **"Confirm it's you"** inside Parley (turning the app lock or supervised call time off, applying restored safety

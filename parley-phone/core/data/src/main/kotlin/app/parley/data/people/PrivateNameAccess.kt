@@ -1,19 +1,19 @@
 package app.parley.data.people
 
-import java.util.Locale
 import android.content.Context
 import android.content.pm.PackageManager
-import java.security.MessageDigest
 import androidx.core.app.NotificationManagerCompat
 import app.parley.common.NotificationIds
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
-import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
+import java.util.Locale
 
 data class LookupLogEntry(val packageName: String, val time: Long, val outcome: LookupOutcome)
 
@@ -33,7 +33,7 @@ data class PrivateNameState(
  * with it and checked on every use, so another app installed under the same name (on this phone, or after a
  * restore on a new one) has to be approved again.
  *
- * While a duress unlock hides things ([Concealment.hiding]) the switch and the approvals are safety switches like
+ * While a duress unlock hides things ([Privacy.duressOnly().hiding]) the switch and the approvals are safety switches like
  * the app lock: what the screens change is shown ([state]) but kept in memory only and dropped at the next lock
  * ([endSession]); nothing is stored, so nobody can leave an app lasting access to private names from a duress session.
  * The provider reads what is stored ([stored], [approval]), never the session's view.
@@ -64,7 +64,7 @@ class PrivateNameAccess(context: Context) {
     }
 
     /** True when a change must stay in memory now (see the class comment). */
-    private fun hidingNow(): Boolean = Concealment.hiding
+    private fun hidingNow(): Boolean = Privacy.duressOnly().hiding
 
     /** A duress session's change: shown, never stored. */
     private fun sessionChange(f: (PrivateNameState) -> PrivateNameState) {

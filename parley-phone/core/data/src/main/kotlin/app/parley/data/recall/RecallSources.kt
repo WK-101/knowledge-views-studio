@@ -15,7 +15,6 @@ import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
-import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -124,10 +123,10 @@ class RecallSources(private val c: DataContainer) {
         fun note(kind: RecallCorpus.Note.Kind, text: String?, key: String, at: Long): RecallCorpus.Note? =
             text?.takeIf { it.isNotBlank() && mayShow(key) }?.let { RecallCorpus.Note(kind, it, key, names[key], null, at, ContactRef.isPrivateKey(key)) }
         // The stores hide notes during a duress unlock already; asked again here, as number memory does.
-        val notesShown = !Concealment.hides(Concealed.NOTES)
+        val notesShown = c.privacy.now().notesShown
         val pinned = if (!notesShown) emptyList() else c.meta.allMetaNow().mapNotNull { m -> note(RecallCorpus.Note.Kind.PINNED, m.pinnedNote, m.lookupKey, 0) }
         val calls = if (!notesShown) emptyList() else callNotes(hidden)
-        val circle = if (Concealment.hides(Concealed.CIRCLE_NOTES)) {
+        val circle = if (!c.privacy.now().circleNotesShown) {
             emptyList()
         } else {
             c.circle.interactions.all().mapNotNull { i -> note(RecallCorpus.Note.Kind.CIRCLE, i.note, i.lookupKey, i.time) }
@@ -146,7 +145,7 @@ class RecallSources(private val c: DataContainer) {
      * during a duress unlock, and a private contact's only while private contacts may show.
      */
     private suspend fun cases(access: Access): List<RecallCorpus.Case> {
-        if (Concealment.hides(Concealed.NOTES)) return emptyList()
+        if (!c.privacy.now().notesShown) return emptyList()
         val state = c.cases.load()
         return state.cases.filter { it.kept && (access.privateShown || !it.private) }.map { k ->
             val last = k.calls.maxOfOrNull { it.at } ?: k.created
@@ -159,7 +158,7 @@ class RecallSources(private val c: DataContainer) {
      * not locked with "Lock private contacts"), like every other private source here.
      */
     private suspend fun privateArchived(access: Access): List<RecallCorpus.Gone> {
-        val hiding = Concealment.hides(Concealed.PRIVATE_CONTACTS)
+        val hiding = c.privacy.now().hiding
         if (!PrivateArchive.mayShow(hidden = !access.privateShown, hiding = hiding, locked = VaultCrypto.lockedByPerson)) return emptyList()
         return c.vault.summariesNow().filter { it.archived }
             .map { v -> RecallCorpus.Gone(v.name, v.numbers, v.archivedAt ?: 0L, v.id.toString(), private = true) }
@@ -167,7 +166,7 @@ class RecallSources(private val c: DataContainer) {
 
     private suspend fun deleted(access: Access): List<RecallCorpus.Gone> {
         val device = c.journal.deletedForMemory().map { d -> RecallCorpus.Gone(d.name, d.numbers, d.at, d.id.toString()) }
-        if (!access.privateShown || Concealment.hides(Concealed.DELETED_PRIVATE_CONTACTS)) return device
+        if (!access.privateShown || c.privacy.now().hides(Concealed.DELETED_PRIVATE_CONTACTS)) return device
         return device + c.privateTrash.list().map { k -> RecallCorpus.Gone(k.name, k.numbers, k.deletedAt, k.file, private = true) }
     }
 

@@ -1,31 +1,30 @@
 package app.parley.ui.contact
 
 import android.net.Uri
-import app.parley.common.photo.PhotoFrame
 import android.os.Bundle
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.annotation.VisibleForTesting
 import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.InsertPrefill
 import app.parley.R
+import app.parley.common.people.ContactRef
 import app.parley.common.people.EditorForm
 import app.parley.common.people.ExpiryChange
 import app.parley.common.people.MeCards
+import app.parley.common.people.RelationLinks
+import app.parley.common.people.RowKeys
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
-import app.parley.common.people.ContactRef
-import app.parley.common.people.RelationLinks
 import app.parley.common.photo.OriginalPhoto
+import app.parley.common.photo.PhotoFrame
 import app.parley.common.suspendRunCatching
-import app.parley.ui.people.RelationMirrorText
-import app.parley.common.people.RowKeys
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDraftJson
@@ -36,6 +35,7 @@ import app.parley.data.GroupInfo
 import app.parley.data.people.ParleyRelationRows
 import app.parley.data.vault.VaultCrypto
 import app.parley.ui.people.BackgroundChange
+import app.parley.ui.people.RelationMirrorText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -257,7 +257,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             val me = c.people.me
             var d = me.details.value
             // In discreet mode its relations to private contacts stay out of sight, and are saved as they were.
-            if (c.settings.current().hideVault) {
+            if (c.privacy.now().privateHidden) {
                 val links = me.links.value
                 meHidden = d.relations.filter { r -> links[RelationLinks.nameKey(r.value)]?.lookupKey?.let(ContactRef::isPrivateKey) == true }
                 d = d.copy(relations = d.relations - meHidden.toSet())
@@ -331,7 +331,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
      * editor then neither shows nor saves them (the save writes them only when they changed).
      */
     private suspend fun ContactDetails.withParleyRelations(): ContactDetails {
-        if (lookupKey.isEmpty() || c.settings.current().hideVault) return this
+        if (lookupKey.isEmpty() || c.privacy.now().privateHidden) return this
         val stored = withContext(Dispatchers.IO) { c.meta.meta(lookupKey) }?.parleyRelations
         return copy(parleyRelations = ParleyRelationRows.decode(stored))
     }

@@ -124,15 +124,24 @@ object IntentRoutes {
     /** The Situation tile, whose long press opens Rescue call. */
     private const val SITUATION_TILE = "app.parley.situations.SituationTileService"
 
+    private const val MAIN_ACTIVITY = "app.parley.MainActivity"
+
+    private fun isSituationTile(pkg: String?, tile: ComponentName?) = tile != null && tile.packageName == pkg && tile.className == SITUATION_TILE
+
     /**
      * Where a long press on one of Parley's tiles goes ([QS_TILE_PREFERENCES], which Android sends to the app for every
-     * tile it holds): the Situation tile's opens Rescue call through Parley's own entry; every other tile's opens
-     * App info, as Android does for a tile with no screen of its own.
+     * tile it holds): the Situation tile's opens Rescue call, every other tile's opens App info, as Android does for a
+     * tile with no screen of its own.
+     *
+     * The activity that receives the long press is exported, so any app can send it this intent with any tile named.
+     * It therefore hands Rescue call to the exported MainActivity as the same public request ([resolve] reads it there),
+     * never as an internal action through Parley's own entry: it can open nothing another app couldn't open directly.
      */
     fun tileLongPress(context: Context, intent: Intent): Intent {
         val tile = tileComponent(intent)
-        return if (tile?.packageName == context.packageName && tile.className == SITUATION_TILE) {
-            own(context).setAction(ACTION_RESCUE_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return if (isSituationTile(context.packageName, tile)) {
+            Intent(QS_TILE_PREFERENCES).setClassName(context, MAIN_ACTIVITY).putExtra(Intent.EXTRA_COMPONENT_NAME, tile)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } else {
             Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -289,6 +298,9 @@ object IntentRoutes {
             ACTION_PASTE_CONTACT -> intent.getStringExtra(EXTRA_PASTE_ID)?.takeIf { it.isNotEmpty() }?.let { go(NavEvent.Route(Routes.edit(paste = it))) }
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
             ACTION_RESCUE_CALL -> go(NavEvent.Route(SituationRoutes.RescueCall))
+            // The Situation tile's long press, handed on by its exported activity: a public request (any app could send
+            // it), so it opens only Rescue call's screen, behind the app lock like everything here.
+            QS_TILE_PREFERENCES -> go(NavEvent.Route(SituationRoutes.RescueCall)).takeIf { tileComponent(intent)?.className == SITUATION_TILE }
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))

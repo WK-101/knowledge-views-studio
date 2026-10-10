@@ -126,6 +126,8 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val pickTone = rememberRingtonePicker { r = r.copy(ringtone = it) }
     val allow = r.kind == RuleKind.ALLOW
+    // Name rules only block. One saved as "always allow" before stays editable as it is, with a warning (D6).
+    val keptNameAllow = existing?.allowsByName == true
 
     fun save() {
         scope.launch {
@@ -152,7 +154,8 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 listOf(
                     RuleKind.BLOCK to stringResource(R.string.blk_block), RuleKind.ALLOW to stringResource(R.string.blk_always_allow),
                 ).forEachIndexed { i, (k, label) ->
-                    SegmentedButton(r.kind == k, { r = r.copy(kind = k) }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
+                    val possible = k == RuleKind.BLOCK || r.type != RuleType.CALLER_NAME || keptNameAllow
+                    SegmentedButton(r.kind == k, { r = r.copy(kind = k) }, SegmentedButtonDefaults.itemShape(i, 2), enabled = possible) { Text(label) }
                 }
             }
             Text(
@@ -162,7 +165,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
 
             Text(stringResource(R.string.blk_editor_match), style = MaterialTheme.typography.titleSmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                RuleType.entries.forEach { t ->
+                RuleType.entries.filter { it != RuleType.CALLER_NAME || !allow || keptNameAllow }.forEach { t ->
                     FilterChip(
                         r.type == t,
                         { r = r.copy(type = t, pattern = if (t.isNumberRule == r.type.isNumberRule) r.pattern else "") },
@@ -195,7 +198,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                                     RuleType.EXACT -> R.string.blk_help_exact
                                     RuleType.PREFIX -> R.string.blk_help_prefix
                                     RuleType.WILDCARD -> R.string.blk_help_wildcard
-                                    RuleType.CALLER_NAME -> R.string.blk_help_caller_name
+                                    RuleType.CALLER_NAME -> if (allow) R.string.blk_name_allow_warning else R.string.blk_help_caller_name
                                     else -> R.string.blk_help_region
                                 },
                             ),

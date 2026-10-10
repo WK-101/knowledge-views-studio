@@ -1,10 +1,6 @@
 package app.parley.messaging
 
-import app.parley.ui.temporary.TemporaryContactActions
-import app.parley.security.VaultUnlockDeclined
-import app.parley.security.LockedActivity
 import android.Manifest
-import androidx.annotation.VisibleForTesting
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -15,35 +11,29 @@ import android.provider.ContactsContract
 import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
-import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Checklist
-import app.parley.common.circle.Agenda
+import androidx.compose.material.icons.rounded.ContactPage
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.GroupAdd
-import androidx.compose.material3.AssistChip
-import androidx.compose.runtime.key
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Public
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.Checkbox
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,16 +44,26 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import app.parley.CallGate
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.PendingCall
@@ -76,35 +76,36 @@ import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.catching
+import app.parley.common.circle.Agenda
 import app.parley.common.people.MapLinks
 import app.parley.common.people.PasteParser
-import app.parley.IntentRoutes
-import app.parley.ui.Clipboard
-import app.parley.ui.ParleyListItem
-import app.parley.ui.contact.PasteInbox
-import androidx.compose.material.icons.rounded.ContactPage
 import app.parley.container
 import app.parley.data.EmergencyNumbers
-import app.parley.security.AppLock
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
+import app.parley.security.AppLock
+import app.parley.security.LockedActivity
+import app.parley.security.VaultUnlockDeclined
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.ui.Bidi
+import app.parley.ui.Clipboard
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyTheme
 import app.parley.ui.common.CallQuestions
 import app.parley.ui.common.Format
+import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.common.rememberNumberLocation
+import app.parley.ui.contact.PasteInbox
+import app.parley.ui.showMessage
+import app.parley.ui.temporary.TemporaryContactActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import app.parley.ui.common.ProvideAppKit
-import app.parley.ui.ConfirmDialog
-import app.parley.ui.ParleySheet
-import app.parley.ui.showMessage
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -604,8 +605,9 @@ class NumberActionActivity : LockedActivity() {
         val locked = remember { appLock }
         LaunchedEffect(number) {
             val (name, isKnown) = withContext(Dispatchers.IO) {
-                val n = runCatching { container.contacts.lookup(number)?.name }.getOrNull()
-                n to (n != null || runCatching { container.vault.lookup(number) != null }.getOrDefault(false))
+                // Who owns it, as everywhere ([app.parley.data.people.NumberOwners]); a private contact's name never shows here.
+                val found = catching { container.numberOwners.find(number, null) }.getOrNull()
+                (found?.contact?.name ?: found?.archived?.name) to (found?.saved == true)
             }
             known = isKnown
             // With the app lock on, don't reveal who this is over another app.

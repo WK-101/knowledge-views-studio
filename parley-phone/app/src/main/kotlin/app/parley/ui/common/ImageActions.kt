@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,7 +50,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -101,7 +101,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
     val app = context.applicationContext
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    val settings by vm.settings.collectAsStateWithLifecycle()
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
     val current by rememberUpdatedState(image)
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     // What a save in progress will write, read once before "Save to" opens (read again if Parley was stopped meanwhile).
@@ -140,7 +140,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
         }
     }
 
-    if (image == null || (image.private && settings.hideVault)) return null
+    if (image == null || (image.private && privacy.privateHidden)) return null
 
     fun withBytes(then: suspend (ByteArray, ImageFiles.Format) -> Unit) {
         val img = current ?: return
@@ -196,7 +196,7 @@ private fun withPictureBytes(
     }
     if (!img.private) return go()
     val activity = context.componentActivity() ?: return
-    AppLock.authenticateForVault(activity) { ok -> if (ok && !vm.settings.value.hideVault) go() }
+    AppLock.authenticateForVault(activity) { ok -> if (ok && !vm.privacy.value.privateHidden) go() }
 }
 
 /**

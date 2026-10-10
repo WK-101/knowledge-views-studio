@@ -1,42 +1,44 @@
 package app.parley.ui.home
 
-import app.parley.ui.Destination
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import app.parley.common.recall.RecallSource
-import app.parley.ui.recall.recallSection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,39 +47,37 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.StartTab
 import app.parley.common.homeLayout
-import app.parley.common.people.ContactsFooter
 import app.parley.common.people.AlphabetIndex
+import app.parley.common.people.ContactSort
+import app.parley.common.people.ContactsFooter
+import app.parley.common.people.SwipeAction
+import app.parley.common.recall.RecallSource
+import app.parley.common.ux.ListSections
+import app.parley.security.AppLock
 import app.parley.ui.AlphabetIndexDefaults
 import app.parley.ui.AlphabetIndexRail
-import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
+import app.parley.ui.Banner
+import app.parley.ui.Destination
+import app.parley.ui.EmptyState
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.ParleyListItem
+import app.parley.ui.PrivateBadge
+import app.parley.ui.Routes
+import app.parley.ui.Spacing
+import app.parley.ui.avatarSize
 import app.parley.ui.circle.CircleFavoritesSection
 import app.parley.ui.common.Intents
 import app.parley.ui.contact.rememberQuickMessenger
+import app.parley.ui.people.ContactSortSheet
 import app.parley.ui.people.ContactsFilterChips
 import app.parley.ui.people.MeCardRow
 import app.parley.ui.people.SwipeActionRow
 import app.parley.ui.people.blockWithUndo
 import app.parley.ui.people.rememberWorkResults
 import app.parley.ui.people.workResultsSection
+import app.parley.ui.recall.recallSection
 import app.parley.ui.shared
-import app.parley.ui.EmptyState
-import app.parley.ui.Routes
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
-import app.parley.ui.PrivateBadge
-import app.parley.ui.avatarSize
-import app.parley.common.ux.ListSections
-import app.parley.common.people.ContactSort
-import app.parley.ui.people.ContactSortSheet
-import app.parley.ui.ListSectionHeader
-import app.parley.ui.Spacing
-import app.parley.ui.ParleyListItem
-import app.parley.ui.Banner
-import app.parley.security.AppLock
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
-import androidx.compose.material.icons.rounded.Lock
 
 fun sectionOf(name: String): String = ListSections.letterOf(name)
 
@@ -99,12 +99,13 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
 
     val showVault by vm.showVault.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
     // The "Private" chip is a filter of the one list (private contacts are listed with everyone else).
-    val privateOnly = showVault && !settings.hideVault
-    val chips: @Composable () -> Unit = { ContactsFilterChips(vm, showVault, settings.hideVault, open) }
+    val privateOnly = showVault && !privacy.privateHidden
+    val chips: @Composable () -> Unit = { ContactsFilterChips(vm, showVault, privacy.privateHidden, open) }
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     val hintsState = vm.people.searchHints.collectAsStateWithLifecycle()
-    val privateLocked = vm.people.privateSearch.locked.collectAsStateWithLifecycle().value && !settings.hideVault
+    val privateLocked = vm.people.privateSearch.locked.collectAsStateWithLifecycle().value && !privacy.privateHidden
     val indexState = vm.people.index.collectAsStateWithLifecycle()
     // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = rememberQuickMessenger(vm)

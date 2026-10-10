@@ -185,8 +185,9 @@ class BlockingNoticePrivacyTest {
     }
 
     @Test fun the_lock_screen_rule_fails_closed() = runBlocking {
-        assertEquals(LockScreenCaller.NONE, app.parley.calls.NoticeCaller.lockScreenRule { error("unreadable") })
-        assertEquals(LockScreenCaller.NAME, app.parley.calls.NoticeCaller.lockScreenRule { LockScreenCaller.NAME })
+        // The privacy view closes when the settings can't be read in time: nothing about the caller on the lock screen.
+        assertEquals(LockScreenCaller.NONE, app.parley.calls.NoticeCaller.lockScreenRule(c.privacy.now(timeoutMs = 0)))
+        assertEquals(LockScreenCaller.NAME, app.parley.calls.NoticeCaller.lockScreenRule(c.privacy.now()))
     }
 
     @Test fun an_older_notice_never_replaces_a_newer_one() {

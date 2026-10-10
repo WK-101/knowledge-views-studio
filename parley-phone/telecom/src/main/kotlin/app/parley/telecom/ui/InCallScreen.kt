@@ -60,13 +60,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +76,8 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringArrayResource
@@ -89,11 +93,12 @@ import app.parley.common.AppSettings
 import app.parley.common.calls.CallControl
 import app.parley.common.calls.CallControls
 import app.parley.common.calls.CallWaiting
-import app.parley.common.ux.CallScreenBackground
+import app.parley.common.calls.NameReply
+import app.parley.common.calls.SafeWords
+import app.parley.common.calls.ScamCheck
+import app.parley.common.catching
 import app.parley.common.ux.CallBackdrop
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.runtime.mutableFloatStateOf
+import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.Tips
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
@@ -104,9 +109,6 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
 import app.parley.telecom.HelperCalls
-import app.parley.common.calls.NameReply
-import app.parley.common.calls.SafeWords
-import app.parley.common.calls.ScamCheck
 import app.parley.telecom.R
 import app.parley.telecom.RouteType
 import app.parley.telecom.RttUi
@@ -121,12 +123,14 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ForceLtr
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyMotion
-import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import app.parley.ui.keypadKey
 import app.parley.ui.rowColors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** Which of the screen's sheets and dialogs is open. */
 private class InCallSheets {
@@ -967,6 +971,7 @@ private fun ScamCheckDialog(
     onUnlock: (() -> Unit) -> Unit,
     onPostCall: (PostCallChoice) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val v = sheets.scamFor ?: return
     val live = s.live.firstOrNull { it.id == v.id }
     val close = { sheets.scamFor = null }
@@ -980,8 +985,14 @@ private fun ScamCheckDialog(
                 onHangUp = { CallManager.hangup(live.id) },
                 // The post-call card (Block, Report) follows only a call from a number that isn't saved.
                 blockReportNext = !live.hidden && !live.number.isNullOrBlank() && live.noContact,
+                onNotThem = notThem(scope, live),
             )
             ScamCheckSheet(live = true, actions, close)
+        }
+        // A call that showed "This number never calls you" has ended: "It wasn't them" can still be said about it.
+        s.primary == null && v.neverCallsYou && !v.number.isNullOrBlank() -> {
+            val actions = ScamCheckActions(onVerify = { onPostCall(PostCallChoice.Verify(v.number.orEmpty())) }, onNotThem = notThem(scope, v))
+            ScamCheckSheet(live = false, actions, close)
         }
         s.primary == null && v.postCallCard -> {
             val number = v.number.orEmpty()
@@ -995,6 +1006,15 @@ private fun ScamCheckDialog(
         // That call ended while another goes on: nothing left to check.
         else -> LaunchedEffect(v.id) { sheets.scamFor = null }
     }
+}
+
+/**
+ * "It wasn't them" for a call that showed "This number never calls you" ([CallUi.neverCallsYou]), else null. Marked in the
+ * background: nothing about the caller shows, so it is offered over the lock screen like the sheet.
+ */
+private fun notThem(scope: CoroutineScope, call: CallUi): (() -> Unit)? {
+    val number = call.number?.takeIf { call.neverCallsYou && !call.hidden && it.isNotBlank() } ?: return null
+    return { scope.launch { catching { TelecomGraph.dependencies.disownCall(number) } } }
 }
 
 /** More › "Switch to RTT" where the call's SIM supports it, or "RTT conversation" once it's on. */

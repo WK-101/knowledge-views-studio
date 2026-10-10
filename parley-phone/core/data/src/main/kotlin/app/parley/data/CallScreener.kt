@@ -1,24 +1,21 @@
 package app.parley.data
 
 import android.Manifest
-import app.parley.common.catching
-import app.parley.common.AllowReason
-import app.parley.common.calls.ExpectedWindow
-import app.parley.common.calls.NetworkName
-import app.parley.common.BlockAction
-import app.parley.common.BlockReason
-import app.parley.common.CallEntry
-import app.parley.common.LabelRefs
-import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.ContactsContract
+import app.parley.common.AllowReason
+import app.parley.common.BlockAction
+import app.parley.common.BlockReason
 import app.parley.common.BlockRule
+import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.Decision
 import app.parley.common.IncomingCallFacts
+import app.parley.common.LabelRefs
 import app.parley.common.OffHoursAllow
 import app.parley.common.PastCall
+import app.parley.common.PhoneIdentity
 import app.parley.common.PolicyClock
 import app.parley.common.RuleType
 import app.parley.common.ScreeningResult
@@ -28,13 +25,17 @@ import app.parley.common.blocking.ReplayCall
 import app.parley.common.blocking.ReplayReport
 import app.parley.common.blocking.ScreeningEffects
 import app.parley.common.blocking.ScreeningPipeline
+import app.parley.common.calls.ExpectedWindow
+import app.parley.common.calls.NetworkName
+import app.parley.common.catching
+import app.parley.common.people.PrivateLabels
+import app.parley.common.security.Concealed
 import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.Reputation
+import app.parley.common.suspendRunCatching
 import app.parley.data.calls.ReputationStore
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultRepository
-import app.parley.common.security.Concealed
-import app.parley.data.security.Concealment
-import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -42,11 +43,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import app.parley.common.suspendRunCatching
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** An incoming call to screen. [simId] is only known on the InCallService path (the screening service has none). */
 data class ScreenRequest(
@@ -93,7 +93,7 @@ class CallScreener(
     private val labelRingtones: suspend () -> Map<String, String> = { emptyMap() },
     /** Earlier calls with the caller (repeat callers, "called back"), read from the system log. */
     private val callLog: CallLogRepository? = null,
-    /** I2: what your own calls say about a number, learned daily; looked up in memory here. */
+    /** What your own calls say about a number, learned daily; looked up in memory here. */
     private val reputation: ReputationStore? = null,
     /** The family spam shield: verdicts shared in shared labels, looked up in memory. */
     private val family: app.parley.data.sync.shared.FamilyShieldStore? = null,
@@ -115,6 +115,14 @@ class CallScreener(
     /** Whether a number is an archived contact's: they count as saved contacts here, as everywhere. Set by the container. */
     @Volatile
     var archivedCaller: suspend (number: String, iso: String) -> Boolean = { _, _ -> false }
+
+    /**
+     * The private contact behind a number, found once per ring and shared with everything else that asks
+     * ([app.parley.data.people.NumberOwners.privateIn]); a failure is the result's. Null: the vault is asked directly.
+     * Set by the container.
+     */
+    @Volatile
+    var privateLookup: (suspend (number: String, iso: String) -> Result<Pair<Long, CallerInfo>?>)? = null
 
     private val effects = object : ScreeningEffects {
         override fun onScreened(facts: IncomingCallFacts, result: ScreeningResult) = Unit
@@ -260,7 +268,7 @@ class CallScreener(
         it.screening.copy(repeatCallers = it.repeatCallerRingsThrough, expected = runCatching { expectedWindows() }.getOrDefault(emptyList()))
     }
 
-    /** I7: the expected-call windows in force (sealed in their own store); none until set at start. */
+    /** The expected-call windows in force (sealed in their own store); none until set at start. */
     @Volatile
     var expectedWindows: suspend () -> List<ExpectedWindow> = { emptyList() }
 
@@ -414,7 +422,14 @@ class CallScreener(
         withContext(Dispatchers.IO) { contacts.labelTitlesOrNull(contactId) } ?: error("contacts unavailable")
 
     /** One vault lookup; null when it failed (the caller fails open). */
-    private suspend fun vaultLookup(number: String, iso: String): VaultAnswer? = runCatching { VaultAnswer(vault.lookup(number, iso)) }.getOrNull()
+    private suspend fun vaultLookup(number: String, iso: String): VaultAnswer? {
+        privateLookup?.let { find ->
+            val answer = catching { find(number, iso) }.getOrElse { return null }
+            // A failed lookup is null (the caller fails open); otherwise the answer, a hit or none.
+            return if (answer.isFailure) null else VaultAnswer(answer.getOrNull())
+        }
+        return catching { VaultAnswer(vault.lookup(number, iso)) }.getOrNull()
+    }
 
     /**
      * One PhoneLookup for [number] with everything the call path reads, and the work profile's lookup when the personal
@@ -442,13 +457,13 @@ class CallScreener(
     }
 
     /**
-     * I2: a lookup only (learned in the daily run). Only for [unknown] callers: never contacts or emergency numbers, nor
+     * A lookup only (learned in the daily run, so the ring never waits for it). Only for [unknown] callers: never contacts or emergency numbers, nor
      * replays of past calls (today's index was learned from those very calls).
      */
     private fun reputationOf(number: String, iso: String, s: ScreeningSettings, unknown: Boolean): Reputation? {
         if (!unknown || !s.learnFromCalls) return null
         val store = reputation ?: return null
-        // From memory only (L7): an index not read yet gives no tag this time and is read in the background.
+        // From memory only, so the ring never waits on storage: an index not read yet gives no tag this time and is read in the background.
         if (!store.isLoaded) scope.launch(Dispatchers.IO) { runCatching { store.load() } }
         return runCatching { store.lookupLoaded(number, iso) }.getOrNull()
     }
@@ -481,9 +496,9 @@ class CallScreener(
         } else {
             emptySet()
         }
-        // I21: after a duress unlock their own ringtone would set the call apart from an unknown number's; rules,
+        // After a duress unlock their own ringtone would set the call apart from an unknown number's; rules,
         // labels and "send to voicemail" still apply, so nobody who was kept out rings through.
-        val ringtone = p.ringtone.takeUnless { Concealment.hides(Concealed.PRIVATE_RINGTONES) }
+        val ringtone = p.ringtone.takeUnless { Privacy.duressOnly().hides(Concealed.PRIVATE_RINGTONES) }
         return PrivateCaller(hit.second.name, p.starred, labels, ringtone, p.sendToVoicemail)
     }
 

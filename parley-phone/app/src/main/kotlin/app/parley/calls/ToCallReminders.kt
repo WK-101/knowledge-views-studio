@@ -17,8 +17,6 @@ import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
-import app.parley.work.PrivateNotice
-import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.SettlingCall
 import app.parley.common.calls.ToCall
@@ -26,19 +24,22 @@ import app.parley.common.calls.ToCallItem
 import app.parley.common.calls.ToCallSource
 import app.parley.common.calls.ToCallState
 import app.parley.common.catching
+import app.parley.common.security.PrivacyView
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
+import app.parley.data.people.NumberOwners
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
+import app.parley.work.PrivateNotice
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
- * The "To call" list's writes and its one reminder (L1, P2, P3, I9). Every change goes through [update], which
+ * The "To call" list's writes and its one reminder. Every change goes through [update], which
  * reschedules the reminder when the list changed: one inexact WorkManager job for the next item due (no exact-alarm
  * permission). The worker never replaces itself: it posts, marks the items shown, then schedules the next run. When it
  * runs, every item due then shows in one quiet notification (names only after unlocking; a private contact's name
@@ -73,7 +74,7 @@ object ToCallReminders {
         // Their time zone, when the number tells it (offline), for "after 6 pm their time".
         val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId) }
-        // I7: a number nobody saved may call back before then (asked once; off until accepted).
+        // A number nobody saved may call back before then (asked once; off until accepted).
         runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
         return containerOf(context).toCall.available
     }
@@ -86,7 +87,7 @@ object ToCallReminders {
         var before: ToCallState? = null
         val w = containerOf(context).toCall.write { before = it; f(it) }
         if (w.changed && !workerRunning) schedule(context, w.state)
-        // I7: a line that left the list (done, removed, or settled by a call) stops ringing through.
+        // A line that left the list (done, removed, or settled by a call) stops ringing through.
         val gone = before?.items.orEmpty().map { it.key }.toSet() - w.state.items.map { it.key }.toSet()
         if (w.changed && gone.isNotEmpty()) runCatching { ExpectedCallHints.toCallGone(containerOf(context), gone) }
         return w.state
@@ -153,8 +154,8 @@ object ToCallReminders {
     }
 
     private suspend fun post(context: Context, c: DataContainer, due: List<ToCallItem>) {
-        val hideVault = c.settings.current().hideVault
-        val names = due.map { nameOf(c, it.number, hideVault) }
+        val privacy = c.privacy.now()
+        val names = due.map { nameOf(c, it.number, privacy) }
         val keys = due.map { it.key }.toTypedArray()
         val open = PrivateNotice.open(
             context, NotificationRequests.TO_CALL_OPEN, IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL), update = true,
@@ -193,12 +194,14 @@ object ToCallReminders {
         PrivateNotice.post(context, NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID, b)
     }
 
-    /** A contact's name, a private contact's (never in discreet mode), or the number. */
-    private suspend fun nameOf(c: DataContainer, number: String, hideVault: Boolean): String {
-        val contact = runCatching { c.contacts.lookup(number)?.name }.getOrNull()
-        val vault = if (contact == null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
-        val name = NotificationPrivacy.missedCallName(contact, vault, hideVault, number) ?: number
-        return if (name == number) Bidi.ltr(number) else name
+    /**
+     * Who owns [number] as the missed-call notice says it ([NumberOwners]): a contact, a private contact (never while
+     * private contacts are hidden), an archived contact, or the number. Not the network's name: unmarked here, it would
+     * read like one you saved.
+     */
+    private suspend fun nameOf(c: DataContainer, number: String, privacy: PrivacyView): String {
+        val owner = catching { c.numberOwners.owner(number, null, NumberOwners.Use.NOTIFICATION, privacy) }.getOrNull()
+        return owner?.name?.takeIf { owner.saved } ?: Bidi.ltr(number)
     }
 
     fun cancelNotification(context: Context) {

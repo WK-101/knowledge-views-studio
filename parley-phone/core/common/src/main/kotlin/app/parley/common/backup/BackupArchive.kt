@@ -657,6 +657,7 @@ class BackupArchiveReader private constructor(
             }
         }
 
+        // One pass over the archive checks every entry as it streams by; split up, each part would read it again.
         @Suppress("CyclomaticComplexMethod", "LongMethod", "NestedBlockDepth", "ThrowsCount")
         private fun verify(source: () -> InputStream, limits: ArchiveLimits, photos: PhotoSpool, spooled: Boolean): BackupArchiveReader {
             val seen = LinkedHashMap<String, ManifestEntry>()

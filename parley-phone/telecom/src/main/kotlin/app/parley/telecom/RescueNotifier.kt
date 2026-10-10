@@ -96,7 +96,7 @@ internal object RescueNotifier {
     }
 
     private fun lockMode(): LockScreenCaller =
-        runCatching { TelecomGraph.dependencies.appearance.value.lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+        runCatching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
 
     /** The caller as the lock screen may show it right now. */
     private fun shownTitle(context: Context, call: CallUi): String {

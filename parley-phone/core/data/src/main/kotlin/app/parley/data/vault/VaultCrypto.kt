@@ -1,9 +1,5 @@
 package app.parley.data.vault
 
-import app.parley.common.storage.DurableFiles
-import app.parley.data.security.KeystoreSeal
-import kotlinx.coroutines.CancellationException
-import java.security.GeneralSecurityException
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -15,9 +11,13 @@ import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.UserNotAuthenticatedException
 import android.util.Log
-import app.parley.common.Hex
 import androidx.annotation.VisibleForTesting
+import app.parley.common.Hex
+import app.parley.common.storage.DurableFiles
+import app.parley.data.security.KeystoreSeal
+import kotlinx.coroutines.CancellationException
 import java.io.File
+import java.security.GeneralSecurityException
 import java.security.InvalidAlgorithmParameterException
 import java.security.InvalidKeyException
 import java.security.KeyStore
@@ -50,6 +50,9 @@ object VaultCrypto {
     private const val LEGACY_DETAIL_KEY = "parley_vault_detail_v1"
     private const val DETAIL_PREFIX = "parley_vault_detail_g"
     private const val HMAC_KEY = "parley_vault_hmac_v1"
+
+    /** Number fingerprints [hmac] remembers at most. */
+    private const val FINGERPRINTS = 256
     private const val AUTH_SECONDS = 300
 
     /** The detail-key generation in effect (vault_keys prefs); a newer alias without it is an unfinished upgrade. */
@@ -92,7 +95,21 @@ object VaultCrypto {
     private val handles = java.util.concurrent.ConcurrentHashMap<String, SecretKey>()
 
     /** Forgets every looked-up key handle (tests that delete aliases behind the vault's back). */
-    fun forgetKeyHandles() = handles.clear()
+    fun forgetKeyHandles() {
+        handles.clear()
+        forgetFingerprints()
+    }
+
+    /**
+     * The number fingerprints made lately ([hmac]): one ringing call asks for the same few forms of one number from
+     * several places, and each is a Keystore operation. In memory only, a few hundred at most, and dropped with the key.
+     */
+    private val fingerprints = object : LinkedHashMap<String, String>(FINGERPRINTS, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean = size > FINGERPRINTS
+    }
+
+    /** Forgets the fingerprints [hmac] remembers (the HMAC key went: all data deleted, or a test). */
+    fun forgetFingerprints() = synchronized(fingerprints) { fingerprints.clear() }
 
     private fun deleteAlias(alias: String) {
         handles.remove(alias)
@@ -583,9 +600,12 @@ object VaultCrypto {
     }
 
     fun hmac(value: String): String {
+        synchronized(fingerprints) { fingerprints[value] }?.let { return it }
         Meter.hmacs.incrementAndGet()
-        return withKey(HMAC_KEY, {
+        val made = withKey(HMAC_KEY, {
             lookup(HMAC_KEY) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, STORE).run {
+                // A new key: what was remembered was made with another one.
+                forgetFingerprints()
                 init(KeyGenParameterSpec.Builder(HMAC_KEY, KeyProperties.PURPOSE_SIGN).build())
                 generateKey()
             }.also { handles[HMAC_KEY] = it }
@@ -594,5 +614,7 @@ object VaultCrypto {
             mac.init(key)
             Hex.encode(mac.doFinal(value.toByteArray()))
         }
+        synchronized(fingerprints) { fingerprints[value] = made }
+        return made
     }
 }

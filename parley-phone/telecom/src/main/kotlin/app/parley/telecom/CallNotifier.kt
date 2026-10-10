@@ -22,20 +22,20 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
-import app.parley.common.NotificationRequests
 import app.parley.common.NotificationPrivacy
+import app.parley.common.NotificationRequests
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calltime.CallChronometer
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
-import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Date
 
 /**
  * Posts the incoming (full-screen) and ongoing call notifications. The incoming notification is
@@ -390,6 +390,9 @@ class CallNotifier internal constructor(
             .setContentText(context.getString(if (CallManager.isScreening(call.id)) R.string.notif_checking else R.string.notif_ringing_silently))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
+            // On the lock screen as the incoming call's: the caller as "Caller on the lock screen" allows, or nobody.
+            .setVisibility(callVisibility())
+            .setPublicVersion(publicVersion(call, CH_SILENCED, context.getString(R.string.notif_silenced_call)))
             .setContentIntent(contentIntent())
             .addAction(0, context.getString(R.string.notif_decline), declineIntent(call.id, 4))
             .addAction(0, context.getString(R.string.notif_answer), answerIntent(call))
@@ -443,7 +446,7 @@ class CallNotifier internal constructor(
 
     companion object {
         private fun chosenLockMode(): LockScreenCaller =
-            runCatching { TelecomGraph.dependencies.appearance.value.lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+            runCatching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
 
         const val CH_INCOMING = NotificationChannels.INCOMING_CALLS
         const val CH_ONGOING = NotificationChannels.ONGOING_CALLS

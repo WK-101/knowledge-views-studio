@@ -164,6 +164,10 @@ class FamilyShieldExchangeTest {
         val after = index(sam.s).match(scam, "GB")!!
         assertEquals(1, after.members)
         assertEquals(ShieldKind.BLOCKED, after.kind)
+        // Block mode needs two voices: Bob's word alone only warns; Ana shared the label (its anchor), so hers blocks.
+        val blocking = sam.s.copy(shieldMode = ShieldMode.BLOCK)
+        assertEquals(ShieldMode.WARN, index(blocking).match(scam, "GB")!!.mode)
+        assertEquals(ShieldMode.BLOCK, index(blocking).match(spam, "US")!!.mode)
 
         // Bob leaves: his last update says so, and what he shared stops counting.
         assertTrue(bob.engine.leave(bob.s))

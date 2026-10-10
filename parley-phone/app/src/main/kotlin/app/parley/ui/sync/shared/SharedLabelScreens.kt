@@ -49,9 +49,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -61,9 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
-import app.parley.ui.common.CodeImageActions
-import app.parley.ui.common.generatedImage
-import app.parley.ui.common.rememberImageActions
 import app.parley.common.people.ContactRef
 import app.parley.common.security.Bounded
 import app.parley.common.security.PassphraseStrength
@@ -87,6 +84,9 @@ import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.StrengthMeter
 import app.parley.ui.backup.PassField
+import app.parley.ui.common.CodeImageActions
+import app.parley.ui.common.generatedImage
+import app.parley.ui.common.rememberImageActions
 import app.parley.ui.contact.SecureQr
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.rowColors
@@ -156,7 +156,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
             modifier = Modifier.padding(horizontal = Spacing.xl),
         )
         // In discreet mode nothing may hint that private contacts exist.
-        val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
+        val discreet = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
         if (privateCount > 0 && !discreet) Banner(pluralStringResource(R.plurals.shl_private_left, privateCount, privateCount))
         HowItTravels(byFile, folder, onByFile = { byFile = it }, onPickFolder = { picker.launch(null) })
         Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {

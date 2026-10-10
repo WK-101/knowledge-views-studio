@@ -116,7 +116,7 @@ object DurableFiles {
      * Moves an already written file [staged] into place as [target] (synced first). On failure [staged] is removed and
      * the old [target] kept.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // Any failure keeps the old file and removes the staged one.
     fun place(staged: File, target: File): Boolean = try {
         disk.sync(staged)
         disk.rename(staged, target, replace = true)
@@ -132,7 +132,7 @@ object DurableFiles {
      * Renames [from] to [to] (a file set aside, a picture following its contact), never replacing an existing [to]
      * unless [replace]. False, with both left as they were, when it couldn't.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught") // Any failure leaves both files as they were.
     fun move(from: File, to: File, replace: Boolean = false): Boolean = try {
         disk.rename(from, to, replace)
         syncDir(to.absoluteFile.parentFile)
@@ -143,7 +143,7 @@ object DurableFiles {
         false
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // Not every file system can sync a folder; the file itself was.
     private fun syncDir(dir: File?) {
         if (dir == null) return
         try {

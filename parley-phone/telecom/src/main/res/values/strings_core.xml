@@ -50,6 +50,7 @@
     <string name="notif_hang_up">Hang up</string>
     <string name="notif_ignore">Ignore</string>
     <string name="notif_silenced_call_title">Silenced call · %1$s</string>
+    <string name="notif_silenced_call">Silenced call</string>
     <string name="notif_checking">Checking…</string>
     <string name="notif_ringing_silently">Ringing silently</string>
     <string name="notif_mute">Mute</string>

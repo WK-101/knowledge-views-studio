@@ -1,19 +1,17 @@
 package app.parley.data.cases
 
-import app.parley.common.catching
 import android.content.Context
 import app.parley.common.cases.CaseFile
 import app.parley.common.cases.CaseFiles
 import app.parley.common.cases.CaseReference
 import app.parley.common.cases.CaseState
-import app.parley.common.security.Concealed
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStores
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.RestorePart
-import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import app.parley.data.security.RecordCrypto
 import app.parley.data.security.RecordSealing
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
  * Case files ([CaseFiles]): one small document in its own preferences file, sealed with the small-records key (so the
@@ -84,9 +83,9 @@ class CaseFileStore internal constructor(
      * number that can't be checked counts as private.
      */
     val shown: Flow<CaseState> by lazy {
-        combine(state, Concealment.state, discreet(), vaultChanges()) { s, _, hidePrivate, _ -> s to hidePrivate }
+        combine(state, Privacy.duressChanges, discreet(), vaultChanges()) { s, _, hidePrivate, _ -> s to hidePrivate }
             .map { (s, hidePrivate) ->
-                val notesHidden = Concealment.hides(Concealed.NOTES)
+                val notesHidden = !Privacy.duressOnly().notesShown
                 if (notesHidden || !hidePrivate) return@map CaseFiles.visible(s, notesHidden, hidePrivate)
                 val numbers = s.cases.filter { !it.private }.flatMap { it.numbers }.distinct()
                 val privateNow = numbers.filter { n -> catching { isPrivate(n) }.getOrDefault(true) }.toSet()
@@ -181,7 +180,7 @@ class CaseFileStore internal constructor(
         override val restoreWith = RestorePart.CONTACTS
 
         override suspend fun export(): Map<String, String> {
-            if (Concealment.hides(Concealed.NOTES)) return emptyMap()
+            if (!Privacy.duressOnly().notesShown) return emptyMap()
             val s = load()
             check(available) { "Case files can't be read right now" }
             if (s.cases.isEmpty()) return emptyMap()

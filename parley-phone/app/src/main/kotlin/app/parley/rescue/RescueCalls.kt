@@ -12,15 +12,14 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.CallerHaptics
-import app.parley.common.catching
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
+import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
-import app.parley.data.PhoneEnv
-import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import app.parley.data.security.RecordCrypto
 import app.parley.telecom.RescueCall
 import app.parley.telecom.RescueCaller
@@ -153,12 +152,12 @@ object RescueCalls {
     /** Who the call shows, looked up off the main thread; tests replace it, so the ringing itself is real. */
     @VisibleForTesting
     internal var lookUp: suspend (Context, RescueRequest, String?) -> RescueCaller = { app, r, clip ->
-        withContext(Dispatchers.IO) { caller(app, app.container, r, clip) }
+        withContext(Dispatchers.IO) { caller(app.container, r, clip) }
     }
 
     /** Whether a duress unlock hides things now; tests replace it. */
     @VisibleForTesting
-    internal var hiding: () -> Boolean = { Concealment.hiding }
+    internal var hiding: () -> Boolean = { Privacy.duressOnly().hiding }
 
     /** Seals a value with the small-records key; null when it can't be sealed right now. Tests replace it. */
     @VisibleForTesting
@@ -240,7 +239,7 @@ object RescueCalls {
     /** The call waiting as the screen may show it ([RescuePlan.shown]); read back off the main thread. */
     fun shown(context: Context): Flow<RescueRequest?> = flow {
         load(context.applicationContext)
-        emitAll(combine(first.request, second.request, Concealment.state) { a, b, _ -> RescuePlan.shown(hiding(), a, b) })
+        emitAll(combine(first.request, second.request, Privacy.duressChanges) { a, b, _ -> RescuePlan.shown(hiding(), a, b) })
     }.flowOn(io)
 
     /**
@@ -373,17 +372,14 @@ object RescueCalls {
      * changed photo count) with their tone and vibration; for a name only, that name with the phone's default tone.
      * The lookups only read: nothing is noted, counted or logged.
      */
-    private suspend fun caller(app: Context, c: DataContainer, r: RescueRequest, clip: String?): RescueCaller {
+    private suspend fun caller(c: DataContainer, r: RescueRequest, clip: String?): RescueCaller {
         val number = r.number?.takeIf { it.isNotBlank() } ?: return RescueCaller(name = RescuePlan.shownName(r.name, null), clip = clip)
         val shown = suspendRunCatching { TelecomGraph.dependencies.callerInfo(number, null) }.getOrNull()
-        val hidesPrivate = suspendRunCatching { c.settings.current().hideVault }.getOrDefault(true)
+        val hidesPrivate = c.privacy.now().privateHidden
         // Their own tone (a contact's, or a private contact's unless those are hidden), else their label's.
-        val own = catching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
-        val privateTone = if (own != null || hidesPrivate) {
-            null
-        } else {
-            suspendRunCatching { c.vault.lookup(number, PhoneEnv.countryIso(app))?.second?.customRingtone }.getOrNull()
-        }
+        val found = catching { c.numberOwners.find(number, null) }.getOrNull()
+        val own = found?.contact?.customRingtone
+        val privateTone = if (own != null || hidesPrivate) null else found?.private?.second?.customRingtone
         val tone = own ?: privateTone ?: catching { c.people.ringtoneForNumber(number) }.getOrNull()
         val pattern = shown?.vibration?.let(CallerHaptics::decode)?.let { CallerHaptics.repeating(it, shown.name) }
         // Nobody found for the number: the name typed, unless "Hide private contacts" hides who it is (a real call

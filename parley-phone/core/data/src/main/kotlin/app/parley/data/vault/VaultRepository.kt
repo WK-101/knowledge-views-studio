@@ -1,21 +1,21 @@
 package app.parley.data.vault
 
-import app.parley.common.circle.Agenda
 import android.app.KeyguardManager
 import android.content.Context
 import android.os.SystemClock
 import android.provider.CallLog
 import android.util.Base64
+import androidx.room.withTransaction
+import app.parley.common.NotificationPrivacy
+import app.parley.common.VaultNumberKeys
 import app.parley.common.backup.RecordJson
 import app.parley.common.catching
+import app.parley.common.circle.Agenda
 import app.parley.common.people.CallerCard
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
-import app.parley.common.NotificationPrivacy
-import app.parley.common.VaultNumberKeys
-import androidx.room.withTransaction
 import app.parley.common.storage.DurableFiles
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
@@ -29,25 +29,22 @@ import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
-import app.parley.data.vault.CallerIdCopy.C_TITLE
 import app.parley.data.vault.CallerIdCopy.C_COMPANY
-import app.parley.data.vault.CallerIdCopy.C_REGION
-import app.parley.data.vault.CallerIdCopy.C_STAR
 import app.parley.data.vault.CallerIdCopy.C_LABELS
+import app.parley.data.vault.CallerIdCopy.C_NAME_ALT
+import app.parley.data.vault.CallerIdCopy.C_PRONOUNS
+import app.parley.data.vault.CallerIdCopy.C_REGION
+import app.parley.data.vault.CallerIdCopy.C_SEEDED
+import app.parley.data.vault.CallerIdCopy.C_STAR
+import app.parley.data.vault.CallerIdCopy.C_TITLE
 import app.parley.data.vault.CallerIdCopy.C_TONE
 import app.parley.data.vault.CallerIdCopy.C_VOICEMAIL
-import app.parley.data.vault.CallerIdCopy.C_VIBRATION
-import app.parley.data.vault.CallerIdCopy.C_AUTO_ANSWER
-import app.parley.data.vault.CallerIdCopy.C_PRONOUNS
-import app.parley.data.vault.CallerIdCopy.C_NAME_ALT
-import app.parley.data.vault.CallerIdCopy.C_SEEDED
-import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -57,6 +54,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 /** Readable without unlocking: enough to show who is calling and list the vault. */
 data class VaultSummary(
@@ -80,6 +78,8 @@ data class VaultSummary(
     val vibration: String? = null,
     /** Its calls are answered automatically when "For chosen people and labels" is on. */
     val autoAnswer: Boolean = false,
+    /** "They never call me": "This number never calls you" stays on for its numbers. */
+    val neverCalls: Boolean = false,
     /**
      * The caller-ID copy holds the star, labels, ringtone and "send to voicemail". False for an entry saved before
      * they were kept there and not seeded yet ([VaultRepository.seedCallerChoices]): the fields above are then only
@@ -537,7 +537,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /**
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
      * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
-     * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
+     * contact it came from ("Move to private"); it is sealed with the details (photo included) so moving back out
      * restores every field. Editing an entry later keeps the stored record (see [storedRecord]). [interactions]: the
      * contact's logged interactions ([app.parley.common.circle.Interactions.encodeCarried]), sealed with the details
      * so they come back on "Move out" and are never shown while the contact is private; edits keep them too.
@@ -607,8 +607,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.customRingtone?.takeIf { it.isNotBlank() }?.let { put(C_TONE, it) }
                     if (shown.sendToVoicemail) put(C_VOICEMAIL, true)
                     // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
-                    existingSummary?.vibration?.let { put(C_VIBRATION, it) }
-                    if (existingSummary?.autoAnswer == true) put(C_AUTO_ANSWER, true)
+                    existingSummary?.let { CallerIdCopy.putPageChoices(this, it) }
                     // An edit keeps an archived contact archived (Unarchive is what lists it again).
                     existingSummary?.archivedAt?.let { put(CallerIdCopy.C_ARCHIVED, it) }
                 }
@@ -724,8 +723,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             CallerIdCopy.putLabels(o, after.labels)
             if (after.ringtone.isNullOrBlank()) o.remove(C_TONE) else o.put(C_TONE, after.ringtone)
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
-            if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
-            if (after.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
+            CallerIdCopy.putPageChoices(o, after)
             after.archivedAt?.let { o.put(CallerIdCopy.C_ARCHIVED, it) } ?: o.remove(CallerIdCopy.C_ARCHIVED)
             // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
@@ -918,7 +916,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      *
      * Matched on the E.164 form, reading a national number with [countryIso] (the country of the SIM that took
      * the call when known, else this phone's region); the last digits are only a fallback for entries stored without
-     * an E.164 form, and [exact] (the private-name provider) never uses them. F15: expired entries never match, and
+     * an E.164 form, and [exact] (the private-name provider) never uses them. Expired entries never match (a temporary contact that ran out names nobody), and
      * of several entries sharing a number the most recently updated wins.
      */
     suspend fun lookup(number: String, countryIso: String? = null, exact: Boolean = false): Pair<Long, CallerInfo>? = withContext(Dispatchers.IO) {
@@ -1127,7 +1125,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** How many private calls entry [vaultId] holds, whether or not each can be opened now. */
     suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.privateCallCount(vaultId) }
 
-    /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
+    /** Every private contact's numbers, read straight from the database (import duplicate checks). */
     suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { summarizeAll(dao.callerRowsNow()).flatMap { it.numbers } }
 
     private companion object {
@@ -1137,7 +1135,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val K_KEYS_ATTEMPTS = "number_keys_attempts"
 
         /**
-         * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
+         * 1: last 9 digits (the oldest entries); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
          * digits as an extra fallback for every number, with the region stored at save time; 4: the E.164 form
          * libphonenumber reads (an Argentine "15" mobile, a country the older table missed), keeping the older form too.
          */

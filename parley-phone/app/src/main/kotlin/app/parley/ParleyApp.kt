@@ -7,22 +7,22 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Trace
 import androidx.core.content.ContextCompat
-import app.parley.calls.PrivateCallLogSweep
 import app.parley.blocking.BlockingSetup
+import app.parley.calls.PrivateCallLogSweep
 import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
-import app.parley.security.AppLock
 import app.parley.data.security.LockTransitions
 import app.parley.jobs.JobNotices
 import app.parley.jobs.UserJobWorker
-import app.parley.shortcuts.WidgetLockRefresh
-import app.parley.situations.SituationTriggers
 import app.parley.jobs.UserJobs
+import app.parley.security.AppLock
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
+import app.parley.shortcuts.WidgetLockRefresh
+import app.parley.situations.SituationTriggers
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
 import app.parley.ui.common.ImageExport
@@ -62,6 +62,8 @@ class ParleyApp : Application() {
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
         container = DataContainer(this)
+        // The privacy view knows when Parley's own lock is engaged (case files and the call path read it).
+        container.privacy.bindAppLock(AppLock.locked)
         // Parley is English-only: a language picked in an older version is dropped once, off the main thread.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
         TelecomGraph.install(AppTelecomDependencies(this, container))

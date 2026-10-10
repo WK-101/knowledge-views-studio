@@ -1,12 +1,13 @@
 package app.parley.common
 
+import app.parley.common.calls.ExpectedCalls
+import app.parley.common.calls.ExpectedSource
+import app.parley.common.calls.ExpectedWindow
+import app.parley.common.calls.NetworkName
 import app.parley.common.spam.Reputation
 import app.parley.common.sync.shared.FamilyHit
 import app.parley.common.sync.shared.FamilyShield
 import app.parley.common.sync.shared.ShieldKind
-import app.parley.common.calls.ExpectedCalls
-import app.parley.common.calls.ExpectedSource
-import app.parley.common.calls.ExpectedWindow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import java.time.DayOfWeek
@@ -85,6 +86,13 @@ data class BlockRule(
     }
 
     fun isLive(nowMillis: Long): Boolean = enabled && (expiresAt == null || expiresAt > nowMillis)
+
+    /**
+     * "Always allow: name contains…". The network's caller name is set by the caller's side, so such a rule lets a call
+     * through only when the network verified it, and no new one can be made: name rules only block. Kept ones show a
+     * warning where they are listed and edited.
+     */
+    val allowsByName: Boolean get() = kind == RuleKind.ALLOW && type == RuleType.CALLER_NAME
 
     /**
      * The label title a [RuleType.LABEL] rule applies to, or null for other rules. Older rules stored the group
@@ -557,13 +565,13 @@ object CallPolicy {
 
             // 3. Allow rules, snooze, numbers you called or talked to.
             val allowRule = if (withoutExceptions) null
-            else rules.firstOrNull { it.kind == RuleKind.ALLOW && it.type != RuleType.LABEL && live(it) && factMatches(it, number) }
+            else rules.firstOrNull { it.kind == RuleKind.ALLOW && it.type != RuleType.LABEL && live(it) && allowMatches(it, number) }
             if (allowRule != null) {
                 step("Allow rule", allowRule.title + if (allowRule.expiresAt != null) " (temporary)" else "", TraceMark.MATCH)
                 return allow(AllowReason.RULE, allowRule, allowRule.ringtone, verdict = Verdict(VerdictKind.ALLOWED, "Allowed by '${allowRule.title}'"))
             }
             // The screening service never knows the SIM: an allow rule limited to one SIM is decided when the call rings.
-            simPending { it.type != RuleType.LABEL && factMatches(it, number) }?.let { return deferToSim(it) }
+            simPending { it.type != RuleType.LABEL && allowMatches(it, number) }?.let { return deferToSim(it) }
             if (snooze && !withoutExceptions) {
                 step("Expecting a call", "on", TraceMark.MATCH)
                 return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
@@ -726,9 +734,17 @@ object CallPolicy {
             return counted
         }
 
+        /**
+         * An allow rule that matches. The network's caller name is whatever the caller (or their route) set, so a name
+         * rule opens the door only when the network verified the call; new name rules can only block ([BlockRule.allowsByName]).
+         */
+        fun allowMatches(r: BlockRule, number: String): Boolean =
+            (r.type != RuleType.CALLER_NAME || f.verification == Verification.PASSED) && factMatches(r, number)
+
         fun factMatches(r: BlockRule, number: String): Boolean = when (r.type) {
             RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD -> ruleMatches(r, number, f.countryIso)
-            RuleType.CALLER_NAME -> r.pattern.isNotBlank() && f.callerName?.contains(r.pattern.trim(), ignoreCase = true) == true
+            // Matched as names are compared, so a zero-width or look-alike character can't slip past a block rule.
+            RuleType.CALLER_NAME -> NetworkName.contains(f.callerName, r.pattern)
             RuleType.REGION -> f.region != null && r.pattern.split(',', ' ').map { it.trim().uppercase() }.filter { it.isNotEmpty() }.contains(
                 f.region.uppercase(),
             )

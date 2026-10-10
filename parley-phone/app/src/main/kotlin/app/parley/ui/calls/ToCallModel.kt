@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -82,7 +81,7 @@ class ToCallModel(
 
     private val entries: Flow<List<ToCallEntry>> = combine(store.state, owed, minutes) { s, missed, now -> ToCall.entries(s, missed, now) }
 
-    private val hideVault = c.settings.settings.map { it.hideVault }.distinctUntilChanged()
+    private val hideVault = c.privacy.privateHidden
 
     private val people = combine(c.directory.numberIndex, c.vault.contacts, hideVault) { index, vaults, hide ->
         Triple(index, if (hide) emptyMap() else vaults.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, iso) to v } }.toMap(), hide)

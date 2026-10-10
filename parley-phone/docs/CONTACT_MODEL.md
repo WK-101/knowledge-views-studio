@@ -363,6 +363,26 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   clearing contact changes never takes them), or with "Delete all Parley data". Temporary private contacts that expire
   keep no copy.
 
+## Who owns a number: one answer
+
+Every feature that names a number or asks whether it is saved goes through `NumberOwners` (core/data, `c.numberOwners`):
+a contact, then a private contact, then an archived contact, then the name the network sent (only while "Remember names
+from the network" is on, and only for a number known not to be a private contact's), then nobody. The number is read
+with the region of the call's SIM (`PhoneEnv.countryIso(context, accountId)`). `owner(number, accountId, use)` applies
+the privacy rule (`PrivacyView`, docs/SECURITY_MODEL.md "One privacy rule"): a hidden private contact reads exactly like
+a number nobody saved, with no network name either. The `use` (screen, notification, lock screen, call path) decides
+whether "Caller on the lock screen" holds back a network name; `notificationName` also shortens a saved name while the
+phone is locked. `find` gives the raw answer, with each lookup's failure, for callers that must fail open (screening)
+or closed (notifications).
+
+One ringing call asks many times (screening, the call screen, "never calls you", the agenda, number memory, call
+limits, safe words, ring facts). What was found is kept in memory for 60 s per number and SIM region, found once when
+several ask at the same moment, and dropped whenever contacts, private contacts or archived contacts change; the
+network's name is read fresh each time (it is written as the call ends). The vault's number fingerprints
+(`VaultCrypto.hmac`) are also remembered, a few hundred at most, in memory, and dropped with the key. A ring therefore
+costs one private-contact lookup instead of seven to nine. Archived contacts now name the To call reminder and count as
+saved for expected-call hints, call limits, the number sheet and "Save all…".
+
 ## Phone numbers: one identity path
 
 Every "is this the same line?" and "what is this number stored under?" goes through `PhoneIdentity` (core/common). Its international form is `NumberText.toE164`: libphonenumber's reading of the number with the SIM's country as the hint, accepted only when the number is complete on its own, with the older hand-written heuristic as the fallback for numbers libphonenumber can't read. `PhoneNumbers`, which holds the matching machinery and that heuristic, is internal to core/common, and the detekt rule `PhoneNumbersOutsideIdentity` keeps everything else on `PhoneIdentity`.

@@ -184,7 +184,7 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
             )
         }
         // In discreet mode nothing may hint that private contacts exist.
-        val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
+        val discreet = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
         if (s.privateLeftOut > 0 && !discreet) {
             Text(
                 pluralStringResource(R.plurals.shl_private_left, s.privateLeftOut, s.privateLeftOut), style = MaterialTheme.typography.bodySmall,

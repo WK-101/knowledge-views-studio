@@ -55,7 +55,6 @@ import app.parley.common.TextSearch
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
-import app.parley.data.security.Concealment
 import app.parley.rescue.RescueCalls
 import app.parley.ui.Banner
 import app.parley.ui.Bidi
@@ -86,7 +85,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     // While a duress unlock hides things: no call waiting and none of the last choices (the waiting call still rings).
     val pending by remember { RescueCalls.shown(context) }.collectAsStateWithLifecycle(null)
-    val duress by Concealment.state.collectAsStateWithLifecycle()
+    val duress by vm.privacy.collectAsStateWithLifecycle()
     // The stored choices are sealed: opened off the main thread, and only if nothing was changed meanwhile.
     var choices by remember(duress.hiding) { mutableStateOf(RescueCalls.Choices()) }
     LaunchedEffect(duress.hiding) {

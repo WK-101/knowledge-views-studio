@@ -1,7 +1,5 @@
 package app.parley.ui.home
 
-import app.parley.common.people.NameOrder
-import app.parley.common.people.PrivateListing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.DialResult
@@ -11,6 +9,8 @@ import app.parley.common.KeypadLayout
 import app.parley.common.T9
 import app.parley.common.TextSearchIndex
 import app.parley.common.calls.CallPill
+import app.parley.common.people.NameOrder
+import app.parley.common.people.PrivateListing
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
@@ -47,7 +47,7 @@ data class KeypadSearch(val query: String, val contacts: List<ContactSummary>, v
 class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     private val directory = c.directory
     val countryIso: String = directory.countryIso
-    private val hideVault = c.settings.settings.map { it.hideVault }.distinctUntilChanged()
+    private val hideVault = c.privacy.privateHidden
     private val lastFirst = c.settings.settings.map { it.showNamesLastFirst }.distinctUntilChanged()
 
     /** A private contact as a row, its name shown as "Show names as" says (like the address book's in [directory]). */

@@ -30,6 +30,7 @@ import app.parley.ui.parleyGraph
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.sync.shared.LabelUpdateFiles
+import app.parley.ui.situations.SituationRoutes
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -331,8 +332,11 @@ class NavigationRoutesTest {
         fun press(cls: String, pkg: String = context.packageName) =
             IntentRoutes.tileLongPress(context, Intent(IntentRoutes.QS_TILE_PREFERENCES).putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(pkg, cls)))
         val rescue = press("app.parley.situations.SituationTileService")
-        assertEquals(IntentRoutes.ACTION_RESCUE_CALL, rescue.action)
-        assertTrue("through Parley's own entry", IntentRoutes.fromParley(rescue))
+        // Handed on as the same public request to the exported MainActivity, never as an internal action.
+        assertEquals(IntentRoutes.QS_TILE_PREFERENCES, rescue.action)
+        assertEquals("app.parley.MainActivity", rescue.component?.className)
+        assertFalse("never through Parley's own entry", IntentRoutes.fromParley(rescue))
+        assertEquals(NavEvent.Route(SituationRoutes.RescueCall), IntentRoutes.resolve(rescue, fromParley = false) { null }?.event)
         // Every other tile (and a tile of another app, or none named) keeps Android's App info.
         val others = listOf(
             press("app.parley.telecom.HangUpTileService"),
@@ -344,8 +348,11 @@ class NavigationRoutesTest {
             assertEquals(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, other.action)
             assertEquals(context.packageName, other.data?.schemeSpecificPart)
         }
-        // MainActivity itself takes no tile long press any more.
+        // MainActivity opens Rescue call only for the Situation tile's long press; another tile's, or none named, opens nothing.
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.QS_TILE_PREFERENCES), fromParley = false) { null })
+        val hangUp = Intent(IntentRoutes.QS_TILE_PREFERENCES)
+            .putExtra(Intent.EXTRA_COMPONENT_NAME, ComponentName(context, "app.parley.telecom.HangUpTileService"))
+        assertNull(IntentRoutes.resolve(hangUp, fromParley = false) { null })
     }
 
     @Test fun only_parleys_own_entry_counts_as_parley() {

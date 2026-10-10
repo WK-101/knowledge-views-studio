@@ -5,11 +5,10 @@ import app.parley.common.catching
 import app.parley.common.circle.Agenda
 import app.parley.common.circle.Promises
 import app.parley.common.people.ContactRef
-import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.db.CallNoteEntity
-import app.parley.data.security.Concealment
+import app.parley.data.people.NumberOwners
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -50,28 +49,32 @@ class AgendaStore(private val c: DataContainer) {
 
     /** Private contacts may be read now: shown (no discreet mode or duress hiding) and their details unlocked. */
     private suspend fun privateOpen(): Boolean =
-        !c.settings.current().hideVault && !Concealment.hides(Concealed.PRIVATE_CONTACTS) && !Concealment.hides(Concealed.NOTES) &&
-            !VaultCrypto.detailNeedsUnlock()
+        c.privacy.now().let { it.privateShown && it.notesShown } && !VaultCrypto.detailNeedsUnlock()
 
     /**
      * Who [number] is for the agenda: a contact, a private contact, an archived contact, or the number itself. Null for a work-profile
      * contact (Parley keeps nothing for those), a private contact while private contacts are hidden (the number must
      * not show an agenda of its own either), and something too short to be a number.
      */
-    suspend fun targetFor(number: String, accountId: String? = null): AgendaTarget? = withContext(Dispatchers.IO) {
+    suspend fun targetFor(
+        number: String,
+        accountId: String? = null,
+        use: NumberOwners.Use = NumberOwners.Use.SCREEN,
+    ): AgendaTarget? = withContext(Dispatchers.IO) {
         if (PhoneIdentity.digits(number).length < MIN_DIGITS) return@withContext null
-        val found = catching { c.contacts.lookup(number) }.getOrNull()
+        // Who owns the number, found once per ring ([app.parley.data.people.NumberOwners]).
+        val owners = catching { c.numberOwners.find(number, accountId, use) }.getOrNull()
+        val found = owners?.contact
         if (found != null) {
             if (found.work) return@withContext null
             found.lookupKey?.takeIf { it.isNotEmpty() }?.let { return@withContext AgendaTarget.Contact(it, found.contactId) }
         }
-        val private = catching { c.vault.lookup(number, PhoneEnv.countryIso(c.appContext, accountId)) }.getOrNull()
+        val private = owners?.private
         if (private != null) {
-            val hidden = c.settings.current().hideVault || Concealment.hides(Concealed.PRIVATE_CONTACTS)
-            return@withContext if (hidden) null else AgendaTarget.Private(private.first)
+            return@withContext if (c.privacy.now().privateHidden) null else AgendaTarget.Private(private.first)
         }
         // An archived contact keeps its items in its note for calls, under its archived key, like a contact's.
-        val archived = catching { c.archive.lookup(number, PhoneEnv.countryIso(c.appContext, accountId)) }.getOrNull()
+        val archived = owners?.archived
         if (archived != null) return@withContext AgendaTarget.Contact(archived.parleyKey, null)
         AgendaTarget.Number(number)
     }

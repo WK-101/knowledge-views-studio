@@ -1,12 +1,9 @@
 package app.parley.ui.family
 
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.platform.PlatformTextInputMethodRequest
-import androidx.compose.ui.platform.InterceptPlatformTextInput
-import androidx.compose.ui.ExperimentalComposeUiApi
-import android.view.inputmethod.EditorInfo
 import android.content.Context
 import android.text.format.DateUtils
+import android.view.inputmethod.EditorInfo
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,16 +43,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -399,7 +399,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { store.load() }
     val now = remember { System.currentTimeMillis() }
     val upcoming = summary.windows.filter { it.end > now && summary.consents[it.source] == true }.sortedBy { it.start }
-    val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val discreet = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_expected_hints_title)) },

@@ -17,7 +17,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * I21: what a duress unlock hides, for the whole process (the screens, the call path, background work). The state
+ * What a duress unlock hides, for the whole process (the screens, the call path, background work). The state
  * machine and the list are [DuressMachine] and [DuressPolicy]; this keeps the state and stores the one fact that must
  * outlive the process, "hiding until the real PIN", in a file of its own under no_backup (never in backups or settings
  * exports). A call that wakes Parley while someone still holds the phone finds it there.
@@ -45,7 +45,7 @@ object Concealment {
     /**
      * Reads the stored hiding once (a few bytes); every reader below calls it, the first one off the main thread. A
      * stored state that is there but can't be read counts as hiding, details locked (fail closed). A hiding that
-     * couldn't be stored yet is written again here, at most every [RETRY_MS] (L6).
+     * couldn't be stored yet is written again here, at most every [RETRY_MS], so a hiding a full disk kept in memory reaches storage as soon as it can.
      */
     fun ensureLoaded(): DuressState {
         if (loaded) {
@@ -64,7 +64,7 @@ object Concealment {
         return _state.value
     }
 
-    /** L6: a hiding that couldn't be stored (kept in memory meanwhile), and when storing it was last tried. */
+    /** A hiding that couldn't be stored (kept in memory meanwhile), and when storing it was last tried. */
     @Volatile private var unsaved: DuressState? = null
 
     @Volatile private var triedAt = 0L
@@ -86,13 +86,13 @@ object Concealment {
     val hiding: Boolean get() = ensureLoaded().hiding
 
     /**
-     * L1: what was written while hiding (a note added, a safe word set): shown as written for as long as the hiding
+     * What was written while hiding (a note added, a safe word set): shown as written for as long as the hiding
      * lasts, so a note someone made you add doesn't vanish in front of them. Kept in memory; once the hiding ends
      * everything shows anyway. Tokens are the stores' own ("note:<key>", "callnote:<id>", …).
      */
     private val written = ConcurrentHashMap.newKeySet<String>()
 
-    /** L1: values that would replace a hidden stored one (shown instead of it while hiding, never stored over it). */
+    /** Values that would replace a hidden stored one (shown instead of it while hiding, never stored over it). */
     private val overlay = ConcurrentHashMap<String, String>()
 
     private val _revisions = MutableStateFlow(0)
@@ -106,7 +106,7 @@ object Concealment {
 
     fun writtenWhileHiding(token: String): Boolean = token in written
 
-    /** L1: [token]'s value shown while hiding instead of the stored one; null removes it. */
+    /** [token]'s value shown while hiding instead of the stored one; null removes it. */
     fun setOverlay(token: String, value: String?) {
         if (!hiding) return
         if (value == null) overlay.remove(token) else overlay[token] = value
@@ -168,7 +168,7 @@ object Concealment {
             }
             unsaved = null
         } catch (ignored: Exception) {
-            // L6: it holds in memory for this process, and is written again as soon as it can be (see retryPersist).
+            // It holds in memory for this process, and is written again as soon as it can be (see retryPersist).
             unsaved = s
             Log.w(TAG, "Couldn't store the lock state: ${ignored.javaClass.simpleName}")
         }

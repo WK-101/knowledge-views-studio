@@ -14,9 +14,9 @@ import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
 import app.parley.R
 import app.parley.common.people.DirectoryPolicy
-import app.parley.data.DataContainer
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
+import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -92,7 +92,7 @@ class PrivateDirectoryProvider : ContentProvider() {
             }
             LookupOutcome.ANSWERED -> {
                 // Read from storage, not the settings flow (its first value in a cold process is the defaults); fails closed.
-                val hidden = runBlocking(Dispatchers.IO) { c.settings.hidesPrivateNames() }
+                val hidden = runBlocking(Dispatchers.IO) { c.privacy.now().privateHidden }
                 val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { c.vault.lookup(number!!, exact = true) } }
                 if (hit == null) {
                     outcome = if (hidden) LookupOutcome.OFF else LookupOutcome.NOT_FOUND

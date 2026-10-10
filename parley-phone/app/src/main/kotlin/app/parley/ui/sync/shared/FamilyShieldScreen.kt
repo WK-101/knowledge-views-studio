@@ -142,7 +142,10 @@ fun FamilyShieldScreen(vm: AppViewModel, id: String, back: () -> Unit) {
             }
         }
         Text(
-            listOfNotNull(stringResource(R.string.fsh_never), stringResource(R.string.fsh_by_file).takeIf { s.byFile && s.shieldOn })
+            listOfNotNull(
+                stringResource(R.string.fsh_block_two).takeIf { s.shieldMode == ShieldMode.BLOCK },
+                stringResource(R.string.fsh_never), stringResource(R.string.fsh_by_file).takeIf { s.byFile && s.shieldOn },
+            )
                 .joinToString("\n"),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),

@@ -1,9 +1,10 @@
 package app.parley.calls
 
-import app.parley.common.people.ContactRef
 import app.parley.common.calls.ExpectedCalls
 import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.ExpectedWindow
+import app.parley.common.catching
+import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.circle.CircleRepository
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,7 @@ import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
 /**
- * I7 expected-call hints: notes and promises with a day ("dentist will call Tue"), To call items for numbers nobody
+ * Expected-call hints: notes and promises with a day ("dentist will call Tue"), To call items for numbers nobody
  * saved, and delivery-like QR codes turn on "Expecting a call" for a window (the same exception as the tile, read by
  * screening with the rest of it). Each kind is asked about once ([offer], shown by the app's root): off until the user
  * says yes, and Settings › Blocking & spam › "Expecting a call from your notes" changes it later.
@@ -82,7 +83,8 @@ object ExpectedCallHints {
 
     /** [number] went on the To call list for [at]: it may call back first. Only for numbers nobody saved (contacts ring anyway). */
     suspend fun toCallAdded(c: DataContainer, number: String, key: String, at: Long, now: Long = System.currentTimeMillis()) {
-        val known = withContext(Dispatchers.IO) { runCatching { c.contacts.lookup(number) != null || c.vault.lookup(number) != null }.getOrDefault(true) }
+        // Archived contacts are saved contacts too; a lookup that failed counts as saved (no window for a contact).
+        val known = withContext(Dispatchers.IO) { catching { c.numberOwners.find(number, null).let { it.saved || it.unsure } }.getOrDefault(true) }
         if (known) return
         val (start, end) = ExpectedCalls.forToCall(at, now)
         consider(c, ExpectedWindow(start, end, ExpectedSource.TO_CALL, key, number = number))
@@ -127,12 +129,14 @@ object ExpectedCallHints {
     }
 
     /**
-     * Who a call note is about: a contact's name, or a private contact's (with true: discreet mode hides it wherever the
-     * window shows), else none.
+     * Who a call note is about ([app.parley.data.people.NumberOwners]): a contact's name, a private contact's (with true:
+     * discreet mode hides it wherever the window shows), an archived contact's, else none.
      */
     suspend fun caller(c: DataContainer, number: String?): Pair<String?, Boolean> = withContext(Dispatchers.IO) {
         if (number.isNullOrBlank()) return@withContext null to false
-        runCatching { c.contacts.lookup(number)?.takeIf { !it.work }?.name }.getOrNull()?.let { return@withContext it to false }
-        (runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() to true).takeIf { it.first != null } ?: (null to false)
+        val found = catching { c.numberOwners.find(number, null) }.getOrNull() ?: return@withContext null to false
+        found.contact?.takeIf { !it.work }?.name?.let { return@withContext it to false }
+        found.private?.second?.name?.let { return@withContext it to true }
+        found.archived?.name to false
     }
 }

@@ -35,6 +35,7 @@ class ParleyRuleSetProvider : RuleSetProvider {
             PrivateMark(config),
             SuppressWithoutReason(config),
             RawRename(config),
+            RawPrivacySwitch(config),
         ),
     )
 }
@@ -179,6 +180,45 @@ class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
             "launch", "async", "withContext", "coroutineScope", "supervisorScope", "withTimeout", "withTimeoutOrNull",
             "LaunchedEffect", "produceState", "flow", "channelFlow", "callbackFlow", "runInterruptible",
         )
+    }
+}
+
+/**
+ * "May private data show now?" has one answer: `PrivacyView` (core/common), built by core/data's `Privacy`. Feature
+ * code that read the switches behind it picked its own mix of them, and the duress promise depended on every author
+ * choosing right. Found without types, by name: reading `.hideVault` ("Hide private contacts") or `.lockScreenCaller`
+ * ("Caller on the lock screen") off anything, and `Concealment.hiding`, `.hides(…)`, `.state` or `.phase`. Writing a
+ * switch (`copy(hideVault = …)`) is a named argument, not a read, and isn't reported. The settings themselves, the
+ * duress machinery and `Privacy` are excluded in the configuration.
+ */
+class RawPrivacySwitch(config: Config = Config.empty) : Rule(config) {
+    override val issue: Issue = Issue(
+        javaClass.simpleName,
+        Severity.Security,
+        "Read what may show through PrivacyView (c.privacy), not the raw privacy switches.",
+        Debt.TEN_MINS,
+    )
+
+    override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
+        super.visitDotQualifiedExpression(expression)
+        if (expression.getStrictParentOfType<KtImportDirective>() != null) return
+        val selector = expression.selectorExpression ?: return
+        val name = when (selector) {
+            is KtNameReferenceExpression -> selector.getReferencedName()
+            is KtCallExpression -> selector.calleeExpression?.text
+            else -> null
+        } ?: return
+        val raw = when {
+            selector is KtNameReferenceExpression && name in SETTINGS -> true
+            expression.receiverExpression.text.substringAfterLast('.') == "Concealment" && name in CONCEALMENT -> true
+            else -> false
+        }
+        if (raw) report(CodeSmell(issue, Entity.from(expression), "${expression.text}: read it from PrivacyView (c.privacy) instead."))
+    }
+
+    private companion object {
+        val SETTINGS = setOf("hideVault", "lockScreenCaller")
+        val CONCEALMENT = setOf("hiding", "hides", "state", "phase")
     }
 }
 

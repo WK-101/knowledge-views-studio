@@ -11,7 +11,8 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
-import app.parley.data.security.Concealment
+import app.parley.data.people.NumberOwners
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
@@ -48,12 +49,13 @@ class NumberMemoryStore(private val c: DataContainer) {
      */
     @Suppress("TooGenericExceptionCaught") // Fail open: no line rather than a broken call screen or keypad.
     suspend fun hints(number: String, place: NumberMemory.Place, region: String = this.region): List<MemoryHint> = try {
-        if (number.isBlank() || c.vault.lookup(number, region) != null) {
+        val use = if (place == NumberMemory.Place.CALL) NumberOwners.Use.CALL_PATH else NumberOwners.Use.SCREEN
+        if (number.isBlank() || c.numberOwners.findIn(number, region, use).let { it.private != null || it.privateFailed }) {
             emptyList()
         } else {
-            val privateAllowed = !c.settings.current().hideVault && !VaultCrypto.detailNeedsUnlock()
+            val privateAllowed = c.privacy.now().privateShown && !VaultCrypto.detailNeedsUnlock()
             // H3: the index keeps excerpts of notes from before a duress unlock; they're dropped here while it hides notes.
-            val notesHidden = Concealment.hides(Concealed.NOTES) || Concealment.hides(Concealed.CIRCLE_NOTES)
+            val notesHidden = Privacy.duressOnly().hides(Concealed.NOTES) || Privacy.duressOnly().hides(Concealed.CIRCLE_NOTES)
             NumberMemory.rank(NumberMemory.concealNotes(index.lookup(number, region) + live(number, region), notesHidden), place, privateAllowed)
         }
     } catch (e: CancellationException) {

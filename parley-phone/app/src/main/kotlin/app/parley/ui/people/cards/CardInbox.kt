@@ -77,7 +77,7 @@ object CardInbox {
     private suspend fun receiveOne(c: DataContainer, card: SignedCard, region: String?): Result {
         val store = c.people.cardLinks
         val now = System.currentTimeMillis()
-        val discreet = c.settings.settings.value.hideVault
+        val discreet = c.privacy.memory().privateHidden
         val book = store.book.value
         // Who is still there, for a card already linked; who has one of its numbers, for a card that isn't.
         val linkedKey = book.byCardId(card.cardId)?.first
@@ -131,12 +131,15 @@ object CardInbox {
     /** The single contact (device or private) holding one of [fields]' numbers, as (Parley key, (navId, name)). */
     private suspend fun matchByNumbers(c: DataContainer, fields: CardFields, region: String?, includePrivate: Boolean): Pair<String, Pair<Long, String>>? {
         val found = LinkedHashMap<String, Pair<Long, String>>()
+        val owners = c.numberOwners
         for (n in fields.phones) {
-            c.contacts.lookup(n)?.takeIf { !it.work }?.let { info ->
+            // Who owns the number, as everywhere ([app.parley.data.people.NumberOwners]).
+            val owner = owners.findIn(n, region ?: owners.region(null))
+            owner.contact?.takeIf { !it.work }?.let { info ->
                 val key = info.lookupKey ?: c.contacts.lookupKeyOf(info.contactId)
                 if (!key.isNullOrEmpty()) found[key] = info.contactId to info.name
             }
-            if (includePrivate) c.vault.lookup(n, region)?.let { (id, info) -> found[ContactRef.privateKey(id)] = ContactRef.Private(id).navId to info.name }
+            if (includePrivate) owner.private?.let { (id, info) -> found[ContactRef.privateKey(id)] = ContactRef.Private(id).navId to info.name }
         }
         return found.entries.singleOrNull()?.toPair()
     }

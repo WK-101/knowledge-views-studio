@@ -33,9 +33,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -198,7 +198,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
 private fun rememberOutdated(vm: AppViewModel, phones: List<String>): State<List<IntroQueue.Target>?> = produceState<List<IntroQueue.Target>?>(null) {
     val ledger = vm.c.people.shareLedger
     ledger.load()
-    val shown = CardSharing.shown(vm.c, ledger.receipts.value, vm.c.settings.settings.value.hideVault)
+    val shown = CardSharing.shown(vm.c, ledger.receipts.value, vm.privacy.value.privateHidden)
     value = ShareLedger.outdated(shown, phones, vm.countryIso).mapNotNull { p ->
         p.number?.let { NumberText.toE164(it, vm.countryIso) }?.let { IntroQueue.Target(p.name, it) }
     }

@@ -43,7 +43,6 @@ import app.parley.R
 import app.parley.common.security.PassphraseStrength
 import app.parley.data.export.ContactExport
 import app.parley.data.export.ContactExport.Format
-import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultCrypto
 import app.parley.jobs.UserErrorText
 import app.parley.jobs.UserJobs
@@ -93,7 +92,7 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
     val repeat = secrets.repeat
     val jobs by vm.jobs.running.collectAsStateWithLifecycle()
     val running = jobs.any { it.kind == UserJobs.Kind.EXPORT }
-    val hasPrivate = vm.c.vault.contacts.collectAsStateWithLifecycle().value.isNotEmpty() && !Concealment.hiding
+    val hasPrivate = vm.c.vault.contacts.collectAsStateWithLifecycle().value.isNotEmpty() && !vm.privacy.collectAsStateWithLifecycle().value.hiding
     val sealed = format == Format.SEALED_VCARD
     // The text file is the notes: they are always in it.
     val notesOn = format == Format.NOTES_TEXT || (includeNotes && format.carriesNotes)

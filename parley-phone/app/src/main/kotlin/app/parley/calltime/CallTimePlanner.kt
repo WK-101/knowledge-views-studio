@@ -6,21 +6,23 @@ import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.EmergencyPolicy
-import app.parley.common.people.ContactRef
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calltime.CallFacts
-import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.CallLimits
 import app.parley.common.calltime.CallTimePlan
+import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
 import app.parley.common.calltime.QuotaPeriod
 import app.parley.common.calltime.QuotaStatus
 import app.parley.common.calltime.Quotas
 import app.parley.common.calltime.UsageEntry
+import app.parley.common.catching
+import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
+import app.parley.data.people.NumberOwners
 import app.parley.telecom.ScreeningGuard
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -41,19 +43,32 @@ class CallTimePlanner(private val c: DataContainer) {
     /** The call as the policy sees it, plus the numbers that count towards the same person's allowance. */
     private data class Subject(val facts: CallFacts, val numbers: List<String>, val name: String?)
 
+    /** Whose allowance a call counts towards: its key, name, ids and numbers (null: the one number only). */
+    private class Owner(val key: String?, val name: String?, val contactId: Long?, val vaultId: Long?, val numbers: List<String>?)
+
+    /**
+     * Who owns [number], found once per ring ([app.parley.data.people.NumberOwners]): an address-book contact by its
+     * lookup key, else a private or an archived contact by its Parley key.
+     */
+    private suspend fun ownerOf(number: String?, accountId: String?): Owner {
+        val found = number?.takeIf { it.isNotBlank() }?.let { catching { c.numberOwners.find(it, accountId, NumberOwners.Use.CALL_PATH) }.getOrNull() }
+        found?.contact?.let { info ->
+            val key = info.lookupKey?.takeIf { it.isNotBlank() }
+            // In a process started for the call the list isn't loaded: the contact's numbers come from the provider.
+            val numbers = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }?.phones?.map { it.number }
+                ?: info.takeIf { !it.work }?.let { catching { c.contacts.numbersOf(it.contactId) }.getOrNull()?.takeIf { n -> n.isNotEmpty() } }
+            return Owner(key, info.name, info.contactId, null, numbers)
+        }
+        found?.private?.let { (id, info) -> return privateMatch(id, info.name).let { Owner(it.key, it.name, null, id, it.numbers) } }
+        found?.archived?.let { a -> return Owner(a.parleyKey, a.name, null, null, a.numbers.takeIf { it.isNotEmpty() }) }
+        return Owner(null, null, null, null, null)
+    }
+
     private suspend fun subject(number: String?, accountId: String?, incoming: Boolean): Subject = withContext(Dispatchers.IO) {
         val config = c.calling.config.value
-        val info = number?.takeIf { it.isNotBlank() }?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
-        // Not in the address book: a private contact is limited by its Parley key, like any contact by its lookup key.
-        val private = if (info == null) privateMatch(number) else null
-        val key = info?.lookupKey?.takeIf { it.isNotBlank() } ?: private?.key
-        val labels = labelsFor(config, info?.contactId, private?.vaultId)
-        val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
-        // In a process started for the call the list isn't loaded: the contact's numbers come from the provider.
-        val numbers = contact?.phones?.map { it.number }
-            ?: info?.takeIf { !it.work }?.let { runCatching { c.contacts.numbersOf(it.contactId) }.getOrNull()?.takeIf { n -> n.isNotEmpty() } }
-            ?: private?.numbers
-            ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
+        val owner = ownerOf(number, accountId)
+        val labels = labelsFor(config, owner.contactId, owner.vaultId)
+        val numbers = owner.numbers ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
         // The hour after an emergency call, and numbers listed as starting it: never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
@@ -63,19 +78,17 @@ class CallTimePlanner(private val c: DataContainer) {
             },
         )
         val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)
-        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), numbers, info?.name ?: private?.name)
+        Subject(CallFacts(incoming, emergency.isEmergency, owner.key, labels, accountId, inEmergencyWindow = exempt), numbers, owner.name)
     }
 
     private class PrivateMatch(val vaultId: Long, val name: String, val numbers: List<String>?) {
         val key: String get() = ContactRef.privateKey(vaultId)
     }
 
-    /** The private contact with [number], with its numbers (they count towards the same allowance), or null. */
-    private suspend fun privateMatch(number: String?): PrivateMatch? {
-        if (number.isNullOrBlank()) return null
-        val hit = runCatching { c.vault.lookup(number) }.getOrNull() ?: return null
-        val numbers = runCatching { c.vault.summary(hit.first) }.getOrNull()?.numbers?.takeIf { it.isNotEmpty() }
-        return PrivateMatch(hit.first, hit.second.name, numbers)
+    /** Private contact [vaultId], with its numbers (they count towards the same allowance). */
+    private suspend fun privateMatch(vaultId: Long, name: String): PrivateMatch {
+        val numbers = catching { c.vault.summary(vaultId) }.getOrNull()?.numbers?.takeIf { it.isNotEmpty() }
+        return PrivateMatch(vaultId, name, numbers)
     }
 
     /**

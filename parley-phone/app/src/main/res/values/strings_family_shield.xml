@@ -14,6 +14,7 @@
     <string name="fsh_switch">Share and use spam warnings</string>
     <string name="fsh_switch_sub">Only this label\'s members see them. Off until you turn it on.</string>
     <string name="fsh_mode_title">When someone here warned about a caller</string>
+    <string name="fsh_block_two">Block needs two people here to agree, or the one who shared the label. A number only one person warned about is a warning.</string>
     <string name="fsh_never">Saved contacts and emergency numbers always ring, whatever this says.</string>
     <string name="fsh_by_file">Send an update so the others get your changes.</string>
     <string name="fsh_from_others">From others</string>

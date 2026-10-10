@@ -1,49 +1,48 @@
 package app.parley
 
-import app.parley.work.FolderSyncNotice
-import app.parley.jobs.UserErrorText
-import app.parley.ui.home.PrivateMoves
-import app.parley.ui.Destination
-import android.net.Uri
-import app.parley.blocking.DialText
-import app.parley.common.DialHit
-import app.parley.common.suspendRunCatching
-import app.parley.common.StartTab
-import app.parley.data.ContactDetails
-import app.parley.data.DeviceAccounts
-import app.parley.ui.circle.CircleUi
-import android.annotation.SuppressLint
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Application
+import android.net.Uri
 import android.telecom.TelecomManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.parley.blocking.DialText
+import app.parley.calls.MissedCallNotifier
+import app.parley.calls.ProximityProbe
+import app.parley.calltime.UssdSession
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
+import app.parley.common.DialHit
 import app.parley.common.PhoneIdentity
 import app.parley.common.SimAccount
-import app.parley.data.Permissions
-import app.parley.data.PlaceResult
-import app.parley.shortcuts.Shortcuts
-import app.parley.calltime.CallTimePlanner
-import app.parley.calltime.UssdSession
-import app.parley.common.calltime.Ussd
+import app.parley.common.StartTab
 import app.parley.common.calls.AssistedDial
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.NetworkName
 import app.parley.common.calls.PocketGuard
-import app.parley.calls.MissedCallNotifier
-import app.parley.calls.ProximityProbe
-import app.parley.data.DialWarning
-import app.parley.telecom.CallManager
-import app.parley.ui.Bidi
-import app.parley.ui.people.PeopleUi
-import app.parley.ui.recall.RecallUi
-import kotlinx.coroutines.Dispatchers
+import app.parley.common.calltime.Ussd
 import app.parley.common.people.Collation
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
+import app.parley.common.suspendRunCatching
+import app.parley.data.ContactDetails
+import app.parley.data.DeviceAccounts
+import app.parley.data.DialWarning
+import app.parley.data.Permissions
+import app.parley.data.PlaceResult
+import app.parley.jobs.UserErrorText
+import app.parley.shortcuts.Shortcuts
+import app.parley.ui.Bidi
+import app.parley.ui.Destination
+import app.parley.ui.circle.CircleUi
+import app.parley.ui.home.PrivateMoves
+import app.parley.ui.people.PeopleUi
+import app.parley.ui.recall.RecallUi
+import app.parley.work.FolderSyncNotice
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +52,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
-import app.parley.common.calls.NetworkName
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -158,6 +156,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Exports, imports and backups that outlive the screen that started them. */
     val jobs: app.parley.jobs.UserJobs = (app.applicationContext as ParleyApp).jobs
     val settings = c.settings.settings
+
+    /** "May private data show now?" for every screen ([app.parley.common.security.PrivacyView]); closed until the settings are read. */
+    val privacy = c.privacy.flow
+
+    /** The privacy view read from the stored settings, for work off the main thread ([app.parley.data.security.Privacy.now]). */
+    suspend fun privacyNow(): app.parley.common.security.PrivacyView = c.privacy.now()
+
+    /** Who owns a number ([app.parley.data.people.NumberOwners]), for screens. */
+    val numberOwners: app.parley.data.people.NumberOwners get() = c.numberOwners
     val countryIso: String = c.directory.countryIso
 
     val isDefaultDialer = MutableStateFlow(Permissions.isDefaultDialer(app))
@@ -257,7 +264,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * query ([app.parley.data.ContactDirectory]) never contains private contacts.
      */
     val everyone: StateFlow<List<ContactSummary>?> = combine(
-        contacts, c.vault.listing, settings.map { Triple(it.hideVault, it.sortByFirstName, it.showNamesLastFirst) }.distinctUntilChanged(),
+        contacts, c.vault.listing,
+        combine(privacy, settings) { p, s -> Triple(p.privateHidden, s.sortByFirstName, s.showNamesLastFirst) }.distinctUntilChanged(),
     ) { list, vault, (hidden, byFirst, lastFirst) ->
         val compare = privateOrder
         // "Sort by" and "Show names as" apply to private contacts as to the address book's: same headers, same rail.
@@ -282,12 +290,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Contacts-feature state: label and account filters, second line, favourites order. */
     val people = PeopleUi(
         c, viewModelScope, everyone, contactQuery, countryIso,
-        privateOnly = combine(showVault, settings) { on, s -> on && !s.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, false),
-        includePrivate = settings.map { !it.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, !settings.value.hideVault),
+        privateOnly = combine(showVault, privacy) { on, p -> on && p.privateShown }.stateIn(viewModelScope, SharingStarted.Eagerly, false),
+        includePrivate = privacy.map { it.privateShown }.stateIn(viewModelScope, SharingStarted.Eagerly, privacy.value.privateShown),
     )
 
     /** Recall: the Contacts search's "Search everything" mode. */
-    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex, settings)
+    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex)
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, everyone)

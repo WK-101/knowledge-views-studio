@@ -1,10 +1,9 @@
 package app.parley.ui.recall
 
-import app.parley.common.AppSettings
 import app.parley.common.CallEntry
-import app.parley.common.catching
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.memory.MemorySource
 import app.parley.common.people.ContactListSearch
 import app.parley.common.recall.RecallCorpus
@@ -63,7 +62,6 @@ class RecallUi(
     shown: StateFlow<List<ContactSummary>?>,
     /** Number → device contact by line, as Recents names calls. */
     private val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>>,
-    settings: StateFlow<AppSettings>,
 ) {
     private val sources = RecallSources(c)
 
@@ -84,7 +82,7 @@ class RecallUi(
 
     /** May private contacts' calls, notes and deleted copies be searched now? (Asked off the main thread.) */
     private val privacy: Flow<Privacy> = combine(
-        settings.map { it.hideVault }.distinctUntilChanged(), AppLock.locked, c.vault.forgets, reloads,
+        c.privacy.privateHidden, AppLock.locked, c.vault.forgets, reloads,
         // Asked again once the private listing has loaded (a search right after a cold start) and at each unlock or lock.
         combine(c.vault.listing.map { it.orEmpty().isNotEmpty() }, c.vault.lock.unlocked, ::Pair).distinctUntilChanged(),
     ) { hidden, locked, _, _, (hasPrivate, _) ->

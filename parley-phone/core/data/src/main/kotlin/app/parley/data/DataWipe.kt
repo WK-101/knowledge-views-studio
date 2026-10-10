@@ -84,6 +84,8 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
     private fun deleteKeys() {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         ks.aliases().toList().forEach { runCatching { ks.deleteEntry(it) } }
+        // Fingerprints remembered in memory were made with the HMAC key that just went.
+        app.parley.data.vault.VaultCrypto.forgetKeyHandles()
     }
 
     /** Raw contacts in phone-only accounts (no account, Android 15's local account, OEM phone accounts). */

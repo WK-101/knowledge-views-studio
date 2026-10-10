@@ -19,22 +19,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
+import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.people.DuplicateHit
 import app.parley.common.people.DuplicateLookup
 import app.parley.common.people.DuplicateReason
 import app.parley.data.ContactDetails
+import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.res.stringResource
-import app.parley.R
-import app.parley.ui.DataL10n
 
 /**
  * New-contact editor: "Anna Smith already exists · Open / Add these details to her", checked as you type
@@ -47,9 +47,9 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
     // Private contacts count too (not in discreet mode, where the vault stays out of sight). Their ids are
     // negative so they never clash with a contact id.
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    val vaultLookup = remember(vault, settings.hideVault) {
-        if (settings.hideVault) null else DuplicateLookup(
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    val vaultLookup = remember(vault, privacy.privateHidden) {
+        if (privacy.privateHidden) null else DuplicateLookup(
             vault.map { v -> ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) },
         )
     }

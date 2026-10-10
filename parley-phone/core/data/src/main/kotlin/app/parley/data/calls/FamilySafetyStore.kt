@@ -2,16 +2,17 @@ package app.parley.data.calls
 
 import android.content.Context
 import android.util.Base64
+import app.parley.common.LabelRefs
 import app.parley.common.calls.ExpectedCalls
 import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.calls.FamilySafetyState
 import app.parley.common.calls.Helper
 import app.parley.common.calls.SafeWord
-import app.parley.common.LabelRefs
 import app.parley.common.calls.SafeWords
 import app.parley.common.security.Concealed
 import app.parley.data.security.Concealment
+import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,7 +79,7 @@ class FamilySafetyStore(context: Context) {
     }
 
     /** After a duress unlock no safe word shows, not even which labels have one. */
-    private val wordsHidden: Boolean get() = Concealment.hides(Concealed.SAFE_WORDS)
+    private val wordsHidden: Boolean get() = Privacy.duressOnly().hides(Concealed.SAFE_WORDS)
 
     /** Safe words set over a hidden one while hiding, by label: shown instead of it, in memory, never stored over it. */
     private val overWords = HashMap<String, SafeWord>()

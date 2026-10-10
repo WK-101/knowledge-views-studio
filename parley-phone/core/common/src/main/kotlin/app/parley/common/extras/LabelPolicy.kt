@@ -34,8 +34,10 @@ data class LabelPolicy(
 data class CallerChoice(
     val vibration: String? = null,
     val autoAnswer: Boolean = false,
+    /** "They never call me": "This number never calls you" stays on for their numbers ([app.parley.common.calls.NeverCallsYou]). */
+    val neverCalls: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = vibration == null && !autoAnswer
+    val isEmpty: Boolean get() = vibration == null && !autoAnswer && !neverCalls
 }
 
 /** Device contacts' [CallerChoice]s, by lookup key. */
@@ -59,7 +61,11 @@ object CallerChoices {
         if (from == to) return map
         val moving = map[from] ?: return map
         val there = map[to]
-        val merged = if (there == null) moving else CallerChoice(there.vibration ?: moving.vibration, there.autoAnswer || moving.autoAnswer)
+        val merged = if (there == null) {
+            moving
+        } else {
+            CallerChoice(there.vibration ?: moving.vibration, there.autoAnswer || moving.autoAnswer, there.neverCalls || moving.neverCalls)
+        }
         return (map - from) + (to to merged)
     }
 

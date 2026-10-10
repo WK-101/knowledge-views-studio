@@ -1,15 +1,13 @@
 package app.parley.telecom
 
-import app.parley.common.BlockAction
 import android.content.Context
 import android.content.Intent
 import app.parley.common.AnswerGesture
+import app.parley.common.BlockAction
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calls.CallExtrasConfig
-import app.parley.common.calls.RingStyle
-import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.EmergencyPolicy
@@ -18,8 +16,10 @@ import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.MenuStep
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.RingStyle
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.VerifyCallBack
+import app.parley.common.calltime.CallTimePlan
 import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
@@ -106,8 +106,11 @@ data class InCallAppearance(
     val speakCallerName: Boolean = false,
     /** Settings › Calls › "Call screen background": the caller's colour or plain. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
-    /** Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked. */
-    val lockScreenCaller: LockScreenCaller = LockScreenCaller.NAME,
+    /**
+     * Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked.
+     * The app sends it from its privacy view (Nothing until the settings are read).
+     */
+    val lockScreen: LockScreenCaller = LockScreenCaller.NAME,
     /** "Text me your name": the reply offered first to numbers that aren't saved; blank: off. */
     val nameReply: String = "",
 )
@@ -138,6 +141,12 @@ interface CallerInfoSource {
      * time; a failure or a timeout shows nothing. Offline: the contacts and the call history only.
      */
     suspend fun neverCallsYou(number: String, accountId: String?): Boolean = false
+
+    /**
+     * "It wasn't them", said on the "Is this a scam?" sheet of a call that showed "This number never calls you": that
+     * call is left out of the history the notice reads, so it stays on for the next call from the line.
+     */
+    suspend fun disownCall(number: String) = Unit
 
     /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number

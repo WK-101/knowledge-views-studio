@@ -1,6 +1,5 @@
 package app.parley.data
 
-import app.parley.common.catching
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
@@ -16,6 +15,7 @@ import app.parley.common.BlockAction
 import app.parley.common.NavTabs
 import app.parley.common.ScreeningSettings
 import app.parley.common.SurfaceLayout
+import app.parley.common.catching
 import app.parley.common.history.RetentionDefaults
 import app.parley.common.people.NameOrder
 import app.parley.common.security.DuressPolicy
@@ -31,11 +31,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
-private const val PRIVATE_NAMES_TIMEOUT_MS = 1_500L
 
 class SettingsRepository internal constructor(
     private val store: DataStore<Preferences>,
@@ -170,15 +167,6 @@ class SettingsRepository internal constructor(
         if (duressSession) sessionOverlay.value = overlay
         prefs.write(toStore)
     }
-
-    /**
-     * Whether private names must stay hidden now, for the private-name providers. They can be the first thing to
-     * run in a cold process, before [settings] has loaded (its first value is the defaults, discreet mode off): this
-     * reads the stored settings and the duress hiding itself, and fails closed (hidden) when that takes longer than
-     * [timeoutMs] or fails.
-     */
-    suspend fun hidesPrivateNames(timeoutMs: Long = PRIVATE_NAMES_TIMEOUT_MS): Boolean =
-        runCatching { withTimeoutOrNull(timeoutMs) { current().hideVault } }.getOrNull() ?: true
 
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->

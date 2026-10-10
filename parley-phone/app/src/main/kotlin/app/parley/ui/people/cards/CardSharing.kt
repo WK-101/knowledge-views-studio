@@ -1,7 +1,5 @@
 package app.parley.ui.people.cards
 
-import app.parley.common.security.Concealed
-import app.parley.data.security.Concealment
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -9,23 +7,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.cards.ShareMethod
 import app.parley.common.cards.ShareReceipt
-import app.parley.common.people.ContactRef
 import app.parley.common.cards.SignedCards
+import app.parley.common.people.ContactRef
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
+import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.people.MeCardDetails
 import app.parley.ui.showMessage
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Sharing My card: the vCard every share uses, signed with the card's key so a contact's Parley can tell a
@@ -88,7 +87,8 @@ object CardSharing {
         LaunchedEffect(Unit) { store.load() }
         val receipts by store.receipts.collectAsStateWithLifecycle()
         val settings by vm.c.settings.settings.collectAsStateWithLifecycle()
-        val discreet = settings.hideVault
+        val privacy by vm.privacy.collectAsStateWithLifecycle()
+        val discreet = privacy.privateHidden
         // After a duress unlock nobody is listed (who you gave your number to can matter as much as private contacts).
         val hidden = settings.duress != null
         return produceState(if (hidden) emptyList() else receipts.filter { it.contactKey == null }, receipts, discreet, hidden) {
@@ -98,7 +98,7 @@ object CardSharing {
 
     /** [receipts] as shown (see [rememberShownReceipts]); none after a duress unlock. */
     suspend fun shown(c: DataContainer, receipts: List<ShareReceipt>, discreet: Boolean): List<ShareReceipt> =
-        if (Concealment.hides(Concealed.SHARED_WITH)) emptyList() else shownInList(c, receipts, discreet)
+        if (c.privacy.now().hides(Concealed.SHARED_WITH)) emptyList() else shownInList(c, receipts, discreet)
 
     private suspend fun shownInList(c: DataContainer, receipts: List<ShareReceipt>, discreet: Boolean): List<ShareReceipt> = receipts.mapNotNull { r ->
         val vaultId = ContactRef.vaultIdOf(r.contactKey) ?: return@mapNotNull r.takeIf { r.contactKey == null }

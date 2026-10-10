@@ -1,8 +1,5 @@
 package app.parley.ui.contact
 
-import app.parley.common.cards.SignedCards
-import app.parley.ui.Clipboard
-import app.parley.ui.people.cards.CardArrivalNotes
 import android.content.Context
 import android.content.res.Resources
 import android.view.textclassifier.TextClassificationManager
@@ -59,6 +56,8 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.NumberText
 import app.parley.common.PhoneEntry
+import app.parley.common.cards.SignedCards
+import app.parley.common.extras.PendingSlot
 import app.parley.common.people.DuplicateHit
 import app.parley.common.people.DuplicateLookup
 import app.parley.common.people.PasteParser
@@ -66,10 +65,12 @@ import app.parley.common.people.PasteParser.Kind
 import app.parley.common.people.PasteParser.Label
 import app.parley.common.ux.Tips
 import app.parley.ui.Bidi
+import app.parley.ui.Clipboard
+import app.parley.ui.DataL10n
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.common.CoachMark
-import app.parley.ui.DataL10n
+import app.parley.ui.people.cards.CardArrivalNotes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,7 +80,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
-import app.parley.common.extras.PendingSlot
 
 /**
  * Text shared to Parley for "Make a contact from this text", handed to the new contact's editor in memory only (like
@@ -311,10 +311,10 @@ private fun PastePreview(
 private fun existingMatch(vm: AppViewModel, picked: List<PasteParser.Field>): DuplicateHit? {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
     val lookup = remember(contacts) { contacts?.let { DuplicateLookup(it) } }
-    val vaultLookup = remember(vault, settings.hideVault) {
-        if (settings.hideVault) {
+    val vaultLookup = remember(vault, privacy.privateHidden) {
+        if (privacy.privateHidden) {
             null
         } else {
             DuplicateLookup(vault.map { v -> ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) })
