@@ -23,20 +23,30 @@ import java.util.concurrent.ConcurrentHashMap
  * contact's: the callers check before [record] ([NetworkName.keep]); the screens check the setting and the number again
  * before showing (a number saved later shows its saved name). Turning the setting off asks whether to [clear] them.
  */
-class NetworkNameStore private constructor(context: Context, private val keys: SealedLineStore.KeySource) {
-    constructor(context: Context, history: () -> CallHistory) : this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) })
+class NetworkNameStore private constructor(
+    context: Context,
+    private val keys: SealedLineStore.KeySource,
+    private val table: () -> SealedLineStore.Table,
+) {
+    constructor(context: Context, history: () -> CallHistory) :
+        this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) }, { history().factTable })
 
-    /** With [keys] in place of the archive's (tests). */
-    internal constructor(context: Context, keys: SealedLineStore.Keys) : this(context, SealedLineStore.KeySource { keys })
+    /** With [keys] and [table] in place of the archive's (tests). */
+    internal constructor(context: Context, keys: SealedLineStore.Keys, table: SealedLineStore.Table) :
+        this(context, SealedLineStore.KeySource { keys }, { table })
 
+    /** Where the rows were kept before the history database's table; read to copy them once. */
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    private val store = sealed(KEY_ROWS)
+    private val store = sealed(KIND, KEY_ROWS)
 
-    private fun sealed(rowsKey: String) = SealedLineStore(
-        prefs, rowsKey, keys, encode = NetworkName::encode, decode = NetworkName::decode, startedAt = { it.lastSeen },
-        maxRows = MAX_ROWS, keepDays = KEEP_DAYS,
+    /** The store of [kind], whose rows earlier versions kept in [prefs] under [legacyKey]. */
+    private fun sealed(kind: String, legacyKey: String) = SealedLineStore(
+        table, kind, keys, encode = NetworkName::encode, decode = NetworkName::decode, startedAt = { it.lastSeen },
+        maxRows = MAX_ROWS, keepDays = KEEP_DAYS, legacy = SealedLineStore.Legacy(prefs, legacyKey),
     )
+
+    private fun aside(batch: Long) = sealed(ASIDE_KIND + batch, ASIDE + batch)
 
     /** Bumped on every write, so lists re-read. */
     val version: StateFlow<Int> get() = store.version
@@ -97,14 +107,14 @@ class NetworkNameStore private constructor(context: Context, private val keys: S
             val k = store.keyOf(line) ?: return@flatMap emptyList()
             store.forNumber(line, now).map { k to it }
         }
-        if (keyed.isNotEmpty()) sealed(ASIDE + batch).merge(keyed)
+        if (keyed.isNotEmpty()) aside(batch).merge(keyed)
         forget(number, regions)
         dropOldAsides(now)
     }
 
     /** Puts back the names [setAside] kept with [batch] (names recorded since win where newer); true when there were any. */
     fun putBack(batch: Long, now: Long = System.currentTimeMillis()): Boolean {
-        val aside = sealed(ASIDE + batch)
+        val aside = aside(batch)
         val rows = aside.all(now)
         rows.groupBy({ it.first }, { it.second }).forEach { (key, names) ->
             store.updateKey(key, now) { current -> names.fold(current, NetworkName::merge) }
@@ -116,27 +126,37 @@ class NetworkNameStore private constructor(context: Context, private val keys: S
     private fun lines(number: String, regions: Collection<String?>): List<String> =
         if (number.isBlank()) emptyList() else (listOf(number) + regions.map { NetworkName.line(number, it) }).distinct()
 
-    private fun dropOldAsides(now: Long) {
-        val old = prefs.all.keys.filter { k -> k.startsWith(ASIDE) && k.removePrefix(ASIDE).toLongOrNull()?.let { now - it > ASIDE_MS } != false }
-        if (old.isNotEmpty()) prefs.edit().apply { old.forEach { remove(it) } }.apply()
+    /** The undo batches with names set aside, in the table or still in [prefs]. */
+    private fun asideBatches(): List<String> =
+        // A kind with '#' is a store's marker (its rows were copied from preferences), not a batch.
+        (runCatching { SealedLineStore.offMain(table()).kinds(ASIDE_KIND) }.getOrDefault(emptyList()).filter { '#' !in it }.map { it.removePrefix(ASIDE_KIND) } +
+            prefs.all.keys.filter { it.startsWith(ASIDE) }.map { it.removePrefix(ASIDE) }).distinct()
+
+    private fun dropAsides(which: (String) -> Boolean) {
+        val gone = asideBatches().filter(which)
+        if (gone.isEmpty()) return
+        gone.forEach { b -> runCatching { SealedLineStore.offMain(table()).let { t -> listOf("", SealedLineStore.MOVED).forEach { m -> t.clear(ASIDE_KIND + b + m) } } } }
+        prefs.edit().apply { gone.forEach { remove(ASIDE + it) } }.commit()
     }
+
+    private fun dropOldAsides(now: Long) = dropAsides { b -> b.toLongOrNull()?.let { now - it > ASIDE_MS } != false }
 
     /**
      * Whether any name may be kept (turning the setting off asks about them only then): rows on disk, readable or not,
      * and the copies set aside for an undo count too, since [clear] would remove them.
      */
-    fun hasAny(): Boolean =
-        !prefs.getString(KEY_ROWS, null).isNullOrBlank() || prefs.all.keys.any { it.startsWith(ASIDE) } || store.all().isNotEmpty()
+    fun hasAny(): Boolean = store.any() || asideBatches().isNotEmpty()
 
     fun clear() {
-        val asides = prefs.all.keys.filter { it.startsWith(ASIDE) }
         store.clear()
-        if (asides.isNotEmpty()) prefs.edit().apply { asides.forEach { remove(it) } }.apply()
+        dropAsides { true }
     }
 
     private companion object {
         const val FILE = "parley_network_names"
         const val KEY_ROWS = "rows"
+        const val KIND = "network_names"
+        const val ASIDE_KIND = "network_names:aside_"
         const val MAX_ROWS = 1_000
         const val KEEP_DAYS = 400L
 

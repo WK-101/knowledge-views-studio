@@ -18,6 +18,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 /** Menu memory is sealed at rest, never overwritten while unreadable, and private numbers stay out of the backup. */
 @RunWith(RobolectricTestRunner::class)
@@ -31,14 +32,20 @@ class MenuMemoryStoreTest {
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
         prefs.edit().clear().commit()
+        folder.deleteRecursively()
     }
+
+    private val folder by lazy { File(context.noBackupFilesDir, "docs/menu_memory") }
+
+    /** What is on the disk now: the document's file. */
+    private fun stored(): String? = File(folder, "index.sealed").takeIf { it.isFile }?.readText()
 
     private fun path(number: String, tone: Char) = MenuPath(listOf(MenuStep(tone, 3_000)), at = 1, number = number)
 
     @Test fun stored_sealed_and_read_back() = runBlocking {
         val store = MenuMemoryStore(context) { false }
         store.update { MenuMemory.remember(it, "k", path(bank, '2')) }
-        val raw = prefs.getString("state_v1", null)
+        val raw = stored()
         assertTrue(crypto.isSealed(raw))
         assertFalse(raw!!.contains(bank))
         val again = MenuMemoryStore(context) { false }
@@ -52,11 +59,13 @@ class MenuMemoryStoreTest {
         assertNull(store.update { MenuMemory.remember(it, "k", path(bank, '2')) })
         assertFalse(store.available)
         assertEquals(unreadable, prefs.getString("state_v1", null))
+        assertNull(stored())
     }
 
     @Test fun nothing_plain_when_sealing_fails() = runBlocking {
         val store = MenuMemoryStore(context, { false }) { null }
         store.update { MenuMemory.remember(it, "k", path(bank, '2')) }
+        assertNull(stored())
         assertNull(prefs.getString("state_v1", null))
         assertEquals(1, store.state.value.paths.size)
     }
@@ -71,7 +80,10 @@ class MenuMemoryStoreTest {
         // Written back sealed, so the PIN is gone from storage too.
         val again = MenuMemoryStore(context) { false }
         assertEquals(setOf("menu"), again.load().paths.keys)
-        assertTrue(crypto.isSealed(prefs.getString("state_v1", null)))
+        assertTrue(crypto.isSealed(stored()))
+        assertFalse(stored()!!.contains("1234"))
+        // Moved out of the preferences file once written to its own.
+        assertNull(prefs.getString("state_v1", null))
     }
 
     @Test fun the_backup_leaves_private_numbers_out_and_restores_by_merging() = runBlocking {
@@ -82,6 +94,7 @@ class MenuMemoryStoreTest {
         }
         val exported = store.backupExtras.export()
         prefs.edit().clear().commit()
+        folder.deleteRecursively()
         val fresh = MenuMemoryStore(context) { false }
         fresh.backupExtras.import(exported)
         val restored = fresh.state.value

@@ -12,23 +12,24 @@ import app.parley.data.backup.RestorePart
 import app.parley.data.security.Privacy
 import app.parley.data.security.RecordCrypto
 import app.parley.data.security.RecordSealing
+import app.parley.data.security.SealedDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.util.UUID
 
 /**
- * Case files ([CaseFiles]): one small document in its own preferences file, sealed with the small-records key (so the
- * call path can add a call while the phone is locked). Each reference number is sealed again on its own: it stays
+ * Case files ([CaseFiles]): a [SealedDocument] with one file per case (`docs/case_files` in no-backup storage), so a
+ * call rewrites only its own case. Sealed with the small-records key (so the call path can add a call while the phone
+ * is locked). Each reference number is sealed again on its own: it stays
  * sealed in memory and on screen until you ask to see it, and is opened only for that, for a PDF you chose to include
  * it in, and for the encrypted backup.
  *
@@ -59,22 +60,22 @@ class CaseFileStore internal constructor(
     ) : this(context, isPrivate, discreet, region, null, null, vaultChanges)
 
     private val appContext = context.applicationContext
-    private val prefs by lazy { appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }
     private val crypto by lazy { RecordCrypto.get(appContext) }
     private val seal: (String) -> String? = sealOverride ?: { text -> crypto.sealText(text)?.takeIf { crypto.isSealed(it) } }
     private val open: (String) -> String? = openOverride ?: { text -> if (crypto.isSealed(text)) crypto.openText(text) else null }
-    private val mutex = Mutex()
 
-    @Volatile private var loaded = false
-
-    @Volatile private var unsaved = false
-    private val _state = MutableStateFlow(CaseState())
+    private val doc = SealedDocument(
+        appContext, File(appContext.noBackupFilesDir, "docs/case_files"), PerCase,
+        // Where earlier versions kept every case in one value: copied into the files once.
+        legacy = SealedDocument.Legacy({ appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }, KEY, CaseFiles::decode),
+        sealOverride = sealOverride,
+    )
 
     /** The state as stored (reference numbers sealed); empty until [load] ran. */
-    val state: StateFlow<CaseState> = _state.asStateFlow()
+    val state: StateFlow<CaseState> = doc.state
 
     /** Whether the stored state could be read. */
-    val available: Boolean get() = loaded
+    val available: Boolean get() = doc.available
 
     /**
      * What may show now ([CaseFiles.visible]): nothing during a duress unlock, and in discreet mode no case of a
@@ -98,57 +99,13 @@ class CaseFileStore internal constructor(
     suspend fun isPrivateNow(case: CaseFile): Boolean =
         case.private || case.numbers.any { catching { isPrivate(it) }.getOrDefault(true) }
 
-    suspend fun load(): CaseState = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            loadLocked()
-            flushLocked()
-        }
-        _state.value
-    }
-
-    private fun loadLocked(): Boolean {
-        if (loaded) return true
-        val stored = prefs.getString(KEY, null)
-        val text = try {
-            crypto.openTextOrThrow(stored)
-        } catch (_: RecordCrypto.UnreadableException) {
-            return false
-        }
-        _state.value = CaseFiles.decode(text)
-        loaded = true
-        if (!stored.isNullOrEmpty() && !crypto.isSealed(stored)) unsaved = true
-        return true
-    }
-
-    private fun flushLocked(): Boolean {
-        if (!loaded || !unsaved) return true
-        val sealed = seal(CaseFiles.encode(_state.value))
-        if (sealed == null) {
-            RecordSealing.markPending(appContext)
-            return false
-        }
-        prefs.edit().putString(KEY, sealed).apply()
-        unsaved = false
-        return true
-    }
+    suspend fun load(): CaseState = doc.load()
 
     /**
      * Applies [f] and writes the result; returns the state, or null when the stored state can't be read right now
      * (nothing is applied then, so nothing stored is overwritten).
      */
-    suspend fun update(f: (CaseState) -> CaseState): CaseState? = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            if (!loadLocked()) return@withLock null
-            val now = _state.value
-            val next = f(now)
-            if (next != now) {
-                _state.value = next
-                unsaved = true
-            }
-            flushLocked()
-            next
-        }
-    }
+    suspend fun update(f: (CaseState) -> CaseState): CaseState? = doc.write(f).takeIf { doc.available }?.state
 
     /**
      * Adds a reference number to case [caseId], sealed on its own; false when it couldn't be (nothing is kept plain)
@@ -165,9 +122,7 @@ class CaseFileStore internal constructor(
     /** A reference number's value, opened; null when it can't be opened right now. */
     suspend fun openReference(ref: CaseReference): String? = withContext(Dispatchers.IO) { catching { open(ref.value) }.getOrNull() }
 
-    override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
-        mutex.withLock { if (!loadLocked()) true else flushLocked() }
-    }
+    override suspend fun resealPlain(): Boolean = doc.resealPlain()
 
     /**
      * Inside the encrypted backup, restored with the contacts: every case file but private contacts', with its
@@ -194,6 +149,34 @@ class CaseFileStore internal constructor(
             val sealed = withContext(Dispatchers.IO) { CaseFiles.sealed(restored, seal) }
             check(update { CaseFiles.merge(it, sealed, region()) } != null) { "Case files couldn't be stored" }
         }
+    }
+
+    /** One file per case, by its id, and an index with their order and the auto-start switch. */
+    private object PerCase : SealedDocument.Layout<CaseState> {
+        override fun empty() = CaseState()
+
+        override fun split(s: CaseState): Map<String, String> {
+            val index = JSONObject().put(I_AUTO, s.autoStart).put(I_CASES, JSONArray(s.cases.map { it.id }))
+            return s.cases.associate { partOf(it.id) to CaseFiles.encode(CaseState(listOf(it))) } + (SealedDocument.INDEX to index.toString())
+        }
+
+        override fun parts(index: String) = ids(index).map(::partOf)
+
+        override fun join(index: String, parts: Map<String, String>): CaseState {
+            val cases = ids(index).mapNotNull { id -> parts[partOf(id)]?.let { CaseFiles.decode(it).cases.firstOrNull() } }
+            val auto = catching { JSONObject(index).optBoolean(I_AUTO, true) }.getOrDefault(true)
+            return CaseState(cases, auto)
+        }
+
+        private fun ids(index: String): List<String> = catching {
+            val a = JSONObject(index).optJSONArray(I_CASES) ?: JSONArray()
+            (0 until a.length()).map { a.getString(it) }
+        }.getOrDefault(emptyList())
+
+        private fun partOf(id: String) = SealedDocument.partName("case-", id)
+
+        private const val I_AUTO = "autoStart"
+        private const val I_CASES = "cases"
     }
 
     private companion object {

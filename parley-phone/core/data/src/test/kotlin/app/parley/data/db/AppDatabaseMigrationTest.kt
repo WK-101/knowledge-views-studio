@@ -211,4 +211,19 @@ class HistoryDatabaseSchemaTest {
         helper.createDatabase("history-test.db", 1).close()
         helper.runMigrationsAndValidate("history-test.db", 1, true).close()
     }
+
+    /** Version 2 adds the call facts table; archived calls are untouched. */
+    @Test fun versionTwoAddsCallFactsAndKeepsTheArchive() {
+        helper.createDatabase("history-step.db", 1).use { db ->
+            db.execSQL(
+                "INSERT INTO archived_calls (id, dedupeKey, personKey, date, durationSec, type, blob, archivedAt) " +
+                    "VALUES (1, 'd', 'p', 1000, 5, 1, x'01', 2000)",
+            )
+        }
+        helper.runMigrationsAndValidate("history-step.db", 2, true).use { db ->
+            db.query("SELECT personKey FROM archived_calls").use { c -> c.moveToFirst(); assertEquals("p", c.getString(0)) }
+            db.execSQL("INSERT INTO call_facts (id, kind, lineKey, startedAt, blob) VALUES ('a', 'ring_facts', 'm:x', 1, x'07')")
+            db.query("SELECT COUNT(*) FROM call_facts").use { c -> c.moveToFirst(); assertEquals(1, c.getInt(0)) }
+        }
+    }
 }

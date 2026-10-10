@@ -35,6 +35,7 @@ class NetworkNameSettingTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val file = File(app.filesDir, "network-names-${System.nanoTime()}.preferences_pb")
     private val now = System.currentTimeMillis()
+    private val table by lazy { memoryFactTable(app) }
 
     private object Keys : SealedLineStore.Keys {
         override fun lineMac(number: String) = "mac-" + number.filter { it.isDigit() }.takeLast(10)
@@ -67,7 +68,7 @@ class NetworkNameSettingTest {
 
     @Test fun an_upgrade_starts_off_and_keeps_the_names_it_had() = runBlocking {
         // 6.2.1 kept a name, and stored settings without this key.
-        val store = NetworkNameStore(app, Keys)
+        val store = NetworkNameStore(app, Keys, table)
         store.record("+919812300002", "Ravi Kumar", now, "sim1", "IN", now)
         val before = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         PreferenceDataStoreFactory.create(scope = before) { file }.edit { it[booleanPreferencesKey("show_caller_photo")] = true }
@@ -81,7 +82,7 @@ class NetworkNameSettingTest {
         assertFalse(NetworkName.mayShow(settings.rememberNetworkNames, saved = false, private = false))
         // …and not deleted either: still there for when the user decides.
         assertTrue(store.hasAny())
-        assertEquals("Ravi Kumar", NetworkNameStore(app, Keys).latest("+919812300002")?.name)
+        assertEquals("Ravi Kumar", NetworkNameStore(app, Keys, table).latest("+919812300002")?.name)
     }
 
     @Test fun turning_it_on_is_kept() = runBlocking {
@@ -92,7 +93,7 @@ class NetworkNameSettingTest {
     }
 
     @Test fun nothing_is_stored_while_off_and_saved_numbers_too_while_on() {
-        val store = NetworkNameStore(app, Keys)
+        val store = NetworkNameStore(app, Keys, table)
         sent(store, enabled = false, number = "+919812300002", name = "Ravi Kumar")
         assertFalse(store.hasAny())
         // On: an unknown number and a saved contact's number alike.
@@ -107,13 +108,13 @@ class NetworkNameSettingTest {
     }
 
     @Test fun turning_it_off_deletes_or_keeps_for_later() {
-        val store = NetworkNameStore(app, Keys)
+        val store = NetworkNameStore(app, Keys, table)
         sent(store, enabled = true, number = "+919812300002", name = "Ravi Kumar")
         // Keep for later: nothing changes on the phone.
         assertTrue(store.hasAny())
         // Delete: every kept name goes.
         store.clear()
         assertFalse(store.hasAny())
-        assertNull(NetworkNameStore(app, Keys).latest("+919812300002"))
+        assertNull(NetworkNameStore(app, Keys, table).latest("+919812300002"))
     }
 }

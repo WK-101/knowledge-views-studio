@@ -1,11 +1,12 @@
 package app.parley.data.calls
 
 import android.content.Context
-import android.util.Base64
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.CallQualityCodec
 import app.parley.common.calls.CallQualityFacts
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -17,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 class CallQualityStoreTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val prefs by lazy { context.getSharedPreferences("parley_call_quality", Context.MODE_PRIVATE) }
+    private val table by lazy { memoryFactTable(context) }
 
     /** A stand-in for the archive key: "sealed" is the bytes behind a marker; [broken] makes opening fail. */
     private class Keys : SealedLineStore.Keys {
@@ -38,14 +40,14 @@ class CallQualityStoreTest {
     @Test fun unreadable_rows_survive_a_write_and_read_back_later() {
         val now = System.currentTimeMillis()
         val keys = Keys()
-        CallQualityStore(context, keys).apply {
+        CallQualityStore(context, keys, table).apply {
             add("+12025550100", facts(now - 2_000), now)
             add("+12025550199", facts(now - 1_000), now)
         }
 
         // A new process while the key can't be used: nothing reads, and a new call's facts don't wipe the old ones.
         keys.broken = true
-        val store = CallQualityStore(context, keys)
+        val store = CallQualityStore(context, keys, table)
         assertTrue(store.forNumber("+12025550100").isEmpty())
         store.add("+12025550111", facts(now - 500), now)
         keys.broken = false
@@ -59,26 +61,30 @@ class CallQualityStoreTest {
     @Test fun forgetting_a_number_also_drops_its_unreadable_rows() {
         val now = System.currentTimeMillis()
         val keys = Keys()
-        CallQualityStore(context, keys).add("+12025550100", facts(now - 2_000), now)
+        CallQualityStore(context, keys, table).add("+12025550100", facts(now - 2_000), now)
         keys.broken = true
-        val store = CallQualityStore(context, keys)
+        val store = CallQualityStore(context, keys, table)
         store.forget("+12025550100")
         keys.broken = false
         assertTrue(store.forNumber("+12025550100").isEmpty())
     }
 
-    /** The stored format, line by line: "<line key>\t<sealed facts JSON, Base64>" (what earlier versions read). */
-    @Test fun rows_are_stored_one_sealed_line_each() {
+    /** One table row per fact: the line's key, the call's start in the clear, the facts sealed. */
+    @Test fun rows_are_stored_one_sealed_row_each() {
         val now = System.currentTimeMillis()
         val f = facts(now - 1_000)
-        CallQualityStore(context, Keys()).add("+12025550100", f, now)
-        val sealed = byteArrayOf(7) + CallQualityCodec.encode(listOf(f)).toByteArray()
-        assertEquals("m:mac-+12025550100\t" + Base64.encodeToString(sealed, Base64.NO_WRAP), prefs.getString("rows_v1", null))
+        CallQualityStore(context, Keys(), table).add("+12025550100", f, now)
+        val row = table.rows("call_quality").single()
+        assertEquals("m:mac-+12025550100", row.lineKey)
+        assertEquals(now - 1_000, row.startedAt)
+        assertArrayEquals(byteArrayOf(7) + CallQualityCodec.encode(listOf(f)).toByteArray(), row.blob)
+        // Nothing goes to the preferences file any more.
+        assertNull(prefs.getString("rows_v1", null))
     }
 
     @Test fun the_diary_reads_every_row_by_line_key_never_by_number() {
         val now = System.currentTimeMillis()
-        val store = CallQualityStore(context, Keys())
+        val store = CallQualityStore(context, Keys(), table)
         store.add("+12025550100", facts(now - 3_000), now)
         store.add(null, facts(now - 2_000), now)
         store.add("+12025550199", facts(now - 1_000), now)

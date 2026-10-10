@@ -9,17 +9,21 @@ import app.parley.data.history.CallHistory
  * doesn't switch it off for the next one ([app.parley.common.calls.NeverCallsYou.withoutDisowned]). Kept per line in a
  * [SealedLineStore] like the call facts: when you said it, nothing else. They go with the line's calls.
  */
-class DisownedCalls private constructor(context: Context, keys: SealedLineStore.KeySource) {
-    constructor(context: Context, history: () -> CallHistory) : this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) })
+class DisownedCalls private constructor(context: Context, keys: SealedLineStore.KeySource, table: () -> SealedLineStore.Table) {
+    constructor(context: Context, history: () -> CallHistory) :
+        this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) }, { history().factTable })
 
-    /** With [keys] in place of the archive's (tests). */
-    internal constructor(context: Context, keys: SealedLineStore.Keys) : this(context, SealedLineStore.KeySource { keys })
+    /** With [keys] and [table] in place of the archive's (tests). */
+    internal constructor(context: Context, keys: SealedLineStore.Keys, table: SealedLineStore.Table) :
+        this(context, SealedLineStore.KeySource { keys }, { table })
 
     private val store = SealedLineStore(
-        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, keys,
+        table, KIND, keys,
         encode = { it.toString() }, decode = { it.toLongOrNull() }, startedAt = { it },
         // As long as calls are kept: a mark matters for as long as the call it is about.
         maxRows = 400, keepDays = KEEP_DAYS,
+        // Where the marks were kept before the history database's table; read to copy them once.
+        legacy = SealedLineStore.Legacy(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS),
     )
 
     /** [number]'s latest call wasn't them; said at [at]. */
@@ -36,6 +40,7 @@ class DisownedCalls private constructor(context: Context, keys: SealedLineStore.
     private companion object {
         const val FILE = "parley_disowned_calls"
         const val KEY_ROWS = "rows_v1"
+        const val KIND = "disowned_calls"
         const val KEEP_DAYS = 3_650L
     }
 }

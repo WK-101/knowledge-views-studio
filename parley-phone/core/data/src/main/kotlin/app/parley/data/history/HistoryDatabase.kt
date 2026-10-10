@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -11,6 +12,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
+import app.parley.data.calls.SealedLineStore
 
 /**
  * A call mirrored from the system call log. Everything that identifies the other person (number, cached name,
@@ -157,14 +160,89 @@ interface HistoryDao {
     suspend fun trashBytes(): Long
 }
 
+/**
+ * One fact about one call on one line ([SealedLineStore]): ring facts, call quality, names the network sent. [lineKey]
+ * is the archive's keyed fingerprint of the line (never the number) and [blob] the facts sealed with the archive key;
+ * [startedAt] is in the clear, like an archived call's date, so pruning is one SQL statement. [id] is a digest of the
+ * row ([SealedLineStore.idOf]), so copying the same row twice (a move from preferences cut short) adds it once.
+ */
+@Entity(tableName = "call_facts", indices = [Index(value = ["kind", "lineKey"]), Index(value = ["kind", "startedAt"])])
+class CallFactEntity(
+    @PrimaryKey val id: String,
+    /** Which store the row belongs to ([SealedLineStore]'s kind). */
+    val kind: String,
+    val lineKey: String,
+    val startedAt: Long,
+    val blob: ByteArray,
+)
+
+/** The `call_facts` rows: one row written per fact, never the whole store re-sealed (see [SealedLineStore.Table]). */
+@Dao
+abstract class CallFactsDao : SealedLineStore.Table {
+    @Query("SELECT * FROM call_facts WHERE kind = :kind")
+    abstract override fun rows(kind: String): List<CallFactEntity>
+
+    @Query("SELECT COUNT(*) FROM call_facts WHERE kind = :kind")
+    abstract override fun count(kind: String): Int
+
+    @Query("SELECT DISTINCT kind FROM call_facts WHERE kind LIKE :prefix || '%'")
+    abstract override fun kinds(prefix: String): List<String>
+
+    @Query("DELETE FROM call_facts WHERE kind = :kind")
+    abstract override fun clear(kind: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    protected abstract fun put(rows: List<CallFactEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    protected abstract fun putNew(rows: List<CallFactEntity>)
+
+    @Query("DELETE FROM call_facts WHERE id IN (:ids)")
+    protected abstract fun drop(ids: List<String>)
+
+    @Query("DELETE FROM call_facts WHERE kind = :kind AND startedAt < :before")
+    protected abstract fun dropBefore(kind: String, before: Long)
+
+    /** Keeps [kind]'s newest [max] rows. */
+    @Query(
+        "DELETE FROM call_facts WHERE kind = :kind AND id NOT IN " +
+            "(SELECT id FROM call_facts WHERE kind = :kind ORDER BY startedAt DESC, id LIMIT :max)",
+    )
+    protected abstract fun cap(kind: String, max: Int)
+
+    @Transaction
+    override fun write(kind: String, drop: Collection<String>, add: List<CallFactEntity>, before: Long, max: Int) {
+        drop.chunked(SQL_CHUNK).forEach { drop(it) }
+        if (add.isNotEmpty()) put(add)
+        dropBefore(kind, before)
+        cap(kind, max)
+    }
+
+    @Transaction
+    override fun adopt(kind: String, rows: List<CallFactEntity>, marker: CallFactEntity): Boolean {
+        if (count(marker.kind) > 0) return false
+        rows.chunked(SQL_CHUNK).forEach { putNew(it) }
+        put(listOf(marker))
+        return true
+    }
+
+    private companion object {
+        /** Under SQLite's 999 bound arguments. */
+        const val SQL_CHUNK = 500
+    }
+}
+
 /** Feature-scoped database for the call-history archive (separate from [app.parley.data.db.AppDatabase]). */
 @Database(
-    entities = [ArchivedCallEntity::class, KeepForeverEntity::class, TrashedCallEntity::class],
-    version = 1,
+    entities = [ArchivedCallEntity::class, KeepForeverEntity::class, TrashedCallEntity::class, CallFactEntity::class],
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class HistoryDatabase : RoomDatabase() {
     abstract fun dao(): HistoryDao
+
+    abstract fun callFacts(): CallFactsDao
 
     companion object {
         const val NAME = "parley-history.db"

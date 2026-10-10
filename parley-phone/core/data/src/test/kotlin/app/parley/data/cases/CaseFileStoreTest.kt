@@ -23,6 +23,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 /** Case files are sealed at rest, each reference number again on its own, never overwritten while unreadable, and hidden under duress. */
 @RunWith(RobolectricTestRunner::class)
@@ -34,11 +35,17 @@ class CaseFileStoreTest {
     private val clinic = "+442079460111"
     private val discreet = MutableStateFlow(false)
 
+    private val folder by lazy { File(context.noBackupFilesDir, "docs/case_files") }
+
+    /** Every file of the case files, by name. */
+    private fun files(): Map<String, String> = folder.listFiles().orEmpty().associate { it.name to it.readText() }
+
     private fun store(private: Set<String> = emptySet()) = CaseFileStore(context, { it in private }, { discreet }) { "GB" }
 
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
         prefs.edit().clear().commit()
+        folder.deleteRecursively()
         Concealment.init(context)
         Concealment.forgetForTest(newProcess = true)
     }
@@ -56,9 +63,11 @@ class CaseFileStoreTest {
         val s = store()
         val id = s.keep("Northwind Energy", bank)
         assertTrue(s.addReference(id, "Complaint", " CMP 7781 ", typed = false, now = 5))
-        val raw = prefs.getString("state", null)
-        assertTrue(crypto.isSealed(raw))
-        assertFalse(raw!!.contains("Northwind"))
+        val raw = files()
+        // The index and the one case (its id has a space, so its file is named by a digest of it).
+        assertEquals(2, raw.size)
+        raw.values.forEach { assertTrue(crypto.isSealed(it)) }
+        assertFalse(raw.values.any { it.contains("Northwind") })
         // In memory too the reference is sealed: the case file holds no plain reference number.
         val ref = CaseFiles.byId(s.state.value, id)!!.references.single()
         assertTrue(crypto.isSealed(ref.value))
@@ -78,12 +87,14 @@ class CaseFileStoreTest {
         assertNull(s.update { CaseFiles.setMode(it, "Bank", listOf(bank), false, CaseMode.ON, 1, "GB", "a") })
         assertFalse(s.available)
         assertEquals(unreadable, prefs.getString("state", null))
+        assertTrue(files().isEmpty())
     }
 
     @Test fun nothing_plain_when_sealing_fails() = runBlocking {
         val s = CaseFileStore(context, { false }, { discreet }, { "GB" }, { null }, null)
         s.update { CaseFiles.setMode(it, "Bank", listOf(bank), false, CaseMode.ON, 1, "GB", "a") }
         assertNull(prefs.getString("state", null))
+        assertTrue(files().isEmpty())
         // A reference that can't be sealed isn't kept at all.
         assertFalse(s.addReference("a", "", "12345678", typed = true))
         assertTrue(CaseFiles.byId(s.state.value, "a")!!.references.isEmpty())
@@ -134,6 +145,7 @@ class CaseFileStoreTest {
 
         // Restored on a phone with nothing: sealed again with this phone's key.
         prefs.edit().clear().commit()
+        folder.deleteRecursively()
         val fresh = store()
         fresh.backupExtras.import(values)
         val ref = CaseFiles.byId(fresh.state.value, "Bank")!!.references.single()
@@ -152,5 +164,56 @@ class CaseFileStoreTest {
         Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.NORMAL, false))
         val after = CaseFiles.decode(s.backupExtras.export().values.single())
         assertEquals("CLM-1", after.cases.single().references.single().value)
+    }
+
+    /** 6.4 kept every case in one sealed preferences value: it moves to one file per case, once. */
+    @Test fun the_single_value_moves_to_a_file_per_case_once() = runBlocking {
+        val before = store().let { s ->
+            s.keep("Bank", bank)
+            s.keep("Clinic", clinic)
+            s.state.value
+        }
+        folder.deleteRecursively()
+        prefs.edit().putString("state", crypto.sealText(CaseFiles.encode(before))).commit()
+
+        val s = store()
+        assertEquals(before, s.load())
+        assertEquals(3, files().size)
+        assertNull(prefs.getString("state", null))
+
+        // A crash after the files were written but before the preferences value went: the files win, nothing doubles.
+        prefs.edit().putString("state", crypto.sealText(CaseFiles.encode(CaseState()))).commit()
+        val again = store()
+        assertEquals(before, again.load())
+        assertNull(prefs.getString("state", null))
+    }
+
+    @Test fun a_move_cut_short_before_the_index_is_made_again() = runBlocking {
+        val before = store().let { s ->
+            s.keep("Bank", bank)
+            s.state.value
+        }
+        // Only a case file reached the disk; no index lists it, so the preferences value is still what counts.
+        File(folder, "index.sealed").delete()
+        prefs.edit().putString("state", crypto.sealText(CaseFiles.encode(before))).commit()
+        val s = store()
+        assertEquals(before, s.load())
+        assertTrue(File(folder, "index.sealed").isFile)
+        assertNull(prefs.getString("state", null))
+    }
+
+    @Test fun a_call_rewrites_its_own_case_only_and_a_removed_case_leaves_no_file() = runBlocking {
+        val s = store()
+        s.keep("Bank", bank)
+        s.keep("Clinic", clinic)
+        val before = files()
+        s.update { CaseFiles.recordCall(it, bank, CaseCall(9, incoming = false), false, "", false, "GB", "x") }
+        val after = files()
+        assertEquals(before["case-Clinic.sealed"], after["case-Clinic.sealed"])
+        assertFalse(before["case-Bank.sealed"] == after["case-Bank.sealed"])
+
+        s.update { st -> st.copy(cases = st.cases.filter { it.id != "Clinic" }) }
+        assertEquals(setOf("index.sealed", "case-Bank.sealed"), files().keys)
+        assertEquals(listOf("Bank"), store().load().cases.map { it.name })
     }
 }

@@ -123,6 +123,11 @@ object PersistentStores {
         table("archived_calls", backedUp, Sections.CALL_HISTORY, HISTORY_DB),
         table("keep_forever", backedUp, Sections.CALL_HISTORY, HISTORY_DB),
         table("call_trash", local("The 30-day undo of deleted calls"), db = HISTORY_DB),
+        table(
+            "call_facts",
+            local("Ring facts, call quality, names the network sent and \"It wasn't them\" marks, keyed and sealed with this phone's call-history key"),
+            db = HISTORY_DB,
+        ),
         // ---- DataStores
         PersistentStore("settings", StoreKind.DATASTORE, backedUp, Sections.SETTINGS),
         PersistentStore("people", StoreKind.DATASTORE, backedUp, Sections.PEOPLE),
@@ -140,18 +145,13 @@ object PersistentStores {
         PersistentStore("card_sharing", StoreKind.PREFS, backedUp, Sections.PEOPLE),
         // Contacts linked to their signed cards, by Parley key (sealed); private contacts' links travel with them.
         PersistentStore("card_links", StoreKind.PREFS, backedUp, Sections.PEOPLE),
-        // Case files: calls with hold times, menu keys and reference numbers per organisation (sealed; references twice).
-        PersistentStore("case_files", StoreKind.PREFS, backedUp, Sections.CASE_FILES),
-        PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Sealed with this phone's call-history key; kept 60 days")),
-        PersistentStore("parley_call_quality", StoreKind.PREFS, local("Call quality facts, sealed with this phone's call-history key; kept 60 days")),
-        PersistentStore(
-            "parley_disowned_calls", StoreKind.PREFS,
-            local("\"It wasn't them\" marks for calls from a saved line, sealed with this phone's call-history key like the calls they're about"),
-        ),
-        PersistentStore(
-            "parley_network_names", StoreKind.PREFS,
-            local("Names the network sent for numbers that aren't saved, sealed with this phone's call-history key; like number memory, not in backups"),
-        ),
+        // Where earlier versions kept the case files, To call and menu memory, and the per-call facts now in call_facts:
+        // read once to copy them, then emptied. What they held is backed up from where it lives now.
+        PersistentStore("case_files", StoreKind.PREFS, local("Case files as earlier versions kept them, copied once to docs/case_files")),
+        PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Ring facts as earlier versions kept them, copied once to call_facts")),
+        PersistentStore("parley_call_quality", StoreKind.PREFS, local("Call quality facts as earlier versions kept them, copied once to call_facts")),
+        PersistentStore("parley_disowned_calls", StoreKind.PREFS, local("\"It wasn't them\" marks as earlier versions kept them, copied once to call_facts")),
+        PersistentStore("parley_network_names", StoreKind.PREFS, local("Names the network sent, as earlier versions kept them, copied once to call_facts")),
         PersistentStore(
             "parley_number_advice", StoreKind.PREFS,
             local("Answers to \"seems out of service\" and SIM suggestions, keyed by this phone's call-history key"),
@@ -184,10 +184,8 @@ object PersistentStores {
         ),
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
         PersistentStore("private_call_sweep", StoreKind.PREFS, local("A private contact's call that may still be in the system call log")),
-        // Kept by number, not by contact: it follows a contact made private or visible without re-keying.
-        PersistentStore("to_call", StoreKind.PREFS, backedUp, Sections.TO_CALL),
-        // Menu memory: keys sent per number and menu shortcuts (sealed); kept by number like the To call list.
-        PersistentStore("menu_memory", StoreKind.PREFS, backedUp, Sections.MENUS),
+        PersistentStore("to_call", StoreKind.PREFS, local("Whether the To call strip is folded on this phone; the list as earlier versions kept it")),
+        PersistentStore("menu_memory", StoreKind.PREFS, local("Menu memory as earlier versions kept it, copied once to docs/menu_memory")),
         // Safe words, helpers and expected-call windows: a safety feature must survive a move to a new phone. Inside the
         // backup's encryption only; a duress unlock's hidden safe words stay out (FamilySafetyBackup).
         PersistentStore("family_safety", StoreKind.PREFS, backedUp, Sections.FAMILY_SAFETY),
@@ -240,6 +238,13 @@ object PersistentStores {
         PersistentStore("folder_sync_state.json", StoreKind.FILES, local("Sync bookkeeping for a folder picked here"), location = PersistentStore.FILES),
         PersistentStore("folder_sync_gone.json", StoreKind.FILES, local("Versions of files a folder sync deleted"), location = PersistentStore.FILES),
         PersistentStore("lists", StoreKind.FILES, backedUp, Sections.SPAM_LISTS, PersistentStore.DEVICE_PROTECTED_FILES),
+        // Small sealed documents, one folder each (SealedDocument). Kept by number, not by contact: they follow a
+        // contact made private or visible without re-keying.
+        PersistentStore("docs/to_call", StoreKind.FILES, backedUp, Sections.TO_CALL, PersistentStore.NO_BACKUP_FILES),
+        // Menu memory: keys sent per number and menu shortcuts (sealed).
+        PersistentStore("docs/menu_memory", StoreKind.FILES, backedUp, Sections.MENUS, PersistentStore.NO_BACKUP_FILES),
+        // Case files, one file per case: calls with hold times, menu keys and reference numbers (sealed; references twice).
+        PersistentStore("docs/case_files", StoreKind.FILES, backedUp, Sections.CASE_FILES, PersistentStore.NO_BACKUP_FILES),
         PersistentStore(
             "contact_list_head", StoreKind.FILES, local("The first screenful of the Contacts list, sealed, shown at a cold start"),
             location = PersistentStore.NO_BACKUP_FILES,

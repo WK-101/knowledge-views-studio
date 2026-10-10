@@ -358,6 +358,9 @@ class CallHistory(
 
     internal fun openAux(blob: ByteArray): ByteArray = crypto.open(blob)
 
+    /** The `call_facts` table beside the archive, where the small per-call stores keep their sealed rows. */
+    internal val factTable: app.parley.data.calls.SealedLineStore.Table get() = db.callFacts()
+
     /** The private numbers (and region) the whole archive was last checked against; see [purgeVault]. */
     private var purgedFor: Pair<Set<String>, String>? = null
 
