@@ -16,6 +16,7 @@ import android.telecom.TelecomManager
 import androidx.annotation.VisibleForTesting
 import app.parley.common.Verification
 import app.parley.common.calls.RescuePlan
+import app.parley.common.calls.RingVibration
 import app.parley.telecom.ui.InCallActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -258,11 +259,20 @@ object RescueCall {
                         t.play()
                     }
                 }
-                if (CallRinger.ringVibrates(context, am)) vibrator = CallRinger.vibrate(context, who.vibration)
+                vibrateFor(context, who)
             }
-            AudioManager.RINGER_MODE_VIBRATE -> vibrator = CallRinger.vibrate(context, who.vibration)
+            AudioManager.RINGER_MODE_VIBRATE -> vibrateFor(context, who)
             else -> Unit
         }
+    }
+
+    /**
+     * The ring vibration a real call from [who] would have ([RingVibration.decide], as Parley's ringer decides it), as
+     * an alarm through Do Not Disturb, which a ringtone vibration wouldn't get past.
+     */
+    private fun vibrateFor(context: Context, who: RescueCaller) {
+        val d = CallRinger.decide(context, who.vibration, rescue = true) as? RingVibration.Decision.Vibrate ?: return
+        vibrator = CallRinger.vibrate(context, d.timings, d.usage)
     }
 
     private fun stopRinging() {

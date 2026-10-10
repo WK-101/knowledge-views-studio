@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.util.Rational
 import android.view.Display
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,6 +50,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.lifecycleScope
 import app.parley.common.calls.CallWaiting
+import app.parley.common.calls.RingKeys
 import app.parley.common.calls.LockScreenCaller
 import app.parley.ui.systemMessage
 
@@ -175,6 +177,25 @@ class InCallActivity : ComponentActivity() {
 
     /** The calls this screen shows: Telecom's, else a rescue call's. */
     private fun liveCalls(): List<CallUi> = CallManager.state.value.ifEmpty { listOfNotNull(RescueCall.state.value?.call) }
+
+    /**
+     * A volume key silences a ringing call ([RingKeys]). Android does this before the key reaches any app on most
+     * phones; on those where the call screen gets the key instead, it is done here, so the key never just changes the
+     * volume while the phone rings on.
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val live = liveCalls().filter { it.isLive }
+        val ringing = live.firstOrNull { it.state == CallState.RINGING }
+        if (ringing != null) {
+            val other = live.any { it.id != ringing.id && it.state != CallState.RINGING }
+            val silenced = ringing.silenced || ringing.systemSilenced
+            if (RingKeys.silences(keyCode, down = true, ringing = true, silenced = silenced, otherCall = other)) {
+                CallManager.ignore(ringing.id)
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
 
     /** The call that just ended, of the kind this screen shows. */
     private fun lastEnded(): CallUi? =

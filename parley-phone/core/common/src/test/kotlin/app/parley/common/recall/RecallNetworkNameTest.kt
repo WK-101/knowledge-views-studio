@@ -61,14 +61,67 @@ class RecallNetworkNameTest {
         assertEquals("Ravi Kumar", search("9812300002").single().title)
     }
 
-    @Test fun a_saved_contact_and_a_private_contact_never_go_by_the_network_name() {
+    @Test fun a_saved_callers_calls_are_found_by_the_network_name_under_the_saved_name() {
         val hits = search("ravi")
-        assertEquals(listOf("Ravi Kumar"), hits.map { it.title })
-        assertNull(hits.firstOrNull { it.number == "+919812300001" })
+        assertEquals(listOf("Ravi Kumar", "Mike Silva"), hits.map { it.title })
+        val mike = hits.single { it.number == "+919812300001" }
+        assertFalse("the saved name is the title", mike.fromNetwork)
+        assertEquals("Ravi Traders", mike.networkMatch)
+        assertEquals(1L, mike.contactId)
+        // The unsaved number is tagged as the network's name and has no saved name to stand under.
+        assertNull(hits.single { it.number == "+919812300002" }.networkMatch)
         // Mike is found by his own name, never as the network's.
         val mikes = search("mike")
         assertEquals("Mike Silva", mikes.single().title)
         assertFalse(mikes.single().fromNetwork)
+        assertNull(mikes.single().networkMatch)
+    }
+
+    @Test fun a_private_contacts_call_never_goes_by_the_network_name() {
+        assertTrue(search("private").isEmpty())
+        assertNull(search("ravi").firstOrNull { it.number == "+919812300003" })
+    }
+
+    @Test fun a_saved_contact_is_a_result_with_the_network_name_as_the_reason() {
+        // Plain words: the contact list finds contacts by what is saved; Recall adds those found by the network's name.
+        val q = RecallQuery.parse("traders", today, Locale.UK)
+        val found = RecallEngine(corpus, ZoneOffset.UTC).search(q, contactOf)
+        val contact = found[RecallSource.CONTACT].orEmpty().single()
+        assertEquals("Mike Silva", contact.title)
+        assertEquals(1L, contact.contactId)
+        assertEquals("Ravi Traders", contact.networkMatch)
+        assertNull(contact.field)
+        assertEquals("Mike Silva", found[RecallSource.CALL].orEmpty().single().title)
+    }
+
+    @Test fun a_private_contact_is_never_found_by_a_network_name() {
+        val secret = run {
+            val c = ContactSummary(-7, "p7", "Secret", null, false, listOf(PhoneEntry("+919812300003", 2, null)))
+            val doc = ContactSearch.Builder(-7, "IN").apply { name("Secret"); number("+919812300003") }.build()
+            ContactListSearch.Entry(c, ContactSearch.fold("Secret"), doc)
+        }
+        val withPrivate = RecallCorpus(contacts = listOf(mike, secret), region = "IN", networkName = corpus.networkName)
+        val q = RecallQuery.parse("ravi private", today, Locale.UK)
+        assertTrue(RecallEngine(withPrivate, ZoneOffset.UTC).search(q, contactOf)[RecallSource.CONTACT].orEmpty().isEmpty())
+    }
+
+    @Test fun a_network_name_that_is_the_saved_name_adds_nothing() {
+        val same = RecallCorpus(
+            contacts = listOf(mike), calls = listOf(call(2, "+919812300001", at(9, 18))), region = "IN", networkName = { _, _ -> "MIKE SILVA" },
+        )
+        val q = RecallQuery.parse("mike", today, Locale.UK)
+        val found = RecallEngine(same, ZoneOffset.UTC).search(q, contactOf)
+        // The contact list shows Mike for his own name; Recall adds no second row for the same name from the network.
+        assertTrue(found[RecallSource.CONTACT].orEmpty().isEmpty())
+        assertNull(found[RecallSource.CALL].orEmpty().single().networkMatch)
+    }
+
+    @Test fun nothing_is_found_by_the_network_while_names_are_not_remembered() {
+        // The app gives no names while the setting is off: then neither the number nor the contact is found by one.
+        val off = RecallCorpus(contacts = listOf(mike), calls = corpus.calls, region = "IN")
+        val q = RecallQuery.parse("ravi", today, Locale.UK)
+        val found = RecallEngine(off, ZoneOffset.UTC).search(q, contactOf)
+        assertTrue(found.values.all { it.isEmpty() })
     }
 
     @Test fun the_name_the_call_log_kept_wins_over_the_network() {

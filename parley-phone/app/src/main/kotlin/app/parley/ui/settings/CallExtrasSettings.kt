@@ -13,6 +13,28 @@ import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import app.parley.common.calls.RingStyle
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.Spacing
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -133,13 +155,59 @@ internal fun CallSpeakerGroup(vm: AppViewModel) {
     }
 }
 
-/** Calls › Answering: "Flip to silence" (off by default), a row of the incoming-calls group. */
+/**
+ * Calls › Answering › Ringing: the ring style (as usual, getting louder, or vibrating first) and "Flip to silence", one
+ * row of the incoming-calls group that opens both. Folded into one setting, since the settings budget is full.
+ */
 @Composable
-internal fun FlipToSilenceRow(vm: AppViewModel) {
+internal fun RingingRow(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
-    SwitchRow(settingTitle("flip_to_silence"), stringResource(R.string.set_flip_sub), cfg.flipToSilence, Icons.Rounded.ScreenRotation) { v ->
-        vm.c.callExtras.update { it.copy(flipToSilence = v) }
-    }
+    var open by rememberSaveable { mutableStateOf(false) }
+    val styles = ringStyleNames()
+    val sub = listOfNotNull(styles[cfg.ringStyle.ordinal], stringResource(R.string.set_flip_on).takeIf { cfg.flipToSilence })
+        .joinToString(stringResource(R.string.main_separator))
+    LinkRow(settingTitle("flip_to_silence"), sub, Icons.AutoMirrored.Rounded.VolumeUp) { open = true }
+    if (open) RingingDialog(vm, cfg.ringStyle, cfg.flipToSilence, styles) { open = false }
+}
+
+@Composable
+private fun ringStyleNames(): List<String> =
+    listOf(stringResource(R.string.set_ring_normal), stringResource(R.string.set_ring_increasing), stringResource(R.string.set_ring_vibrate_first))
+
+@Composable
+private fun RingingDialog(vm: AppViewModel, style: RingStyle, flip: Boolean, names: List<String>, onDismiss: () -> Unit) {
+    val subs = listOf(
+        stringResource(R.string.set_ring_normal_sub), stringResource(R.string.set_ring_increasing_sub), stringResource(R.string.set_ring_vibrate_first_sub),
+    )
+    ParleyDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
+        title = { Text(settingTitle("flip_to_silence")) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    stringResource(R.string.set_ring_style), style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = Spacing.xs).semantics { heading() },
+                )
+                Column(Modifier.selectableGroup()) {
+                    RingStyle.entries.forEach { s ->
+                        ParleyListItem(
+                            headlineContent = { Text(names[s.ordinal]) },
+                            supportingContent = { Text(subs[s.ordinal]) },
+                            leadingContent = { RadioButton(selected = s == style, onClick = null) },
+                            modifier = Modifier.selectable(selected = s == style, role = Role.RadioButton) {
+                                vm.c.callExtras.update { it.copy(ringStyle = s) }
+                            },
+                        )
+                    }
+                }
+                SwitchRow(stringResource(R.string.set_flip_to_silence_switch), stringResource(R.string.set_flip_sub), flip, Icons.Rounded.ScreenRotation) { v ->
+                    vm.c.callExtras.update { it.copy(flipToSilence = v) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
+    )
 }
 
 /** Android's "Power button ends call" (a secure setting: 2 = hang up); null when it can't be read. */

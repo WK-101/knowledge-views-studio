@@ -79,6 +79,7 @@ import app.parley.common.calls.RingtoneSource
 import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.CallerHaptics
+import app.parley.common.calls.RingStyle
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
 import app.parley.data.ScreenRequest
@@ -497,6 +498,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun speakerDefault(): SpeakerDefault = c.callExtras.config.value.speakerDefault
 
     override fun flipToSilence(): Boolean = c.callExtras.config.value.flipToSilence
+
+    override fun ringStyle(): RingStyle = c.callExtras.config.value.ringStyle
 
     override fun tipSeen(id: String): Boolean = id in c.ux.state.value.seenTips
 

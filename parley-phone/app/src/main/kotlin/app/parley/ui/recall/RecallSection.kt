@@ -327,7 +327,9 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
     val number = hit.number?.takeIf { it.isNotBlank() && it != hit.title }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) }
     fun plain(vararg parts: String?) = AnnotatedString(parts.filterNot { it.isNullOrBlank() }.joinToString(sep))
     return when (hit.source) {
+        // A saved contact found by the name the network sent for their number says so ("Network: Ravi Traders").
         RecallSource.CONTACT -> hit.field?.let { AnnotatedString(matchHint(res, it)) }
+            ?: hit.networkMatch?.let { AnnotatedString(res.getString(R.string.network_name_under, it)) }
         RecallSource.ARCHIVED -> plain(stringResource(R.string.recall_archived_on, dayText(hit.at)), number)
         // A name from the network keeps its number in sight.
         RecallSource.CALL -> AnnotatedString(listOfNotNull(callLine(context, hit, sep), number.takeIf { hit.fromNetwork }).joinToString(sep))
@@ -358,6 +360,7 @@ private fun callLine(context: Context, hit: RecallHit, sep: String): String = li
     whenText(context, hit.at),
     Format.duration(hit.durationSec).takeIf { hit.callType != CallType.MISSED && it.isNotEmpty() },
     hit.field?.let { matchHint(context.resources, it) },
+    hit.networkMatch?.let { context.getString(R.string.network_name_under, it) },
 ).joinToString(sep)
 
 /** [text] with [marks] in bold and the accent colour; [ltr] keeps a number left to right in any language. */
