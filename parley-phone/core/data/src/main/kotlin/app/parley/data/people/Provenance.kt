@@ -12,6 +12,7 @@ import app.parley.common.people.ProvenanceVerdict
 import app.parley.common.people.RawState
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
+import app.parley.data.StatePrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -22,7 +23,7 @@ import org.json.JSONObject
  * Kept on this phone only (no contact data, just ids, times and field names), last [MAX] saves.
  */
 class ParleyWriteLog(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("parley_writes", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context.applicationContext, "parley_writes")
 
     data class Entry(val rawId: Long, val lookupKey: String, val write: ParleyWrite)
 

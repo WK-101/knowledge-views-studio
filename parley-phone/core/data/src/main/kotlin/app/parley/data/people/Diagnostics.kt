@@ -12,6 +12,7 @@ import android.provider.ContactsContract
 import app.parley.common.AppSettings
 import app.parley.common.people.Masking
 import app.parley.common.people.Reports
+import app.parley.data.StatePrefs
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -25,7 +26,7 @@ import java.time.format.DateTimeFormatter
  * Android's exit notes are masked unless the user turns masking off. No contacts, no call history.
  */
 class Diagnostics(private val context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context.applicationContext, "diagnostics")
 
     /** Remembers an error for the report (last [MAX] errors, on this phone only): where, and its kind only. */
     @Synchronized

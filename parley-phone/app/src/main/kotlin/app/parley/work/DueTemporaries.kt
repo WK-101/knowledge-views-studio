@@ -17,6 +17,7 @@ import app.parley.common.people.TemporaryDue
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.IntentRoutes
+import app.parley.data.StatePrefs
 import kotlinx.coroutines.launch
 
 /**
@@ -43,7 +44,7 @@ object DueTemporaries {
     /** The upkeep's step: asks once about what became due, reminds gently, and clears the question when nothing is due. */
     suspend fun check(c: DataContainer, now: Long = System.currentTimeMillis()) {
         val ctx = c.appContext
-        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(ctx, PREFS)
         val due = dueKeys(c, now)
         val asked = prefs.getStringSet(K_ASKED, emptySet()).orEmpty()
         if (due.isEmpty()) {
@@ -62,7 +63,7 @@ object DueTemporaries {
      */
     suspend fun decide(c: DataContainer, decision: TemporaryDue.Decision, keys: Set<String>? = null, now: Long = System.currentTimeMillis()): Int {
         val ctx = c.appContext
-        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(ctx, PREFS)
         val asked = prefs.getStringSet(K_ASKED, emptySet()).orEmpty()
         val targets = TemporaryDue.targets(keys ?: asked, dueKeys(c, now))
         val device = targets.filter { ContactRef.vaultIdOf(it) == null }.toSet()

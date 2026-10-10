@@ -398,7 +398,7 @@ class DataContainer(context: Context) {
     val contactKeys by lazy {
         ContactKeys(
             contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }, calling = { calling },
-            waiting = { appContext.getSharedPreferences("contact_key_moves", Context.MODE_PRIVATE) },
+            waiting = { StatePrefs.open(appContext, "contact_key_moves") },
             cardLinks = { people.cardLinks }, shareLedger = { people.shareLedger },
             myCard = { people.me }, relationMirrors = { people.relationMirrors },
         )

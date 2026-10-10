@@ -48,11 +48,25 @@ class PersistentStoresTest {
         val constants = names(Regex("""(?:const\s+)?val\s+(?:PREFS|FILE)\s*=\s*"([^"]+)"""")) { "getSharedPreferences(" in it }
         val used = literal + constants
         assertTrue("the scan found nothing: wrong folder?", used.size >= 20)
-        val registered = PersistentStores.of(StoreKind.PREFS).map { it.name }.toSet()
+        // Stores kept in a shared state file are opened through StatePrefs by name, never as files of their own.
+        val grouped = PersistentStores.of(StoreKind.PREFS).filter { it.location != null }.map { it.name }.toSet()
+        val direct = used.keys intersect grouped
+        assertTrue("Open these through StatePrefs: ${direct.associateWith { used[it]?.name }}", direct.isEmpty())
+        val registered = PersistentStores.of(StoreKind.PREFS).map { it.name }.toSet() - grouped
         val missing = used.keys - registered
         assertTrue("SharedPreferences not in PersistentStores: ${missing.associateWith { used[it]?.name }}", missing.isEmpty())
         val stale = registered - used.keys
         assertTrue("PersistentStores lists preferences no code uses: $stale", stale.isEmpty())
+    }
+
+    @Test fun every_store_in_a_shared_state_file_is_opened_by_name() {
+        val opened = names(Regex("""StatePrefs\.open\(\s*[\w.()]+\s*,\s*"([^"]+)""""))
+        val constants = names(Regex("""(?:const\s+)?val\s+(?:PREFS|FILE)\s*=\s*"([^"]+)"""")) { "StatePrefs.open(" in it }
+        val grouped = PersistentStores.of(StoreKind.PREFS).filter { it.location != null }.map { it.name }.toSet()
+        val stray = (opened + constants).keys - grouped
+        assertTrue("StatePrefs opens stores PersistentStores doesn't keep in a shared file: $stray", stray.isEmpty())
+        val groups = setOf(PersistentStores.LOCAL_STATE, PersistentStores.CALL_PATH_STATE)
+        PersistentStores.of(StoreKind.PREFS).filter { it.location != null }.forEach { assertTrue(it.name, it.location in groups) }
     }
 
     @Test fun every_datastore_is_registered() {

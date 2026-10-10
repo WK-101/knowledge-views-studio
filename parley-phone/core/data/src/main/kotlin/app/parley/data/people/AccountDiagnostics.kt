@@ -15,6 +15,7 @@ import app.parley.common.record.AccountKinds
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
 import app.parley.data.DeviceAccounts
+import app.parley.data.StatePrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -131,7 +132,7 @@ class AccountDiagnostics(private val context: Context) {
         }
     }
 
-    private val prefs = context.getSharedPreferences("account_diagnostics", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context, "account_diagnostics")
 
     /** The provider keeps its phone-only account once created, even with no phone-only contacts left. */
     private fun fixed() = prefs.getBoolean(KEY_FIXED, false)

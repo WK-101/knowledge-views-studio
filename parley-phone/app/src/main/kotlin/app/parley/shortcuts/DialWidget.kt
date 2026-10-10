@@ -1,5 +1,6 @@
 package app.parley.shortcuts
 
+import app.parley.data.StatePrefs
 import app.parley.security.LockedActivity
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -52,7 +53,7 @@ class DialWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private fun prefs(context: Context) = context.getSharedPreferences("dial_widgets", Context.MODE_PRIVATE)
+        private fun prefs(context: Context) = StatePrefs.open(context, "dial_widgets")
 
         fun save(context: Context, id: Int, name: String, number: String, photo: String?, contactId: Long) {
             prefs(context).edit().putString("$id.name", name).putString("$id.number", number).putString("$id.photo", photo).putLong("$id.contact", contactId).apply()

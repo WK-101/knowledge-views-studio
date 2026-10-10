@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallState
+import app.parley.data.StatePrefs
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
 import app.parley.data.records.ContactRecordStore
@@ -100,7 +101,7 @@ class ToCallStoreTest {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         try {
             val store = ToCallStore(context) { false }
-            context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
+            StatePrefs.open(context, "record_sealing").edit().clear().commit()
             RecordSealing(context, db, { TimeMachine(context, ContactRecordStore(context)) }) { listOf(store) }.runIfNeeded()
             assertTrue(crypto.isSealed(stored()))
             assertNull(legacy())

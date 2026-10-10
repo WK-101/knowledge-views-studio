@@ -12,6 +12,7 @@ import app.parley.calls.PrivateCallLogSweep
 import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
+import app.parley.data.StatePrefs
 import app.parley.data.people.CrashStore
 import app.parley.data.security.LockTransitions
 import app.parley.jobs.JobNotices
@@ -66,6 +67,9 @@ class ParleyApp : Application() {
         container.privacy.bindAppLock(AppLock.locked)
         // Parley is English-only: a language picked in an older version is dropped once, off the main thread.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
+        // The ring path reads its state file directly: what older versions kept in files of their own is copied in
+        // before anything can ring (once; afterwards a marker in a file the ring path loads anyway).
+        runCatching { StatePrefs.moveAll(this, StatePrefs.CALL_PATH) }
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).

@@ -11,6 +11,7 @@ import app.parley.common.record.Mime
 import app.parley.common.record.RawRecord
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.CoroutineScope
@@ -47,8 +48,8 @@ class PrivateOpenCostTest {
         // Keys made without a secure lock screen, so a later one can be upgraded to (see the last test).
         org.robolectric.Shadows.shadowOf(context.getSystemService(android.app.KeyguardManager::class.java)).setIsDeviceSecure(false)
         VaultCrypto.appContext = context
-        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("vault", Context.MODE_PRIVATE).edit().clear().commit()
+        StatePrefs.open(context, "vault_keys").edit().clear().commit()
+        StatePrefs.open(context, "vault").edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         vault = VaultRepository(context, db, scope)
     }

@@ -2,6 +2,7 @@ package app.parley.calls
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import app.parley.data.StatePrefs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -47,7 +48,7 @@ class PrivateCallLogSweepTest {
     }
 
     @Test fun the_single_mark_of_an_earlier_version_is_still_read() {
-        context.getSharedPreferences("private_call_sweep", android.content.Context.MODE_PRIVATE).edit().putLong("ended_at", 7_000L).commit()
+        StatePrefs.open(context, "private_call_sweep").edit().putLong("ended_at", 7_000L).commit()
         assertEquals(7_000L, PrivateCallLogSweep.markedAt(context))
         PrivateCallLogSweep.mark(context, 8_000L)
         assertEquals(setOf(7_000L, 8_000L), PrivateCallLogSweep.marks(context))

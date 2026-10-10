@@ -45,7 +45,10 @@ data class PersistentStore(
     val kind: StoreKind,
     val policy: StorePolicy,
     val section: String? = null,
-    /** Room: the database file; FILES: [FILES], [NO_BACKUP_FILES] or [DEVICE_PROTECTED_FILES]. */
+    /**
+     * Room: the database file; FILES: [FILES], [NO_BACKUP_FILES] or [DEVICE_PROTECTED_FILES]; PREFS: the shared file its
+     * keys are kept in ([PersistentStores.LOCAL_STATE] or [PersistentStores.CALL_PATH_STATE]), or null for a file of its own.
+     */
     val location: String? = null,
 ) {
     val id: String get() = listOfNotNull(kind.name.lowercase(), location, name).joinToString(":")
@@ -67,6 +70,10 @@ data class PersistentStore(
 object PersistentStores {
     const val MAIN_DB = "parley.db"
     const val HISTORY_DB = "parley-history.db"
+
+    /** The shared preferences files bookkeeping stores are kept in (a preferences store's location). */
+    const val LOCAL_STATE = "local_state"
+    const val CALL_PATH_STATE = "call_path_state"
 
     /** Backup sections (the archive's own sections, and the feature sections inside the settings section). */
     object Sections {
@@ -133,6 +140,10 @@ object PersistentStores {
         PersistentStore("people", StoreKind.DATASTORE, backedUp, Sections.PEOPLE),
         PersistentStore("history", StoreKind.DATASTORE, backedUp, Sections.HISTORY_SETTINGS),
         // ---- SharedPreferences
+        // Small bookkeeping flags, two files for all of them (StatePrefs): each store below with this location keeps its
+        // keys there, under its own name. The ring path's in the second.
+        PersistentStore(LOCAL_STATE, StoreKind.PREFS, local("This phone's bookkeeping flags (the stores kept in it say which)")),
+        PersistentStore(CALL_PATH_STATE, StoreKind.PREFS, local("Call-path state of this phone (the stores kept in it say which)")),
         PersistentStore("parley_calling", StoreKind.PREFS, backedUp, Sections.CALL_TIME),
         PersistentStore("parley_call_extras", StoreKind.PREFS, backedUp, Sections.CALL_TIME),
         PersistentStore("parley_extras", StoreKind.PREFS, backedUp, Sections.EXTRAS),
@@ -161,29 +172,30 @@ object PersistentStores {
             local("What this phone's own calls say about numbers and ranges, keyed and sealed with the call-history key; rebuilt daily"),
         ),
         PersistentStore("messaging", StoreKind.PREFS, local("Which numbers you opened a chat with stays on this phone by design")),
-        PersistentStore("temporary_due", StoreKind.PREFS, local("Which due temporary contacts this phone's notification is asking about")),
+        PersistentStore("temporary_due", StoreKind.PREFS, local("Which due temporary contacts this phone's notification is asking about"), location = LOCAL_STATE),
         PersistentStore("bulk_add", StoreKind.PREFS, local("Undo for recent \"Add several numbers\" batches")),
-        PersistentStore("ux", StoreKind.PREFS, local("Tips already seen on this phone")),
+        PersistentStore("ux", StoreKind.PREFS, local("Tips already seen on this phone"), location = LOCAL_STATE),
         PersistentStore("crash_capture", StoreKind.PREFS, local("Crash reports of this phone, kept only when asked")),
-        PersistentStore("diagnostics", StoreKind.PREFS, local("Diagnostics of this phone")),
-        PersistentStore("account_diagnostics", StoreKind.PREFS, local("Account checks of this phone")),
-        PersistentStore("parley_writes", StoreKind.PREFS, local("Which contact rows Parley wrote on this phone")),
-        PersistentStore("contact_key_moves", StoreKind.PREFS, local("Contacts just made visible whose lookup key this phone hasn't listed yet")),
-        PersistentStore("relation_mirrors", StoreKind.PREFS, local("Which relations Parley added to the other contact, by this phone's lookup keys")),
+        PersistentStore("diagnostics", StoreKind.PREFS, local("Diagnostics of this phone"), location = LOCAL_STATE),
+        PersistentStore("account_diagnostics", StoreKind.PREFS, local("Account checks of this phone"), location = LOCAL_STATE),
+        PersistentStore("parley_writes", StoreKind.PREFS, local("Which contact rows Parley wrote on this phone"), location = LOCAL_STATE),
+        PersistentStore("contact_key_moves", StoreKind.PREFS, local("Contacts just made visible whose lookup key this phone hasn't listed yet"), location = LOCAL_STATE),
+        PersistentStore("relation_mirrors", StoreKind.PREFS, local("Which relations Parley added to the other contact, by this phone's lookup keys"), location = LOCAL_STATE),
         PersistentStore("folder_sync", StoreKind.PREFS, local("Sync state with a folder picked on this phone")),
-        PersistentStore("folder_sync_notice", StoreKind.PREFS, local("Which folder-sync pause was already notified")),
-        PersistentStore("folder_sync_runs", StoreKind.PREFS, local("When the background folder sync last ran, so runs close together are skipped")),
-        PersistentStore("sync_watch", StoreKind.PREFS, local("What the sync watchdog last saw and already said, by this phone's lookup keys and accounts")),
+        PersistentStore("folder_sync_notice", StoreKind.PREFS, local("Which folder-sync pause was already notified"), location = LOCAL_STATE),
+        PersistentStore("folder_sync_runs", StoreKind.PREFS, local("When the background folder sync last ran, so runs close together are skipped"), location = LOCAL_STATE),
+        PersistentStore("sync_watch", StoreKind.PREFS, local("What the sync watchdog last saw and already said, by this phone's lookup keys and accounts"), location = LOCAL_STATE),
         PersistentStore("markdown_export", StoreKind.PREFS, local("The folder of the notes export earlier versions had; removed by the daily maintenance")),
-        PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
-        PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
+        PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)"), location = CALL_PATH_STATE),
+        PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash"), location = CALL_PATH_STATE),
         PersistentStore("parley_ring_ramp", StoreKind.PREFS, local("The ring volume to put back after an increasing ring, if a crash cut it short")),
         PersistentStore(
             "rescue_call", StoreKind.PREFS,
             local("A rescue call waiting to ring and the last choices on its screen (who calls sealed): this phone's moment, never backed up"),
+            location = CALL_PATH_STATE,
         ),
-        PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
-        PersistentStore("private_call_sweep", StoreKind.PREFS, local("A private contact's call that may still be in the system call log")),
+        PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress"), location = CALL_PATH_STATE),
+        PersistentStore("private_call_sweep", StoreKind.PREFS, local("A private contact's call that may still be in the system call log"), location = LOCAL_STATE),
         PersistentStore("to_call", StoreKind.PREFS, local("Whether the To call strip is folded on this phone; the list as earlier versions kept it")),
         PersistentStore("menu_memory", StoreKind.PREFS, local("Menu memory as earlier versions kept it, copied once to docs/menu_memory")),
         // Safe words, helpers and expected-call windows: a safety feature must survive a move to a new phone. Inside the
@@ -200,14 +212,14 @@ object PersistentStores {
             local("The Situation on now and what to put back when it goes off: this phone's moment, not a preference"),
         ),
         PersistentStore("situation_triggers", StoreKind.PREFS, local("Whether this phone's job for a Situation's next window is queued")),
-        PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
-        PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
-        PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
-        PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here")),
-        PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state")),
+        PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone"), location = LOCAL_STATE),
+        PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
+        PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
+        PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here"), location = LOCAL_STATE),
+        PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state"), location = LOCAL_STATE),
         PersistentStore("backup", StoreKind.PREFS, StorePolicy.Secret("The backup keys and the backup folder of this phone")),
-        PersistentStore("vault_keys", StoreKind.PREFS, local("Which vault key generations this phone has used")),
-        PersistentStore("record_sealing", StoreKind.PREFS, local("Whether older notes were sealed on this phone")),
+        PersistentStore("vault_keys", StoreKind.PREFS, local("Which vault key generations this phone has used"), location = LOCAL_STATE),
+        PersistentStore("record_sealing", StoreKind.PREFS, local("Whether older notes were sealed on this phone"), location = LOCAL_STATE),
         PersistentStore("record_crypto", StoreKind.PREFS, local("Which small-records key this phone uses, keys set aside and the reset notice")),
         // ---- files
         PersistentStore("timemachine", StoreKind.FILES, local("Contact history of this phone, kept 180 days"), location = PersistentStore.FILES),

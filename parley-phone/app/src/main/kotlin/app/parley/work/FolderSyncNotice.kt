@@ -9,6 +9,7 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.StoredStatus
+import app.parley.data.StatePrefs
 import app.parley.data.sync.SyncStatus
 
 /**
@@ -24,7 +25,7 @@ object FolderSyncNotice {
 
     /** After a run: posts the notice for a pause ([post]: background runs only), or removes it when nothing waits. */
     fun update(context: Context, status: SyncStatus, post: Boolean = true) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(context, PREFS)
         val paused = StoredStatus.decode(status.lastResult)?.kind == SyncStatus.PAUSED && status.pendingDeletions > 0
         val nm = NotificationManagerCompat.from(context)
         if (!paused) {

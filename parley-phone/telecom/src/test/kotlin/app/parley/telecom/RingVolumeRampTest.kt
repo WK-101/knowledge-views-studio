@@ -25,7 +25,7 @@ internal class RingVolumeRampTest {
     @Before fun ringerAtSix() {
         context.getSystemService(NotificationManager::class.java).setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
         context.getSharedPreferences("parley_ring_ramp", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("parley_ring_boost", Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences("call_path_state", Context.MODE_PRIVATE).edit().clear().commit()
         am.ringerMode = AudioManager.RINGER_MODE_NORMAL
         am.setStreamVolume(AudioManager.STREAM_RING, 6, 0)
     }

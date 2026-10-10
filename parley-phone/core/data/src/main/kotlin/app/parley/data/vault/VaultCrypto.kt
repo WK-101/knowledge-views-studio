@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import app.parley.common.Hex
 import app.parley.common.storage.DurableFiles
+import app.parley.data.StatePrefs
 import app.parley.data.security.KeystoreSeal
 import kotlinx.coroutines.CancellationException
 import java.io.File
@@ -326,7 +327,7 @@ object VaultCrypto {
         return next
     }
 
-    private fun generationPrefs() = appContext?.getSharedPreferences("vault_keys", Context.MODE_PRIVATE)
+    private fun generationPrefs() = appContext?.let { StatePrefs.open(it, "vault_keys") }
 
     private fun highestGenerationEver(): Int = generationPrefs()?.getInt("maxGeneration", 0) ?: 0
 

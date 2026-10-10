@@ -19,6 +19,7 @@ import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
+import app.parley.data.StatePrefs
 import app.parley.data.security.Privacy
 import app.parley.data.security.RecordCrypto
 import app.parley.telecom.RescueCall
@@ -169,7 +170,7 @@ object RescueCalls {
 
     @Synchronized
     private fun prefs(context: Context): SharedPreferences {
-        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val p = StatePrefs.open(context.applicationContext, PREFS)
         if (!migrated) {
             migrated = true
             sealPlain(context.applicationContext, p)

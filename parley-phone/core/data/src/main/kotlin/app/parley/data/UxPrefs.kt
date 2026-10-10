@@ -28,7 +28,7 @@ data class UxState(
 )
 
 class UxPrefs(context: Context) {
-    private val prefs = context.getSharedPreferences("ux", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context, "ux")
     private val _state = MutableStateFlow(load())
     val state: StateFlow<UxState> = _state
 

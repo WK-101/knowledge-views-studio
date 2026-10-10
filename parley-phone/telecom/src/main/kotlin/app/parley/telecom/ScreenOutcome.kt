@@ -47,9 +47,11 @@ data class ScreenOutcome(
  * which also keeps a boost and its restore in order.
  */
 object RingBoost {
-    private const val PREFS = "parley_ring_boost"
-    private const val KEY = "saved_ring_volume"
-    private const val KEY_BOOSTED = "boosted_ring_volume"
+    // The ring path's shared state file, keys under this store's name (the app's StatePrefs copies the older
+    // "parley_ring_boost" file into it as it starts).
+    private const val PREFS = "call_path_state"
+    private const val KEY = "parley_ring_boost.saved_ring_volume"
+    private const val KEY_BOOSTED = "parley_ring_boost.boosted_ring_volume"
 
     /** One thread for the ring volume: boosts, ramps ([RingVolumeRamp]) and their restores run in order. */
     internal val io: ScheduledExecutorService =

@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.AppSettings
+import app.parley.data.StatePrefs
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,7 +25,7 @@ class DiagnosticsTest {
     }
 
     @Test fun anErrorStoredWithItsMessageBeforeIsShownWithout() {
-        app.getSharedPreferences("diagnostics", Context.MODE_PRIVATE).edit()
+        StatePrefs.open(app, "diagnostics").edit()
             .putString("errors", """[{"t":1,"w":"Import","e":"IOException: Grace Hopper.vcf"}]""").commit()
         val report = Diagnostics(app).report(AppSettings(), PeopleSettings(), emptyMap(), mask = false)
         assertFalse(report, report.contains("Grace"))

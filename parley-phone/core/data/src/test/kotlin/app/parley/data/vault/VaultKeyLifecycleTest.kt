@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +36,7 @@ class VaultKeyLifecycleTest {
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
         VaultCrypto.appContext = context
-        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().clear().commit()
+        StatePrefs.open(context, "vault_keys").edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     }
 
@@ -110,7 +111,7 @@ class VaultKeyLifecycleTest {
     /** What a process killed mid-upgrade leaves: a newer key that no blob uses. */
     private fun leaveInterruptedUpgrade(gen: Int) {
         FakeAndroidKeyStore.keys["parley_vault_detail_g$gen"] = javax.crypto.KeyGenerator.getInstance("AES", "SunJCE").apply { init(256) }.generateKey()
-        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().putInt("maxGeneration", gen).commit()
+        StatePrefs.open(context, "vault_keys").edit().putInt("maxGeneration", gen).commit()
     }
 
     private val ada = ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, "+44 20 7946 0000", 2)), pinnedNote = "Tea, not coffee")
@@ -139,7 +140,7 @@ class VaultKeyLifecycleTest {
         val id = vault.save(null, ada)
         leaveInterruptedUpgrade(2)
         // Installs from before the commit record only had the aliases to go by.
-        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().remove("committedGeneration").commit()
+        StatePrefs.open(context, "vault_keys").edit().remove("committedGeneration").commit()
 
         setDeviceSecure(true)
         assertTrue(vault.upgradeDetailKey())

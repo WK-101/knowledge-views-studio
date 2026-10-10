@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import app.parley.data.StatePrefs
 import app.parley.data.backup.FileBlobStore
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.BlockedCallEntity
@@ -97,7 +98,7 @@ class RecordSealingTest {
         val plainStore = FileBlobStore(blobs)
         plainStore.put("ab12", "old snapshot".toByteArray())
 
-        context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
+        StatePrefs.open(context, "record_sealing").edit().clear().commit()
         val sealing = RecordSealing(context, db, { app.parley.data.backup.TimeMachine(context, app.parley.data.records.ContactRecordStore(context)) })
         val n = sealing.runIfNeeded()
         assertEquals(6, n)

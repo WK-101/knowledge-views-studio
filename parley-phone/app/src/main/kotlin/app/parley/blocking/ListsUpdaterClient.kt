@@ -9,6 +9,7 @@ import androidx.core.net.toUri
 import app.parley.R
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
+import app.parley.data.StatePrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -107,7 +108,7 @@ object ListsUpdaterClient {
         }
     }
 
-    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(ctx: Context) = StatePrefs.open(ctx, PREFS)
 
     fun subscriptions(ctx: Context): Set<String> = prefs(ctx).getStringSet(SUBS, emptySet()).orEmpty().toSet()
 
