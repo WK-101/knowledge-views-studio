@@ -93,4 +93,13 @@ class MeCardStoreTest {
         store.importJson(JSONObject().put("name", "Someone Else").toString())
         assertEquals("Anna Maria Smith", store.card.value.name)
     }
+
+    @Test fun a_restore_never_overwrites_a_card_holding_only_the_new_kinds_of_field() {
+        val store = MeCardStore(context)
+        store.save(ContactDetails(events = listOf(app.parley.data.EventItem(date = "1990-04-01")), pronouns = "she/her"))
+        store.importJson(oldCard())
+        assertEquals("1990-04-01", store.details.value.events.single().date)
+        assertEquals("she/her", store.details.value.pronouns)
+        assertTrue("the backup's card didn't replace it", store.card.value.name.isEmpty())
+    }
 }

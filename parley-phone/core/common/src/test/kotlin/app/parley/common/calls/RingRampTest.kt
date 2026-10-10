@@ -51,19 +51,35 @@ class RingRampTest {
     }
 
     @Test fun the_users_volume_is_put_back_unless_they_changed_it() {
-        assertEquals(Restore.Nothing, RingRamp.restore(saved = null, lastSet = null, current = 3, ringerNormal = true))
-        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = 2, current = 2, ringerNormal = true))
+        assertEquals(Restore.Nothing, RingRamp.restore(saved = null, lastSet = null, current = 3, audible = true))
+        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = 2, current = 2, audible = true))
         // Left over by a crash with no step noted: put back.
-        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = null, current = 1, ringerNormal = true))
+        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = null, current = 1, audible = true))
         // The volume keys or the panel moved it: theirs stays.
-        assertEquals(Restore.KeepUsers, RingRamp.restore(saved = 6, lastSet = 2, current = 4, ringerNormal = true))
+        assertEquals(Restore.KeepUsers, RingRamp.restore(saved = 6, lastSet = 2, current = 4, audible = true))
         // On vibrate or silent the ring volume reads as muted: wait for the next call or app start.
-        assertEquals(Restore.Later, RingRamp.restore(saved = 6, lastSet = 2, current = 0, ringerNormal = false))
+        assertEquals(Restore.Later, RingRamp.restore(saved = 6, lastSet = 2, current = 0, audible = false))
     }
 
     @Test fun the_ramp_stops_when_the_user_moves_the_volume() {
         assertFalse(RingRamp.userTookOver(lastSet = 3, current = 3))
         assertTrue(RingRamp.userTookOver(lastSet = 3, current = 5))
         assertTrue(RingRamp.userTookOver(lastSet = 3, current = 2))
+    }
+
+    @Test fun a_step_noted_but_not_yet_set_still_counts_as_the_ramps_own() {
+        // The process died after noting step 3 on disk and before setting it: the volume is still the previous step.
+        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = 3, current = 2, audible = true, previous = 2))
+        // Or after setting it: the noted one.
+        assertEquals(Restore.To(6), RingRamp.restore(saved = 6, lastSet = 3, current = 3, audible = true, previous = 2))
+        // Anything else is the user's.
+        assertEquals(Restore.KeepUsers, RingRamp.restore(saved = 6, lastSet = 3, current = 5, audible = true, previous = 2))
+        assertFalse(RingRamp.userTookOver(lastSet = 3, current = 2, previous = 2))
+        assertTrue(RingRamp.userTookOver(lastSet = 3, current = 4, previous = 2))
+    }
+
+    @Test fun do_not_disturb_muting_the_ring_waits_instead_of_dropping_the_users_volume() {
+        // Do Not Disturb came on mid-ramp: the ring stream reads 0 and can't be set. Never taken as the user's choice.
+        assertEquals(Restore.Later, RingRamp.restore(saved = 6, lastSet = 2, current = 0, audible = false, previous = 1))
     }
 }

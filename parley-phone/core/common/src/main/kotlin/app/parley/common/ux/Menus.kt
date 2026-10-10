@@ -70,9 +70,14 @@ object ContactMenu {
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
         // Archive: out of the lists, still named on calls (a private contact stays private, archived inside the vault).
+        // An archived contact is kept until Unarchive: it never deletes itself, so "Delete automatically" isn't offered.
         group(
             MenuGroup.PRIVACY,
-            listOfNotNull(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY, Action.ARCHIVE.takeIf { !f.archived }),
+            listOfNotNull(
+                if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE,
+                Action.DELETE_AUTOMATICALLY.takeIf { !f.archived },
+                Action.ARCHIVE.takeIf { !f.archived },
+            ),
         )?.let(::add)
         // Any contact can have a case file (a bank saved under a person's name, a landlord): the seventh place at most.
         add(Action.CASE_FILE, f.hasNumbers && !f.caseShown)

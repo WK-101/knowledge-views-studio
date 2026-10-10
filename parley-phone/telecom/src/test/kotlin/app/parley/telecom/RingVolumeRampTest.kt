@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.app.Application
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import app.parley.common.calls.RingStyle
@@ -22,6 +23,7 @@ internal class RingVolumeRampTest {
     private val ring: Int get() = am.getStreamVolume(AudioManager.STREAM_RING)
 
     @Before fun ringerAtSix() {
+        context.getSystemService(NotificationManager::class.java).setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
         context.getSharedPreferences("parley_ring_ramp", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("parley_ring_boost", Context.MODE_PRIVATE).edit().clear().commit()
         am.ringerMode = AudioManager.RINGER_MODE_NORMAL
@@ -96,5 +98,32 @@ internal class RingVolumeRampTest {
         assertFalse(RingVolumeRamp.isRamping(context))
         RingBoost.restore(context)
         assertEquals("the user's volume, not the ramp's", 6, ring)
+    }
+
+    @Test fun a_process_killed_between_noting_a_step_and_setting_it_still_gets_the_users_volume_back() {
+        RingVolumeRamp.begin(context, RingStyle.INCREASING)
+        RingVolumeRamp.advance(context, 2)
+        // Step 3 was noted on disk, then the process died before the volume changed: it still reads 2.
+        context.getSharedPreferences("parley_ring_ramp", Context.MODE_PRIVATE).edit()
+            .putInt("set_ring_volume", 3).putInt("previous_ring_volume", 2).commit()
+        assertEquals(2, ring)
+        RingBoost.restore(context)
+        assertEquals("not mistaken for the user's choice", 6, ring)
+        assertFalse(RingVolumeRamp.isRamping(context))
+    }
+
+    @Test fun do_not_disturb_coming_on_mid_ramp_keeps_the_users_volume_for_later() {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        RingVolumeRamp.begin(context, RingStyle.INCREASING)
+        RingVolumeRamp.advance(context, 2)
+        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALARMS)
+        assertFalse("the ramp waits", RingVolumeRamp.advance(context, 3))
+        assertEquals(2, ring)
+        RingVolumeRamp.restore(context)
+        assertTrue("the user's volume is kept, not dropped", RingVolumeRamp.isRamping(context))
+        nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+        RingVolumeRamp.restore(context)
+        assertEquals(6, ring)
+        assertFalse(RingVolumeRamp.isRamping(context))
     }
 }

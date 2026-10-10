@@ -87,6 +87,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
         if (otherCallActive) return
         val t = ringtone(context, uri) ?: return
+        takeOverFrom(session.id)
         // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
         tone = t
         toneFor = session.id
@@ -150,12 +151,29 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
             }
             startVibration(context, pendingPattern ?: pattern())
             delay(RingRamp.VIBRATE_FIRST_MS)
-            // On vibrate or silent by now: the vibration (or nothing) is all the call gets, as Telecom would do.
-            if (!ours() || am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return@launch
+            if (!ours()) return@launch
+            when (am.ringerMode) {
+                AudioManager.RINGER_MODE_NORMAL -> Unit
+                // On vibrate by now: the vibration is all the call gets, as Telecom would do.
+                AudioManager.RINGER_MODE_VIBRATE -> return@launch
+                // On silent by now: nothing, as Telecom would do (the vibration would otherwise go on to the end).
+                else -> {
+                    cancelVibration()
+                    return@launch
+                }
+            }
             val t = toneOrDefault(context, uri()) ?: return@launch
             tone = t
             sound(t, played)
         }
+    }
+
+    /**
+     * The ringer moves to call [id]: whatever it still plays for another call (a tone, a vibration) stops first, so
+     * nothing is left running unclaimed when this claim gives up, which [follow] and the call's end could never stop.
+     */
+    private fun takeOverFrom(id: String) {
+        if (toneFor != null && toneFor != id) stop()
     }
 
     /** Starts [t] and records it; neither failing stops the vibration already going. */
@@ -181,6 +199,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         if (am.ringerMode != AudioManager.RINGER_MODE_VIBRATE) return
         if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
         if (otherCallActive) return
+        takeOverFrom(session.id)
         // Claimed now (no tone), so stop() and follow() end the vibration with the ringing.
         tone = null
         toneFor = session.id
