@@ -22,6 +22,8 @@ import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.PhoneEnv
+import app.parley.data.TelephonyPackages
+import app.parley.common.calls.InternetCalls
 import app.parley.data.R
 import app.parley.data.StartGate
 import app.parley.data.db.AppDatabase
@@ -133,22 +135,43 @@ data class PrivateCall(
     val type: Int,
     /** Android logged it as a video call (kept sealed with the number; false for calls stored before it was). */
     val video: Boolean = false,
+    /** The app the call went through over the internet (WhatsApp…), or null for a phone call; sealed with the number. */
+    val app: String? = null,
 )
 
 /**
- * The sweep's call-log row under [c] (id, number, date, duration, type, features) stored as a private call: its id, to
+ * The sweep's call-log row under [c] (id, number, date, duration, type, features, account) stored as a private call: its id, to
  * delete from the log, or null when it isn't a private contact's or couldn't be stored (it stays in the log).
  */
-private suspend fun VaultRepository.keepPrivate(c: android.database.Cursor, maybePrivate: (String) -> Boolean): Long? {
+private suspend fun VaultRepository.keepPrivate(c: android.database.Cursor, maybePrivate: (String) -> Boolean, telephony: Set<String>): Long? {
     val number = c.getString(1)?.takeIf(maybePrivate) ?: return null
     val hit = lookup(number) ?: return null
     // A contact being made visible: its calls are going back to this log, never into its private history.
     if (hit.first in leaving) return null
     val stored = catching {
-        storePrivateCall(hit.first, number, hit.second.name, c.getLong(2), c.getLong(3), c.getInt(4), isVideo(c.getInt(5)))
+        storePrivateCall(
+            hit.first, number, hit.second.name, c.getLong(2), c.getLong(3), c.getInt(4), isVideo(c.getInt(5)),
+            app = InternetCalls.appPackage(c.getString(6), telephony),
+        )
     }.getOrDefault(false)
     return c.getLong(0).takeIf { stored }
 }
+
+/** The sweep's columns: [keepPrivate] reads them by position. */
+private val SWEEP_COLUMNS = arrayOf(
+    CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE, CallLog.Calls.FEATURES,
+    CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+)
+
+/**
+ * What a private call seals: the number and name, "v" for a video call, and "app" for a call an app made over the
+ * internet (WhatsApp…), which stays that app's call in the private history.
+ */
+private fun privateCallPlain(number: String, name: String, video: Boolean, app: String?): ByteArray =
+    JSONObject().put("n", number).put("name", name).apply {
+        if (video) put("v", true)
+        app?.let { put("app", it) }
+    }.toString().toByteArray()
 
 /** A call-log row's FEATURES say it was a video call. */
 private fun isVideo(features: Int): Boolean = (features and CallLog.Calls.FEATURES_VIDEO) != 0
@@ -1013,10 +1036,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         try {
             cr.query(
                 CallLog.Calls.CONTENT_URI,
-                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE, CallLog.Calls.FEATURES),
-                "${CallLog.Calls.DATE} >= ?", arrayOf(sinceMillis.toString()), null,
+                SWEEP_COLUMNS, "${CallLog.Calls.DATE} >= ?", arrayOf(sinceMillis.toString()), null,
             )?.use { c ->
-                while (c.moveToNext()) keepPrivate(c, maybePrivate)?.let { ids += it }
+                val telephony = TelephonyPackages.of(context)
+                while (c.moveToNext()) keepPrivate(c, maybePrivate, telephony)?.let { ids += it }
             }
             ids.chunked(500).forEach { chunk -> cr.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls._ID} IN (${chunk.joinToString(",")})", null) }
         } catch (_: SecurityException) {
@@ -1028,23 +1051,24 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * Stores one private call unless it is already there (a sweep retried, a restore run twice). True when the call is
      * now stored, whether by this call or before.
      */
-    suspend fun storePrivateCall(vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int, video: Boolean = false): Boolean =
-        withContext(Dispatchers.IO) {
-            // Rows from before the dedupe key have none: count those by their columns.
-            if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
-            val blob = callSeal.seal(JSONObject().put("n", number).put("name", name).apply { if (video) put("v", true) }.toString().toByteArray())
-            dao.addPrivateCall(
-                PrivateCallEntity(
-                    vaultId = vaultId,
-                    blob = blob,
-                    date = date,
-                    durationSec = durationSec,
-                    type = type,
-                    dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type),
-                ),
-            )
-            true
-        }
+    suspend fun storePrivateCall(
+        vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int, video: Boolean = false, app: String? = null,
+    ): Boolean = withContext(Dispatchers.IO) {
+        // Rows from before the dedupe key have none: count those by their columns.
+        if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
+        val blob = callSeal.seal(privateCallPlain(number, name, video, app))
+        dao.addPrivateCall(
+            PrivateCallEntity(
+                vaultId = vaultId,
+                blob = blob,
+                date = date,
+                durationSec = durationSec,
+                type = type,
+                dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type),
+            ),
+        )
+        true
+    }
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
 
