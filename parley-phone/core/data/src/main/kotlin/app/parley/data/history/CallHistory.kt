@@ -37,6 +37,7 @@ import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.R
 import app.parley.data.StartGate
+import app.parley.data.TelephonyPackages
 import app.parley.common.memory.CallTally
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
@@ -949,7 +950,7 @@ class CallHistory(
 
     private fun ArchivedCall.toEntry(): CallEntry = record.toEntry(ARCHIVE_ID_BASE + rowId)
 
-    private fun CallLogRecord.toEntry(id: Long) = ArchivedCalls.entry(this, id)
+    private fun CallLogRecord.toEntry(id: Long) = ArchivedCalls.entry(this, id, TelephonyPackages.of(context))
 
     private fun CallEntry.toRecord() = ArchivedCalls.record(this)
 
@@ -997,6 +998,9 @@ class CallHistory(
 
         /** A private (vault) call as a history row; its id is the negated private-call id. */
         fun privateEntry(p: PrivateCall): CallEntry =
-            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false, video = p.video)
+            CallEntry(
+                -p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false,
+                video = p.video, appPackage = p.app,
+            )
     }
 }

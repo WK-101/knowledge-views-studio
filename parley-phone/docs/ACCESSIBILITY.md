@@ -41,6 +41,20 @@ What Parley does for people who use TalkBack, Switch Access, Voice Access, large
 - `ThemeContrastTest` (core:common): **dynamic colour for any wallpaper**. Material's dynamic schemes give every role a fixed *tone* of the wallpaper's tonal palettes (primary 40 in light, 80 in dark, …). Tone is CIE L*, which fixes the luminance whatever the hue, so the contrast of each pair is the same for every wallpaper: `ThemeContrast` checks the tone pairs (Android 12–13 and 14+ surfaces) instead of ten sample wallpapers.
 - Existing: `CallBackdropTest` (the call screen's tint and picture scrim keep 4.5:1), `CallHueTest` and the avatar palette's inks.
 
+## Automated checks (6.5)
+
+- **On every build.** The Robolectric UI smoke tests (`UiSmokeTest`: the five tabs, the contact page and the call
+  screen, in light, dark and the largest font right to left) run `A11yChecks` over what is on screen, with Compose's
+  own semantics tree: everything tappable has words TalkBack reads (text, a content description or a state), its touch
+  target (with the area Compose widens around a small one, which TalkBack and touch use) is at least 48 × 48 dp, and no two tappable things side by side say the same words. A control cut off by the
+  screen's edge isn't measured (its touch area is cut too). `A11yChecksTest` shows each check catches its problem. Its first run found nothing to fix on
+  those screens: every report was a control cut off by the screen's edge, which it now leaves out.
+- **On a device.** `AccessibilitySmokeTest` (instrumented) runs Android's Accessibility Test Framework through
+  Espresso's `AccessibilityChecks` over the whole first screen (labels, targets, contrast, duplicates). It is off by
+  default: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true`,
+  with `androidx.test.espresso:espresso-accessibility` added to the instrumented tests' dependencies (the test finds
+  it by name and, asked for without it, says what to add).
+
 ## Sonic caller ID (I17)
 
 A contact's or a label's page has **Make a ringtone for Ana**: a short tune (3–5 s) made from the name, so a ring says who is calling without a look. `CallerTune` (core:common, unit-tested) maps the name's letters to a walk on the major pentatonic scale (any two notes sound well together), picks key, tempo (120–150 bpm), rhythm and timbre (bell, marimba, music box, soft flute) from the name and the variant, plays the phrase twice ending on the home note, then rests a beat so the repeating ring reads tune · pause · tune. Additive synthesis under ADSR envelopes, mixed and scaled so the loudest sample is 85 % of full scale. Deterministic (StrictMath and a seeded `Random`), so "Tune 2" is the same tune on every phone. **Try another** plays the next variant at once.
@@ -53,5 +67,5 @@ No new permission; nothing leaves the phone except inside Parley's encrypted bac
 
 ## Left for later
 
-- Automated Compose accessibility checks (`AccessibilityChecks` in Espresso) need instrumented tests, which Parley doesn't run in CI yet.
+- Running the device checks in CI needs an emulator there (see "Automated checks").
 - Captions or transcripts of calls need the microphone (out of scope); RTT is WP-14.

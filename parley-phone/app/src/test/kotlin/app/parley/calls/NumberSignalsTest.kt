@@ -30,4 +30,11 @@ class NumberSignalsTest {
         assertEquals(20L, NumberSignals.aliveSince(calls, "GB")["+447700900123"])
         assertNull(NumberSignals.aliveSince(listOf(call(CallType.OUTGOING, 30)), "GB")["+447700900123"])
     }
+
+    @Test fun a_call_in_an_app_over_the_internet_never_shows_the_phone_line_works() {
+        val whatsApp = CallEntry(40, "07700 900123", null, CallType.INCOMING, 40, 60, "acc", false, false, appPackage = "com.whatsapp")
+        val phone = CallEntry(10, "07700 900123", null, CallType.INCOMING, 10, 60, null, false, false)
+        assertNull(NumberSignals.aliveSince(listOf(whatsApp), "GB")["+447700900123"])
+        assertEquals(10L, NumberSignals.aliveSince(listOf(whatsApp, phone), "GB")["+447700900123"])
+    }
 }

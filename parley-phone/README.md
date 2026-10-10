@@ -146,7 +146,7 @@ The permissions Parley does use, and what each one is for, are listed in Setting
 
 ## Who can see your contacts
 
-Android doesn't let any contacts app decide what other apps see: any app you've allowed "Contacts" can read every contact on the phone, from every account. Settings › Privacy › "Who can see your contacts" lists those apps and links to Android's settings to change them, explains private contacts (kept out of the system address book, so only Parley shows their names), notes that picking a contact for another app shares only that contact (optionally just one number), and on GrapheneOS points to Contact Scopes.
+Android doesn't let any contacts app decide what other apps see: any app you've allowed "Contacts" can read every contact on the phone, from every account. Settings › Privacy › "Who can see your contacts" lists those apps and links to Android's settings to change them, explains private contacts (kept out of the system address book, so only Parley shows their names), notes that picking a contact for another app shares only that contact (optionally just one number), and on GrapheneOS points to Contact Scopes. From Android 17 apps can also use Android's own contact picker; it never shows private or archived contacts, because they aren't in the address book.
 
 **Your own card ("Me").** Android's profile contact (ContactsContract.Profile) has been readable with the ordinary contacts permission since Android 6 (READ_PROFILE and WRITE_PROFILE no longer exist), so Parley shows it, but it doesn't write to it: anything in the profile can be read by every app with contacts access. "My card" is kept inside Parley (the old "My details" were moved into it) and shared only when you choose, as a QR code or a vCard.
 

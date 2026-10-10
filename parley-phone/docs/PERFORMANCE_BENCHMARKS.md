@@ -97,7 +97,9 @@ cd parley-phone
 ```
 
 A plain build only compiles them (`./gradlew :app:compileDebugAndroidTestKotlin`); nothing in CI runs them yet,
-because CI has no device or emulator.
+because CI has no device or emulator. Android's accessibility checks over the first screen are off by default; add
+`-Pandroid.testInstrumentationRunnerArguments.a11yChecks=true` (and the checks' library, see ACCESSIBILITY.md) to run
+them too.
 
 ### Results
 

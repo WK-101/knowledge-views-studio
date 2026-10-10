@@ -68,6 +68,7 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.security.Privacy
+import app.parley.data.vault.PrivateCall
 import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
@@ -522,7 +523,7 @@ class BackupRepository(
             // The private call history: removed from the system log, so this is its only copy.
             val calls = JSONArray()
             vault.privateCallsOf(v.id).forEach { c ->
-                calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type).put("v", c.video))
+                calls.put(privateCallJson(c))
             }
             if (calls.length() > 0) o.put("calls", calls)
             // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
@@ -864,8 +865,11 @@ class BackupRepository(
             val calls = o.optJSONArray("calls") ?: return
             for (i in 0 until calls.length()) {
                 val c = calls.optJSONObject(i) ?: continue
-                runCatching {
-                    vault.storePrivateCall(id, c.optString("n"), c.optString("name"), c.optLong("d"), c.optLong("s"), c.optInt("t"), c.optBoolean("v"))
+                catching {
+                    vault.storePrivateCall(
+                        id, c.optString("n"), c.optString("name"), c.optLong("d"), c.optLong("s"), c.optInt("t"), c.optBoolean("v"),
+                        app = c.optString("app").ifBlank { null },
+                    )
                 }
             }
         }
@@ -912,3 +916,8 @@ class BackupRepository(
         return n
     }
 }
+
+/** One private call in a backup; "app" only for a call an app made over the internet (older versions ignore it). */
+private fun privateCallJson(c: PrivateCall): JSONObject =
+    JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type).put("v", c.video)
+        .apply { c.app?.let { put("app", it) } }

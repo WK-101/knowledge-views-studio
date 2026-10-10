@@ -1180,7 +1180,7 @@
     <string name="who_move_private_hint">Hold contacts to select them, then choose More › Privacy… › Make private</string>
     <string name="who_share_one">Share just one contact</string>
     <string name="who_picker_text">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it.</string>
-    <string name="who_picker_text_37">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it. On this Android version, apps can also use Android\'s own contact picker, which shares only what you choose in the same way.</string>
+    <string name="who_picker_text_37">Parley is your contact picker: an app that asks you to choose a contact gets that one contact, not your address book, and doesn\'t need the Contacts permission for it. On this Android version, apps can also use Android\'s own contact picker, which shares only what you choose in the same way. It never shows your private or archived contacts: they aren\'t in the address book.</string>
     <string name="who_one_number">Offer to share only a number</string>
     <string name="who_one_number_summary">When an app asks for a whole contact, choose to share just one phone number with it. Some apps may not accept this.</string>
     <string name="who_private_names_section">Private names in other apps</string>

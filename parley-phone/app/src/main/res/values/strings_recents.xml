@@ -88,4 +88,12 @@
     <!-- Under a saved name on a number's page: the name the mobile network showed for it, when it is a different one. -->
     <string name="network_name_under">Network: %1$s</string>
     <string name="network_name_before">The network showed %1$s before</string>
+    <!-- A call an app (WhatsApp, Signal…) made over the internet and logged in the call log; %1$s is the app. -->
+    <string name="recents_app_call">%1$s call</string>
+    <string name="recents_app_call_back_title">Call back on %1$s?</string>
+    <string name="recents_app_call_back_text">This call came through %1$s over the internet, not your phone network.</string>
+    <string name="recents_app_call_back_gone">This call came through %1$s, which isn\'t on this phone now. You can call by phone instead.</string>
+    <string name="recents_app_call_back_in_app">Call on %1$s</string>
+    <!-- Calls the number through the phone network (the SIM) instead of the app the call came through. -->
+    <string name="recents_app_call_by_phone">Call by phone</string>
 </resources>

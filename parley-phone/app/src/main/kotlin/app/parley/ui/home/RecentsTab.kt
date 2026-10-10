@@ -138,6 +138,8 @@ import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.ParleySheet
 import app.parley.ui.ListSectionHeader
+import app.parley.messaging.InternetCallBackDialog
+import app.parley.messaging.rememberCallAppLabel
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
 import androidx.compose.ui.semantics.heading
@@ -157,7 +159,23 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
     // The number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
-    menuFor?.let { g -> RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
+    // Call back for a call that came through an app over the internet: in the app, or by phone when the user picks it.
+    var appCallFor by remember { mutableStateOf<RecentGroup?>(null) }
+    appCallFor?.let { g ->
+        val pkg = g.latest.appPackage
+        if (pkg != null) {
+            InternetCallBackDialog(
+                g.number, g.latest.accountId, pkg,
+                onCallByPhone = { vm.requestCall(g.number, g.contact?.displayName) }, onDismiss = { appCallFor = null },
+            )
+        }
+    }
+    fun callBack(g: RecentGroup) {
+        if (g.latest.appPackage != null) appCallFor = g else vm.requestCall(g.number, g.contact?.displayName)
+    }
+    menuFor?.let { g ->
+        RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }, onCall = { callBack(g) }) { menuFor = null }
+    }
     messageFor?.let { (n, account) -> ReachSheet(ReachTarget.Number(n, account), onDismiss = { messageFor = null }, onCall = { num -> vm.requestCall(num) }) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> DaySummarySheet(vm, day, title) { daySummary = null } }
@@ -277,7 +295,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                   listState = listState,
                   onAction = { a ->
                       when (a) {
-                          SwipeAction.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+                          SwipeAction.CALL -> callBack(g)
                           SwipeAction.MESSAGE -> g.contact?.let { quick.message(it, g.number) } ?: Intents.sms(context, g.number)
                           SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run {
                               messageFor = g.number to g.latest.accountId
@@ -306,7 +324,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                             !g.hidden -> open(Routes.history(g.number))
                         }
                     },
-                    onCall = { vm.requestCall(g.number, g.contact?.displayName) },
+                    onCall = { callBack(g) },
                 )
               }
                 }
@@ -429,13 +447,15 @@ fun RecentRow(
                 val saved = g.contact != null || g.vaultId != null || g.archivedName != null
                 val location = rememberNumberLocation(g.number, countryIso, enabled = !saved && !g.hidden)
                 val shownNumber = remember(e.number, countryIso) { Bidi.ltr(Format.number(e.number, countryIso)) }
+                val appCall = rememberCallAppLabel(e.appPackage)?.let { stringResource(R.string.recents_app_call, it) }
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p ->
                             Format.phoneType(context.resources, p.type, p.label)
                         } else if (!g.hidden && g.contact == null && (g.archivedName ?: g.cachedName ?: g.networkName) != null) shownNumber else null,
-                    e.accountId?.let { simLabels[it] },
+                    // A call in an app names the app ("WhatsApp call"); a phone call its SIM when there are two.
+                    appCall ?: e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.case_call_unanswered) else null,
                     Format.shortWhen(context, e.date),
@@ -557,7 +577,8 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 @Composable
 @Suppress("CyclomaticComplexMethod") // One branch per action.
 private fun RecentActionsSheet(
-    vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit,
+    vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit,
+    onCall: () -> Unit, onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val res = LocalResources.current
@@ -574,8 +595,9 @@ private fun RecentActionsSheet(
         blocked = hasNumber && rememberBlocked(vm, listOf(g.number)),
         // A call with 112 or a local emergency service: never blocked.
         emergency = hasNumber && rememberEmergency(vm, listOf(g.number)),
-        // An outgoing call never rang, so there is nothing to ask "why" about.
-        rang = g.calls.any { it.type != CallType.OUTGOING },
+        // An outgoing call never rang, so there is nothing to ask "why" about; nor did a call in an app, which Parley
+        // never screened.
+        rang = g.calls.any { it.type != CallType.OUTGOING && it.appPackage == null },
     )
     val blockedCall = g.latest.type == CallType.BLOCKED
     fun runAction(a: RecentMenu.Action) {
@@ -585,7 +607,7 @@ private fun RecentActionsSheet(
         }
         act {
             when (a) {
-                RecentMenu.Action.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+                RecentMenu.Action.CALL -> onCall()
                 RecentMenu.Action.MESSAGE -> Intents.sms(context, g.number)
                 RecentMenu.Action.MESSAGE_OR_CALL_ON -> onMessageOn(g.number)
                 RecentMenu.Action.COPY_NUMBER -> Clipboard.copy(context, g.number)

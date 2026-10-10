@@ -87,6 +87,7 @@ import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.common.rememberNumberLocation
 import app.parley.ui.home.CallLengthGlance
+import app.parley.messaging.rememberCallAppLabel
 import app.parley.ui.home.CallTypeIcon
 import app.parley.ui.home.callClassLabel
 import app.parley.ui.home.richCalls
@@ -338,7 +339,9 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         val video = if (e.video) stringResource(R.string.circle_type_video) else null
                         val length = Format.duration(e.durationSec).ifBlank { null }
                         val first = if (e.date == firstFromThem && e.type != CallType.OUTGOING) stringResource(R.string.hist_first_call_from_them) else null
-                        val parts = listOfNotNull(stringResource(typeText), video, length, e.accountId?.let { simLabels[it] }, first)
+                        // A call in an app names the app ("WhatsApp call") where a phone call names its SIM.
+                        val appCall = rememberCallAppLabel(e.appPackage)?.let { stringResource(R.string.recents_app_call, it) }
+                        val parts = listOfNotNull(stringResource(typeText), video, length, appCall ?: e.accountId?.let { simLabels[it] }, first)
                         Text(parts.joinToString(" · "))
                     },
                     trailingContent = { CallLengthGlance(e) },
