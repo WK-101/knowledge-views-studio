@@ -2900,3 +2900,35 @@ Setup: a private contact "Pia Quist" with a photo, a note for calls and two numb
 9. **Backup.** Archive her again, make a backup with private contacts unlocked, and restore it on a fresh install: she comes back archived, under "Private" in Archived, and not in the address book.
 10. **Normal contacts unchanged.** Archive an address-book contact with a large photo (taken with the camera, several MB): it leaves the lists and other apps as in 6.2. Unarchive it: its photo is back at full size, as sharp as before, not a thumbnail.
 
+### 45.5 Vibration
+
+1. **Parley's own tone vibrates (Android 13+).** Settings › Sound & vibration › Vibration for calls on (never toggled since setup is the case that failed). Set a Ringtone for unknown callers, and call from an unsaved number: the phone rings with that tone and vibrates 1 s on, 1 s off. "Why did my phone ring?" for that call says "Vibrate for calls: on".
+2. **Label tone.** Give a label a ringtone, its member none, vibration "Phone's usual". Call from the member: their label's tone, with the usual vibration.
+3. **Vibration off stays off.** Turn Vibration for calls off and repeat 1: the tone plays, nothing vibrates.
+4. **Screen goes off while ringing.** Phone unlocked and in use (heads-up call notification), screen timeout 15 s. Call from an unsaved number with an unknown-caller tone and let it ring past the timeout: it keeps vibrating after the screen goes off.
+5. **Haptic caller ID, normal mode.** Give a contact Heartbeat. Ringer on sound: their call rings with their own or the default tone and vibrates lub-dub. On vibrate: lub-dub only. On silent: nothing.
+6. **Switched to vibrate while it starts.** With an unknown-caller tone, switch the ringer to vibrate in the first second of the call: it vibrates (it never goes silent).
+7. **Call waiting.** During a call on speaker, call from a second phone: Telecom's waiting beep plays and the phone gives two short taps every few seconds (a contact with Heartbeat: lub-dub, then a pause). Vibration for calls off, or silent mode: no taps. A second call that a rule silences: no taps.
+8. **Do Not Disturb.** Priority only, calls from starred contacts. A starred contact rings and vibrates as Android decides; an unknown caller with an unknown-caller tone stays quiet.
+9. **Rescue call.** Normal mode, Vibration for calls on: the Rescue call rings and vibrates with the chosen person's pattern. Turn Do Not Disturb on (priority, no calls): it still vibrates. Silent mode: only the screen shows it.
+10. **Situation.** With Meeting on (favourites ring), a favourite rings and vibrates as usual; another contact is silenced and doesn't vibrate.
+
+### 45.6 Ringing and volume
+
+1. **The row.** Settings › Calls › Answering: "Ringing" sits with the incoming calls and says "Normal". Search "increasing", "crescendo", "vibrate first" and "flip": each finds it.
+2. **Increasing.** Ring volume at 6 of 7, Ring style Increasing. Call the phone: it starts quietly and is at full volume (6) after about 20 s. Answer after 5 s: Settings › Sound shows ring volume 6 again.
+3. **Restored however it ends.** Repeat 2 and decline; repeat and let the caller hang up; repeat and press Silence; repeat and flip the phone face down (Flip to silence on): every time the ring volume is back at 6 a second later.
+4. **Not fighting the volume keys.** During a ramp, press volume down: the ringing stops (silenced, not declined) and the ring volume is 6 again. Open the volume panel during a ramp instead and set the ring volume to 3: it stays at 3 after the call.
+5. **Crash.** During a ramp, force-stop Parley from Settings › Apps (the call keeps ringing through Android): open Parley, or take the next call: the ring volume is 6 again.
+6. **Vibrate first, then ring.** Ring style "Vibrate first, then ring", Vibration for calls on: the call vibrates alone for about 4 s, then the tone starts quietly and grows. Vibration for calls off: it rings increasing at once.
+7. **Where it doesn't ramp.** Ringer on vibrate or silent, Do Not Disturb on, a call waiting during a call, a favourite with Ring loud, and Android's own "Vibrate first, then ring gradually" on: the ring volume is never lowered.
+8. **Volume keys.** Ring style Normal: while a call rings, either volume key stops the sound and the call keeps ringing on screen; a second press changes the volume. During a call with a second call waiting, the keys change the call's volume.
+
+### 45.7 Search everything and network names
+
+1. **Unsaved number.** Remember names from the network on. Take a call from an unsaved number whose network sends "Ravi Kumar". In Contacts search, type "ravi": Search everything lists the call under "Ravi Kumar" with the "From the network" tag and the number below.
+2. **Saved number.** Save a number whose network name is "Ravi Traders" as "Mike". Search "traders": Search everything shows Mike as a contact with "Network: Ravi Traders", and his call under Mike with "Network: Ravi Traders" in its line. Tapping the contact opens Mike's page.
+3. **Same name adds nothing.** A contact saved under the very name the network sends gets no "Network:" line.
+4. **Private contacts.** Make Mike a private contact: "traders" finds nothing, with private contacts shown or hidden.
+5. **Setting off.** Turn Remember names from the network off (Keep for later): "ravi" and "traders" find no calls or contacts by those names. Turn it back on: they come back.
+

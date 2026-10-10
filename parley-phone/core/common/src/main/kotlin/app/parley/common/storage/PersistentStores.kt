@@ -173,6 +173,7 @@ object PersistentStores {
         PersistentStore("markdown_export", StoreKind.PREFS, local("The folder of the notes export earlier versions had; removed by the daily maintenance")),
         PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
+        PersistentStore("parley_ring_ramp", StoreKind.PREFS, local("The ring volume to put back after an increasing ring, if a crash cut it short")),
         PersistentStore(
             "rescue_call", StoreKind.PREFS,
             local("A rescue call waiting to ring and the last choices on its screen (who calls sealed): this phone's moment, never backed up"),

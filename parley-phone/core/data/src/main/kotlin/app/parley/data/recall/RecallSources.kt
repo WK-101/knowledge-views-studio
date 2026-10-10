@@ -4,6 +4,7 @@ import android.util.Log
 import app.parley.common.CallEntry
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.NetworkName
+import app.parley.common.calls.NetworkNameSeen
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
@@ -96,20 +97,15 @@ class RecallSources(private val c: DataContainer) {
     suspend fun archivedBetween(from: Long, until: Long, visit: (CallEntry) -> Boolean) = c.history.archivedBetween(from, until, visit)
 
     /**
-     * The name the network last sent per number, for calls from numbers nobody saved: never for a private contact's
-     * number (whether private contacts may show or not); none when the private numbers can't be read, and none while
-     * "Remember names from the network" is off.
+     * The name the network last sent per number, saved or not (Recall finds a contact or a call by it too): never for a
+     * private contact's number (whether private contacts may show or not); none when the private numbers can't be
+     * read, and none while "Remember names from the network" is off.
      */
     suspend fun networkNames(): (String, String?) -> String? = withContext(Dispatchers.IO) {
-        val none = { _: String, _: String? -> null }
-        if (safely { c.settings.current().rememberNetworkNames } != true) return@withContext none
-        val privateNumbers = safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) } ?: return@withContext none
-        val read = safely { c.networkNames.reader { it in privateNumbers } } ?: return@withContext none
-        // Asked as the call's SIM reads the number, as it was written.
-        val names: (String, String?) -> String? = { n, account ->
-            NetworkName.latest(read(NetworkName.line(n, PhoneEnv.countryIso(c.appContext, account))))?.name
-        }
-        names
+        val on = safely { c.settings.current().rememberNetworkNames }
+        val privateNumbers = if (on == true) safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) } else null
+        val read = privateNumbers?.let { p -> safely { c.networkNames.reader { it in p } } }
+        networkNameLookup(on, privateNumbers?.let { p -> { n: String -> n in p } }, read) { account -> PhoneEnv.countryIso(c.appContext, account) }
     }
 
     /** Number memory's hints for a number typed whole (the vault's and duress's rules applied by the store). */
@@ -206,5 +202,21 @@ class RecallSources(private val c: DataContainer) {
             messaged = stored.messaged.filterNot { hidden(it.number) },
             cases = stored.cases.filter { it.private || it.numbers.none(hidden) },
         )
+
+        /**
+         * The network's latest name per number and SIM, from [read] (the store, which leaves out [private] numbers
+         * already): none unless "Remember names from the network" is [on] and the private numbers were read, and never
+         * for a [private] number, asked again here so a reader without that filter can't name one. [simRegion] is the
+         * SIM's country for a call's account (null: the phone's), as the names were kept.
+         */
+        fun networkNameLookup(
+            on: Boolean?,
+            private: ((String) -> Boolean)?,
+            read: ((String) -> List<NetworkNameSeen>)?,
+            simRegion: (String?) -> String?,
+        ): (String, String?) -> String? {
+            if (on != true || private == null || read == null) return { _, _ -> null }
+            return { n, account -> if (n.isBlank() || private(n)) null else NetworkName.latest(read(NetworkName.line(n, simRegion(account))))?.name }
+        }
     }
 }

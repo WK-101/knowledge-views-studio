@@ -3,10 +3,10 @@ package app.parley.telecom
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
-import android.provider.Settings
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.DndState
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.RingVibration
 import app.parley.common.calls.RingerMode
 
 /**
@@ -49,16 +49,11 @@ internal object RingSnapshot {
         )
     }
 
-    /** "Vibrate for calls": always in vibrate mode, never in silent mode, else the system setting. */
+    /** "Vibrate for calls": always in vibrate mode, never in silent mode, else the system setting as Telecom reads it. */
     private fun vibrateForCalls(context: Context, ringer: RingerMode): Boolean? = when (ringer) {
         RingerMode.VIBRATE -> true
         RingerMode.SILENT -> false
-        else -> runCatching {
-            val cr = context.contentResolver
-            val on = Settings.System.getInt(cr, Settings.System.VIBRATE_WHEN_RINGING, 0) != 0
-            // Android 13+ also has a ring vibration intensity; 0 means off.
-            on && Settings.System.getInt(cr, "ring_vibration_intensity", -1) != 0
-        }.getOrNull()
+        else -> runCatching { RingVibration.systemVibrates(CallRinger.systemSetting(context)) }.getOrNull()
     }
 
     fun route(audio: AudioUi): Pair<AnswerRoute, String?>? {

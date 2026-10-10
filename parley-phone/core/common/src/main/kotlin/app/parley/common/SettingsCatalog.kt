@@ -107,7 +107,7 @@ object SettingsCatalog {
         // Layout & gestures
         "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions",
         // Calls › Answering and During calls
-        "call_background", "flip_to_silence", "auto_answer", "caller_vibration", "answer_rtt",
+        "call_background", "auto_answer", "caller_vibration", "answer_rtt",
         "call_haptics", "power_button_ends_call", "memory_prompt", "memory_lock_screen", "pre_call_peek",
         // Keypad
         "keypad_letters", "speed_dial", "ussd",
@@ -166,7 +166,9 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_DURING, "pre_call_peek", C),
         // One choice: Off, or on every change, with or without the buzz when they answer.
         at(SettingPlace.CALLS_DURING, "call_haptics", C),
-        // Off by default: turning the phone face down while it rings silences it (never declines).
+        // "Ringing": the ring style (Normal · Increasing · Vibrate first, then ring; Normal by default) and "Flip to silence"
+        // (off by default; turning the phone face down while it rings silences it, never declines), one setting. The key
+        // stays for old links and search.
         at(SettingPlace.CALLS_ANSWERING, "flip_to_silence", C),
         at(SettingPlace.CALLS_ANSWERING, "unknown_ringtone", C),
         e("pocket_guard", C),

@@ -42,8 +42,8 @@ Calls is a short list: the default phone app, one row for each of its four pages
 ### Calls › Answering (`SettingPlace.CALLS_ANSWERING`)
 | Group | Settings |
 |---|---|
-| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Show contact photo on the call screen `caller_photo` · Remember names from the network `network_names` |
-| Advanced | Call screen background `call_background` · Flip to silence `flip_to_silence` (off; turning the phone face down while it rings stops the sound, never declines) |
+| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Ringing `flip_to_silence` (one row: Ring style Normal · Increasing · Vibrate first, then ring, Normal by default; and Flip to silence, off, turning the phone face down while it rings stops the sound, never declines) · Show contact photo on the call screen `caller_photo` · Remember names from the network `network_names` |
+| Advanced | Call screen background `call_background` |
 | Advanced › Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Advanced › Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
 
@@ -202,6 +202,66 @@ Each page shows what most people set once or change often, and folds the rest un
 | Calls, Calls › SIMs & carrier, Calls › Situations, Reminders, Notifications & device, About | Nothing | Already a short list of links, each one needed when it is needed |
 
 `SettingsSearchTest` keeps every page at 12 basic rows or fewer, and `AdvancedGroupsTest` checks that what a page folds and what the catalog marks advanced agree.
+
+## Ringing and vibration
+
+How Parley decides whether an incoming call vibrates, and with what. Telecom rings and vibrates every call Parley leaves to it. Parley takes the ringing over (silencing Telecom, which also silences its vibration) for a rule's or label's tone, the ringtone for unknown callers, the repeat-caller and likely-spam tones, a caller's haptic caller ID, "Vibrate first, then ring", a call waiting during another call (vibration only, Telecom's waiting tone stays) and a Rescue call. Every one of those vibrates by one pure decision, `RingVibration.decide` (core/common `RingStyle.kt`, tested row by row in `RingVibrationTest`).
+
+**The system's "Vibrate for calls"** (`RingVibration.systemVibrates`), read the way Telecom reads it:
+
+| Android | Vibrates in normal ringer mode when |
+|---|---|
+| 13 and later | The ring vibration intensity (`ring_vibration_intensity`) isn't 0. A phone that never stored one uses its default, which is on. `VIBRATE_WHEN_RINGING` is deprecated and ignored, as Telecom ignores it. |
+| 10 to 12 | `VIBRATE_WHEN_RINGING` is on, or Android's "Vibrate first, then ring gradually" (`apply_ramping_ringer`) is; and the intensity isn't 0 |
+
+**The decision**, first matching row wins:
+
+| # | Facts | Vibration |
+|---|---|---|
+| 1 | The phone has no vibrator | None |
+| 2 | The call is silenced: a blocking rule, an allowance used up, a Situation's off hours, the drive profile, or the user (Silence, a volume key, the power key, flip to silence) | None |
+| 3 | Ringer mode silent (a Rescue call too) | None |
+| 4 | Do Not Disturb keeps the call quiet (total silence, alarms only, or priority without this call), not a Rescue call | None (Telecom decides for calls it lets through) |
+| 5 | Ringer mode normal and "Vibrate for calls" off | None |
+| 6 | A call waiting during an active or held call | The caller's rhythm once, then a 3.6 s pause; else two short taps and the pause (`RingVibration.WAITING`) |
+| 7 | The caller (or their first label with one) has a haptic caller ID | Their pattern, repeating |
+| 8 | Otherwise: "the phone's usual vibration" | 1 s on, 1 s off, repeating (`RingVibration.USUAL`), never nothing |
+
+A pattern Android can't play (empty, negative times, no pulse in it) counts as "the phone's usual vibration". The vibration is a ringtone vibration (`USAGE_RINGTONE`), which Android keeps going in the background and in battery saver; a Rescue call under Do Not Disturb (row 4) vibrates as an alarm instead, since the user asked for it. A Situation never picks a pattern of its own: it lets a call ring (then rows 5 to 8 decide) or keeps it quiet (row 2). Parley starts its vibration before its tone, and starts it again a moment after the screen goes off, since Android 10 to 13 cancel app vibrations then.
+
+**Ring style** (`CallExtrasConfig.ringStyle`, in the Ringing row): *Normal* rings as the phone does. *Increasing* drops the ring volume to 1 and raises it one step at a time to the user's own volume over 20 s (`RingRamp`). *Vibrate first, then ring* vibrates alone for 4 s, then rings increasing; with "Vibrate for calls" off it rings increasing. Neither ramps on vibrate or silent, under Do Not Disturb, for a call waiting, an emergency call-back, a call with "Ring loud" (which wins), or when Android's own ramping ringer is on. The user's volume is saved to disk before the first change and put back however the ringing ends (answered, declined, silenced, the call gone); a crash leaves it for the next call or app start, as "Ring loud" does. If the user moves the volume during the ramp, the ramp stops there and their volume stays.
+
+**Volume keys** silence a ringing call (never decline it): Android does this before the key reaches any app; the call screen does it too where the key reaches it (`RingKeys`). During a call the keys set the call's volume, also while a second call waits.
+
+### Ringing features compared
+
+Checked against Google Phone, Samsung Phone, iPhone, Truecaller and Fossify Phone (October 2026).
+
+| Feature | Others | Parley |
+|---|---|---|
+| Increasing ring volume | Google (Android's "Vibrate first, then ring gradually"), Samsung (Increasing ring volume), Fossify no, iPhone no | **Added in 6.2.3**: Ringing › Ring style › Increasing |
+| Vibrate first, then ring | Google (system setting) | **Added in 6.2.3**: Ring style › Vibrate first, then ring |
+| Flip to silence | Google (Pixel "Flip to Shhh"), Samsung (Mute with gestures) | Has it (Ringing › Flip to silence; gravity sensor, no permission) |
+| Volume keys silence the ring | All | Has it (Android's own, plus the call screen when the key reaches it) |
+| Power button ends the call | Google, Samsung (Android's accessibility setting), iPhone | Has it (`power_button_ends_call` reads and opens Android's setting) |
+| Proximity during a call | All | Has it (`proximity_sensor`: Off · During calls · Once answered) |
+| Per-contact ringtone | All | Has it (the contact's page) |
+| Per-contact vibration | iPhone, Samsung | Has it (haptic caller ID, for a person or a label) |
+| Ringtone for unknown callers | Truecaller | Has it (`unknown_ringtone`) |
+| Repeat caller rings through | Google, Samsung, iPhone (Do Not Disturb) | Has it (`repeat_callers`) |
+| Do Not Disturb, priority people | Android, iPhone | Has it (a label can let its people through Do Not Disturb by starring them) |
+| Announce caller | Google, Samsung, iPhone | Has it (spoken name in simple mode and in the car) |
+| Call waiting signal | Telecom's waiting tone; iPhone also vibrates | Telecom's tone stays; **6.2.3 adds a gentle vibration** with the caller's rhythm |
+| Pick up to lower the ring / quiet when in hand | Motorola, some Samsung | Missing. Possible without a permission (the motion sensors); it needs a switch, which could join the Ringing dialog without a new setting. Left for the owner to decide |
+| Flash on ring | Samsung, iPhone, Android 14's Flash notifications | Missing. Android 14 and later do it for every app (Accessibility › Flash notifications); doing it in Parley needs the torch, which works without a permission but needs a setting. Left for the owner to decide |
+| Per-SIM ringtone | Samsung | Missing. Possible by Parley's own ringer per SIM; it needs a choice per SIM (the SIM's page), which would be a new setting. Left for the owner to decide |
+| Ring only on Bluetooth or headphones | Samsung (some models) | Not possible: Telecom plays the ring on every output, and an app can't route it |
+| Ring duration before voicemail | Carrier | Not Parley's: the network sets it. Most GSM carriers take `**61*<voicemail number>**<5 to 30>#` dialled from the keypad (Parley's keypad sends it); see the carrier's help or [GSM call forwarding codes](https://en.wikipedia.org/wiki/Call_forwarding#Keypad_codes) |
+| In-call volume boost, clear voice | Google (Clear Calling), Samsung (Call sound EQ) | Not possible: the call audio belongs to the system, and no app API reaches it |
+
+## Changes in 6.2.3
+
+- **Ringing** (`flip_to_silence`, Calls › Answering, now with the incoming calls rather than under Advanced): the row opens Ring style (Normal · Increasing · Vibrate first, then ring) and Flip to silence. The ring style folded into this setting, so the budget stays at 148.
 
 ## Changes in 6.2.2
 

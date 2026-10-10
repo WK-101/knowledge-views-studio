@@ -17,6 +17,8 @@ data class CallExtrasConfig(
     val speakerDefault: SpeakerDefault = SpeakerDefault.OFF,
     /** Turning the phone face down while it rings silences it ([FlipDetector]). Off by default. */
     val flipToSilence: Boolean = false,
+    /** How calls ring: as usual, getting louder, or vibrating first ([RingStyle]); Settings › Calls › Answering › Ringing. */
+    val ringStyle: RingStyle = RingStyle.NORMAL,
     /** Ask before calling from a favourite, the widget or a shortcut while the proximity sensor is covered. */
     val pocketGuard: Boolean = true,
     /** Re-alert for unseen missed calls every N minutes; 0 = off (the default). */

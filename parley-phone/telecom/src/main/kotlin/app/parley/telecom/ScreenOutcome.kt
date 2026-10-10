@@ -8,6 +8,7 @@ import app.parley.common.RangThrough
 import app.parley.common.calls.RingtoneSource
 import app.parley.common.spam.Reputation
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 /**
  * What screening decided for one call, as the call path needs it: the decision, a one-line verdict for the
@@ -49,7 +50,10 @@ object RingBoost {
     private const val PREFS = "parley_ring_boost"
     private const val KEY = "saved_ring_volume"
     private const val KEY_BOOSTED = "boosted_ring_volume"
-    private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "parley-ring-boost").apply { isDaemon = true } }
+
+    /** One thread for the ring volume: boosts, ramps ([RingVolumeRamp]) and their restores run in order. */
+    internal val io: ScheduledExecutorService =
+        Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "parley-ring-boost").apply { isDaemon = true } }
 
     fun boostAsync(context: Context) {
         val app = context.applicationContext
@@ -62,6 +66,9 @@ object RingBoost {
     }
 
     fun boost(context: Context) {
+        // A ramp under way gives way: its volume is the user's again first, so that is the one saved here.
+        RingVolumeRamp.cancelSteps()
+        RingVolumeRamp.restore(context)
         val am = context.getSystemService(AudioManager::class.java) ?: return
         val nm = context.getSystemService(NotificationManager::class.java)
         // Never make a silenced phone ring, and leave Do Not Disturb alone.
@@ -87,6 +94,8 @@ object RingBoost {
      * the boost, their choice stays and the saved value is dropped.
      */
     fun restore(context: Context) {
+        // A ramp left behind too (the same moments find both: the next call, the app starting).
+        RingVolumeRamp.restore(context)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!prefs.contains(KEY)) return
         val saved = prefs.getInt(KEY, -1)

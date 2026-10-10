@@ -20,6 +20,8 @@ import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.SelfSilenceEcho
 import app.parley.common.calls.CallerHaptics
+import app.parley.common.calls.RingRamp
+import app.parley.common.calls.RingStyle
 import app.parley.common.calls.CallBook
 import app.parley.common.calls.CallDrop
 import app.parley.common.calls.CallQualityFacts
@@ -279,16 +281,8 @@ object CallManager {
 
         // Screening runs before we show any UI. Never an emergency call or right after one (call-backs must get through).
         val accountId = call.details.accountHandle?.id
-        if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency)) {
-            val earlier = ScreeningCoordinator.Earlier(ScreeningGuard.recallOutcome(number), accountId)
-            if (screening.applies(earlier, hidden)) {
-                val callerName = ScreeningCoordinator.CallerName(
-                    call.details.callerDisplayName?.takeIf { it.isNotBlank() },
-                    runCatching { call.details.callerDisplayNamePresentation }.getOrDefault(0),
-                )
-                screening.start(s, number, hidden, verificationOf(call), callerName, earlier, screeningHost)
-            }
-        }
+        if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency)) startScreening(call, s, number, hidden, accountId)
+        if (incoming) startRinging(call, s, EmergencyPolicy.bypasses(Safeguard.SILENCE, emergency))
 
         // Selecting a SIM automatically if the user pinned one for this number.
         if (call.stateCompat() == Call.STATE_SELECT_PHONE_ACCOUNT && number != null) {
@@ -456,7 +450,7 @@ object CallManager {
         val uri = toneFor(s, pattern) ?: return
         if (s.screening || ringer.toneFor == s.id) return // played once screening allows the call
         if (!::appContext.isInitialized || s.silenced || !ringing(call)) return
-        val otherActive = calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }
+        val otherActive = otherCallGoesOn(call)
         // On vibrate, only the vibration is ours: no tone plays.
         if (pattern != null) {
             ringer.vibrateOnly(appContext, s, pattern, otherActive, stillRinging = { ringing(call) }) {}
@@ -491,6 +485,48 @@ object CallManager {
         }
     }
 
+    /** Screens an incoming call that may be screened, with what the screening service already decided about it. */
+    private fun startScreening(call: Call, s: CallSession, number: String?, hidden: Boolean, accountId: String?) {
+        val earlier = ScreeningCoordinator.Earlier(ScreeningGuard.recallOutcome(number), accountId)
+        if (!screening.applies(earlier, hidden)) return
+        val callerName = ScreeningCoordinator.CallerName(
+            call.details.callerDisplayName?.takeIf { it.isNotBlank() },
+            runCatching { call.details.callerDisplayNamePresentation }.getOrDefault(0),
+        )
+        screening.start(s, number, hidden, verificationOf(call), callerName, earlier, screeningHost)
+    }
+
+    /** Another call is active or on hold: a call ringing now waits (Telecom plays only its waiting tone). */
+    private fun otherCallGoesOn(call: Call): Boolean =
+        calls.any { it != call && it.parent == null && mapState(it.stateCompat()).let { st -> st == CallState.ACTIVE || st == CallState.HOLDING } }
+
+    /**
+     * How an incoming call starts ringing, before anything is known about it. A call waiting during another call
+     * vibrates gently once screening has let it through ([CallRinger.waiting]). Otherwise the ring style: "Increasing"
+     * ramps the ring volume up; "Vibrate first" also takes the ringing over, vibrating alone before the tone. An
+     * emergency call-back rings as usual, at once. Called once screening has started.
+     */
+    private fun startRinging(call: Call, s: CallSession, emergencyCallBack: Boolean) {
+        if (otherCallGoesOn(call)) {
+            scope.launch {
+                withTimeoutOrNull(ScreeningCoordinator.SCREEN_TIMEOUT_MS + SCREEN_GRACE_MS) { while (s.screening && ringing(call)) delay(SCREEN_POLL_MS) }
+                if (ringing(call) && !s.silenced && otherCallGoesOn(call)) ringer.waiting(appContext, s, vibrationOf(s))
+            }
+            return
+        }
+        if (emergencyCallBack || calls.size > 1) return
+        val style = runCatching { deps.ringStyle() }.getOrDefault(RingStyle.NORMAL)
+        if (style == RingStyle.NORMAL) return
+        val first = RingRamp.vibratesFirst(style, CallRinger.ringVibrates(appContext))
+        if (first) {
+            ringer.vibrateFirst(
+                appContext, s, pattern = { vibrationOf(s) }, otherCallActive = false, stillRinging = { ringing(call) },
+                uri = { toneFor(s, null) ?: s.info?.ownRingtone },
+            ) { s.tonePlayed = playedSource(s) }
+        }
+        ringer.ramp(appContext, s.id, style, if (first) RingRamp.VIBRATE_FIRST_MS + CallRinger.RINGER_STOP_MIN_MS else 0)
+    }
+
     /** The caller's haptic caller ID as a repeating waveform, or null for the phone's usual vibration. */
     private fun vibrationOf(s: CallSession): LongArray? {
         val info = s.info ?: return null
@@ -521,15 +557,18 @@ object CallManager {
         publish()
     }
 
+    /** The ring volume back as the user set it: after "Ring loud", and after a ramp. */
     private fun restoreBoost() {
-        ringer.restoreBoost(if (::appContext.isInitialized) appContext else null)
+        val context = if (::appContext.isInitialized) appContext else null
+        ringer.endRamp(context)
+        ringer.restoreBoost(context)
     }
 
     internal fun remove(call: Call) {
         val id = idOf(call)
         val s = session(id)
         if (ringer.toneFor == id) ringer.stop()
-        if (ringer.boostedFor == id) restoreBoost()
+        if (ringer.boostedFor == id || ringer.rampFor == id) restoreBoost()
         autoAnswer.forget(id)
         drive.forget(id)
         val base = ui.toUi(call)
@@ -603,7 +642,7 @@ object CallManager {
     /** The InCallService unbound: no call is left, so nothing may keep ringing, stay boosted or linger. */
     internal fun clear() {
         ringer.stop()
-        if (ringer.boostedFor != null) restoreBoost()
+        if (ringer.boostedFor != null || ringer.rampFor != null) restoreBoost()
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
         // A SIM swapped while no call was up: its own number is read again.

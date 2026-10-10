@@ -8,6 +8,7 @@ import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.calls.RingStyle
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DriveProfileConfig
@@ -245,6 +246,9 @@ interface CallPolicyHooks {
 
     /** Settings › Calls › "Flip to silence", read from memory (off by default). */
     fun flipToSilence(): Boolean = false
+
+    /** How calls ring: as usual, getting louder, or vibrating first (Settings › Calls › Answering › Ringing). */
+    fun ringStyle(): RingStyle = RingStyle.NORMAL
 }
 
 /** What the call path hands back once a call has rung or ended: history, the ledger, notes. Off the call path. */

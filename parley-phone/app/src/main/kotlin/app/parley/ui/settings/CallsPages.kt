@@ -156,6 +156,8 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
                     .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
             )
         }
+        // How calls ring (as usual, getting louder, or vibrating first) and "Flip to silence", under one row.
+        item("flip_to_silence") { RingingRow(vm) }
         switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
         item("network_names") { NetworkNamesRow(vm) }
     }
@@ -166,7 +168,6 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
             choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
                 set { it.copy(callBackground = CallScreenBackground.entries[i]) }
             }
-            item("flip_to_silence") { FlipToSilenceRow(vm) }
         }
         // Auto-answer and the haptic caller ID.
         CallerRingGroup(vm, open)
