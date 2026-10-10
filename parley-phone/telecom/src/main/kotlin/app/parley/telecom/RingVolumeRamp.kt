@@ -27,6 +27,7 @@ object RingVolumeRamp {
     private const val PREFS = "parley_ring_ramp"
     private const val KEY_SAVED = "saved_ring_volume"
     private const val KEY_SET = "set_ring_volume"
+    private const val KEY_PREVIOUS = "previous_ring_volume"
 
     /** The steps waiting to run (on [RingBoost.io] only). */
     private val pending = ArrayList<ScheduledFuture<*>>()
@@ -77,19 +78,22 @@ object RingVolumeRamp {
         if (!RingRamp.applies(style, ringer, dnd, otherCall = false, ringLoud = false, systemRamps = systemRamps(context), volume = volume)) return null
         val prefs = prefs(context)
         // On disk before the first change: a crash from here on still finds the user's volume.
-        prefs.edit().putInt(KEY_SAVED, volume).putInt(KEY_SET, RingRamp.START_VOLUME).commit()
+        prefs.edit().putInt(KEY_SAVED, volume).putInt(KEY_SET, RingRamp.START_VOLUME).remove(KEY_PREVIOUS).commit()
         return try {
             am.setStreamVolume(AudioManager.STREAM_RING, RingRamp.START_VOLUME, 0)
             volume
         } catch (_: SecurityException) {
-            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).commit()
+            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).remove(KEY_PREVIOUS).commit()
             null
         }
     }
 
     /**
      * One step up to [volume]; false when the ramp is over: stopped, finished, or the user moved the volume (theirs
-     * stays and the saved one is dropped).
+     * stays and the saved one is dropped). While the ring can't be heard (vibrate, silent, Do Not Disturb muting it) the
+     * step waits: a muted stream reads 0, which is not the user's choice. Each step is noted on disk (commit) before
+     * the volume changes, with the one before it, so a process killed in between still finds the ramp's own volume and
+     * puts the user's back ([RingRamp.restore]).
      */
     internal fun advance(context: Context, volume: Int): Boolean {
         val prefs = prefs(context)
@@ -97,30 +101,32 @@ object RingVolumeRamp {
         val am = context.getSystemService(AudioManager::class.java) ?: return false
         val saved = prefs.getInt(KEY_SAVED, -1)
         val lastSet = prefs.getInt(KEY_SET, RingRamp.START_VOLUME)
-        if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return false
-        if (RingRamp.userTookOver(lastSet, am.getStreamVolume(AudioManager.STREAM_RING))) {
-            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).apply()
+        val previous = if (prefs.contains(KEY_PREVIOUS)) prefs.getInt(KEY_PREVIOUS, -1) else null
+        if (!audible(context, am)) return false
+        if (RingRamp.userTookOver(lastSet, am.getStreamVolume(AudioManager.STREAM_RING), previous)) {
+            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).remove(KEY_PREVIOUS).commit()
             cancelSteps()
             return false
         }
         val next = volume.coerceAtMost(saved)
+        prefs.edit().putInt(KEY_SET, next).putInt(KEY_PREVIOUS, lastSet).commit()
         try {
             am.setStreamVolume(AudioManager.STREAM_RING, next, 0)
         } catch (_: SecurityException) {
             return false
         }
-        if (next >= saved) {
+        if (next >= saved && am.getStreamVolume(AudioManager.STREAM_RING) == saved) {
             // Back at the user's own volume: nothing is left to restore.
-            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).apply()
+            prefs.edit().remove(KEY_SAVED).remove(KEY_SET).remove(KEY_PREVIOUS).commit()
             return false
         }
-        prefs.edit().putInt(KEY_SET, next).apply()
-        return true
+        return next < saved
     }
 
     /**
-     * Puts the user's volume back ([RingRamp.restore]): kept for later while the phone is on vibrate or silent (the
-     * ring volume reads as muted then), dropped when the user changed the volume since.
+     * Puts the user's volume back ([RingRamp.restore]): kept for later while the ring can't be heard (vibrate or silent,
+     * or Do Not Disturb muting the ring stream: the volume reads as muted then and a change is ignored), dropped when
+     * the user changed the volume since. The saved value goes only once the volume reads back as the user's.
      */
     fun restore(context: Context) {
         val prefs = prefs(context)
@@ -128,17 +134,29 @@ object RingVolumeRamp {
         val am = context.getSystemService(AudioManager::class.java) ?: return
         val saved = prefs.getInt(KEY_SAVED, -1)
         val lastSet = if (prefs.contains(KEY_SET)) prefs.getInt(KEY_SET, -1) else null
-        val normal = am.ringerMode == AudioManager.RINGER_MODE_NORMAL
-        when (val r = RingRamp.restore(saved, lastSet, if (normal) am.getStreamVolume(AudioManager.STREAM_RING) else 0, normal)) {
+        val previous = if (prefs.contains(KEY_PREVIOUS)) prefs.getInt(KEY_PREVIOUS, -1) else null
+        val audible = audible(context, am)
+        val current = if (audible) am.getStreamVolume(AudioManager.STREAM_RING) else 0
+        when (val r = RingRamp.restore(saved, lastSet, current, audible, previous)) {
             RingRamp.Restore.Later -> return
             is RingRamp.Restore.To -> try {
                 am.setStreamVolume(AudioManager.STREAM_RING, r.volume, 0)
+                // Android can ignore the change without saying so (Do Not Disturb came on just now): try again later.
+                if (am.getStreamVolume(AudioManager.STREAM_RING) != r.volume) return
             } catch (_: SecurityException) {
                 return // Do Not Disturb refused the change: keep the saved value and try again later.
             }
             RingRamp.Restore.Nothing, RingRamp.Restore.KeepUsers -> Unit
         }
-        prefs.edit().remove(KEY_SAVED).remove(KEY_SET).apply()
+        prefs.edit().remove(KEY_SAVED).remove(KEY_SET).remove(KEY_PREVIOUS).commit()
+    }
+
+    /** The ring can be heard and its volume set: normal ringer mode, and Do Not Disturb not muting the ring stream. */
+    private fun audible(context: Context, am: AudioManager): Boolean {
+        if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return false
+        if (runCatching { am.isStreamMute(AudioManager.STREAM_RING) }.getOrDefault(false)) return false
+        val filter = runCatching { context.getSystemService(NotificationManager::class.java)?.currentInterruptionFilter }.getOrNull()
+        return filter == null || filter == NotificationManager.INTERRUPTION_FILTER_ALL || filter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN
     }
 
     /** A ramp is under way (or left over). */

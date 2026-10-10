@@ -190,7 +190,10 @@ object RingRamp {
         /** Nothing was saved. */
         data object Nothing : Restore
 
-        /** Not now (the phone is on vibrate or silent, where the ring volume reads as muted): keep it and try later. */
+        /**
+         * Not now: keep it and try later. The phone is on vibrate or silent, or Do Not Disturb mutes the ring stream:
+         * the ring volume reads as muted then, and Android ignores a change to it.
+         */
         data object Later : Restore
 
         /** Put [volume] back. */
@@ -201,18 +204,21 @@ object RingRamp {
     }
 
     /**
-     * [saved] is the user's volume before the ramp, [lastSet] the last volume the ramp set, [current] the volume now.
-     * Restored only when nobody else moved it since, so the volume keys and the volume panel always win.
+     * [saved] is the user's volume before the ramp, [lastSet] the volume the ramp is setting (noted on disk before it
+     * is set), [previous] the one it set before that, [current] the volume now. A process killed between noting a step
+     * and setting it leaves [previous] in place, so either counts as the ramp's own. Restored only when nobody else moved
+     * it since, so the volume keys and the volume panel always win. [audible]: the ringer is in normal mode and Do Not
+     * Disturb doesn't mute the ring stream (otherwise the volume reads as muted and can't be set: [Restore.Later]).
      */
-    fun restore(saved: Int?, lastSet: Int?, current: Int, ringerNormal: Boolean): Restore = when {
+    fun restore(saved: Int?, lastSet: Int?, current: Int, audible: Boolean, previous: Int? = null): Restore = when {
         saved == null || saved < 0 -> Restore.Nothing
-        !ringerNormal -> Restore.Later
-        lastSet == null || current == lastSet -> Restore.To(saved)
+        !audible -> Restore.Later
+        lastSet == null || current == lastSet || current == previous -> Restore.To(saved)
         else -> Restore.KeepUsers
     }
 
-    /** The user moved the volume during the ramp: it stops there, at their choice. */
-    fun userTookOver(lastSet: Int, current: Int): Boolean = current != lastSet
+    /** The user moved the volume during the ramp (it is neither of the ramp's last two): it stops there, at their choice. */
+    fun userTookOver(lastSet: Int, current: Int, previous: Int? = null): Boolean = current != lastSet && current != previous
 }
 
 /** The volume keys while a call rings: they silence it (never decline it), as on Android's own phone app. */

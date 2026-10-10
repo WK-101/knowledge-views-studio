@@ -167,9 +167,13 @@ class MeCardStore(context: Context) {
             .putOpt(J_PHOTO, photoBytes()?.let { Base64.encodeToString(it, Base64.NO_WRAP) }).toString()
     }
 
-    /** Restores the card from a backup (made before or after My card held every field), unless one was already filled in here. */
+    /**
+     * Restores the card from a backup (made before or after My card held every field), unless one was already filled in
+     * here: anything in it counts (a birthday, a relation, pronouns or the photo alone), not just the short form's
+     * fields, so a restore never overwrites what was typed on this phone.
+     */
     fun importJson(json: String) {
-        if (!MeCardDetails.toCard(_details.value).isEmpty) return
+        if (!MeCardDetails.isEmpty(_details.value)) return
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
         if (!o.has(J_DETAILS)) {
             runCatching { decodeCard(json) }.getOrNull()?.let(::save)

@@ -2932,3 +2932,11 @@ Setup: a private contact "Pia Quist" with a photo, a note for calls and two numb
 4. **Private contacts.** Make Mike a private contact: "traders" finds nothing, with private contacts shown or hidden.
 5. **Setting off.** Turn Remember names from the network off (Keep for later): "ravi" and "traders" find no calls or contacts by those names. Turn it back on: they come back.
 
+### 45.8 Review fixes
+Automated: `RingRampTest` (a step noted but not yet set still counts as the ramp's own; a ring muted by Do Not Disturb waits) (core:common); `RingVolumeRampTest` (a process killed between noting a step and setting it gets the user's volume back; Do Not Disturb coming on mid-ramp keeps the user's volume for later) and `CallRingerTest` (Vibrate first stops vibrating when the phone goes silent; a second call taking the ringer leaves nothing vibrating unclaimed) (telecom, Robolectric); `MeCardStoreTest` (a restore never overwrites a card holding only a birthday or pronouns) (core:data); `MenusTest` (an archived private contact isn't offered Delete automatically) (core:common).
+Setup: ring volume 6 of 7, Ring style Increasing.
+1. **Do Not Disturb mid-ramp.** Call the phone and, while it ramps, turn Do Not Disturb on (Alarms only) from Quick Settings. End the call, turn Do Not Disturb off, then open Parley (or take the next call): the ring volume is 6 again, never left at the ramp's low step.
+2. **Killed mid-ramp.** Call the phone and force-stop Parley during the ramp several times at different moments: after each, opening Parley puts the ring volume back at 6.
+3. **Vibrate first, then silent.** Ring style Vibrate first, then ring. Call the phone and, during the first 4 s of vibration alone, switch the ringer to silent: the vibration stops at once and nothing plays.
+4. **My card restore.** On a fresh install, fill My card with only a birthday and pronouns, then restore a backup that has another My card: the birthday and pronouns stay; the backup's card doesn't replace them.
+5. **Archived private contact.** Archive a private contact, open its page from its calls › ⋮ › Privacy…: Make visible is there, Delete automatically and Archive are not.

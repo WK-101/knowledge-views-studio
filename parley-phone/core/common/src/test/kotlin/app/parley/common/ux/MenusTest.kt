@@ -73,6 +73,9 @@ class MenusTest {
         // A private contact is archived inside the vault (it stays private); an archived one isn't offered it again.
         assertTrue(ContactMenu.Action.ARCHIVE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
         assertTrue(ContactMenu.Action.ARCHIVE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
+        // Archiving dropped its expiry and it is kept until Unarchive: no "Delete automatically" for it either.
+        assertTrue(ContactMenu.Action.DELETE_AUTOMATICALLY !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
+        assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
         // A private contact offers Make visible instead of Make private.
         assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
         assertTrue(ContactMenu.Action.MAKE_PRIVATE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
