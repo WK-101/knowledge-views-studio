@@ -26,6 +26,24 @@ object EditorForm {
         Kind.NAME_DETAILS,
     )
 
+    /**
+     * The "Add" chips in three small groups, so eighteen chips don't read as one pile: ways to reach them, facts about
+     * them, and what Parley does when they call. Their name in their own language isn't a chip: it is offered with
+     * the name's details, beside the name it belongs to.
+     */
+    enum class ChipGroup { CONTACT, ABOUT, CALLS }
+
+    fun groupOf(k: Kind): ChipGroup? = when (k) {
+        Kind.PHONE, Kind.EMAIL, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.HANDLE -> ChipGroup.CONTACT
+        Kind.WORK, Kind.DATE, Kind.NOTE, Kind.RELATION, Kind.CUSTOM_FIELD, Kind.LANGUAGE, Kind.CITIZENSHIP -> ChipGroup.ABOUT
+        Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND -> ChipGroup.CALLS
+        Kind.NAME_DETAILS, Kind.NATIVE_NAME -> null
+    }
+
+    /** [addChoices] in their groups, in group order, leaving out empty groups and kinds without a chip. */
+    fun groupedChoices(choices: List<Kind>): List<Pair<ChipGroup, List<Kind>>> =
+        ChipGroup.entries.mapNotNull { g -> choices.filter { groupOf(it) == g }.takeIf { it.isNotEmpty() }?.let { g to it } }
+
     /** Kinds that hold several rows: their chip stays after the group is shown and adds another row. */
     val repeatable: Set<Kind> = setOf(
         Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE, Kind.CUSTOM_FIELD,

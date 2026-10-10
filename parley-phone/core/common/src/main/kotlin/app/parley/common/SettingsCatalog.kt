@@ -3,8 +3,10 @@ package app.parley.common
 /**
  * Top-level groups of Settings, in the order they're listed. Their names are the app's string resources. Settings holds
  * preferences only: tools are launched from Tools, and a tool's search entry here is a link ([SettingEntry.link]).
+ * Keypad and Messaging were categories of their own until they went into Calls (and Tools): their links open Calls'
+ * pages. Blocking & spam has no page: its row opens the Blocking & screening screen, where all its settings are.
  */
-enum class SettingsCategory { APPEARANCE, LAYOUT, CALLS, KEYPAD, BLOCKING, CONTACTS, HISTORY, MESSAGING, PRIVACY, BACKUP, NOTIFICATIONS, ABOUT }
+enum class SettingsCategory { APPEARANCE, LAYOUT, CALLS, BLOCKING, CONTACTS, HISTORY, PRIVACY, BACKUP, NOTIFICATIONS, ABOUT }
 
 /**
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
@@ -13,8 +15,11 @@ enum class SettingsCategory { APPEARANCE, LAYOUT, CALLS, KEYPAD, BLOCKING, CONTA
 enum class SettingPlace {
     TOOLS, BLOCKING, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
 
-    /** Settings › Calls' own pages: Answering, During calls, SIMs & carrier and Situations (Calls itself keeps a short list). */
-    CALLS_ANSWERING, CALLS_DURING, CALLS_SIMS, CALLS_SITUATIONS,
+    /**
+     * Settings › Calls' own pages: Answering, During calls, Keypad & dialling, SIMs & carrier and Situations (Calls
+     * itself keeps a short list).
+     */
+    CALLS_ANSWERING, CALLS_DURING, CALLS_KEYPAD, CALLS_SIMS, CALLS_SITUATIONS,
 
     /**
      * Settings › Reminders: every kind of reminder Parley sends, each with its switch and time (missed calls, To call
@@ -24,6 +29,9 @@ enum class SettingPlace {
 
     /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN. */
     APP_LOCK,
+
+    /** Tools › Messaged numbers: when the record of numbers you opened chats with forgets them, beside the list. */
+    MESSAGED,
 }
 
 /**
@@ -74,11 +82,9 @@ object SettingsCatalog {
     private val A = SettingsCategory.APPEARANCE
     private val L = SettingsCategory.LAYOUT
     private val C = SettingsCategory.CALLS
-    private val K = SettingsCategory.KEYPAD
     private val B = SettingsCategory.BLOCKING
     private val P = SettingsCategory.CONTACTS
     private val H = SettingsCategory.HISTORY
-    private val M = SettingsCategory.MESSAGING
     private val S = SettingsCategory.PRIVACY
     private val U = SettingsCategory.BACKUP
     private val N = SettingsCategory.NOTIFICATIONS
@@ -105,20 +111,15 @@ object SettingsCatalog {
         // Appearance
         "amoled", "density", "avatar_style", "second_line", "prefer_nickname",
         // Layout & gestures
-        "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions",
-        // Calls › Answering and During calls
+        "calls_layout", "favorites_in_contacts", "swipe_actions",
+        // Calls › Answering, During calls and Keypad & dialling
         "call_background", "auto_answer", "caller_vibration", "answer_rtt",
-        "call_haptics", "power_button_ends_call", "memory_prompt", "memory_lock_screen", "pre_call_peek",
-        // Keypad
-        "keypad_letters", "speed_dial", "ussd",
-        // Blocking & spam
-        "learn_from_calls", "expected_hints", "spam_lists", "templates", "transfer",
+        "call_haptics", "power_button_ends_call", "memory_prompt", "pre_call_peek", "call_time",
+        "keypad_letters", "speed_dial", "ussd", "phone_menus",
         // Contacts
-        "mirror_relations", "contact_page", "log_prompts", "import_sim", "export_account",
+        "mirror_relations", "contact_page", "import_sim", "export_account",
         // Recents & history
-        "kept_forever", "import_calls", "csv_bom", "sim_labels",
-        // Messaging
-        "messaged_expiry",
+        "kept_forever", "import_calls", "people_card",
         // Privacy & security
         "secure_screen", "private_history", "who_can_see", "private_directory", "app_permissions", "delete_all_data",
         // Backup & sync
@@ -136,7 +137,6 @@ object SettingsCatalog {
         // Optional combined surfaces, and what a tap on a call does (in every layout).
         e("calls_layout", L),
         e("favorites_in_contacts", L),
-        e("recent_tap", L),
         // "Sort by" and "Show names as" are apart, as in Android's Contacts; both keep the words of the one setting they were.
         e("sort_names", A),
         e("name_order", A),
@@ -144,7 +144,6 @@ object SettingsCatalog {
         e("prefer_nickname", A),
         e("swipe_actions", L),
         e("avatar_style", A),
-        e("reset_tips", A),
         e("simple_mode", L),
         // Calls
         e("default_dialer", C),
@@ -161,8 +160,8 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_ANSWERING, "answer_rtt", C),
         e("confirm_call", C),
         // Remember what matters.
+        // "Notes on the lock screen" went into Privacy › Caller on the lock screen ("Name and notes"): one rule.
         at(SettingPlace.CALLS_DURING, "memory_prompt", C),
-        at(SettingPlace.CALLS_DURING, "memory_lock_screen", C),
         at(SettingPlace.CALLS_DURING, "pre_call_peek", C),
         // One choice: Off, or on every change, with or without the buzz when they answer.
         at(SettingPlace.CALLS_DURING, "call_haptics", C),
@@ -177,15 +176,14 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_ANSWERING, "auto_answer", C),
         // Haptic caller ID: set on a contact's or a label's page.
         at(SettingPlace.CALLS_ANSWERING, "caller_vibration", C),
-        // Calls › Situations: the Situations themselves, then screens of their own (helpers, drive profile, phone menus,
-        // call time).
+        // Calls › Situations: the Situations themselves, then screens of their own (rescue call, helpers, the car).
         // Bring in my helper: a screen of its own, linked from Calls › Situations (and simple mode's setup).
         at(SettingPlace.HELPERS, "call_helpers", C),
         // Situations ("Driving", "Meeting", "Night", "Travelling" and those made): one tap sets several behaviours and
         // turning it off puts them back. It took the drive profile's entry: the car is set from Situations (Driving),
         // and search finds it by its old words.
         at(SettingPlace.CALLS_SITUATIONS, "situations", C),
-        // Phone menus: a screen of its own, linked from Calls › Situations.
+        // Phone menus: a screen of its own, linked from Calls › Keypad & dialling.
         at(SettingPlace.PHONE_MENUS, "phone_menus", C),
         at(SettingPlace.PHONE_MENUS, "menu_memory", C),
         // On SIMs & plan minutes; only ever acts while a SIM is abroad.
@@ -199,26 +197,26 @@ object SettingsCatalog {
         at(SettingPlace.CALLS_SIMS, "sims", C),
         at(SettingPlace.CALLS_SIMS, "sim_accounts", C),
         at(SettingPlace.CALLS_SIMS, "carrier_settings", C),
-        // Keypad
-        e("keypad_tones", K),
-        e("keypad_vibration", K),
-        e("keypad_letters", K),
-        e("speed_dial", K),
-        e("ussd", K),
-        // Talk-time reminders and limits: a screen of its own, on Calls › Situations (the Call time category went).
-        at(SettingPlace.CALLS_SITUATIONS, "call_time", C),
+        // Calls › Keypad & dialling (the Keypad category was too small for a root row of its own).
+        at(SettingPlace.CALLS_KEYPAD, "keypad_tones", C),
+        at(SettingPlace.CALLS_KEYPAD, "keypad_vibration", C),
+        at(SettingPlace.CALLS_KEYPAD, "keypad_letters", C),
+        at(SettingPlace.CALLS_KEYPAD, "speed_dial", C),
+        at(SettingPlace.CALLS_KEYPAD, "ussd", C),
+        // Talk-time reminders and limits: a screen of its own, on Calls › During calls (the Call time category went).
+        at(SettingPlace.CALLS_DURING, "call_time", C),
         at(SettingPlace.SIMS, "plan_minutes", C),
-        // Blocking & spam
-        e("blocking", B),
-        e("repeat_callers", B),
+        // Blocking & spam: the root row opens the Blocking & screening screen, where every one of these is.
+        at(SettingPlace.BLOCKING, "blocking", B),
+        at(SettingPlace.BLOCKING, "repeat_callers", B),
         // Sales lines: one choice (Off · Tag quietly · Tag and silence).
-        e("learn_from_calls", B),
-        e("expecting_call", B),
-        e("expected_hints", B),
-        e("spam_lists", B),
-        e("templates", B),
+        at(SettingPlace.BLOCKING, "learn_from_calls", B),
+        at(SettingPlace.BLOCKING, "expecting_call", B),
+        at(SettingPlace.BLOCKING, "expected_hints", B),
+        at(SettingPlace.BLOCKING, "spam_lists", B),
+        at(SettingPlace.BLOCKING, "templates", B),
         tool("dry_run", B),
-        e("transfer", B),
+        at(SettingPlace.BLOCKING, "transfer", B),
         // Contacts
         // Settings › Contacts, where people look for how their contact list looks (it used to be under Layout & gestures).
         e("row_actions", P),
@@ -260,22 +258,21 @@ object SettingsCatalog {
         // Deleted calls come back from History & undo › Calls.
         tool("history_details", H),
         e("kept_forever", H),
-        e("csv_bom", H),
         e("retention", H),
-        e("sim_labels", H),
+        // One "Recents view" row, the dialog Recents ⋮ opens: layout, style and what a tap does stay three values.
         e("recents_layout", H),
-        e("recents_remember_filter", H),
         e("recents_style", H),
+        e("recent_tap", H),
+        e("recents_remember_filter", H),
         e("clear_history", H),
         tool("insights", H),
-        // The People card.
+        // The People card: one choice (Off · On · On, with who reaches out first), also on the card's ⋮.
         e("people_card", H),
-        e("first_mover", H),
         e("import_calls", H),
-        // Messaging
-        e("quick_replies", M),
-        tool("messaged_numbers", M),
-        e("messaged_expiry", M),
+        // Quick replies are used when declining, so they are on Calls › Answering (Messaging went).
+        at(SettingPlace.CALLS_ANSWERING, "quick_replies", C),
+        tool("messaged_numbers", H),
+        at(SettingPlace.MESSAGED, "messaged_expiry", H),
         // Privacy & security
         e("app_lock", S),
         e("lock_after", S),
@@ -313,6 +310,8 @@ object SettingsCatalog {
         e("version", O),
         e("diagnostics", O),
         e("crash_reports", O),
+        // About › Help & tips: every one-time tip shows again.
+        e("reset_tips", O),
         // Settings on screens of their own (search opens the screen).
         at(SettingPlace.BLOCKING, "blk_hidden_numbers", B),
         at(SettingPlace.BLOCKING, "blk_non_contacts", B),
@@ -350,8 +349,40 @@ object SettingsCatalog {
     /** Whether [key] is folded under its page's "Advanced" group (false for keys that aren't settings). */
     fun isAdvanced(key: String?): Boolean = key != null && byKey[key]?.advanced == true
 
-    /** The settings themselves: every entry but the links to pages and lists. What the settings budget counts. */
+    /** The settings themselves: every entry but the links to pages and lists. The outer cap counts these rows. */
     val settings: List<SettingEntry> get() = entries.filterNot { it.link }
+
+    /**
+     * Rows that store no choice of their own: a screen of its own, a one-off action, a page of Android's, a line of
+     * information or a list of data. They are settings rows (search finds them on their page), but the preferences
+     * budget doesn't count them: what weighs on people is the number of choices, and a way somewhere isn't one.
+     */
+    val NOT_STORED: Set<String> = setOf(
+        // Screens of their own
+        "blocking", "spam_lists", "templates", "transfer", "situations", "call_helpers", "phone_menus", "call_time", "sims",
+        "speed_dial", "simple_mode", "contact_page", "my_details", "app_lock_method", "family_safe_word", "privacy_dashboard",
+        "who_can_see", "private_directory", "backup", "sync", "journal", "shared_labels", "voicemail",
+        // One-off actions
+        "import_file", "import_sim", "export_vcf", "export_csv", "export_account", "import_calls", "clear_history", "open_export",
+        "reset_tips", "delete_all_data", "backup_restore", "backup_move_phone", "shared_labels_join", "diagnostics", "default_dialer",
+        // Android's own pages and information
+        "default_dialer_help", "sim_accounts", "carrier_settings", "app_permissions", "notification_settings", "battery", "xiaomi",
+        "full_screen", "version", "power_button_ends_call",
+        // Lists of data
+        "kept_forever",
+    )
+
+    /** The real preferences: settings that store a choice. What the preferences budget counts. */
+    val preferences: List<SettingEntry> get() = settings.filterNot { it.key in NOT_STORED }
+
+    /** Recents & history's one "Recents view" row shows these three values (search finds each by its own words). */
+    val RECENTS_VIEW: Set<String> = setOf("recents_layout", "recents_style", "recent_tap")
+
+    /**
+     * Whether [category] has a page of its own. Blocking & spam doesn't: its root row opens the Blocking & screening
+     * screen, where every one of its settings lives.
+     */
+    fun hasPage(category: SettingsCategory): Boolean = inCategory(category).any { it.place == null }
 }
 
 /** Search over [SettingsCatalog] with its words: accent- and case-insensitive, every word must match, best matches first. */

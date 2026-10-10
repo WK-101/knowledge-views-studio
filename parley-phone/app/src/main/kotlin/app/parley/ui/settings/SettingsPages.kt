@@ -5,7 +5,6 @@ import app.parley.ui.common.ImportLeftOut
 import app.parley.common.history.RetentionDefaults
 import app.parley.ui.Destination
 import android.app.NotificationManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -16,11 +15,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Storefront
-import app.parley.data.calls.ReputationLearner
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -31,7 +27,6 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.BatteryAlert
-import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
@@ -44,37 +39,24 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material.icons.rounded.HourglassTop
-import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockClock
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.ManageHistory
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneLocked
 import androidx.compose.material.icons.rounded.PrivacyTip
-import androidx.compose.material.icons.rounded.Quickreply
-import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RestoreFromTrash
-import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.Tag
-import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material.icons.rounded.Style
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material3.Icon
@@ -107,17 +89,12 @@ import app.parley.jobs.UserJobs
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.JobProgress
 import app.parley.BuildConfigInfo
-import app.parley.blocking.BlockingActions
 import app.parley.common.AppSettings
 import app.parley.common.HomeLayout
 import app.parley.common.ListDensity
-import app.parley.common.MessagedRecord
 import app.parley.common.ThemeMode
-import app.parley.common.calls.RecentsLayout
 import app.parley.common.ux.BackupNudge
 import app.parley.common.calls.LockScreenCaller
-import app.parley.common.ux.RecentsStyle
-import app.parley.common.ux.SalesLines
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
 import app.parley.data.export.ContactExport
@@ -132,8 +109,6 @@ import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.backup.BackupReminderBanner
 import app.parley.ui.backup.rememberBackupFirst
-import app.parley.ui.blocking.BlockingDialog
-import app.parley.ui.blocking.BlockingDialogs
 import app.parley.ui.calls.DialerRoleGuide
 import app.parley.ui.calls.rememberDialerRoleRequest
 import app.parley.ui.calltime.NotificationHealthCard
@@ -143,9 +118,8 @@ import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.history.CallHistoryNotes
 import app.parley.ui.history.ClearHistoryRow
 import app.parley.ui.history.KeepFullHistoryRow
-import app.parley.ui.history.csvBomRow
+import app.parley.ui.history.RecentsLayoutDialog
 import app.parley.ui.history.keptForeverRow
-import app.parley.ui.blocking.BlockingRoutes
 import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.history.recentsLayoutLabels
 import app.parley.ui.home.label
@@ -194,14 +168,6 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
         menuRow("name_order", nameOrders, if (s.showNamesLastFirst) 1 else 0, Icons.Rounded.SwapHoriz) { i -> set { it.copy(showNamesLastFirst = i == 1) } }
     }
-    // Every one-time tip shows again.
-    val tipsReset = stringResource(R.string.ux_tips_reset_done)
-    SegmentedGroup(stringResource(R.string.set_group_tips)) {
-        linkRow("reset_tips", Icons.Rounded.Lightbulb) {
-            vm.c.ux.resetTips()
-            vm.toast(tipsReset)
-        }
-    }
     AdvancedGroup {
         switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
         choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
@@ -243,7 +209,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
         linkRow("simple_mode", Icons.Rounded.Accessibility) { open(ExtrasRoutes.SimpleSetup) }
     }
     AdvancedSection {
-        // Combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
+        // Combine Keypad + Recents and Favourites + Contacts (optional). What a tap on a call does is in Recents view.
         LayoutSettingsGroup(vm)
         SegmentedGroup(stringResource(R.string.set_group_gestures)) {
             item("swipe_actions") { SwipeSettings(vm) }
@@ -254,7 +220,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
 // ---------------------------------------------------------------- Calls
 
 /**
- * Settings › Calls: the default phone app, the four pages the rest is on, and the rows used most. Each page keeps
+ * Settings › Calls: the default phone app, the five pages the rest is on, and the rows used most. Each page keeps
  * the setting keys it always had, so search and "What Parley can do" open it on the right row.
  */
 @Composable
@@ -287,72 +253,6 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_before_calling)) {
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("pocket_guard") { PocketGuardRow(vm) }
-    }
-}
-
-// ---------------------------------------------------------------- Keypad
-
-@Composable
-internal fun KeypadPage(vm: AppViewModel, open: (Destination) -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
-    val set = rememberSettingsSetter(vm)
-    SegmentedGroup(stringResource(R.string.set_group_feedback)) {
-        switchRow("keypad_tones", s.dialpadTones, Icons.Rounded.MusicNote) { v -> set { it.copy(dialpadTones = v) } }
-        switchRow("keypad_vibration", s.dialpadHaptics, Icons.Rounded.Vibration) { v -> set { it.copy(dialpadHaptics = v) } }
-    }
-    AdvancedGroup {
-        item("keypad_letters") { KeypadLettersRow(vm, Icons.Rounded.Translate) }
-        linkRow("speed_dial", Icons.Rounded.Speed) { open(Routes.SpeedDial) }
-        item("ussd") { UssdRow(vm, Icons.Rounded.Tag) }
-    }
-}
-
-// ---------------------------------------------------------------- Blocking
-
-@Composable
-internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
-    val set = rememberSettingsSetter(vm)
-    val scope = rememberCoroutineScope()
-    val snoozing = s.screening.snoozeActive(System.currentTimeMillis())
-    val snoozeOn = stringResource(R.string.set_expecting_call_on)
-    SegmentedGroup {
-        linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
-        switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
-        switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
-            if (v) BlockingDialogs.show(BlockingDialog.Snooze)
-            else scope.launch { BlockingActions.snooze(vm.c, 0) }
-        }
-    }
-    AdvancedSection {
-        BlockingAdvanced(vm, open)
-    }
-}
-
-/** Blocking & spam's Advanced group: sales lines learnt from your calls, hints from notes, the lists and the rules. */
-@Composable
-private fun BlockingAdvanced(vm: AppViewModel, open: (Destination) -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
-    // One choice for tags from your own calls (Tag quietly, the default) and the optional silence rule.
-    val sales = SalesLines.of(s.screening.learnFromCalls, s.screening.silenceSalesLines)
-    val salesChoices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_sales_lines_tag), stringResource(R.string.set_sales_lines_silence))
-    val salesSub = if (sales == SalesLines.TAG_AND_SILENCE) stringResource(R.string.set_sales_lines_silence_sub) else null
-    SegmentedGroup {
-        menuRow("learn_from_calls", salesChoices, sales.ordinal, Icons.Rounded.Storefront, sub = salesSub) { i ->
-            val v = SalesLines.entries[i]
-            // Learns at once (or forgets everything), in the app's scope so leaving the page doesn't stop it.
-            vm.c.scope.launch {
-                vm.c.settings.update { it.copy(screening = it.screening.copy(learnFromCalls = v.learn, silenceSalesLines = v.silence)) }
-                catching { ReputationLearner.learn(vm.c) }
-            }
-        }
-        // Notes, To call items and delivery QR codes turning "Expecting a call" on (off until accepted).
-        item("expected_hints") { ExpectedHintsRow(vm) }
-    }
-    SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
-        linkRow("spam_lists", Icons.Rounded.Inventory2) { open(BlockingRoutes.Lists) }
-        linkRow("templates", Icons.Rounded.Style) { open(BlockingRoutes.Templates) }
-        linkRow("transfer", Icons.Rounded.ImportExport) { open(BlockingRoutes.Transfer) }
     }
 }
 
@@ -432,7 +332,8 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         linkRow("export_csv", Icons.Rounded.FileDownload) { open(Routes.Export(ContactExport.Format.CSV_PARLEY.name)) }
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
-        // How keep-in-touch reminders arrive lives on Reminders; Circle ⋮ › Circle settings lands here.
+        // Circle ⋮ › Circle settings lands here, on "Log this?"; how keep-in-touch reminders arrive is on Reminders.
+        logPromptsRow(vm, circleCfg)
         item {
             LinkRow(
                 stringResource(R.string.set_circle_reminders_title), stringResource(R.string.set_circle_reminders_summary),
@@ -443,7 +344,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     AdvancedGroup {
         switchRow("mirror_relations", s.mirrorRelations, Icons.Rounded.SyncAlt) { v -> set { it.copy(mirrorRelations = v) } }
         linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.Sections) }
-        logPromptsRow(vm, circleCfg)
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SimImport) }
         if (severalAccounts) item("export_account") { ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
     }
@@ -530,58 +430,20 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         // Clear everything, unknown numbers or missed calls, with an export first (deleted calls come back from History & undo).
         item("clear_history") { ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
     }
-    val layoutLabels = recentsLayoutLabels()
-    val styleLabels = recentsStyleLabels()
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
-        // Grouped, chronological or by day (also in Recents ⋮).
-        menuRow("recents_layout", layoutLabels, s.recentsLayout.ordinal, Icons.AutoMirrored.Rounded.ViewList) { i ->
-            set { it.copy(recentsLayout = RecentsLayout.entries[i]) }
-        }
-        // Rich or simple call rows.
-        menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
-            set { it.copy(recentsStyle = RecentsStyle.entries[i]) }
-        }
+        // Layout, style and what a tap does: one row, the same dialog as Recents ⋮ › Recents view….
+        item(RECENTS_VIEW_ROW) { RecentsViewRow(vm) }
         // Recents opens on the chip used last (Blocked and Voicemail aside).
         switchRow("recents_remember_filter", s.rememberRecentsFilter, Icons.Rounded.FilterList) { v -> set { it.copy(rememberRecentsFilter = v) } }
-        // The People card in Call insights (Recents ⋮ › Call insights).
-        peopleCardRows(vm, circleCfg)
     }
     AdvancedGroup {
         if (archiveOn) keptForeverRow(vm)
         linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.Import) }
-        csvBomRow(vm)
-        switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
+        // The People card in Call insights (Recents ⋮ › Call insights), one choice.
+        peopleCardRow(vm, circleCfg)
     }
     CallHistoryNotes(vm)
-}
-
-// ---------------------------------------------------------------- Messaging
-
-@Composable
-internal fun MessagingPage(vm: AppViewModel) {
-    val s by vm.settings.collectAsStateWithLifecycle()
-    val set = rememberSettingsSetter(vm)
-    val scope = rememberCoroutineScope()
-    var editReplies by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    SegmentedGroup {
-        linkRow("quick_replies", Icons.Rounded.Quickreply, sub = s.quickReplies.joinToString(" · ")) { editReplies = true }
-    }
-    // When the record of numbers you opened chats with forgets them (the list itself is in Tools).
-    val expiry by vm.c.messaging.expiryDays.collectAsStateWithLifecycle()
-    AdvancedGroup {
-        val choices = MessagedRecord.EXPIRY_CHOICES
-        menuRow("messaged_expiry", choices.map { expiryLabel(context, it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
-            scope.launch { vm.c.messaging.setExpiryDays(choices[i]) }
-        }
-    }
-    if (editReplies) {
-        QuickRepliesDialog(s.quickReplies, s.nameReply, onDismiss = { editReplies = false }) { list, nameReply ->
-            set { it.copy(quickReplies = list, nameReply = nameReply) }
-            editReplies = false
-        }
-    }
 }
 
 // ---------------------------------------------------------------- Privacy & security
@@ -737,6 +599,16 @@ internal fun AboutPage(open: (Destination) -> Unit, vm: AppViewModel? = null) {
         }
         if (vm != null) item("crash_reports") { CrashReportsRow(vm) }
     }
+    // Help & tips: every one-time tip shows again.
+    if (vm != null) {
+        val tipsReset = stringResource(R.string.ux_tips_reset_done)
+        SegmentedGroup(stringResource(R.string.set_group_tips)) {
+            linkRow("reset_tips", Icons.Rounded.Lightbulb) {
+                vm.c.ux.resetTips()
+                vm.toast(tipsReset)
+            }
+        }
+    }
     Text(
         stringResource(R.string.set_no_internet_note),
         style = MaterialTheme.typography.bodySmall,
@@ -745,6 +617,20 @@ internal fun AboutPage(open: (Destination) -> Unit, vm: AppViewModel? = null) {
     )
 }
 
-/** [app.parley.common.MessagedRecord.expiryLabel] in the current language. */
-internal fun expiryLabel(context: Context, days: Int): String =
-    if (days <= 0) context.getString(R.string.set_expiry_never) else context.resources.getQuantityString(R.plurals.set_expiry_after_days, days, days)
+/** Recents & history's one row for how Recents looks: its key is the layout's, where search for any of the three lands. */
+internal const val RECENTS_VIEW_ROW = "recents_layout"
+
+/**
+ * Settings › Recents & history › Recents view: the layout, the style and what a tap on a call does, read out as one
+ * line; a tap opens the same dialog as Recents ⋮ › Recents view….
+ */
+@Composable
+private fun RecentsViewRow(vm: AppViewModel) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    var open by remember { mutableStateOf(false) }
+    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.home_tap_call))
+    val sub = listOf(recentsLayoutLabels()[s.recentsLayout.ordinal], recentsStyleLabels()[s.recentsStyle.ordinal], taps[s.surfaces.recentTap.ordinal])
+        .joinToString(stringResource(R.string.main_separator))
+    LinkRow(stringResource(R.string.recents_view_title), sub, Icons.AutoMirrored.Rounded.ViewList) { open = true }
+    if (open) RecentsLayoutDialog(vm) { open = false }
+}

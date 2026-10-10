@@ -18,7 +18,7 @@ class SettingsSearchTest {
     }
 
     @Test fun layout_and_gestures_is_split_from_appearance() {
-        listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions", "simple_mode")
+        listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "swipe_actions", "simple_mode")
             .forEach { assertEquals(it, SettingsCategory.LAYOUT, SettingsCatalog[it].category) }
         listOf(
             "theme", "amoled", "density", "avatar_style", "sort_names",
@@ -38,8 +38,9 @@ class SettingsSearchTest {
             "power_button_ends_call" to SettingPlace.CALLS_DURING, "memory_prompt" to SettingPlace.CALLS_DURING,
             "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
             "call_helpers" to SettingPlace.HELPERS, "phone_menus" to SettingPlace.PHONE_MENUS,
-            "call_time" to SettingPlace.CALLS_SITUATIONS, "situations" to SettingPlace.CALLS_SITUATIONS,
-            "network_names" to SettingPlace.CALLS_ANSWERING,
+            "call_time" to SettingPlace.CALLS_DURING, "situations" to SettingPlace.CALLS_SITUATIONS,
+            "network_names" to SettingPlace.CALLS_ANSWERING, "quick_replies" to SettingPlace.CALLS_ANSWERING,
+            "keypad_tones" to SettingPlace.CALLS_KEYPAD, "speed_dial" to SettingPlace.CALLS_KEYPAD, "ussd" to SettingPlace.CALLS_KEYPAD,
         ).forEach { (key, place) -> assertEquals(key, place, SettingsCatalog[key].place) }
         // The Call time category dissolved into Calls › Situations; its settings are Calls' now.
         listOf("call_time", "ct_reminders", "ct_limits", "ct_supervised").forEach { assertEquals(it, SettingsCategory.CALLS, SettingsCatalog[it].category) }
@@ -66,24 +67,62 @@ class SettingsSearchTest {
         }
     }
 
+    /**
+     * The settings tree: Keypad and Messaging dissolved into Calls (and Tools), Blocking & spam opens its screen, one
+     * row for how Recents looks, and the rows that held one rarely changed value each went (folded into another choice,
+     * a tick box of the export sheet, or always on when it matters).
+     */
+    @Test fun the_settings_tree_keeps_its_keys_in_their_new_places() {
+        listOf("keypad_tones", "keypad_vibration", "keypad_letters", "speed_dial", "ussd", "quick_replies", "phone_menus", "call_time")
+            .forEach { assertEquals(it, SettingsCategory.CALLS, SettingsCatalog[it].category) }
+        assertTrue(SettingsCatalog.isAdvanced("phone_menus") && SettingsCatalog.isAdvanced("call_time"))
+        assertTrue(!SettingsCatalog.isAdvanced("keypad_tones") && !SettingsCatalog.isAdvanced("quick_replies"))
+        assertEquals(SettingPlace.MESSAGED, SettingsCatalog["messaged_expiry"].place)
+        // Blocking & spam has no page: all its settings are on the screen its row opens.
+        assertTrue(!SettingsCatalog.hasPage(SettingsCategory.BLOCKING))
+        assertTrue(SettingsCatalog.inCategory(SettingsCategory.BLOCKING).filterNot { it.link }.all { it.place == SettingPlace.BLOCKING })
+        SettingsCategory.entries.filter { it != SettingsCategory.BLOCKING }.forEach { assertTrue(it.name, SettingsCatalog.hasPage(it)) }
+        // One "Recents view" row for three values.
+        SettingsCatalog.RECENTS_VIEW.forEach { assertEquals(it, SettingsCategory.HISTORY, SettingsCatalog[it].category) }
+        // Help & tips is under About.
+        assertEquals(SettingsCategory.ABOUT, SettingsCatalog["reset_tips"].category)
+        listOf("memory_lock_screen", "first_mover", "csv_bom", "sim_labels").forEach { k -> assertTrue(k, SettingsCatalog.entries.none { it.key == k }) }
+        // Circle settings land on a group that is open: its own row isn't folded under Advanced.
+        assertTrue(!SettingsCatalog.isAdvanced("log_prompts"))
+    }
+
     @Test fun sort_order_and_name_order_are_two_settings() {
         assertEquals(SettingsCategory.APPEARANCE, SettingsCatalog["name_order"].category)
         assertEquals(SettingsCategory.APPEARANCE, SettingsCatalog["sort_names"].category)
     }
 
     /**
-     * Settings may not grow without anyone noticing: a new one replaces one, or folds into one, so the total stays at
-     * or below [SETTINGS_CEILING]. Lower the ceiling when settings go. Links to pages and lists (Reminders, To call)
-     * are searchable but hold no value, so they don't count.
+     * Settings may not grow without anyone noticing. Two budgets: the real preferences (rows that store a choice) stay at
+     * or below [PREFERENCES_CEILING], and every settings row, ways to screens and one-off actions included, stays at or
+     * below [SETTINGS_CEILING] so links don't sprawl either. Links to pages and lists (Reminders, To call) are
+     * searchable but aren't rows of Settings, so neither counts them.
      */
     @Test fun settings_do_not_grow_silently() {
-        val n = SettingsCatalog.settings.size
+        val p = SettingsCatalog.preferences.size
         assertTrue(
-            "Settings has $n settings, more than its ceiling of $SETTINGS_CEILING. Replace an existing setting or fold the new " +
+            "Settings has $p preferences, more than its ceiling of $PREFERENCES_CEILING. Replace an existing setting or fold the new " +
                 "one into it rather than adding to the list; a setting moved onto a screen of its own (SettingPlace) still counts. " +
-                "Raise SETTINGS_CEILING only when the owner agrees.",
-            n <= SETTINGS_CEILING,
+                "Raise PREFERENCES_CEILING only when the owner agrees.",
+            p <= PREFERENCES_CEILING,
         )
+        val n = SettingsCatalog.settings.size
+        assertTrue("Settings has $n rows, more than the outer cap of $SETTINGS_CEILING.", n <= SETTINGS_CEILING)
+    }
+
+    @Test fun rows_that_store_nothing_are_named_and_are_settings_rows() {
+        SettingsCatalog.NOT_STORED.forEach { k ->
+            val e = SettingsCatalog.entries.firstOrNull { it.key == k }
+            assertTrue("$k is in NOT_STORED but not a settings row", e != null && !e.link)
+        }
+        // A switch or a choice is always a preference.
+        listOf("theme", "app_lock", "lock_screen_caller", "people_card", "repeat_callers", "keypad_tones").forEach { k ->
+            assertTrue(k, SettingsCatalog.preferences.any { it.key == k })
+        }
     }
 
     @Test fun links_are_ways_to_pages_and_tools_not_settings() {
@@ -117,7 +156,7 @@ class SettingsSearchTest {
         assertTrue(SettingsCatalog.isAdvanced("amoled"))
         assertTrue(!SettingsCatalog.isAdvanced("theme") && !SettingsCatalog.isAdvanced(null) && !SettingsCatalog.isAdvanced("no_such_key"))
         // Every page still opens on something to set, and a basic user sees a short page.
-        SettingsCategory.entries.forEach { c ->
+        SettingsCategory.entries.filter { SettingsCatalog.hasPage(it) }.forEach { c ->
             val basics = SettingsCatalog.inCategory(c).count { it.place == null && !it.advanced }
             assertTrue("${c.name} shows $basics basic rows", basics in 1..BASIC_LIMIT)
         }
@@ -126,7 +165,7 @@ class SettingsSearchTest {
     /** The scorer itself, on made-up words (the real ones are the app's, tested there). */
     private val sample = listOf(
         SettingEntry("theme", SettingsCategory.APPEARANCE).withTexts("Theme", "System, light or dark", listOf("dark mode"), "Appearance"),
-        SettingEntry("keypad_vibration", SettingsCategory.KEYPAD).withTexts("Keypad vibration", "Buzz on each key", listOf("haptic"), "Keypad"),
+        SettingEntry("keypad_vibration", SettingsCategory.CALLS).withTexts("Keypad vibration", "Buzz on each key", listOf("haptic"), "Keypad"),
         SettingEntry("call_haptics", SettingsCategory.CALLS).withTexts("Call vibration", "When a call connects", listOf("vibration"), "Calls"),
     )
 
@@ -168,8 +207,16 @@ class SettingsSearchTest {
          * private names" went with the lookup provider. 6.0's Situations took the drive profile's entry, so the count held.
          * 6.2.2 raised it to 148 for "Remember names from the network" (network_names), off by default: the owner asked
          * for it as its own switch, and no caller-ID setting holds it honestly (the contact photo, the lock-screen rule
-         * and the ringtone for unknown callers are each about something else).
+         * and the ringtone for unknown callers are each about something else). Since 6.4 it is the outer cap on every
+         * row, and the real preferences have a budget of their own ([PREFERENCES_CEILING]).
          */
         const val SETTINGS_CEILING = 148
+
+        /**
+         * Settings that store a choice (the owner's decision in 6.4: count choices, not ways to screens). 6.4's settings
+         * tree took four away (notes on the lock screen into "Caller on the lock screen", "who reaches out first" into
+         * the People card's choice, the CSV byte-order mark into the export sheet, SIM labels always on with two SIMs).
+         */
+        const val PREFERENCES_CEILING = 100
     }
 }

@@ -15,6 +15,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -372,7 +381,11 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
     )
 }
 
-/** One label: its members and group actions (message all, e-mail all, ringtone, blocking). */
+/**
+ * One label: its members first, with "Add people", then the label's settings in a fold (ringtone, caller tune, SIM and
+ * rhythm, safe word, sharing, chapter). A chapter that is running or has ended stays above the members: it has a
+ * question to ask. Group actions (message all, e-mail all, blocking) are in the top bar.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destination) -> Unit) {
@@ -421,6 +434,10 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     LaunchedEffect(Unit) { vm.c.sharedLabels.load() }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var addingPeople by rememberSaveable { mutableStateOf(false) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    val chapters by vm.c.extras.chapters.collectAsStateWithLifecycle()
+    val hasChapter = chapters[current] != null
     val tone = s.labelRingtones[current]
     // A tune made from a name that was replaced or reset here goes once nothing else uses it (its grants with it).
     var shownTone by remember(current) { mutableStateOf(tone) }
@@ -463,7 +480,6 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     }
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
-                IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                     DropdownMenu(menu, { menu = false }) {
@@ -492,59 +508,37 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             scrollBehavior = barTint,
         )
     }) { p ->
-        // The A–Z index beside a long list of members, from the first member on (the rows above it are the label's
-        // own settings: MEMBERS_START of them).
+        // The A–Z index beside a long list of members, from the first member on (the rows above them: a running
+        // chapter, the count and "Add people").
+        val membersStart = if (hasChapter) 3 else 2
         val indexed = members.size > AlphabetIndex.MIN_ITEMS
-        val indexEntries = remember(members, indexed) {
-            if (indexed) AlphabetIndex.entries(AlphabetIndex.sectionsOf(members.map { it.sortName }, offset = MEMBERS_START)) else emptyList()
+        val indexEntries = remember(members, indexed, membersStart) {
+            if (indexed) AlphabetIndex.entries(AlphabetIndex.sectionsOf(members.map { it.sortName }, offset = membersStart)) else emptyList()
         }
         val listState = rememberLazyListState()
+        val removeLabel = {
+            scope.launch {
+                deleteLabelWithUndo(vm, current)
+                back()
+            }
+            Unit
+        }
         Box(Modifier.padding(p)) {
             LazyColumn(state = listState) {
-                // A chapter: an end for a period of life, and the one question when it comes.
-                item {
-                    ChapterSection(vm, current, members) {
-                        scope.launch {
-                            deleteLabelWithUndo(vm, current)
-                            back()
-                        }
+                // A chapter under way or ended has its question to ask: it stays in sight. Otherwise it waits in the fold.
+                if (hasChapter) item(key = "chapter") { ChapterSection(vm, current, members, removeLabel) }
+                item(key = "count") { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
+                item(key = "add") {
+                    if (members.isEmpty()) {
+                        Text(
+                            stringResource(R.string.lbl_nobody), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
-                }
-                item {
-                    val name = tone?.let { u ->
-                        if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
-                        else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+                    FilledTonalButton({ addingPeople = true }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Icon(Icons.Rounded.GroupAdd, null, Modifier.padding(end = 8.dp))
+                        Text(stringResource(R.string.lbl_add_people))
                     }
-                    ParleyListItem(
-                        modifier = Modifier.clickable(onClick = ::pickTone),
-                        leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
-                        headlineContent = {
-                            Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
-                        },
-                        supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
-                        trailingContent = {
-                            if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
-                                Text(stringResource(R.string.lbl_reset))
-                            }
-                        },
-                    )
-                }
-                // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.
-                item {
-                    CallerTuneRow(current, stringResource(R.string.caller_tune_label_summary)) { uri ->
-                        vm.people.update { it.copy(labelRingtones = it.labelRingtones + (current to uri.toString())) }
-                        vm.toast(res.getString(R.string.caller_tune_set, current))
-                    }
-                }
-                // SIM, Circle rhythm and Do Not Disturb for this label.
-                item { LabelPolicySection(vm, current, members) }
-                // The label's safe word (asks who it is before showing or changing it).
-                item { SafeWordSection(vm, current) }
-                // Shared with other people's phones: status, members and who changed what.
-                item { SharedLabelSection(vm, current, open) }
-                item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
-                if (members.isEmpty()) item {
-                    Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
                 items(members, key = { it.id }) { c ->
                     var rowMenu by remember { mutableStateOf(false) }
@@ -563,10 +557,47 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                         }) { open(Routes.contact(c.id)) }
                     }
                 }
+                // The label's own settings, folded after the people: the one ringtone entry, the caller tune, SIM,
+                // rhythm and Do Not Disturb, the safe word, sharing and (when there isn't one yet) the chapter.
+                item(key = "settings-fold") {
+                    LabelSettingsFold(settingsOpen, { settingsOpen = !settingsOpen }) {
+                        val name = tone?.let { u ->
+                            if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
+                            else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+                        }
+                        ParleyListItem(
+                            modifier = Modifier.clickable(onClick = ::pickTone),
+                            leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
+                            headlineContent = {
+                                Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
+                            },
+                            supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
+                            trailingContent = {
+                                if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
+                                    Text(stringResource(R.string.lbl_reset))
+                                }
+                            },
+                        )
+                        // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.
+                        CallerTuneRow(current, stringResource(R.string.caller_tune_label_summary)) { uri ->
+                            vm.people.update { it.copy(labelRingtones = it.labelRingtones + (current to uri.toString())) }
+                            vm.toast(res.getString(R.string.caller_tune_set, current))
+                        }
+                        // SIM, Circle rhythm and Do Not Disturb for this label.
+                        LabelPolicySection(vm, current, members)
+                        // The label's safe word (asks who it is before showing or changing it).
+                        SafeWordSection(vm, current)
+                        // Shared with other people's phones: status, members and who changed what.
+                        SharedLabelSection(vm, current, open)
+                        // A chapter: an end for a period of life, and the one question when it comes.
+                        if (!hasChapter) ChapterSection(vm, current, members, removeLabel)
+                    }
+                }
             }
-            if (indexed) AlphabetIndexRail(listState, indexEntries, start = MEMBERS_START, headers = false)
+            if (indexed) AlphabetIndexRail(listState, indexEntries, start = membersStart, headers = false)
         }
     }
+    if (addingPeople) AddPeopleSheet(vm, current, members.map { it.id }.toSet()) { addingPeople = false }
     if (renaming) RenameLabelDialog(vm, current, onDismiss = { renaming = false }) { current = it }
     if (confirmDelete) {
         ConfirmDialog(
@@ -604,5 +635,18 @@ private suspend fun deleteLabelWithUndo(vm: AppViewModel, title: String) {
     }
 }
 
-/** The rows of a label's page above its members: chapter, ringtone, caller tune, policies, safe word, sharing, count. */
-private const val MEMBERS_START = 7
+/** "Settings for this label": a heading that opens the label's settings, after its members. */
+@Composable
+private fun LabelSettingsFold(open: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
+    val state = stringResource(if (open) R.string.blk_expanded else R.string.blk_collapsed)
+    Column(Modifier.padding(top = 16.dp)) {
+        ParleyListItem(
+            modifier = Modifier.clickable(onClick = onToggle).semantics { stateDescription = state; heading() },
+            leadingContent = { Icon(Icons.Rounded.Tune, null) },
+            headlineContent = { Text(stringResource(R.string.lbl_settings_fold), style = MaterialTheme.typography.titleMedium) },
+            supportingContent = { Text(stringResource(R.string.lbl_settings_fold_sub)) },
+            trailingContent = { Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null) },
+        )
+        AnimatedVisibility(open) { Column { content() } }
+    }
+}

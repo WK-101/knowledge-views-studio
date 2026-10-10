@@ -88,10 +88,17 @@ class HubAndRemindersRoutesTest {
         // Rows still on Calls itself, a page without focus, and another page with a row of the same key stay put.
         assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, "default_dialer"), settingsPageTarget("CALLS", "default_dialer"))
         assertEquals(SettingsPageTarget.Category(SettingsCategory.CALLS, null), settingsPageTarget("CALLS", null))
-        // The Call time category went: its old links open Calls › Situations, and its SIMs row the SIMs page.
-        assertEquals(SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time"), settingsPageTarget("CALL_TIME", "call_time"))
-        assertEquals(SettingsPageTarget.Calls(CallsSubPage.SITUATIONS, "call_time"), settingsPageTarget("CALL_TIME", null))
+        // The Call time category went: its old links open Calls › During calls, and its SIMs row the SIMs page.
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.DURING, "call_time"), settingsPageTarget("CALL_TIME", "call_time"))
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.DURING, "call_time"), settingsPageTarget("CALL_TIME", null))
         assertEquals(SettingsPageTarget.Calls(CallsSubPage.SIMS, "sims"), settingsPageTarget("CALL_TIME", "sims"))
+        // Keypad and Messaging went too: their links open Calls › Keypad & dialling and Answering.
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.KEYPAD, "speed_dial"), settingsPageTarget("KEYPAD", "speed_dial"))
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.KEYPAD, "keypad_tones"), settingsPageTarget("KEYPAD", null))
+        assertEquals(SettingsPageTarget.Calls(CallsSubPage.ANSWERING, "quick_replies"), settingsPageTarget("MESSAGING", null))
+        // Blocking & spam has no page: its links open the screen.
+        assertEquals(SettingsPageTarget.Blocking, settingsPageTarget("BLOCKING", "repeat_callers"))
+        assertEquals(SettingsPageTarget.Blocking, settingsPageTarget("BLOCKING", null))
         // An unknown page name (an old link) opens Appearance.
         assertEquals(SettingsPageTarget.Category(SettingsCategory.APPEARANCE, null), settingsPageTarget("GONE", null))
     }
@@ -107,6 +114,7 @@ class HubAndRemindersRoutesTest {
             SettingPlace.REMINDERS to sources("RemindersScreen.kt", "CircleSettings.kt"),
             SettingPlace.CALLS_ANSWERING to sources("CallsPages.kt", "AutoAnswerSettings.kt", "RttSettings.kt"),
             SettingPlace.CALLS_DURING to sources("CallsPages.kt", "CallExtrasSettings.kt", "CircleSettings.kt"),
+            SettingPlace.CALLS_KEYPAD to sources("CallsPages.kt"),
             SettingPlace.CALLS_SIMS to sources("CallsPages.kt"),
             SettingPlace.CALLS_SITUATIONS to sources("CallsPages.kt"),
         )

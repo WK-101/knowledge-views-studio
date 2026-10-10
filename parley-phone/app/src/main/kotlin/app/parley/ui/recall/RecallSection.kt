@@ -6,8 +6,12 @@ import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -191,7 +195,6 @@ private fun groupLabel(s: RecallSource): Int = when (s) {
  * One result: its title and line with the matched words in bold, and a tap that opens where it lives. Press and hold
  * adds something to talk about with whoever it is about.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> Unit) {
     val context = LocalContext.current
@@ -206,7 +209,7 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
     val line = supporting(context, vm, hit)
     val restore = restoreAction(vm, hit, open, context, scope, activity)
     val openLabel = stringResource(R.string.recall_open_hint)
-    // Press and hold: something to talk about with whoever the result is about.
+    // Its ⋮: something to talk about with whoever the result is about (a visible menu, not a hidden long-press).
     val res = LocalResources.current
     var adding by remember { mutableStateOf(false) }
     if (adding) {
@@ -223,23 +226,32 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
             onDismiss = { adding = false },
         )
     }
-    val addLabel = stringResource(R.string.recall_add_agenda)
     ParleyListItem(
-        modifier = when {
-            offersAgenda(hit) -> Modifier.combinedClickable(
-                onClickLabel = openLabel.takeIf { target != null },
-                onClick = { target?.let(open) },
-                onLongClickLabel = addLabel,
-                onLongClick = { adding = true },
-            )
-            target != null -> Modifier.clickable(onClickLabel = openLabel) { open(target) }
-            else -> Modifier
-        },
+        modifier = if (target != null) Modifier.clickable(onClickLabel = openLabel) { open(target) } else Modifier,
         leadingContent = { Leading(hit) },
         headlineContent = { RecallTitle(title, hit.fromNetwork) },
         supportingContent = line?.let { l -> { Text(l, maxLines = if (hit.source in LONG_LINES) 3 else 2, overflow = TextOverflow.Ellipsis) } },
-        trailingContent = restore?.let { r -> { TextButton(r) { Text(stringResource(R.string.number_memory_restore)) } } },
+        trailingContent = when {
+            restore != null -> ({ TextButton(restore) { Text(stringResource(R.string.number_memory_restore)) } })
+            offersAgenda(hit) -> ({ RecallRowMenu(hit.title) { adding = true } })
+            else -> null
+        },
     )
+}
+
+/** A result's ⋮, where it can take something to talk about. */
+@Composable
+private fun RecallRowMenu(title: String, onAddAgenda: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, title)) }
+        DropdownMenu(menu, { menu = false }) {
+            DropdownMenuItem(
+                { Text(stringResource(R.string.recall_add_agenda)) }, leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
+                onClick = { menu = false; onAddAgenda() },
+            )
+        }
+    }
 }
 
 /** A result's title; a name the network sent (not one you saved) says so. */

@@ -122,6 +122,7 @@ class CapabilityRoutesTest {
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
             "$UI.people.PeopleRoutes.Archived" to "Contacts › ⋮ › Archived (archived contacts are out of the lists by design)",
+            "$UI.people.PeopleRoutes.ArchivedContact" to "One archived contact's read-only page, from Archived or Contacts search",
             "$UI.people.PeopleRoutes.Diagnostics" to "Settings › About",
             "$UI.people.PeopleRoutes.EditRaw" to "one account's copy of a contact",
             "$UI.people.PeopleRoutes.Label" to "a label's page",

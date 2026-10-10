@@ -150,8 +150,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 val org = async { c.contacts.organization(it.contactId) }
                 val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
                 val nativeName = async { catching { c.contacts.nativeNameOf(it.contactId) }.getOrNull() }
-                // The last note and open promises; the call screen decides whether the lock screen may show them.
-                val memory = async { it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() } }
+                // The last note and open promises; the call screen decides whether the lock screen may show them, by
+                // "Caller on the lock screen" ("Name and notes"), the one rule for notes there.
+                val notesOnLock = c.privacy.now().lockScreen.showsNotes
+                val memory = async { it.lookupKey?.let { k -> catching { memoryFor(k, it.contactId, number, notesOnLock) }.getOrNull() } }
                 val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
                 val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }

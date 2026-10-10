@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.InputChip
@@ -145,7 +145,7 @@ internal fun NativeNameRow(name: NativeName, locked: Boolean, focus: FocusReques
     val suggested = remember(name.full, name.given, name.family) { Scripts.suggestLanguage(name.shown) }
     val words = KeyboardCapitalization.Words
     FormRow(
-        Icons.Rounded.Translate, stringResource(R.string.edit_native_name), Modifier.padding(top = FormTokens.groupGap),
+        Icons.Rounded.Abc, stringResource(R.string.edit_native_name), Modifier.padding(top = FormTokens.groupGap),
         end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_native_name), onRemove) } } else null,
     ) {
         EditorField(
@@ -195,12 +195,13 @@ private fun NativeNameChips(suggested: String?, offerParts: Boolean, onLanguage:
 /**
  * Under the name, when it helps: "Add an English spelling" for a name typed in another script (the typed name becomes
  * the name in their language, and the main name its Latin spelling, ready to edit), or "Add name in their language"
- * when they have a language. Nothing otherwise: the "Add" chips still offer the field.
+ * when they have a language or the name's details are open ([detailsOpen]): it belongs with the name, so it isn't one
+ * of the "Add" chips.
  */
 @Composable
-internal fun NativeNameOffer(composedName: String, hasLanguages: Boolean, onSpell: () -> Unit, onAdd: () -> Unit) {
+internal fun NativeNameOffer(composedName: String, hasLanguages: Boolean, detailsOpen: Boolean, onSpell: () -> Unit, onAdd: () -> Unit) {
     val nonLatin = remember(composedName) { Scripts.isNonLatin(composedName) }
-    if (!nonLatin && !hasLanguages) return
+    if (!nonLatin && !hasLanguages && !detailsOpen) return
     Box(Modifier.padding(start = FormTokens.gutter - 12.dp, top = 4.dp)) {
         if (nonLatin) {
             TextButton(onSpell, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.edit_english_spelling)) }

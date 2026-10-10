@@ -5,23 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
-import app.parley.ui.ParleyShapes
 import app.parley.ui.temporary.timeLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.ux.Tips
 import app.parley.ui.common.CoachMark
@@ -40,6 +30,8 @@ import app.parley.common.people.VariantChip
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.Spacing
 import app.parley.ui.common.Format
+import app.parley.ui.ParleyTag
+import app.parley.ui.TagTone
 
 /**
  * The header's status chips, each one short line: "Private" and "Temporary · 5 days left". The long form ("hidden from
@@ -80,25 +72,10 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
     }
 }
 
-/** One compact tonal chip: icon and one line of text, 32 dp tall inside a 48 dp target. */
+/** One variant's tag: icon and one line of text, 32 dp tall inside a 48 dp target (the shared [ParleyTag]). */
 @Composable
 private fun VariantChipView(icon: ImageVector, text: String, description: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = ParleyShapes.pill,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = Modifier.minimumInteractiveComponentSize().semantics { contentDescription = description },
-    ) {
-        Row(
-            Modifier.heightIn(min = 32.dp).padding(start = Spacing.s, end = Spacing.m),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(icon, null, Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
+    ParleyTag(text, tone = TagTone.INFO, icon = icon, description = description, onClick = onClick)
 }
 
 /**

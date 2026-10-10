@@ -96,3 +96,44 @@ object ContactCapabilities {
 
     fun has(storage: ContactStorage, capability: ContactCapability): Boolean = capability in of(storage)
 }
+
+/**
+ * "Kept as" on a contact's page: one control for the three ways a contact can be kept (docs/CONTACT_MODEL.md,
+ * "Kept as"). They answer different questions (who can see it, whether it is in the lists), so they stay three
+ * variants; only the control is one. How long it stays (temporary) is its own row.
+ */
+enum class KeptAs {
+    /** In the address book, where other apps can see it. */
+    VISIBLE,
+
+    /** Only in Parley, sealed and hidden from other apps. */
+    PRIVATE,
+
+    /** Out of the lists and other apps, still named on calls; a private contact archived stays private inside. */
+    ARCHIVED;
+
+    /** What choosing [to] does from here; null when it is where it is already, or can't be reached in one step. */
+    fun stepTo(to: KeptAs): KeptAsStep? = when {
+        to == this -> null
+        to == VISIBLE && this == PRIVATE -> KeptAsStep.MAKE_VISIBLE
+        to == PRIVATE && this == VISIBLE -> KeptAsStep.MAKE_PRIVATE
+        to == ARCHIVED -> KeptAsStep.ARCHIVE
+        // Only a private contact has a page while archived: Unarchive brings it back among the private contacts.
+        to == PRIVATE && this == ARCHIVED -> KeptAsStep.UNARCHIVE
+        else -> null
+    }
+
+    /** The choices offered from here, each with whether it can be picked now (Visible waits for Unarchive). */
+    fun choices(): List<Pair<KeptAs, Boolean>> = entries.map { it to (it == this || stepTo(it) != null) }
+
+    companion object {
+        fun of(isPrivate: Boolean, archived: Boolean): KeptAs = when {
+            archived -> ARCHIVED
+            isPrivate -> PRIVATE
+            else -> VISIBLE
+        }
+    }
+}
+
+/** The change a "Kept as" choice asks for; each asks first, as it always did from the menu. */
+enum class KeptAsStep { MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, UNARCHIVE }

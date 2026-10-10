@@ -282,7 +282,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                   },
               ) {
                 RecentRow(
-                    g, vm.countryIso, simLabels.takeIf { settings.showSimLabels }.orEmpty(),
+                    // The SIM shows whenever two are active (there was a setting for it; it only ever mattered then).
+                    g, vm.countryIso, simLabels,
                     // One rule for lists: a long-press selects; the call's actions are the selection bar's ⋮.
                     onLongClick = { toggleSelected(g) },
                     badge = badgeFor(g),

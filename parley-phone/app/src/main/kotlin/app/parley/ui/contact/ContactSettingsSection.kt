@@ -9,7 +9,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
@@ -156,16 +155,18 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
     blended { ProvenanceRow(ctx.vm, ctx.contactId, d, ctx.open) }
 }
 
-/** The variants, converted both ways from here (and from ⋮): private ⇄ visible, temporary ⇄ permanent; then the page's own settings. */
+/**
+ * The variants, converted from here: "Kept as" (Visible · Private · Archived, one row for the three), temporary ⇄
+ * permanent; then the page's own settings.
+ */
 private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
-    val isPrivate = ctx.isPrivate
     item {
         val resources = LocalResources.current
+        val kept = keptAs(ctx)
         GroupDataRow(
-            if (isPrivate) Icons.Rounded.LockOpen else Icons.Rounded.Lock, true,
-            resources.getString(if (isPrivate) R.string.contact_make_visible else R.string.detail_move_vault),
-            resources.getString(if (isPrivate) R.string.contact_make_visible_summary else R.string.contact_make_private_summary),
-            onClick = { ctx.show(if (isPrivate) ContactDialog.ConfirmMakeVisible else ContactDialog.ConfirmMakePrivate) },
+            keptAsIcon(kept), true, resources.getString(R.string.kept_as_title),
+            resources.getString(R.string.kept_as_row_sub, keptAsName(resources, kept)),
+            onClick = { ctx.show(ContactDialog.KeptAs) },
         )
     }
     val temp = ctx.ui.temporary

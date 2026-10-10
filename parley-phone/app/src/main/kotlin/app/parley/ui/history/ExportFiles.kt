@@ -54,15 +54,24 @@ object ExportFiles {
         CallExport.rows(calls, names, { id -> id?.let { sims[it] } }, notes, PhoneEnv.countryIso(context))
     }
 
-    /** Writes [rows] in [format] and returns the file (older exports are removed first). */
-    suspend fun write(context: Context, rows: List<ExportRow>, subject: String?, format: ExportFormat): File = withContext(Dispatchers.IO) {
+    /**
+     * Writes [rows] in [format] and returns the file (older exports are removed first). [excelBom]: a CSV starts with a
+     * byte-order mark so Excel reads accents right (the export sheet's tick box; null: the last choice, on by default).
+     */
+    suspend fun write(
+        context: Context,
+        rows: List<ExportRow>,
+        subject: String?,
+        format: ExportFormat,
+        excelBom: Boolean? = null,
+    ): File = withContext(Dispatchers.IO) {
         cleanup(context)
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         val d = dir(context).apply { mkdirs() }
         val file = File(d, CallExport.fileName(subject, now, zone, format))
         when (format) {
-            ExportFormat.CSV -> file.writeText(CallExport.csv(rows, zone, bom = context.container.history.prefs.current().csvBom), Charsets.UTF_8)
+            ExportFormat.CSV -> file.writeText(CallExport.csv(rows, zone, bom = excelBom ?: context.container.history.prefs.current().csvBom), Charsets.UTF_8)
             ExportFormat.JSON -> file.writeText(CallExport.json(rows, zone), Charsets.UTF_8)
             ExportFormat.ICS -> file.writeText(CallExport.ics(rows, now), Charsets.UTF_8)
             ExportFormat.PDF -> {

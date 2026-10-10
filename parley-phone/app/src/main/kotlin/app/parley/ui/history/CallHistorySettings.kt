@@ -10,7 +10,6 @@ import app.parley.ui.SegmentedGroupScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,8 +38,8 @@ import app.parley.ui.ConfirmDialog
 
 /**
  * Settings › Recents & history: "Keep full call history" with its switch and how many calls the copy holds. The
- * former "Call history" sub-screen is folded into that page: this row, [keptForeverRow] and [csvBomRow]; deleted
- * calls are restored from History & undo.
+ * former "Call history" sub-screen is folded into that page: this row and [keptForeverRow]; deleted calls are restored
+ * from History & undo. "Excel-friendly CSV" is a tick box of the export sheet ([ExportSheet]).
  */
 @Composable
 fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
@@ -105,15 +104,6 @@ private fun KeptForever(vm: AppViewModel) {
             )
         }
     }
-}
-
-/** "Excel-friendly CSV" for call-history exports. */
-fun SegmentedGroupScope.csvBomRow(vm: AppViewModel) = item("csv_bom") {
-    val scope = rememberCoroutineScope()
-    val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
-    SwitchRow(
-        settingTitle("csv_bom"), settingSummary("csv_bom"), prefs.csvBom, Icons.Rounded.TableChart,
-    ) { v -> scope.launch { vm.c.history.prefs.setCsvBom(v) } }
 }
 
 /** The archive explanation and where exports start, under the page's call-history groups. */

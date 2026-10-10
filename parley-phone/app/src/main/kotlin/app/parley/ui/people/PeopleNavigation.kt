@@ -47,6 +47,9 @@ object PeopleRoutes {
     /** Contacts › ⋮ › Archived: contacts out of the lists and other apps, with Unarchive. */
     @Serializable data object Archived : Destination
 
+    /** One archived contact's read-only page ([id]: the archive's id), with Unarchive. */
+    @Serializable data class ArchivedContact(val id: Long) : Destination
+
     fun label(title: String): Destination = Label(title)
     fun editRaw(contactId: Long, rawId: Long): Destination = EditRaw(contactId, rawId)
 }
@@ -74,6 +77,9 @@ fun NavGraphBuilder.peopleGraph(nav: NavController) {
     composable<PeopleRoutes.SharedWith> { SharedWithScreen(appVm(), back) }
     composable<PeopleRoutes.NewNumber> { NewNumberScreen(appVm(), back) }
     composable<PeopleRoutes.Archived> { app.parley.ui.people.archive.ArchivedScreen(appVm(), back, open) }
+    composable<PeopleRoutes.ArchivedContact> {
+        app.parley.ui.people.archive.ArchivedContactScreen(appVm(), it.toRoute<PeopleRoutes.ArchivedContact>().id, back, open)
+    }
     composable<PeopleRoutes.MeEdit> {
         ContactEditScreen(appVm(), contactId = null, prefillName = "", prefillPhone = "", prefillEmail = "", addPhone = "", meCard = true, done = { back() })
     }

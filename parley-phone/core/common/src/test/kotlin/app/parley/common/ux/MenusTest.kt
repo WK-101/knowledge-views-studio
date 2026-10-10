@@ -16,9 +16,11 @@ class MenusTest {
     private fun combos(n: Int): List<List<Boolean>> = (0 until (1 shl n)).map { m -> (0 until n).map { m and (1 shl it) != 0 } }
 
     /** Every combination of facts: the top of each menu stays at seven items or fewer, whatever applies. */
+    private fun contactFacts(b: List<Boolean>) = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10])
+
     @Test fun the_contact_page_menu_has_at_most_seven_items() {
-        combos(12).forEach { b ->
-            val f = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])
+        combos(11).forEach { b ->
+            val f = contactFacts(b)
             val top = ContactMenu.build(f)
             assertTrue("$f: ${top.size} items", top.size <= MENU_LIMIT)
             // Nothing is lost in the regrouping: every action that applies is somewhere.
@@ -38,9 +40,7 @@ class MenusTest {
 
     /** Every action of every menu is reachable with some facts: none was lost when the menus were regrouped. */
     @Test fun no_action_is_lost() {
-        val contact = combos(12).flatMap { b ->
-            actions(ContactMenu.build(ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])))
-        }
+        val contact = combos(11).flatMap { b -> actions(ContactMenu.build(contactFacts(b))) }
         assertEquals(ContactMenu.Action.entries.toSet(), contact.toSet())
         val selection = combos(3).flatMap { b -> actions(SelectionMenu.build(SelectionMenu.Facts(b[0], b[1], b[2]))) }
         assertEquals(SelectionMenu.Action.entries.toSet(), selection.toSet())
@@ -57,28 +57,21 @@ class MenusTest {
         assertEquals(MenuGroup.SHARE, (top[1] as MenuEntry.Group).group)
         assertEquals(MenuEntry.Action(ContactMenu.Action.BLOCK_NUMBERS), top[2])
         assertEquals(MenuEntry.Action(ContactMenu.Action.DELETE), top.last())
-        assertEquals(listOf(MenuGroup.SHARE, MenuGroup.PRIVACY, MenuGroup.MORE), top.filterIsInstance<MenuEntry.Group<*>>().map { it.group })
-        // 17 actions (with Remind me to call, Keep a case file and Archive) in 7 entries; Version history is under More….
-        assertEquals(7, top.size)
-        assertEquals(17, actions(top).size)
-        assertEquals(MenuEntry.Action(ContactMenu.Action.CASE_FILE), top[4])
-        // With a case file on the page, its card opens it: 16 actions in 6 entries.
-        assertEquals(6, ContactMenu.build(ContactMenu.Facts(linked = true, caseShown = true)).size)
+        // No Privacy… on a contact's page: its "Kept as" row says Visible, Private or Archived (and changes it).
+        assertEquals(listOf(MenuGroup.SHARE, MenuGroup.MORE), top.filterIsInstance<MenuEntry.Group<*>>().map { it.group })
+        assertEquals(5, top.size)
         val more = top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.MORE }
         assertTrue(ContactMenu.Action.VERSION_HISTORY in more.actions)
+        // A person's case file waits under More…; a company's is at the top.
+        assertTrue(ContactMenu.Action.CASE_FILE in more.actions)
+        val company = ContactMenu.build(ContactMenu.Facts(linked = true, isCompany = true))
+        assertEquals(MenuEntry.Action(ContactMenu.Action.CASE_FILE), company[3])
+        val companyMore = company.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.MORE }
+        assertTrue(ContactMenu.Action.CASE_FILE !in companyMore.actions)
+        // With a case file on the page, its card opens it.
+        assertTrue(ContactMenu.Action.CASE_FILE !in actions(ContactMenu.build(ContactMenu.Facts(caseShown = true, isCompany = true))))
         // A blocked number: Unblock in Block's place.
         assertEquals(MenuEntry.Action(ContactMenu.Action.UNBLOCK_NUMBERS), ContactMenu.build(ContactMenu.Facts(blocked = true))[2])
-        // Archive is under Privacy….
-        assertTrue(ContactMenu.Action.ARCHIVE in top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().single { it.group == MenuGroup.PRIVACY }.actions)
-        // A private contact is archived inside the vault (it stays private); an archived one isn't offered it again.
-        assertTrue(ContactMenu.Action.ARCHIVE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
-        assertTrue(ContactMenu.Action.ARCHIVE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
-        // Archiving dropped its expiry and it is kept until Unarchive: no "Delete automatically" for it either.
-        assertTrue(ContactMenu.Action.DELETE_AUTOMATICALLY !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
-        assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true, archived = true))))
-        // A private contact offers Make visible instead of Make private.
-        assertTrue(ContactMenu.Action.MAKE_VISIBLE in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
-        assertTrue(ContactMenu.Action.MAKE_PRIVATE !in actions(ContactMenu.build(ContactMenu.Facts(isPrivate = true))))
     }
 
     @Test fun the_selection_menu_has_at_most_seven_items() {
@@ -90,7 +83,7 @@ class MenusTest {
             assertEquals(f.hasPrivate, SelectionMenu.Action.MAKE_VISIBLE in actions(top))
             assertEquals(f.hasDevice, SelectionMenu.Action.MAKE_PRIVATE in actions(top))
         }
-        // Everything at once: 9 actions in 6 entries (it was 10 entries with "Introduce myself…", now a Tools row).
+        // Everything at once: 11 actions in 6 entries (it was 10 entries with "Introduce myself…", now a Tools row).
         // Edit… (bulk edit, with Add to label inside it) comes first.
         val all = SelectionMenu.build(SelectionMenu.Facts(hasDevice = true, hasPrivate = true, canMerge = true))
         assertEquals(6, all.size)
@@ -133,6 +126,12 @@ class MenusTest {
             assertTrue(contact.none { it == ContactMenu.Action.BLOCK_NUMBERS || it == ContactMenu.Action.UNBLOCK_NUMBERS })
         }
         assertTrue(RecentMenu.Action.REMIND_TO_CALL in actions(RecentMenu.build(RecentMenu.Facts(hasNumber = true, emergency = true))))
+    }
+
+    /** One Share for a selection: the vCard to another app is in Share… with the clipboard and the file. */
+    @Test fun a_selection_has_one_share() {
+        val share = SelectionMenu.build(SelectionMenu.Facts()).filterIsInstance<MenuEntry.Group<SelectionMenu.Action>>().single { it.group == MenuGroup.SHARE }
+        assertEquals(listOf(SelectionMenu.Action.SHARE_FILE, SelectionMenu.Action.COPY_AS_TEXT, SelectionMenu.Action.EXPORT_VCF), share.actions)
     }
 
     @Test fun a_group_of_one_is_the_action_itself() {

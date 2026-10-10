@@ -3060,3 +3060,56 @@ Automated: `NumberOwnersTest` (a failed lookup reads as "maybe saved", never as 
 3. **Shield after a restart.** On the phone above, restart and open the label before unlocking once (or right after): the other phone still doesn't see the "Don't share" number, and numbers you withdrew stay withdrawn.
 4. **Time machine on a full disk.** Fill the phone's storage to within a few MB, edit a contact and open its Version history: the earlier versions show and nothing stops. Free some space and open it again: the edit is now the newest version, and restoring an earlier one works.
 5. **Delete all data during a duress unlock.** Unlock with the duress PIN, Settings › Privacy › Delete all Parley data: no "Back up first" offer and nothing about private contacts, as before.
+
+## 47. Finished and findable (6.4)
+
+### 47.12 Label page: people first
+
+1. Open an empty label (Contacts › Labels chip › a label): it says "Nobody has this label yet. Add the people it's for." with **Add people**; no top-bar ringtone icon.
+2. **Add people**: search, tick two contacts and a private one, **Add 3 people**: they join, the snackbar's Undo takes them out again. On a shared label the private contact is refused and the snackbar says why.
+3. With members, the page shows the count, Add people, then the members; **Settings for this label** at the end opens ringtone (one entry), caller tune, SIM and rhythm, safe word, sharing and "Give it an end". TalkBack reads the fold as a heading, collapsed or expanded.
+4. Give the label an end: the chapter row moves above the members (and its end card stays there once due). Long list: the A–Z rail still jumps to the right member.
+
+### 47.13 Contact menu and Kept as
+
+1. A person's ⋮: Remind me, Share…, Block, More…, Delete; no Privacy…. Keep a case file is under More…. A company (only a company name): Keep a case file is at the top.
+2. Settings for this contact › **Kept as** (Visible): choose Private → the usual "Make private?" question; on a private contact choose Visible → "Make visible"; choose Archived → "Archive Ana?".
+3. A private contact archived: its Kept as row says Archived; Visible is greyed ("Unarchive first, then make it visible"); Private unarchives it with a toast.
+4. Delete on a contact: the question offers **Archive instead** (Out of your lists, and Parley keeps naming their calls), which opens the Archive question.
+5. Contacts › ⋮ › Archived: tapping a device contact opens its read-only page (Archived tag, date, numbers, e-mails…, **Unarchive**); a number opens its calls; Unarchive closes the page and the contact is back in the list. Tapping an archived private contact opens its own page.
+6. Health check › Not called in over 2 years: **Archive them** asks "Archive n contacts?" and offers Undo. Contacts selection ⋮ › Share… holds Send, Copy as text and Export .vcf; the bar has no separate Share.
+
+### 47.14 Contacts header and icons
+
+1. App lock off, private contacts unlocked: one padlock (Lock private contacts). App lock on and private contacts locked: one padlock (Lock now). Both: one padlock opening Lock private contacts · Lock Parley. No Labels icon in the header (the chip stays).
+2. Icons: Report in Recents' Why it rang… sheet and the blocked log uses the report icon; a chapter uses an hourglass; Share privately (encrypted QR) a key; Name in their language "Abc". TalkBack labels unchanged.
+
+### 47.15 What decides (Blocking & screening)
+
+1. Blocking & screening › Advanced › **What decides**: four rows (Your rules, Spam lists, Sales lines (your calls), Family spam shield) with Off or their state; the collapsed header lists the ones that are on.
+2. Turn a shared label's shield on (Warn): the row says "On in Family (Warn)" and opens that label's shield page; Spam lists opens the lists.
+3. With "Only people I know ring" and Off hours both off, Expecting a call's chips and Let repeat callers through are greyed with "Matters once unknown callers are silenced"; turning either on enables them.
+4. **From your calls and notes**: Sales lines (Off · Tag quietly · Tag and silence) and Expecting a call from your notes work as they did on Settings' page.
+
+### 47.16 Small fixes
+
+1. Font size 200 %: Settings' root summaries wrap onto two lines instead of an ellipsis.
+2. Swipe-delete a private contact in Contacts (swipe actions on): the snackbar offers Undo and it comes back, with its details.
+3. Circle ⋮ › Circle settings: Settings › Contacts opens on the Circle group with "Log messages you start" highlighted (not folded).
+4. Editor of a new contact: the "Add a field" chips come under Ways to reach them · About them · When they call; no "Name in their language" chip. Open the name's details (chevron): "Add name in their language" is offered under the name.
+5. Contacts search for an archived contact's name or number: "Also archived: Ana" with **Show** (her page); two matches say "and 1 more" and Show opens Archived. Archived private contacts appear only while private contacts may show.
+6. Search everything results that can take something to talk about have a ⋮ with "Add something to talk about"; long-press no longer does it.
+7. Contacts chips: a divider separates the filters from Open label, Labels, Who's in… and Temporary. The Network, Usual, Private, Temporary and Archived markers share one tag look in light, dark and AMOLED.
+
+### 47.17 Settings tree
+
+1. Settings root: Tools, Appearance, Layout & gestures, Calls, Blocking & spam, Contacts, Recents & history, Privacy & security, Backup & sync, Reminders, Notifications & device, About (no Keypad, no Messaging). Blocking & spam opens Blocking & screening directly.
+2. Calls: Answering (with Quick reply messages), During calls (Advanced has Reminders & limits), **Keypad & dialling** (tones, vibration; Advanced: letters, speed dial, USSD, phone menus), SIMs & carrier, Situations (Situations, Rescue call, Helpers, the car only).
+3. Recents & history: one **Recents view** row opening the same dialog as Recents ⋮ › Recents view…; Advanced has People card (Off · On · On, with who usually reaches out first). Recents ⋮ › Export…: the "Excel-friendly CSV" tick box, remembered; with two SIMs active Recents shows the SIM.
+4. About › Help & tips › Reset tips works. Search for "keypad tones", "quick replies", "repeat callers", "csv", "first" finds the new places (or nothing for the removed ones) and opens them.
+5. Notes on the lock screen: with the older switch on and Caller on the lock screen = Name before the update, after the update the setting reads "Name and notes"; with Initials it stays Initials and notes no longer show on the lock screen.
+
+### 47.18 Split screens (no behaviour change)
+
+1. Contact editor: new, edit, edit a copy, private, My card, paste details, a duplicate warning, every Add chip, move rows up and down, the profile, country and map-link pickers, discard and "changed elsewhere" questions, rotate mid-edit: all as in 6.3.
+2. Blocking & screening: presets with the week, the status card, the snooze chip and Stop, the emergency countdown, every section opening and closing (state kept on rotation), rules, the system list, likely spam suggestions and the log: all as in 6.3.

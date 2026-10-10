@@ -3,6 +3,7 @@ package app.parley.ui.health
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
@@ -50,6 +51,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.people.archive.ArchiveSelectionDialog
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -106,6 +108,9 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         )
     }
 
+    // Archive instead: out of the lists, still named on calls (with Undo).
+    val archiveStale = rememberArchiveStale(vm) { round++ }
+
     // "Back up first?" before deleting many contacts at once.
     val backupFirst = rememberBackupFirst(vm)
     // Scroll-linked top-bar tint.
@@ -147,18 +152,22 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         HealthKind.SHARED_NUMBER -> TextButton(
                             { open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp),
                         ) { Text(stringResource(R.string.health_review_duplicates)) }
-                        HealthKind.STALE -> TextButton({
-                            val phoneLabel = res.getString(R.string.health_phone)
-                            // Never with one tap: list who and where first.
-                            scope.launch {
-                                confirmStale = withContext(Dispatchers.IO) {
-                                    group.map { i ->
-                                        val where = vm.c.contacts.details(i.contactId)?.rawContacts.orEmpty().map { it.account.displayLabel }.distinct()
-                                        Triple(i, i.name, where.joinToString(", ").ifEmpty { phoneLabel })
+                        HealthKind.STALE -> StaleActions(
+                            onAutoDelete = {
+                                val phoneLabel = res.getString(R.string.health_phone)
+                                // Never with one tap: list who and where first.
+                                scope.launch {
+                                    confirmStale = withContext(Dispatchers.IO) {
+                                        group.map { i ->
+                                            val where = vm.c.contacts.details(i.contactId)?.rawContacts.orEmpty().map { it.account.displayLabel }.distinct()
+                                            Triple(i, i.name, where.joinToString(", ").ifEmpty { phoneLabel })
+                                        }
                                     }
                                 }
-                            }
-                        }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_auto_delete)) }
+                            },
+                            // Or archive them: their calls stay named, and nothing is deleted.
+                            onArchive = { archiveStale(group.map { it.contactId }) },
+                        )
                         HealthKind.EMPTY -> TextButton({
                             val ids = group.map { it.contactId }
                             backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) { vm.deleteContacts(ids); round++ }
@@ -200,3 +209,20 @@ private fun rememberDeadNumbers(vm: AppViewModel, contacts: List<ContactSummary>
 }
 
 private fun nothingFound(issues: List<HealthIssue>, dead: List<NumberSignals.DeadNumber>) = issues.isEmpty() && dead.isEmpty()
+
+/** The "not called in over 2 years" group's two ways: delete in 30 days (after a list), or archive them. */
+@Composable
+private fun StaleActions(onAutoDelete: () -> Unit, onArchive: () -> Unit) {
+    Row(Modifier.padding(horizontal = 8.dp)) {
+        TextButton(onAutoDelete) { Text(stringResource(R.string.health_auto_delete)) }
+        TextButton(onArchive) { Text(stringResource(R.string.health_archive_all)) }
+    }
+}
+
+/** "Archive them" for the stale group: asks first ("Archive 3 contacts?"), then Undo; returns how to ask. */
+@Composable
+private fun rememberArchiveStale(vm: AppViewModel, onArchived: () -> Unit): (List<Long>) -> Unit {
+    var ids by remember { mutableStateOf<List<Long>?>(null) }
+    ids?.let { ArchiveSelectionDialog(vm, it, onDismiss = { ids = null }, onArchived = onArchived) }
+    return { ids = it }
+}

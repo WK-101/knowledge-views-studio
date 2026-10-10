@@ -18,7 +18,6 @@ The Settings list starts with **Tools** (the one hub, the same page as every tab
 | Theme | Theme `theme` · Wallpaper colours `dynamic_color` (Android 12+) |
 | Language | Language `language` |
 | Names | Sort by `sort_names` (First name) · Show names as `name_order` (First name first) |
-| Tips | Reset tips `reset_tips` |
 | Advanced | Pure black dark theme `amoled` · List density `density` · Avatars `avatar_style` · Second line under names `second_line` · Prefer nicknames `prefer_nickname` |
 
 ## Layout & gestures (new, split from Appearance)
@@ -26,16 +25,16 @@ The Settings list starts with **Tools** (the one hub, the same page as every tab
 |---|---|
 | Navigation bar | Navigation bar `nav_tabs` · Open on `start_tab` |
 | — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, helpers `simple_helpers`, set up another phone `simple_share`) |
-| Advanced › Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Show Frequent) · Tapping a call in Recents `recent_tap` · Back to separate tabs |
+| Advanced › Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Show Frequent) · Back to separate tabs (tapping a call in Recents is in Recents view) |
 | Advanced › Taps and swipes | Swipe actions `swipe_actions` |
 
 ## Calls
-Calls is a short list: the default phone app, one row for each of its four pages, and the rows used most. Search opens a page scrolled to the setting (`CallsRoutes.Page`).
+Calls is a short list: the default phone app, one row for each of its five pages, and the rows used most. Search opens a page scrolled to the setting (`CallsRoutes.Page`).
 
 | Group | Settings |
 |---|---|
 | — | Default phone app `default_dialer` · Can't make Parley the default phone app? `default_dialer_help` |
-| — | Answering ↗ · During calls ↗ · SIMs & carrier ↗ · Situations ↗ (the pages below) |
+| — | Answering ↗ · During calls ↗ · Keypad & dialling ↗ · SIMs & carrier ↗ · Situations ↗ (the pages below) |
 | Missed calls and voicemail | Reminders `reminders` ↗ (with Remind me of missed calls `missed_realert`) · Voicemail `voicemail` |
 | Before you call | Confirm before calling `confirm_call` · Ask before pocket calls `pocket_guard` |
 
@@ -43,6 +42,7 @@ Calls is a short list: the default phone app, one row for each of its four pages
 | Group | Settings |
 |---|---|
 | Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Ringing `flip_to_silence` (one row: Ring style Normal · Increasing · Vibrate first, then ring, Normal by default; and Flip to silence, off, turning the phone face down while it rings stops the sound, never declines) · Show contact photo on the call screen `caller_photo` · Remember names from the network `network_names` |
+| — | Quick reply messages `quick_replies` (offered when you decline, and first by a Situation that replies; with the "Text me your name" reply for numbers not in your contacts, its own field; empty turns it off. It was the Messaging category's) |
 | Advanced | Call screen background `call_background` |
 | Advanced › Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Advanced › Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
@@ -52,7 +52,16 @@ Calls is a short list: the default phone app, one row for each of its four pages
 |---|---|
 | Speaker and screen | Start calls on speaker `speaker_default` (Never, the default · Always · Numbers not in your contacts; only instead of the earpiece, never for emergency calls) · Turn the screen off at your ear `proximity_sensor` (Off · During calls, the default · Once answered) |
 | Advanced › Vibration and power button | Vibrate during calls `call_haptics` (Off · Ends, swaps and merges · Also when they answer, the default; one choice for what were "Vibrate on call events" and "Vibrate when a call connects", stored as the same two values) · Power button ends call `power_button_ends_call` |
-| Advanced › Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
+| Advanced › Remember what matters | Anything to remember? after calls `memory_prompt` · Peek before calling `pre_call_peek` (notes on the lock screen are Privacy › Caller on the lock screen's "Name and notes") |
+| Advanced | Reminders & limits `call_time` ↗ (in it: Talk-time reminders `ct_reminders`, Call time limits `ct_limits`, Supervised mode `ct_supervised`; it was on Situations) |
+
+### Calls › Keypad & dialling (`SettingPlace.CALLS_KEYPAD`)
+The Keypad category (too small for a root row) and Phone menus. Old links to the Keypad page open here.
+
+| Group | Settings |
+|---|---|
+| Feedback | Keypad tones `keypad_tones` · Keypad vibration `keypad_vibration` |
+| Advanced | Keypad letters `keypad_letters` · Speed dial `speed_dial` ↗ · USSD replies `ussd` · Phone menus `phone_menus` ↗ (in it: Remember menu keys `menu_memory`) |
 
 ### Calls › SIMs & carrier (`SettingPlace.CALLS_SIMS`)
 | Group | Settings |
@@ -60,14 +69,13 @@ Calls is a short list: the default phone app, one row for each of its four pages
 | — | SIMs and calling abroad `sims` ↗ (plan minutes show only from Tools › Plan minutes per SIM, from search for Plan minutes per SIM `plan_minutes` or Billing increments per SIM `sim_billing`, or once a SIM has a plan; under Abroad: Assisted dialling abroad `assisted_dialling` (on), Suggest a local SIM abroad `local_sim_hint` (on)) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
 
 ### Calls › Situations (`SettingPlace.CALLS_SITUATIONS`)
-The Situations themselves, then screens of their own for particular calls; search opens each screen directly, and the page itself for Situations and Reminders & limits. The Call time category, which held only this row and a second SIMs row, dissolved into this page; old links to it open here.
+The Situations themselves, the rescue call, helpers and the car. Nothing else: phone menus went to Keypad & dialling and call time to During calls (old links to the Call time category open During calls).
 
 | Group | Settings |
 |---|---|
 | Situations | Situations `situations` (Driving, Meeting, Night, Travelling and up to eight of your own, each a page ↗ of its own; none on and none switching itself on until chosen) |
 | Family safety | Helpers `call_helpers` ↗ (up to 3 people; none by default) |
 | On the road | Drive profile ↗ (off until a car is marked; also each Situation's In the car › Your car; search finds it by its words under Situations) |
-| — | Phone menus `phone_menus` ↗ (in it: Remember menu keys `menu_memory`) · Reminders & limits `call_time` ↗ (in it: Talk-time reminders `ct_reminders`, Call time limits `ct_limits`, Supervised mode `ct_supervised`) |
 
 **Show contact photo on the call screen** (`caller_photo`, on by default): off shows the caller's initial on their colour instead of the photo, and no call-screen picture, on the incoming and ongoing screen and in the picture-in-picture window. Each contact (private ones too) can override it in Settings for this contact › Photo on the call screen: *Default*, *Show* or *Hide*.
 
@@ -77,19 +85,17 @@ The Situations themselves, then screens of their own for particular calls; searc
 
 **Call screen background** (`call_background`): *Caller's colour* (the default) tints the top of the call screen with the caller's avatar colour; *Plain* keeps the theme's own background; *Poster* is like *Caller's colour*, but a contact's call-screen picture fills the screen as a poster with the name set large over it, low above the controls (one-column layout only; classic in landscape, two panes, with the keypad open and during call waiting; never over a spam warning or on a masked lock screen). A contact's call-screen picture is set per contact and still shows with *Plain* (remove it from the contact to hide it), and a likely-spam call keeps its red warning wash with either choice. See [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#42-revisions).
 
-## Keypad
-| Group | Settings |
-|---|---|
-| Feedback | Keypad tones `keypad_tones` · Keypad vibration `keypad_vibration` |
-| Advanced | Keypad letters `keypad_letters` · Speed dial `speed_dial` ↗ · USSD replies `ussd` |
-
 ## Blocking & spam
-| Group | Settings |
+The root row opens **Blocking & screening** ↗ itself (`SettingPlace.BLOCKING`): the page that repeated its switches went, and its rows are on the screen. Search opens the screen for any of them, and old links to the page do too.
+
+| On the screen | Settings |
 |---|---|
-| — | Blocking & screening `blocking` ↗ · Let repeat callers through `repeat_callers` · Expecting a call `expecting_call` |
-| Advanced | Sales lines (your calls) `learn_from_calls` (Off · Tag quietly, the default · Tag and silence; one choice for what were "Learn from your calls" and "Silence numbers that look like sales lines", stored as the same two values) · Expecting a call from your notes `expected_hints` (off until accepted) |
-| Advanced › Lists and rules | Spam lists `spam_lists` · Rule templates `templates` · Import & share rules `transfer` (Test a call is in Tools) |
-| On Blocking & screening ↗ | Silence or block hidden numbers `blk_hidden_numbers` · Only people I know ring `blk_non_contacts` · Off hours `blk_off_hours` · More checks `blk_more_checks` · Sounds for screened calls `blk_sounds` · Emergency numbers `blk_emergency` · Blocked call notifications `blk_notifications` · Blocked numbers (system list) `blk_system_list` |
+| Top | Blocking & screening `blocking` · Expecting a call `expecting_call` (greyed, with "Matters once unknown callers are silenced", until Contacts only or Off hours is on) |
+| Advanced › What decides | Your rules · Spam lists · Sales lines (your calls) · Family spam shield, each with its state, read-only (set where each lives) |
+| Advanced › Always let through | Let repeat callers through `repeat_callers` (greyed like Expecting a call) |
+| Advanced › From your calls and notes | Sales lines (your calls) `learn_from_calls` (Off · Tag quietly, the default · Tag and silence) · Expecting a call from your notes `expected_hints` (off until accepted) |
+| Spam lists card, Advanced › Test, import & share | Spam lists `spam_lists` · Rule templates `templates` · Import & share rules `transfer` (Test a call is in Tools) |
+| Advanced | Silence or block hidden numbers `blk_hidden_numbers` · Only people I know ring `blk_non_contacts` · Off hours `blk_off_hours` · More checks `blk_more_checks` · Sounds for screened calls `blk_sounds` · Emergency numbers `blk_emergency` · Blocked call notifications `blk_notifications` · Blocked numbers (system list) `blk_system_list` |
 
 ## Contacts
 | Group | Settings |
@@ -97,22 +103,20 @@ The Situations themselves, then screens of their own for particular calls; searc
 | Contact list | Call and message buttons in the list `row_actions` (off by default) |
 | Organise | Save new contacts to `default_account` · My card `my_details` (it was under Messaging) |
 | Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` (kept here: people look for import and export in a contacts app's settings). Both open **Export contacts** with their format chosen: vCard, Encrypted vCard (passphrase, [ENCRYPTED_VCARD.md](ENCRYPTED_VCARD.md)), Parley/Google/Outlook CSV or notes as text; *Include private contacts* (off; a plain file warns that it isn't encrypted) and *Include your notes* (on) are choices of that export, not stored settings. Import from file recognises an encrypted vCard and asks for its passphrase |
-| Circle: keeping in touch | Keep-in-touch reminders ↗ (Reminders) |
-| Advanced | Add relations to both contacts `mirror_relations` (on by default) · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) · Log messages you start `log_prompts` · Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
+| Circle: keeping in touch | Log messages you start `log_prompts` (Circle ⋮ › Circle settings opens here) · Keep-in-touch reminders ↗ (Reminders) |
+| Advanced | Add relations to both contacts `mirror_relations` (on by default) · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) · Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
 | In Tools ↗ | Labels `labels` · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` (also the add button) · Find & merge duplicates `duplicates` (also Contacts ⋮) · Contact health check `health` · Birthdays & dates `birthdays` · Scan QR code `scan_qr` (also the add button) · Coming from another phone? `coming_from` (also onboarding's last step) |
 
 ## Recents & history
 | Group | Settings |
 |---|---|
 | Call history | Keep Parley's copy of calls `archive` (was "Keep full call history"; with the number of calls kept; "This number never calls you" and "First call from them to you" need it, and only speak for calls since its oldest one and within Trim Android's call log) · Trim Android's call log `retention` (was "Keep call history"; the phone's call log and Parley's copy; private calls are never pruned by it. Forever, 30 or 90 days, 6 months, 1, 3 or 5 years. A new install starts at 5 years for Parley's archive only; the phone's call log is trimmed only once the user picks a limit here, never by a default. An existing user keeps their choice, or Forever when they never chose; a restored backup without a retention means Forever) · Clear call history `clear_history` (deleted calls come back from History & undo › Calls) |
-| Recents | Call list layout `recents_layout` · Recents style `recents_style` (Rich; also Simple, or Cards: each day in a rounded card; every combination stays) · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) · People card in Call insights `people_card` · Who usually reaches out first `first_mover`. Recents ⋮ › Recents view… sets the layout, the style and Tapping a call in Recents in one dialog, with "What do the colours mean?" |
-| Advanced | Numbers kept forever `kept_forever` (while Parley keeps its copy) · Import call history from CSV `import_calls` · Excel-friendly CSV `csv_bom` · Show SIM in call history `sim_labels` |
+| Recents | Recents view (one row, the same dialog as Recents ⋮ › Recents view…: Call list layout `recents_layout`, Recents style `recents_style` and Tapping a call `recent_tap`; every combination stays) · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) |
+| Advanced | Numbers kept forever `kept_forever` (while Parley keeps its copy) · Import call history from CSV `import_calls` · People card `people_card` (Off · On · On, with who usually reaches out first; also the card's own ⋮) |
 
-## Messaging
-| Group | Settings |
-|---|---|
-| — | Quick reply messages `quick_replies` (with the "Text me your name" reply for numbers not in your contacts, its own field; empty turns it off) |
-| Advanced | Forget messaged numbers after `messaged_expiry` (the list itself, with "don't keep a record", is Tools › Messaged numbers) |
+Excel-friendly CSV is a tick box of Recents ⋮ › Export… (it starts as last chosen), and the SIM shows in Recents whenever two SIMs are active: both were settings.
+
+Messaging went: Quick reply messages are on Calls › Answering, and Forget messaged numbers after `messaged_expiry` is beside its list in Tools › Messaged numbers (`SettingPlace.MESSAGED`).
 
 **Situations** (`situations`, Calls › Situations; also the Quick Settings tile "Situation" and a line on the home screen while one is on). One tap sets a moment. Each Situation is a bundle of behaviours Parley already has, each of them "As it is" unless chosen: **Who may ring** (Everyone, Contacts, Favourites or a label: off hours for all day, silenced, never rejected; a label is followed when it's renamed, in Parley or in another app, and if it's deleted Favourites ring instead and the Situation's line says so), **Reply offered first** (put at the top of the quick replies) and **Offer the reply to people silenced** (the off-hours one-tap reply), **Start calls on speaker**, auto-answer **with a headset** and **for chosen people**, the drive profile's three switches (**In the car**, acting only while the car is connected), **Assisted dialling** and **Suggest a local SIM** abroad, and **SIM for calls** (for numbers without a SIM of their own or of their label). The built-ins come with suggestions: Driving says who's calling and answers favourites in the car, with a driving reply first; Meeting lets favourites ring and offers "I'm in a meeting" to people silenced; Night lets favourites ring; Travelling turns on the abroad help with a travelling reply. **Turns on by itself**: a window of time (as off hours' schedule, over midnight too) and/or a connection: *Your car* (a car marked in the drive profile, or car mode), a Bluetooth audio device by the name it gives (no permission needed), or *Any car or Bluetooth audio*. One Situation is on at a time: switching to another puts the first one's changes back first; one turned on by hand stays until turned off by hand; one that came on by itself goes off when its window ends or its device goes, and turning it off by hand (or turning another one on by hand, as the tile does on its way to Off) keeps it off until then. Changing the one on now takes effect at once, and one that came on by itself goes off if its window or device no longer holds. Of two windows at once the one that began last wins (a meeting inside a working day), and a connected device wins over a window. Turning one off puts back exactly what was set before (`parley_situation_state`, written before anything changes, so a process death or a reboot keeps it); a behaviour changed by hand while it was on keeps the change (off hours field by field: a change to its schedule keeps the schedule and the rest comes back). A label rename or delete that Parley follows in off hours is not a change by hand, and never leaves all-day off hours behind. A switch cut short by a process death is finished at the next look. Emergency calls, calls within an hour of one, allow rules ("Always allow"), labels allowed through and repeat callers ring as before: a Situation only sets off hours, which screening checks after them. Situations travel in backups (`parley_situations`, merged with the new phone's: its own wins unless it is a built-in as it came); which one is on, and what it would put back, stay on this phone. A backup made while one is on also holds what was set before it, and a restore puts that in place of the Situation's values (all-day off hours, its switches and speaker), so a new phone never keeps a moment of the old one; if a Situation is on at restore time, it stays on and turning it off puts back the backup's values. Parley looks at the triggers when it starts, while it runs and an audio device comes or goes or car mode changes, before every incoming call is screened and before an outgoing call picks its SIM (waiting at most 0.4 s: a switch under way finishes in the background), from the tile, when the clock is set or the time zone changes, and at the next window edge (one inexact WorkManager job, which survives reboots; windows are wall-clock times in the current time zone, also on the days the clocks change); it uses no location and no new permission.
 
@@ -136,7 +140,7 @@ The Situations themselves, then screens of their own for particular calls; searc
 | Your data | Privacy dashboard `privacy_dashboard` |
 | Advanced | Hide screen content `secure_screen` · Private call history `private_history` · Who can see your contacts `who_can_see` · Private names in other phone apps `private_directory` ↗ (the opt-in contacts Directory, its approved phone apps and log; "Let apps show private names" went with the lookup provider in 5.6) · App permissions (system) `app_permissions` · Delete all Parley data `delete_all_data` (everything Parley keeps on this phone, after an optional backup) |
 
-**Caller on the lock screen** (`lock_screen_caller`, *Name* by default): what the incoming and ongoing call notifications and the call screen show about the caller while the phone is locked. *Name and notes* shows the name with the pinned note for calls, "Who is this?" and the last call (what *Name* showed before 5.4). *Name* shows the name, but the note, "Who is this?" and the last call wait until you unlock. *Initials* shows only the initials of a saved name ("AL"), with no photo, number, label, pronouns, notes or subject, and none of the lines that could name them: the rule or label a call rang through by, a limit named after them, the time where they are. An unknown number still shows its number, also when the network sends a name with it. *Just "Incoming call"* shows nothing about who it is ("Ongoing call" once answered). Conference participants are masked one by one, and "Speak caller's name" stays quiet while the name is hidden. A screening warning ("Likely spam") and "This number never calls you" still show: they are about safety, not about who it is. Once you unlock, everything shows again. With Initials or Just "Incoming call" the notifications are also marked private, so a lock screen set to hide sensitive content shows the same short version. Emergency calls always show in full. Private contacts and discreet mode can only hide more: this setting never brings back a name they hide.
+**Caller on the lock screen** (`lock_screen_caller`, *Name* by default; the one rule for notes there since 6.4, when the older "Notes on the lock screen" switch folded into it): what the incoming and ongoing call notifications and the call screen show about the caller while the phone is locked. *Name and notes* shows the name with the pinned note for calls, "Who is this?" and the last call (what *Name* showed before 5.4). *Name* shows the name, but the note, "Who is this?" and the last call wait until you unlock. *Initials* shows only the initials of a saved name ("AL"), with no photo, number, label, pronouns, notes or subject, and none of the lines that could name them: the rule or label a call rang through by, a limit named after them, the time where they are. An unknown number still shows its number, also when the network sends a name with it. *Just "Incoming call"* shows nothing about who it is ("Ongoing call" once answered). Conference participants are masked one by one, and "Speak caller's name" stays quiet while the name is hidden. A screening warning ("Likely spam") and "This number never calls you" still show: they are about safety, not about who it is. Once you unlock, everything shows again. With Initials or Just "Incoming call" the notifications are also marked private, so a lock screen set to hide sensitive content shows the same short version. Emergency calls always show in full. Private contacts and discreet mode can only hide more: this setting never brings back a name they hide.
 
 **Duress unlock** (WP-20, nothing on by default; threat model in [SECURITY_MODEL.md](SECURITY_MODEL.md#duress-unlock)):
 - **Unlock with** (`app_lock_method`, with the app lock on): "Fingerprint or screen lock" (as before) or **Parley PIN** (`parley_pin`): 4–12 digits, kept as a sealed scrypt hash in `no_backup/app_pin`, never in backups (a new phone sets its own). Changing either PIN asks for the fingerprint or screen lock first. Wrong PINs: five free tries, then 30 s doubling to an hour.
@@ -178,8 +182,9 @@ Channel **Exports and imports** (`jobs_v1`, quiet): the end of an export, import
 | Group | Settings |
 |---|---|
 | — | Parley version `version` (with the licence, GPL-3.0) · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
+| Help & tips | Reset tips `reset_tips` (it was under Appearance) |
 
-The page's summary ("Version and licence, diagnostics, crash reports") names exactly these rows. Keep crash reports is off by default in release builds and on in debug builds; whatever it says, a crash or ANR Android recorded since the last start (Android 11 and later) is offered once as "Parley stopped unexpectedly · Save a report".
+The page's summary ("Version, diagnostics, help and tips") names these rows. Keep crash reports is off by default in release builds and on in debug builds; whatever it says, a crash or ANR Android recorded since the last start (Android 11 and later) is offered once as "Parley stopped unexpectedly · Save a report".
 | In Tools ↗ | Tools `what_parley_can_do` (the hub itself, at the top of Settings; search finds it as "What Parley can do" too) |
 
 ## Basic and Advanced
@@ -189,19 +194,18 @@ Each page shows what most people set once or change often, and folds the rest un
 | Page | Folded under Advanced | Why |
 |---|---|---|
 | Appearance | Pure black, list density, avatars, second line, prefer nicknames | Fine-tuning of how lists look; the theme and name order are what people look for first |
-| Layout & gestures | Calls layout, favourites in Contacts, tapping a call in Recents, swipe actions | Changes how home works; onboarding's "Set up the basics" already asks the layout question |
+| Layout & gestures | Calls layout, favourites in Contacts, swipe actions | Changes how home works; onboarding's "Set up the basics" already asks the layout question |
 | Calls › Answering | Call screen background, flip to silence, answer automatically, vibration for callers, RTT | Set once for particular needs (a headset, accessibility, a carrier that offers RTT) |
-| Calls › During calls | Vibrate during calls, power button ends call, the note prompts | The speaker and the screen at your ear stay open: they decide whether calls work |
-| Keypad | Letters, speed dial, USSD replies | Tones and vibration are the everyday choice; speed dial also has the keypad's own entry |
-| Blocking & spam | Sales lines (your calls), hints from notes, spam lists, rule templates, import and share rules | Blocking & screening (with its presets) and "Expecting a call" cover day one |
-| Contacts | Relations both ways, contact page sections, log messages you start, import from SIM, export one account | Set once, or for one move between phones |
-| Recents & history | Numbers kept forever, import call history, Excel-friendly CSV, SIM in call history | Archive housekeeping and one-off imports |
-| Messaging | Forget messaged numbers after | The default suits nearly everyone |
+| Calls › During calls | Vibrate during calls, power button ends call, the note prompts, reminders & limits | The speaker and the screen at your ear stay open: they decide whether calls work |
+| Calls › Keypad & dialling | Letters, speed dial, USSD replies, phone menus | Tones and vibration are the everyday choice; speed dial also has the keypad's own entry |
+| Blocking & screening (the screen) | What decides, the rule lists, from your calls and notes, and the rest of the fine-tuning | The setups, the main switches, Expecting a call and the spam lists cover day one |
+| Contacts | Relations both ways, contact page sections, import from SIM, export one account | Set once, or for one move between phones |
+| Recents & history | Numbers kept forever, import call history, the People card | Archive housekeeping, one-off imports, and a card of one tool | Archive housekeeping and one-off imports |
 | Privacy & security | Hide screen content, private call history, who can see your contacts, private names in other phone apps, app permissions, delete all data | App lock, the lock screen and hiding private contacts are the everyday choices; the rest is for particular worries or a fresh start |
 | Backup & sync | Sync between phones, export contacts and notes | Backups and History & undo are what everyone needs |
 | Calls, Calls › SIMs & carrier, Calls › Situations, Reminders, Notifications & device, About | Nothing | Already a short list of links, each one needed when it is needed |
 
-`SettingsSearchTest` keeps every page at 12 basic rows or fewer, and `AdvancedGroupsTest` checks that what a page folds and what the catalog marks advanced agree.
+`SettingsSearchTest` keeps every page at 12 basic rows or fewer, the real preferences at 100 or fewer and every settings row at 148 or fewer (see below), and `AdvancedGroupsTest` checks that what a page folds and what the catalog marks advanced agree.
 
 ## Ringing and vibration
 
@@ -258,6 +262,14 @@ Checked against Google Phone, Samsung Phone, iPhone, Truecaller and Fossify Phon
 | Ring only on Bluetooth or headphones | Samsung (some models) | Not possible: Telecom plays the ring on every output, and an app can't route it |
 | Ring duration before voicemail | Carrier | Not Parley's: the network sets it. Most GSM carriers take `**61*<voicemail number>**<5 to 30>#` dialled from the keypad (Parley's keypad sends it); see the carrier's help or [GSM call forwarding codes](https://en.wikipedia.org/wiki/Call_forwarding#Keypad_codes) |
 | In-call volume boost, clear voice | Google (Clear Calling), Samsung (Call sound EQ) | Not possible: the call audio belongs to the system, and no app API reaches it |
+
+## Changes in 6.4
+
+The settings tree (keys unchanged; only places moved). The root went from 14 rows to 12: **Keypad** became Calls › Keypad & dialling (with Phone menus), **Messaging** dissolved (Quick replies to Calls › Answering, the expiry to Tools › Messaged numbers), and **Blocking & spam** opens Blocking & screening directly. Calls › Situations holds Situations, the rescue call, helpers and the car; talk-time reminders and limits went to During calls › Advanced. Recents & history has one **Recents view** row. **Reset tips** is About › Help & tips.
+
+Four settings went: notes on the lock screen (`memory_lock_screen`) folded into Caller on the lock screen (on with *Name* became *Name and notes* at the next start; under *Initials* or *Nothing* it no longer adds notes), "who usually reaches out first" (`first_mover`) into the People card's one choice, Excel-friendly CSV (`csv_bom`) into a tick box of the export sheet, and Show SIM in call history (`sim_labels`), now always on with two SIMs.
+
+**The budget** (owner decision D1): `SettingsCatalog.preferences` counts only rows that store a choice, at most **100**; rows that only lead somewhere (a screen of their own, a one-off action, a page of Android's, information, a list of data: `SettingsCatalog.NOT_STORED`) don't count there. Every settings row, those included, stays under the outer cap of **148** so links don't sprawl.
 
 ## Changes in 6.2.3
 

@@ -22,6 +22,12 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.ui.res.pluralStringResource
+import app.parley.common.people.ArchivedView
+import app.parley.common.people.ContactRef
+import app.parley.ui.people.PeopleRoutes
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -248,6 +254,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     }
                 }
             }
+            // Archived contacts stay out of the list, but a search names the ones that match, one tap away.
+            if (query.isNotBlank()) item(key = "also-archived") { AlsoArchivedLine(vm, query, open) }
             if (recallShows) {
                 recallSection(vm, recallState, query, fallback = !everything, recallExpanded, { recallExpanded = recallExpanded + it }, open)
             }
@@ -332,5 +340,42 @@ private fun PrivateSearchLocked(vm: AppViewModel) {
         icon = Icons.Rounded.Lock,
         action = stringResource(R.string.cs_private_unlock).takeIf { activity != null },
         onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.people.privateSearch.retry() } } },
+    )
+}
+
+/**
+ * "Also archived: Ana · Show" under Contacts search: archived contacts are out of the list by design, so a search that
+ * matches one says so. Show opens that contact's page, or the Archived list when several match. Archived private
+ * contacts count only while private contacts may show.
+ */
+@Composable
+private fun AlsoArchivedLine(vm: AppViewModel, query: String, open: (Destination) -> Unit) {
+    val cards by vm.c.archive.cards.collectAsStateWithLifecycle()
+    val privates = app.parley.ui.people.archive.privateArchived(vm)
+    val also = remember(query, cards, privates) {
+        ArchivedView.alsoArchived(
+            query,
+            cards.map { ArchivedView.Match(it.id, it.name, private = false) to it.numbers } +
+                privates.map { ArchivedView.Match(it.id, it.name, private = true) to it.numbers },
+        )
+    } ?: return
+    val first = also.matches.first().name
+    val text = also.single?.let { stringResource(R.string.archive_also_one, first) }
+        ?: pluralStringResource(R.plurals.archive_also_many, also.matches.size - 1, first, also.matches.size - 1)
+    ParleyListItem(
+        leadingContent = { Icon(Icons.Rounded.Archive, null) },
+        headlineContent = { Text(text) },
+        trailingContent = {
+            TextButton({
+                val one = also.single
+                open(
+                    when {
+                        one == null -> PeopleRoutes.Archived
+                        one.private -> Routes.contact(ContactRef.Private(one.id).navId)
+                        else -> PeopleRoutes.ArchivedContact(one.id)
+                    },
+                )
+            }) { Text(stringResource(R.string.archive_also_show)) }
+        },
     )
 }

@@ -25,13 +25,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
@@ -72,6 +70,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -87,6 +86,7 @@ import app.parley.common.SettingEntry
 import app.parley.common.SettingPlace
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Handyman
+import app.parley.common.SettingsCatalog
 import app.parley.common.SettingsCategory
 import app.parley.common.SettingsSearch
 import app.parley.common.vcard.ImportReport
@@ -125,11 +125,9 @@ val SettingsCategory.icon: ImageVector
         SettingsCategory.APPEARANCE -> Icons.Rounded.Palette
         SettingsCategory.LAYOUT -> Icons.Rounded.Dashboard
         SettingsCategory.CALLS -> Icons.Rounded.Call
-        SettingsCategory.KEYPAD -> Icons.Rounded.Dialpad
         SettingsCategory.BLOCKING -> Icons.Rounded.Block
         SettingsCategory.CONTACTS -> Icons.Rounded.People
         SettingsCategory.HISTORY -> Icons.Rounded.History
-        SettingsCategory.MESSAGING -> Icons.AutoMirrored.Rounded.Chat
         SettingsCategory.PRIVACY -> Icons.Rounded.Shield
         SettingsCategory.BACKUP -> Icons.Rounded.Backup
         SettingsCategory.NOTIFICATIONS -> Icons.Rounded.Notifications
@@ -138,12 +136,12 @@ val SettingsCategory.icon: ImageVector
 
 /**
  * Categories in groups, so the list reads in chunks rather than as one long pile. Reminders, a page of its own for
- * every reminder Parley sends, sits with Notifications.
+ * every reminder Parley sends, sits with Notifications. Blocking & spam opens the Blocking & screening screen itself.
  */
 private val categoryGroups = listOf(
     listOf(SettingsCategory.APPEARANCE, SettingsCategory.LAYOUT),
-    listOf(SettingsCategory.CALLS, SettingsCategory.KEYPAD, SettingsCategory.BLOCKING),
-    listOf(SettingsCategory.CONTACTS, SettingsCategory.HISTORY, SettingsCategory.MESSAGING),
+    listOf(SettingsCategory.CALLS, SettingsCategory.BLOCKING),
+    listOf(SettingsCategory.CONTACTS, SettingsCategory.HISTORY),
     listOf(SettingsCategory.PRIVACY, SettingsCategory.BACKUP, null, SettingsCategory.NOTIFICATIONS),
     listOf(SettingsCategory.ABOUT),
 )
@@ -163,6 +161,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val requestRole = rememberDialerRoleRequest { vm.refreshEnvironment() }
     BackHandler(searching) { searching = false; query = "" }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    // At large font sizes a summary wraps onto a second line rather than ending in an ellipsis.
+    val summaryLines = summaryLines()
 
     ParleyScaffold(
         modifier = if (searching) Modifier else Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -217,7 +217,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         modifier = Modifier.clickable { open(DiscoverRoutes.Capabilities) },
                         leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
                         headlineContent = { Text(stringResource(R.string.discover_title)) },
-                        supportingContent = { Text(stringResource(R.string.discover_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(stringResource(R.string.discover_summary), maxLines = summaryLines, overflow = TextOverflow.Ellipsis) },
                         colors = rowColors(),
                     )
                 }
@@ -233,15 +233,15 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                                     TonalIcon(Icons.Rounded.NotificationsActive, cs.secondaryContainer, cs.onSecondaryContainer)
                                 },
                                 headlineContent = { Text(settingTitle("reminders")) },
-                                supportingContent = { Text(settingSummary("reminders"), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { Text(settingSummary("reminders"), maxLines = summaryLines, overflow = TextOverflow.Ellipsis) },
                                 colors = rowColors(),
                             )
                         } else item(c.name) {
                             ParleyListItem(
-                                modifier = Modifier.clickable { open(Routes.settingsPage(c)) },
+                                modifier = Modifier.clickable { open(categoryRoute(c)) },
                                 leadingContent = { TonalIcon(c.icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) },
                                 headlineContent = { Text(c.localTitle()) },
-                                supportingContent = { Text(c.localSummary(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { Text(c.localSummary(), maxLines = summaryLines, overflow = TextOverflow.Ellipsis) },
                                 colors = rowColors(),
                             )
                         }
@@ -251,6 +251,16 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         }
     }
 }
+
+/** Lines a root summary may take: two once the font is large (it was cut to one with an ellipsis). */
+@Composable
+internal fun summaryLines(): Int = if (LocalDensity.current.fontScale > LARGE_FONT) 2 else 1
+
+private const val LARGE_FONT = 1.3f
+
+/** Where a root row goes: its page, or for Blocking & spam the Blocking & screening screen (it has no page). */
+private fun categoryRoute(c: SettingsCategory): Destination =
+    if (SettingsCatalog.hasPage(c)) Routes.settingsPage(c) else Routes.Blocking
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -331,18 +341,18 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
     val s by vm.settings.collectAsStateWithLifecycle()
     val severalAccounts = hasSeveralAccounts(vm)
     val archiveOn = vm.c.history.prefs.state.collectAsStateWithLifecycle().value.archiveEnabled
-    val circle by vm.c.circle.config.collectAsStateWithLifecycle()
     // A setting found by search that is shown only when another one is on: point at that one instead, and say why.
     val controller = when (focus) {
         "lock_after" -> "app_lock".takeIf { !s.appLock }
         "kept_forever" -> "archive".takeIf { !archiveOn }
-        "first_mover" -> "people_card".takeIf { !circle.peopleCard }
         else -> null
     }
     val shown = controller ?: when {
         focus == "export_account" && !severalAccounts -> "export_vcf"
         // One row for SIMs and their plan minutes (search finds it by either name).
         focus == "plan_minutes" -> "sims"
+        // One "Recents view" row for the layout, the style and what a tap does.
+        focus in SettingsCatalog.RECENTS_VIEW -> RECENTS_VIEW_ROW
         else -> focus
     }
     CompositionLocalProvider(LocalHighlightKey provides shown) {
@@ -358,11 +368,10 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
                 SettingsCategory.APPEARANCE -> AppearancePage(vm, open)
                 SettingsCategory.LAYOUT -> LayoutPage(vm, open)
                 SettingsCategory.CALLS -> CallsPage(vm, open)
-                SettingsCategory.KEYPAD -> KeypadPage(vm, open)
-                SettingsCategory.BLOCKING -> BlockingPage(vm, open)
+                // No page of its own: links to it open the screen (settingsPageTarget); nothing to draw here.
+                SettingsCategory.BLOCKING -> Unit
                 SettingsCategory.CONTACTS -> ContactsPage(vm, open)
                 SettingsCategory.HISTORY -> HistoryPage(vm, open)
-                SettingsCategory.MESSAGING -> MessagingPage(vm)
                 SettingsCategory.PRIVACY -> PrivacyPage(vm, open)
                 SettingsCategory.BACKUP -> BackupPage(vm, open)
                 SettingsCategory.NOTIFICATIONS -> NotificationsPage(vm)
@@ -464,7 +473,7 @@ internal fun settingRoute(e: SettingEntry): Destination = when (val place = e.pl
     SettingPlace.TOOLS -> toolsRoute(e.key)
     SettingPlace.REMINDERS -> RemindersRoutes.Page(e.key)
     // Calls' own pages, scrolled to the setting.
-    SettingPlace.CALLS_ANSWERING, SettingPlace.CALLS_DURING, SettingPlace.CALLS_SIMS, SettingPlace.CALLS_SITUATIONS ->
+    SettingPlace.CALLS_ANSWERING, SettingPlace.CALLS_DURING, SettingPlace.CALLS_KEYPAD, SettingPlace.CALLS_SIMS, SettingPlace.CALLS_SITUATIONS ->
         CallsRoutes.Page(CallsSubPage.at(place)?.name ?: CallsSubPage.ANSWERING.name, e.key)
     // Plan minutes are offered only where they're asked for (Tools, or search).
     SettingPlace.SIMS -> HistoryRoutes.Sims(plans = e.key in PLAN_KEYS)
@@ -490,6 +499,7 @@ private val placeRoutes: Map<SettingPlace, Destination> by lazy {
         SettingPlace.PHONE_MENUS to CallsRoutes.PhoneMenus,
         SettingPlace.APP_LOCK to AppLockRoutes.UnlockWith,
         SettingPlace.SHARED_LABELS to SharedLabelRoutes.All,
+        SettingPlace.MESSAGED to MessagingRoutes.Messaged,
     )
 }
 

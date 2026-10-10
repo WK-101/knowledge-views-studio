@@ -1,5 +1,10 @@
 package app.parley.ui.contact
 
+import app.parley.common.catching
+import app.parley.ui.Spacing
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.Stable
 import app.parley.common.people.ContactRef
 import androidx.compose.ui.platform.LocalContext
 import app.parley.security.AppLock
@@ -120,6 +125,7 @@ import app.parley.data.CustomFieldItem
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Abc
 import app.parley.common.people.HandleService
 import app.parley.common.people.Handles
 import app.parley.common.people.LifeEvents
@@ -229,7 +235,117 @@ private class Lead(val icon: ImageVector?, val title: String?) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+/** What opened the editor (the screen's arguments the form's parts read). */
+private class EditorScreenArgs(
+    val contactId: Long?,
+    val vaultId: Long?,
+    val rawId: Long?,
+    val meCard: Boolean,
+    val pasteText: String?,
+)
+
+/**
+ * What the form's parts share: the editor, focus (a requester per row key, the field to focus next, where each key sits
+ * in the list), and the pickers a row can open. The edit itself lives in [EditorViewModel].
+ */
+@Stable
+private class EditorFormUi(
+    val editor: EditorViewModel,
+    focusKey: MutableState<Long?>,
+    pickDateFor: MutableState<Long?>,
+    mapLinkFor: MutableState<Int?>,
+    pickProfile: MutableState<Boolean>,
+    pickCountry: MutableState<Boolean>,
+) {
+    val requesters = HashMap<Long, FocusRequester>()
+
+    /** Which website rows are profiles, decided once per row. */
+    val profileRows = HashMap<Long, Boolean>()
+
+    /** Where each row key sits in the list, to scroll to a new row. */
+    val keyIndex = HashMap<Any, Int>()
+    var focusKey by focusKey
+    var pickDateFor by pickDateFor
+
+    /** The address whose "Add from map link" dialog is open. */
+    var mapLinkFor by mapLinkFor
+
+    /** "Add a profile": the service list. */
+    var pickProfile by pickProfile
+
+    /** "Add a country" for citizenship: the country picker. */
+    var pickCountry by pickCountry
+
+    val keys: RowKeys get() = editor.keys
+
+    fun fr(key: Long): FocusRequester = requesters.getOrPut(key) { FocusRequester() }
+
+    fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
+
+    /** Appends a row to a group, remembers its key and moves the focus there. */
+    fun addRow(group: String, size: Int, change: (ContactDetails) -> ContactDetails): Long {
+        val k = keys.added(group, size)
+        update(change)
+        focusKey = k
+        return k
+    }
+
+    fun removeRow(group: String, i: Int, change: (ContactDetails) -> ContactDetails) {
+        keys.removed(group, i)
+        update(change)
+    }
+
+    /** Swaps rows [a] and [b] of [group] (Move up / Move down): their keys go along, so focus and animations follow. */
+    fun <T> swapRows(group: String, a: Int, b: Int, get: (ContactDetails) -> List<T>, set: (ContactDetails, List<T>) -> ContactDetails) {
+        keys.swapped(group, a, b)
+        update { set(it, RowOrder.swap(get(it), a, b)) }
+    }
+
+    /** Rows another app marks read-only can't be written again, so their group keeps the provider's order. */
+    fun movable(ids: List<Long?>): Boolean = RowOrder.canReorder(ids, editor.original?.readOnlyDataIds.orEmpty())
+
+    @Suppress("CyclomaticComplexMethod") // One branch per kind.
+    fun addKind(k: EditorForm.Kind, d: ContactDetails) {
+        editor.revealed = editor.revealed + k
+        val cur = editor.draft ?: d
+        when (k) {
+            EditorForm.Kind.NAME_DETAILS -> { editor.moreName = true; focusKey = KEY_NICK }
+            EditorForm.Kind.PHONE -> addRow(PHONES.group, cur.phones.size) { it.copy(phones = it.phones + DataItem(type = PHONES.newType)) }
+            EditorForm.Kind.EMAIL -> addRow(EMAILS.group, cur.emails.size) { it.copy(emails = it.emails + DataItem(type = EMAILS.newType)) }
+            EditorForm.Kind.WORK -> focusKey = KEY_COMPANY
+            EditorForm.Kind.DATE -> pickDateFor = addRow(G_DATE, cur.events.size) { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) }
+            EditorForm.Kind.ADDRESS -> addRow(G_ADDR, cur.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
+            EditorForm.Kind.WEBSITE -> addRow(WEBSITES.group, cur.websites.size) { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }
+            EditorForm.Kind.PROFILE -> pickProfile = true
+            EditorForm.Kind.HANDLE -> addRow(G_HANDLE, cur.handles.size) { it.copy(handles = it.handles + HandleItem()) }
+            EditorForm.Kind.RELATION -> addRow(G_REL, cur.relations.size) { it.copy(relations = it.relations + DataItem(type = Relation.TYPE_SPOUSE)) }
+            EditorForm.Kind.NOTE -> focusKey = KEY_NOTE
+            EditorForm.Kind.WHEN_THEY_CALL -> focusKey = KEY_CONTEXT
+            EditorForm.Kind.CUSTOM_FIELD -> addRow(G_CUSTOM, cur.customFields.size) { it.copy(customFields = it.customFields + CustomFieldItem()) }
+            EditorForm.Kind.LANGUAGE -> focusKey = KEY_LANGUAGE
+            EditorForm.Kind.NATIVE_NAME -> focusKey = KEY_NATIVE
+            EditorForm.Kind.CITIZENSHIP -> pickCountry = true
+            EditorForm.Kind.LABELS, EditorForm.Kind.CALL_BACKGROUND -> Unit
+        }
+    }
+}
+
+@Composable
+private fun rememberEditorFormUi(editor: EditorViewModel): EditorFormUi {
+    val focusKey = remember { mutableStateOf<Long?>(null) }
+    val pickDateFor = remember { mutableStateOf<Long?>(null) }
+    val mapLinkFor = rememberSaveable { mutableStateOf<Int?>(null) }
+    val pickProfile = rememberSaveable { mutableStateOf(false) }
+    val pickCountry = rememberSaveable { mutableStateOf(false) }
+    return remember(editor) { EditorFormUi(editor, focusKey, pickDateFor, mapLinkFor, pickProfile, pickCountry) }
+}
+
+/**
+ * The contact editor: where it's saved, the photo and the name, then only the groups the contact holds, and one "Add"
+ * control for the rest. Its parts are the top bar ([EditorTopBar]), the form ([EditorBody]: [EditorHeader] and
+ * [editorFields]), the pickers rows open ([EditorPickers]) and the questions it asks ([EditorDialogs]).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactEditScreen(
     vm: AppViewModel,
@@ -253,6 +369,52 @@ fun ContactEditScreen(
     // and process death keep it; this composable only draws it.
     val editor: EditorViewModel = screenViewModel()
     LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId, meCard)) }
+    EditorEvents(vm, editor, done)
+    val args = EditorScreenArgs(contactId, vaultId, rawId, meCard, pasteText)
+    val form = rememberEditorFormUi(editor)
+    var confirmDiscard by remember { mutableStateOf(false) }
+
+    // Unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler(enabled = editor.changed && !editor.saving && !confirmDiscard && editor.askKeep == null && editor.conflict == null) { events ->
+        try {
+            events.collect { backProgress = it.progress }
+            confirmDiscard = true
+        } finally {
+            backProgress = 0f
+        }
+    }
+    val shrink by animateFloatAsState(backProgress, ParleyMotion.spatial(), label = "back")
+
+    val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+    ParleyScaffold(
+        modifier = Modifier
+            .graphicsLayer {
+                val s = 1f - 0.08f * shrink
+                scaleX = s
+                scaleY = s
+                shape = animatedCorners((32 * shrink).dp)
+                clip = shrink > 0f
+            }
+            .nestedScroll(scroll.nestedScrollConnection),
+        topBar = { EditorTopBar(editor, args, scroll, onClose = { if (editor.changed) confirmDiscard = true else done(null) }) },
+    ) { padding ->
+        val d = editor.draft
+        if (d == null) {
+            val desc = stringResource(R.string.editor_loading)
+            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
+            }
+            return@ParleyScaffold
+        }
+        EditorBody(vm, editor, form, d, args, padding, done)
+    }
+    EditorDialogs(editor, confirmDiscard, { confirmDiscard = it }, done)
+}
+
+/** What the editor's view model says: messages, the end of the edit, an Undo, and a private contact's unlock. */
+@Composable
+private fun EditorEvents(vm: AppViewModel, editor: EditorViewModel, done: (Long?) -> Unit) {
     val latestDone by rememberUpdatedState(done)
     val activity = LocalActivity.current as? ComponentActivity
     LaunchedEffect(editor) {
@@ -272,610 +434,651 @@ fun ContactEditScreen(
             }
         }
     }
-    val original = editor.original
-    val account = editor.account
-    val groups = editor.groups
-    val photo = editor.photo
-    val removePhoto = editor.removePhoto
-    val saving = editor.saving
-    val askKeep = editor.askKeep
-    val moreName = editor.moreName
-    val revealed = editor.revealed
-    var confirmDiscard by remember { mutableStateOf(false) }
-    val isVault = editor.isVault
-    val bgChange = editor.background
-    // Stable row keys (animations, focus) and the field to focus next.
-    val keys = editor.keys
-    val requesters = remember { HashMap<Long, FocusRequester>() }
-    fun fr(key: Long) = requesters.getOrPut(key) { FocusRequester() }
-    var focusKey by remember { mutableStateOf<Long?>(null) }
-    var pickDateFor by remember { mutableStateOf<Long?>(null) }
-    // The address whose "Add from map link" dialog is open.
-    var mapLinkFor by rememberSaveable { mutableStateOf<Int?>(null) }
-    // "Add a profile": the service list; and which website rows are profiles, decided once per row.
-    var pickProfile by rememberSaveable { mutableStateOf(false) }
-    // "Add a country" for citizenship: the country picker.
-    var pickCountry by rememberSaveable { mutableStateOf(false) }
-    val profileRows = remember { HashMap<Long, Boolean>() }
-    // A new contact starts with the keyboard on First name, once (not again after rotation).
-    var autoFocused by rememberSaveable { mutableStateOf(false) }
+}
 
-    val d = editor.draft
-    val changed = editor.changed
-    val canSave = editor.canSave
-
-    // Unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
-    var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = changed && !saving && !confirmDiscard && askKeep == null && editor.conflict == null) { events ->
-        try {
-            events.collect { backProgress = it.progress }
-            confirmDiscard = true
-        } finally {
-            backProgress = 0f
-        }
-    }
-    val shrink by animateFloatAsState(backProgress, ParleyMotion.spatial(), label = "back")
-
-    fun save() = editor.save()
-
-    val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    ParleyScaffold(
-        modifier = Modifier
-            .graphicsLayer {
-                val s = 1f - 0.08f * shrink
-                scaleX = s
-                scaleY = s
-                shape = animatedCorners((32 * shrink).dp)
-                clip = shrink > 0f
-            }
-            .nestedScroll(scroll.nestedScrollConnection),
-        topBar = {
-            ParleyTopBar(
-                title = {
-                    Text(
-                        stringResource(
-                            if (meCard) R.string.me_title
-                            else if (isVault && !editor.temporaryNew) (if ((vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private)
-                            else if (contactId == null) R.string.edit_title_new else if (rawId != null) R.string.edit_title_copy else R.string.edit_title_edit,
-                        ),
-                        maxLines = 1,
-                    )
-                },
-                navigationIcon = { IconButton({ if (changed) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
-                actions = {
-                    // Save stays in the bar while the form scrolls; it's ready once there is something to save (new)
-                    // or something changed (existing), and says so by filling in.
-                    Button(onClick = ::save, enabled = canSave, modifier = Modifier.padding(end = 8.dp).heightIn(min = 40.dp)) {
-                        AnimatedContent(saving, label = "save") { busy ->
-                            if (busy) {
-                                val desc = stringResource(R.string.editor_saving)
-                                CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
-                            } else {
-                                Text(stringResource(R.string.main_save))
-                            }
-                        }
-                    }
-                },
-                scrollBehavior = scroll,
+/** The title (new, edit, a copy, private, My card), Close, and Save, which fills in once there is something to save. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditorTopBar(editor: EditorViewModel, args: EditorScreenArgs, scroll: TopAppBarScrollBehavior, onClose: () -> Unit) {
+    ParleyTopBar(
+        title = {
+            Text(
+                stringResource(
+                    when {
+                        args.meCard -> R.string.me_title
+                        editor.isVault && !editor.temporaryNew ->
+                            if ((args.vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private
+                        args.contactId == null -> R.string.edit_title_new
+                        args.rawId != null -> R.string.edit_title_copy
+                        else -> R.string.edit_title_edit
+                    },
+                ),
+                maxLines = 1,
             )
         },
-    ) { padding ->
-        if (d == null) {
-            val desc = stringResource(R.string.editor_loading)
-            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
-            }
-            return@ParleyScaffold
-        }
-        fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
-        // The key the call-screen picture is kept under: a private contact's is its Parley key, like on its page.
-        val lookup = original?.lookupKey?.takeIf { !isVault && it.isNotEmpty() }
-            ?: vaultId?.takeIf { it > 0 }?.let { ContactRef.privateKey(it) }
-        // A private contact's labels are Parley's own membership of the address book's labels: one chip per label title
-        // (its first group, as PrivateLabels resolves them). A visible temporary contact is phone-only, without labels.
-        val accountGroups = when {
-            meCard -> emptyList()
-            isVault -> groups.distinctBy { it.title.trim() }
-            editor.temporaryNew -> emptyList()
-            else -> groups.filter { it.account.type == account?.type && it.account.name == account?.name }
-        }
-        // Which website rows are profiles (Instagram, LinkedIn…): decided once per row, so a row never jumps to the
-        // other group while its address is being typed (it shows where it belongs from the next opening).
-        val webKeys = keys.keys(WEBSITES.group, d.websites.size)
-        val profileRow = d.websites.mapIndexed { i, w ->
-            profileRows.getOrPut(webKeys[i]) { SocialProfiles.fromWebsite(w.value, w.type, w.label) != null }
-        }
-        val nameDetailsFilled = listOf(
-            d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticMiddle, d.phoneticFamily, d.nickname, d.pronouns, d.secondSurname, d.generation,
-        ).any { it.isNotBlank() }
-        // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
-        val shownKinds = shownKinds(d, profileRow, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
-        // My card takes every field a contact does; only what belongs to where a contact is kept (labels, the
-        // call-screen picture, a private contact's caller card) isn't offered there.
-        val allowed = EditorForm.allowedKinds(hasLabels = accountGroups.isNotEmpty(), hasCallPicture = lookup != null, isPrivate = isVault)
-        val choices = EditorForm.addChoices(shownKinds, blankKinds(d, profileRow), allowed)
-
-        /** Appends a row to a group, remembers its key and moves the focus there. */
-        fun addRow(group: String, size: Int, change: (ContactDetails) -> ContactDetails): Long {
-            val k = keys.added(group, size)
-            update(change)
-            focusKey = k
-            return k
-        }
-        fun removeRow(group: String, i: Int, change: (ContactDetails) -> ContactDetails) {
-            keys.removed(group, i)
-            update(change)
-        }
-
-        /** Swaps rows [a] and [b] of [group] (Move up / Move down): their keys go along, so focus and animations follow. */
-        fun <T> swapRows(group: String, a: Int, b: Int, get: (ContactDetails) -> List<T>, set: (ContactDetails, List<T>) -> ContactDetails) {
-            keys.swapped(group, a, b)
-            update { set(it, RowOrder.swap(get(it), a, b)) }
-        }
-        // Rows another app marks read-only can't be written again, so their group keeps the provider's order.
-        val readOnly = original?.readOnlyDataIds.orEmpty()
-        fun movable(ids: List<Long?>) = RowOrder.canReorder(ids, readOnly)
-        fun addKind(k: EditorForm.Kind) {
-            editor.revealed = revealed + k
-            val cur = editor.draft ?: d
-            when (k) {
-                EditorForm.Kind.NAME_DETAILS -> { editor.moreName = true; focusKey = KEY_NICK }
-                EditorForm.Kind.PHONE -> addRow(PHONES.group, cur.phones.size) { it.copy(phones = it.phones + DataItem(type = PHONES.newType)) }
-                EditorForm.Kind.EMAIL -> addRow(EMAILS.group, cur.emails.size) { it.copy(emails = it.emails + DataItem(type = EMAILS.newType)) }
-                EditorForm.Kind.WORK -> focusKey = KEY_COMPANY
-                EditorForm.Kind.DATE -> pickDateFor = addRow(G_DATE, cur.events.size) { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) }
-                EditorForm.Kind.ADDRESS -> addRow(G_ADDR, cur.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
-                EditorForm.Kind.WEBSITE -> addRow(WEBSITES.group, cur.websites.size) { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }
-                EditorForm.Kind.PROFILE -> pickProfile = true
-                EditorForm.Kind.HANDLE -> addRow(G_HANDLE, cur.handles.size) { it.copy(handles = it.handles + HandleItem()) }
-                EditorForm.Kind.RELATION -> addRow(G_REL, cur.relations.size) { it.copy(relations = it.relations + DataItem(type = Relation.TYPE_SPOUSE)) }
-                EditorForm.Kind.NOTE -> focusKey = KEY_NOTE
-                EditorForm.Kind.WHEN_THEY_CALL -> focusKey = KEY_CONTEXT
-                EditorForm.Kind.CUSTOM_FIELD -> addRow(G_CUSTOM, cur.customFields.size) { it.copy(customFields = it.customFields + CustomFieldItem()) }
-                EditorForm.Kind.LANGUAGE -> focusKey = KEY_LANGUAGE
-                EditorForm.Kind.NATIVE_NAME -> focusKey = KEY_NATIVE
-                EditorForm.Kind.CITIZENSHIP -> pickCountry = true
-                EditorForm.Kind.LABELS, EditorForm.Kind.CALL_BACKGROUND -> Unit
-            }
-        }
-
-        val listState = rememberLazyListState()
-        val keyIndex = remember { HashMap<Any, Int>() }
-        LaunchedEffect(focusKey) {
-            val k = focusKey ?: return@LaunchedEffect
-            withFrameNanos { }
-            keyIndex[k]?.let { i -> listState.animateScrollToItem(i) }
-            withFrameNanos { }
-            runCatching { requesters[k]?.requestFocus() }
-            focusKey = null
-        }
-        LaunchedEffect(Unit) {
-            if (!autoFocused) {
-                autoFocused = true
-                if (editor.isNew && d.given.isBlank() && d.family.isBlank()) focusKey = KEY_FIRST
-            }
-        }
-
-        // ---------------------------------------------------------------- header: photo, where it's saved, and name
-        // The photo sits on top, centred like the contact page's header, so every field below (name, phone, email…)
-        // shares one left edge after the icon gutter. The Save-to line starts on that edge too.
-        val header: @Composable () -> Unit = {
-            val deviceName = stringResource(R.string.editor_account_device)
-            Column(Modifier.padding(bottom = FormTokens.groupGap)) {
-                // "Paste details": a new contact filled from a copied signature or shared text, after a preview.
-                if (editor.isNew && !meCard) {
-                    Box(Modifier.padding(start = FormTokens.gutter, top = 4.dp)) {
-                        PasteDetailsEntry(
-                            vm, pasteText,
-                            onFill = { fields -> update { PasteFill.into(it, fields) } },
-                            onAddTo = { id, fields ->
-                                // What was typed goes along with the pasted details.
-                                vm.pendingPrefill = PasteFill.into(editor.draft ?: d, fields)
-                                done(null)
-                                vm.navigate(NavEvent.Route(if (id < 0) Routes.edit(vault = -id, prefill = true) else Routes.edit(id = id, prefill = true)))
-                            },
-                        )
-                    }
-                }
-                val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
-                Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
-                    EditorPhoto(vm, editor, d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto)
-                }
-                Box(Modifier.padding(start = FormTokens.gutter, bottom = 4.dp)) {
-                    if (meCard) {
-                        MeShareLine(editor.meParts, editor::toggleMePart)
+        navigationIcon = { IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
+        actions = {
+            // Save stays in the bar while the form scrolls; it's ready once there is something to save (new)
+            // or something changed (existing), and says so by filling in.
+            Button(onClick = editor::save, enabled = editor.canSave, modifier = Modifier.padding(end = 8.dp).heightIn(min = 40.dp)) {
+                AnimatedContent(editor.saving, label = "save") { busy ->
+                    if (busy) {
+                        val desc = stringResource(R.string.editor_saving)
+                        CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
                     } else {
-                        SaveToLine(
-                            EditorSaveTo(
-                                vaultId, original != null, editor.privateNew, editor.temporaryNew, editor.temporary, account, editor.accounts,
-                                // An expiry belongs to the whole contact, so it isn't offered when editing one of its copies.
-                                expiry = ExpiryState(editor.expiresAt, editor.expiryPick)
-                                    .takeIf { rawId == null && (original?.lookupKey?.isNotEmpty() == true || (vaultId ?: 0L) > 0L) },
-                                systemDefault = editor.systemDefault,
-                            ),
-                            label = { a -> accountName(a, deviceName) },
-                            onAccount = editor::chooseAccount, onTemporary = editor::chooseTemporary,
-                            onTemporaryChange = editor::changeTemporary, onExpiry = editor::pickExpiry,
-                        )
+                        Text(stringResource(R.string.main_save))
                     }
                 }
-                if (contactId == null && vaultId == null && !meCard) {
-                    DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(NavEvent.Contact(id)) }) { id ->
-                        // "Add these details to her": continue in the existing contact's editor with this draft appended.
-                        vm.pendingPrefill = d
+            }
+        },
+        scrollBehavior = scroll,
+    )
+}
+
+/** What the form shows for [d]: which groups, which kinds the "Add" chips offer, and where things are kept. */
+private class EditorShape(
+    /** The key the call-screen picture is kept under: a private contact's is its Parley key, like on its page. */
+    val lookup: String?,
+    /** The labels a contact here can have (one chip per label title for a private contact; none for My card). */
+    val accountGroups: List<GroupInfo>,
+    /** Which website rows are profiles (Instagram, LinkedIn…). */
+    val profileRow: List<Boolean>,
+    val webKeys: List<Long>,
+    /** A name detail holds something: the name block stays open. */
+    val nameDetailsFilled: Boolean,
+    val shownKinds: Set<EditorForm.Kind>,
+    val choices: List<EditorForm.Kind>,
+)
+
+@Composable
+private fun editorShape(vm: AppViewModel, editor: EditorViewModel, form: EditorFormUi, d: ContactDetails, args: EditorScreenArgs): EditorShape {
+    val isVault = editor.isVault
+    val lookup = editor.original?.lookupKey?.takeIf { !isVault && it.isNotEmpty() }
+        ?: args.vaultId?.takeIf { it > 0 }?.let { ContactRef.privateKey(it) }
+    // A private contact's labels are Parley's own membership of the address book's labels: one chip per label title
+    // (its first group, as PrivateLabels resolves them). A visible temporary contact is phone-only, without labels.
+    val account = editor.account
+    val accountGroups = when {
+        args.meCard -> emptyList()
+        isVault -> editor.groups.distinctBy { it.title.trim() }
+        editor.temporaryNew -> emptyList()
+        else -> editor.groups.filter { it.account.type == account?.type && it.account.name == account?.name }
+    }
+    // Which website rows are profiles (Instagram, LinkedIn…): decided once per row, so a row never jumps to the
+    // other group while its address is being typed (it shows where it belongs from the next opening).
+    val webKeys = form.keys.keys(WEBSITES.group, d.websites.size)
+    val profileRow = d.websites.mapIndexed { i, w ->
+        form.profileRows.getOrPut(webKeys[i]) { SocialProfiles.fromWebsite(w.value, w.type, w.label) != null }
+    }
+    val nameDetailsFilled = listOf(
+        d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticMiddle, d.phoneticFamily, d.nickname, d.pronouns, d.secondSurname, d.generation,
+    ).any { it.isNotBlank() }
+    // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
+    val shownKinds = shownKinds(
+        d, profileRow, editor.revealed, editor.moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, editor.background, vm,
+    )
+    // My card takes every field a contact does; only what belongs to where a contact is kept (labels, the
+    // call-screen picture, a private contact's caller card) isn't offered there.
+    val allowed = EditorForm.allowedKinds(hasLabels = accountGroups.isNotEmpty(), hasCallPicture = lookup != null, isPrivate = isVault)
+    val choices = EditorForm.addChoices(shownKinds, blankKinds(d, profileRow), allowed)
+    return EditorShape(lookup, accountGroups, profileRow, webKeys, nameDetailsFilled, shownKinds, choices)
+}
+
+/** The form: one column, or two on a wide screen (where it's saved, the photo and the name beside the fields). */
+@Composable
+private fun EditorBody(
+    vm: AppViewModel,
+    editor: EditorViewModel,
+    form: EditorFormUi,
+    d: ContactDetails,
+    args: EditorScreenArgs,
+    padding: PaddingValues,
+    done: (Long?) -> Unit,
+) {
+    val shape = editorShape(vm, editor, form, d, args)
+    // A new contact starts with the keyboard on First name, once (not again after rotation).
+    var autoFocused by rememberSaveable { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(form.focusKey) {
+        val k = form.focusKey ?: return@LaunchedEffect
+        withFrameNanos { }
+        form.keyIndex[k]?.let { i -> listState.animateScrollToItem(i) }
+        withFrameNanos { }
+        catching { form.requesters[k]?.requestFocus() }
+        form.focusKey = null
+    }
+    LaunchedEffect(Unit) {
+        if (!autoFocused) {
+            autoFocused = true
+            if (editor.isNew && d.given.isBlank() && d.family.isBlank()) form.focusKey = KEY_FIRST
+        }
+    }
+    val header: @Composable () -> Unit = { EditorHeader(vm, editor, form, d, args, shape, done) }
+    CompositionLocalProvider(LocalCountryIso provides vm.countryIso, LocalLocked provides editor.original?.readOnlyDataIds.orEmpty()) {
+        BoxWithConstraints(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
+            val wide = maxWidth >= 720.dp
+            if (wide) {
+                // Two columns on wide screens and in landscape: where it's saved, photo and name beside the fields.
+                Row(Modifier.fillMaxSize().padding(start = 24.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(0.42f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp)) { header() }
+                    LazyColumn(Modifier.weight(0.58f).fillMaxHeight(), state = listState, contentPadding = PaddingValues(top = 8.dp)) {
+                        editorFields(vm, editor, form, d, args.meCard, shape, base = 0)
+                    }
+                }
+            } else {
+                // One column, at most 640 dp wide; the end column's button brings its own inset.
+                val side = ((maxWidth - 640.dp) / 2).coerceAtLeast(16.dp)
+                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = side, end = side - 8.dp, top = 4.dp)) {
+                    item(key = "header") { header() }
+                    editorFields(vm, editor, form, d, args.meCard, shape, base = 1)
+                }
+            }
+        }
+    }
+    EditorPickers(editor, form, d)
+}
+
+/**
+ * The header: "Paste details" for a new contact, the photo on top, centred like the contact page's header, where it's
+ * saved (or what My card shares), a duplicate warning, and the name with their name in their own language. Every field
+ * below shares one left edge after the icon gutter; the Save-to line starts on that edge too.
+ */
+@Composable
+private fun EditorHeader(
+    vm: AppViewModel,
+    editor: EditorViewModel,
+    form: EditorFormUi,
+    d: ContactDetails,
+    args: EditorScreenArgs,
+    shape: EditorShape,
+    done: (Long?) -> Unit,
+) {
+    val nameOpen = editor.moreName || shape.nameDetailsFilled
+    Column(Modifier.padding(bottom = FormTokens.groupGap)) {
+        // "Paste details": a new contact filled from a copied signature or shared text, after a preview.
+        if (editor.isNew && !args.meCard) {
+            Box(Modifier.padding(start = FormTokens.gutter, top = 4.dp)) {
+                PasteDetailsEntry(
+                    vm, args.pasteText,
+                    onFill = { fields -> form.update { PasteFill.into(it, fields) } },
+                    onAddTo = { id, fields ->
+                        // What was typed goes along with the pasted details.
+                        vm.pendingPrefill = PasteFill.into(editor.draft ?: d, fields)
                         done(null)
-                        vm.navigate(NavEvent.Route(Routes.edit(id = id, prefill = true)))
-                    }
-                }
-                NameBlock(
-                    d, expanded = moreName || nameDetailsFilled,
-                    // Kept open while a detail holds something.
-                    canToggle = !nameDetailsFilled,
-                    onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
-                )
-                // Their name in their own language, under the name; offered when the name is in another script or
-                // they have a language, else in the "Add" chips.
-                if (EditorForm.Kind.NATIVE_NAME in shownKinds) {
-                    NativeNameRow(
-                        d.nativeName, lockedRow(d.nativeNameId), fr(KEY_NATIVE),
-                        onChange = { n -> update { it.copy(nativeName = n) } },
-                        onRemove = {
-                            editor.revealed = editor.revealed - EditorForm.Kind.NATIVE_NAME
-                            update { it.copy(nativeName = NativeName()) }
-                        },
-                    )
-                } else {
-                    NativeNameOffer(
-                        d.composedName, d.languages.isNotEmpty(),
-                        onSpell = {
-                            editor.revealed = editor.revealed + EditorForm.Kind.NATIVE_NAME
-                            update(::withEnglishSpelling)
-                            focusKey = KEY_FIRST
-                        },
-                        onAdd = { addKind(EditorForm.Kind.NATIVE_NAME) },
-                    )
-                }
-                if (isVault && shownPhoto != null) {
-                    Text(
-                        stringResource(R.string.edit_private_photo), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = FormTokens.gutter + 16.dp, top = 4.dp),
-                    )
-                }
-            }
-        }
-
-        // ---------------------------------------------------------------- field groups (lazy, animated rows)
-        /** The field groups; [base] is the lazy index of the first one (to scroll to a new row). */
-        fun LazyListScope.fields(base: Int) {
-            keyIndex.clear()
-            var n = base
-            // The name fields live in the header item (index 0) when it's part of this list.
-            if (base == 1) { keyIndex[KEY_FIRST] = 0; keyIndex[KEY_NICK] = 0; keyIndex[KEY_NATIVE] = 0 }
-            fun put(key: Any, content: @Composable LazyItemScope.() -> Unit) {
-                keyIndex[key] = n++
-                item(key = key) { content() }
-            }
-
-            /**
-             * A group: one item per row (keys from [RowKeys]) stacked as one segmented block, the group's icon in the
-             * gutter of its first line, a small gap after its last. [row] gets the row's index, key, gutter and shape.
-             * With [swap] (rows i and j of the group trade places) and two rows or more, each row can move up or down
-             * ([LocalRowMoves]).
-             */
-            fun group(
-                icon: ImageVector,
-                title: Int,
-                rowKeys: List<Long>,
-                gap: Dp,
-                swap: ((Int, Int) -> Unit)? = null,
-                row: @Composable (Int, Long, Lead, Shape) -> Unit,
-            ) {
-                rowKeys.forEachIndexed { i, k ->
-                    put(k) {
-                        val lead = if (i == 0) Lead(icon, stringResource(title)) else Lead.None
-                        val bottom = if (i == rowKeys.lastIndex) FormTokens.groupGap else gap
-                        val moves = if (swap == null || rowKeys.size < 2) null else RowMoves(
-                            up = if (i > 0) { { swap(i, i - 1) } } else null,
-                            down = if (i < rowKeys.lastIndex) { { swap(i, i + 1) } } else null,
-                        )
-                        CompositionLocalProvider(LocalRowMoves provides moves) {
-                            Box(Modifier.animateItem().padding(bottom = bottom)) { row(i, k, lead, formFieldShape(i, rowKeys.size)) }
-                        }
-                    }
-                }
-            }
-
-            /** A group of [kind]'s rows; [only] keeps the rows of a shared list that belong to this group. */
-            fun multi(kind: MultiKind, only: (Int) -> Boolean = { true }) {
-                val items = kind.get(d)
-                val rowKeys = keys.keys(kind.group, items.size)
-                val idx = items.indices.filter(only)
-                // Every row of the kind counts: the save orders the whole list (profiles and websites share one).
-                val swap = if (!movable(items.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(kind.group, idx[a], idx[b], kind.get, kind.set)
-                }
-                group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap, swap) { j, k, lead, shape ->
-                    val i = idx.getOrNull(j) ?: return@group
-                    val item = items.getOrNull(i) ?: return@group
-                    MultiRow(kind, item, fr(k), lead, shape,
-                        onChange = { n2 -> update { kind.set(it, kind.get(it).toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onRemove = { removeRow(kind.group, i) { kind.set(it, kind.get(it).filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            multi(PHONES)
-            multi(EMAILS)
-
-            if (EditorForm.Kind.WORK in shownKinds) {
-                keyIndex[KEY_COMPANY] = n
-                put("work") {
-                    val workLocked = lockedRow(d.orgId)
-                    FormRow(Icons.Rounded.Business, stringResource(R.string.editor_work), Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
-                        EditorField(
-                            stringResource(R.string.edit_company), d.company, shape = formFieldShape(0, 3), cap = KeyboardCapitalization.Words,
-                            locked = workLocked, focus = fr(KEY_COMPANY),
-                        ) { v -> update { it.copy(company = v) } }
-                        Spacer(Modifier.height(FormTokens.segmentGap))
-                        EditorField(
-                            stringResource(R.string.edit_job_title), d.title, shape = formFieldShape(1, 3), cap = KeyboardCapitalization.Words,
-                            locked = workLocked,
-                        ) { v -> update { it.copy(title = v) } }
-                        Spacer(Modifier.height(FormTokens.segmentGap))
-                        EditorField(
-                            stringResource(R.string.edit_department), d.department, shape = formFieldShape(2, 3), cap = KeyboardCapitalization.Words,
-                            locked = workLocked,
-                        ) { v -> update { it.copy(department = v) } }
-                    }
-                }
-            }
-
-            if (d.events.isNotEmpty()) {
-                val swap = if (!movable(d.events.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(G_DATE, a, b, { it.events }) { c, l -> c.copy(events = l) }
-                }
-                group(Icons.Rounded.Cake, R.string.edit_important_dates, keys.keys(G_DATE, d.events.size), FormTokens.segmentGap, swap) { i, k, lead, shape ->
-                    val ev = d.events.getOrNull(i) ?: return@group
-                    DateRow(
-                        ev, lead, shape, openPicker = pickDateFor == k, onPickerClosed = { if (pickDateFor == k) pickDateFor = null },
-                        onChange = { n2 -> update { it.copy(events = it.events.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onRemove = { removeRow(G_DATE, i) { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            val addressLinks = AddressMapLinks.matches(d)
-            if (d.addresses.isNotEmpty()) {
-                // Each address is its own block of lines, so addresses sit a little apart.
-                // A map link follows its address by the address's label, so it moves along.
-                val swap = if (!movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(G_ADDR, a, b, { it.addresses }) { c, l -> c.copy(addresses = l) }
-                }
-                group(Icons.Rounded.Place, R.string.detail_address, keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
-                    val a = d.addresses.getOrNull(i) ?: return@group
-                    AddressRow(
-                        a, fr(k), lead,
-                        mapLink = addressLinks[i]?.let { d.websites.getOrNull(it)?.value },
-                        onMapLink = { mapLinkFor = i },
-                        onRemoveMapLink = {
-                            addressLinks[i]?.let { w -> keys.removed(WEBSITES.group, w) }
-                            update { AddressMapLinks.withoutLink(it, i) }
-                        },
-                        onChange = { n2 -> update { it.copy(addresses = it.addresses.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        // The address's map link goes with it.
-                        onRemove = {
-                            addressLinks[i]?.let { w -> keys.removed(WEBSITES.group, w) }
-                            removeRow(G_ADDR, i) {
-                                AddressMapLinks.withoutLink(it, i).let { c -> c.copy(addresses = c.addresses.filterIndexed { j, _ -> j != i }) }
-                            }
-                        },
-                    )
-                }
-            }
-
-            if (d.handles.isNotEmpty()) {
-                val swap = if (!movable(d.handles.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(G_HANDLE, a, b, { it.handles }) { c, l -> c.copy(handles = l) }
-                }
-                group(Icons.Rounded.Forum, R.string.edit_handles, keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap, swap) { i, k, lead, _ ->
-                    val h = d.handles.getOrNull(i) ?: return@group
-                    HandleRow(
-                        h, fr(k), lead, i, d.handles.size,
-                        onChange = { n2 -> update { it.copy(handles = it.handles.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onRemove = { removeRow(G_HANDLE, i) { it.copy(handles = it.handles.filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            // Profiles first (Instagram, LinkedIn…), then the other websites: one list of website rows underneath.
-            val profileIdx = d.websites.indices.filter { profileRow.getOrElse(it) { false } }
-            // A read-only website anywhere in the list keeps the provider's order for profiles too (the save can't honour it).
-            val profileSwap = if (!movable(d.websites.map { it.id })) null else { a: Int, b: Int ->
-                swapRows(WEBSITES.group, profileIdx[a], profileIdx[b], WEBSITES.get, WEBSITES.set)
-            }
-            val profileKeys = profileIdx.map { webKeys[it] }
-            group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileKeys, FormTokens.segmentGap, profileSwap) { j, k, lead, shape ->
-                val i = profileIdx.getOrNull(j) ?: return@group
-                val w = d.websites.getOrNull(i) ?: return@group
-                // Never drops out mid-typing: a value that reads as no profile keeps the row's own service.
-                val p = SocialProfiles.fromWebsite(w.value, w.type, w.label)
-                    ?: SocialProfiles.labelled(w.type, w.label)?.let { Profile(it, "") } ?: return@group
-                ProfileRow(
-                    w, p, fr(k), lead.icon, lead.title, shape, locked = lockedRow(w.id),
-                    onChange = { n2 -> update { it.copy(websites = it.websites.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                    onRemove = { removeRow(WEBSITES.group, i) { it.copy(websites = it.websites.filterIndexed { x, _ -> x != i }) } },
+                        vm.navigate(NavEvent.Route(if (id < 0) Routes.edit(vault = -id, prefill = true) else Routes.edit(id = id, prefill = true)))
+                    },
                 )
             }
-            if (profileRow.any { !it }) multi(WEBSITES) { i -> !profileRow.getOrElse(i) { false } }
-
-            if (d.relations.isNotEmpty()) {
-                val swap = if (!movable(d.relations.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(G_REL, a, b, { it.relations }) { c, l -> c.copy(relations = l) }
-                }
-                group(Icons.Rounded.People, R.string.edit_relations, keys.keys(G_REL, d.relations.size), FormTokens.segmentGap, swap) { i, k, lead, shape ->
-                    val item = d.relations.getOrNull(i) ?: return@group
-                    RelationRow(
-                        vm, item, fr(k), lead, shape,
-                        storedIn = if (meCard || editor.isVault) null else editor.account ?: AccountRef(null, null),
-                        onChange = { n2 -> update { it.copy(relations = it.relations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onPicked = editor::linkRelation,
-                        // The row becomes a relation kept in Parley only: nothing of it goes to the phone's contacts.
-                        onKeepInParley = { kept, link ->
-                            editor.linkRelation(kept.value, link)
-                            removeRow(G_REL, i) {
-                                it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }, parleyRelations = it.parleyRelations + kept)
-                            }
-                        },
-                        onRemove = { removeRow(G_REL, i) { it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            if (d.parleyRelations.isNotEmpty()) {
-                val parleyKeys = keys.keys(G_PARLEY_REL, d.parleyRelations.size)
-                group(Icons.Rounded.Lock, R.string.edit_parley_relations, parleyKeys, FormTokens.segmentGap) { i, _, lead, shape ->
-                    val item = d.parleyRelations.getOrNull(i) ?: return@group
-                    ParleyRelationRow(
-                        item, lead, shape,
-                        onChange = { n2 ->
-                            update { it.copy(parleyRelations = it.parleyRelations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) }
-                        },
-                        onRemove = { removeRow(G_PARLEY_REL, i) { it.copy(parleyRelations = it.parleyRelations.filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            if (d.customFields.isNotEmpty()) {
-                val customKeys = keys.keys(G_CUSTOM, d.customFields.size)
-                val swap = if (!movable(d.customFields.map { it.id })) null else { a: Int, b: Int ->
-                    swapRows(G_CUSTOM, a, b, { it.customFields }) { c, l -> c.copy(customFields = l) }
-                }
-                group(Icons.AutoMirrored.Rounded.ShortText, R.string.edit_custom_fields, customKeys, FormTokens.segmentGap, swap) { i, k, lead, _ ->
-                    val f = d.customFields.getOrNull(i) ?: return@group
-                    CustomFieldRow(
-                        f, lockedRow(f.id), fr(k), lead.icon, lead.title, i, d.customFields.size,
-                        onChange = { n2 -> update { it.copy(customFields = it.customFields.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onRemove = { removeRow(G_CUSTOM, i) { it.copy(customFields = it.customFields.filterIndexed { j, _ -> j != i }) } },
-                    )
-                }
-            }
-
-            if (EditorForm.Kind.LANGUAGE in shownKinds) {
-                keyIndex[KEY_LANGUAGE] = n
-                put("language") {
-                    LanguagesRow(d.languages, d.languageIds.any { lockedRow(it) }, fr(KEY_LANGUAGE), Icons.Rounded.Translate, Modifier.animateItem()) { v ->
-                        update { it.copy(languages = v) }
-                    }
-                }
-            }
-
-            if (EditorForm.Kind.CITIZENSHIP in shownKinds) {
-                put("citizenship") {
-                    CitizenshipRow(
-                        d.citizenships, d.citizenshipIds.any { lockedRow(it) }, Modifier.animateItem(), onAdd = { pickCountry = true },
-                        onRemove = { code -> update { it.copy(citizenships = it.citizenships - code) } },
-                    )
-                }
-            }
-
-            if (EditorForm.Kind.LABELS in shownKinds) {
-                put("labels") { LabelsRow(accountGroups, d.groupIds, Modifier.animateItem()) { ids -> update { it.copy(groupIds = ids) } } }
-            }
-
-            if (EditorForm.Kind.NOTE in shownKinds) {
-                keyIndex[KEY_NOTE] = n
-                put("note") {
-                    FormRow(
-                        Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
-                    ) {
-                        ParleyFormField(
-                            // My card's note goes into the QR code or vCard only when you tick it.
-                            d.note, { v -> update { it.copy(note = v) } }, stringResource(R.string.edit_notes),
-                            modifier = Modifier.fillMaxWidth().focusRequester(fr(KEY_NOTE)), singleLine = false, minLines = 2,
-                            supporting = if (meCard) stringResource(R.string.me_note_hint) else null,
-                            readOnly = lockedRow(d.noteId),
-                            trailing = if (lockedRow(d.noteId)) { { LockIcon() } } else null,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                        )
-                    }
-                }
-            }
-
-            if (EditorForm.Kind.WHEN_THEY_CALL in shownKinds) {
-                keyIndex[KEY_CONTEXT] = n
-                put("call") { WhenTheyCallRow(d, fr(KEY_CONTEXT), Modifier.animateItem(), ::update) }
-            }
-
-            if (lookup != null && EditorForm.Kind.CALL_BACKGROUND in shownKinds) {
-                put("bg") {
-                    // The picture editor names itself, so the gutter icon is only decoration here.
-                    FormRow(Icons.Rounded.Wallpaper, null, Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
-                        Box(Modifier.padding(top = 12.dp)) { CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) }
-                    }
-                }
-            }
-
-            // The one add control: the kinds this contact can still take, commonest first.
-            if (choices.isNotEmpty()) {
-                put("add") {
-                    FormRow(Icons.Rounded.Add, stringResource(R.string.editor_add_title), Modifier.animateItem(), reserveEnd = false) {
-                        val entries = choices.map { k -> AddChoice(kindIcon(k), stringResource(kindLabel(k))) { addKind(k) } }
-                        Box(Modifier.heightIn(min = FormTokens.fieldHeight), contentAlignment = Alignment.CenterStart) { AddChips(entries) }
-                    }
-                }
-            }
-            put("end") { Spacer(Modifier.height(24.dp)) }
         }
-
-        CompositionLocalProvider(LocalCountryIso provides vm.countryIso, LocalLocked provides original?.readOnlyDataIds.orEmpty()) {
-            BoxWithConstraints(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
-                val wide = maxWidth >= 720.dp
-                if (wide) {
-                    // Two columns on wide screens and in landscape: where it's saved, photo and name beside the fields.
-                    Row(Modifier.fillMaxSize().padding(start = 24.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Column(Modifier.weight(0.42f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp)) { header() }
-                        LazyColumn(Modifier.weight(0.58f).fillMaxHeight(), state = listState, contentPadding = PaddingValues(top = 8.dp)) { fields(0) }
-                    }
-                } else {
-                    // One column, at most 640 dp wide; the end column's button brings its own inset.
-                    val side = ((maxWidth - 640.dp) / 2).coerceAtLeast(16.dp)
-                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = side, end = side - 8.dp, top = 4.dp)) {
-                        item(key = "header") { header() }
-                        fields(1)
-                    }
-                }
+        val shownPhoto = editor.photo?.toString() ?: d.photoUri.takeUnless { editor.removePhoto }
+        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
+            EditorPhoto(vm, editor, d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto)
+        }
+        Box(Modifier.padding(start = FormTokens.gutter, bottom = 4.dp)) { EditorSavedWhere(editor, args) }
+        if (args.contactId == null && args.vaultId == null && !args.meCard) {
+            DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(NavEvent.Contact(id)) }) { id ->
+                // "Add these details to her": continue in the existing contact's editor with this draft appended.
+                vm.pendingPrefill = d
+                done(null)
+                vm.navigate(NavEvent.Route(Routes.edit(id = id, prefill = true)))
             }
         }
+        NameBlock(
+            d, expanded = nameOpen,
+            // Kept open while a detail holds something.
+            canToggle = !shape.nameDetailsFilled,
+            onToggle = { editor.moreName = !editor.moreName }, first = form.fr(KEY_FIRST), nick = form.fr(KEY_NICK), update = form::update,
+        )
+        // Their name in their own language, under the name: offered when the name is in another script, they have a
+        // language, or the name's details are open (it isn't one of the "Add" chips).
+        if (EditorForm.Kind.NATIVE_NAME in shape.shownKinds) {
+            NativeNameRow(
+                d.nativeName, lockedRow(d.nativeNameId), form.fr(KEY_NATIVE),
+                onChange = { n -> form.update { it.copy(nativeName = n) } },
+                onRemove = {
+                    editor.revealed = editor.revealed - EditorForm.Kind.NATIVE_NAME
+                    form.update { it.copy(nativeName = NativeName()) }
+                },
+            )
+        } else {
+            NativeNameOffer(
+                d.composedName, d.languages.isNotEmpty(), detailsOpen = nameOpen,
+                onSpell = {
+                    editor.revealed = editor.revealed + EditorForm.Kind.NATIVE_NAME
+                    form.update(::withEnglishSpelling)
+                    form.focusKey = KEY_FIRST
+                },
+                onAdd = { form.addKind(EditorForm.Kind.NATIVE_NAME, d) },
+            )
+        }
+        if (editor.isVault && shownPhoto != null) {
+            Text(
+                stringResource(R.string.edit_private_photo), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = FormTokens.gutter + 16.dp, top = 4.dp),
+            )
+        }
+    }
+}
 
-        if (pickProfile) {
-            ProfilePickerSheet(onDismiss = { pickProfile = false }) { service ->
-                pickProfile = false
-                val cur = editor.draft ?: d
-                if (service == null) {
-                    addKind(EditorForm.Kind.WEBSITE)
-                } else {
-                    editor.revealed = editor.revealed + EditorForm.Kind.PROFILE
-                    addRow(WEBSITES.group, cur.websites.size) {
-                        it.copy(websites = it.websites + DataItem(type = SocialProfiles.TYPE_CUSTOM, label = service.label))
-                    }
+/** Where it's saved (and for how long), or for My card what its code and file share. */
+@Composable
+private fun EditorSavedWhere(editor: EditorViewModel, args: EditorScreenArgs) {
+    val deviceName = stringResource(R.string.editor_account_device)
+    val original = editor.original
+    if (args.meCard) {
+        MeShareLine(editor.meParts, editor::toggleMePart)
+        return
+    }
+    SaveToLine(
+        EditorSaveTo(
+            args.vaultId, original != null, editor.privateNew, editor.temporaryNew, editor.temporary, editor.account, editor.accounts,
+            // An expiry belongs to the whole contact, so it isn't offered when editing one of its copies.
+            expiry = ExpiryState(editor.expiresAt, editor.expiryPick)
+                .takeIf { args.rawId == null && (original?.lookupKey?.isNotEmpty() == true || (args.vaultId ?: 0L) > 0L) },
+            systemDefault = editor.systemDefault,
+        ),
+        label = { a -> accountName(a, deviceName) },
+        onAccount = editor::chooseAccount, onTemporary = editor::chooseTemporary,
+        onTemporaryChange = editor::changeTemporary, onExpiry = editor::pickExpiry,
+    )
+}
+
+/**
+ * Builds the form's field groups into a lazy list: each item keyed, and where each focus key sits remembered (to
+ * scroll to a new row). A group is one item per row, stacked as one segmented block.
+ */
+private class FieldList(private val scope: LazyListScope, val form: EditorFormUi, val d: ContactDetails, base: Int) {
+    private var n = base
+
+    /** [key]'s field is the next item. */
+    fun at(key: Any) {
+        form.keyIndex[key] = n
+    }
+
+    fun put(key: Any, content: @Composable LazyItemScope.() -> Unit) {
+        form.keyIndex[key] = n++
+        scope.item(key = key) { content() }
+    }
+
+    /**
+     * A group: one item per row (keys from [RowKeys]) stacked as one segmented block, the group's icon in the
+     * gutter of its first line, a small gap after its last. [row] gets the row's index, key, gutter and shape.
+     * With [swap] (rows i and j of the group trade places) and two rows or more, each row can move up or down
+     * ([LocalRowMoves]).
+     */
+    fun group(
+        icon: ImageVector,
+        title: Int,
+        rowKeys: List<Long>,
+        gap: Dp,
+        swap: ((Int, Int) -> Unit)? = null,
+        row: @Composable (Int, Long, Lead, Shape) -> Unit,
+    ) {
+        rowKeys.forEachIndexed { i, k ->
+            put(k) {
+                val lead = if (i == 0) Lead(icon, stringResource(title)) else Lead.None
+                val bottom = if (i == rowKeys.lastIndex) FormTokens.groupGap else gap
+                val moves = if (swap == null || rowKeys.size < 2) null else RowMoves(
+                    up = if (i > 0) { { swap(i, i - 1) } } else null,
+                    down = if (i < rowKeys.lastIndex) { { swap(i, i + 1) } } else null,
+                )
+                CompositionLocalProvider(LocalRowMoves provides moves) {
+                    Box(Modifier.animateItem().padding(bottom = bottom)) { row(i, k, lead, formFieldShape(i, rowKeys.size)) }
                 }
-            }
-        }
-        if (pickCountry) {
-            CountryPickerDialog(null, onDismiss = { pickCountry = false }) { code ->
-                pickCountry = false
-                editor.revealed = editor.revealed + EditorForm.Kind.CITIZENSHIP
-                update { if (code in it.citizenships) it else it.copy(citizenships = it.citizenships + code) }
-            }
-        }
-        mapLinkFor?.let { i ->
-            MapLinkDialog(onDismiss = { mapLinkFor = null }) { place ->
-                mapLinkFor = null
-                update { AddressMapLinks.withLink(it, i, place) }
             }
         }
     }
 
+    /** A group of [kind]'s rows; [only] keeps the rows of a shared list that belong to this group. */
+    fun multi(kind: MultiKind, only: (Int) -> Boolean = { true }) {
+        val items = kind.get(d)
+        val rowKeys = form.keys.keys(kind.group, items.size)
+        val idx = items.indices.filter(only)
+        // Every row of the kind counts: the save orders the whole list (profiles and websites share one).
+        val swap = if (!form.movable(items.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(kind.group, idx[a], idx[b], kind.get, kind.set)
+        }
+        group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap, swap) { j, k, lead, shape ->
+            val i = idx.getOrNull(j) ?: return@group
+            val item = items.getOrNull(i) ?: return@group
+            MultiRow(kind, item, form.fr(k), lead, shape,
+                onChange = { n2 -> form.update { kind.set(it, kind.get(it).toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                onRemove = { form.removeRow(kind.group, i) { kind.set(it, kind.get(it).filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+}
+
+/**
+ * The field groups (lazy, animated rows); [base] is the lazy index of the first one (to scroll to a new row): ways to
+ * reach them, then about them, then the "Add" chips, in their groups.
+ */
+private fun LazyListScope.editorFields(
+    vm: AppViewModel,
+    editor: EditorViewModel,
+    form: EditorFormUi,
+    d: ContactDetails,
+    meCard: Boolean,
+    shape: EditorShape,
+    base: Int,
+) {
+    form.keyIndex.clear()
+    // The name fields live in the header item (index 0) when it's part of this list.
+    if (base == 1) { form.keyIndex[KEY_FIRST] = 0; form.keyIndex[KEY_NICK] = 0; form.keyIndex[KEY_NATIVE] = 0 }
+    val list = FieldList(this, form, d, base)
+    list.reachGroups(shape)
+    list.aboutGroups(vm, editor, meCard, shape)
+    list.addChipsRow(shape)
+    list.put("end") { Spacer(Modifier.height(24.dp)) }
+}
+
+/** Phones, e-mails, work and dates, then [placeGroups]. */
+private fun FieldList.reachGroups(shape: EditorShape) {
+    multi(PHONES)
+    multi(EMAILS)
+
+    if (EditorForm.Kind.WORK in shape.shownKinds) {
+        at(KEY_COMPANY)
+        put("work") {
+            val workLocked = lockedRow(d.orgId)
+            FormRow(Icons.Rounded.Business, stringResource(R.string.editor_work), Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
+                EditorField(
+                    stringResource(R.string.edit_company), d.company, shape = formFieldShape(0, 3), cap = KeyboardCapitalization.Words,
+                    locked = workLocked, focus = form.fr(KEY_COMPANY),
+                ) { v -> form.update { it.copy(company = v) } }
+                Spacer(Modifier.height(FormTokens.segmentGap))
+                EditorField(
+                    stringResource(R.string.edit_job_title), d.title, shape = formFieldShape(1, 3), cap = KeyboardCapitalization.Words,
+                    locked = workLocked,
+                ) { v -> form.update { it.copy(title = v) } }
+                Spacer(Modifier.height(FormTokens.segmentGap))
+                EditorField(
+                    stringResource(R.string.edit_department), d.department, shape = formFieldShape(2, 3), cap = KeyboardCapitalization.Words,
+                    locked = workLocked,
+                ) { v -> form.update { it.copy(department = v) } }
+            }
+        }
+    }
+
+    if (d.events.isNotEmpty()) {
+        val swap = if (!form.movable(d.events.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(G_DATE, a, b, { it.events }) { c, l -> c.copy(events = l) }
+        }
+        group(Icons.Rounded.Cake, R.string.edit_important_dates, form.keys.keys(G_DATE, d.events.size), FormTokens.segmentGap, swap) { i, k, lead, shape ->
+            val ev = d.events.getOrNull(i) ?: return@group
+            DateRow(
+                ev, lead, shape, openPicker = form.pickDateFor == k, onPickerClosed = { if (form.pickDateFor == k) form.pickDateFor = null },
+                onChange = { n2 -> form.update { it.copy(events = it.events.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                onRemove = { form.removeRow(G_DATE, i) { it.copy(events = it.events.filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+
+    placeGroups(shape)
+}
+
+/** Addresses (with their map links), then [webGroups]. */
+private fun FieldList.placeGroups(shape: EditorShape) {
+    val addressLinks = AddressMapLinks.matches(d)
+    if (d.addresses.isNotEmpty()) {
+        // Each address is its own block of lines, so addresses sit a little apart.
+        // A map link follows its address by the address's label, so it moves along.
+        val swap = if (!form.movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(G_ADDR, a, b, { it.addresses }) { c, l -> c.copy(addresses = l) }
+        }
+        group(Icons.Rounded.Place, R.string.detail_address, form.keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
+            val a = d.addresses.getOrNull(i) ?: return@group
+            AddressRow(
+                a, form.fr(k), lead,
+                mapLink = addressLinks[i]?.let { d.websites.getOrNull(it)?.value },
+                onMapLink = { form.mapLinkFor = i },
+                onRemoveMapLink = {
+                    addressLinks[i]?.let { w -> form.keys.removed(WEBSITES.group, w) }
+                    form.update { AddressMapLinks.withoutLink(it, i) }
+                },
+                onChange = { n2 -> form.update { it.copy(addresses = it.addresses.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                // The address's map link goes with it.
+                onRemove = {
+                    addressLinks[i]?.let { w -> form.keys.removed(WEBSITES.group, w) }
+                    form.removeRow(G_ADDR, i) {
+                        AddressMapLinks.withoutLink(it, i).let { c -> c.copy(addresses = c.addresses.filterIndexed { j, _ -> j != i }) }
+                    }
+                },
+            )
+        }
+    }
+
+    webGroups(shape)
+}
+
+/** Handles, then [profileGroups]. */
+private fun FieldList.webGroups(shape: EditorShape) {
+    if (d.handles.isNotEmpty()) {
+        val swap = if (!form.movable(d.handles.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(G_HANDLE, a, b, { it.handles }) { c, l -> c.copy(handles = l) }
+        }
+        group(Icons.Rounded.Forum, R.string.edit_handles, form.keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap, swap) { i, k, lead, _ ->
+            val h = d.handles.getOrNull(i) ?: return@group
+            HandleRow(
+                h, form.fr(k), lead, i, d.handles.size,
+                onChange = { n2 -> form.update { it.copy(handles = it.handles.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                onRemove = { form.removeRow(G_HANDLE, i) { it.copy(handles = it.handles.filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+
+    profileGroups(shape)
+}
+
+/** Profiles first (Instagram, LinkedIn…), then the other websites: one list of website rows underneath. */
+private fun FieldList.profileGroups(shape: EditorShape) {
+    val profileIdx = d.websites.indices.filter { shape.profileRow.getOrElse(it) { false } }
+    // A read-only website anywhere in the list keeps the provider's order for profiles too (the save can't honour it).
+    val profileSwap = if (!form.movable(d.websites.map { it.id })) null else { a: Int, b: Int ->
+        form.swapRows(WEBSITES.group, profileIdx[a], profileIdx[b], WEBSITES.get, WEBSITES.set)
+    }
+    val profileKeys = profileIdx.map { shape.webKeys[it] }
+    group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileKeys, FormTokens.segmentGap, profileSwap) { j, k, lead, rowShape ->
+        val i = profileIdx.getOrNull(j) ?: return@group
+        val w = d.websites.getOrNull(i) ?: return@group
+        // Never drops out mid-typing: a value that reads as no profile keeps the row's own service.
+        val p = SocialProfiles.fromWebsite(w.value, w.type, w.label)
+            ?: SocialProfiles.labelled(w.type, w.label)?.let { Profile(it, "") } ?: return@group
+        ProfileRow(
+            w, p, form.fr(k), lead.icon, lead.title, rowShape, locked = lockedRow(w.id),
+            onChange = { n2 -> form.update { it.copy(websites = it.websites.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+            onRemove = { form.removeRow(WEBSITES.group, i) { it.copy(websites = it.websites.filterIndexed { x, _ -> x != i }) } },
+        )
+    }
+    if (shape.profileRow.any { !it }) multi(WEBSITES) { i -> !shape.profileRow.getOrElse(i) { false } }
+}
+
+/** Relations, then [otherGroups] and [aboutRows]. */
+private fun FieldList.aboutGroups(vm: AppViewModel, editor: EditorViewModel, meCard: Boolean, shape: EditorShape) {
+    if (d.relations.isNotEmpty()) {
+        val swap = if (!form.movable(d.relations.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(G_REL, a, b, { it.relations }) { c, l -> c.copy(relations = l) }
+        }
+        group(Icons.Rounded.People, R.string.edit_relations, form.keys.keys(G_REL, d.relations.size), FormTokens.segmentGap, swap) { i, k, lead, rowShape ->
+            val item = d.relations.getOrNull(i) ?: return@group
+            RelationRow(
+                vm, item, form.fr(k), lead, rowShape,
+                storedIn = if (meCard || editor.isVault) null else editor.account ?: AccountRef(null, null),
+                onChange = { n2 -> form.update { it.copy(relations = it.relations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                onPicked = editor::linkRelation,
+                // The row becomes a relation kept in Parley only: nothing of it goes to the phone's contacts.
+                onKeepInParley = { kept, link ->
+                    editor.linkRelation(kept.value, link)
+                    form.removeRow(G_REL, i) {
+                        it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }, parleyRelations = it.parleyRelations + kept)
+                    }
+                },
+                onRemove = { form.removeRow(G_REL, i) { it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+
+    otherGroups()
+    aboutRows(vm, editor, meCard, shape)
+}
+
+/** Relations kept in Parley only, and custom fields. */
+private fun FieldList.otherGroups() {
+    if (d.parleyRelations.isNotEmpty()) {
+        val parleyKeys = form.keys.keys(G_PARLEY_REL, d.parleyRelations.size)
+        group(Icons.Rounded.Lock, R.string.edit_parley_relations, parleyKeys, FormTokens.segmentGap) { i, _, lead, rowShape ->
+            val item = d.parleyRelations.getOrNull(i) ?: return@group
+            ParleyRelationRow(
+                item, lead, rowShape,
+                onChange = { n2 ->
+                    form.update { it.copy(parleyRelations = it.parleyRelations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) }
+                },
+                onRemove = { form.removeRow(G_PARLEY_REL, i) { it.copy(parleyRelations = it.parleyRelations.filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+
+    if (d.customFields.isNotEmpty()) {
+        val customKeys = form.keys.keys(G_CUSTOM, d.customFields.size)
+        val swap = if (!form.movable(d.customFields.map { it.id })) null else { a: Int, b: Int ->
+            form.swapRows(G_CUSTOM, a, b, { it.customFields }) { c, l -> c.copy(customFields = l) }
+        }
+        group(Icons.AutoMirrored.Rounded.ShortText, R.string.edit_custom_fields, customKeys, FormTokens.segmentGap, swap) { i, k, lead, _ ->
+            val f = d.customFields.getOrNull(i) ?: return@group
+            CustomFieldRow(
+                f, lockedRow(f.id), form.fr(k), lead.icon, lead.title, i, d.customFields.size,
+                onChange = { n2 -> form.update { it.copy(customFields = it.customFields.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                onRemove = { form.removeRow(G_CUSTOM, i) { it.copy(customFields = it.customFields.filterIndexed { j, _ -> j != i }) } },
+            )
+        }
+    }
+}
+
+/** Languages, citizenship, labels, the note, "When they call" and the call-screen picture. */
+private fun FieldList.aboutRows(vm: AppViewModel, editor: EditorViewModel, meCard: Boolean, shape: EditorShape) {
+    if (EditorForm.Kind.LANGUAGE in shape.shownKinds) {
+        at(KEY_LANGUAGE)
+        put("language") {
+            LanguagesRow(d.languages, d.languageIds.any { lockedRow(it) }, form.fr(KEY_LANGUAGE), Icons.Rounded.Translate, Modifier.animateItem()) { v ->
+                form.update { it.copy(languages = v) }
+            }
+        }
+    }
+
+    if (EditorForm.Kind.CITIZENSHIP in shape.shownKinds) {
+        put("citizenship") {
+            CitizenshipRow(
+                d.citizenships, d.citizenshipIds.any { lockedRow(it) }, Modifier.animateItem(), onAdd = { form.pickCountry = true },
+                onRemove = { code -> form.update { it.copy(citizenships = it.citizenships - code) } },
+            )
+        }
+    }
+
+    if (EditorForm.Kind.LABELS in shape.shownKinds) {
+        put("labels") { LabelsRow(shape.accountGroups, d.groupIds, Modifier.animateItem()) { ids -> form.update { it.copy(groupIds = ids) } } }
+    }
+
+    if (EditorForm.Kind.NOTE in shape.shownKinds) {
+        at(KEY_NOTE)
+        put("note") {
+            FormRow(
+                Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
+            ) {
+                ParleyFormField(
+                    // My card's note goes into the QR code or vCard only when you tick it.
+                    d.note, { v -> form.update { it.copy(note = v) } }, stringResource(R.string.edit_notes),
+                    modifier = Modifier.fillMaxWidth().focusRequester(form.fr(KEY_NOTE)), singleLine = false, minLines = 2,
+                    supporting = if (meCard) stringResource(R.string.me_note_hint) else null,
+                    readOnly = lockedRow(d.noteId),
+                    trailing = if (lockedRow(d.noteId)) { { LockIcon() } } else null,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
+            }
+        }
+    }
+
+    if (EditorForm.Kind.WHEN_THEY_CALL in shape.shownKinds) {
+        at(KEY_CONTEXT)
+        put("call") { WhenTheyCallRow(d, form.fr(KEY_CONTEXT), Modifier.animateItem(), form::update) }
+    }
+
+    val lookup = shape.lookup
+    if (lookup != null && EditorForm.Kind.CALL_BACKGROUND in shape.shownKinds) {
+        put("bg") {
+            // The picture editor names itself, so the gutter icon is only decoration here.
+            FormRow(Icons.Rounded.Wallpaper, null, Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
+                Box(Modifier.padding(top = 12.dp)) { CallBackgroundEditor(vm, lookup, editor.background, editor::changeBackground) }
+            }
+        }
+    }
+}
+
+/** The one add control: the kinds this contact can still take, commonest first, in three small groups. */
+private fun FieldList.addChipsRow(shape: EditorShape) {
+    // The one add control: the kinds this contact can still take, commonest first, in three small groups (ways to
+    // reach them, about them, when they call) so they don't read as one pile.
+    val grouped = EditorForm.groupedChoices(shape.choices)
+    if (grouped.isNotEmpty()) {
+        put("add") {
+            FormRow(Icons.Rounded.Add, stringResource(R.string.editor_add_title), Modifier.animateItem(), reserveEnd = false) {
+                Column(Modifier.heightIn(min = FormTokens.fieldHeight), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                    grouped.forEach { (g, kinds) ->
+                        Text(
+                            stringResource(chipGroupTitle(g)), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs).semantics { heading() },
+                        )
+                        AddChips(kinds.map { k -> AddChoice(kindIcon(k), stringResource(kindLabel(k))) { form.addKind(k, d) } })
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun chipGroupTitle(g: EditorForm.ChipGroup): Int = when (g) {
+    EditorForm.ChipGroup.CONTACT -> R.string.editor_add_group_contact
+    EditorForm.ChipGroup.ABOUT -> R.string.editor_add_group_about
+    EditorForm.ChipGroup.CALLS -> R.string.editor_add_group_calls
+}
+
+/** The pickers a row or chip opens: a profile's service, a citizenship's country, an address's map link. */
+@Composable
+private fun EditorPickers(editor: EditorViewModel, form: EditorFormUi, d: ContactDetails) {
+    if (form.pickProfile) {
+        ProfilePickerSheet(onDismiss = { form.pickProfile = false }) { service ->
+            form.pickProfile = false
+            val cur = editor.draft ?: d
+            if (service == null) {
+                form.addKind(EditorForm.Kind.WEBSITE, d)
+            } else {
+                editor.revealed = editor.revealed + EditorForm.Kind.PROFILE
+                form.addRow(WEBSITES.group, cur.websites.size) {
+                    it.copy(websites = it.websites + DataItem(type = SocialProfiles.TYPE_CUSTOM, label = service.label))
+                }
+            }
+        }
+    }
+    if (form.pickCountry) {
+        CountryPickerDialog(null, onDismiss = { form.pickCountry = false }) { code ->
+            form.pickCountry = false
+            editor.revealed = editor.revealed + EditorForm.Kind.CITIZENSHIP
+            form.update { if (code in it.citizenships) it else it.copy(citizenships = it.citizenships + code) }
+        }
+    }
+    form.mapLinkFor?.let { i ->
+        MapLinkDialog(onDismiss = { form.mapLinkFor = null }) { place ->
+            form.mapLinkFor = null
+            form.update { AddressMapLinks.withLink(it, i, place) }
+        }
+    }
+}
+
+/**
+ * The questions the editor asks: keep a very large photo whole, a contact changed elsewhere meanwhile, keep a private
+ * contact's calls, and discard unsaved changes.
+ */
+@Composable
+private fun EditorDialogs(editor: EditorViewModel, confirmDiscard: Boolean, setConfirmDiscard: (Boolean) -> Unit, done: (Long?) -> Unit) {
     // Keeping the picked photo whole: asked once per photo, only when it is very large or a HEIC with a location.
     editor.photoQuestion?.let { q ->
         val context = LocalContext.current
@@ -898,7 +1101,7 @@ fun ContactEditScreen(
             k, onTheirs = editor::useTheirs, onMine = editor::keepMine, onMerge = editor::merge, onDismiss = editor::dismissConflict,
         )
     }
-    if (askKeep != null) {
+    if (editor.askKeep != null) {
         ParleyDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.edit_keep_title)) },
@@ -912,8 +1115,8 @@ fun ContactEditScreen(
             title = stringResource(R.string.edit_discard_title),
             text = stringResource(R.string.editor_discard_body),
             confirmLabel = stringResource(R.string.edit_discard),
-            onConfirm = { confirmDiscard = false; done(null) },
-            onDismiss = { confirmDiscard = false },
+            onConfirm = { setConfirmDiscard(false); done(null) },
+            onDismiss = { setConfirmDiscard(false) },
             destructive = true,
             dismissLabel = stringResource(R.string.edit_keep_editing),
         )
@@ -993,7 +1196,7 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.NAME_DETAILS -> Icons.Rounded.Badge
     EditorForm.Kind.CUSTOM_FIELD -> Icons.AutoMirrored.Rounded.ShortText
     EditorForm.Kind.LANGUAGE -> Icons.Rounded.Translate
-    EditorForm.Kind.NATIVE_NAME -> Icons.Rounded.Translate
+    EditorForm.Kind.NATIVE_NAME -> Icons.Rounded.Abc
     EditorForm.Kind.CITIZENSHIP -> Icons.Rounded.Flag
 }
 

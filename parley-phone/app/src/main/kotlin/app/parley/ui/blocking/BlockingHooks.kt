@@ -23,7 +23,7 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Search
@@ -98,7 +98,7 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
         row(stringResource(R.string.blk_allow_24h), Icons.Rounded.HourglassTop) {
             allowWithUndo(vm, number, hours = 24, res.getString(R.string.blk_allow_24h_toast))
         }
-        row(stringResource(R.string.blk_report), Icons.Rounded.Flag) { BlockingDialogs.show(BlockingDialog.Report(number)) }
+        row(stringResource(R.string.blk_report), Icons.Rounded.Report) { BlockingDialogs.show(BlockingDialog.Report(number)) }
     }
     row(stringResource(R.string.blk_search_web_long), Icons.Rounded.Search) { BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }
 }
@@ -247,7 +247,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
             if (contactName == null) AssistChip(
                 { BlockingDialogs.show(BlockingDialog.Report(number)) },
                 { Text(stringResource(R.string.blk_report)) },
-                leadingIcon = { Icon(Icons.Rounded.Flag, null) },
+                leadingIcon = { Icon(Icons.Rounded.Report, null) },
             )
         }
         if (mine.isNotEmpty()) {

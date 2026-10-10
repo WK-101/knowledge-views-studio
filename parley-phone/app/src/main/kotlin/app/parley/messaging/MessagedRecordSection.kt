@@ -83,7 +83,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
 }
 
 /**
- * "Messaged numbers" (from the privacy dashboard, Settings › Messaging and Recents ⋮): the numbers you opened a
+ * "Messaged numbers" (from Tools and the privacy dashboard; Settings search opens it for "Forget after"): the numbers you opened a
  * chat with through Parley, each with delete, "Clear all", "Don't keep a record" and "Forget after N days".
  */
 @OptIn(ExperimentalMaterial3Api::class)

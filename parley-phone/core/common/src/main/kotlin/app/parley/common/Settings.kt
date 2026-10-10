@@ -100,6 +100,12 @@ data class AppSettings(
      */
     val duress: DuressView? = null,
 ) {
+    /**
+     * These settings with the older "Notes on the lock screen" switch ([notesSwitch]) folded into "Caller on the lock
+     * screen" ([LockScreenCaller.folded]).
+     */
+    fun withLockScreenNotes(notesSwitch: Boolean): AppSettings = copy(lockScreenCaller = LockScreenCaller.folded(lockScreenCaller, notesSwitch))
+
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(
             "Can't talk now. Call me later?",

@@ -24,6 +24,9 @@
     <!-- The "Add" chips: one line of the kinds of fields a contact can still take. -->
     <string name="editor_add_field">Add %1$s</string>
     <string name="editor_add_title">Add a field</string>
+    <string name="editor_add_group_contact">Ways to reach them</string>
+    <string name="editor_add_group_about">About them</string>
+    <string name="editor_add_group_calls">When they call</string>
     <!-- Save to: Temporary (a new contact that deletes itself, like the keypad's "Save temporary contact"). -->
     <string name="editor_temporary">Temporary</string>
     <string name="editor_temporary_sub">Deletes itself after a time you choose</string>

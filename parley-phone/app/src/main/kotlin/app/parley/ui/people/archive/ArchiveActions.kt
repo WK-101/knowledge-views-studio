@@ -59,6 +59,7 @@ import app.parley.ui.Spacing
 import app.parley.ui.avatarSize
 import app.parley.ui.common.AccountRefSaver
 import app.parley.ui.common.Format
+import app.parley.ui.people.PeopleRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -203,18 +204,15 @@ fun privateArchived(vm: AppViewModel): List<VaultSummary> {
     return remember(listed) { listed.filter { it.archived }.sortedBy { it.name.lowercase() } }
 }
 
-/** Contacts › ⋮ › Archived: everyone archived, with Unarchive; a tap opens their calls. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
-    val context = LocalContext.current
-    val cards by vm.c.archive.cards.collectAsStateWithLifecycle()
-    val privates = privateArchived(vm)
-    var asking by rememberSaveable { mutableStateOf<Long?>(null) }
-    var missing by rememberSaveable { mutableStateOf("") }
+/**
+ * Unarchive for an archived device contact: back into the account it came from, or, when that account is gone (signed
+ * out, removed), into the one the person picks ([Host] asks).
+ */
+internal class Unarchiving(private val vm: AppViewModel, private val res: Resources) {
+    private var asking by mutableStateOf<ArchivedCard?>(null)
+    private var missing by mutableStateOf("")
 
-    fun putBack(card: ArchivedCard, into: AccountRef?) = vm.c.scope.launch {
-        val res = context.resources
+    private fun putBack(card: ArchivedCard, into: AccountRef?) = vm.c.scope.launch {
         when (val r = vm.c.archive.unarchive(card.id, into)) {
             is ArchiveStore.Unarchived.Done -> vm.toast(
                 r.redirectedTo?.let { res.getString(R.string.archive_unarchived_in, card.name, it.displayLabel) }
@@ -224,17 +222,41 @@ fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         }
     }
 
-    fun unarchive(card: ArchivedCard) = vm.c.scope.launch {
+    fun start(card: ArchivedCard) = vm.c.scope.launch {
         when (val t = vm.c.archive.target(card.id)) {
             null -> Unit
             Archive.Target.Original -> putBack(card, null)
-            // The account it came from is gone (signed out, removed): the user picks where it goes.
             is Archive.Target.Ask -> withContext(Dispatchers.Main) {
                 missing = t.missing.joinToString { it.name ?: it.type.orEmpty() }
-                asking = card.id
+                asking = card
             }
         }
     }
+
+    /** The account question, while one is open. */
+    @Composable
+    fun Host() {
+        val card = asking ?: return
+        ChooseAccountDialog(vm, card.name, missing, onDismiss = { asking = null }) { into ->
+            asking = null
+            putBack(card, into)
+        }
+    }
+}
+
+@Composable
+internal fun rememberUnarchiving(vm: AppViewModel): Unarchiving {
+    val res = LocalContext.current.resources
+    return remember(vm) { Unarchiving(vm, res) }
+}
+
+/** Contacts › ⋮ › Archived: everyone archived, with Unarchive; a tap opens their read-only page. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
+    val cards by vm.c.archive.cards.collectAsStateWithLifecycle()
+    val privates = privateArchived(vm)
+    val unarchiving = rememberUnarchiving(vm)
 
     ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.archive_title_screen), onBack = back) }) { p ->
         if (cards.isEmpty() && privates.isEmpty()) {
@@ -250,27 +272,14 @@ fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            items(cards, key = { it.id }) { card -> ArchivedRow(vm, card, open) { unarchive(card) } }
+            items(cards, key = { it.id }) { card -> ArchivedRow(vm, card, open) { unarchiving.start(card) } }
             privateArchivedSection(vm, privates, open)
         }
     }
-    asking?.let { id -> AskAccount(vm, cards.firstOrNull { it.id == id }, missing, { asking = null }) { card, into -> putBack(card, into) } }
+    unarchiving.Host()
 }
 
-/** Where an archived contact whose account is gone goes; [card] null (unarchived meanwhile) closes it. */
-@Composable
-private fun AskAccount(vm: AppViewModel, card: ArchivedCard?, missing: String, close: () -> Unit, putBack: (ArchivedCard, AccountRef) -> Unit) {
-    if (card == null) {
-        LaunchedEffect(Unit) { close() }
-        return
-    }
-    ChooseAccountDialog(vm, card.name, missing, onDismiss = close) { into ->
-        close()
-        putBack(card, into)
-    }
-}
-
-/** One archived contact: name, number and when it was archived; a tap opens their calls. */
+/** One archived contact: name, number and when it was archived; a tap opens their read-only page. */
 @Composable
 private fun ArchivedRow(vm: AppViewModel, card: ArchivedCard, open: (Destination) -> Unit, onUnarchive: () -> Unit) {
     val context = LocalContext.current
@@ -281,7 +290,7 @@ private fun ArchivedRow(vm: AppViewModel, card: ArchivedCard, open: (Destination
     ).joinToString(stringResource(R.string.main_separator))
     val unarchiveLabel = stringResource(R.string.archive_unarchive_for, card.name)
     ParleyListItem(
-        modifier = if (number != null) Modifier.clickable { open(Routes.history(number)) } else Modifier,
+        modifier = Modifier.clickable { open(PeopleRoutes.ArchivedContact(card.id)) },
         leadingContent = { Avatar(card.name, null, avatarSize()) },
         headlineContent = { Text(card.name) },
         supportingContent = { Text(line) },
@@ -308,7 +317,7 @@ private fun LazyListScope.privateArchivedSection(vm: AppViewModel, privates: Lis
     }
 }
 
-/** One archived private contact: its photo with the private badge, number and when it was archived; a tap opens their calls. */
+/** One archived private contact: its photo with the private badge, number and when it was archived; a tap opens its page. */
 @Composable
 private fun PrivateArchivedRow(vm: AppViewModel, v: VaultSummary, open: (Destination) -> Unit, onUnarchive: () -> Unit) {
     val context = LocalContext.current
@@ -321,7 +330,8 @@ private fun PrivateArchivedRow(vm: AppViewModel, v: VaultSummary, open: (Destina
     // The photo file is looked at off the main thread.
     val photo by produceState<String?>(null, v.id) { value = withContext(Dispatchers.IO) { vm.c.vault.photoUri(v.id) } }
     ParleyListItem(
-        modifier = if (number != null) Modifier.clickable { open(Routes.history(number)) } else Modifier,
+        // A private contact keeps its page while archived (its "Kept as" row says Archived, with Unarchive there too).
+        modifier = Modifier.clickable { open(Routes.contact(ContactRef.Private(v.id).navId)) },
         leadingContent = {
             Box {
                 Avatar(v.name, photo, avatarSize())

@@ -14,7 +14,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +47,6 @@ import app.parley.common.AppSettings
 import app.parley.common.CallsLayout
 import app.parley.common.FavoritesPlacement
 import app.parley.common.HomeLayout
-import app.parley.common.RecentTap
 import app.parley.common.StartTab
 import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
@@ -60,9 +58,8 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyShapes
 
 /**
- * Settings › Appearance › Layout. Both combine options with small previews, the question whether to
- * keep the absorbed tab too (never removed silently), "Back to separate tabs", and the Recents row tap (shown in
- * every layout, unlike iOS's setting that only appears in its combined view).
+ * Settings › Layout & gestures › Advanced. Both combine options with small previews, the question whether to keep
+ * the absorbed tab too (never removed silently) and "Back to separate tabs". The Recents row tap is in Recents view.
  */
 @Composable
 internal fun LayoutSettingsGroup(vm: AppViewModel) {
@@ -73,7 +70,6 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
     // The tab a combine option would take out of the bar: asked about first, only when the user shows it.
     var askKeypad by remember { mutableStateOf(false) }
     var askFavorites by remember { mutableStateOf<FavoritesPlacement?>(null) }
-    val tapOptions = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.home_tap_call))
 
     SegmentedGroup(stringResource(R.string.home_group_layout)) {
         item("calls_layout") {
@@ -158,11 +154,6 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                 )
             }
         }
-        choiceRow(
-            "recent_tap",
-            tapOptions,
-            surfaces.recentTap.ordinal, Icons.Rounded.TouchApp,
-        ) { i -> set { it.copy(surfaces = it.surfaces.copy(recentTap = RecentTap.entries[i])) } }
     }
 
     if (askKeypad) {

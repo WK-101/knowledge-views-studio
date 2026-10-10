@@ -1,5 +1,6 @@
 package app.parley.blocking
 
+import app.parley.common.catching
 import android.content.Context
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
@@ -42,5 +43,16 @@ object BlockingSetup {
         c.lists.watchFolder { SpamListWorker.runSoon(appContext) }
         // Label references saved by older versions (group ids) are rewritten by title.
         runCatching { c.people.labelRefs.migrate() }
+        catching { foldLockScreenNotes(c) }
+    }
+
+    /**
+     * The older "Notes on the lock screen" switch (a Circle setting) folds into "Caller on the lock screen": on with
+     * names shown, it becomes "Name and notes"; then it is off for good. Also after restoring an older backup.
+     */
+    suspend fun foldLockScreenNotes(c: DataContainer) {
+        if (!c.circle.config.value.memoryOnLockScreen) return
+        c.settings.update { it.withLockScreenNotes(notesSwitch = true) }
+        c.circle.updateConfig { it.copy(memoryOnLockScreen = false) }
     }
 }

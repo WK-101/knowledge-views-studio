@@ -3,6 +3,12 @@ package app.parley.ui.contact
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import app.parley.common.people.KeptAs
+import app.parley.ui.Spacing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
@@ -129,6 +135,7 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
         ContactDialog.ConfirmArchive -> app.parley.ui.people.archive.ArchiveContactDialog(
             ctx.vm, ctx.contactId, d.given.ifBlank { d.displayName }, onDismiss = close, onArchived = ctx.back,
         )
+        ContactDialog.KeptAs -> KeptAsDialog(ctx)
         ContactDialog.PrivateQrWarning -> ConfirmDialog(
             title = stringResource(R.string.contact_private_qr_title),
             text = stringResource(R.string.contact_private_qr_body),
@@ -243,6 +250,8 @@ private fun DeleteDialogs(ctx: ContactPageContext, dialog: ContactDialog) {
             title = if (ctx.isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.detail_delete_title, d.displayName),
             // A private contact's copy is kept sealed ("Deleted private contacts" in History & undo), never plain.
             text = stringResource(if (ctx.isPrivate) R.string.vault_delete_text else R.string.detail_delete_body),
+            // Archive keeps naming their calls, which deleting doesn't: offered here, where it's chosen against Delete.
+            content = if (keptAs(ctx) == KeptAs.ARCHIVED) null else ({ ArchiveInstead { ctx.show(ContactDialog.ConfirmArchive) } }),
             confirmLabel = stringResource(R.string.main_delete),
             onConfirm = {
                 close()
@@ -368,4 +377,19 @@ private fun SimForDialog(ctx: ContactPageContext, number: String) {
         confirmButton = {},
         dismissButton = { TextButton(close) { Text(stringResource(R.string.main_cancel)) } },
     )
+}
+
+/** "Archive instead" under the Delete question: out of the lists, and their calls are still named. */
+@Composable
+private fun ArchiveInstead(onArchive: () -> Unit) {
+    Column(Modifier.padding(top = Spacing.m)) {
+        OutlinedButton(onArchive) {
+            Icon(Icons.Rounded.Archive, null, Modifier.padding(end = Spacing.s))
+            Text(stringResource(R.string.archive_instead))
+        }
+        Text(
+            stringResource(R.string.archive_instead_sub), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs),
+        )
+    }
 }

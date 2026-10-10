@@ -4,7 +4,8 @@ package app.parley.common.ux
  * The ⋮ menus and action sheets that grew past the seven-item rule (README, GLOSSARY): the contact page's ⋮, the
  * Contacts selection ⋮ and a Recents call's actions. Each is built here from plain facts, most used first, with the
  * rarer actions grouped under one entry that opens a sheet of its own (Share…, Privacy…, More…, Why it rang…). The
- * screens draw exactly what these return, so a test can hold every menu to [MENU_LIMIT].
+ * screens draw exactly what these return, so a test can hold every menu to [MENU_LIMIT]. Privacy… is the selection's
+ * only: a single contact's page has its "Kept as" row instead.
  */
 const val MENU_LIMIT = 7
 
@@ -31,26 +32,24 @@ private fun <A> MutableList<MenuEntry<A>>.add(action: A, shown: Boolean = true) 
 
 /**
  * The contact page's ⋮: Remind me to call and Block (or Unblock) at the top, as the everyday ones; Version history
- * and the rest of the rarer ones under More….
+ * and the rest of the rarer ones under More…. How the contact is kept (Visible · Private · Archived), how long
+ * (Delete automatically) and its ringtone are rows of the page's own settings ("Kept as", D9), not menu items.
  */
 object ContactMenu {
     enum class Action {
         REMIND_TO_CALL,
         SHARE_FILE, SHOW_QR, SHARE_ENCRYPTED_QR,
         BLOCK_NUMBERS, UNBLOCK_NUMBERS,
-        MAKE_PRIVATE, MAKE_VISIBLE, DELETE_AUTOMATICALLY, ARCHIVE,
-        LOG_CHAT_OR_VISIT, CASE_FILE, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, SET_RINGTONE, ALLOW_SIMILAR_NUMBERS, SEPARATE,
+        LOG_CHAT_OR_VISIT, CASE_FILE, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, ALLOW_SIMILAR_NUMBERS, SEPARATE,
         DELETE,
     }
 
     data class Facts(
-        val isPrivate: Boolean = false,
         val canShareFile: Boolean = true,
         val canSeeVersions: Boolean = true,
         val canAddToHomeScreen: Boolean = true,
         val hasNumbers: Boolean = true,
         val canCopyToSim: Boolean = true,
-        val canSetRingtone: Boolean = true,
         /** Linked from several raw contacts (Separate). */
         val linked: Boolean = false,
         /** In the Circle, where "Log a chat or visit" is the page's own button instead. */
@@ -61,33 +60,25 @@ object ContactMenu {
         val onlyEmergency: Boolean = false,
         /** A case file shows on the page already (kept, or an organisation's): its card opens it, so no "Keep a case file". */
         val caseShown: Boolean = false,
-        /** Archived already (a private contact's page still opens then): Unarchive is in Contacts › ⋮ › Archived. */
-        val archived: Boolean = false,
+        /** A company rather than a person: "Keep a case file" is at the top for it, under More… for a person. */
+        val isCompany: Boolean = false,
     )
 
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.REMIND_TO_CALL, f.hasNumbers)
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
-        // Archive: out of the lists, still named on calls (a private contact stays private, archived inside the vault).
-        // An archived contact is kept until Unarchive: it never deletes itself, so "Delete automatically" isn't offered.
-        group(
-            MenuGroup.PRIVACY,
-            listOfNotNull(
-                if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE,
-                Action.DELETE_AUTOMATICALLY.takeIf { !f.archived },
-                Action.ARCHIVE.takeIf { !f.archived },
-            ),
-        )?.let(::add)
-        // Any contact can have a case file (a bank saved under a person's name, a landlord): the seventh place at most.
-        add(Action.CASE_FILE, f.hasNumbers && !f.caseShown)
+        // Case files are for organisations: a company's is a tap away; anyone else's (a bank saved under a person's name,
+        // a landlord) is under More….
+        val caseFile = f.hasNumbers && !f.caseShown
+        add(Action.CASE_FILE, caseFile && f.isCompany)
         group(
             MenuGroup.MORE,
             listOfNotNull(
                 Action.LOG_CHAT_OR_VISIT.takeIf { !f.inCircle },
+                Action.CASE_FILE.takeIf { caseFile && !f.isCompany },
                 Action.VERSION_HISTORY.takeIf { f.canSeeVersions },
                 Action.ADD_TO_HOME_SCREEN.takeIf { f.canAddToHomeScreen },
-                Action.SET_RINGTONE.takeIf { f.canSetRingtone },
                 Action.COPY_TO_SIM.takeIf { f.hasNumbers && f.canCopyToSim },
                 Action.ALLOW_SIMILAR_NUMBERS.takeIf { f.hasNumbers },
                 Action.SEPARATE.takeIf { f.linked },
@@ -98,14 +89,15 @@ object ContactMenu {
 }
 
 /**
- * The ⋮ of the Contacts selection bar (Select all, Star and Share are buttons on the bar itself). Edit… opens the
- * bulk edit sheet: labels (Add to label lives there), ringtone, SIM and account for all of them at once.
+ * The ⋮ of the Contacts selection bar (Select all and Star are buttons on the bar itself). Edit… opens the bulk edit
+ * sheet: labels (Add to label lives there), ringtone, SIM and account for all of them at once. Share… holds every
+ * way to share them, so there is one Share, not a bar button and a menu item.
  */
 object SelectionMenu {
-    enum class Action { EDIT, MESSAGE_ALL, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
+    enum class Action { EDIT, MESSAGE_ALL, SHARE_FILE, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
 
     data class Facts(
-        /** Some chosen contacts are device contacts (the clipboard, files and "Make private" are for those only). */
+        /** Some chosen contacts are device contacts (sharing, the clipboard, files and "Make private" are for those only). */
         val hasDevice: Boolean = true,
         /** Some are private contacts ("Make visible"). */
         val hasPrivate: Boolean = false,
@@ -116,7 +108,10 @@ object SelectionMenu {
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.EDIT)
         add(Action.MESSAGE_ALL)
-        group(MenuGroup.SHARE, listOfNotNull(Action.COPY_AS_TEXT.takeIf { f.hasDevice }, Action.EXPORT_VCF.takeIf { f.hasDevice }))?.let(::add)
+        group(
+            MenuGroup.SHARE,
+            listOfNotNull(Action.SHARE_FILE.takeIf { f.hasDevice }, Action.COPY_AS_TEXT.takeIf { f.hasDevice }, Action.EXPORT_VCF.takeIf { f.hasDevice }),
+        )?.let(::add)
         add(Action.MERGE, f.canMerge)
         group(
             MenuGroup.PRIVACY,

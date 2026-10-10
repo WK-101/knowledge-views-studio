@@ -98,14 +98,11 @@ object SettingsText {
         "circle_weekly_cap" to Triple(R.string.set_circle_weekly_cap_title, R.string.set_circle_weekly_cap_summary, R.string.set_circle_weekly_cap_kw),
         "log_prompts" to Triple(R.string.set_log_prompts_title, R.string.set_log_prompts_summary, R.string.set_log_prompts_kw),
         "memory_prompt" to Triple(R.string.set_circle_memory_prompt_title, R.string.set_circle_memory_prompt_summary, R.string.set_circle_memory_prompt_kw),
-        "memory_lock_screen" to Triple(R.string.set_circle_memory_lock_title, R.string.set_circle_memory_lock_summary, R.string.set_circle_memory_lock_kw),
         "pre_call_peek" to Triple(R.string.set_circle_peek_title, R.string.set_circle_peek_summary, R.string.set_circle_peek_kw),
         "people_card" to Triple(R.string.set_circle_people_card_title, R.string.set_circle_people_card_summary, R.string.set_circle_people_card_kw),
-        "first_mover" to Triple(R.string.set_circle_first_mover_title, R.string.set_circle_first_mover_summary, R.string.set_circle_first_mover_kw),
         "archive" to Triple(R.string.set_archive_title, R.string.set_archive_summary, R.string.set_archive_kw),
         "history_details" to Triple(R.string.set_history_details_title, R.string.set_history_details_summary, R.string.set_history_details_kw),
         "retention" to Triple(R.string.set_retention_title, R.string.set_retention_summary, R.string.set_retention_kw),
-        "sim_labels" to Triple(R.string.set_sim_labels_title, R.string.set_sim_labels_summary, R.string.set_sim_labels_kw),
         "recents_layout" to Triple(R.string.set_recents_layout_title, R.string.set_recents_layout_summary, R.string.set_recents_layout_kw),
         "recents_style" to Triple(R.string.set_recents_style_title, R.string.set_recents_style_summary, R.string.set_recents_style_kw),
         "recents_remember_filter" to Triple(
@@ -185,7 +182,6 @@ object SettingsText {
         "shared_labels_join" to Triple(R.string.set_shared_labels_join_title, R.string.set_shared_labels_join_summary, R.string.set_shared_labels_join_kw),
         "section_chips" to Triple(R.string.set_section_chips_title, R.string.set_section_chips_summary, R.string.set_section_chips_kw),
         "sim_billing" to Triple(R.string.set_sim_billing_title, R.string.set_sim_billing_summary, R.string.set_sim_billing_kw),
-        "csv_bom" to Triple(R.string.hist_csv_bom, R.string.hist_csv_bom_summary, R.string.set_csv_bom_kw),
     )
 
     /** Every catalog key has resources (checked by [localizedCatalog], which Settings search calls). */
@@ -199,11 +195,9 @@ object SettingsText {
         SettingsCategory.APPEARANCE -> R.string.set_cat_appearance_title
         SettingsCategory.LAYOUT -> R.string.set_cat_layout_title
         SettingsCategory.CALLS -> R.string.set_cat_calls_title
-        SettingsCategory.KEYPAD -> R.string.set_cat_keypad_title
         SettingsCategory.BLOCKING -> R.string.set_cat_blocking_title
         SettingsCategory.CONTACTS -> R.string.set_cat_contacts_title
         SettingsCategory.HISTORY -> R.string.set_cat_history_title
-        SettingsCategory.MESSAGING -> R.string.set_cat_messaging_title
         SettingsCategory.PRIVACY -> R.string.set_cat_privacy_title
         SettingsCategory.BACKUP -> R.string.set_cat_backup_title
         SettingsCategory.NOTIFICATIONS -> R.string.set_cat_notifications_title
@@ -214,11 +208,9 @@ object SettingsText {
         SettingsCategory.APPEARANCE -> R.string.set_cat_appearance_summary
         SettingsCategory.LAYOUT -> R.string.set_cat_layout_summary
         SettingsCategory.CALLS -> R.string.set_cat_calls_summary
-        SettingsCategory.KEYPAD -> R.string.set_cat_keypad_summary
         SettingsCategory.BLOCKING -> R.string.set_cat_blocking_summary
         SettingsCategory.CONTACTS -> R.string.set_cat_contacts_summary
         SettingsCategory.HISTORY -> R.string.set_cat_history_summary
-        SettingsCategory.MESSAGING -> R.string.set_cat_messaging_summary
         SettingsCategory.PRIVACY -> R.string.set_cat_privacy_summary
         SettingsCategory.BACKUP -> R.string.set_cat_backup_summary
         SettingsCategory.NOTIFICATIONS -> R.string.set_cat_notifications_summary

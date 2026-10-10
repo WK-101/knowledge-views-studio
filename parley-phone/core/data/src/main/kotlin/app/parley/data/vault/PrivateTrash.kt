@@ -41,8 +41,11 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
      * Keeps a sealed copy of private contact [vaultId] before it is deleted. False when it couldn't be kept (the
      * delete then waits: the user is asked whether to delete without one).
      */
-    suspend fun keep(vaultId: Long, now: Long = System.currentTimeMillis()): Boolean = withContext(Dispatchers.IO) {
-        val e = vault.sealedCopy(vaultId) ?: return@withContext false
+    suspend fun keep(vaultId: Long, now: Long = System.currentTimeMillis()): Boolean = keepFile(vaultId, now) != null
+
+    /** [keep], returning the kept copy's file (what [restore] takes, for an Undo); null when it couldn't be kept. */
+    suspend fun keepFile(vaultId: Long, now: Long = System.currentTimeMillis()): String? = withContext(Dispatchers.IO) {
+        val e = vault.sealedCopy(vaultId) ?: return@withContext null
         val extras = runCatching { keys()?.exportPrivate(ContactRef.privateKey(vaultId)) }.getOrNull()
         // The photo as picked (still sealed) and the relations other contacts link to it: deleting the entry drops both.
         val original = OriginalPhotos.sealedPrivate(context, vaultId)
@@ -63,11 +66,12 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
                 if (incoming.isNotEmpty()) put(K_INCOMING, JSONArray(incoming.map { (owner, name) -> JSONObject().put("k", owner).put("n", name) }))
             }
         lock.withLock {
-            catching {
+            val name = "$now-$vaultId-g${VaultCrypto.generationOf(e.detailBlob)}.bin"
+            val written = catching {
                 dir().mkdirs()
-                val name = "$now-$vaultId-g${VaultCrypto.generationOf(e.detailBlob)}.bin"
                 DurableFiles.write(File(dir(), name), VaultCrypto.sealCallerId(o.toString().toByteArray()))
             }.getOrDefault(false)
+            name.takeIf { written }
         }
     }
 
