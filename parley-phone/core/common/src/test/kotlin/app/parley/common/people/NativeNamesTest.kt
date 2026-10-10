@@ -159,7 +159,8 @@ class NativeNamesTest {
         val choices = EditorForm.addChoices(emptySet())
         assertTrue(EditorForm.Kind.NATIVE_NAME in choices)
         assertTrue(EditorForm.Kind.CITIZENSHIP in choices)
-        assertFalse(EditorForm.Kind.CITIZENSHIP in EditorForm.meCardKinds)
+        // My card takes them like any contact.
+        assertTrue(EditorForm.Kind.CITIZENSHIP in EditorForm.meCardKinds)
     }
 
     @Test fun language_rows_read_primary_first_with_leftovers_after() {

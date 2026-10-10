@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -28,9 +27,9 @@ import app.parley.R
 import app.parley.common.circle.InteractionType
 import app.parley.common.extras.Handshake
 import app.parley.common.extras.PendingSlot
-import app.parley.common.people.MeCard
-import app.parley.common.people.MeCards
 import app.parley.ui.people.MeQrDialog
+import app.parley.ui.people.rememberMyDetails
+import app.parley.data.people.MeCardDetails
 import app.parley.ui.people.cards.CardSharing
 import app.parley.common.cards.ShareMethod
 import app.parley.ui.people.PeopleRoutes
@@ -114,11 +113,9 @@ private fun CheckLine(text: String, checked: Boolean, onChange: (Boolean) -> Uni
  */
 @Composable
 fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismiss: () -> Unit) {
-    val own by vm.c.people.me.card.collectAsStateWithLifecycle()
-    val profile by produceState<MeCard?>(null) { value = runCatching { vm.c.people.me.profile() }.getOrNull() }
-    val merged = MeCards.merge(own, profile)
+    val merged = rememberMyDetails(vm.c.people)
     val parts by vm.c.people.me.shareParts.collectAsStateWithLifecycle()
-    if (merged.isEmpty) {
+    if (MeCardDetails.isEmpty(merged)) {
         ConfirmDialog(
             title = stringResource(R.string.me_title),
             text = stringResource(R.string.handshake_no_card),
@@ -129,7 +126,12 @@ fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismis
         )
     } else {
         // Their card arrived and yours is on screen for them: a swap, so your card's key now counts as shared (M5).
-        if (to != null) LaunchedEffect(to) { CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, merged.phones); CardSharing.markShared(vm.c) }
+        if (to != null) {
+            LaunchedEffect(to) {
+                CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, MeCardDetails.toCard(merged).phones)
+                CardSharing.markShared(vm.c)
+            }
+        }
         MeQrDialog(vm, merged, parts, onDismiss = onDismiss)
     }
 }

@@ -335,8 +335,9 @@ private fun CustomDaysDialog(initial: Int, onDismiss: () -> Unit, onDone: (Int) 
 }
 
 /**
- * My card's own option where a contact's Save-to line is: what its QR code and vCard include. The private note is
- * never shared, so it isn't offered.
+ * My card's own option where a contact's Save-to line is: what its QR code and vCard include, each part ticked on its
+ * own (name, numbers and e-mail until you choose; the note and relations only when ticked). A share with more than a
+ * signed card carries goes out unsigned, and says so here.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -356,10 +357,17 @@ internal fun MeShareLine(parts: Set<MeCards.Part>, onToggle: (MeCards.Part) -> U
                 )
             }
         }
+        if (!MeCards.isSignable(parts)) {
+            Text(
+                stringResource(R.string.me_share_unsigned), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+            )
+        }
     }
 }
 
 /** The name of one part of My card, as the QR dialog and the editor list them. */
+@Suppress("CyclomaticComplexMethod") // One label per part.
 @Composable
 internal fun mePartLabel(p: MeCards.Part): String = stringResource(
     when (p) {
@@ -370,5 +378,13 @@ internal fun mePartLabel(p: MeCards.Part): String = stringResource(
         MeCards.Part.WEBSITES -> R.string.me_websites
         MeCards.Part.ADDRESS -> R.string.me_address
         MeCards.Part.PROFILES -> R.string.me_profiles
+        MeCards.Part.NAME_DETAILS -> R.string.me_part_name_details
+        MeCards.Part.DATES -> R.string.me_part_dates
+        MeCards.Part.HANDLES -> R.string.me_part_handles
+        MeCards.Part.RELATIONS -> R.string.me_part_relations
+        MeCards.Part.LANGUAGES -> R.string.me_part_languages
+        MeCards.Part.OTHER -> R.string.me_part_other
+        MeCards.Part.NOTE -> R.string.me_part_note
+        MeCards.Part.PHOTO -> R.string.me_part_photo
     },
 )

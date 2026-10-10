@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.ui.people.PeopleRoutes
 import app.parley.common.MessengerApp
 import app.parley.common.calls.CallReason
 import app.parley.common.people.MessengerPrefs
@@ -111,7 +112,7 @@ private fun HeaderFactsLine(ctx: ContactPageContext) {
     // relation's own row).
     val status = remember(d.relations, ctx.parleyRelations, ctx.relationsFromOthers) {
         val own = (d.relations + ctx.parleyRelations).map { rel -> RelationMirrors.rowOf(rel) to { ctx.openRelation(rel.value) } }
-        val others = ctx.relationsFromOthers.map { o -> o.row to { ctx.open(Routes.contact(o.navId)) } }
+        val others = ctx.relationsFromOthers.map { o -> o.row to { ctx.open(if (o.fromMe) PeopleRoutes.Me else Routes.contact(o.navId)) } }
         RelationshipStatus.header(own + others) { it.first }.map { (kind, item) ->
             val res = if (kind == RelationshipStatus.Kind.MARRIED) R.string.detail_married_to else R.string.detail_partner_of
             HeaderLink(resources.getString(res, item.first.name.trim()), item.second)

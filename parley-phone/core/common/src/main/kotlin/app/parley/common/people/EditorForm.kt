@@ -45,17 +45,21 @@ object EditorForm {
     fun typeBelow(fieldWidthDp: Float, fontScale: Float): Boolean = fieldWidthDp < MIN_TYPED_FIELD_DP || fontScale >= LARGE_FONT
 
     /**
-     * The kinds "My card" can hold (it's your own card, shared as a QR code or vCard): the fields of [MeCard]. Dates,
-     * relations, handles, labels and the call-screen picture belong to other people's contacts.
+     * The kinds the "Add" chips may offer a contact: every one, except the name's details (the chevron beside the name
+     * opens those) and what belongs to where it is kept: labels only where its account has some ([hasLabels]), the
+     * call-screen picture only for a saved contact ([hasCallPicture]), the caller card ("When they call") only for a
+     * private one ([isPrivate]). My card is a contact like any other here: it takes every field and option.
      */
-    val meCardKinds: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.NOTE)
+    fun allowedKinds(hasLabels: Boolean, hasCallPicture: Boolean, isPrivate: Boolean): Set<Kind> = buildSet {
+        addAll(Kind.entries)
+        remove(Kind.NAME_DETAILS)
+        if (!hasLabels) remove(Kind.LABELS)
+        if (!hasCallPicture) remove(Kind.CALL_BACKGROUND)
+        if (!isPrivate) remove(Kind.WHEN_THEY_CALL)
+    }
 
-    /**
-     * The "Add" chips for My card: [addChoices] within [meCardKinds], and a single address (the card has one address
-     * line) once one is on screen ([hasAddress]).
-     */
-    fun meCardChoices(shown: Set<Kind>, withBlankRow: Set<Kind>, hasAddress: Boolean): List<Kind> =
-        addChoices(shown, withBlankRow, if (hasAddress) meCardKinds - Kind.ADDRESS else meCardKinds)
+    /** My card's kinds: it has no account labels, call-screen picture or caller card, and every field a contact has. */
+    val meCardKinds: Set<Kind> = allowedKinds(hasLabels = false, hasCallPicture = false, isPrivate = false)
 
     private const val MIN_TYPED_FIELD_DP = 232f
     private const val LARGE_FONT = 1.3f

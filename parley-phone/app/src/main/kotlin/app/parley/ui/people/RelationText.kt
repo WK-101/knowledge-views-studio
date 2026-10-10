@@ -91,6 +91,30 @@ object RelationText {
             "babysitter" -> R.string.rel_babysitter
             "landlord" -> R.string.rel_landlord
             "tenant" -> R.string.rel_tenant
+            "ex-wife" -> R.string.rel_ex_wife
+            "ex-husband" -> R.string.rel_ex_husband
+            "aunt-or-uncle" -> R.string.rel_aunt_or_uncle
+            "niece-or-nephew" -> R.string.rel_niece_or_nephew
+            "half-sibling" -> R.string.rel_half_sibling
+            "half-sister" -> R.string.rel_half_sister
+            "half-brother" -> R.string.rel_half_brother
+            "stepparent" -> R.string.rel_stepparent
+            "stepchild" -> R.string.rel_stepchild
+            "stepsibling" -> R.string.rel_stepsibling
+            "parent-in-law" -> R.string.rel_parent_in_law
+            "child-in-law" -> R.string.rel_child_in_law
+            "sibling-in-law" -> R.string.rel_sibling_in_law
+            "godmother" -> R.string.rel_godmother
+            "godfather" -> R.string.rel_godfather
+            "goddaughter" -> R.string.rel_goddaughter
+            "godson" -> R.string.rel_godson
+            "ward" -> R.string.rel_ward
+            "mentee" -> R.string.rel_mentee
+            "report" -> R.string.rel_report
+            "employer" -> R.string.rel_employer
+            "patient" -> R.string.rel_patient
+            "referral" -> R.string.rel_referral
+            "related" -> R.string.rel_related
             else -> null
         }
 

@@ -64,7 +64,7 @@ data class CardFields(
         private val WS = Regex("\\s+")
 
         /** Every part: what a card shared before parts were signed, or a link that has seen them all. */
-        val ALL_PARTS: Set<MeCards.Part> = MeCards.Part.entries.toSet()
+        val ALL_PARTS: Set<MeCards.Part> = MeCards.signable
 
         /**
          * [mine] (what [mineParts] said) with [newer]'s values for the parts it shares ([newerParts]): what the user has
@@ -172,13 +172,14 @@ object SignedCards {
     fun newCardId(random: java.util.Random = java.security.SecureRandom()): String = ByteArray(16).also { random.nextBytes(it) }.let(b64::encodeToString)
 
     /** [parts] as the card property carries them ("NAME.PHONES"), in a fixed order. */
-    fun encodeParts(parts: Set<MeCards.Part>): String = MeCards.Part.entries.filter { it in parts }.joinToString(PARTS_SEPARATOR) { it.name }
+    fun encodeParts(parts: Set<MeCards.Part>): String =
+        MeCards.Part.entries.filter { it in parts && it in MeCards.signable }.joinToString(PARTS_SEPARATOR) { it.name }
 
     /** The parts a card property names; null when one isn't a part Parley knows (the card is then not trusted). */
     fun decodeParts(s: String): Set<MeCards.Part>? = if (s.isEmpty()) {
         emptySet()
     } else {
-        s.split(PARTS_SEPARATOR).map { n -> MeCards.Part.entries.firstOrNull { it.name == n } ?: return null }.toSet()
+        s.split(PARTS_SEPARATOR).map { n -> MeCards.signable.firstOrNull { it.name == n } ?: return null }.toSet()
     }
 
     /**
@@ -215,7 +216,9 @@ object SignedCards {
     private fun esc(v: String) = v.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
 
     /** Signs [fields] (the [parts] shared) as version [version] of card [cardId] with the 32-byte Ed25519 [secret]. */
-    fun sign(fields: CardFields, cardId: String, version: Long, secret: ByteArray, parts: Set<MeCards.Part> = CardFields.ALL_PARTS): SignedCard {
+    fun sign(fields: CardFields, cardId: String, version: Long, secret: ByteArray, allParts: Set<MeCards.Part> = CardFields.ALL_PARTS): SignedCard {
+        // Only the parts a signed card covers are named in it (a share with others goes out unsigned).
+        val parts = allParts intersect MeCards.signable
         val pub = encodeKey(Ed25519.publicKey(secret))
         val f = fields.canonical().restrictedTo(parts)
         val sig = Ed25519.sign(secret, payload(cardId, version, pub, f, parts))

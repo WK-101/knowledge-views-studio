@@ -332,9 +332,15 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         NumberSignals.answerSim(c, current?.phones.orEmpty().map { it.value }, tip, accept)
     }
 
-    /** Relations other contacts give this one where one of the two is private ([RelationsFromOthers]). */
+    /**
+     * Relations other contacts give this one where one of the two is private, and My card's own relations to it
+     * ([RelationsFromOthers]); again when My card or a correction changes.
+     */
     val relationsFromOthers: StateFlow<List<RelationFromOther>> =
-        combine(loaded, c.meta.allMeta(), c.settings.settings, c.vault.contacts) { l, metas, s, _ -> Triple(l, metas, s) }
+        combine(
+            loaded, c.meta.allMeta(), c.settings.settings, c.vault.contacts,
+            combine(c.people.me.details, c.people.me.links, c.people.relationMirrors.version) { a, b, v -> Triple(a, b, v) },
+        ) { l, metas, s, _, _ -> Triple(l, metas, s) }
             .mapLatest { (l, metas, s) ->
                 val d = l?.details
                 if (d == null || l.access != PrivateAccess.OPEN) {

@@ -94,11 +94,25 @@ object MeCards {
         )
     }
 
-    /** Fields that can be left out when sharing. */
-    enum class Part { NAME, PHONES, EMAILS, WORK, WEBSITES, ADDRESS, PROFILES }
+    /**
+     * What a share of My card can include, each ticked on its own. The first seven are the parts a signed card covers
+     * ([signable]); the rest are the details My card holds like any contact (name details, dates, messaging apps,
+     * relations, languages and citizenship, other fields, the note and the photo). Names are stored, so entries are
+     * only ever appended.
+     */
+    enum class Part { NAME, PHONES, EMAILS, WORK, WEBSITES, ADDRESS, PROFILES, NAME_DETAILS, DATES, HANDLES, RELATIONS, LANGUAGES, OTHER, NOTE, PHOTO }
 
-    /** What the QR code and the vCard include until you choose otherwise: your name and numbers. */
-    val defaultParts: Set<Part> = setOf(Part.NAME, Part.PHONES)
+    /** The parts a signed card can carry ([app.parley.common.cards.SignedCards]); a share with any other is sent unsigned. */
+    val signable: Set<Part> = setOf(Part.NAME, Part.PHONES, Part.EMAILS, Part.WORK, Part.WEBSITES, Part.ADDRESS, Part.PROFILES)
+
+    /** Whether a share of [parts] can be signed: only the parts a signed card covers. */
+    fun isSignable(parts: Set<Part>): Boolean = signable.containsAll(parts)
+
+    /**
+     * What the QR code and the vCard include until you choose otherwise: your name, numbers and e-mail. The note and
+     * relations (and everything else) only when ticked.
+     */
+    val defaultParts: Set<Part> = setOf(Part.NAME, Part.PHONES, Part.EMAILS)
 
     /** The chosen parts as stored ("NAME,PHONES"); unknown names are skipped, so older or newer values still read. */
     fun encodeParts(parts: Set<Part>): String = Part.entries.filter { it in parts }.joinToString(",") { it.name }

@@ -144,7 +144,7 @@ internal fun EditorPhoto(vm: AppViewModel, editor: EditorViewModel, name: String
                 shownPhoto != null -> framePick = shownPhoto
             }
         },
-        onRemove = editor::clearPhoto, inOtherApps = !editor.isVault, framed = preview,
+        onRemove = editor::clearPhoto, inOtherApps = !editor.isVault && !editor.args.meCard, framed = preview,
     )
     framePick?.let { u ->
         val uri = Uri.parse(u)

@@ -179,6 +179,8 @@
     <string name="detail_open_person">Open</string>
     <string name="detail_relation_from_them">%1$s · From their contact</string>
     <string name="detail_relation_parley_only">%1$s · Kept in Parley only</string>
+    <string name="detail_relation_my_card">%1$s · My card</string>
+    <string name="detail_relation_correct">Change how this shows</string>
     <!-- The contact's labels under the name, and locking private contacts again. -->
     <string name="ctl_label_open">Open the label</string>
     <string name="ctl_label_shared">%1$s, shared label</string>

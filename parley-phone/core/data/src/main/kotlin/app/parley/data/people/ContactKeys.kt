@@ -59,6 +59,9 @@ class ContactKeys(
     private val cardLinks: () -> CardLinkStore? = { null },
     /** "Shared with" receipts for private contacts (M7) travel and move with them too. */
     private val shareLedger: () -> ShareLedgerStore? = { null },
+    /** My card's relation links, and what the user corrected about two contacts' relations, follow the same moves. */
+    private val myCard: () -> MeCardStore? = { null },
+    private val relationMirrors: () -> RelationMirrors? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -246,6 +249,8 @@ class ContactKeys(
         runCatching { extras()?.choiceForget(key) }
         runCatching { calling()?.update { it.withoutContact(key) } }
         runCatching { cardLinks()?.forget(key) }
+        catching { myCard()?.forgetLinks(key) }
+        catching { relationMirrors()?.forgetCorrections(key) }
     }
 
     /** The state of the last complete sweep, to skip the next one when nothing it depends on changed. */
@@ -343,6 +348,8 @@ class ContactKeys(
         runCatching { extras()?.choiceRekey(from, to) }
         runCatching { cardLinks()?.rekey(from, to) }
         runCatching { shareLedger()?.rekey(from, to) }
+        catching { myCard()?.rekeyLinks(from, to, toId) }
+        catching { relationMirrors()?.rekeyCorrections(from, to) }
         // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
         runCatching {
             calling()?.update { cfg ->

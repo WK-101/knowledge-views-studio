@@ -137,10 +137,9 @@ phone had an icon gutter, the names didn't); "Save to: Device (64)"; the Add chi
 - **Fields match the contact page.** 56 dp (`fieldHeight`; 8 dp above the label and under the value), 20 dp outer
   corners like the page's groups, 2 dp joins, 8 dp between groups.
 - **Add chips wrap** (FlowRow) at every font size, so no kind is hidden past the edge.
-- **My card** uses this editor (`EditorArgs.meCard`, route `PeopleRoutes.MeEdit`): the same name, phone, email, work,
-  website, address and note rows (no photo, no type selectors, one address line, no name details), and in place of
-  Save to, chips for what the QR code and shared vCard include (`MeCardStore.shareParts`). The My card page is laid
-  out like a contact's page (compact header with QR code / Share / Edit tiles, then Contact info).
+- **My card** uses this editor (`EditorArgs.meCard`, route `PeopleRoutes.MeEdit`) with every field and option a
+  contact has since 6.2.3 (see "My card: a whole contact (6.2.3)"), and in place of Save to, chips for what the QR
+  code and shared vCard include (`MeCardStore.shareParts`).
 
 Tokens now: `gutter` 40 dp, `endColumn` 48 dp, `fieldHeight` 56 dp, `segmentGap` 2 dp, `groupGap` 8 dp,
 `outerCorner` 20 dp, `innerCorner` 4 dp, `headerPhoto` 64 dp, `typeMaxWidth` 96 dp.
@@ -242,8 +241,8 @@ the whole picture as well.
   picture; the frame travels with Make private / Make visible. Adjusting only the framing writes a new square from the
   kept original and keeps the original matched to it. A photo another app set (no original) is framed from Android's
   copy. The editor's header shows the framed circle as the lists will.
-- **Everywhere the editor is**: device, private and temporary contacts. My card has no photo (it isn't shared), so it
-  has no photo menu.
+- **Everywhere the editor is**: device, private and temporary contacts, and My card (its photo is kept in Parley's
+  files and goes into a shared card only when "Photo" is ticked).
 - **Save and share**: the photo viewer saves or shares the original as kept (see "Save and share (5.3.1)").
 
 ### Save and share (5.3.1)
@@ -386,7 +385,7 @@ Feedback: "when a field has multiple entries (for example, multiple numbers) giv
 - **Groups.** Phones, emails, addresses (a map link follows its address by its label), websites, profiles (profiles
   move among profiles and websites among websites, though both are website rows), messenger handles (SIP included),
   relations, dates and custom fields. A swap keeps each row's key (`RowKeys.swapped`), so focus and the row
-  animation follow the row. My card keeps its fixed order.
+  animation follow the row. My card moves its rows the same way.
 - **Saving.** Android's contacts provider has no order column; every app (Google Contacts, Samsung, Android's own,
   vCard export) lists a kind's rows in the order the provider returns them, which is insertion order (`_ID`). So the
   save writes again the rows that must now come later (`RowOrder.rewrite`: the longest start of the edited list whose
@@ -411,3 +410,66 @@ The relation's contact picker lists private contacts too, with their lock badge,
 (`AppViewModel.everyone`). A private contact is linked by its Parley key and negative id, in Parley's own data, as
 every link to a private contact already was; the relation row itself keeps only the name, as for any relation. How
 the other contact shows the relation is in docs/CONTACT_MODEL.md, "Relations with private contacts".
+
+## My card: a whole contact (6.2.3)
+
+The owner found My card poorer than a contact: first and last name only, one address line, no dates or relations.
+It had its own reduced mode of this editor (`EditorForm.meCardChoices`, no types, no reordering, no photo, no name
+details) over a short data model (`MeCard`: one name string, plain lists, one address line).
+
+- **One editor, one field set.** My card is edited with the same form and the same "Add" chips as any contact:
+  `EditorForm.allowedKinds` decides for every contact what the chips offer, and My card gets exactly what a phone
+  contact without labels gets (`EditorForm.meCardKinds`; `EditorFormTest` checks the parity). Only what belongs to
+  where a contact is kept stays away: account labels, the call-screen picture, a private contact's caller card. The
+  reduced mode is gone: type selectors, reordering, name details (prefix, middle, suffix, phonetic, nickname,
+  pronouns), name in their own language, several addresses, dates, relations (with the contact picker), messaging
+  apps, languages, citizenship, custom fields, the note and the photo all work as for a contact.
+- **Stored where it was, whole.** `MeCardStore` keeps the card in Parley's own preferences as `ContactDetailsJson`
+  (the encoding private contacts use) and its photo in `files/me_card`; Android's profile contact is still only read
+  and fills in what's empty. A card kept in the short form is read into the whole contact once, written back the new
+  way and the old copy removed (`MeCardStoreTest`). `MeCard` stays as the short form what needs only the name, numbers
+  and the signed parts reads ("Send my details", Introduce myself, "Shared with", signing): `MeCardDetails.toCard`.
+- **The page.** My card's page draws its details with the contact page's own rows (`MeCardDetailsSections`: numbers,
+  emails, addresses and messaging apps; work; dates; websites and profiles; relations, which open the contact they
+  name; More; the note), under a header like a contact's (photo, name in their own language, pronouns, nickname, job,
+  "Married to …"). It keeps what is its own: the QR code, Share, "What your card includes", "Shared with", the signed
+  card and its place at the top of Contacts.
+- **What to share.** The chips under the name tick each part (`MeCards.Part`): the signed card's seven (name, numbers,
+  email, work, websites, address, profiles) and the rest (name details, dates, messaging apps, relations, languages
+  and citizenship, other fields, note, photo). Name, numbers and email until chosen; the note and relations only when
+  ticked. A share of only the signed parts is the signed vCard 3.0 as before; one with more is the whole card as
+  Parley exports a contact (`MeCardDetails.vcard`), unsigned, and the chips and the QR dialog say so: the signed
+  format checks every property strictly, so adding fields to it would make older Parley versions call the card
+  changed. The photo never goes into a QR code (it wouldn't fit), only into the file.
+- **Relations on My card.** Picking the contact a relation names remembers it (`MeCardStore.links`, following the
+  contact's key changes); that contact's page then shows the relation as you named it ("Wife · My card") and opens
+  My card on a tap. Discreet mode keeps relations naming a private contact out of the editor and the page, and saves
+  them as they were.
+
+## Relations: both sides (6.2.3)
+
+The owner chose "Wife" for someone and the other contact showed the generic opposite. `RelationMirror` worked out
+the other side without any gender, and some opposites were missing or only "Relative".
+
+- **The table.** Every type of `RelationTypes` has its opposite in `RelationMirror.inverses`, by the gender of the one
+  who holds the relation: wife/husband/spouse ↔ husband/wife/spouse; mother/father/parent ↔ daughter/son/child;
+  siblings, half- and step- relations, grandparents, aunt/uncle ↔ niece/nephew (neutral "Aunt or uncle", "Niece or
+  nephew"), in-laws (neutral "Parent-in-law", "Child-in-law", "Sibling-in-law"), godparents, cousin, fiancé(e),
+  partner, girlfriend/boyfriend ↔ partner, ex-spouse/ex-wife/ex-husband, guardian ↔ ward, manager and boss ↔ direct
+  report, assistant ↔ manager, employer ↔ employee, mentor ↔ mentee, teacher ↔ student, doctor ↔ patient, referred
+  by ↔ referral, colleague, co-worker, friend, neighbour, roommate. A crush, a muse, an emergency contact, a
+  caregiver or babysitter has no fair opposite, so nothing is said. `RelationReciprocalTableTest` checks every type,
+  each gender, both directions.
+- **Gender** comes only from the holder's pronouns (`RelationMirror.genderOf`: "she/her" or "he/him"; "they", "she/they"
+  and anything else is unknown), never from a name. Unknown gives the neutral word.
+- **Custom labels** show as typed on their side and "Related" on the other.
+- **Corrections.** The other side is a guess the user can correct: on a written row by editing it on the other
+  contact (the next save of that contact remembers it), on a shown row (private pairs) with **Change how this shows**.
+  `RelationMirror.Correction` keeps (holder, other contact, what Parley worked out, the user's word) in the mirror
+  store; the same relation then shows and is written that way, until it changes type. Corrections follow key
+  changes and go with a deleted contact (`ContactKeys`).
+- **Compatibility.** New types are written as Android's TYPE_CUSTOM with their English label, so every app shows
+  them as written; Android's fourteen built-in types and vCard `RELATED;TYPE=` keep their mapping, and every type
+  round-trips through a Relation row and a vCard (`RelationTypesVCardTest`). "Ex-wife" and "Ex-husband", read before
+  as "Ex-spouse", are their own types now and still end "Married to".
+

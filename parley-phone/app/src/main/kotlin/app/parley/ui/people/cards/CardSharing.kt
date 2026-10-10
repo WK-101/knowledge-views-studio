@@ -20,6 +20,7 @@ import app.parley.common.cards.SignedCards
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
 import app.parley.data.DataContainer
+import app.parley.data.people.MeCardDetails
 import app.parley.ui.showMessage
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -39,10 +40,17 @@ object CardSharing {
         MeCards.merge(c.people.me.card.value, runCatching { c.people.me.profile() }.getOrNull())
 
     /**
-     * My card with [parts] as a vCard, signed. Signing reads the sealed key, so it runs off the main thread; when the
-     * key can't be read right now the card goes out unsigned, as it did before.
+     * My card with [parts] as a vCard. A share of only what a signed card carries ([MeCards.isSignable]) is signed:
+     * signing reads the sealed key, so it runs off the main thread, and when the key can't be read right now the card
+     * goes out unsigned, as it did before. A share with more (name details, dates, relations, the note, the photo…) is
+     * the whole card as Parley exports a contact, unsigned.
      */
     suspend fun vcard(c: DataContainer, parts: Set<MeCards.Part>): String = withContext(Dispatchers.IO) {
+        if (!MeCards.isSignable(parts)) {
+            val profile = runCatching { c.people.me.profile() }.getOrNull()
+            val d = MeCardDetails.withProfile(c.people.me.details.value, profile)
+            return@withContext MeCardDetails.vcard(d, parts, if (MeCards.Part.PHOTO in parts) c.people.me.photoBytes() else null)
+        }
         val card = shareable(c)
         val plain = MeCards.vcard(card, parts)
         if (card.isEmpty) return@withContext plain
@@ -52,7 +60,7 @@ object CardSharing {
     /** The signed vCard for a composable (null while it is being made; one signature per change of [parts] or the card). */
     @Composable
     fun rememberVcard(vm: AppViewModel, parts: Set<MeCards.Part>): State<String?> {
-        val own by vm.c.people.me.card.collectAsStateWithLifecycle()
+        val own by vm.c.people.me.details.collectAsStateWithLifecycle()
         return produceState<String?>(null, own, parts) { value = vcard(vm.c, parts) }
     }
 

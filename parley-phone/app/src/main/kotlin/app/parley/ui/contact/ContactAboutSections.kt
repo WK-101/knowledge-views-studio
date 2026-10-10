@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ import app.parley.ui.circle.StayInTouchCard
 import app.parley.ui.circle.timelineEntries
 import app.parley.ui.common.Intents
 import app.parley.ui.history.CallInsightsSection
+import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.people.RelationText
 import app.parley.ui.people.describeLifeEvent
 import app.parley.ui.people.eventLabel
@@ -196,14 +198,22 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
         }
         // A private contact's relation to this one (or this private contact's from another): shown, never written
         // where other apps could read it (RelationsFromOthers).
+        // My card's relation to them shows as you named it ("Wife · My card") and opens My card. Another contact's
+        // shows its other side, which "Change how this shows" corrects (remembered for this pair).
         relationsFromOthers.forEachIndexed { i, other ->
             item {
                 val known = other.row.typeKey?.let(RelationTypes::byKey)?.let { RelationText.label(resources, it) }
                 val type = relationLabel(resources, other.row.typeKey, known) ?: other.row.label.orEmpty()
                 GroupDataRow(
                     Icons.Rounded.People, d.relations.isEmpty() && parleyRelations.isEmpty() && i == 0, other.row.name,
-                    resources.getString(R.string.detail_relation_from_them, type),
-                    onClick = { ctx.open(Routes.contact(other.navId)) },
+                    resources.getString(if (other.fromMe) R.string.detail_relation_my_card else R.string.detail_relation_from_them, type),
+                    onClick = { ctx.open(if (other.fromMe) PeopleRoutes.Me else Routes.contact(other.navId)) },
+                    menu = if (other.fromMe) null else { close ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.detail_relation_correct)) },
+                            onClick = { close(); ctx.show(ContactDialog.CorrectRelation(other.ownerKey, other.computed.typeKey, other.computed.label)) },
+                        )
+                    },
                 )
             }
         }

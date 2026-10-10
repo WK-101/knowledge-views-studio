@@ -77,6 +77,12 @@ sealed interface ContactDialog {
     /** Several contacts have the relation's name: which one to open. */
     data class ChooseRelation(val people: List<ContactSummary>) : ContactDialog
 
+    /**
+     * "Change how this shows" on a relation another contact ([ownerKey]) gives this one: Parley worked out [typeKey]
+     * (or the custom [label]); the type picked instead is remembered for the two of them.
+     */
+    data class CorrectRelation(val ownerKey: String, val typeKey: String?, val label: String?) : ContactDialog
+
     companion object {
         private val objects: List<ContactDialog> = listOf(
             None, Menu, ConfirmDelete, DeleteWithoutCopy, Qr, PrivateQrWarning, SecureQr, Photo, Expiry, AddToHomeScreen, Rhythm,
@@ -92,7 +98,7 @@ sealed interface ContactDialog {
             is WebLink -> arrayListOf<Any>("WebLink", d.link.uri, ArrayList(d.link.packages), d.link.isWeb, d.link.isCall)
             is Peek -> arrayListOf<Any>("Peek", d.number)
             is CallReason -> arrayListOf<Any>("CallReason", d.target.number, d.target.name.orEmpty(), d.target.simId.orEmpty())
-            is ChooseRelation -> null
+            is ChooseRelation, is CorrectRelation -> null
             else -> arrayListOf<Any>(d.toString())
         }
 

@@ -6,6 +6,7 @@ import android.provider.ContactsContract.CommonDataKinds.Relation
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.people.RelationLinks
+import app.parley.common.people.RelationTypes
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
@@ -96,10 +97,11 @@ class RelationMirrorsTest {
         mirrors.mirror(sam, friend, mapOf("ana lee" to link(ana)))
         assertEquals(Relation.TYPE_FRIEND, relationsOf(ana).single().type)
 
-        // Sam's relation becomes "Manager": Ana's row Parley added becomes "Assistant".
+        // Sam's relation becomes "Manager": Ana's row Parley added becomes "Direct report" (Sam is Ana's manager).
         val manager = listOf(DataItem(value = "Ana Lee", type = Relation.TYPE_MANAGER))
         mirrors.mirror(sam, manager, mapOf("ana lee" to link(ana)))
-        assertEquals(Relation.TYPE_ASSISTANT, relationsOf(ana).single().type)
+        val retyped = relationsOf(ana).single()
+        assertEquals("report", RelationTypes.fromAndroid(retyped.type, retyped.label)?.key)
 
         // The user changes Ana's row by hand; then Sam's relation is removed: Ana's row stays.
         val edited = repo.editable(ana)!!
