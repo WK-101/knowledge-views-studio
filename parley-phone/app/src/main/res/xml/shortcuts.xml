@@ -37,4 +37,16 @@
             android:targetClass="app.parley.InternalEntry"
             android:targetPackage="app.parley.phone" />
     </shortcut>
+    <!-- "Search everything" opens Recents' search with Recall on: "who called about the boiler in March?" -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search_everything"
+        android:shortcutLongLabel="@string/shortcut_search_everything_long"
+        android:shortcutShortLabel="@string/shortcut_search_everything_short">
+        <intent
+            android:action="app.parley.action.SEARCH_EVERYTHING"
+            android:targetClass="app.parley.InternalEntry"
+            android:targetPackage="app.parley.phone" />
+    </shortcut>
 </shortcuts>

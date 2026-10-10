@@ -76,7 +76,7 @@ object IntentRoutes {
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
-            ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL, ACTION_OPEN_LABEL,
+            ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL, ACTION_OPEN_LABEL, ACTION_SEARCH_EVERYTHING,
         )
     }
 
@@ -117,6 +117,9 @@ object IntentRoutes {
 
     /** Opens Rescue call's screen (launcher shortcut). */
     const val ACTION_RESCUE_CALL = "app.parley.action.RESCUE_CALL"
+
+    /** Opens Recents' search with Search everything (Recall) on (launcher shortcut). */
+    const val ACTION_SEARCH_EVERYTHING = "app.parley.action.SEARCH_EVERYTHING"
 
     /** Android's long press on a Quick Settings tile ([android.service.quicksettings.TileService.ACTION_QS_TILE_PREFERENCES]). */
     const val QS_TILE_PREFERENCES = "android.service.quicksettings.action.QS_TILE_PREFERENCES"
@@ -298,6 +301,7 @@ object IntentRoutes {
             ACTION_PASTE_CONTACT -> intent.getStringExtra(EXTRA_PASTE_ID)?.takeIf { it.isNotEmpty() }?.let { go(NavEvent.Route(Routes.edit(paste = it))) }
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
             ACTION_RESCUE_CALL -> go(NavEvent.Route(SituationRoutes.RescueCall))
+            ACTION_SEARCH_EVERYTHING -> go(NavEvent.Tab(StartTab.RECENTS, everything = true))
             // The Situation tile's long press, handed on by its exported activity: a public request (any app could send
             // it), so it opens only Rescue call's screen, behind the app lock like everything here.
             QS_TILE_PREFERENCES -> go(NavEvent.Route(SituationRoutes.RescueCall)).takeIf { tileComponent(intent)?.className == SITUATION_TILE }

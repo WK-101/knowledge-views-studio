@@ -28,6 +28,7 @@
     <string name="discover_job_keep_private">Keep it private</string>
     <string name="discover_job_message">Message without saving</string>
     <string name="discover_job_better_calls">Calls that work better</string>
+    <string name="discover_job_help">Help</string>
     <string name="discover_whats_new_body">See what\'s new, and everything else Parley can do, grouped by what you want done.</string>
     <string name="discover_who_rings_title">Choose who can ring</string>
     <string name="discover_who_rings_summary">Only people you know, quiet nights or everyone, in one tap</string>
@@ -60,7 +61,7 @@
     <string name="discover_coming_from_title">Coming from another phone?</string>
     <string name="discover_coming_from_summary">Bring contacts, call history and block lists from your old phone</string>
     <string name="discover_health_title">Contact health check</string>
-    <string name="discover_health_summary">Numbers without a country code, empty and stale contacts</string>
+    <string name="discover_health_summary">Numbers without a country code or that no longer work, stale contacts</string>
     <string name="discover_duplicates_title">Find &amp; merge duplicates</string>
     <string name="discover_duplicates_summary">Contacts saved twice, merged with one undo</string>
     <string name="discover_circle_title">Keep in touch with your Circle</string>
@@ -128,6 +129,12 @@
     <string name="coming_kw">import, switch, switching, iphone, icloud, samsung, google, vcf, vcard, csv, old phone, move, call blocker, yacb, nophonespam</string>
     <string name="coming_intro">Export from your old phone or a computer, copy the file to this phone, then import it here. Parley reads the file on this phone; nothing is downloaded or sent.</string>
     <string name="coming_onboarding_intro">Bring your contacts, calls or block list along. You can also do this later from Tools.</string>
+    <string name="coming_group_parley">From another phone with Parley</string>
+    <string name="coming_open_parley">Restore a backup</string>
+    <string name="coming_source_parley">Restore a Parley backup</string>
+    <string name="coming_source_parley_how">On the old phone: Tools › Encrypted backups › Back up now, or Move to a new phone. Copy the backup to this phone, then choose Restore from a file… and enter its passphrase. It brings private contacts, notes, Situations and your settings too.</string>
+    <string name="coming_source_parley_note">Restore before you set things up: a restore puts back the old phone\'s settings.</string>
+    <string name="coming_onboarding_restore">From another phone with Parley? Restore a backup</string>
     <string name="coming_group_contacts">Contacts</string>
     <string name="coming_group_calls">Call history</string>
     <string name="coming_group_blocking">Block lists</string>
@@ -169,7 +176,7 @@
     <string name="discover_private_names_title">Private names in other phone apps</string>
     <string name="discover_private_names_summary">A phone app you approve can show who\'s calling</string>
     <string name="discover_drive_profile_title">Drive profile</string>
-    <string name="discover_drive_profile_summary">Say who\'s calling and answer chosen people while your car is connected</string>
+    <string name="discover_drive_profile_summary">Your car for the Driving Situation: announce callers, answer chosen people</string>
     <string name="discover_calling_abroad_title">Calling abroad</string>
     <string name="discover_calling_abroad_summary">Numbers in your home format dialled right, and a local SIM suggested</string>
     <string name="discover_phone_menus_title">Phone menus</string>
@@ -182,4 +189,20 @@
     <string name="discover_voicemail_summary">Listen in Recents while Parley is your phone app; hold 1 to call it</string>
     <string name="discover_speed_dial_title">Speed dial</string>
     <string name="discover_speed_dial_summary">Hold 2 to 9 on the keypad to call someone</string>
+
+    <!-- Tools rows for the 6.x features, and Help. -->
+    <string name="discover_search_everything_summary">Calls, notes, promises and old contacts, from words like plumber march</string>
+    <string name="discover_archived_title">Archived contacts</string>
+    <string name="discover_archived_summary">Out of your address book and other apps, still named when they call</string>
+    <string name="discover_situations_title">Situations</string>
+    <string name="discover_situations_summary">Driving, a meeting or night: one tap sets who may ring, and puts it back</string>
+    <string name="discover_case_files_summary">Banks and other services: calls, hold times and reference numbers</string>
+    <string name="discover_family_shield_title">Family spam shield</string>
+    <string name="discover_family_shield_summary">Share block and scam verdicts through a family label you share</string>
+    <string name="discover_chapters_title">Chapters</string>
+    <string name="discover_chapters_summary">Give a label an end, such as a move or a hospital stay, and tidy up once</string>
+    <string name="discover_to_talk_about_summary">Things to bring up, shown when you next call them or they call</string>
+    <string name="discover_help_summary">A call that didn\'t ring, the call screen, a contact gone after Archive</string>
+    <!-- The What's new card names the release's headline rows. %1$s: up to three titles, joined by commas. -->
+    <string name="discover_whats_new_named">New: %1$s.</string>
 </resources>

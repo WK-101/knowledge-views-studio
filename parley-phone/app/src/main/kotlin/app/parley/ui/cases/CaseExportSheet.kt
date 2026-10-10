@@ -67,12 +67,14 @@ fun CaseExportSheet(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline, on
         vm.jobs.prepare(UserJobs.Kind.SHARE, preparing, { e -> res.getString(R.string.case_export_failed, UserErrorText.of(app, e)) }) {
             // Opened only now, and only when the person said yes; one that can't be opened is left out and counted.
             val refs = if (withReferences) {
-                case.references.mapNotNull { r -> vm.c.cases.openReference(r)?.let { CaseReport.OpenReference(r.label, it, r.at) } }
+                case.references.mapNotNull { r -> vm.cases.openReference(r)?.let { CaseReport.OpenReference(r.label, it, r.at) } }
             } else {
                 null
             }
             val numbers = case.numbers.map { Format.number(it, vm.countryIso) }
-            val lines = CaseReport.build(case.name, numbers, timeline, refs, case.references.size, System.currentTimeMillis(), CasePdf.Words(app))
+            val lines = CaseReport.build(
+                case.name, numbers, timeline, refs, case.references.size, System.currentTimeMillis(), CasePdf.Words(app), case.status, case.statusAt,
+            )
             val file = CasePdf.write(app, case.name, lines)
             UserJobs.Ready(ready, ExportFiles.opener(file, ExportFormat.PDF, print = print))
         }

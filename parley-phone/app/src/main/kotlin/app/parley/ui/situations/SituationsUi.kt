@@ -124,6 +124,7 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
     ) { v ->
         val c = vm.c
         c.scope.launch { if (v) c.situations.turnOn(s.id) else c.situations.turnOff() }
+        if (v) app.parley.situations.SituationTileOffer.onTurnedOn(context, c.ux)
     }
 }
 

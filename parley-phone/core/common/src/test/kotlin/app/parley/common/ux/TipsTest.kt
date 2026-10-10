@@ -1,7 +1,9 @@
 package app.parley.common.ux
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TipsTest {
@@ -30,5 +32,14 @@ class TipsTest {
         assertEquals(7, concepts.size)
         assertEquals(concepts, Tips.decode(Tips.encode(concepts)))
         assertNull(Tips.visible(listOf(Tips.CONCEPT_CIRCLE), Tips.decode(Tips.encode(concepts)), null))
+    }
+
+    @Test fun the_situation_tile_is_offered_once_and_only_where_android_can_ask() {
+        assertTrue(Tips.offersSituationTile(turningOn = true, seen = emptySet(), sdk = 33))
+        assertFalse(Tips.offersSituationTile(turningOn = false, seen = emptySet(), sdk = 36))
+        assertFalse(Tips.offersSituationTile(turningOn = true, seen = setOf(Tips.SITUATION_TILE), sdk = 36))
+        assertFalse(Tips.offersSituationTile(turningOn = true, seen = emptySet(), sdk = 32))
+        // The id is one Tips can store.
+        assertEquals(setOf(Tips.SITUATION_TILE), Tips.decode(Tips.encode(setOf(Tips.SITUATION_TILE))))
     }
 }

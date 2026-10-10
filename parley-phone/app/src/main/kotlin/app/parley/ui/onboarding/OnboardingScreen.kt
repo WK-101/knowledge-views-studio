@@ -50,6 +50,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,7 +95,8 @@ import kotlinx.coroutines.launch
  * permission with why it's asked and what still works without it, a single "Allow all" and a switch per row.
  * Then "Set up the basics" (who can ring, who the phone is for, the layout), and last the optional "Coming from
  * another phone?": skip it, or pick a source to finish and land in its importer. Each step after the welcome can be
- * skipped ([OnboardingStep]).
+ * skipped ([OnboardingStep]). Someone moving from another phone with Parley says so on the welcome: after the
+ * default app and the permissions the first run ends on the backup screen, before anything a restore would overwrite.
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
@@ -104,6 +107,9 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
     BackHandler(enabled = step.previous != null) { go(step.previous) }
     // "Someone else" in the basics: Simple mode's setup opens once the first run ends.
     var simpleSetupNext by rememberSaveable { mutableStateOf(false) }
+    // "From another phone with Parley?" on the welcome: the basics are skipped (the restore brings the old phone's
+    // back) and the backup screen opens once the default app and the permissions are done.
+    var restoring by rememberSaveable { mutableStateOf(false) }
 
     fun finish() {
         scope.launch { vm.c.settings.update { it.copy(onboardingDone = true) } }
@@ -113,15 +119,26 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
         if (simpleSetupNext) vm.navigate(NavEvent.Route(ExtrasRoutes.SimpleSetup))
     }
 
+    fun advance() {
+        val to = step.next(restoring)
+        if (to != null) {
+            go(to)
+        } else {
+            finish()
+            // Buffered until the navigation host is up, right after onboarding closes.
+            vm.navigate(NavEvent.Route(importerRoute(ComingFrom.Importer.PARLEY_BACKUP)))
+        }
+    }
+
     Surface(Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (step) {
-                OnboardingStep.WELCOME -> WelcomeStep { go(step.next) }
-                OnboardingStep.DEFAULT_APP -> DefaultDialerStep(vm) { go(step.next) }
-                OnboardingStep.PERMISSIONS -> PermissionsStep(vm) { go(step.next) }
+                OnboardingStep.WELCOME -> WelcomeStep(onRestore = { restoring = true; advance() }) { restoring = false; advance() }
+                OnboardingStep.DEFAULT_APP -> DefaultDialerStep(vm) { advance() }
+                OnboardingStep.PERMISSIONS -> PermissionsStep(vm) { advance() }
                 OnboardingStep.BASICS -> BasicsStep(vm) { choice ->
                     simpleSetupNext = Basics.opensSimpleSetup(choice)
                     go(step.next)
@@ -140,7 +157,7 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
 }
 
 @Composable
-private fun ColumnScope.WelcomeStep(next: () -> Unit) {
+private fun ColumnScope.WelcomeStep(onRestore: () -> Unit, next: () -> Unit) {
     Spacer(Modifier.height(32.dp))
     Text(
         stringResource(R.string.app_name),
@@ -155,6 +172,10 @@ private fun ColumnScope.WelcomeStep(next: () -> Unit) {
     Promise(Icons.Rounded.Code, stringResource(R.string.onb_open_title), stringResource(R.string.onb_open_text))
     Spacer(Modifier.weight(1f))
     Button(next, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(R.string.ux_onb_next)) }
+    // Before Set up the basics, which a restore would overwrite.
+    TextButton(onRestore, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        Text(stringResource(R.string.coming_onboarding_restore), textAlign = TextAlign.Center)
+    }
 }
 
 /** The installer package of this app (null when unknown or unreadable). */

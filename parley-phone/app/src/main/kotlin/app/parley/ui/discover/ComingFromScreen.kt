@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
+import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -101,6 +102,7 @@ private fun SourceRow(s: ComingFrom.Source, expanded: Boolean, onToggle: () -> U
 
 private val ComingFrom.Importer.groupTitle: Int
     get() = when (this) {
+        ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_group_parley
         ComingFrom.Importer.CONTACTS_FILE -> R.string.coming_group_contacts
         ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.coming_group_calls
         ComingFrom.Importer.BLOCK_LIST -> R.string.coming_group_blocking
@@ -108,6 +110,7 @@ private val ComingFrom.Importer.groupTitle: Int
 
 private val ComingFrom.Importer.action: Int
     get() = when (this) {
+        ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_open_parley
         ComingFrom.Importer.CONTACTS_FILE -> R.string.coming_open_contacts
         ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.coming_open_calls
         ComingFrom.Importer.BLOCK_LIST -> R.string.coming_open_blocking
@@ -115,6 +118,7 @@ private val ComingFrom.Importer.action: Int
 
 private val ComingFrom.Source.title: Int
     get() = when (this) {
+        ComingFrom.Source.PARLEY -> R.string.coming_source_parley
         ComingFrom.Source.GOOGLE -> R.string.coming_source_google
         ComingFrom.Source.IPHONE -> R.string.coming_source_iphone
         ComingFrom.Source.SAMSUNG -> R.string.coming_source_samsung
@@ -126,6 +130,7 @@ private val ComingFrom.Source.title: Int
 
 private val ComingFrom.Source.howTo: Int
     get() = when (this) {
+        ComingFrom.Source.PARLEY -> R.string.coming_source_parley_how
         ComingFrom.Source.GOOGLE -> R.string.coming_source_google_how
         ComingFrom.Source.IPHONE -> R.string.coming_source_iphone_how
         ComingFrom.Source.SAMSUNG -> R.string.coming_source_samsung_how
@@ -135,12 +140,20 @@ private val ComingFrom.Source.howTo: Int
         ComingFrom.Source.NO_PHONE_SPAM -> R.string.coming_source_nps_how
     }
 
-/** Google contacts may need no import at all: say so before anyone exports a file for nothing. */
+/**
+ * Google contacts may need no import at all: say so before anyone exports a file for nothing. A Parley restore puts
+ * the old phone's settings back: say so before anyone sets things up twice.
+ */
 private val ComingFrom.Source.note: Int?
-    get() = if (this == ComingFrom.Source.GOOGLE) R.string.coming_source_google_note else null
+    get() = when (this) {
+        ComingFrom.Source.GOOGLE -> R.string.coming_source_google_note
+        ComingFrom.Source.PARLEY -> R.string.coming_source_parley_note
+        else -> null
+    }
 
 private val ComingFrom.Source.icon: ImageVector
     get() = when (this) {
+        ComingFrom.Source.PARLEY -> Icons.Rounded.SettingsBackupRestore
         ComingFrom.Source.GOOGLE -> Icons.Rounded.AccountCircle
         ComingFrom.Source.IPHONE -> Icons.Rounded.PhoneIphone
         ComingFrom.Source.SAMSUNG -> Icons.Rounded.PhoneAndroid

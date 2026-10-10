@@ -19,6 +19,10 @@ enum class CaseMode {
     OFF,
 }
 
+/** Where a case stands, set with one tap on its page and printed in its PDF. */
+@Serializable
+enum class CaseStatus { OPEN, WAITING, RESOLVED }
+
 /**
  * A reference number given by an organisation ("Claim", "CR-48213"). [value] is sealed with this phone's small-records
  * key wherever it is stored; it is plain only inside the encrypted backup, and on screen once you ask to see it.
@@ -53,12 +57,19 @@ data class CaseFile(
     val references: List<CaseReference> = emptyList(),
     val calls: List<CaseCall> = emptyList(),
     val created: Long = 0,
+    val status: CaseStatus = CaseStatus.OPEN,
+    /** When [status] was last set (0: never, the case is open as it started). */
+    val statusAt: Long = 0,
 ) {
     val kept: Boolean get() = mode != CaseMode.OFF
 }
 
+/**
+ * [autoStart]: whether an organisation's calls start a case file on their own. "Stop keeping case files for all"
+ * turns it off (and stops every case); "Keep a case file" on a contact still works.
+ */
 @Serializable
-data class CaseState(val cases: List<CaseFile> = emptyList())
+data class CaseState(val cases: List<CaseFile> = emptyList(), val autoStart: Boolean = true)
 
 /**
  * Case files: for a service organisation (a bank, an insurer, a council, a utility, a clinic) Parley keeps the calls
@@ -113,7 +124,11 @@ object CaseFiles {
      */
     @Suppress("LongParameterList") // Each value is a separate fact of the case; a holder would only rename them.
     fun ensure(state: CaseState, name: String, numbers: List<String>, private: Boolean, now: Long, region: String?, newId: String): CaseState =
-        if (find(state, numbers, region) != null) state else put(state, CaseFile(newId, name, numbers.distinct(), CaseMode.AUTO, private, created = now))
+        if (find(state, numbers, region) != null || !state.autoStart) {
+            state
+        } else {
+            put(state, CaseFile(newId, name, numbers.distinct(), CaseMode.AUTO, private, created = now))
+        }
 
     /**
      * Stops the case file [id]: what it kept (calls, hold times, references) goes, and it stays off so an organisation's
@@ -143,12 +158,34 @@ object CaseFiles {
             found != null && !found.kept -> return state
             // Whether the contact is a private one now (it may have moved since the case was made).
             found != null -> found.copy(private = private)
-            organisation && name.isNotBlank() -> CaseFile(newId, name, listOf(number), CaseMode.AUTO, private, created = call.at)
+            organisation && name.isNotBlank() && state.autoStart -> CaseFile(newId, name, listOf(number), CaseMode.AUTO, private, created = call.at)
             else -> return state
         }
         val calls = (listOf(call) + case.calls.filterNot { it.at == call.at }).sortedByDescending { it.at }.take(MAX_CALLS)
         return put(state, case.copy(calls = calls))
     }
+
+    /** Sets where case [id] stands; a stopped case has no status to set. */
+    fun setStatus(state: CaseState, id: String, status: CaseStatus, now: Long): CaseState = state.copy(
+        cases = state.cases.map { if (it.id == id && it.kept && it.status != status) it.copy(status = status, statusAt = now) else it },
+    )
+
+    /**
+     * The Case files list: the kept cases, the newest activity first; resolved ones after the rest, as they need
+     * nothing more from you.
+     */
+    fun listed(state: CaseState): List<CaseFile> =
+        state.cases.filter { it.kept }.sortedWith(compareBy<CaseFile> { it.status == CaseStatus.RESOLVED }.thenByDescending(::lastActivity))
+
+    /**
+     * "Stop keeping case files for all": every case is stopped as [stop] does, and organisations' calls no longer
+     * start one ([CaseState.autoStart]). A contact you then choose "Keep a case file" for still gets one.
+     */
+    fun stopAll(state: CaseState): CaseState =
+        state.cases.filter { it.kept }.fold(state.copy(autoStart = false)) { s, c -> stop(s, c.id) }
+
+    /** Organisations' calls start case files again (after [stopAll]); the stopped ones stay stopped. */
+    fun startAgain(state: CaseState): CaseState = state.copy(autoStart = true)
 
     /** The menu keys of a call to keep ("214"), from its [presses]: nothing when memory is off or keeps nothing for it. */
     fun menuOf(presses: List<MenuPress>, remember: Boolean): String =
@@ -218,8 +255,8 @@ object CaseFiles {
      * private after its case was made).
      */
     fun visible(state: CaseState, notesHidden: Boolean, privateHidden: Boolean, hidden: (String) -> Boolean = { false }): CaseState = when {
-        notesHidden -> CaseState()
-        privateHidden -> CaseState(state.cases.filterNot { it.private || it.numbers.any(hidden) })
+        notesHidden -> CaseState(autoStart = state.autoStart)
+        privateHidden -> state.copy(cases = state.cases.filterNot { it.private || it.numbers.any(hidden) })
         else -> state
     }
 
@@ -230,8 +267,8 @@ object CaseFiles {
      * The backup's copy of [state]: cases of private contacts ([leaveOut]) stay out, and reference numbers are opened
      * ([open]) so the next phone can seal them with its own key; one that can't be opened now is left out.
      */
-    fun forBackup(state: CaseState, leaveOut: (CaseFile) -> Boolean, open: (String) -> String?): CaseState = CaseState(
-        state.cases.filterNot(leaveOut).map { c ->
+    fun forBackup(state: CaseState, leaveOut: (CaseFile) -> Boolean, open: (String) -> String?): CaseState = state.copy(
+        cases = state.cases.filterNot(leaveOut).map { c ->
             // A stopped case travels as what it is: only "stay off", nothing it once kept.
             if (!c.kept) c.copy(references = emptyList(), calls = emptyList())
             else c.copy(references = c.references.mapNotNull { r -> open(r.value)?.let { r.copy(value = it) } })
@@ -239,17 +276,19 @@ object CaseFiles {
     )
 
     /** A restored backup's references sealed for this phone ([seal]); one that can't be sealed now is left out. */
-    fun sealed(state: CaseState, seal: (String) -> String?): CaseState = CaseState(
-        state.cases.map { c -> c.copy(references = c.references.mapNotNull { r -> seal(r.value)?.let { r.copy(value = it) } }) },
+    fun sealed(state: CaseState, seal: (String) -> String?): CaseState = state.copy(
+        cases = state.cases.map { c -> c.copy(references = c.references.mapNotNull { r -> seal(r.value)?.let { r.copy(value = it) } }) },
     )
 
     /**
      * A restored state merged into this phone's: a case found on both (same line) keeps this phone's mode and name and
      * gains the other's numbers, references (by id) and calls (by time); one only in the backup is added. A case
-     * stopped here stays as it is: what "Stop keeping" deleted never comes back from an older backup.
+     * stopped here stays as it is: what "Stop keeping" deleted never comes back from an older backup. Case files stay
+     * off for organisations when either side turned them off. Where a case stands is this phone's, unless only the
+     * backup's was ever set.
      */
     fun merge(mine: CaseState, restored: CaseState, region: String?): CaseState {
-        var out = mine
+        var out = mine.copy(autoStart = mine.autoStart && restored.autoStart)
         restored.cases.forEach { r ->
             val here = find(out, r.numbers, region)
             out = if (here == null) {
@@ -262,6 +301,8 @@ object CaseFiles {
                 put(
                     out,
                     withNumbers(here, r.numbers, region).copy(
+                        status = if (here.statusAt == 0L && r.kept) r.status else here.status,
+                        statusAt = if (here.statusAt == 0L && r.kept) r.statusAt else here.statusAt,
                         references = (here.references + r.references.filter { it.id !in refIds }).take(MAX_REFERENCES),
                         calls = (here.calls + r.calls.filter { it.at !in callTimes }).sortedByDescending { it.at }.take(MAX_CALLS),
                     ),
@@ -287,13 +328,15 @@ object CaseFiles {
         val all = listOf(case) + state.cases.filterNot { it.id == case.id }
         val (kept, stopped) = all.partition { it.kept }
         val keep = (newest(kept, MAX_CASES) + newest(stopped, MAX_STOPPED)).toSet()
-        return CaseState(all.filter { it in keep })
+        return state.copy(cases = all.filter { it in keep })
     }
 
     private fun newest(cases: List<CaseFile>, max: Int): List<CaseFile> =
         if (cases.size <= max) cases else cases.sortedByDescending { lastActivity(it) }.take(max)
 
-    private fun lastActivity(c: CaseFile): Long = maxOf(c.created, c.calls.maxOfOrNull { it.at } ?: 0, c.references.maxOfOrNull { it.at } ?: 0)
+    /** When anything last happened in [c]: made, a call, a reference number, or its status set. */
+    fun lastActivity(c: CaseFile): Long =
+        maxOf(maxOf(c.created, c.statusAt), c.calls.maxOfOrNull { it.at } ?: 0, c.references.maxOfOrNull { it.at } ?: 0)
 
     private const val MASK_SHOWN = 4
 

@@ -195,4 +195,22 @@ class NeverCallsYouTest {
         assertFalse(scamOffered(emergency = true))
         assertFalse(scamOffered(live = false))
     }
+
+    @Test fun the_history_says_when_parley_can_warn() {
+        val onlyYours = past(listOf(CallType.OUTGOING, CallType.OUTGOING))
+        assertEquals(NeverCallsYou.Watch.Armed, NeverCallsYou.watch(listOf(bank), onlyYours, keptSince = kept))
+        // Parley's copy starts after your first call: not yet, and from when.
+        val later = kept + 5 * DAY
+        assertEquals(NeverCallsYou.Watch.From(later), NeverCallsYou.watch(listOf(bank), onlyYours, keptSince = later))
+        assertEquals(NeverCallsYou.Watch.NoCopy, NeverCallsYou.watch(listOf(bank), onlyYours, keptSince = null))
+        // "They never call me" needs no history.
+        assertEquals(NeverCallsYou.Watch.Chosen, NeverCallsYou.watch(listOf(ana.copy(neverCalls = true)), emptyList(), null))
+        // Nothing to say: a person, a line that called you, a line never called, nobody saved.
+        assertNull(NeverCallsYou.watch(listOf(ana), onlyYours, kept))
+        assertNull(NeverCallsYou.watch(listOf(bank), past(listOf(CallType.OUTGOING, CallType.INCOMING)), kept))
+        assertNull(NeverCallsYou.watch(listOf(bank), emptyList(), kept))
+        assertNull(NeverCallsYou.watch(emptyList(), onlyYours, kept))
+        // It agrees with the call screen: armed exactly when the notice would show.
+        assertTrue(shows(past = listOf(CallType.OUTGOING, CallType.OUTGOING)))
+    }
 }

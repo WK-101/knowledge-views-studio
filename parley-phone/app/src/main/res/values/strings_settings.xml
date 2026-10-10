@@ -852,7 +852,7 @@
     <string name="set_delete_all_data_kw">erase, wipe, reset, clear data, forget, start over, remove everything</string>
     <string name="wipe_title">Delete all Parley data?</string>
     <string name="wipe_body">This removes everything Parley keeps on this phone: private contacts and their calls, notes, the Circle, label settings, blocking rules and logs, call-time limits, the call-history archive, backup keys and all settings. Parley then starts again as new. This can\'t be undone.</string>
-    <string name="wipe_outside">Backups, synced folders and Markdown exports you saved to a folder stay where they are.</string>
+    <string name="wipe_outside">This doesn\'t reach files you saved outside Parley: backups, exports, case file PDFs and synced folders stay where they are. Delete them in your files app if you want them gone too.</string>
     <string name="wipe_backup_first">Make a backup first</string>
     <string name="wipe_no_backup">Backups aren\'t set up, so nothing can be brought back afterwards.</string>
     <string name="wipe_call_log">Also delete Android\'s call history (used by every phone app)</string>

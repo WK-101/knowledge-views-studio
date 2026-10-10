@@ -291,7 +291,8 @@ on the call screen. And, beyond discreet mode (`Concealed`):
   caller and sound it was set with: nothing set during the hiding replaces or cancels it. A call set for later during
   the hiding waits beside it, and is the only one the screen shows and can cancel then; each rings as it was set.
 - **Case files**: none shows, and a backup made during the hiding carries none (their notes, promises and reference
-  numbers).
+  numbers). Tools › Case files is empty and offers no "Stop keeping case files for all", and a case's status can't be
+  set (its page shows nothing).
 - **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as
   their number, without the rule that caught them or the quiet-hours reply. Every such notification also has a
   lock-screen version with no name and no number, and follows "Caller on the lock screen" while the phone is locked.

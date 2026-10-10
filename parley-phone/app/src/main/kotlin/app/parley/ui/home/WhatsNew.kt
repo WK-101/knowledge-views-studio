@@ -32,9 +32,11 @@ import app.parley.AppViewModel
 import app.parley.BuildConfigInfo
 import app.parley.R
 import app.parley.common.SettingsCategory
+import app.parley.common.ux.CapabilityCatalog
 import app.parley.common.ux.Tips
 import app.parley.common.ux.WhatsNew
 import app.parley.ui.Routes
+import app.parley.ui.discover.CapabilityText
 import app.parley.ui.discover.DiscoverRoutes
 
 /** This build's version code, and whether this version is the first one installed on the device. */
@@ -46,7 +48,8 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
 /**
  * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
- * anything new arrives switched off. The one link is "What Parley can do", which lists this release's rows first.
+ * anything new arrives switched off. It names up to three of this release's Tools rows; the one link is Tools, which
+ * lists them first.
  * A fresh install gets a short "What Parley can do" introduction once instead ([IntroCard]).
  */
 @Composable
@@ -78,6 +81,14 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
                 Text(stringResource(R.string.ux_whats_new_title, BuildConfigInfo.versionName(context)), style = MaterialTheme.typography.titleSmall)
             }
             Text(stringResource(R.string.ux_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
+            // The release's headline rows by name, so an update says what it brought (Tools lists them first).
+            val named = remember { CapabilityCatalog.headline(BuildConfigInfo.versionName(context)) }.map { stringResource(CapabilityText.of(it).first) }
+            if (named.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.discover_whats_new_named, named.joinToString(", ")),
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp),
+                )
+            }
             Text(stringResource(R.string.discover_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             if (offerLayout) {
                 Text(
