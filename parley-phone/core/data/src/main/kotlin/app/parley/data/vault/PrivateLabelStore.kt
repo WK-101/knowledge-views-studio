@@ -36,8 +36,11 @@ class PrivateLabelStore(private val vault: VaultRepository, private val contacts
     fun groupsNow(): List<PrivateLabels.Group> =
         runCatching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList())
 
-    /** Private contact id → the titles of its labels, for Parley's own lists (label pages, filters, counts). */
-    val titles: StateFlow<Map<Long, Set<String>>> = combine(vault.contacts, contacts.contacts, changes) { v, _, _ -> v }
+    /**
+     * Private contact id → the titles of its labels, for Parley's own lists (label pages, filters, counts). Archived ones
+     * are out of the lists, so out of these too.
+     */
+    val titles: StateFlow<Map<Long, Set<String>>> = combine(vault.contacts, contacts.contacts, changes) { v, _, _ -> v.filterNot { it.archived } }
         .mapLatest { list ->
             if (list.none { it.labels.isNotEmpty() }) return@mapLatest emptyMap()
             val groups = groupsNow()
@@ -61,7 +64,8 @@ class PrivateLabelStore(private val vault: VaultRepository, private val contacts
     /** Private contacts (vault ids) in the label [title]. */
     suspend fun membersOf(title: String): Set<Long> = withContext(Dispatchers.IO) {
         val groups = groupsNow()
-        vault.summariesNow().filter { s -> s.labels.isNotEmpty() && title.trim() in PrivateLabels.titles(s.labels, groups) }.map { it.id }.toSet()
+        vault.summariesNow().filter { s -> !s.archived && s.labels.isNotEmpty() && title.trim() in PrivateLabels.titles(s.labels, groups) }
+            .map { it.id }.toSet()
     }
 
     /** Adds private contacts [vaultIds] to [group]'s label; returns how many joined (others were in it already). */

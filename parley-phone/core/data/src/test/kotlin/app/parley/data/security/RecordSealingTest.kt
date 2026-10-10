@@ -125,10 +125,12 @@ class RecordSealingTest {
             app.parley.common.ContactSummary(id = 1, lookupKey = "k1", displayName = "Ada", photoUri = null, starred = false, phones = emptyList()),
         )
         // As the fallback writes it while the key can't be used: the encoded rows, plain.
-        file.writeBytes(app.parley.common.people.ListHead.encode(list).toByteArray())
-        assertEquals("Ada", head.load()!!.single().displayName)
+        file.writeBytes(app.parley.common.people.ListHead.encode(app.parley.common.ux.ListSections.interleave(list) { "A" }).toByteArray())
+        fun name() = head.load()!!.rows.filterIsInstance<app.parley.common.ux.ListSections.Row.Item<app.parley.common.ContactSummary>>()
+            .single().item.displayName
+        assertEquals("Ada", name())
         assertTrue(head.resealPlain())
         assertTrue(crypto.isSealed(file.readBytes()))
-        assertEquals("Ada", head.load()!!.single().displayName)
+        assertEquals("Ada", name())
     }
 }

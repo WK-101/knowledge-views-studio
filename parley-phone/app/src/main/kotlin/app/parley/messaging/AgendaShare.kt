@@ -94,7 +94,11 @@ internal fun AgendaPick(c: DataContainer, text: String, done: () -> Unit) {
                 .filter { it.lookupKey.isNotEmpty() }
                 .map { it.displayName to (AgendaTarget.Contact(it.lookupKey, it.id) as AgendaTarget) }
             val hidden = catching { c.settings.current().hideVault }.getOrDefault(true) || Concealment.hides(Concealed.PRIVATE_CONTACTS)
-            val private = if (hidden) emptyList() else c.vault.contacts.value.map { it.name to (AgendaTarget.Private(it.id) as AgendaTarget) }
+            val private = if (hidden) {
+                emptyList()
+            } else {
+                c.vault.contacts.value.filterNot { it.archived }.map { it.name to (AgendaTarget.Private(it.id) as AgendaTarget) }
+            }
             (device + private).sortedBy { it.first.lowercase() }
         }
     }

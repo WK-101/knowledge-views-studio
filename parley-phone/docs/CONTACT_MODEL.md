@@ -44,11 +44,13 @@ other apps, and kept whole by Parley (`ArchiveStore`, core/data; rules in `Archi
 contact nothing is locked: its files in `files/archive` are sealed with the small-records key, which needs no unlock,
 so the call path names it while the phone is locked.
 
-- **Archive** (contact page › ⋮ › Privacy…, and a chapter's end) reads the lossless record the way Make private does
-  (`ContactRecordStore.readCapped`), keeps it, then removes the contact from the address book (`purgeForVault`), and
+- **Archive** (contact page › ⋮ › Privacy…, and a chapter's end) reads the lossless record (`ContactRecordStore.read`
+  with the full photo), keeps it, then removes the contact from the address book (`purgeForVault`), and
   re-keys what Parley keeps about the person to `parley-archived:<id>` (`ContactRef.archivedKey`), a key the key sweep
-  never resolves through the address book. A temporary contact archived stops expiring. A photo larger than 512 KB is
-  kept as its thumbnail, as for Make private (`MAX_KEPT_PHOTO`), so Unarchive brings it back at that size. When the
+  never resolves through the address book. A temporary contact archived stops expiring. Photos are kept whole, at full
+  size (AUDIT_3 D7), as backups keep them, so Unarchive brings back the photo the address book had; contacts archived
+  before this kept the thumbnail they were archived with (nothing is rewritten). Make private still keeps a photo
+  larger than 512 KB as its thumbnail (`readCapped`, `MAX_KEPT_PHOTO`). When the
   address book refuses to remove the contact (a read-only copy, a provider error), the archive gives its copy back
   and nothing is archived: a person is never both archived and in the address book.
 - **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"; its agenda items show
@@ -65,7 +67,42 @@ so the call path names it while the phone is locked.
   id, which may name someone else; an archived key never matches anyone in the address book. **Exports** include
   archived contacts: a vCard with `X-PARLEY-ARCHIVED:1` and Parley's CSV with an Archived column are both archived
   again on import; Google's CSV carries an "Archived" label.
-- A private contact has no Archive: it is out of other apps already.
+- **Private contacts are archived inside the vault**, never moved here. Archive on a private contact's page sets an
+  "archived" mark (the time) in its caller-ID copy (`VaultRepository.setArchived`, `CallerIdCopy.C_ARCHIVED`); nothing
+  else changes: the contact stays sealed under the vault's keys and behind the private lock, its details, photo, record
+  (photo whole) and private calls stay where they are, and it never touches the archive's files, the small-records key
+  or the address book. It was chosen over an archived section of the archive store because every private rule then
+  holds by construction (sealing, the lock, discreet mode and duress, backups, the private trash), and no schema change
+  is needed. An archived private contact:
+  - leaves Parley's lists: Contacts, the keypad and the header search, favourites, the Circle, label pages and counts,
+    and the agenda's people (`VaultSummary.archived`); its expiry goes, as an archived address-book contact's does;
+  - is still named on calls as a private contact (the vault's lookup ignores the mark), under the private rules: the
+    lock-screen privacy setting, discreet mode and duress apply as to any private contact;
+  - shows in Contacts › ⋮ › Archived, under "Private", and in Recall's "Archived contacts" only while private contacts
+    may show (`PrivateArchive.mayShow`: not hidden, no duress unlock, not locked with "Lock private contacts");
+  - Unarchive (the same list) removes the mark: it is back among the private contacts, never in the address book;
+  - travels in the private-contacts part of a backup (`archivedAt`), only when private contacts are backed up, and comes
+    back archived and private; an edit keeps the mark.
+
+### Contacts on a cold start
+
+The Contacts list draws its first screen before the address book and the private contacts have loaded, from what it
+showed last time (`ListHead`, core/common; `ContactListHead`, core/data), and the real list takes over row for row:
+the same ids, order and headers, drawn in the same list with My card and the favourites above (the strip is kept with
+it), so nothing moves when it arrives. It keeps only what a row shows: the name, the name it sorts by, the photo's in-app
+URI, the star, the first number and the section header, for 60 rows and 40 favourites, and the "Sort by" it was in.
+
+- Private contacts' rows are kept only when they were listed and not locked with "Lock private contacts" when it was
+  written. Before anything is drawn, `ListHead.shown` checks what is stored now (settings as stored, not their
+  defaults; a duress unlock; "Lock private contacts"; whether private contacts exist), and fails closed: when private
+  contacts will be listed but may not be drawn from the head (locked, or the head was kept without them), nothing is
+  drawn and the list appears whole as before; when they are hidden (discreet mode, duress), the head is drawn without
+  them, which is still the top of the list without them. Another order than the kept one waits too.
+- "Lock private contacts" and a duress unlock rewrite the head without private rows at once
+  (`ContactListHead.dropPrivate`), and take a head on screen down.
+- The private contacts themselves load from their kept rows (`PrivateSummaryCache`, see SECURITY_MODEL.md): one Keystore
+  operation for all of them, each row checked against the caller-ID copy in the database, so only a changed or new
+  contact is opened itself.
 
 ### What stays where for a private contact
 

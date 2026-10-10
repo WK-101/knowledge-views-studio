@@ -26,6 +26,11 @@
         <item quantity="one">%d contact archived. Find it in Contacts › ⋮ › Archived.</item>
         <item quantity="other">%d contacts archived. Find them in Contacts › ⋮ › Archived.</item>
     </plurals>
+    <string name="archive_private_body">They leave your contact lists and search, and stay private: kept only in Parley, behind your private-contacts lock. Parley still names their calls as it does for private contacts. You can bring them back from Contacts › ⋮ › Archived.</string>
+    <string name="archive_private_unarchived">%1$s is back in your private contacts</string>
+    <string name="archive_private_failed">Couldn\'t archive this private contact. Nothing changed.</string>
+    <string name="archive_private_unarchive_failed">Couldn\'t put this private contact back. It stays archived.</string>
+    <string name="archive_private_section">Private</string>
     <string name="recall_group_archived">Archived contacts</string>
     <string name="recall_archived_on">Archived %1$s</string>
 </resources>

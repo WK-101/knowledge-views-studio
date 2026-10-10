@@ -1,5 +1,17 @@
 package app.parley.ui.people
 
+import android.os.SystemClock
+import app.parley.StartTimings
+import app.parley.common.people.ListHead
+import app.parley.common.people.PrivateArchive
+import app.parley.common.security.Concealed
+import app.parley.data.security.Concealment
+import app.parley.data.vault.VaultCrypto
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.withTimeoutOrNull
 import app.parley.common.catching
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
@@ -70,11 +82,21 @@ class PeopleUi(
     val settings: StateFlow<PeopleSettings> = c.people.prefs.settings
 
     /**
+     * Set once the Contacts list has been drawn whole (or a while after start): the people index, a read of every
+     * contact's rows, waits for it, so it never competes with the first list. Searches by name and number, and the
+     * list, work without it; labels, filters and the deeper search follow a moment later.
+     */
+    private val listShown = MutableStateFlow(false)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val indexData: Flow<PeopleIndexData> = listShown.flatMapLatest { shown -> if (shown) c.people.index.data else flowOf(c.people.index.data.value) }
+
+    /**
      * The address book's per-contact index with private contacts' labels added under their list ids, so label pages,
      * the label filters ("any", "all", "Unlabelled") and label counts treat them like everyone else. Followed only
      * while a screen shows it, so the index can stop with the app in the background.
      */
-    val index: StateFlow<PeopleIndexData> = combine(c.people.index.data, c.privateLabels.titles, includePrivate) { idx, private, include ->
+    val index: StateFlow<PeopleIndexData> = combine(indexData, c.privateLabels.titles, includePrivate) { idx, private, include ->
         if (!include || private.isEmpty()) return@combine idx
         val extras = HashMap(idx.extras)
         private.forEach { (vaultId, titles) -> extras[ContactRef.Private(vaultId).navId] = PersonExtra(labels = titles) }
@@ -106,7 +128,7 @@ class PeopleUi(
      * details while they may be searched ([SearchDocs]); the rest are found by what the list shows.
      */
     private val docs: StateFlow<Map<Long, ContactSearch.Doc>> = combine(
-        c.people.index.data, privateSearch.docs, includePrivate, AppLock.locked,
+        indexData, privateSearch.docs, includePrivate, AppLock.locked,
     ) { idx, priv, include, appLocked ->
         val searchable = SearchDocs.privateDetailsSearchable(vaultOpen = priv.isNotEmpty(), discreet = !include, appLocked = appLocked)
         SearchDocs.combine(idx.search, priv, searchable, discreet = !include)
@@ -192,7 +214,7 @@ class PeopleUi(
                 val privateCalls = if (include) private.map { it.vaultId } else emptyList()
                 SortFacts(calls = ContactSorting.callCounts(list.orEmpty(), calls.orEmpty().map { it.number }, privateCalls, countryIso))
             }
-            ContactSort.COMPANY -> combine(c.people.index.data, c.vault.contacts, includePrivate) { idx, vault, include ->
+            ContactSort.COMPANY -> combine(indexData, c.vault.contacts, includePrivate) { idx, vault, include ->
                 val company = HashMap<Long, String>()
                 idx.extras.forEach { (id, e) -> if (e.company.isNotBlank()) company[id] = e.company }
                 if (include) vault.forEach { v -> if (v.company.isNotBlank()) company[ContactRef.Private(v.id).navId] = v.company }
@@ -213,26 +235,58 @@ class PeopleUi(
 
     /**
      * The last list's first screenful with its headers, shown on a cold start until [listing] first arrives, so a large
-     * address book shows rows at once instead of a spinner. Null once the real list is there (or nothing was kept).
+     * address book shows rows at once instead of a spinner. The real list then replaces it row for row (same ids, same
+     * order, same headers). Null once the real list is there, or when nothing kept may be shown ([ListHead.shown]).
      */
     val listHead = MutableStateFlow<List<ListSections.Row<String, ContactSummary>>?>(null)
 
+    /** The favourites strip kept with [listHead], shown with it. */
+    private val headFavourites = MutableStateFlow<List<ContactSummary>>(emptyList())
+
     init {
+        val started = SystemClock.uptimeMillis()
         scope.launch(Dispatchers.IO) {
-            val head = c.people.listHead.load() ?: return@launch
-            // The kept rows never hold a private contact: with private contacts listed they would show the list without
-            // them first, so it waits for the whole list instead (a moment's progress, then every row at once).
-            if (includePrivate.value && catching { c.vault.countNow() }.getOrDefault(1) > 0) return@launch
-            if (listing.value == null) listHead.value = ListSections.interleave(head) { ListSections.letterOf(it.sortName) }
+            val snapshot = c.people.listHead.load() ?: return@launch
+            val access = headAccess()
+            val rows = ListHead.shown(snapshot, access) ?: return@launch
+            if (listing.value == null) {
+                headFavourites.value = ListHead.shownFavourites(snapshot, access)
+                listHead.value = rows
+                StartTimings.log("Contacts first screen from the kept head", started)
+            }
         }
         scope.launch {
-            listing.first { it != null }
+            withTimeoutOrNull(INDEX_WAIT_MS) { listing.first { it != null } }
             listHead.value = null
+            headFavourites.value = emptyList()
+            listShown.value = true
+            StartTimings.log("Contacts list whole", started)
         }
-        // Kept a while after the list settles, and only when its first screenful changed.
-        scope.launch(Dispatchers.IO) {
-            contacts.filterNotNull().debounce(LIST_HEAD_QUIET_MS).collect { catching { c.people.listHead.save(it) } }
+        // Locking private contacts or a duress unlock: nothing kept stays on screen (the head is rewritten without them).
+        scope.launch {
+            merge(c.vault.lock.locks.drop(1), Concealment.state.filter { it.hiding }).collect {
+                if (listHead.value?.any { r -> r is ListSections.Row.Item && r.item.id < 0 } == true || headFavourites.value.any { it.id < 0 }) {
+                    listHead.value = null
+                    headFavourites.value = emptyList()
+                }
+            }
         }
+    }
+
+    /**
+     * What a kept head may show now, read where it is stored (the settings as stored, a duress unlock, "Lock private
+     * contacts", how many private contacts there are), never from flows still at their defaults. Fails closed.
+     */
+    @Suppress("TooGenericExceptionCaught") // Whatever can't be read, nothing private is shown.
+    private suspend fun headAccess(): ListHead.Access = try {
+        val hidden = c.settings.current().hideVault || Concealment.hiding
+        val privateListed = !hidden && c.vault.countNow() > 0
+        val mayShow = PrivateArchive.mayShow(hidden = hidden, hiding = Concealment.hides(Concealed.PRIVATE_CONTACTS), locked = VaultCrypto.lockedByPerson)
+        ListHead.Access(privateListed, mayShow, c.people.prefs.current().contactSort.name)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        ListHead.Access.CLOSED
     }
 
     /** "Matched: address" for contacts the search found by another field than the name or number. */
@@ -252,11 +306,27 @@ class PeopleUi(
         counts as Map<Long, Int>
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index) { list, s, counts, idx ->
-        val favs = list.orEmpty().filter { it.starred }
+    val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index, headFavourites) { list, s, counts, idx, kept ->
+        // Before the list loads: the strip as it was last shown, with the kept head.
+        if (list == null) return@combine kept
+        val favs = list.filter { it.starred }
             .map { ct -> if (s.preferNickname) NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
         FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts, favoritesCollator)
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    init {
+        // Kept a while after the list settles (as shown: unsearched, unfiltered), and only when its first screenful changed.
+        scope.launch(Dispatchers.IO) {
+            // Private rows only while they are listed and not locked with "Lock private contacts" (Concealment's hiding
+            // makes includePrivate false).
+            val withPrivate = combine(includePrivate, c.vault.lock.lockedByPerson) { include, locked -> include && !locked }
+            combine(listing, favorites, query, filter, combine(privateOnly, withPrivate, sort, ::Triple)) { rows, favs, q, f, (only, private, s) ->
+                // Only the list as it opens: unsearched, unfiltered, not the Private filter.
+                val asOpened = q.isBlank() && f.isEmpty && !only
+                if (rows == null || !asOpened) null else ListHead.encode(rows, favs, withPrivate = private, sort = s.name)
+            }.filterNotNull().debounce(LIST_HEAD_QUIET_MS).collect { catching { c.people.listHead.save(it) } }
+        }
+    }
 
     fun extra(id: Long): PersonExtra? = index.value.extras[id]
 
@@ -305,3 +375,6 @@ class PeopleUi(
 
 /** How long the contact list must be quiet before its first screenful is kept for the next cold start. */
 private const val LIST_HEAD_QUIET_MS = 10_000L
+
+/** The people index starts after the first whole list, or this long after the view model at the latest. */
+private const val INDEX_WAIT_MS = 5_000L

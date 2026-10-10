@@ -61,16 +61,18 @@ object ContactMenu {
         val onlyEmergency: Boolean = false,
         /** A case file shows on the page already (kept, or an organisation's): its card opens it, so no "Keep a case file". */
         val caseShown: Boolean = false,
+        /** Archived already (a private contact's page still opens then): Unarchive is in Contacts › ⋮ › Archived. */
+        val archived: Boolean = false,
     )
 
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.REMIND_TO_CALL, f.hasNumbers)
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
-        // Archive: out of the lists and other apps, still named on calls (a private contact is out of other apps already).
+        // Archive: out of the lists, still named on calls (a private contact stays private, archived inside the vault).
         group(
             MenuGroup.PRIVACY,
-            listOfNotNull(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY, Action.ARCHIVE.takeIf { !f.isPrivate }),
+            listOfNotNull(if (f.isPrivate) Action.MAKE_VISIBLE else Action.MAKE_PRIVATE, Action.DELETE_AUTOMATICALLY, Action.ARCHIVE.takeIf { !f.archived }),
         )?.let(::add)
         // Any contact can have a case file (a bank saved under a person's name, a landlord): the seventh place at most.
         add(Action.CASE_FILE, f.hasNumbers && !f.caseShown)

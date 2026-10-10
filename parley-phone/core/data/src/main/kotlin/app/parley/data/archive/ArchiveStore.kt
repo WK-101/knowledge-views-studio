@@ -45,8 +45,11 @@ import java.io.File
  *
  * Each contact is two files in `files/archive`, sealed with the small-records key (no unlock needed, so the call path
  * reads them while the phone is locked): `<id>.card`, the [ArchivedCard] lists and caller ID use, and `<id>.rec`, the
- * whole record with its photos (one larger than 512 KB kept as its thumbnail, as for Make private), opened only by
- * Unarchive, backups and exports.
+ * whole record with its photos at full size, as the address book had them (backups keep them whole too), opened only
+ * by Unarchive, backups and exports. Records archived before photos were kept whole keep the thumbnail they have.
+ *
+ * Private contacts are archived inside the vault instead ([app.parley.data.vault.VaultRepository.setArchived]): they
+ * never come here, so nothing private is ever sealed with this key or leaves the private lock.
  */
 class ArchiveStore(private val c: DataContainer) {
     private val dir = File(c.appContext.filesDir, "archive")
@@ -102,7 +105,8 @@ class ArchiveStore(private val c: DataContainer) {
      */
     suspend fun archive(contactId: Long, now: Long = System.currentTimeMillis()): Archived? = withContext(Dispatchers.IO) {
         load()
-        val record = c.records.readCapped(contactId)?.withoutMessengers() ?: return@withContext null
+        // Photos whole, at full size: archiving keeps the contact as it was (Make private still keeps a smaller copy).
+        val record = c.records.read(contactId, fullPhoto = true)?.withoutMessengers() ?: return@withContext null
         val key = record.key.takeIf { it.isNotEmpty() } ?: c.contacts.lookupKeyOf(contactId).orEmpty()
         val id = mutex.withLock {
             val id = nextId()

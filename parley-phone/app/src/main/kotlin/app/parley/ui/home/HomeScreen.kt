@@ -363,7 +363,11 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // Archived contacts are out of the list: this is where they are, once there are some.
             val archived = vm.c.archive.cards.collectAsStateWithLifecycle().value
-            if (archived.isNotEmpty()) MenuItem(stringResource(R.string.archive_title_screen), Icons.Rounded.Archive) { go(PeopleRoutes.Archived) }
+            // Archived private contacts count only while private contacts may show.
+            val privateArchived = app.parley.ui.people.archive.privateArchived(vm)
+            if (archived.isNotEmpty() || privateArchived.isNotEmpty()) {
+                MenuItem(stringResource(R.string.archive_title_screen), Icons.Rounded.Archive) { go(PeopleRoutes.Archived) }
+            }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {

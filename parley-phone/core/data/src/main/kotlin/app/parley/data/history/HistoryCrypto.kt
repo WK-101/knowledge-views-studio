@@ -84,6 +84,15 @@ internal class HistoryCrypto(
         if (deleteKeystoreEntry) runCatching { keyStore().deleteEntry(alias) }
     }
 
+    /**
+     * Drops the unwrapped key from memory (the file and the Keystore entry stay): the next use unwraps it again, one
+     * Keystore operation. For stores whose key should not outlive a lock.
+     */
+    fun forgetKey() = synchronized(this) {
+        keys = null
+        macs.remove()
+    }
+
     fun seal(plain: ByteArray): ByteArray {
         val iv = ByteArray(Aead.NONCE).also { random.nextBytes(it) }
         return byteArrayOf(VERSION) + iv + Aead.encrypt(keys().first, iv, plain)

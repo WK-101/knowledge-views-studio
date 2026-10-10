@@ -247,6 +247,8 @@ class DataContainer(context: Context) {
             v.labelGroups = { contacts.groups().map { app.parley.common.people.PrivateLabels.Group(it.id, it.title) } }
             // Deleted private contacts kept sealed for 30 days still need their detail key.
             v.keptGenerations = { privateTrash.generations() }
+            // "Lock private contacts": the Contacts list's first screenful kept for a cold start loses their rows now.
+            v.onConcealed = { scope.launch(Dispatchers.IO) { catching { people.listHead.dropPrivate() } } }
         }
     }
 

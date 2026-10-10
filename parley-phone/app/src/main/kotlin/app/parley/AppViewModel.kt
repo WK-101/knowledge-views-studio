@@ -261,7 +261,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val rows = if (list == null || hidden || vault == null) {
             null
         } else {
-            val rows = vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) }
+            // Archived private contacts are out of the lists (Contacts › ⋮ › Archived), still private.
+            val rows = vault.filterNot { it.archived }.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) }
             NameOrder.apply(rows, byFirst, lastFirst, compare)
         }
         // Not before the private contacts are listed too (vault null while they load): the list appears whole.

@@ -29,6 +29,8 @@ Parley whenever the phone is on, including while it is locked.
 |---|---|---|---|
 | Private contacts: name, numbers, caller card | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen |
 | Private call history (number, name, video) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
+| Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark; never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
+| The Contacts list's first screen kept for a cold start (name, sort name, photo URI, star, first number, header; private rows only when they were listed and not locked) | Small-records key (`RecordCrypto`) | None | Drawn before the lists load; checked against discreet mode, duress and "Lock private contacts" before it is drawn, and rewritten without private rows the moment they are locked or a duress unlock happens |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
@@ -39,11 +41,16 @@ Parley whenever the phone is on, including while it is locked.
 | The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key | None | Checked on the lock screen; never in backups |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
 
-Wrapped software keys (archive, small records, private calls, number memory) sit in no-backup storage
-(`history.keys`, `records.keys`, `vault_calls.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of
+Wrapped software keys (archive, small records, private calls, private list rows, number memory) sit in no-backup storage
+(`history.keys`, `records.keys`, `vault_calls.keys`, `vault_summaries.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of
 the files alone still can't open anything. They exist because work that runs often would otherwise need one Keystore
 operation per row: a daily number-memory rebuild hashed about 25,000 numbers with a Keystore HMAC key, and listing the
-private call history opened every call through the Keystore after each change. The key is in Parley's memory while it
+private call history opened every call through the Keystore after each change, and a cold start opened every private
+contact's caller-ID copy (one Keystore operation each, about 1–2.5 s for 500) before the Contacts list could show.
+The private-rows key holds a subset of what the caller-ID copies hold, under the same protection (a Keystore key
+without user authentication), so it adds no exposure; unlike the other wrapped keys, Parley drops it from memory
+whenever opened private details are forgotten (the app lock, the screen going off, "Lock private contacts"), and
+unwraps it again (one operation) the next time the listing changes. The key is in Parley's memory while it
 is used; that adds nothing for someone who can run code as Parley, who could ask the Keystore anyway. Before 5.4 the
 number-memory index used an HMAC key inside the Keystore (`parley_number_memory_v1`): the index made with it is rebuilt
 once with the new key, and the old key is then deleted. The vault's own number fingerprints keep their Keystore HMAC
