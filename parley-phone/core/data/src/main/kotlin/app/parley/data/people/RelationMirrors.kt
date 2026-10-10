@@ -14,6 +14,9 @@ import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -28,6 +31,10 @@ import kotlinx.coroutines.withContext
 class RelationMirrors(context: Context, private val contacts: ContactsRepository, private val meta: MetaDao) {
     private val prefs = context.applicationContext.getSharedPreferences("relation_mirrors", Context.MODE_PRIVATE)
     private val lock = Mutex()
+    private val _version = MutableStateFlow(0)
+
+    /** Grows with every correction remembered, so pages showing relations read them again. */
+    val version: StateFlow<Int> = _version.asStateFlow()
 
     /** A change made on [targetName]'s contact; [relation] is the relation on the contact that was saved. */
     data class Done(val targetKey: String, val targetId: Long, val targetName: String, val step: RelationMirror.Step, val relation: RelationMirror.Row?)
@@ -62,7 +69,14 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
     ): Report = withContext(Dispatchers.IO) {
         lock.withLock {
             val selfKey = contacts.lookupKeyOf(selfId) ?: return@withLock Report(emptyList(), emptyList())
-            val selfName = contacts.details(selfId)?.displayName.orEmpty()
+            val self = contacts.details(selfId)
+            val selfName = self?.displayName.orEmpty()
+            // The other side says son or daughter, husband or wife, only when this contact's pronouns say which.
+            val selfGender = RelationMirror.genderOf(self?.pronouns)
+            val all = RelationMirror.decode(prefs.getString(KEY, null))
+            // A row Parley wrote here for another contact that the user has since changed: remembered, so that contact
+            // shows and writes it their way from now on.
+            val corrections = learnCorrections(selfId, selfKey, relations, all)
             val targets = HashMap<String, Target?>()
             suspend fun target(key: String, id: Long?): Target? {
                 val (tid, tkey) = contacts.currentOf(key, id) ?: return null
@@ -82,12 +96,12 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
                 val t = target(link.lookupKey, link.contactId) ?: continue
                 if (t.key in wanted) continue
                 val type = RelationTypes.fromAndroid(r.type, r.label)
-                val row = RelationMirror.reciprocal(type?.key, if (type == null) r.label else null, selfName) ?: continue
+                val computed = RelationMirror.reciprocal(type?.key, if (type == null) r.label else null, selfName, selfGender) ?: continue
+                val row = RelationMirror.corrected(computed, selfKey, t.key, corrections)
                 wanted[t.key] = row
                 relationFor[t.key] = RelationMirror.Row(r.value, type?.key, if (type == null) r.label else null)
             }
             // What Parley added earlier for this contact, under the other contacts' current keys.
-            val all = RelationMirror.decode(prefs.getString(KEY, null))
             val mine = all.filter { c -> c.from == selfKey || contacts.currentOf(c.from, c.fromId)?.first == selfId }
             val created = LinkedHashMap<String, RelationMirror.Row>()
             for (c in mine) target(c.target, c.targetId)?.let { created[it.key] = c.row }
@@ -196,6 +210,59 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
         }
     }
 
+    /** What the user said other contacts' relations really are on this side ([RelationMirror.Correction]). */
+    fun corrections(): List<RelationMirror.Correction> = RelationMirror.decodeCorrections(prefs.getString(KEY_CORRECTIONS, null))
+
+    /**
+     * The user corrected how contact [from]'s relation shows on contact [to]: [computed] (what Parley worked out) is
+     * [corrected] from now on. Correcting it back to [computed] forgets it.
+     */
+    fun correct(from: String, to: String, computed: RelationMirror.Row, corrected: RelationMirror.Row) {
+        val next = RelationMirror.remember(corrections(), RelationMirror.Correction(from, to, computed, corrected))
+        prefs.edit().putString(KEY_CORRECTIONS, RelationMirror.encodeCorrections(next).ifEmpty { null }).apply()
+        _version.value++
+    }
+
+    /** A contact's key changed ([ContactKeys]): what was corrected about it follows. */
+    fun rekeyCorrections(from: String, to: String) = editCorrections { list ->
+        list.map { c -> c.copy(from = if (c.from == from) to else c.from, to = if (c.to == from) to else c.to) }
+    }
+
+    /** A contact is gone for good: what was corrected about it goes too. */
+    fun forgetCorrections(key: String) = editCorrections { list -> list.filterNot { it.from == key || it.to == key } }
+
+    private fun editCorrections(change: (List<RelationMirror.Correction>) -> List<RelationMirror.Correction>) {
+        val before = corrections()
+        val next = change(before)
+        if (next == before) return
+        prefs.edit().putString(KEY_CORRECTIONS, RelationMirror.encodeCorrections(next).ifEmpty { null }).apply()
+        _version.value++
+    }
+
+    /**
+     * Rows Parley wrote on contact [selfId] for other contacts ([all]) that its relations ([relations], as just saved)
+     * now name another way: each is remembered as a correction. Returns every correction known now.
+     */
+    @Suppress("LoopWithTooManyJumpStatements") // Skip rows unchanged or no longer named, in one pass.
+    private fun learnCorrections(
+        selfId: Long,
+        selfKey: String,
+        relations: List<DataItem>,
+        all: List<RelationMirror.Created>,
+    ): List<RelationMirror.Correction> {
+        var list = corrections()
+        val before = list
+        for (c in all.filter { it.target == selfKey || it.targetId == selfId }) {
+            val now = relations.firstOrNull { RelationLinks.nameKey(it.value) == RelationLinks.nameKey(c.row.name) }?.let(::rowOf) ?: continue
+            if (now.sameType(c.row)) continue
+            // What Parley would work out, also when what it wrote was an earlier correction.
+            val computed = list.firstOrNull { it.from == c.from && it.to == selfKey && it.corrected.sameType(c.row) }?.computed ?: c.row
+            list = RelationMirror.remember(list, RelationMirror.Correction(c.from, selfKey, computed, now))
+        }
+        if (list != before) prefs.edit().putString(KEY_CORRECTIONS, RelationMirror.encodeCorrections(list).ifEmpty { null }).apply()
+        return list
+    }
+
     /** Whether Parley added any relation rows at all (a cheap check before [takeBack] for many contacts). */
     fun any(): Boolean = !prefs.getString(KEY, null).isNullOrEmpty()
 
@@ -264,6 +331,7 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
     companion object {
         private const val TAG = "RelationMirrors"
         private const val KEY = "created"
+        private const val KEY_CORRECTIONS = "corrections"
 
         fun rowOf(d: DataItem): RelationMirror.Row {
             val t = RelationTypes.fromAndroid(d.type, d.label)

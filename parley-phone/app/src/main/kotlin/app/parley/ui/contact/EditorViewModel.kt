@@ -20,6 +20,7 @@ import app.parley.common.people.ExpiryChange
 import app.parley.common.people.MeCards
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
+import app.parley.common.people.ContactRef
 import app.parley.common.people.RelationLinks
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.suspendRunCatching
@@ -34,7 +35,6 @@ import app.parley.data.DataItem
 import app.parley.data.GroupInfo
 import app.parley.data.people.ParleyRelationRows
 import app.parley.data.vault.VaultCrypto
-import app.parley.ui.people.MeCardDetails
 import app.parley.ui.people.BackgroundChange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -174,6 +174,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     var meParts by mutableStateOf(MeCards.defaultParts)
         private set
 
+    /** My card's relations kept out of the editor in discreet mode (they name private contacts). */
+    private var meHidden = emptyList<DataItem>()
+
     /** Relations whose contact was chosen with the picker (name key → that contact). */
     private var pickedLinks = emptyMap<String, RelationLinks.Link>()
     var moreName by mutableStateOf(false)
@@ -250,11 +253,18 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     /** Loads the contact (or the new one's prefill); false when the editor is leaving (the vault is locked). */
     private suspend fun load(a: EditorArgs): Boolean {
         if (a.meCard) {
-            // My card: Parley's own copy (never the phone's profile, which Parley doesn't write).
-            val d = MeCardDetails.toDetails(c.people.me.card.value)
+            // My card: Parley's own copy, a whole contact (never the phone's profile, which Parley doesn't write).
+            val me = c.people.me
+            var d = me.details.value
+            // In discreet mode its relations to private contacts stay out of sight, and are saved as they were.
+            if (c.settings.current().hideVault) {
+                val links = me.links.value
+                meHidden = d.relations.filter { r -> links[RelationLinks.nameKey(r.value)]?.lookupKey?.let(ContactRef::isPrivateKey) == true }
+                d = d.copy(relations = d.relations - meHidden.toSet())
+            }
             draft = if (d.phones.isEmpty()) d.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else d
             start = draft
-            meParts = c.people.me.shareParts.value
+            meParts = me.shareParts.value
             return true
         }
         if (a.contactId == null && a.vaultId == null) privateNew = c.people.prefs.current().privateByDefault
@@ -513,13 +523,27 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         }
     }
 
-    /** My card: saved to Parley's own copy (clearing it is allowed); "Send my details" reads its name and number. */
+    /**
+     * My card: saved to Parley's own copy with its photo and relations' links (clearing it is allowed); "Send my
+     * details" reads its name and number.
+     */
     private fun saveMeCard(e: ContactDetails) {
-        val card = MeCardDetails.toCard(e)
-        c.people.me.save(card)
-        c.people.me.setShareParts(meParts)
-        message(R.string.me_saved)
-        eventChannel.trySend(EditorEvent.Done(null))
+        saving = true
+        val request = SaveContactUseCase.Request(
+            original = null, draft = e, account = null, photo = photo, removePhoto = removePhoto, photoFrame = photoFrame,
+            toVault = false, vaultId = null, background = BackgroundChange.None, pickedLinks = pickedLinks,
+        )
+        viewModelScope.launch {
+            val notes = try {
+                saveContact.saveMeCard(request, meHidden)
+            } finally {
+                saving = false
+            }
+            c.people.me.setShareParts(meParts)
+            notes.forEach { message(it) }
+            message(R.string.me_saved)
+            eventChannel.send(EditorEvent.Done(null))
+        }
     }
 
     /** "Show their version": the edit is set aside and the editor shows the contact as it is now. */

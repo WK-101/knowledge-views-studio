@@ -9,8 +9,18 @@ import app.parley.data.DataContainer
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.vault.VaultCrypto
 
-/** A relation shown on a contact's page from another contact's relation to it: open [navId] on a tap. */
-data class RelationFromOther(val navId: Long, val row: RelationMirror.Row)
+/**
+ * A relation shown on a contact's page from another contact's relation to it: open [navId] on a tap. [ownerKey] and
+ * [computed] say what a correction is remembered against ([RelationMirrors.correct]). [fromMe]: it is My card's own
+ * relation to this contact, shown as you named it ("Wife"), and a tap opens My card.
+ */
+data class RelationFromOther(
+    val navId: Long,
+    val row: RelationMirror.Row,
+    val ownerKey: String = "",
+    val computed: RelationMirror.Row = row,
+    val fromMe: Boolean = false,
+)
 
 /**
  * Two-way relations with private contacts (docs/CONTACT_MODEL.md, "Relations with private contacts"). Between two
@@ -25,8 +35,38 @@ object RelationsFromOthers {
     /** The relations [self]'s page shows from others' relations to it; [metas]: Parley's rows of every contact. */
     suspend fun load(c: DataContainer, self: ContactDetails, selfPrivate: Boolean, metas: List<ContactMetaEntity>, s: AppSettings): List<RelationFromOther> {
         val key = self.lookupKey
+        if (key.isEmpty() || selfPrivate && s.hideVault) return emptyList()
+        return fromMyCard(c, key) + fromContacts(c, self, selfPrivate, metas, s)
+    }
+
+    /**
+     * My card's relations to this contact (by the links its editor's picker made), as you named them: "my wife" shows
+     * here as "Wife". My card is yours, so this needs no setting and writes nothing to the contact.
+     */
+    fun fromMyCard(c: DataContainer, key: String): List<RelationFromOther> {
+        val me = c.people.me
+        val names = me.links.value.filterValues { it.lookupKey == key }.keys
+        if (names.isEmpty()) return emptyList()
+        val myName = MeCardDetails.nameOf(me.details.value)
+        return me.details.value.relations.filter { it.value.isNotBlank() && RelationLinks.nameKey(it.value) in names }.map { rel ->
+            val r = RelationMirrors.rowOf(rel)
+            RelationFromOther(0L, r.copy(name = myName), ownerKey = ME_KEY, fromMe = true)
+        }
+    }
+
+    /** The key My card's relations are known by in corrections and links (it has no lookup key of its own). */
+    const val ME_KEY = "me"
+
+    private suspend fun fromContacts(
+        c: DataContainer,
+        self: ContactDetails,
+        selfPrivate: Boolean,
+        metas: List<ContactMetaEntity>,
+        s: AppSettings,
+    ): List<RelationFromOther> {
+        val key = self.lookupKey
         val privateShown = !s.hideVault
-        if (key.isEmpty() || !s.mirrorRelations) return emptyList()
+        if (!s.mirrorRelations) return emptyList()
         if (selfPrivate && !privateShown) return emptyList()
         val incoming = ArrayList<RelationMirror.Incoming>()
         val navs = HashMap<String, Long>()
@@ -38,11 +78,13 @@ object RelationsFromOthers {
             val name = owner.displayName.ifBlank { owner.composedName }
             // A device contact's relations kept in Parley only count too: they are how it relates to a private contact.
             (owner.relations + ParleyRelationRows.decode(m.parleyRelations)).filter { RelationLinks.nameKey(it.value) in names }.forEach { rel ->
-                incoming += RelationMirror.Incoming(m.lookupKey, name, ownerPrivate, RelationMirrors.rowOf(rel))
+                incoming += RelationMirror.Incoming(m.lookupKey, name, ownerPrivate, RelationMirrors.rowOf(rel), RelationMirror.genderOf(owner.pronouns))
             }
         }
         val own = self.relations.map(RelationMirrors::rowOf)
-        return RelationMirror.fromOthers(incoming, own, selfPrivate, privateShown).mapNotNull { r -> navs[r.ownerKey]?.let { RelationFromOther(it, r.row) } }
+        val corrections = c.people.relationMirrors.corrections()
+        return RelationMirror.fromOthers(incoming, own, selfPrivate, privateShown, key, corrections)
+            .mapNotNull { r -> navs[r.ownerKey]?.let { RelationFromOther(it, r.row, r.ownerKey, r.computed) } }
     }
 
     /**

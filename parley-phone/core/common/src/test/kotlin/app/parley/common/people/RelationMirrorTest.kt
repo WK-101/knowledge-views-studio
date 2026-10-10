@@ -33,25 +33,25 @@ class RelationMirrorTest {
         assertEquals("sister", inv("brother", Gender.FEMALE))
         assertEquals("friend", inv("friend"))
         assertEquals("relative", inv("relative"))
-        assertEquals("assistant", inv("manager"))
+        assertEquals("report", inv("manager"))
         assertEquals("manager", inv("assistant"))
         assertEquals("tenant", inv("landlord"))
         assertEquals("grandchild", inv("grandmother"))
-        assertEquals("relative", inv("aunt"))
+        assertEquals("niece-or-nephew", inv("aunt"))
         assertEquals("niece", inv("aunt", Gender.FEMALE))
     }
 
     @Test fun types_without_a_fair_opposite_write_nothing() {
-        assertNull(inv("doctor"))
-        assertNull(inv("met"))
-        assertNull(inv("referred-by"))
+        assertNull(inv("crush"))
+        assertNull(inv("muse"))
         assertNull(inv("emergency"))
+        assertNull(inv("me"))
         // Every inverse is a real type.
         RelationTypes.all.forEach { t -> RelationMirror.inverse(t)?.let { assertTrue(RelationTypes.byKey(it.key) != null) } }
     }
 
-    @Test fun custom_labels_are_mirrored_as_written() {
-        assertEquals(Row("Sam", null, "Fishing buddy"), RelationMirror.reciprocal(null, " Fishing buddy ", "Sam"))
+    @Test fun custom_labels_show_as_related_on_the_other_side() {
+        assertEquals(Row("Sam", "related", null), RelationMirror.reciprocal(null, " Fishing buddy ", "Sam"))
         assertEquals(Row("Sam", "child", null), RelationMirror.reciprocal("mother", null, "Sam"))
         assertNull(RelationMirror.reciprocal(null, "", "Sam"))
         assertNull(RelationMirror.reciprocal("mother", null, " "))
@@ -147,8 +147,8 @@ class RelationMirrorTest {
 
     @Test fun a_person_already_named_or_without_an_opposite_is_left_out() {
         assertEquals(none, shown(ana, own = listOf(Row("ana", "daughter", null))))
-        // A doctor's patient has no fair opposite.
-        assertEquals(none, shown(incoming("parley-private:7", "Ana", true, "doctor")))
+        // A crush has no fair opposite.
+        assertEquals(none, shown(incoming("parley-private:7", "Ana", true, "crush")))
         // The same contact naming this one twice shows once.
         assertEquals(1, shown(ana, incoming("parley-private:7", "Ana", true, "friend")).size)
     }

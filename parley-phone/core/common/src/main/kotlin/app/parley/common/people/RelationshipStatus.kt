@@ -12,7 +12,7 @@ object RelationshipStatus {
     fun kindOf(typeKey: String?): Kind? = when (typeKey) {
         "spouse", "wife", "husband" -> Kind.MARRIED
         "partner", "domestic-partner" -> Kind.PARTNER
-        "ex-spouse" -> Kind.FORMERLY_MARRIED
+        "ex-spouse", "ex-wife", "ex-husband" -> Kind.FORMERLY_MARRIED
         else -> null
     }
 

@@ -14,6 +14,12 @@ import app.parley.common.people.TemporaryChoice
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
+import app.parley.data.PostalItem
+import app.parley.data.HandleItem
+import app.parley.data.EventItem
+import app.parley.data.CustomFieldItem
+import app.parley.common.people.NativeName
+import app.parley.common.people.HandleService
 import app.parley.data.people.PeopleSettings
 import app.parley.testing.AppTestbed
 import kotlinx.coroutines.launch
@@ -409,11 +415,67 @@ class EditorViewModelTest {
     @Test fun my_cards_shared_parts_are_a_change_and_are_saved() {
         val vm = editor(EditorArgs(null, meCard = true))
         assertFalse(vm.changed)
-        vm.toggleMePart(MeCards.Part.EMAILS)
+        // Name, numbers and e-mail until chosen otherwise; the note only when ticked.
+        assertEquals(setOf(MeCards.Part.NAME, MeCards.Part.PHONES, MeCards.Part.EMAILS), vm.meParts)
+        vm.toggleMePart(MeCards.Part.NOTE)
         assertTrue(vm.changed)
-        assertTrue(MeCards.Part.EMAILS in vm.meParts)
+        assertTrue(MeCards.Part.NOTE in vm.meParts)
         vm.save()
         saved()
-        assertTrue(MeCards.Part.EMAILS in t.c.people.me.shareParts.value)
+        assertTrue(MeCards.Part.NOTE in t.c.people.me.shareParts.value)
+    }
+
+    /** Every field and option a contact has, as My card keeps it: what the full editor shows for a contact. */
+    private val everything = ContactDetails(
+        prefix = "Dr", given = "Ana", middle = "Maria", family = "Lima", suffix = "Jr", phoneticGiven = "Ah-na", phoneticMiddle = "Ma-ria",
+        phoneticFamily = "Lee-ma", secondSurname = "Souza", generation = "II", nickname = "Annie", pronouns = "she/her",
+        nativeName = NativeName(full = "Анна Лима", language = "ru"), company = "Acme", title = "Engineer", department = "Labs",
+        phones = listOf(
+            DataItem(value = "+44 20 7946 0500", type = Phone.TYPE_WORK, isPrimary = true),
+            DataItem(value = "+44 7700 900123", type = Phone.TYPE_MOBILE),
+            DataItem(value = "+44 7700 900999", type = 0, label = "Boat"),
+        ),
+        emails = listOf(DataItem(value = "ana@example.org", type = Email.TYPE_WORK), DataItem(value = "ana@home.example", type = Email.TYPE_HOME)),
+        addresses = listOf(
+            PostalItem(street = "1 High St", city = "London", postcode = "SW1A 1AA", country = "UK", type = 1),
+            PostalItem(street = "2 Low Rd", city = "Leeds", type = 2),
+        ),
+        events = listOf(EventItem(date = "1990-05-01", type = 3), EventItem(date = "--06-12", type = 1)),
+        websites = listOf(DataItem(value = "https://ana.example", type = 1), DataItem(value = "https://github.com/analima", type = 0, label = "GitHub")),
+        relations = listOf(DataItem(value = "Sam Lima", type = 0, label = "Husband"), DataItem(value = "Bo Lima", type = 3)),
+        handles = listOf(HandleItem(service = HandleService.SIGNAL, value = "+44 7700 900123")),
+        languages = listOf("pt-BR", "en"), citizenships = listOf("BR", "GB"),
+        customFields = listOf(CustomFieldItem(label = "Shoe size", value = "38")),
+        note = "Allergic to cats",
+    )
+
+    @Test fun my_card_keeps_every_field_a_contact_has() {
+        val vm = editor(EditorArgs(null, meCard = true))
+        vm.update { everything }
+        vm.save()
+        saved()
+        // Reordered rows, labels and every name part come back as typed.
+        val again = editor(EditorArgs(null, meCard = true))
+        assertEquals(everything, again.draft!!.copy(displayName = "", photoUri = null))
+        // The short form "Send my details" uses: the name and the default number first.
+        val card = t.c.people.me.card.value
+        assertEquals("Dr Ana Maria Lima Jr", card.name)
+        assertEquals("+44 20 7946 0500", card.firstNumber)
+        // Nothing reaches the address book.
+        assertTrue(t.contacts.rows("raw_contacts").isEmpty())
+    }
+
+    @Test fun my_cards_relations_remember_the_contact_picked_for_them() {
+        val vm = editor(EditorArgs(null, meCard = true))
+        vm.update { it.copy(given = "Ana", relations = listOf(DataItem(value = "Sam", type = 0, label = "Husband"))) }
+        vm.linkRelation("Sam", app.parley.common.people.RelationLinks.Link("sam-key", 7))
+        vm.save()
+        saved()
+        assertEquals("sam-key", t.c.people.me.links.value["sam"]?.lookupKey)
+        // "My husband" shows on Sam's page as Husband, from My card.
+        val shown = app.parley.data.people.RelationsFromOthers.fromMyCard(t.c, "sam-key").single()
+        assertTrue(shown.fromMe)
+        assertEquals("husband", shown.row.typeKey)
+        assertEquals("Ana", shown.row.name)
     }
 }

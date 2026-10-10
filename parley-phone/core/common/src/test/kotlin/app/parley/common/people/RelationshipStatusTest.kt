@@ -29,7 +29,9 @@ class RelationshipStatusTest {
     }
 
     @Test fun ex_spouse_words_written_by_other_apps_are_recognised() {
-        assertEquals("ex-spouse", RelationTypes.fromAndroid(0, "Ex-wife")?.key)
+        assertEquals("ex-wife", RelationTypes.fromAndroid(0, "Ex-wife")?.key)
+        assertEquals(Kind.FORMERLY_MARRIED, RelationshipStatus.kindOf("ex-wife"))
+        assertEquals(Kind.FORMERLY_MARRIED, RelationshipStatus.kindOf("ex-husband"))
         assertEquals("ex-spouse", RelationTypes.fromAndroid(0, "Former spouse")?.key)
         assertEquals("ex-spouse", RelationMirror.inverse(RelationTypes.byKey("ex-spouse")!!)?.key)
     }

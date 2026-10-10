@@ -25,7 +25,7 @@ class SignedCardsTest {
         profiles = listOf(Profile(ProfileService.entries.first(), "ana")),
     )
 
-    private fun shared(card: MeCard = ana, version: Long = 1, key: ByteArray = secret, parts: Set<MeCards.Part> = MeCards.Part.entries.toSet()): String {
+    private fun shared(card: MeCard = ana, version: Long = 1, key: ByteArray = secret, parts: Set<MeCards.Part> = MeCards.signable): String {
         val signed = SignedCards.sign(CardFields.of(card, parts), "card-1", version, key, parts)
         return SignedCards.attach(MeCards.vcard(card, parts), signed)
     }
@@ -36,7 +36,7 @@ class SignedCardsTest {
         val c = only(shared()) as CardCheck.Signed
         assertEquals("card-1", c.card.cardId)
         assertEquals(1L, c.card.version)
-        assertEquals(CardFields.of(ana, MeCards.Part.entries.toSet()), c.card.fields)
+        assertEquals(CardFields.of(ana, MeCards.signable), c.card.fields)
         assertEquals("Ana María Pérez", c.card.fields.name)
         assertEquals("Smith; Sons, Ltd", c.card.fields.company)
         assertEquals("1 High St\nLondon, SW1A 1AA", c.card.fields.address)

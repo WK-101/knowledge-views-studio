@@ -44,14 +44,20 @@ class EditorFormTest {
         assertTrue(EditorForm.typeBelow(fieldWidthDp = 200f, fontScale = 1f))
     }
 
-    @Test fun my_card_offers_only_its_own_fields_and_one_address() {
-        val fresh = EditorForm.meCardChoices(setOf(Kind.PHONE), withBlankRow = setOf(Kind.PHONE), hasAddress = false)
-        assertEquals(listOf(Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE), fresh)
-        assertTrue(fresh.none { it in setOf(Kind.DATE, Kind.RELATION, Kind.HANDLE, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS) })
-        // The card has one address line: once shown, no second one is offered; numbers can still be added.
-        val withAddress = EditorForm.meCardChoices(setOf(Kind.PHONE, Kind.ADDRESS), emptySet(), hasAddress = true)
-        assertFalse(Kind.ADDRESS in withAddress)
-        assertEquals(Kind.PHONE, withAddress.first())
+    @Test fun my_card_offers_the_same_fields_as_a_contact() {
+        // Field parity: My card takes exactly what a phone contact without labels takes.
+        val contact = EditorForm.allowedKinds(hasLabels = false, hasCallPicture = false, isPrivate = false)
+        assertEquals(contact, EditorForm.meCardKinds)
+        val fields = setOf(
+            Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE,
+            Kind.CUSTOM_FIELD, Kind.LANGUAGE, Kind.NATIVE_NAME, Kind.CITIZENSHIP,
+        )
+        assertTrue(EditorForm.meCardKinds.containsAll(fields))
+        // Only what belongs to where a contact is kept stays away; the name's details open from the name itself.
+        assertEquals(setOf(Kind.NAME_DETAILS, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.WHEN_THEY_CALL), Kind.entries.toSet() - EditorForm.meCardKinds)
+        // Several of each: a second address and more numbers are offered like on any contact.
+        val shown = EditorForm.addChoices(setOf(Kind.PHONE, Kind.ADDRESS, Kind.DATE), emptySet(), EditorForm.meCardKinds)
+        assertTrue(Kind.ADDRESS in shown && Kind.PHONE in shown && Kind.DATE in shown)
     }
 
     // ---------------------------------------------------------------- dirty state and Save

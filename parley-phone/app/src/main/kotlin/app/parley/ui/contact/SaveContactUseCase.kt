@@ -16,6 +16,7 @@ import app.parley.data.ContactChangedElsewhereException
 import app.parley.data.ContactDetails
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DataContainer
+import app.parley.data.DataItem
 import app.parley.data.TemporaryContacts
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.people.CallBackgrounds
@@ -143,6 +144,37 @@ class SaveContactUseCase(private val c: DataContainer) {
         // The edited copy itself is gone (only another copy is left): treat it as removed.
         return now?.takeIf { raw == null || it.editRawId == raw }
     }
+
+    /**
+     * My card: the whole card into Parley's own copy ([app.parley.data.people.MeCardStore]), its photo (cut to its
+     * frame, like a private contact's) and which contacts its relations name, so their pages show "Wife · My card".
+     * [hidden]: relations kept out of the editor (they name private contacts in discreet mode), saved as they were.
+     * Returns string resources for parts that didn't make it.
+     */
+    suspend fun saveMeCard(r: Request, hidden: List<DataItem> = emptyList()): List<Int> = c.scope.async {
+        running.withLock {
+            val notes = ArrayList<Int>()
+            val me = c.people.me
+            val d = r.draft.copy(handles = r.draft.handles.filter { it.value.isNotBlank() }, relations = r.draft.relations + hidden)
+            val names = d.relations.map { it.value }.filter { it.isNotBlank() }
+            val links = if (names.isEmpty()) {
+                emptyMap()
+            } else {
+                val people = suspendRunCatching { withContext(Dispatchers.IO) { c.contacts.snapshot() } }.getOrDefault(emptyList())
+                RelationLinks.update(names, me.links.value, people.map { Triple(it.id, it.displayName, it.lookupKey) }, picked = r.pickedLinks)
+            }
+            me.save(d, links)
+            val picked = r.photo
+            if (picked != null) {
+                val bytes = framedAvatar(r) { null } ?: withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
+                if (bytes == null || !me.setPhoto(bytes)) notes += R.string.edit_photo_failed
+            } else if (r.removePhoto) {
+                me.removePhoto()
+            }
+            ContactCamera.forget(c.appContext, r.photo)
+            notes
+        }
+    }.await()
 
     private suspend fun saveVault(r: Request, notes: MutableList<Int>): Long {
         val e = r.draft

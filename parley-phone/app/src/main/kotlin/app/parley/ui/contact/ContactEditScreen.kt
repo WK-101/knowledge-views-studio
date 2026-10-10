@@ -390,17 +390,10 @@ fun ContactEditScreen(
         ).any { it.isNotBlank() }
         // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
         val shownKinds = shownKinds(d, profileRow, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
-        val allowed = buildSet {
-            addAll(EditorForm.Kind.entries)
-            // The chevron beside the name opens its details; the chips don't repeat it.
-            remove(EditorForm.Kind.NAME_DETAILS)
-            if (accountGroups.isEmpty()) remove(EditorForm.Kind.LABELS)
-            if (lookup == null) remove(EditorForm.Kind.CALL_BACKGROUND)
-            if (!isVault) remove(EditorForm.Kind.WHEN_THEY_CALL)
-        }
-        // My card holds only its own fields (and one address line).
-        val choices = if (meCard) EditorForm.meCardChoices(shownKinds, blankKinds(d, profileRow), d.addresses.isNotEmpty())
-        else EditorForm.addChoices(shownKinds, blankKinds(d, profileRow), allowed)
+        // My card takes every field a contact does; only what belongs to where a contact is kept (labels, the
+        // call-screen picture, a private contact's caller card) isn't offered there.
+        val allowed = EditorForm.allowedKinds(hasLabels = accountGroups.isNotEmpty(), hasCallPicture = lookup != null, isPrivate = isVault)
+        val choices = EditorForm.addChoices(shownKinds, blankKinds(d, profileRow), allowed)
 
         /** Appends a row to a group, remembers its key and moves the focus there. */
         fun addRow(group: String, size: Int, change: (ContactDetails) -> ContactDetails): Long {
@@ -485,11 +478,8 @@ fun ContactEditScreen(
                     }
                 }
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
-                // My card has no photo (it isn't shared); every contact has one here.
-                if (!meCard) {
-                    Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
-                        EditorPhoto(vm, editor, d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto)
-                    }
+                Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
+                    EditorPhoto(vm, editor, d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto)
                 }
                 Box(Modifier.padding(start = FormTokens.gutter, bottom = 4.dp)) {
                     if (meCard) {
@@ -519,8 +509,8 @@ fun ContactEditScreen(
                 }
                 NameBlock(
                     d, expanded = moreName || nameDetailsFilled,
-                    // Kept open while a detail holds something; My card keeps one name, so first and last are all it needs.
-                    canToggle = !meCard && !nameDetailsFilled,
+                    // Kept open while a detail holds something.
+                    canToggle = !nameDetailsFilled,
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                 )
                 // Their name in their own language, under the name; offered when the name is in another script or
@@ -534,7 +524,7 @@ fun ContactEditScreen(
                             update { it.copy(nativeName = NativeName()) }
                         },
                     )
-                } else if (!meCard) {
+                } else {
                     NativeNameOffer(
                         d.composedName, d.languages.isNotEmpty(),
                         onSpell = {
@@ -601,13 +591,13 @@ fun ContactEditScreen(
                 val rowKeys = keys.keys(kind.group, items.size)
                 val idx = items.indices.filter(only)
                 // Every row of the kind counts: the save orders the whole list (profiles and websites share one).
-                val swap = if (meCard || !movable(items.map { it.id })) null else { a: Int, b: Int ->
+                val swap = if (!movable(items.map { it.id })) null else { a: Int, b: Int ->
                     swapRows(kind.group, idx[a], idx[b], kind.get, kind.set)
                 }
                 group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap, swap) { j, k, lead, shape ->
                     val i = idx.getOrNull(j) ?: return@group
                     val item = items.getOrNull(i) ?: return@group
-                    MultiRow(kind, item, fr(k), lead, shape, showType = !meCard,
+                    MultiRow(kind, item, fr(k), lead, shape,
                         onChange = { n2 -> update { kind.set(it, kind.get(it).toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
                         onRemove = { removeRow(kind.group, i) { kind.set(it, kind.get(it).filterIndexed { j, _ -> j != i }) } },
                     )
@@ -658,7 +648,7 @@ fun ContactEditScreen(
             if (d.addresses.isNotEmpty()) {
                 // Each address is its own block of lines, so addresses sit a little apart.
                 // A map link follows its address by the address's label, so it moves along.
-                val swap = if (meCard || !movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
+                val swap = if (!movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
                     swapRows(G_ADDR, a, b, { it.addresses }) { c, l -> c.copy(addresses = l) }
                 }
                 group(Icons.Rounded.Place, R.string.detail_address, keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
@@ -679,7 +669,6 @@ fun ContactEditScreen(
                                 AddressMapLinks.withoutLink(it, i).let { c -> c.copy(addresses = c.addresses.filterIndexed { j, _ -> j != i }) }
                             }
                         },
-                        showType = !meCard,
                     )
                 }
             }
@@ -800,10 +789,10 @@ fun ContactEditScreen(
                         Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
                     ) {
                         ParleyFormField(
-                            // My card's note is only for you: it's never in the QR code or vCard.
-                            d.note, { v -> update { it.copy(note = v) } }, stringResource(if (meCard) R.string.me_private_note else R.string.edit_notes),
+                            // My card's note goes into the QR code or vCard only when you tick it.
+                            d.note, { v -> update { it.copy(note = v) } }, stringResource(R.string.edit_notes),
                             modifier = Modifier.fillMaxWidth().focusRequester(fr(KEY_NOTE)), singleLine = false, minLines = 2,
-                            supporting = if (meCard) stringResource(R.string.me_private_note_hint) else null,
+                            supporting = if (meCard) stringResource(R.string.me_note_hint) else null,
                             readOnly = lockedRow(d.noteId),
                             trailing = if (lockedRow(d.noteId)) { { LockIcon() } } else null,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -1219,7 +1208,7 @@ private fun nameLines(expanded: Boolean, parts: Boolean): List<String> = buildLi
 
 /**
  * One phone, email or website: the value (flag and formatting for numbers), its type selector inside at the end, and
- * "⊖". [showType]: false for My card, whose numbers and addresses have no types.
+ * "⊖".
  */
 @Suppress("CyclomaticComplexMethod") // Locked rows, types, phones' "More types" and hints, each a branch.
 @Composable
@@ -1229,7 +1218,6 @@ private fun MultiRow(
     focus: FocusRequester,
     lead: Lead,
     shape: Shape,
-    showType: Boolean = true,
     onChange: (DataItem) -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -1244,7 +1232,7 @@ private fun MultiRow(
     val more = if (kind === PHONES) listOf(stringResource(R.string.edit_phone_more_types)) else emptyList()
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(kind.remove), onRemove) } } else null) {
         TypedLine(
-            pill = if (locked || !showType) null else {
+            pill = if (locked) null else {
                 {
                     TypePill(current, kind.types.map { kind.typeLabel(res, it) } + more + stringResource(R.string.edit_custom_more)) { t ->
                         when {
@@ -1339,7 +1327,6 @@ private fun AddressRow(
     onRemoveMapLink: () -> Unit,
     onChange: (PostalItem) -> Unit,
     onRemove: () -> Unit,
-    showType: Boolean = true,
 ) {
     val res = LocalResources.current
     val locked = a.id != null && a.id in LocalLocked.current
@@ -1350,7 +1337,7 @@ private fun AddressRow(
     val current = if (a.type == 0) a.label ?: stringResource(R.string.edit_custom) else StructuredPostal.getTypeLabel(res, a.type, a.label).toString()
     val gap = Modifier.padding(top = FormTokens.segmentGap)
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_address), onRemove) } } else null) {
-        val typed = showType and !locked
+        val typed = !locked
         TypedLine(
             pill = if (!typed) null else {
                 {

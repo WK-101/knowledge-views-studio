@@ -209,6 +209,8 @@ object PersistentStores {
         PersistentStore("timemachine", StoreKind.FILES, local("Contact history of this phone, kept 180 days"), location = PersistentStore.FILES),
         PersistentStore("vault_photos", StoreKind.FILES, StorePolicy.BackedUpWithVault, Sections.VAULT, PersistentStore.FILES),
         PersistentStore("call_backgrounds", StoreKind.FILES, backedUp, Sections.PEOPLE, PersistentStore.FILES),
+        // My card's photo: in the encrypted backup with the card itself.
+        PersistentStore("me_card", StoreKind.FILES, backedUp, Sections.PEOPLE, PersistentStore.FILES),
         // Archived contacts: out of the address book, kept whole (sealed) and restored with the contacts.
         PersistentStore("archive", StoreKind.FILES, backedUp, Sections.ARCHIVE, PersistentStore.FILES),
         PersistentStore("contact_photos", StoreKind.FILES, backedUp, Sections.PEOPLE, PersistentStore.FILES),

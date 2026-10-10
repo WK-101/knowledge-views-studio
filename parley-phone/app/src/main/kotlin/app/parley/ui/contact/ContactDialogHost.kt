@@ -26,6 +26,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
+import app.parley.common.people.RelationMirror
+import app.parley.common.people.RelationTypes
 import app.parley.common.ContactSummary
 import app.parley.data.AccountRef
 import app.parley.data.people.OriginalPhotos
@@ -102,6 +104,16 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
         is ContactDialog.EditInteraction -> ctx.ui.interactions.firstOrNull { it.id == dialog.id }?.let { LogDialog(ctx, it) }
         ContactDialog.AddToHomeScreen -> AddToHomeScreenDialog(ctx)
         is ContactDialog.ChooseRelation -> ChooseRelationDialog(ctx, dialog.people)
+        // The type picked is remembered for the two of them, on this page and whenever Parley writes it again.
+        is ContactDialog.CorrectRelation -> RelationTypeDialog(onDismiss = close) { t ->
+            close()
+            if (t != null && d.lookupKey.isNotEmpty()) {
+                val computed = RelationMirror.Row("", dialog.typeKey, dialog.label)
+                val known = RelationTypes.byKey(t.key)
+                val corrected = RelationMirror.Row("", known?.key, if (known == null) t.label else null)
+                ctx.vm.c.people.relationMirrors.correct(dialog.ownerKey, d.lookupKey, computed, corrected)
+            }
+        }
         ContactDialog.Expiry -> ExpiryDialog(onDismiss = close) { days ->
             close()
             ctx.page.setExpiry(days)
