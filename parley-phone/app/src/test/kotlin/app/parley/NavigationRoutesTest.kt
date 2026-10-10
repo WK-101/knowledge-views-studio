@@ -110,6 +110,8 @@ class NavigationRoutesTest {
         assertEquals(NavEvent.Tab(StartTab.RECENTS), resolve(Intent.ACTION_VIEW, type = "vnd.android.cursor.dir/calls")?.event)
         assertEquals(NavEvent.Tab(StartTab.RECENTS), resolve(Intent.ACTION_CALL_BUTTON)?.event)
         assertEquals(NavEvent.Tab(StartTab.KEYPAD, dial = ""), resolve(IntentRoutes.ACTION_ADD_CALL)?.event)
+        // The "Search everything" launcher shortcut: Recents' search with Recall on.
+        assertEquals(NavEvent.Tab(StartTab.RECENTS, everything = true), resolve(IntentRoutes.ACTION_SEARCH_EVERYTHING)?.event)
     }
 
     @Test fun shortcutsTilesAndSettingsLinksOpenTheirScreens() {

@@ -39,7 +39,7 @@ import java.time.ZoneId
 import java.util.Locale
 
 /**
- * Recall: the Contacts search's "Search everything" mode, one search over everything Parley remembers (calls with
+ * Recall: the Contacts and Recents searches' "Search everything" mode, one search over everything Parley remembers (calls with
  * their dates and kinds, notes, promises, call notes, chats, deleted contacts, the snapshots and number memory), with
  * plain date and call words understood ([RecallQuery]). It runs when the chip is on, and on its own when the contact
  * list finds nobody for the words typed.
@@ -54,12 +54,12 @@ import java.util.Locale
 class RecallUi(
     private val c: DataContainer,
     scope: CoroutineScope,
-    /** The Contacts search's text. */
+    /** The search's text (Contacts' or Recents'). */
     private val query: StateFlow<String>,
     /** The contacts as the Contacts search prepared them (null until listed). */
     private val contacts: StateFlow<List<ContactListSearch.Entry>?>,
-    /** What the contact list shows for the query (null until searched). */
-    shown: StateFlow<List<ContactSummary>?>,
+    /** Whether the tab's own list found nothing for the query (null until searched): then Recall runs on its own. */
+    foundNothing: Flow<Boolean?>,
     /** Number → device contact by line, as Recents names calls. */
     private val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>>,
 ) {
@@ -76,8 +76,8 @@ class RecallUi(
     }
 
     /** Recall runs: something is typed, and the chip is on or the contact list found nobody. */
-    val active: StateFlow<Boolean> = combine(query, everything, shown) { q, all, list ->
-        q.isNotBlank() && (all || list?.isEmpty() == true)
+    val active: StateFlow<Boolean> = combine(query, everything, foundNothing) { q, all, nothing ->
+        q.isNotBlank() && (all || nothing == true)
     }.distinctUntilChanged().stateIn(scope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** May private contacts' calls, notes and deleted copies be searched now? (Asked off the main thread.) */

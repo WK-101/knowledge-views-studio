@@ -144,7 +144,9 @@ sealed interface NavEvent {
     data class SecureQr(val uri: Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
     data class Route(val route: Destination) : NavEvent
-    data class Tab(val tab: StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
+
+    /** [everything]: open the tab's search in "Search everything" (Recall) mode (Tools, the launcher shortcut). */
+    data class Tab(val tab: StartTab, val dial: String? = null, val missedOnly: Boolean = false, val everything: Boolean = false) : NavEvent
 }
 
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
@@ -165,6 +167,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Who owns a number ([app.parley.data.people.NumberOwners]), for screens. */
     val numberOwners: app.parley.data.people.NumberOwners get() = c.numberOwners
+
+    /** Case files, for their screens (the list, one case, its card and PDF). */
+    val cases: app.parley.data.cases.CaseFileStore get() = c.cases
     val countryIso: String = c.directory.countryIso
 
     val isDefaultDialer = MutableStateFlow(Permissions.isDefaultDialer(app))
@@ -295,7 +300,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     /** Recall: the Contacts search's "Search everything" mode. */
-    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered, numberIndex)
+    val recall = RecallUi(c, viewModelScope, contactQuery, people.prepared, people.filtered.map { it?.isEmpty() }, numberIndex)
+
+    /** What the Recents search typed, and whether its calls found nobody (null until searched): fed by the Recents tab. */
+    val recentsSearch = MutableStateFlow("")
+    val recentsFoundNothing = MutableStateFlow<Boolean?>(null)
+
+    /** Recall for the Recents search, where "who called in March?" starts: the same search over the same stores. */
+    val recentsRecall = RecallUi(c, viewModelScope, recentsSearch, people.prepared, recentsFoundNothing, numberIndex)
+
+    /** Reads Recall's stores again for both searches (after the private contacts' unlock). */
+    fun reloadRecall() {
+        recall.reload()
+        recentsRecall.reload()
+    }
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, everyone)

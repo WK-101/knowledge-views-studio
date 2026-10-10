@@ -36,6 +36,9 @@ object HistoryRoutes {
 
     /** An organisation's case file ([app.parley.common.cases.CaseFile.id]). */
     @Serializable data class Case(val id: String) : Destination
+
+    /** Tools › Case files: every case kept, the newest activity first. */
+    @Serializable data object Cases : Destination
 }
 
 /** Call history: a number's history, insights, import, the SIMs' settings and case files. */
@@ -50,4 +53,5 @@ fun NavGraphBuilder.historyGraph(nav: NavController) {
     composable<HistoryRoutes.Sims> { SimListScreen(appVm(), it.toRoute<HistoryRoutes.Sims>().plans, back = back, open = open) }
     composable<HistoryRoutes.Sim> { SimSettingsScreen(appVm(), it.toRoute<HistoryRoutes.Sim>().id, back = back) }
     composable<HistoryRoutes.Case> { app.parley.ui.cases.CaseScreen(appVm(), it.toRoute<HistoryRoutes.Case>().id, back = back) }
+    composable<HistoryRoutes.Cases> { app.parley.ui.cases.CaseListScreen(appVm(), back = back, open = open) }
 }

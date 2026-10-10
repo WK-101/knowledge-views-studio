@@ -2985,6 +2985,7 @@ Set up: a shared label "Family" on four phones (A shared it; B, C and D joined),
 2. **Two voices block.** On D, block the same number. Sync. Call C from it: declined.
 3. **The anchor.** On A alone, block another number. Sync. Call C from it: declined.
 4. **Said when blocking.** On B, Block a number from Recents: the question says "Also shared with Family, so they're warned if this number calls them", with Don't share. Tick it and block: the shield's page doesn't list the number, and after a sync C gets no warning. Block another without ticking: it's listed.
+
 ### 46.7 Files survive a power cut
 
 1. **PIN set, then power off.** Set a Parley PIN, wait two seconds and hold the power button to force the phone off (or pull the battery where possible). Turn it on, open Parley: the PIN lock shows and the PIN opens it.
@@ -3063,6 +3064,57 @@ Automated: `NumberOwnersTest` (a failed lookup reads as "maybe saved", never as 
 
 ## 47. Finished and findable (6.4)
 
+### 47.1 Tools and What's new catch up
+Automated: `CapabilityCatalogTest` (every 6.x headline feature has its row with its release; Situations featured in Calls that work better and the Drive profile folded; Chapters, To talk about and the family shield open their help pages; What's new names up to three of the release's rows, featured first; the README's "New in" lines name each feature) (core:common); `CapabilityRoutesTest` (every row, help page and the Help list opens a screen in the graph; the Archived list is now opened from Tools) (app, Robolectric).
+1. **The rows.** Tools: Calls that work better shows Situations up front (it opens Settings › Calls › Situations) and Drive profile under "more", its line "Your car for the Driving Situation…". Never lose a contact shows Search everything up front, and under "more" Archived contacts. Stay in touch › more has Chapters and To talk about; Stop spam › more has Family spam shield; Calls that work better › more has Case files. Help is the last group.
+2. **Each one opens.** Archived contacts opens the Archived list; Case files the list (47.4); Chapters, To talk about and Family spam shield open a short page: Chapters' button opens Labels, the shield's opens Shared labels, To talk about has no button and says where to add one.
+3. **Search.** Search Tools for "dead number": Contact health check, whose line now names numbers that no longer work. "Recall", "case", "chapter" and "shield" each find their row.
+4. **What's new.** Install 6.3, then update to this build: the card says "New: Help & troubleshooting." above "See what's new…", and See what's new opens Tools with it under "New in 6.4". A fresh install still gets the short introduction instead.
+
+### 47.2 The Situation tile, offered once
+Automated: `TipsTest` (offered once, only when turning on and on Android 13 or later) (core:common).
+1. **Android 13 or later.** Remove the "Situation" tile from Quick Settings if it's there. Settings › Calls › Situations, turn Meeting on: Android asks "Add tile to Quick Settings?" with Parley's Situation tile. Add it: the tile shows Meeting.
+2. **Only once.** Turn Meeting off and Night on: no question, whatever you answered the first time. Settings › Appearance › Reset tips (or clearing data) brings the question back once.
+3. **Android 12 or earlier.** Turning a Situation on asks nothing.
+
+### 47.3 Search everything from Recents
+Automated: `NavigationRoutesTest` (the "Search everything" launcher shortcut opens Recents with Recall on), `CapabilityRoutesTest` (the Tools row does the same) (app, Robolectric).
+1. **Falls back by itself.** Recents › search, type words no call matches but a note does (e.g. "boiler"): instead of "No calls match", a heading "No calls match, but Parley remembers" with the notes, promises and contacts Recall finds. "plumber march" finds March's calls with the plumber.
+2. **On request.** Type a name that matches calls: the calls show, then "Search everything for “…”" at the end; tap it: everything Parley remembers shows below the calls under "Everything Parley remembers". Closing the search turns it off again.
+3. **Tools and the shortcut.** Tools › Search everything opens Recents with the search open and its hint "Search everything"; so does the launcher shortcut "Search everything" (press and hold Parley's icon), also when Recents is hidden from the bar.
+4. **Privacy.** With private contacts locked, the private-locked note shows and their calls and notes are left out; in discreet mode and during a duress unlock, nothing private shows, as in Contacts' search.
+5. **Docked keypad.** With the keypad docked in Recents, the same works from its search.
+
+### 47.4 Case files list and status
+Automated: `CaseFilesTest` (the list keeps the newest activity first and resolved cases last; a status set counts as activity; "Stop keeping case files for all" stops every case and organisations start none until Start again, while Keep a case file still works; status and the switch survive backups, restores and the privacy views; old stored case files read as Open), `CaseReportTest` (the PDF prints the status and since when) (core:common).
+1. **The list.** Call two saved organisations (a bank, a clinic). Tools › Case files: both, the latest call first, each with "n calls · last …" and open promises when a note after a call holds "[ ] …".
+2. **Status.** Open one: "Where it stands" with Open · Waiting for them · Resolved. Tap Waiting for them: back in the list it shows "Waiting for them" and moves to the top. Resolved moves it under a "Resolved" heading at the end. TalkBack reads each button with its selected state.
+3. **The PDF.** Export as PDF: under the numbers, "Status: Waiting for them, since …" (just "Status: Open" for one never set).
+4. **Stop for all.** ⋮ › Stop keeping case files for all › Stop and delete: the list empties, a note says case files don't start on their own any more, with Start again. Call a saved organisation: no case file starts and its page shows no Case file card. "Keep a case file" on a contact still starts one. Start again: the next organisation's call starts one.
+5. **Privacy.** During a duress unlock the list is empty, has no ⋮, and a case opened from a link shows "This case file isn't kept any more"; in discreet mode a private contact's case isn't listed.
+6. **Empty.** On a fresh install: "No case files yet" with what starts one.
+
+### 47.5 Moving from another phone with Parley
+Automated: `BasicsTest` (choosing the restore skips Set up the basics and Coming from…), `CapabilityCatalogTest.coming_from_covers_each_importer` (a Parley backup comes first) (core:common); `CapabilityRoutesTest.every_importer_is_in_the_graph` (app).
+1. **First run.** Clear Parley's data and open it: the welcome has "From another phone with Parley? Restore a backup" under Next. Tap it: Default phone app and the permissions follow as usual, then the first run ends on Encrypted backups (no Set up the basics, no Coming from…). Restore from a file… with a backup from another phone: private contacts, Situations and settings come back as they were.
+2. **Not chosen.** Next instead: the usual steps, Set up the basics included.
+3. **Coming from….** Tools › Coming from another phone?: "From another phone with Parley" is the first group; its row says how to back up on the old phone and that a restore puts back the old phone's settings; Restore a backup opens Encrypted backups.
+
+### 47.6 Help & troubleshooting
+Automated: `HelpTopicTest` (about ten pages, each leading to a setting Settings search knows or a screen; the feature pages are opened from their rows only) (core:common); `CapabilityRoutesTest.every_help_page_opens_and_leads_to_a_registered_place` (app, Robolectric).
+1. **The list.** Tools › Help › Help & troubleshooting: ten questions, from "Parley's call screen doesn't show" to "Something else isn't working".
+2. **Each page.** Open each: a short answer and one button. Default phone app, Situations, Expecting a call, Notification settings, Battery optimisation and Export diagnostics open Settings at that row (highlighted, as Settings search does); Test a call, Archived contacts, History & undo and Encrypted backups open their screens. Back returns to the page, then to the list.
+3. **Large fonts and TalkBack.** At the largest font the pages wrap without cutting text; TalkBack reads the title, the answer and "Open …".
+
+### 47.7 Honest texts, and "Parley can warn from…"
+Automated: `HonestTextsTest` (Delete all data names backups, exports and synced folders and no longer the Markdown export; "I'm on hold" says the case file keeps the wait) (app, Robolectric); `NeverCallsYouTest.the_history_says_when_parley_can_warn` (core:common).
+1. **Delete all data.** Settings › Privacy › Delete all Parley data: the dialog says backups, exports, case file PDFs and synced folders you saved outside Parley stay where they are, and to delete them in your files app.
+2. **I'm on hold.** During a call, More: "I'm on hold" says "Speaker on, screen dimmed, a buzz at 15 and 30 minutes. A service's case file keeps the wait." Use it during a call with a saved bank: the case file shows the hold time.
+3. **Armed.** A saved bank you have only ever called, with Parley's copy of calls reaching back past your first call: its number's page (Recents › the number) says, above the calls, that Parley says "This number never calls you" if a call seems to come from it.
+4. **Not yet.** On a phone where Parley's copy of calls began after your first call to the bank (a fresh install with older calls in Android's log): "Parley can warn from <date>, when it began keeping your calls…", pointing at "They never call me". Choose it on the bank's page: the line changes to "…as you chose on their page".
+5. **Copy off.** Settings › Recents & history, turn Keep Parley's copy of calls off: the line says it can warn only while that is on.
+6. **Nothing for others.** A person's number, an unsaved number, and a bank that has called you show no such line.
+
 ### 47.8 After-call card
 Automated: `PostCallActionsTest` (Save, Remind me and Block first; the rest under More; Was it a scam? and Call a saved number come forward only for a suspicious call; never Block or Report for an emergency service) (core:common).
 1. **An ordinary unknown caller.** Call the phone from a number that isn't saved and hang up: the card shows **Save**, **Remind me**, **Block** and **More**. Save opens New contact · Add to a contact · Privately for 7 days; each does what it says (Privately asks for a name and says it's deleted after 7 days). More holds Message or call on…, Ask their name (when "Text me your name" is set), Report, Was it a scam? and Call a saved number.
@@ -3090,3 +3142,4 @@ Automated: `SituationsTest` (the notice only while a Situation lets some people 
 2. **Not for everyone-rings.** Turn on Driving or Travelling (or a Situation with Who may ring: Everyone): no notice.
 3. **The lock screen.** With the phone locked, the notice reads only "Situation on". After a restart with Meeting still on, the notice is back once Parley starts.
 4. **Travelling abroad.** Travelling › Turns on by itself › When connected: Abroad, on another country's network. Its row says "Turns on abroad". With a SIM roaming abroad (or an emulator with a network country that differs from the SIM's), open Parley or receive a call: Travelling turns on ("On while you're abroad"); back home it goes off at the next look. National roaming doesn't count.
+

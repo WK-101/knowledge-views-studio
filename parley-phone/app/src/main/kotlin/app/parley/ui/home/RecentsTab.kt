@@ -117,6 +117,8 @@ import app.parley.ui.history.HistoryText
 import app.parley.ui.history.RecentsExportHost
 import app.parley.ui.history.RecentsMenuDialogs
 import app.parley.ui.people.SwipeActionRow
+import app.parley.ui.recall.recentsRecallSection
+import app.parley.ui.recall.rememberRecentsRecall
 import app.parley.ui.people.blockWithUndo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -179,6 +181,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val voicemail by recents.voicemail.collectAsStateWithLifecycle()
     val query by recents.query.collectAsStateWithLifecycle()
+    // Search everything (Recall) under the calls: on its own when no call matches, or when asked for.
+    val recall = rememberRecentsRecall(vm, query, groups?.isEmpty())
     // Missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
     val unreturned by recents.unreturnedMissed.collectAsStateWithLifecycle()
     val style = settings.recentsStyle
@@ -227,6 +231,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                 // "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
                 val activeSaved by recents.historyFilter.collectAsStateWithLifecycle()
                 when {
+                    // Recall found something for the words: it shows below instead.
+                    query.isNotBlank() && recall.shows -> Unit
                     query.isNotBlank() -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
@@ -305,6 +311,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                 }
             }
         }
+        recentsRecallSection(vm, recall, query, matchedCalls = !list.isNullOrEmpty(), open)
     }
 }
 

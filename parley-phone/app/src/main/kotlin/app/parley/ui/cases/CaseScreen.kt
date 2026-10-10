@@ -71,12 +71,12 @@ import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
 
 /**
- * One organisation's case file: the summary, the reference numbers (hidden until shown, one at a time), the open
+ * One organisation's case file: where it stands (Open · Waiting for them · Resolved), the summary, the reference numbers (hidden until shown, one at a time), the open
  * promises and every call and note, newest first. Export as PDF (for a complaint) and Stop keeping are in the top bar.
  */
 @Composable
 fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
-    val store = vm.c.cases
+    val store = vm.cases
     LaunchedEffect(Unit) { catching { store.load() } }
     val state by store.shown.collectAsStateWithLifecycle(CaseState())
     val case = CaseFiles.byId(state, id)?.takeIf { it.kept }
@@ -99,6 +99,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
                     modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             }
+            item(key = "status") { CaseStatusRow(vm, case) }
             if (timeline != null) summary(timeline)
             references(vm, case) { st.adding = true }
             if (timeline != null) timeline(timeline)
@@ -149,13 +150,27 @@ private fun CaseDialogs(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline
             confirmLabel = stringResource(R.string.case_stop_confirm), destructive = true,
             onConfirm = {
                 st.stopping = false
-                vm.viewModelScope.launch { if (vm.c.cases.update { CaseFiles.stop(it, case.id) } != null) vm.toast(res.getString(R.string.case_stopped)) }
+                vm.viewModelScope.launch { if (vm.cases.update { CaseFiles.stop(it, case.id) } != null) vm.toast(res.getString(R.string.case_stopped)) }
                 back()
             },
             onDismiss = { st.stopping = false },
         )
     }
     if (timeline != null && st.exporting) CaseExportSheet(vm, case, timeline) { st.exporting = false }
+}
+
+/** Where the case stands: one tap sets it (not during a duress unlock, which hides case files anyway). */
+@Composable
+private fun CaseStatusRow(vm: AppViewModel, case: CaseFile) {
+    Column {
+        Text(
+            stringResource(R.string.case_status_title), style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s).semantics { heading() },
+        )
+        CaseStatusChooser(case.status) { s ->
+            vm.viewModelScope.launch { vm.cases.update { CaseFiles.setStatus(it, case.id, s, System.currentTimeMillis()) } }
+        }
+    }
 }
 
 private fun LazyListScope.summary(t: CaseTimeline) {
@@ -207,7 +222,7 @@ private fun ReferenceRow(vm: AppViewModel, case: CaseFile, r: CaseReference) {
     var shown by remember(r.id) { mutableStateOf<String?>(null) }
     var deleting by remember(r.id) { mutableStateOf(false) }
     val label = r.label.ifEmpty { stringResource(R.string.case_reference_unnamed) }
-    suspend fun opened(): String? = vm.c.cases.openReference(r).also { if (it == null) vm.toast(res.getString(R.string.case_reference_unreadable)) }
+    suspend fun opened(): String? = vm.cases.openReference(r).also { if (it == null) vm.toast(res.getString(R.string.case_reference_unreadable)) }
     ParleyListItem(
         leadingContent = { Icon(Icons.Rounded.Bookmark, null) },
         headlineContent = { Text(shown?.let { Bidi.ltr(it) } ?: label, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -241,7 +256,7 @@ private fun ReferenceRow(vm: AppViewModel, case: CaseFile, r: CaseReference) {
             title = stringResource(R.string.case_reference_delete, label), text = null, confirmLabel = stringResource(R.string.main_delete), destructive = true,
             onConfirm = {
                 deleting = false
-                vm.viewModelScope.launch { vm.c.cases.update { CaseFiles.removeReference(it, case.id, r.id) } }
+                vm.viewModelScope.launch { vm.cases.update { CaseFiles.removeReference(it, case.id, r.id) } }
             },
             onDismiss = { deleting = false },
         )
@@ -306,7 +321,7 @@ private fun AddReferenceDialog(vm: AppViewModel, case: CaseFile, onDone: () -> U
             val l = label
             val v = value
             vm.viewModelScope.launch {
-                val ok = vm.c.cases.addReference(case.id, l, v, typed = false)
+                val ok = vm.cases.addReference(case.id, l, v, typed = false)
                 vm.toast(res.getString(if (ok) R.string.case_reference_added else R.string.case_reference_failed))
             }
         },

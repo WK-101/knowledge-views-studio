@@ -127,6 +127,7 @@ fun HomeScreen(
         panes.tab = tab
     }
     var searching by rememberSaveable { mutableStateOf(false) }
+    var searchEverything by remember { mutableStateOf(false) }
     var favoriteQuery by rememberSaveable { mutableStateOf("") }
     var keypadQuery by rememberSaveable { mutableStateOf("") }
     var circleQuery by rememberSaveable { mutableStateOf("") }
@@ -146,6 +147,7 @@ fun HomeScreen(
         searching = false
         vm.contactQuery.value = ""
         vm.recall.everything.value = false
+        vm.recentsRecall.everything.value = false
         recents.query.value = ""
         favoriteQuery = ""
         keypadQuery = ""
@@ -167,6 +169,8 @@ fun HomeScreen(
         }
         r.dial?.let { keypad.input.value = it }
         if (r.missedOnly) recents.filter.value = RecentFilter.MISSED
+        // Search everything (Tools, the launcher shortcut): Recents' search, opened once the tab has settled.
+        if (r.everything) searchEverything = true
         onTabRequestHandled()
     }
     var lastTab by rememberSaveable { mutableStateOf(tab) }
@@ -179,6 +183,16 @@ fun HomeScreen(
         }
         if (tab != StartTab.CONTACTS) vm.selection.value = emptySet()
         scroll.state.contentOffset = 0f
+    }
+    // After the tab change above has closed the previous tab's search (it updates lastTab), never before it.
+    LaunchedEffect(searchEverything, tab, lastTab) {
+        if (searchEverything && tab == lastTab) {
+            searchEverything = false
+            if (tab == StartTab.RECENTS) {
+                searching = true
+                vm.recentsRecall.everything.value = true
+            }
+        }
     }
     // Switching an option on while its tab is open moves to the surface that now hosts it.
     LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
@@ -214,7 +228,9 @@ fun HomeScreen(
                     query = query,
                     searchHint = when (tab) {
                         StartTab.FAVORITES -> stringResource(R.string.home_search_favorites)
-                        StartTab.RECENTS -> stringResource(R.string.home_search_recents)
+                        StartTab.RECENTS -> stringResource(
+                            if (vm.recentsRecall.everything.collectAsStateWithLifecycle().value) R.string.recall_chip else R.string.home_search_recents,
+                        )
                         StartTab.CONTACTS -> stringResource(R.string.home_search_contacts)
                         StartTab.KEYPAD -> stringResource(R.string.home_search_keypad)
                         StartTab.CIRCLE -> stringResource(R.string.circle_search)

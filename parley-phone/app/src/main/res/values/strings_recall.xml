@@ -10,6 +10,10 @@
     <string name="recall_header">Everything Parley remembers</string>
     <!-- Heading when the contacts gave nothing and Recall searched the rest by itself. -->
     <string name="recall_fallback_header">Not in your contacts, but Parley remembers</string>
+    <!-- The same, under the Recents search: no call matched, and Recall searched the rest by itself. -->
+    <string name="recall_fallback_header_calls">No calls match, but Parley remembers</string>
+    <!-- The end of the Recents search's results: widen it to everything Parley remembers. %1$s: the words typed. -->
+    <string name="recall_recents_offer">Search everything for “%1$s”</string>
     <!-- %1$s: what the search understood, "Missed calls · March 2026" -->
     <string name="recall_understood">Looking for %1$s</string>
     <!-- %1$s: the words typed. -->
@@ -63,4 +67,8 @@
     <string name="recall_messaged_on">%1$s · %2$s</string>
     <string name="recall_private_number">Private number</string>
     <string name="recall_open_hint">Open</string>
+
+    <!-- The launcher shortcut: Recents' search with Recall on. -->
+    <string name="shortcut_search_everything_short">Search everything</string>
+    <string name="shortcut_search_everything_long">Search calls, notes and more</string>
 </resources>

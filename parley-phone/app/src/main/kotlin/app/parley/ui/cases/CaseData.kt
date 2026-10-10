@@ -80,7 +80,7 @@ object CaseData {
 /** The case file [owner] shows now, re-read as the store changes; nothing during a duress unlock (as notes). */
 @Composable
 fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
-    val store = vm.c.cases
+    val store = vm.cases
     LaunchedEffect(Unit) { catching { store.load() } }
     val state by store.shown.collectAsStateWithLifecycle(CaseState())
     val case = remember(state, owner.numbers) { CaseFiles.find(state, owner.numbers, vm.countryIso) }
@@ -91,7 +91,8 @@ fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
                 owner.numbers.any { n -> catching { NeverCallsYouFacts.organisation(vm.c, n, vm.countryIso) }.getOrNull() != null }
             }
     }
-    return CaseShown(case, case?.kept == true || (case == null && organisation))
+    // After "Stop keeping case files for all", an organisation without one shows none.
+    return CaseShown(case, case?.kept == true || (case == null && organisation && state.autoStart))
 }
 
 /** The timeline of [case] for [owner], re-read as calls come in and the case changes; null while it is read. */

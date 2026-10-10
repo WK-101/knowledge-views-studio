@@ -47,6 +47,18 @@ object NeverCallsYouFacts {
         NeverCallsYou.firstFromThem(pastCalls(c, number, saved.vaultId, iso), keptSince, NeverCallsYou.PastCall::date, NeverCallsYou.PastCall::type)?.date
     }
 
+    /**
+     * For the number's history: whether a call faking [number] would be warned about, and if not, why
+     * ([NeverCallsYou.watch]); null when there is nothing to say about it.
+     */
+    suspend fun watch(c: DataContainer, number: String, iso: String): NeverCallsYou.Watch? = withContext(Dispatchers.IO) {
+        val saved = savedFor(c, number, iso)
+        if (saved.owners.isEmpty()) return@withContext null
+        if (saved.owners.any { it.neverCalls }) return@withContext NeverCallsYou.watch(saved.owners, emptyList(), null)
+        if (!saved.owners.all(NeverCallsYou::organisation)) return@withContext null
+        NeverCallsYou.watch(saved.owners, pastCalls(c, number, saved.vaultId, iso), keptSince(c, number))
+    }
+
     /** Who a number is saved for when that is an organisation: the name to show, and whether it is a private contact's. */
     data class Organisation(val name: String, val private: Boolean)
 

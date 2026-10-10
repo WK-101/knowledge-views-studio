@@ -30,7 +30,7 @@
 
     <!-- Hold mode -->
     <string name="holdmode_start">I\'m on hold</string>
-    <string name="holdmode_start_explainer">Speaker on, screen dimmed, a buzz at 15 and 30 minutes</string>
+    <string name="holdmode_start_explainer">Speaker on, screen dimmed, a buzz at 15 and 30 minutes. A service\'s case file keeps the wait.</string>
     <string name="holdmode_title">On hold</string>
     <string name="holdmode_waited">Waiting for %1$s</string>
     <string name="holdmode_honest">The speaker is on. Parley can\'t hear the call, so listen for someone to come back.</string>

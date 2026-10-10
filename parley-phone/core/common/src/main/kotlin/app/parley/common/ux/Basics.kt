@@ -13,6 +13,13 @@ enum class OnboardingStep {
     /** The step after this one; the last step has none (the first run ends). */
     val next: OnboardingStep? get() = entries.getOrNull(ordinal + 1)
 
+    /**
+     * The step after this one for someone [restoring] a Parley backup (chosen on the welcome): the default phone app
+     * and the permissions still matter, but Set up the basics and Coming from… don't, since the restore brings the old
+     * phone's answers back. After the permissions the first run ends, and the backup screen opens.
+     */
+    fun next(restoring: Boolean): OnboardingStep? = if (restoring && this >= PERMISSIONS) null else next
+
     /** The step Back returns to; none from the welcome. */
     val previous: OnboardingStep? get() = entries.getOrNull(ordinal - 1)
 

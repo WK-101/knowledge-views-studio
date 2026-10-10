@@ -12,6 +12,7 @@ import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.cases.CaseEntry
 import app.parley.common.cases.CaseReport
+import app.parley.common.cases.CaseStatus
 import app.parley.ui.common.Format
 import app.parley.ui.history.ExportFiles
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,7 @@ object CasePdf {
         override fun madeOn(date: String) = res.getString(R.string.case_pdf_made, date)
         override fun numbers(numbers: List<String>) = res.getString(R.string.case_pdf_numbers, numbers.joinToString(", "))
         override val summary: String get() = res.getString(R.string.case_summary)
+        override fun status(status: CaseStatus, since: String?) = CaseStatusText.line(res, status, since)
         override fun calls(count: Int, first: String, last: String) = res.getQuantityString(R.plurals.case_pdf_calls, count, count, first, last)
         override val noCalls: String get() = res.getString(R.string.case_no_calls)
         override fun hold(total: Long, average: Long, longest: Long, calls: Int) =

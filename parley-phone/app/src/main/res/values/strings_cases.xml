@@ -108,4 +108,25 @@
     <!-- Recall. -->
     <string name="recall_group_case_files">Case files</string>
     <string name="recall_case_line">Case file · %1$s</string>
+
+    <!-- Where a case stands: one tap on its page, printed in its PDF. -->
+    <string name="case_status_title">Where it stands</string>
+    <string name="case_status_open">Open</string>
+    <string name="case_status_waiting">Waiting for them</string>
+    <string name="case_status_resolved">Resolved</string>
+    <string name="case_status_line">Status: %1$s</string>
+    <string name="case_status_line_since">Status: %1$s, since %2$s</string>
+
+    <!-- Tools › Case files: every case kept, the newest activity first. -->
+    <string name="case_list_title">Case files</string>
+    <string name="case_list_explain">For banks, insurers and other services: your calls with them, hold times and reference numbers, in one place. Stays on this phone.</string>
+    <string name="case_list_empty">No case files yet</string>
+    <string name="case_list_empty_body">Parley starts one when you call a bank, an insurer or another service you saved, or when you choose Keep a case file on someone\'s page.</string>
+    <string name="case_list_resolved">Resolved</string>
+    <string name="case_list_stop_all">Stop keeping case files for all</string>
+    <string name="case_list_stop_all_title">Stop keeping case files for all?</string>
+    <string name="case_list_stop_all_body">Every case file\'s reference numbers, hold times and menu keys are deleted, and organisations\' calls don\'t start new ones. Your calls and notes stay. You can still keep one for someone from their page.</string>
+    <string name="case_list_stopped_all">Case files stopped</string>
+    <string name="case_list_off">Case files don\'t start on their own any more.</string>
+    <string name="case_list_turn_on">Start again</string>
 </resources>

@@ -18,6 +18,7 @@ class CaseReportTest {
         override fun madeOn(date: String) = "Made on $date"
         override fun numbers(numbers: List<String>) = "Numbers: " + numbers.joinToString(", ")
         override val summary = "Summary"
+        override fun status(status: CaseStatus, since: String?) = "Status ${status.name.lowercase()}" + (since?.let { " since $it" } ?: "")
         override fun calls(count: Int, first: String, last: String) = "$count calls between $first and $last"
         override val noCalls = "No calls"
         override fun hold(total: Long, average: Long, longest: Long, calls: Int) = "Hold $total/$average/$longest over $calls"
@@ -53,6 +54,7 @@ class CaseReportTest {
                 Style.TITLE to "Case file: Northwind Energy",
                 Style.SUBTITLE to "Made on d10",
                 Style.SUBTITLE to "Numbers: +442079460000",
+                Style.SUBTITLE to "Status open",
                 Style.HEADING to "Summary",
                 Style.BODY to "1 calls between d1 and d1",
                 Style.BODY to "Hold 840/840/840 over 1",
@@ -84,15 +86,21 @@ class CaseReportTest {
     @Test fun nothing_yet() {
         val empty = CaseTimelines.assemble(null, emptyList(), emptyList(), emptyList())
         val lines = CaseReport.build("Council", emptyList(), empty, null, 0, 0, W)
-        assertEquals(listOf("Case file: Council", "Made on d0", "Summary", "No calls"), lines.map { it.text })
+        assertEquals(listOf("Case file: Council", "Made on d0", "Status open", "Summary", "No calls"), lines.map { it.text })
+    }
+
+    @Test fun the_status_is_printed_with_when_it_was_set() {
+        val lines = CaseReport.build(case.name, case.numbers, timeline, null, 1, 10 * day, W, CaseStatus.WAITING, statusAt = 3 * day)
+        assertEquals("Status waiting since d3", lines[3].text)
+        assertEquals(Style.SUBTITLE, lines[3].style)
     }
 
     @Test fun pages_never_end_on_a_heading_or_split_a_date_from_its_entry() {
         val lines = CaseReport.build(case.name, case.numbers, timeline, null, 1, 10 * day, W)
         val heights = lines.map { 10f }
-        // Room for 9 lines: the "References" heading (index 7) would be 8th; with its line it fits; "Promises" (9) moves on.
-        val pages = CaseReport.paginate(lines, heights, 90f)
-        assertEquals(0 until 9, pages[0])
+        // Room for 10 lines: the "References" heading (index 8) would be 9th; with its line it fits; "Promises" (10) moves on.
+        val pages = CaseReport.paginate(lines, heights, 100f)
+        assertEquals(0 until 10, pages[0])
         pages.forEach { r ->
             assertTrue(lines[r.last].style != Style.HEADING)
             if (r.last + 1 < lines.size) assertFalse(lines[r.last].style == Style.DETAIL && lines[r.last + 1].style == Style.BODY)

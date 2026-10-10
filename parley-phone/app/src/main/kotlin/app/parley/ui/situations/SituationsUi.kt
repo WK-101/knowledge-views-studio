@@ -132,6 +132,7 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
             asking = false
             val c = vm.c
             c.scope.launch { c.situations.turnOn(s.id, until) }
+            app.parley.situations.SituationTileOffer.onTurnedOn(context, c.ux)
         }
     }
     SplitSwitchRow(
