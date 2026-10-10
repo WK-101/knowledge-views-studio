@@ -38,8 +38,18 @@ Parley whenever the phone is on, including while it is locked.
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
 | Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`), a software key wrapped by a Keystore key; hints and the archive's per-number tally: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
-| The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key | None | Checked on the lock screen; never in backups |
+| The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key, never written plain: while the Keystore can't seal, a change is refused and a try count stays in memory (failing closed); a plain record from an older version is sealed at its next read | None | Checked on the lock screen; never in backups |
+| Archived contacts (`files/archive`: the card and the whole record with photos) | Small-records key, never written plain: while the Keystore can't seal, archiving is refused and the contact stays in the address book; plain files from older versions are sealed by the re-sealing pass | None | Caller ID for archived contacts while the phone is locked |
+| The rule-pack signing key (`blocking/share.key`) | Small-records key; a plain key from an older version is sealed at its next use (the same key, so its fingerprint doesn't change); a new key made while the Keystore can't seal waits in memory | None | Signing rule packs and templates family members pin |
+| Private contacts' call-screen pictures (`call_backgrounds/<hash>.sealed`) | Vault caller-ID key, opened in memory by the vault photo provider for Parley's own screens; plain ones from older versions are sealed by the re-sealing pass. A device contact's stays a plain JPEG, as its photo in the address book is | None | Shown behind an incoming call on the lock screen |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
+
+Every file Parley replaces goes through one helper (`DurableFiles`): the new content is written to `<name>.tmp`, synced
+to the disk, renamed over the old file in one step, and the folder is synced. A power cut at any moment leaves the old
+file or the new one, never an empty one; a failed write keeps the old file and is logged. This matters most for the
+wrapped key files below (an empty one would make everything sealed with it unreadable for good), the PIN record and an
+archived contact's files, which are synced before the contact leaves the address book. A detekt rule (`RawRename`) keeps
+bare `File.renameTo` out of the code.
 
 Wrapped software keys (archive, small records, private calls, private list rows, number memory) sit in no-backup storage
 (`history.keys`, `records.keys`, `vault_calls.keys`, `vault_summaries.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of

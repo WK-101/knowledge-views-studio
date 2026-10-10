@@ -16,6 +16,7 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.NotificationPrivacy
 import app.parley.common.VaultNumberKeys
 import androidx.room.withTransaction
+import app.parley.common.storage.DurableFiles
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
@@ -527,9 +528,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             }
         }
         s.photo?.let { bytes ->
-            val tmp = File(photoDir(), "$id.tmp")
-            tmp.writeBytes(bytes)
-            tmp.renameTo(photoFile(id))
+            DurableFiles.write(photoFile(id), bytes)
         }
         if (caller.optBoolean(C_VOICEMAIL) || caller.has(C_TONE) || caller.has(C_LABELS)) noteCallChoices(true)
         id
@@ -982,9 +981,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
         // Bounded decode, upright, centre square (512 px is plenty for a caller photo).
         val jpeg = ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
-        val tmp = File(photoDir(), "$id.tmp")
-        tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
-        tmp.renameTo(photoFile(id))
+        DurableFiles.write(photoFile(id), VaultCrypto.sealCallerId(jpeg))
     }
 
     /** Deletes entry [id]'s photo; off the main thread, like [setPhoto] (the editor's save calls it from there). */

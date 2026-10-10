@@ -2940,3 +2940,45 @@ Setup: ring volume 6 of 7, Ring style Increasing.
 3. **Vibrate first, then silent.** Ring style Vibrate first, then ring. Call the phone and, during the first 4 s of vibration alone, switch the ringer to silent: the vibration stops at once and nothing plays.
 4. **My card restore.** On a fresh install, fill My card with only a birthday and pronouns, then restore a backup that has another My card: the birthday and pronouns stay; the backup's card doesn't replace them.
 5. **Archived private contact.** Archive a private contact, open its page from its calls › ⋮ › Privacy…: Make visible is there, Delete automatically and Archive are not.
+
+## 46. Safe and whole (6.3)
+
+### 46.7 Files survive a power cut
+
+1. **PIN set, then power off.** Set a Parley PIN, wait two seconds and hold the power button to force the phone off (or pull the battery where possible). Turn it on, open Parley: the PIN lock shows and the PIN opens it.
+2. **Archive, then power off.** Archive a contact and force the phone off within a few seconds. After the restart the contact is in Contacts › ⋮ › Archived and its calls are still named; Unarchive brings it back whole.
+3. **First run.** On a fresh install, make one call (the call-history archive key is created), force the phone off right after it ends, and turn it on: Calls › History opens without "Archive key lost".
+4. **Full storage.** Fill the phone's storage until a few MB are left, then change a setting that writes a file (a call-screen picture, the PIN): the change says it couldn't be saved, or simply keeps the old value; nothing that was there before is lost.
+
+### 46.8 Large backups restore
+
+1. On a phone with 2,000 or more contacts with photos, run Settings › Backups › Back up now: it finishes with "Backup ready" and no "Backup failed" notification.
+2. Restore that backup on a second phone (or after Delete all Parley data): every contact comes back with its photo, at full size.
+3. With call history archive on and many archived calls (thousands), a backup finishes and the restore brings the archived calls back.
+4. During both, nothing named `photos*.spool` stays in Parley's cache folder (Android Studio's Device Explorer): the spool file is never visible.
+
+### 46.9 A ringing call starts lean
+
+1. Force-stop Parley, then call the phone from a number blocked by a rule. The call is rejected within the screening time (it never rings), also with a few hundred private contacts.
+2. Record a system trace (Perfetto) of that call: the process it started shows the `Parley.warmCallPath` section and no WorkManager start, no PIN record read and no ringtone sweep until Parley's screen opens or the call has ended (see PERFORMANCE_BENCHMARKS.md, "A process started for a ringing call").
+3. With a Situation that has a window, Situations still switch at the window's edges after a restart.
+
+### 46.10 Archive says what happens, and can be undone
+
+1. Contact page › ⋮ › Privacy… › Archive: the dialog says the contact also leaves the account it's saved in (such as Google) and the other phones and computers, and that old calls in Android's call log may still show the name.
+2. Confirm: the snackbar says it's archived and offers **Undo**. Tap Undo: the contact is back in the same account, with its photo, notes and labels.
+3. Give Sam "Mother: Ana" with "Add relations to both contacts" on (Ana gets "Child: Sam"). Archive Sam: Ana's page no longer names Sam. Unarchive Sam: Ana shows "Child: Sam" again.
+4. Contacts: long-press to select three contacts (one private), ⋮ › Privacy… › Archive: the dialog counts three; after it, all three are in Contacts › ⋮ › Archived (the private one under "Private") and Undo puts all three back. The menu still has seven entries or fewer.
+5. With TalkBack, the Archive item, the dialog and the Undo action are all read out.
+
+### 46.11 Nothing sealed is ever kept plain
+
+1. Set a PIN, then copy `no_backup/app_pin` with `adb shell run-as` (debug build): it starts with `PRS` and holds no readable hashes. Do the same for a file in `files/archive` and for `files/blocking/share.key` after sharing a rule pack.
+2. Give a private contact a call-screen picture: `files/call_backgrounds` has a `.sealed` file for it and no `.jpg`; the picture still shows behind its incoming call, also on the lock screen.
+3. After updating from 6.2.3 with a private contact that already had a call-screen picture, open Parley and wait a minute: its `.jpg` becomes a `.sealed` file, and the picture still shows.
+4. Share a rule pack before and after the update: family members see the same fingerprint.
+
+### 46.12 Old backups and an update from 5.7
+
+1. Restore a backup made by Parley 5.0, 5.7 and 6.0 (keep one of each): contacts with photos, notes for calls, Circle moments, block rules, speed dial, settings and private contacts all come back.
+2. Install 5.7, add a private contact, turn on the call-history archive, make a few calls, set a PIN. Update to this build: the PIN opens Parley, the private contact and the archived calls are there. Archive a contact and turn a Situation on, restart the phone: both are still as you left them.

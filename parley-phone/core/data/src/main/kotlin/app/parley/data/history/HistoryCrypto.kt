@@ -2,6 +2,7 @@ package app.parley.data.history
 
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import app.parley.common.crypto.Aead
+import app.parley.common.storage.DurableFiles
 import app.parley.data.security.KeystoreSeal
 import java.security.UnrecoverableKeyException
 import android.content.Context
@@ -60,9 +61,8 @@ internal class HistoryCrypto(
                 }
             } else {
                 ByteArray(64).also { random.nextBytes(it) }.also { k ->
-                    val tmp = File(file.parentFile, file.name + ".tmp")
-                    tmp.writeBytes(wrap(k))
-                    check(tmp.renameTo(file)) { "Couldn't store the archive key" }
+                    // Synced before anything is sealed with it: a key lost to a power cut makes those rows unreadable.
+                    DurableFiles.writeOrThrow(file, wrap(k))
                 }
             }
             val k = SecretKeySpec(raw, 0, 32, "AES") to SecretKeySpec(raw, 32, 32, "HmacSHA256")
@@ -80,7 +80,7 @@ internal class HistoryCrypto(
      */
     fun reset(suffix: String, deleteKeystoreEntry: Boolean = true) = synchronized(this) {
         keys = null
-        if (file.exists() && !file.renameTo(File(file.parentFile, "${file.name}.$suffix"))) file.delete()
+        if (file.exists() && !DurableFiles.move(file, File(file.parentFile, "${file.name}.$suffix"))) file.delete()
         if (deleteKeystoreEntry) runCatching { keyStore().deleteEntry(alias) }
     }
 

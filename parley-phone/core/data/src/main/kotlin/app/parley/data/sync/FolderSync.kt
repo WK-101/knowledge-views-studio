@@ -1,5 +1,6 @@
 package app.parley.data.sync
 
+import app.parley.common.storage.DurableFiles
 import app.parley.data.people.IcuCalendars
 import android.Manifest
 import android.content.ContentUris
@@ -419,9 +420,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     }
 
     private fun writeAtomically(file: File, text: String) {
-        val tmp = File(file.path + ".tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+        DurableFiles.writeText(file, text)
     }
 
     private fun sha(bytes: ByteArray) = RecordJson.sha256Hex(bytes)

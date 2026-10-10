@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -68,6 +69,7 @@ import app.parley.common.ux.BackupNudge
 import app.parley.data.GroupInfo
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.contact.madeVisibleText
+import app.parley.ui.people.archive.ArchiveSelectionDialog
 import app.parley.ui.contact.makeVisibleBody
 import app.parley.ui.people.copyAsText
 import app.parley.common.ux.MenuEntry
@@ -96,6 +98,7 @@ fun SelectionBar(vm: AppViewModel) {
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmPrivate by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
+    var confirmArchive by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
     var editSheet by remember { mutableStateOf(false) }
@@ -162,6 +165,7 @@ fun SelectionBar(vm: AppViewModel) {
             SelectionMenu.Action.DELETE_AUTOMATICALLY -> askExpiry = true
             SelectionMenu.Action.MAKE_PRIVATE -> confirmPrivate = true
             SelectionMenu.Action.MAKE_VISIBLE -> confirmVisible = true
+            SelectionMenu.Action.ARCHIVE -> confirmArchive = true
             SelectionMenu.Action.DELETE -> confirmDelete = true
         }
     }
@@ -240,6 +244,9 @@ fun SelectionBar(vm: AppViewModel) {
             dismissLabel = stringResource(R.string.main_cancel),
         )
     }
+    if (confirmArchive) {
+        ArchiveSelectionDialog(vm, ids, onDismiss = { confirmArchive = false }, onArchived = { vm.selection.value = emptySet() })
+    }
     if (askExpiry) {
         ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
             askExpiry = false
@@ -316,5 +323,6 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = when (a) {
     SelectionMenu.Action.DELETE_AUTOMATICALLY -> MenuLabel(stringResource(R.string.contact_make_temporary), Icons.Rounded.Timer)
     SelectionMenu.Action.MAKE_PRIVATE -> MenuLabel(stringResource(R.string.sel_move_private), Icons.Rounded.Lock)
     SelectionMenu.Action.MAKE_VISIBLE -> MenuLabel(stringResource(R.string.contact_make_visible), Icons.Rounded.LockOpen)
+    SelectionMenu.Action.ARCHIVE -> MenuLabel(stringResource(R.string.archive_action), Icons.Rounded.Archive)
     SelectionMenu.Action.DELETE -> MenuLabel(stringResource(R.string.main_delete), Icons.Rounded.Delete)
 }

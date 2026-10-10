@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.common.storage.DurableFiles
 import app.parley.data.security.KeystoreSeal
 import kotlinx.coroutines.CancellationException
 import java.security.GeneralSecurityException
@@ -144,7 +145,10 @@ object VaultCrypto {
             lockedNow = value
             appContext?.let { ctx ->
                 lockedRead = true
-                runCatching { lockedFile(ctx).let { f -> if (value) f.createNewFile() else f.delete() } }
+                // Durable, and a failure is reported: a lock that doesn't survive a restart would quietly open them.
+                val f = lockedFile(ctx)
+                val stored = if (value) DurableFiles.write(f, ByteArray(0)) else (!f.exists() || f.delete())
+                if (!stored) Log.w("VaultCrypto", "The private-contacts lock flag couldn't be stored")
             }
         }
 

@@ -155,6 +155,24 @@ download): `./gradlew :app:checkReleaseApkSize` fails above it, and CI runs it. 
 the code stored uncompressed; 5.5 compresses the code (below), so the budget follows the download and not the
 installed size.
 
+### A process started for a ringing call (6.3)
+
+What `ParleyApp.onCreate` starts before screening, when the process starts for an incoming call, and what waits for the
+full start (`DataContainer.fullStart`: the UI, or a call that has settled). Nothing in the first list opens private
+contacts one by one or builds a whole index.
+
+| Before screening (off the main thread) | Keystore | Waits for the full start |
+|---|---|---|
+| `BlockingSetup.warm`: rules, lists, the expected-call windows (`familySafety.load`, one unwrap), area names | One unwrap for the windows | `BlockingSetup.warmLater` (label references, list folder) |
+| `warmStores`: preference-backed stores the call screen reads | None | Number memory, Recall and search indexes, people graph |
+| Archived contacts' cards (read once, small-records key) when the call path first asks | One unwrap | Record sealing, phone-key migration (30 s later) |
+| Situations: listeners and one look; WorkManager only when a window job is queued or due (`SituationTriggers.schedule`) | None | Maintenance, folder sync and reminder workers |
+| Ringtone read grants (`CallerTunes.regrant`, one folder listing) | None | The ringtone sweep (`CallerTunes.afterStart`, 20 s after the full start, and only with tunes on disk) |
+| — | — | The PIN record (`appPin.load`, one unwrap; the lock screen reads it itself if it comes first) |
+
+Tests: `CallerTuneSweepTest` (no vault read without tunes; the sweep waits for the full start) and
+`SituationScheduleTest` (no WorkManager on a start with no window job).
+
 ### 5.5: a lighter download
 
 Measured on the unsigned release builds (`./gradlew :app:assembleRelease :lists-updater:assembleRelease`, no

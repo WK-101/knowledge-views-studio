@@ -9,12 +9,14 @@ import app.parley.common.people.Archive
 import app.parley.common.people.ArchivedAccount
 import app.parley.common.people.ArchivedCard
 import app.parley.common.people.ContactRef
+import app.parley.common.people.RelationLinks
 import app.parley.common.record.AccountKinds
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.Mime
 import app.parley.common.record.Messengers
 import app.parley.common.record.withoutMessengers
+import app.parley.common.storage.DurableFiles
 import app.parley.common.storage.PersistentStores
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
@@ -23,6 +25,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.RestorePart
 import app.parley.data.security.RecordCrypto
+import app.parley.data.security.RecordSealing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +54,7 @@ import java.io.File
  * Private contacts are archived inside the vault instead ([app.parley.data.vault.VaultRepository.setArchived]): they
  * never come here, so nothing private is ever sealed with this key or leaves the private lock.
  */
-class ArchiveStore(private val c: DataContainer) {
+class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     private val dir = File(c.appContext.filesDir, "archive")
     private val crypto by lazy { RecordCrypto.get(c.appContext) }
     private val mutex = Mutex()
@@ -128,6 +131,10 @@ class ArchiveStore(private val c: DataContainer) {
             ContactsRepository.VaultPurge(synced = true, messengerCopies = false)
         }
         if (key.isNotEmpty()) {
+            // The relations Parley wrote on other contacts for this one ("Spouse: Ana" on Bob) would keep the name in
+            // the address book and the synced account: taken back where still as Parley left them. The archived
+            // record keeps its own relations; Unarchive writes the other side again.
+            catching { c.people.relationMirrors.takeBack(contactId, key) }
             val archivedKey = ContactRef.archivedKey(id)
             c.contactKeys.rekey(key, archivedKey, null)
             // An archived contact doesn't delete itself: it isn't in the address book for the expiry to remove.
@@ -174,8 +181,18 @@ class ArchiveStore(private val c: DataContainer) {
         val key = keyOf(newId)
         if (key != null) c.contactKeys.rekey(from, key, newId)
         else c.contactKeys.rekeyLater(from, result.rawIds.ifEmpty { c.contacts.rawIds(newId) }, newId)
+        if (key != null) mirrorRelationsAgain(newId, key)
         c.contacts.refresh()
         Unarchived.Done(newId, result.redirectedTo)
+    }
+
+    /** Back in the address book: the relations taken back on archive go on the other contacts again (when that's on). */
+    private suspend fun mirrorRelationsAgain(contactId: Long, key: String) {
+        if (!c.settings.current().mirrorRelations) return
+        val relations = catching { c.contacts.details(contactId)?.relations }.getOrNull().orEmpty()
+        if (relations.isEmpty()) return
+        val links = RelationLinks.decode(catching { c.meta.meta(key)?.relationLinks }.getOrNull())
+        catching { c.people.relationMirrors.mirror(contactId, relations, links) }
     }
 
     /** Removes archived contact [id]'s files and card. */
@@ -225,10 +242,29 @@ class ArchiveStore(private val c: DataContainer) {
         false
     }
 
+    /**
+     * Sealed or not at all: when the Keystore can't seal right now the archive refuses (the contact stays in the address
+     * book), never keeps a whole record plain. Synced before returning, so the purge that follows can't outlive it.
+     */
     private fun writeSealed(f: File, text: String) {
-        val tmp = File(f.parentFile, f.name + ".tmp")
-        tmp.writeBytes(crypto.sealBytes(text.toByteArray(Charsets.UTF_8)))
-        check(tmp.renameTo(f)) { "Couldn't write ${f.name}" }
+        DurableFiles.writeOrThrow(f, crypto.sealBytesOrThrow(text.toByteArray(Charsets.UTF_8)))
+    }
+
+    /**
+     * Seals archive files an older version wrote plain (when the Keystore failed then). Each file is rewritten only
+     * while it is still the plain copy just read. False while one still can't be sealed.
+     */
+    override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            var left = 0
+            val files = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) || it.name.endsWith(REC) }
+            for (f in files) {
+                val raw = catching { f.readBytes() }.getOrNull()?.takeUnless { crypto.isSealed(it) } ?: continue
+                val sealed = catching { crypto.sealBytesOrThrow(raw) }.getOrNull()
+                if (sealed == null || !DurableFiles.write(f, sealed)) left++
+            }
+            left == 0
+        }
     }
 
     private suspend fun keyOf(contactId: Long): String? {

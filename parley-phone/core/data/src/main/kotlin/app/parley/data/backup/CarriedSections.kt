@@ -9,6 +9,7 @@ import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.FamilySafetyState
 import app.parley.common.situations.Behaviour
 import app.parley.common.situations.Situations
+import app.parley.common.storage.DurableFiles
 import app.parley.common.storage.PersistentStores.Sections
 import app.parley.data.calls.DriveProfileRepository
 import app.parley.data.calls.FamilySafetyStore
@@ -130,11 +131,7 @@ class CallerTuneFiles(context: Context) {
         dir.mkdirs()
         val file = File(dir, name)
         if (file.exists()) return true
-        val tmp = File(dir, "$name.tmp")
-        return runCatching {
-            tmp.writeBytes(bytes)
-            tmp.renameTo(file)
-        }.getOrDefault(false).also { if (!it) tmp.delete() }
+        return DurableFiles.write(file, bytes)
     }
 
     private fun isWav(b: ByteArray): Boolean =

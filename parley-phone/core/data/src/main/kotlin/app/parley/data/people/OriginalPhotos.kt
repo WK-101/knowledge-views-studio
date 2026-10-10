@@ -18,6 +18,7 @@ import app.parley.common.photo.ImageFiles
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
 import app.parley.common.photo.PhotoMath
+import app.parley.common.storage.DurableFiles
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
@@ -153,10 +154,7 @@ class OriginalPhotos(context: Context) {
         if (lookupKey.isEmpty()) return@withContext false
         val staged = stage(source, dir, answers) ?: return@withContext false
         val image = imageFor(lookupKey)
-        if (!staged.file.renameTo(image)) {
-            staged.file.delete()
-            return@withContext false
-        }
+        if (!DurableFiles.place(staged.file, image)) return@withContext false
         writeMeta(metaFor(lookupKey), staged, JSONObject().put("key", lookupKey).put("before", before.orEmpty()).put("bound", ""))
         _version.value++
         true
@@ -233,7 +231,7 @@ class OriginalPhotos(context: Context) {
             return
         }
         val meta = runCatching { JSONObject(metaFor(from).readText()) }.getOrNull() ?: return
-        if (!src.renameTo(imageFor(to))) return
+        if (!DurableFiles.move(src, imageFor(to))) return
         metaFor(from).delete()
         runCatching { metaFor(to).writeText(meta.put("key", to).toString()) }
         _version.value++
@@ -264,16 +262,10 @@ class OriginalPhotos(context: Context) {
         c.meta.optString(KEPT).takeIf { it.isNotEmpty() }?.let { size.put(KEPT, it) }
         val id = ContactRef.vaultIdOf(key)
         if (id != null) {
-            privateDir.mkdirs()
-            val tmp = File(privateDir, "v$id.tmp")
-            tmp.writeBytes(VaultCrypto.sealCallerId(c.bytes))
-            check(tmp.renameTo(privateImage(id)))
+            DurableFiles.writeOrThrow(privateImage(id), VaultCrypto.sealCallerId(c.bytes))
             privateMeta(id).writeText(size.toString())
         } else {
-            dir.mkdirs()
-            val tmp = File(dir, "carry.tmp")
-            tmp.writeBytes(c.bytes)
-            check(tmp.renameTo(imageFor(key)))
+            DurableFiles.writeOrThrow(imageFor(key), c.bytes)
             metaFor(key).writeText(size.put("key", key).put("before", "").put("bound", "").toString())
         }
         _version.value++
@@ -299,7 +291,7 @@ class OriginalPhotos(context: Context) {
         val tmp = File(dir, "restore.tmp")
         tmp.writeBytes(bytes)
         val staged = inspect(tmp) ?: run { tmp.delete(); return@withContext }
-        if (!tmp.renameTo(imageFor(lookupKey))) { tmp.delete(); return@withContext }
+        if (!DurableFiles.place(tmp, imageFor(lookupKey))) return@withContext
         // Bound to the photo the restored contact has: the backup's Android copy of the same picture.
         writeMeta(metaFor(lookupKey), staged, JSONObject().put("key", lookupKey).put("before", "").put("bound", current.orEmpty()))
         _version.value++
@@ -316,12 +308,7 @@ class OriginalPhotos(context: Context) {
         val staged = stage(source, privateDir, answers) ?: return@withContext false
         try {
             val sealed = VaultCrypto.sealCallerId(staged.file.readBytes())
-            val tmp = File(privateDir, "v$id.tmp")
-            tmp.writeBytes(sealed)
-            if (!tmp.renameTo(privateImage(id))) {
-                tmp.delete()
-                return@withContext false
-            }
+            if (!DurableFiles.write(privateImage(id), sealed)) return@withContext false
             writeMeta(privateMeta(id), staged, JSONObject())
             _version.value++
             true
@@ -395,9 +382,7 @@ class OriginalPhotos(context: Context) {
         try {
             val out = java.io.ByteArrayOutputStream()
             pre.compress(Bitmap.CompressFormat.JPEG, PREVIEW_QUALITY, out)
-            val tmp = File(target.parentFile, target.name + ".tmp")
-            tmp.writeBytes(VaultCrypto.sealCallerId(out.toByteArray()))
-            if (!tmp.renameTo(target)) tmp.delete()
+            DurableFiles.write(target, VaultCrypto.sealCallerId(out.toByteArray()))
         } catch (e: Exception) {
             Log.w(TAG, "Couldn't keep the photo's preview", e)
         }
@@ -682,9 +667,7 @@ class OriginalPhotos(context: Context) {
         /** Puts back what [sealedPrivate] gave, under private entry [id] (restored with a new id). */
         fun restoreSealedPrivate(context: Context, id: Long, image: ByteArray, meta: String): Boolean = runCatching {
             val d = File(context.filesDir, "vault_photo_originals").apply { mkdirs() }
-            val tmp = File(d, "v$id.tmp")
-            tmp.writeBytes(image)
-            check(tmp.renameTo(File(d, "v$id.bin")))
+            DurableFiles.writeOrThrow(File(d, "v$id.bin"), image)
             File(d, "v$id.json").writeText(meta)
             true
         }.getOrDefault(false)

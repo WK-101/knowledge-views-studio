@@ -52,7 +52,18 @@ so the call path names it while the phone is locked.
   before this kept the thumbnail they were archived with (nothing is rewritten). Make private still keeps a photo
   larger than 512 KB as its thumbnail (`readCapped`, `MAX_KEPT_PHOTO`). When the
   address book refuses to remove the contact (a read-only copy, a provider error), the archive gives its copy back
-  and nothing is archived: a person is never both archived and in the address book.
+  and nothing is archived: a person is never both archived and in the address book. The files are synced to the disk
+  before the purge (`DurableFiles`), and written sealed or not at all: while the Keystore can't seal, archiving is
+  refused and nothing changes.
+- **Honest about where it goes.** Leaving the address book means leaving the account the contact is saved in (Google,
+  say), so the person also goes from the user's other phones and computers: the confirmation says so, and that old
+  calls in Android's call log may still show the name. The relation rows Parley wrote on other contacts for this one
+  ("Child: Sam" on Ana) are taken back where still as Parley left them (`RelationMirrors.takeBack`), so the name doesn't
+  stay in the address book; the archived record keeps its own relations, and Unarchive writes the other side again
+  when "Add relations to both contacts" is on.
+- **Undo and many at once.** The snackbar after archiving offers Undo, which puts the contact back into the accounts it
+  came from (a private one back among the private contacts). The Contacts selection's ⋮ › Privacy… › Archive archives
+  every selected contact (device ones out of the address book, private ones inside the vault), also with Undo.
 - **Still named**: caller ID and the call screen (with its note for calls, "Archived contact"; its agenda items show
   on their own card and can be ticked, `AgendaStore.targetFor` finds the archived contact by number), missed-call
   notifications, Recents, a number's history, Recall ("Archived contacts"), and screening, which counts an archived

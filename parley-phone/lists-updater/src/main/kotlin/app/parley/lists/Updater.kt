@@ -10,6 +10,7 @@ import app.parley.common.spam.PackException
 import app.parley.common.spam.PackManifest
 import app.parley.common.spam.ReportTally
 import app.parley.common.spam.SignatureStatus
+import app.parley.common.storage.DurableFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -61,12 +62,7 @@ object Updater {
 
     private fun writePack(repo: ListsRepo, id: String, bytes: ByteArray): File {
         val target = repo.packFile(id) ?: throw PackException("Invalid list id")
-        val tmp = File(repo.packsDir, "$id.tmp")
-        tmp.writeBytes(bytes)
-        if (!tmp.renameTo(target)) {
-            target.writeBytes(bytes)
-            tmp.delete()
-        }
+        DurableFiles.writeOrThrow(target, bytes)
         return target
     }
 
@@ -114,9 +110,7 @@ object Updater {
                         continue
                     }
                     val t = CsvPackConverter.tally(csv, FtcDncSource.SPEC)
-                    val tmp = File(repo.ftcDir, "$d.tmp")
-                    tmp.writeText(t.encode())
-                    tmp.renameTo(tally)
+                    DurableFiles.writeText(tally, t.encode())
                     missing.delete()
                     fetched++
                 }

@@ -10,6 +10,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
@@ -138,12 +139,17 @@ data class ArchiveMeta(
 /** Signs an archive: [header] is the envelope header it is written under (see [EncryptingOutputStream.header]). */
 class ArchiveSigning(val header: ByteArray, val signer: ArchiveSigner)
 
-/** Zip-bomb and memory limits enforced by [BackupArchiveReader]. Sizes are uncompressed bytes actually read. */
+/**
+ * Zip-bomb and memory limits enforced by [BackupArchiveReader]. Sizes are uncompressed bytes actually read. Photos are
+ * spooled to a temporary file when the reader has a spool folder, so they count only towards [maxInMemoryEntryBytes]
+ * (each one) and [maxTotalBytes]; [maxInMemoryTotalBytes] bounds what stays in memory (the small sections, the vault,
+ * and photos when there is no spool folder).
+ */
 data class ArchiveLimits(
     val maxEntries: Int = 100_000,
     val maxEntryBytes: Long = 512L shl 20,
     val maxTotalBytes: Long = 4L shl 30,
-    /** Cap on each entry kept in memory (manifest, small JSON sections, photos, vault blobs). */
+    /** Cap on each entry kept in memory or spooled (manifest, small JSON sections, photos, vault blobs). */
     val maxInMemoryEntryBytes: Long = 16L shl 20,
     val maxInMemoryTotalBytes: Long = 256L shl 20,
 )
@@ -218,16 +224,23 @@ object BackupArchive {
 /**
  * Streams an archive to [out] (e.g. ZipOutputStream -> EncryptingOutputStream -> SAF stream).
  * Sections are optional but must be written in the canonical order (the order of the methods below),
- * each at most once. Photos seen in contacts are kept (deduplicated) in memory and written by [finish].
+ * each at most once. Photos seen in contacts are kept (deduplicated) and written by [finish], in hash order: in a
+ * sealed temporary file in [spoolDir] when one is given ([PhotoSpool]), so a large address book is never held in
+ * memory; a hash-only writer keeps just their hashes and sizes.
  * [close] finishes the archive if needed and closes [out].
  */
-class BackupArchiveWriter private constructor(out: OutputStream?, private val meta: ArchiveMeta, @Suppress("UNUSED_PARAMETER") hashOnly: Boolean) : Closeable {
-    constructor(out: OutputStream, meta: ArchiveMeta) : this(out, meta, false)
+class BackupArchiveWriter private constructor(
+    out: OutputStream?,
+    private val meta: ArchiveMeta,
+    spoolDir: File?,
+    @Suppress("UNUSED_PARAMETER") hashOnly: Boolean,
+) : Closeable {
+    constructor(out: OutputStream, meta: ArchiveMeta, spoolDir: File? = null) : this(out, meta, spoolDir, false)
 
     private val zip: ZipOutputStream? = out?.let { ZipOutputStream(it).apply { setLevel(Deflater.BEST_COMPRESSION) } }
     private val entries = ArrayList<ManifestEntry>()
     private val counts = TreeMap<String, Long>()
-    private val photos = TreeMap<String, ByteArray>()
+    private val photos = PhotoSpool(if (out == null) null else spoolDir)
     private var lastSection = -1
     private var manifest: Manifest? = null
     private var closed = false
@@ -275,7 +288,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
         entry(BackupArchive.CONTACTS) { o ->
             for (r in records) {
                 require(keys.add(r.key)) { "Duplicate contact key ${r.key}" }
-                o.write(jsonBytes(RecordJson.encode(r) { h, b -> photos.putIfAbsent(h, b) }))
+                o.write(jsonBytes(RecordJson.encode(r) { h, b -> if (zip == null) photos.note(h, b.size) else photos.put(h, b) }))
                 o.write('\n'.code)
                 n++
             }
@@ -319,16 +332,36 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
      * that predate this section.
      */
     fun writeCallHistory(lines: Sequence<CallHistoryLine>) {
+        val section = callHistory()
+        for (l in lines) section.add(l)
+        section.end()
+    }
+
+    /**
+     * The call-history section line by line, for a source that can't be a [Sequence] (one read page by page in
+     * suspending code): [CallHistorySection.add] each line, then [CallHistorySection.end]. Nothing is held: each line
+     * goes to the archive as it comes, and no entry is written when no line came.
+     */
+    fun callHistory(): CallHistorySection {
         enter(Section.CALLHISTORY)
-        val rest = lines.iterator()
-        if (!rest.hasNext()) return
-        var n = 0L
-        entry(BackupArchive.CALLHISTORY) { o ->
-            for (l in rest) {
-                o.write(jsonBytes(RecordJson.json.encodeToString(CallHistoryLine.serializer(), l))); o.write('\n'.code); n++
-            }
+        return CallHistorySection()
+    }
+
+    inner class CallHistorySection internal constructor() {
+        private var out: EntryOut? = null
+        private var n = 0L
+
+        fun add(l: CallHistoryLine) {
+            val o = out ?: EntryOut(BackupArchive.CALLHISTORY).also { out = it }
+            o.write(jsonBytes(RecordJson.json.encodeToString(CallHistoryLine.serializer(), l))); o.write('\n'.code); n++
         }
-        counts[BackupArchive.Counts.ARCHIVED_CALLS] = n
+
+        fun end() {
+            val o = out ?: return
+            o.end()
+            out = null
+            counts[BackupArchive.Counts.ARCHIVED_CALLS] = n
+        }
     }
 
     fun writeCallHistory(lines: Iterable<CallHistoryLine>) = writeCallHistory(lines.asSequence())
@@ -408,8 +441,13 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
     fun finish(): Manifest {
         manifest?.let { return it }
         if (counts.containsKey(BackupArchive.Counts.CONTACTS)) counts[BackupArchive.Counts.PHOTOS] = photos.size.toLong()
-        photos.forEach { (h, b) -> entry("${BackupArchive.PHOTO_PREFIX}$h.bin") { it.write(b) } }
-        photos.clear()
+        // One photo in memory at a time. A photo's name is its SHA-256, so a hash-only writer needs no bytes.
+        for (h in photos.hashes()) {
+            val name = "${BackupArchive.PHOTO_PREFIX}$h.bin"
+            if (zip == null) entries += ManifestEntry(name, photos.sizeOf(h)!!.toLong(), h)
+            else entry(name) { it.write(photos.get(h)!!) }
+        }
+        photos.close()
         val unsigned = Manifest(
             formatVersion = BackupArchive.FORMAT_VERSION,
             createdAt = meta.createdAt,
@@ -435,13 +473,14 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
         try {
             finish()
         } finally {
+            photos.close()
             zip?.close()
         }
     }
 
     companion object {
         /** A writer that only hashes (see [BackupArchive.contentHash]). */
-        fun hashOnly(meta: ArchiveMeta = ArchiveMeta(0, "")): BackupArchiveWriter = BackupArchiveWriter(null, meta, true)
+        fun hashOnly(meta: ArchiveMeta = ArchiveMeta(0, "")): BackupArchiveWriter = BackupArchiveWriter(null, meta, null, true)
     }
 }
 
@@ -456,13 +495,19 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
  *
  * [source] must return a fresh stream over the same plaintext ZIP each time (e.g. re-open the file and
  * wrap it in [BackupCrypto.decrypt] with an already-unwrapped key).
+ *
+ * Photos go to a sealed temporary file when [open] is given a spool folder ([PhotoSpool]), one at a time, so a backup
+ * with thousands of photos restores in little memory; [close] lets go of it (it is never left behind in the folder).
  */
 class BackupArchiveReader private constructor(
     private val source: () -> InputStream,
     val manifest: Manifest,
     private val kept: Map<String, ByteArray>,
+    private val photos: PhotoSpool,
     private val limits: ArchiveLimits,
-) {
+) : Closeable {
+    override fun close() = photos.close()
+
     fun has(name: String): Boolean = manifest.entry(name) != null
 
     val contactCount: Long get() = manifest.counts[BackupArchive.Counts.CONTACTS] ?: 0
@@ -531,10 +576,10 @@ class BackupArchiveReader private constructor(
         }
     }
 
-    fun photo(sha256: String): ByteArray? = kept[BackupArchive.PHOTO_PREFIX + sha256 + ".bin"]?.copyOf()
+    fun photo(sha256: String): ByteArray? = photos.get(sha256)?.copyOf()
 
-    /** Whether the archive holds this photo, without copying it out. */
-    fun hasPhoto(sha256: String): Boolean = (BackupArchive.PHOTO_PREFIX + sha256 + ".bin") in kept
+    /** Whether the archive holds this photo, without reading it. */
+    fun hasPhoto(sha256: String): Boolean = sha256 in photos
 
     private inline fun <T> parse(f: () -> T): T = try {
         f()
@@ -597,8 +642,23 @@ class BackupArchiveReader private constructor(
     }
 
     companion object {
-        /** Verifies the whole archive (one pass over [source]) and returns a reader over it. */
-        fun open(source: () -> InputStream, limits: ArchiveLimits = ArchiveLimits()): BackupArchiveReader {
+        /**
+         * Verifies the whole archive (one pass over [source]) and returns a reader over it. With [spoolDir], photos are
+         * kept in a sealed temporary file there instead of in memory.
+         */
+        @Suppress("TooGenericExceptionCaught") // Whatever failed, the spool goes before it is rethrown.
+        fun open(source: () -> InputStream, limits: ArchiveLimits = ArchiveLimits(), spoolDir: File? = null): BackupArchiveReader {
+            val photos = PhotoSpool(spoolDir)
+            try {
+                return verify(source, limits, photos, spooled = spoolDir != null)
+            } catch (e: Throwable) {
+                photos.close()
+                throw e
+            }
+        }
+
+        @Suppress("CyclomaticComplexMethod", "LongMethod", "NestedBlockDepth", "ThrowsCount")
+        private fun verify(source: () -> InputStream, limits: ArchiveLimits, photos: PhotoSpool, spooled: Boolean): BackupArchiveReader {
             val seen = LinkedHashMap<String, ManifestEntry>()
             val kept = HashMap<String, ByteArray>()
             val lineCounts = HashMap<String, Long>()
@@ -626,6 +686,7 @@ class BackupArchiveReader private constructor(
                             BackupArchive.PHOTO_NAME.matches(name) ||
                             (name.startsWith(BackupArchive.VAULT_PREFIX) && BackupArchive.isValidVaultName(name.removePrefix(BackupArchive.VAULT_PREFIX)))
                         if (!keep && name !in BackupArchive.FIXED && !BackupArchive.isOptional(name)) throw BackupIntegrityException("Unexpected entry $name")
+                        val photo = BackupArchive.PHOTO_NAME.matches(name)
                         val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.CALLHISTORY || name == BackupArchive.JOURNAL
                         val md = MessageDigest.getInstance("SHA-256")
                         val bo = if (keep) ByteArrayOutputStream() else null
@@ -644,7 +705,8 @@ class BackupArchiveReader private constructor(
                             }
                             md.update(buf, 0, n)
                             if (bo != null) {
-                                inMemory += n
+                                // A spooled photo leaves memory once read: only its own size is bounded.
+                                if (!(photo && spooled)) inMemory += n
                                 if (size > limits.maxInMemoryEntryBytes || inMemory > limits.maxInMemoryTotalBytes) {
                                     throw BackupIntegrityException("Entry $name exceeds in-memory limit")
                                 }
@@ -661,7 +723,8 @@ class BackupArchiveReader private constructor(
                             throw BackupIntegrityException("Photo $name does not match its content")
                         }
                         seen[name] = ManifestEntry(name, size, sha)
-                        if (bo != null) kept[name] = bo.toByteArray()
+                        if (photo) photos.put(sha, bo!!.toByteArray())
+                        else if (bo != null) kept[name] = bo.toByteArray()
                         if (countLines) lineCounts[name] = newlines
                     }
                 }
@@ -696,7 +759,7 @@ class BackupArchiveReader private constructor(
             checkCount(BackupArchive.Counts.ARCHIVED_CALLS, lineCounts[BackupArchive.CALLHISTORY])
             checkCount(BackupArchive.Counts.JOURNAL, lineCounts[BackupArchive.JOURNAL])
             checkCount(BackupArchive.Counts.PHOTOS, seen.keys.count { it.startsWith(BackupArchive.PHOTO_PREFIX) }.toLong())
-            return BackupArchiveReader(source, manifest, kept, limits)
+            return BackupArchiveReader(source, manifest, kept, photos, limits)
         }
 
         /** Convenience for in-memory archives. */

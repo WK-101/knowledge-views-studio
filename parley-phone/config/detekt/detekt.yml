@@ -102,3 +102,7 @@ parley:
   RunCatchingInSuspend:
     active: true
     excludes: ['**/test/**', '**/testShared/**', '**/tools/**']
+  # File.renameTo outside DurableFiles: replacing a file must sync it first (see DurableFiles).
+  RawRename:
+    active: true
+    excludes: ['**/test/**', '**/testShared/**', '**/tools/**']

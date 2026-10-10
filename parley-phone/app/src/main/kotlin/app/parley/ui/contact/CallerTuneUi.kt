@@ -54,6 +54,7 @@ import androidx.core.content.FileProvider
 import app.parley.R
 import app.parley.common.calls.CallerTune
 import app.parley.common.catching
+import app.parley.common.storage.DurableFiles
 import app.parley.common.ux.Tips
 import app.parley.data.DataContainer
 import app.parley.data.StartGate
@@ -88,13 +89,11 @@ internal object CallerTunes {
 
     /** Writes the tune for [name] / [variant] (once; the same pair always gives the same file) and returns its URI. */
     suspend fun save(context: Context, name: String, variant: Int): Uri? = withContext(Dispatchers.IO) {
-        runCatching {
+        catching {
             val dir = File(context.filesDir, DIR).apply { mkdirs() }
             val file = File(dir, CallerTune.fileName(name, variant))
             if (!file.exists()) {
-                val tmp = File(dir, file.name + ".tmp")
-                tmp.writeBytes(CallerTune.wav(CallerTune.render(CallerTune.compose(name, variant))))
-                check(tmp.renameTo(file))
+                DurableFiles.writeOrThrow(file, CallerTune.wav(CallerTune.render(CallerTune.compose(name, variant))))
             }
             FileProvider.getUriForFile(context, authority(context), file).also { grant(context, it) }
         }.getOrNull()

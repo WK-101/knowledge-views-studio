@@ -27,7 +27,10 @@ class ParleyRuleSetProvider : RuleSetProvider {
 
     override fun instance(config: Config): RuleSet = RuleSet(
         ruleSetId,
-        listOf(DesignSystemComponent(config), SystemToast(config), PhoneNumbersOutsideIdentity(config), RunCatchingInSuspend(config)),
+        listOf(
+            DesignSystemComponent(config), SystemToast(config), PhoneNumbersOutsideIdentity(config), RunCatchingInSuspend(config),
+            RawRename(config),
+        ),
     )
 }
 
@@ -171,5 +174,25 @@ class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
             "launch", "async", "withContext", "coroutineScope", "supervisorScope", "withTimeout", "withTimeoutOrNull",
             "LaunchedEffect", "produceState", "flow", "channelFlow", "callbackFlow", "runInterruptible",
         )
+    }
+}
+
+/**
+ * Files are replaced through core/common's `DurableFiles` (write, sync, rename, sync the folder), so a power cut never
+ * leaves an empty key file, PIN record or archived contact, and every failure behaves the same way. A bare
+ * `File.renameTo` skips the syncs; `DurableFiles.move` is the durable rename.
+ */
+class RawRename(config: Config = Config.empty) : Rule(config) {
+    override val issue: Issue = Issue(
+        javaClass.simpleName,
+        Severity.Defect,
+        "Replace or move files with DurableFiles, not File.renameTo.",
+        Debt.FIVE_MINS,
+    )
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+        super.visitCallExpression(expression)
+        if (expression.calleeExpression?.text != "renameTo") return
+        report(CodeSmell(issue, Entity.from(expression), "renameTo without a sync: use DurableFiles.write, place or move."))
     }
 }

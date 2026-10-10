@@ -5,6 +5,7 @@ import app.parley.common.RuleType
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.catching
 import app.parley.common.LabelRefs
+import app.parley.common.storage.DurableFiles
 import app.parley.data.security.AppPinStore
 import app.parley.data.security.Concealment
 import app.parley.data.security.RecordSealing
@@ -80,6 +81,8 @@ class DataContainer(context: Context) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     init {
+        // Every durable file write reports its failures once, here.
+        DurableFiles.report = { what, e -> Log.w("DurableFiles", what, e) }
         // The vault's key generation checks for a secure lock screen and StrongBox.
         VaultCrypto.appContext = appContext
         // I21: where a duress unlock's hiding is kept (read on first use, off the main thread).
@@ -369,7 +372,7 @@ class DataContainer(context: Context) {
     /** Seals small records older versions stored plain (runs once in the background). */
     val recordSealing by lazy {
         RecordSealing(appContext, db, { timeMachine }) {
-            listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead)
+            listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead, archive, people.backgrounds)
         }
     }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }

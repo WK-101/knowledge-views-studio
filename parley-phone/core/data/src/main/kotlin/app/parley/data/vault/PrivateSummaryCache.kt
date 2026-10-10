@@ -3,6 +3,7 @@ package app.parley.data.vault
 import android.content.Context
 import android.util.Log
 import app.parley.common.Hex
+import app.parley.common.storage.DurableFiles
 import app.parley.data.history.HistoryCrypto
 import org.json.JSONArray
 import org.json.JSONObject
@@ -72,9 +73,7 @@ internal class PrivateSummaryCache(context: Context) {
         rows.forEach { (id, e) -> arr.put(JSONObject().put(J_ID, id).put(J_DIGEST, e.digest).put(J_PART, e.part)) }
         try {
             val sealed = crypto.seal(JSONObject().put(J_ROWS, arr).toString().toByteArray())
-            val tmp = File(file.path + ".tmp")
-            tmp.writeBytes(sealed)
-            if (tmp.renameTo(file)) kept = rows.mapValues { it.value.digest }
+            if (DurableFiles.write(file, sealed)) kept = rows.mapValues { it.value.digest }
         } catch (ignored: Exception) {
             // Not kept this time: the next cold start opens every entry, as before.
             Log.w(TAG, "Private rows not kept: ${ignored.javaClass.simpleName}")
