@@ -9,6 +9,7 @@ import app.parley.common.security.PinProblem
 import app.parley.common.security.PinRecord
 import app.parley.common.security.PinRules
 import app.parley.common.security.PinVerdict
+import app.parley.common.storage.DurableFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,8 +24,9 @@ import java.util.Base64
 /**
  * I21: the Parley PIN and the duress PIN ([PinRecord]: scrypt hashes, never the PINs), with the count of wrong tries.
  * One file under no_backup, sealed with the small-records key (AES-GCM under a Keystore-wrapped key), so a copy of
- * Parley's files alone gives nothing to guess against offline (should the Keystore fail while sealing, the hashes are
- * kept unsealed until the record next changes). It never travels in backups: a new phone sets its PIN
+ * Parley's files alone gives nothing to guess against offline. The hashes are never written unsealed: should the
+ * Keystore fail while sealing, the record stays in memory (a change is refused, a try count fails closed) and an older
+ * plain record, from before this rule, is sealed at the next read. It never travels in backups: a new phone sets its PIN
  * again, and the app lock falls back to the screen lock there.
  *
  * During a duress session (`duressSession = true`) the screens may change the PIN as they please: a new PIN replaces
@@ -107,6 +109,7 @@ class AppPinStore(context: Context, private val records: () -> RecordCrypto) {
             unreadable = exists && record == null
             loaded = !unreadable
             publish()
+            record?.let(::resealIfPlain)
         }
         return _summary.value ?: Summary()
     }
@@ -122,16 +125,17 @@ class AppPinStore(context: Context, private val records: () -> RecordCrypto) {
         }
     }
 
+    /** A record stored plain by an older version (a Keystore failure then) is sealed as soon as sealing works. */
+    private fun resealIfPlain(r: PinRecord) {
+        val plain = runCatching { !records().isSealed(file.readBytes()) }.getOrDefault(false)
+        if (plain) runCatching { write(r) }.onFailure { Log.w(TAG, "PIN record still unsealed: ${it.javaClass.simpleName}") }
+    }
+
     private fun write(r: PinRecord?) {
         if (r == null) {
             file.delete()
         } else {
-            val tmp = File(file.parentFile, file.name + ".tmp")
-            tmp.writeBytes(records().sealBytes(r.encode().toByteArray(Charsets.UTF_8)))
-            if (!tmp.renameTo(file)) {
-                file.delete()
-                tmp.renameTo(file)
-            }
+            DurableFiles.writeOrThrow(file, records().sealBytesOrThrow(r.encode().toByteArray(Charsets.UTF_8)))
         }
         record = r
         unreadable = false

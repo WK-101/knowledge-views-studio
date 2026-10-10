@@ -1,6 +1,7 @@
 package app.parley.data.backup
 
 import app.parley.common.catching
+import app.parley.common.storage.DurableFiles
 import java.io.ByteArrayOutputStream
 import app.parley.data.security.RecordCrypto
 import android.content.Context
@@ -42,9 +43,7 @@ class FileBlobStore(private val dir: File, private val crypto: RecordCrypto? = n
     override fun put(hash: String, bytes: ByteArray) {
         val f = file(hash)
         if (f.exists()) return
-        val tmp = File(f.path + ".tmp")
-        tmp.writeBytes(seal(gzip(bytes)))
-        tmp.renameTo(f)
+        DurableFiles.write(f, seal(gzip(bytes)))
     }
     override fun get(hash: String): ByteArray? = file(hash).takeIf { it.exists() }?.let { f -> gunzip(open(f.readBytes())) }
 
@@ -60,9 +59,7 @@ class FileBlobStore(private val dir: File, private val crypto: RecordCrypto? = n
         if (c.isSealed(raw)) return false
         val sealed = c.sealBytes(raw)
         if (!c.isSealed(sealed)) return false
-        val tmp = File(f.path + ".tmp")
-        tmp.writeBytes(sealed)
-        return tmp.renameTo(f)
+        return DurableFiles.write(f, sealed)
     }
 
     fun all(): Sequence<File> = dir.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }
@@ -153,10 +150,7 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     private fun photosOf(hash: String): List<String>? = runCatching { store.get(hash)?.let { RecordJson.blobHashes(it.decodeToString()) } }.getOrNull()
 
     private fun write(log: SnapshotLog) {
-        root.mkdirs()
-        val tmp = File(logFile.path + ".tmp")
-        tmp.writeBytes(log.encode())
-        if (!tmp.renameTo(logFile)) { logFile.delete(); tmp.renameTo(logFile) }
+        DurableFiles.write(logFile, log.encode())
         keep(log)
     }
 
@@ -240,7 +234,7 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
      */
     private fun setAside() {
         val aside = File(root, DAMAGED_PREFIX + System.currentTimeMillis())
-        if (!logFile.renameTo(aside)) catching { logFile.copyTo(aside, overwrite = true) }
+        if (!DurableFiles.move(logFile, aside)) catching { logFile.copyTo(aside, overwrite = true) }
     }
 
     /**

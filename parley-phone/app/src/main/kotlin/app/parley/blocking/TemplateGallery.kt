@@ -12,6 +12,7 @@ import app.parley.common.RuleType
 import app.parley.common.Schedule
 import app.parley.common.spam.ListPack
 import app.parley.common.spam.PackOrigin
+import app.parley.common.storage.DurableFiles
 import app.parley.common.templates.ImportedTemplate
 import app.parley.common.templates.InstalledTemplate
 import app.parley.common.templates.OpenedTemplate
@@ -59,13 +60,7 @@ class TemplateGallery private constructor(context: Context) {
 
     private suspend fun write(f: (TemplateGalleryState) -> TemplateGalleryState) = withContext(Dispatchers.IO) {
         val s = f(_state.value)
-        file.parentFile?.mkdirs()
-        val tmp = File(file.parentFile, "templates.json.tmp")
-        tmp.writeText(s.encode())
-        if (!tmp.renameTo(file)) {
-            file.writeText(s.encode())
-            tmp.delete()
-        }
+        DurableFiles.writeText(file, s.encode())
         _state.value = s
     }
 

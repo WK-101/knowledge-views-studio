@@ -8,6 +8,7 @@ import app.parley.common.security.DuressMachine
 import app.parley.common.security.DuressPolicy
 import app.parley.common.security.DuressState
 import app.parley.common.security.LockPhase
+import app.parley.common.storage.DurableFiles
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -163,12 +164,7 @@ object Concealment {
             if (!s.hiding) {
                 f.delete()
             } else {
-                val tmp = File(f.parentFile, f.name + ".tmp")
-                tmp.writeText(if (s.vaultLocked) "hv" else "h")
-                if (!tmp.renameTo(f)) {
-                    f.delete()
-                    check(tmp.renameTo(f)) { "rename" }
-                }
+                DurableFiles.writeOrThrow(f, (if (s.vaultLocked) "hv" else "h").toByteArray())
             }
             unsaved = null
         } catch (ignored: Exception) {

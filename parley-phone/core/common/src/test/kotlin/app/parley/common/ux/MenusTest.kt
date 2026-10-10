@@ -141,4 +141,12 @@ class MenusTest {
         assertTrue(top.none { it is MenuEntry.Group && it.group == MenuGroup.SHARE })
         assertTrue(top.filterIsInstance<MenuEntry.Group<*>>().all { it.actions.size > 1 })
     }
+
+    @Test fun a_selection_can_be_archived_from_privacy() {
+        for (b in combos(3)) {
+            val privacy = SelectionMenu.build(SelectionMenu.Facts(b[0], b[1], b[2])).filterIsInstance<MenuEntry.Group<SelectionMenu.Action>>()
+                .single { it.group == MenuGroup.PRIVACY }
+            assertEquals(SelectionMenu.Action.ARCHIVE, privacy.actions.last())
+        }
+    }
 }

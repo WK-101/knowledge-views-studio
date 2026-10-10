@@ -2,7 +2,9 @@ package app.parley.data.vault
 
 import android.content.Context
 import android.util.Base64
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
+import app.parley.common.storage.DurableFiles
 import app.parley.data.people.ContactKeys
 import app.parley.data.people.OriginalPhotos
 import java.io.File
@@ -61,12 +63,10 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
                 if (incoming.isNotEmpty()) put(K_INCOMING, JSONArray(incoming.map { (owner, name) -> JSONObject().put("k", owner).put("n", name) }))
             }
         lock.withLock {
-            runCatching {
+            catching {
                 dir().mkdirs()
                 val name = "$now-$vaultId-g${VaultCrypto.generationOf(e.detailBlob)}.bin"
-                val tmp = File(dir(), "$name.tmp")
-                tmp.writeBytes(VaultCrypto.sealCallerId(o.toString().toByteArray()))
-                tmp.renameTo(File(dir(), name))
+                DurableFiles.write(File(dir(), name), VaultCrypto.sealCallerId(o.toString().toByteArray()))
             }.getOrDefault(false)
         }
     }

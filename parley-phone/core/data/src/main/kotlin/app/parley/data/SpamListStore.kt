@@ -28,8 +28,10 @@ import app.parley.common.spam.PackOrigin
 import app.parley.common.spam.PackState
 import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.SignatureStatus
+import app.parley.common.storage.DurableFiles
 import app.parley.common.templates.RuleTemplate
 import app.parley.common.templates.RuleTemplates
+import app.parley.data.security.RecordCrypto
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.zip.ZipEntry
@@ -78,12 +80,7 @@ class SpamListStore(context: Context) {
     private fun readState(): ListsState = runCatching { ListsState.decode(stateFile.takeIf { it.exists() }?.readText()) }.getOrDefault(ListsState())
 
     private fun writeState(s: ListsState) {
-        val tmp = File(dir, "state.json.tmp")
-        tmp.writeText(s.encode())
-        if (!tmp.renameTo(stateFile)) {
-            stateFile.writeText(s.encode())
-            tmp.delete()
-        }
+        DurableFiles.writeText(stateFile, s.encode())
         _state.value = s
     }
 
@@ -207,12 +204,12 @@ class SpamListStore(context: Context) {
         val name = ListPack.storageName(m.id)
         val target = File(dir, name)
         val tmp = File(dir, "$name.tmp").apply { deleteRecursively(); mkdirs() }
-        File(tmp, ListPack.NUMBERS).writeBytes(p.numbers)
-        File(tmp, ListPack.RANGES).writeText(p.rangesText)
-        File(tmp, ListPack.MANIFEST).writeBytes(p.manifestBytes)
+        DurableFiles.writeOrThrow(File(tmp, ListPack.NUMBERS), p.numbers)
+        DurableFiles.writeOrThrow(File(tmp, ListPack.RANGES), p.rangesText.toByteArray())
+        DurableFiles.writeOrThrow(File(tmp, ListPack.MANIFEST), p.manifestBytes)
         dropIndex(m.id)
         target.deleteRecursively()
-        if (!tmp.renameTo(target)) {
+        if (!DurableFiles.move(tmp, target)) {
             tmp.copyRecursively(target, overwrite = true)
             tmp.deleteRecursively()
         }
@@ -390,14 +387,35 @@ class SpamListStore(context: Context) {
 
     private val keyFile = File(app.filesDir, "blocking/share.key")
 
-    /** Your personal signing key, created on first use. Its fingerprint lets family check that a pack is yours. */
+    @Volatile private var unsavedShareKey: ByteArray? = null
+
+    /**
+     * Your personal signing key, created on first use. Its fingerprint lets family check that a pack is yours. Sealed
+     * with the small-records key, never stored plain: a key from an older version (32 plain bytes) is sealed at its next
+     * use, and while the Keystore can't seal, a new key stays in memory and is stored at a later use.
+     */
+    @Synchronized
     private fun shareKey(): ByteArray {
-        if (keyFile.exists() && keyFile.length() == 32L) return keyFile.readBytes()
-        keyFile.parentFile?.mkdirs()
+        val crypto = RecordCrypto.get(app)
+        unsavedShareKey?.let { k ->
+            if (storeShareKey(crypto, k)) unsavedShareKey = null
+            return k
+        }
+        if (keyFile.isFile) {
+            val stored = keyFile.readBytes()
+            if (!crypto.isSealed(stored) && stored.size == ED25519_SECRET) {
+                storeShareKey(crypto, stored)
+                return stored
+            }
+            return crypto.openBytes(stored)
+        }
         val k = Ed25519.newSecret()
-        keyFile.writeBytes(k)
+        if (!storeShareKey(crypto, k)) unsavedShareKey = k
         return k
     }
+
+    private fun storeShareKey(crypto: RecordCrypto, k: ByteArray): Boolean =
+        runCatching { crypto.sealBytesOrThrow(k) }.getOrNull()?.let { DurableFiles.write(keyFile, it) } ?: false
 
     fun shareFingerprint(): String = Ed25519.fingerprint(Ed25519.publicKey(shareKey()))
 
@@ -437,3 +455,6 @@ class SpamListStore(context: Context) {
         Export(b.build(shareKey()), numbers, ranges, skipped)
     }
 }
+
+/** An Ed25519 secret, as older versions stored it plain. */
+private const val ED25519_SECRET = 32

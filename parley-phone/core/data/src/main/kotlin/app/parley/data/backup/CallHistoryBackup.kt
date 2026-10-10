@@ -4,7 +4,11 @@ import app.parley.common.backup.CallHistoryLine
 
 /** Parley's call-history archive as an optional backup section (`callhistory.jsonl`). */
 interface CallHistoryBackup {
-    suspend fun backupLines(): List<CallHistoryLine>
+    /** Every line, each given to [emit] as it is read (a large archive is never one list). */
+    suspend fun backupLines(emit: (CallHistoryLine) -> Unit)
+
+    /** Every line as one list: for tests and small archives. */
+    suspend fun backupLines(): List<CallHistoryLine> = ArrayList<CallHistoryLine>().also { out -> backupLines { out += it } }
 
     /** Returns calls restored. */
     suspend fun restoreLines(lines: List<CallHistoryLine>): Int = beginRestore().let { r -> r.add(lines).also { r.finish() } }

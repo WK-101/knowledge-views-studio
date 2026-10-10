@@ -5,6 +5,7 @@ import app.parley.common.VaultNumberKeys
 import app.parley.common.catching
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.NumberMemory
+import app.parley.common.storage.DurableFiles
 import app.parley.data.history.HistoryCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -192,8 +193,8 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
 
     private fun writeParts(probe: String, parts: Map<String, Part>) {
         dir.mkdirs()
-        val tmp = File(dir, "$FILE.tmp")
-        DataOutputStream(tmp.outputStream().buffered()).use { out ->
+        DurableFiles.write(file) { stream ->
+            val out = DataOutputStream(stream)
             out.writeInt(MAGIC)
             out.writeUTF(probe)
             out.writeInt(parts.size)
@@ -209,10 +210,7 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
                 out.writeInt(p.state?.size ?: -1)
                 p.state?.let(out::write)
             }
-        }
-        if (!tmp.renameTo(file)) {
-            file.delete()
-            tmp.renameTo(file)
+            out.flush()
         }
     }
 

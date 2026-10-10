@@ -15,6 +15,7 @@ import android.util.Base64
 import androidx.core.content.edit
 import app.parley.common.catching
 import app.parley.common.people.RelationLinks
+import app.parley.common.storage.DurableFiles
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import java.io.File
@@ -144,11 +145,7 @@ class MeCardStore(context: Context) {
     /** Stores [jpeg] as My card's photo; false when it couldn't be written. */
     suspend fun setPhoto(jpeg: ByteArray): Boolean = withContext(Dispatchers.IO) {
         val ok = catching {
-            val f = photoFile()
-            f.parentFile?.mkdirs()
-            val tmp = File(f.parentFile, "photo.tmp")
-            tmp.writeBytes(jpeg)
-            tmp.renameTo(f)
+            DurableFiles.write(photoFile(), jpeg)
         }.getOrDefault(false)
         publish(_details.value)
         ok

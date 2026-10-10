@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -85,6 +86,39 @@ object ArchiveActions {
         ids.filter { ContactRef.ofNavId(it) is ContactRef.Device }.mapNotNull { id -> catching { vm.c.archive.archive(id) }.getOrNull() }
     }.await()
 
+    /** What [archiveMany] archived: device contacts by archive id, private ones by vault id. */
+    data class Batch(val archived: List<ArchiveStore.Archived>, val privates: List<Long>) {
+        val count: Int get() = archived.size + privates.size
+    }
+
+    /** Archives the contacts [ids] (list ids), device and private alike. */
+    suspend fun archiveMany(vm: AppViewModel, ids: Collection<Long>): Batch {
+        val privates = ids.mapNotNull { (ContactRef.ofNavId(it) as? ContactRef.Private)?.vaultId }
+        val device = archive(vm, ids)
+        return Batch(device, privates.filter { archivePrivate(vm, it) })
+    }
+
+    /**
+     * Undo: puts what [batch] archived back, device contacts into the accounts they came from. False when one of them
+     * couldn't be put back (it stays in the Archived list).
+     */
+    suspend fun undo(vm: AppViewModel, batch: Batch): Boolean = vm.c.scope.async {
+        val device = batch.archived.count { a -> catching { vm.c.archive.unarchive(a.id) }.getOrNull() is ArchiveStore.Unarchived.Done }
+        val private = batch.privates.count { unarchivePrivate(vm, it) }
+        device + private == batch.count
+    }.await()
+
+    /** The snackbar after archiving: what happened, with Undo. */
+    fun announce(vm: AppViewModel, res: Resources, batch: Batch, text: String) {
+        if (batch.count == 0) {
+            vm.toast(text)
+            return
+        }
+        vm.offerUndo(text) {
+            if (!undo(vm, batch)) vm.toast(res.getString(R.string.archive_undo_failed))
+        }
+    }
+
     /** What the toast says once one contact was archived. */
     fun doneText(res: Resources, name: String, done: ArchiveStore.Archived?): String = when {
         done == null -> res.getString(R.string.archive_failed)
@@ -95,7 +129,8 @@ object ArchiveActions {
 
 /**
  * "Archive Ana?" on a contact's page (⋮ › Privacy… › Archive). [onArchived]: the page closes, the contact is gone from
- * it. A private contact ([contactId] negative) is archived inside the vault and stays private.
+ * it. A private contact ([contactId] negative) is archived inside the vault and stays private. The snackbar after it
+ * offers Undo, which puts the contact back where it was.
  */
 @Composable
 fun ArchiveContactDialog(vm: AppViewModel, contactId: Long, name: String, onDismiss: () -> Unit, onArchived: () -> Unit) {
@@ -111,13 +146,42 @@ fun ArchiveContactDialog(vm: AppViewModel, contactId: Long, name: String, onDism
             vm.c.scope.launch {
                 if (private != null) {
                     val ok = ArchiveActions.archivePrivate(vm, private.vaultId)
-                    vm.toast(if (ok) res.getString(R.string.archive_done, name) else res.getString(R.string.archive_private_failed))
+                    val batch = ArchiveActions.Batch(emptyList(), if (ok) listOf(private.vaultId) else emptyList())
+                    val text = if (ok) res.getString(R.string.archive_done, name) else res.getString(R.string.archive_private_failed)
+                    ArchiveActions.announce(vm, res, batch, text)
                     if (ok) withContext(Dispatchers.Main) { onArchived() }
                     return@launch
                 }
                 val done = ArchiveActions.archive(vm, listOf(contactId)).firstOrNull()
-                vm.toast(ArchiveActions.doneText(res, name, done))
+                ArchiveActions.announce(vm, res, ArchiveActions.Batch(listOfNotNull(done), emptyList()), ArchiveActions.doneText(res, name, done))
                 if (done != null) withContext(Dispatchers.Main) { onArchived() }
+            }
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+    )
+}
+
+/** "Archive 3 contacts?" from the Contacts selection (⋮ › Privacy… › Archive), with Undo afterwards. */
+@Composable
+fun ArchiveSelectionDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit, onArchived: () -> Unit) {
+    val res = LocalContext.current.resources
+    ConfirmDialog(
+        title = pluralStringResource(R.plurals.archive_n_title, ids.size, ids.size),
+        text = stringResource(R.string.archive_n_body),
+        confirmLabel = stringResource(R.string.archive_action),
+        icon = Icons.Rounded.Archive,
+        onConfirm = {
+            onDismiss()
+            onArchived()
+            vm.c.scope.launch {
+                val batch = ArchiveActions.archiveMany(vm, ids)
+                val text = if (batch.count == 0) {
+                    res.getString(R.string.archive_n_failed)
+                } else {
+                    res.getQuantityString(R.plurals.archive_n_done, batch.count, batch.count)
+                }
+                ArchiveActions.announce(vm, res, batch, text)
             }
         },
         onDismiss = onDismiss,

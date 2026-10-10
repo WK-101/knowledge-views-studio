@@ -197,6 +197,7 @@ object PersistentStores {
             "parley_situation_state", StoreKind.PREFS,
             local("The Situation on now and what to put back when it goes off: this phone's moment, not a preference"),
         ),
+        PersistentStore("situation_triggers", StoreKind.PREFS, local("Whether this phone's job for a Situation's next window is queued")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),

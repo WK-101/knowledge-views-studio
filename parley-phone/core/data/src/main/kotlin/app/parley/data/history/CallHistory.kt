@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import app.parley.common.catching
+import app.parley.common.storage.DurableFiles
 import app.parley.common.suspendRunCatching
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
@@ -257,7 +258,7 @@ class CallHistory(
             dbRef = null
             for (ext in listOf("", "-wal", "-shm", "-journal")) {
                 val f = context.getDatabasePath(HistoryDatabase.NAME + ext)
-                if (f.exists()) f.renameTo(File(f.parentFile, "parley-history-$suffix.db$ext"))
+                if (f.exists()) DurableFiles.move(f, File(f.parentFile, "parley-history-$suffix.db$ext"))
             }
         }
         crypto.reset(suffix)
@@ -883,14 +884,15 @@ class CallHistory(
     // ------------------------------------------------------------------ backup
 
     /** Archived calls the system log no longer has, and the "keep forever" numbers. */
-    override suspend fun backupLines(): List<CallHistoryLine> = withContext(Dispatchers.IO) {
+    override suspend fun backupLines(emit: (CallHistoryLine) -> Unit) = withContext(Dispatchers.IO) {
         if (_archive.value == null) reload()
-        val inProvider = readProvider(null).map { HistoryMerge.key(it.toEntry(0)) }.toHashSet()
-        val lines = ArrayList<CallHistoryLine>()
-        val read = scanArchive { a -> if (HistoryMerge.key(a.record.toEntry(0)) !in inProvider) lines += CallHistoryLine(call = a.record) }
+        // Only the provider's keys are held (to leave out what the system log backs up anyway); the archived calls
+        // go out page by page as they are opened.
+        val inProvider = readProvider(null).mapTo(HashSet()) { HistoryMerge.key(it.toEntry(0)) }
+        val read = scanArchive { a -> if (HistoryMerge.key(a.record.toEntry(0)) !in inProvider) emit(CallHistoryLine(call = a.record)) }
         // Rather fail the backup than silently leave the archive out.
         if ((!read || _archive.value == null) && prefs.current().archiveEnabled) throw IllegalStateException(context.getString(R.string.data_archive_locked))
-        lines + _kept.value.values.map { CallHistoryLine(keepForever = it) }
+        _kept.value.values.forEach { emit(CallHistoryLine(keepForever = it)) }
     }
 
     /** Restores archived calls into the archive (or, with the archive off, into the system log). */
