@@ -104,13 +104,15 @@ class ScaleBenchmarkTest {
         timed("seed.contacts_10k") { seedContacts() }
         timed("seed.private_500") {
             repeat(PRIVATE) { i ->
-                c.vault.save(null, ContactDetails(given = "Private", family = "$i", phones = listOf(DataItem(null, number(PRIVATE_BASE + i), Phone.TYPE_MOBILE))))
+                val phone = DataItem(null, number(PRIVATE_BASE + i), Phone.TYPE_MOBILE)
+                c.vault.save(null, ContactDetails(given = "Private", family = "$i", phones = listOf(phone)))
             }
         }
         timed("seed.archived_1k") {
             repeat(ARCHIVED) { i ->
                 val n = number(ARCHIVED_BASE + i)
-                val record = ContactRecord("lk-a$i", "Archived $i", raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.PHONE, mapOf("data1" to n))))))
+                val raw = RawRecord(null, null, rows = listOf(DataRow(Mime.PHONE, mapOf("data1" to n))))
+                val record = ContactRecord("lk-a$i", "Archived $i", raws = listOf(raw))
                 c.archive.restore(ArchivedCard(0, "Archived $i", listOf(n), now - day, emptyList(), "lk-a$i"), record)
             }
         }

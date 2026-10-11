@@ -129,13 +129,17 @@ class NetworkNameStore private constructor(
     /** The undo batches with names set aside, in the table or still in [prefs]. */
     private fun asideBatches(): List<String> =
         // A kind with '#' is a store's marker (its rows were copied from preferences), not a batch.
-        (runCatching { SealedLineStore.offMain(table()).kinds(ASIDE_KIND) }.getOrDefault(emptyList()).filter { '#' !in it }.map { it.removePrefix(ASIDE_KIND) } +
+        (
+            runCatching { SealedLineStore.offMain(table()).kinds(ASIDE_KIND) }.getOrDefault(emptyList())
+                .filter { '#' !in it }.map { it.removePrefix(ASIDE_KIND) } +
             prefs.all.keys.filter { it.startsWith(ASIDE) }.map { it.removePrefix(ASIDE) }).distinct()
 
     private fun dropAsides(which: (String) -> Boolean) {
         val gone = asideBatches().filter(which)
         if (gone.isEmpty()) return
-        gone.forEach { b -> runCatching { SealedLineStore.offMain(table()).let { t -> listOf("", SealedLineStore.MOVED).forEach { m -> t.clear(ASIDE_KIND + b + m) } } } }
+        gone.forEach { b ->
+            runCatching { SealedLineStore.offMain(table()).let { t -> listOf("", SealedLineStore.MOVED).forEach { m -> t.clear(ASIDE_KIND + b + m) } } }
+        }
         prefs.edit().apply { gone.forEach { remove(ASIDE + it) } }.commit()
     }
 

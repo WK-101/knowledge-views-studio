@@ -16,6 +16,7 @@ import java.util.Locale
  */
 object NumberInfo {
     private val util by lazy { PhoneData.util }
+
     /** Place names by number: bounded, as a phone sees more distinct numbers over the years than a list shows. */
     private val cache = RecentCache<String, String>(PLACES)
 

@@ -146,6 +146,7 @@ class NumberMemoryStore(private val c: DataContainer) {
      */
     private val notes = object : NumberMemoryIndex.Source {
         override val id = "notes"
+
         // Owners' names come with the notes: a renamed contact reads them again too.
         override suspend fun fingerprint(): String = c.kept.notesStamp() + "|" + System.identityHashCode(c.contacts.contacts.value)
         override suspend fun read(): List<NumberMemory.Entry> {

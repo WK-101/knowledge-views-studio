@@ -887,7 +887,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     init {
         scope.launch(Dispatchers.IO) {
-            runCatching { if (StatePrefs.open(context, PREFS).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
+            catching { if (StatePrefs.open(context, PREFS).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
             VaultCallChoices.loaded = true
             // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any). It
             // opens every caller-ID copy, so it waits for the full app; a call's process goes by the stored answer.

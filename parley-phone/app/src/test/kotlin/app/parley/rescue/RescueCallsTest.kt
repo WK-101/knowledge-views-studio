@@ -2,7 +2,6 @@ package app.parley.rescue
 
 import android.app.AlarmManager
 import android.app.Application
-import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueWhen

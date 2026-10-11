@@ -39,8 +39,10 @@ class SealedLineStoreMoveTest {
     }
 
     /** A row as 6.4 wrote it: "<line key>\t<sealed facts, Base64>". */
-    private fun line(number: String, at: Long): String =
-        "m:mac-$number\t" + Base64.encodeToString(byteArrayOf(7) + CallQualityCodec.encode(listOf(CallQualityFacts(startedAt = at, incoming = true))).toByteArray(), Base64.NO_WRAP)
+    private fun line(number: String, at: Long): String {
+        val facts = CallQualityCodec.encode(listOf(CallQualityFacts(startedAt = at, incoming = true))).toByteArray()
+        return "m:mac-$number\t" + Base64.encodeToString(byteArrayOf(7) + facts, Base64.NO_WRAP)
+    }
 
     /** A row sealed with a key that can't be used now. */
     private val unreadable = "m:mac-+12025550177\t" + Base64.encodeToString(byteArrayOf(9, 1, 2, 3), Base64.NO_WRAP)

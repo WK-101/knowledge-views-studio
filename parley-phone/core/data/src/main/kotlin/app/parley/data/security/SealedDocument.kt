@@ -225,12 +225,13 @@ class SealedDocument<S>(
 
         /** A file name for [id]: itself when it is plain enough, else a digest of it. */
         fun partName(prefix: String, id: String): String =
-            prefix + if (id.length in 1..MAX_ID && id.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '_' }) {
+            prefix + if (PLAIN_ID.matches(id)) {
                 id
             } else {
                 Hex.encode(MessageDigest.getInstance("SHA-256").digest(id.toByteArray())).take(MAX_ID)
             }
 
         private const val MAX_ID = 64
+        private val PLAIN_ID = Regex("[A-Za-z0-9_-]{1,$MAX_ID}")
     }
 }

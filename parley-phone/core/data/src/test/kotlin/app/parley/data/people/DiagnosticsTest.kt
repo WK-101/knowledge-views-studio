@@ -1,7 +1,6 @@
 package app.parley.data.people
 
 import android.app.Application
-import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.AppSettings
 import app.parley.data.StatePrefs

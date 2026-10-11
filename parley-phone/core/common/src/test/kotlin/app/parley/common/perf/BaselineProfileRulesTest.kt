@@ -18,7 +18,8 @@ class BaselineProfileRulesTest {
 
     /** Every class Parley declares at the top of a file, and each file's own class (`NameKt`), as `app.parley.…`. */
     private val declared: Set<String> by lazy {
-        val decl = Regex("""^(?:(?:public|internal|private|abstract|open|sealed|data|enum|annotation|value|fun)\s+)*(?:class|object|interface)\s+(\w+)""", RegexOption.MULTILINE)
+        val modifiers = "public|internal|private|abstract|open|sealed|data|enum|annotation|value|fun"
+        val decl = Regex("""^(?:(?:$modifiers)\s+)*(?:class|object|interface)\s+(\w+)""", RegexOption.MULTILINE)
         listOf("app", "core", "telecom").map { File(root, it) }.flatMap { dir ->
             dir.walkTopDown().filter { it.isFile && it.extension == "kt" && "/src/main/" in it.path && "/build/" !in it.path }.toList()
         }.flatMap { f ->
