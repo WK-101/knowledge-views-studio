@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.catching
 import app.parley.data.StatePrefs
 import app.parley.data.applyInBatches
@@ -178,7 +179,11 @@ class SyncWatch(private val c: DataContainer) {
      */
     suspend fun restore(records: List<ContactRecord>): Restored = withContext(Dispatchers.IO) {
         val gone = stillGone(records) ?: return@withContext Restored(emptyList(), 0, 0)
-        val ids = if (gone.isEmpty()) emptyList() else c.records.insertAll(gone, target = null).flatMap { it.rawIds }
+        val ids = if (gone.isEmpty()) {
+            emptyList()
+        } else {
+            c.records.writing(NumberOrigin.RESTORED) { c.records.insertAll(gone, target = null) }.flatMap { it.rawIds }
+        }
         c.contacts.refresh()
         Restored(ids, gone.size, records.size - gone.size)
     }

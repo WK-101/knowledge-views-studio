@@ -48,6 +48,7 @@ import app.parley.data.memory.NumberMemoryStore
 import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.MessagingStore
 import app.parley.data.people.ContactKeys
+import app.parley.data.people.NumberPassportSweep
 import app.parley.data.people.PeopleContainer
 import app.parley.data.people.PeoplePrefs
 import app.parley.data.people.TemporaryContactStore
@@ -169,7 +170,12 @@ class DataContainer(context: Context) {
             }
         }
     }
-    val records by lazy { ContactRecordStore(appContext) }
+    val records by lazy {
+        ContactRecordStore(appContext).also { r ->
+            // Numbers Parley writes in bulk (imports, restores, shared labels) are stamped before the write lands.
+            r.numbersWritten = { numbers, origin -> scope.launch(Dispatchers.IO) { catching { contacts.passport.written(numbers, origin) } } }
+        }
+    }
     val calling by lazy { CallingRepository(appContext) }
     /** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */
     val callUsage by lazy { CallUsageLedger(db) }
@@ -389,7 +395,10 @@ class DataContainer(context: Context) {
     /** Seals small records older versions stored plain (runs once in the background). */
     val recordSealing by lazy {
         RecordSealing(appContext, db, { timeMachine }) {
-            listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead, archive, people.backgrounds)
+            listOf(
+                toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead, archive, people.backgrounds,
+                contacts.passport,
+            )
         }
     }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
@@ -444,6 +453,13 @@ class DataContainer(context: Context) {
                     throw e
                 } catch (e: Exception) {
                     Log.w("DataContainer", "Metadata key sweep failed", e)
+                }
+                try {
+                    NumberPassportSweep.run(this@DataContainer)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("DataContainer", "Number passport sweep failed", e)
                 }
             }
         }

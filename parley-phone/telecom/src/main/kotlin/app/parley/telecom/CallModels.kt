@@ -1,5 +1,6 @@
 package app.parley.telecom
 
+import app.parley.common.people.FreshNumber
 import app.parley.common.Verification
 import app.parley.common.calls.CallHandOff
 import app.parley.common.calls.DropKind
@@ -130,6 +131,11 @@ data class CallUi(
      * like a screening warning it stays on the lock screen; what it offers asks for the unlock where it lists numbers.
      */
     val neverCallsYou: Boolean = false,
+    /**
+     * The fresh-number warning: a saved contact calling from a number added or changed recently, not by you. It names
+     * nobody, so it stays on the lock screen; its older number is only dialled, never shown, and only after the unlock.
+     */
+    val freshNumber: FreshNumber? = null,
     /** After a dropped call: "Calls to Ana drop less on SIM 2", offered once per suggestion (set on the ended call only). */
     val simTip: SimTip? = null,
     /**
@@ -184,6 +190,16 @@ data class CallUi(
     /** The "This number never calls you" notice: a live, non-emergency call while the flag holds. */
     val neverCallsYouNotice: Boolean
         get() = neverCallsYou && isLive && !isEmergency && !isConference && !hidden && !simulated
+
+    /**
+     * The fresh-number line: a live, non-emergency call while it holds, and only where "This number never calls you"
+     * doesn't already speak (one safety line at a time, that one first).
+     */
+    val freshNumberNotice: Boolean
+        get() = freshNumber != null && !neverCallsYouNotice && isLive && !isEmergency && !isConference && !hidden && !simulated
+
+    /** A safety card shows under the caller ("never calls you" or the fresh-number line); other hints follow it. */
+    val hasSafetyCard: Boolean get() = neverCallsYouNotice || freshNumberNotice
 
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean

@@ -1,5 +1,6 @@
 package app.parley.telecom
 
+import app.parley.common.people.FreshNumber
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.RingFacts
@@ -33,6 +34,9 @@ internal class CallSession(val id: String) {
 
     /** A saved organisation whose number you have only ever called ([CallerInfoSource.neverCallsYou]). */
     var neverCallsYou = false
+
+    /** A saved contact's number added or changed recently, not by you ([CallerInfoSource.freshNumber]). */
+    var freshNumber: FreshNumber? = null
 
     /** The time you told this caller you'd call back ([CallerInfoSource.promisedCall]), once looked up. */
     var promisedAt: Long? = null

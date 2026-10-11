@@ -1,5 +1,6 @@
 package app.parley.telecom
 
+import app.parley.common.people.FreshNumber
 import android.content.Context
 import android.content.Intent
 import app.parley.common.AnswerGesture
@@ -141,6 +142,13 @@ interface CallerInfoSource {
      * time; a failure or a timeout shows nothing. Offline: the contacts and the call history only.
      */
     suspend fun neverCallsYou(number: String, accountId: String?): Boolean = false
+
+    /**
+     * The fresh-number warning ([app.parley.common.people.NumberPassport]): [number] is a saved contact's, added or
+     * changed recently by something other than you. Asked off the main thread while the call rings, within a short
+     * time; a failure, a timeout or an origin nobody knows shows nothing.
+     */
+    suspend fun freshNumber(number: String, accountId: String?): FreshNumber? = null
 
     /**
      * The time you told [number] you'd call back ("Promise a time"), while that call is still owed; null when none, or

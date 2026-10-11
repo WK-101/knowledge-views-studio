@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PhoneCallback
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -52,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.calls.CallPromiseActivity
 import app.parley.common.cases.CaseEntry
 import app.parley.common.cases.CaseFile
 import app.parley.common.cases.CaseFiles
@@ -83,6 +85,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val ownerKey by produceState<String?>(null, case?.numbers) { value = case?.let { CaseData.ownerKey(vm, it.numbers) } }
     val owner = case?.let { CaseOwner(it.name, it.numbers, it.private, ownerKey) }
     val timeline = owner?.let { rememberCaseTimeline(vm, case, it) }
+    val queue = rememberQueueMemory(timeline)
     val st = remember { CaseScreenState() }
     ParleyScaffold(
         snackbarHost = { ScreenSnackbarHost() },
@@ -101,6 +104,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
             }
             item(key = "status") { CaseStatusRow(vm, case) }
             if (timeline != null) summary(timeline)
+            if (queue != null) item(key = "queue") { QueueMemorySection(vm, case.numbers.firstOrNull(), queue) }
             references(vm, case) { st.adding = true }
             if (timeline != null) timeline(timeline)
         }
@@ -129,6 +133,14 @@ private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState
                 Box {
                     IconButton({ st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
                     DropdownMenu(st.menu, { st.menu = false }) {
+                        // "They'll call me back…": the same sheet as after a call (an expected window and a To call line).
+                        case.numbers.firstOrNull()?.let { number ->
+                            val context = LocalContext.current
+                            DropdownMenuItem(
+                                { Text(stringResource(R.string.callback_row)) }, leadingIcon = { Icon(Icons.Rounded.PhoneCallback, null) },
+                                onClick = { st.menu = false; context.startActivity(CallPromiseActivity.intent(context, number, null, callback = true)) },
+                            )
+                        }
                         DropdownMenuItem(
                             { Text(stringResource(R.string.case_stop)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                             onClick = { st.menu = false; st.stopping = true },

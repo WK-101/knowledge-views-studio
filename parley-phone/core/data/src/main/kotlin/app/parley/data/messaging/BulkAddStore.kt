@@ -1,5 +1,6 @@
 package app.parley.data.messaging
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.catching
 import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
@@ -91,7 +92,9 @@ class BulkAddStore(private val c: DataContainer) {
                 val groups = c.records.groupResolver()
                 for (chunk in items.chunked(CHUNK)) {
                     coroutineContext.ensureActive()
-                    val results = c.records.insertAll(chunk.map { record(it, destination.label) }, destination.account, groups)
+                    val results = c.records.writing(NumberOrigin.PASTED) {
+                        c.records.insertAll(chunk.map { record(it, destination.label) }, destination.account, groups)
+                    }
                     results.forEachIndexed { i, r ->
                         if (r.contactId != null) rawIds += r.rawIds else failed += "${chunk[i].name}: ${r.error ?: notSaved}"
                     }

@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.ExplainedFailure
 import app.parley.common.catching
 import app.parley.data.people.IcuCalendars
@@ -230,7 +231,9 @@ class VCardIO(
             if (pending.isEmpty()) return
             // Imported photos are resized, turned upright and cropped like the editor's.
             // The report says where Android 16 put them when it refused the account chosen.
-            val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true, announceRedirect = false)
+            val results = store.writing(NumberOrigin.IMPORTED) {
+                store.insertAll(pending.map { it.record }, account, groups, processPhotos = true, announceRedirect = false)
+            }
             results.forEachIndexed { i, res ->
                 pending[i].notes?.takeUnless { it.isEmpty }?.let { n -> res.contactId?.let { withNotes += it to n } }
                 if (res.contactId != null) report.imported++

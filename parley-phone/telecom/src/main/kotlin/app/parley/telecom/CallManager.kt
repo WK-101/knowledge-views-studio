@@ -409,6 +409,7 @@ object CallManager {
     /** A saved caller rings: what follows from knowing who it is. */
     private fun savedCallerRings(call: Call, s: CallSession, found: CallerDisplay, number: String, accountId: String?) {
         checkNeverCallsYou(call, s, number, accountId)
+        checkFreshNumber(call, s, number, accountId)
         // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
         applyCallerVibration(call, s)
         considerAutoAnswer(call)
@@ -427,6 +428,23 @@ object CallManager {
             } == true
             if (!shows || !calls.contains(call)) return@launch
             s.neverCallsYou = true
+            publish()
+        }
+    }
+
+    /**
+     * The fresh-number warning for a saved caller: read off the main thread while it rings, within
+     * [NEVER_CALLS_TIMEOUT_MS] (the passport, the contact and one line's history); late, failing or an emergency call
+     * shows nothing.
+     */
+    private fun checkFreshNumber(call: Call, s: CallSession, number: String, accountId: String?) {
+        if (emergency.isCall(call, number)) return
+        scope.launch {
+            val fresh = withTimeoutOrNull(NEVER_CALLS_TIMEOUT_MS) {
+                withContext(Dispatchers.IO) { catching { deps.freshNumber(number, accountId) }.getOrNull() }
+            } ?: return@launch
+            if (!calls.contains(call)) return@launch
+            s.freshNumber = fresh
             publish()
         }
     }

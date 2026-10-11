@@ -1,5 +1,6 @@
 package app.parley.ui
 
+import app.parley.common.people.NumberOrigin
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.material3.SnackbarDuration
@@ -117,10 +118,14 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
         vm.navEvents.collect { e ->
             when (e) {
                 is NavEvent.NewContact -> {
+                    vm.numbersFrom(e.prefill.phones.map { it.value }, e.origin)
                     vm.pendingPrefill = e.prefill
                     nav.navigate(Routes.edit(prefill = true))
                 }
-                is NavEvent.InsertOrEdit -> insertOrEdit = e.prefill
+                is NavEvent.InsertOrEdit -> {
+                    vm.numbersFrom(e.prefill.phones.map { it.value }, e.origin)
+                    insertOrEdit = e.prefill
+                }
                 is NavEvent.ImportVcf -> importAsk = e
                 is NavEvent.SecureQr -> secureQrUri = e.uri
                 is NavEvent.Tab -> {
@@ -240,6 +245,8 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     importAsk?.let { ask -> ImportVcfDialog(vm, ask.uri, ask.keep) { importAsk = null } }
     secureQrUri?.let { uri ->
         ReceiveSecureQrDialog(vm, uri, onDone = { secureQrUri = null }) { details, handshake ->
+            // A signed card, checked: as trusted as one typed.
+            vm.numbersFrom(details.phones.map { it.value }, NumberOrigin.CARD)
             vm.pendingPrefill = details
             nav.navigate(Routes.edit(prefill = true, handshake = handshake))
         }

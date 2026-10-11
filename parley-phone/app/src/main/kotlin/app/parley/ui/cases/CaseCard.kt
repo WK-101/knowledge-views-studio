@@ -53,7 +53,9 @@ fun CaseCard(vm: AppViewModel, owner: CaseOwner, open: (Destination) -> Unit, mo
     val timeline = rememberCaseTimeline(vm, shown.case, owner) ?: return
     val context = LocalContext.current
     val res = LocalResources.current
-    val lines = summaryLines(context, res, timeline.summary)
+    val queue = rememberQueueMemory(timeline)
+    val lines = summaryLines(context, res, timeline.summary) +
+        listOfNotNull(queue?.let { q -> queueLines(context, res, q).joinToString(res.getString(R.string.main_separator)) })
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = ParleyShapes.card,
         modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.l).clickable(role = Role.Button, onClickLabel = stringResource(R.string.case_open)) {

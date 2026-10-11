@@ -3361,3 +3361,37 @@ Automated: `ExtrasTest.starred_for_do_not_disturb_is_kept_apart_from_chosen_favo
 4. **Open Family** opens the label's page. When everyone is a favourite the sheet closes and the row is gone.
 5. Nobody starred for Do Not Disturb: no row. Only people starred for it and no favourites: the row shows above "No favourites yet".
 6. TalkBack reads the row as one button; dark, AMOLED, right to left, the largest font and landscape fit.
+
+### 50.4 Where a number came from (number passport)
+Automated: `NumberPassportTest` (core:common: the first look only takes stock, another app's change stamped with the older number, unknown and mass changes never warn, your saves vs pasted ones, bulk writes keeping their origin, 14 days and three calls, the older number offered, a damaged document starting empty), `NumberPassportStoreTest` (core:data, Robolectric: sealed at rest, editor hints used once, restores stamped as restored, an unreadable passport answering nothing).
+1. Install the build on a phone with contacts and open Parley once (the passport takes stock). Open a contact saved before: no "where it came from" text beside its numbers.
+2. Edit that contact in Parley and add a number by typing it. Its row reads "Added by you · <time>".
+3. Copy a signature with a phone number, open a new contact's editor, use Paste details and save. The number's row reads "From pasted text · <time>".
+4. Scan a QR code with a phone number (Scan QR › Add to contacts) and save: "From a scanned code". Import a .vcf file with a new contact: "Imported". From another app's "Add to contacts" (select a number in a message › Parley › Save): "From another app".
+5. In Google Contacts (or another contacts app) change a number of a contact, return to Parley and wait about 20 seconds: the new number reads "Changed by another app" (or "Came with a sync" when the change came from the web).
+6. Restore a contact from History & undo or a backup: its numbers read "Restored". Accept a signed card update: "From their card".
+7. Open a private contact: no origin text. Unlock with the duress PIN and open the contact from step 3: no origin text; unlock with the real PIN: it is back.
+8. With TalkBack on, the number row reads the origin with the rest of its line. Repeat step 3 in dark, AMOLED, right to left and the largest font: the line wraps without clipping.
+
+### 50.5 Fresh-number line on the call screen
+Automated: `FreshNumberNoticeTest` (telecom: shown for a live saved call, never for an emergency or ended call, "This number never calls you" first, kept on the lock screen).
+1. From step 3 or 5 of 50.4, have a second phone call from the new number. While it rings the call screen shows, under the caller, "New number, added today" with "It came from pasted text, not from you. If anything feels off, call their older number." and **Call their older number**.
+2. With the phone locked, ring again: the line shows (it names nobody). Tap **Call their older number**: the unlock comes first; after it, the call is declined and the contact's older number is dialled. The older number is never shown on the call screen.
+3. A contact with only the new number (nothing older): the button reads **Check it's really them** and opens the verify sheet after the unlock.
+4. A number added by typing it in Parley, a signed card update, a restore, or a contact saved before step 1 of 50.4: no line.
+5. After three calls with the number, or 14 days after it was added, the line stops.
+6. A saved organisation that also shows "This number never calls you": only that card shows (one safety line at a time).
+7. Promise a time to the contact (50.1), then have them ring from the fresh number with the phone unlocked: the fresh-number card comes first and "You said you'd call at …" follows under it, not above it.
+8. A private contact calling, or an emergency call-back: no line. Hide private contacts on: still no line for the private contact.
+9. With TalkBack on, the line is announced once while it rings. Check in dark, AMOLED, right to left, the largest font and landscape (two panes): the card fits under the caller.
+
+### 50.6 Hold times (queue memory)
+Automated: `QueueMemoryTest` (core:common: nothing under three timed calls, the range, a clean morning or afternoon split, no split when waits are mixed or close, weekdays only when all were, Remind me's next weekday time).
+1. For a saved organisation, make three calls and use **I'm on hold** on each (for example two calls before 9:30 waiting 5–7 minutes and one later waiting 20). Open its case file: **Hold times** reads "Your last 3 calls waited 5–20 min" and "Shortest before 9:30 on weekdays".
+2. Tap **Remind me at 9:00**: the same message as Remind me to call says when (next weekday, 9:00), with Undo; To call lists it. Undo takes it off.
+3. In the case file's ⋮, tap **They'll call me back…**: the same sheet as after a call opens for the case's number; pick a date. To call shows the expected callback, and a call from them rings through until then.
+4. The case file's card on the contact page and in the pre-call peek shows the same sentences on one line. Tools › Case files shows "Waits 5–20 min" on that row.
+5. With only two timed calls, nothing about hold times shows anywhere. With waits that don't split by time of day, the range shows without "Shortest…" and without the button.
+6. Unlock with the duress PIN: case files, and their hold times, are hidden. A private contact's case: hold times show only while private contacts show.
+7. TalkBack reads "Hold times" as a heading. Check in dark, right to left, the largest font and a 12-hour clock (the times read "9:30 AM").
+

@@ -381,6 +381,31 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   clearing contact changes never takes them), or with "Delete all Parley data". Temporary private contacts that expire
   keep no copy.
 
+## Where a number came from (number passport)
+
+`NumberPassport` (core/common, pure) and `NumberPassportStore` (core/data, `c.contacts.passport`) record when each
+number came onto a contact and from where, keyed by line (`PhoneIdentity.key`), in one sealed document
+(`docs/number_passport`, no-backup storage, device-local). The first look at the address book only takes stock: every
+number already saved is known, with no stamp, so it can never warn. After that a number is stamped:
+
+- **By Parley's editor** (`ContactsRepository.save`): "you", unless the editor was filled from somewhere else in the
+  last two hours (`AppViewModel.numbersFrom`, an in-memory hint by number): pasted text, a scanned code, another app's
+  "Add to contacts" (`NavEvent.NewContact`/`InsertOrEdit` default to it), or a signed card (a card update or a Secure
+  QR, trusted like "you"). A number the same save removed is kept as the older one.
+- **By Parley's bulk writes** (`ContactRecordStore.writing(origin)`, noted just before the write): vCard and SIM
+  imports, Bulk add (pasted), shared labels, folder sync, and restores (backups, History & undo, snapshots, the
+  archive, contacts a sync removed). Moves between accounts and private ↔ visible count as "you".
+- **By anything else**, found when Parley next looks (15 s after contacts settle in the app, and in the daily
+  maintenance): "Why did this change?" (`Provenance`) says another app, the account's sync, Parley itself, or unknown.
+  More than 20 contacts changing at once (an account added) is stamped unknown.
+
+The contact page shows the stamp beside each number. The call screen's fresh-number line (`FreshNumberFacts`) needs a
+saved contact, a stamp from an origin that warns, less than 14 days, and fewer than three calls with the number since;
+a number not seen at the last look is attributed on the spot, and counts only when Android dates the change after
+that look (an older one is the passport catching up, for example after a new SIM changed how national numbers read). It offers the replaced number, else another of the
+contact's numbers that isn't fresh itself. Private contacts are left out (only Parley writes them), and every failure
+(an unreadable document, no stamp, a timeout on the ring path) shows nothing.
+
 ## Who owns a number: one answer
 
 Every feature that names a number or asks whether it is saved goes through `NumberOwners` (core/data, `c.numberOwners`):

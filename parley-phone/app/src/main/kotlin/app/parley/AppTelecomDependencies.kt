@@ -12,11 +12,13 @@ import app.parley.calls.CaseFileBridge
 import app.parley.calls.ExpectedCallHints
 import app.parley.calls.MenuMemoryBridge
 import app.parley.calls.NetworkNames
+import app.parley.calls.FreshNumberFacts
 import app.parley.calls.NeverCallsYouFacts
 import app.parley.calls.NumberSignals
 import app.parley.calls.PrivateCallLogSweep
 import app.parley.calls.ToCallReminders
 import app.parley.calltime.CallTimePlanner
+import app.parley.common.people.FreshNumber
 import app.parley.common.AllowReason
 import app.parley.common.BlockAction
 import app.parley.common.BlockReason
@@ -712,6 +714,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** "This number never calls you": a saved organisation whose line you have only ever called. */
     override suspend fun neverCallsYou(number: String, accountId: String?): Boolean = NeverCallsYouFacts.shows(c, number, accountId)
+
+    override suspend fun freshNumber(number: String, accountId: String?): FreshNumber? = FreshNumberFacts.check(c, number, accountId)
 
     override suspend fun disownCall(number: String) = NeverCallsYouFacts.disown(c, number)
 

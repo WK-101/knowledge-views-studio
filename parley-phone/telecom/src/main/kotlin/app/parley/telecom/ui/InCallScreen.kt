@@ -129,6 +129,7 @@ import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import app.parley.ui.keypadKey
 import app.parley.ui.rowColors
+import app.parley.ui.systemMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -429,7 +430,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         onReply = { sheets.replyFor = shown.id },
         poster = poster,
     )
-    NeverCallsYouNotice(s, sheets, a)
+    SafetyLine(s, sheets, a)
     AgendaUnderCaller(s)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
@@ -451,16 +452,32 @@ private fun AgendaUnderCaller(s: ScreenState) {
     if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m))
 }
 
-/** "This number never calls you" for the call in front: Check it's really them and the scam sheet, while it lasts. */
+/**
+ * The safety line under the caller, one at a time: "This number never calls you" first (Check it's really them and the
+ * scam sheet), else the fresh-number line (their older number, after the unlock). For the call in front, while it lasts.
+ */
 @Composable
-private fun NeverCallsYouNotice(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
-    val primary = s.primary?.takeIf { it.neverCallsYouNotice && it.id == s.shown?.id } ?: return
+private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
+    val primary = s.primary?.takeIf { it.id == s.shown?.id } ?: return
     if (s.keypadOpen) return
-    NeverCallsYouCard(
-        onVerify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null,
-        onScamCheck = { sheets.scamFor = primary },
-        modifier = Modifier.padding(top = Spacing.m),
-    )
+    val verify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null
+    if (primary.neverCallsYouNotice) {
+        NeverCallsYouCard(onVerify = verify, onScamCheck = { sheets.scamFor = primary }, modifier = Modifier.padding(top = Spacing.m))
+        PromisedHint(primary)
+        return
+    }
+    val fresh = primary.freshNumber?.takeIf { primary.freshNumberNotice } ?: return
+    val app = LocalContext.current.applicationContext
+    val older = fresh.older?.takeIf { primary.canVerify }?.let { number ->
+        {
+            a.onUnlock {
+                CallManager.hangUpAndCall(primary.id, number, primary.accountId) { problem -> systemMessage(app, problem, long = true) }
+            }
+        }
+    }
+    FreshNumberCard(fresh, onCallOlder = older, onVerify = verify, modifier = Modifier.padding(top = Spacing.m))
+    // "You said you'd call at 15:30" follows the safety line rather than sitting above it.
+    PromisedHint(primary)
 }
 
 /** The bottom half: what can be done now. */

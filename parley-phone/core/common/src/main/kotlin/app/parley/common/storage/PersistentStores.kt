@@ -282,6 +282,12 @@ object PersistentStores {
         PersistentStore("docs/menu_memory", StoreKind.FILES, backedUp, Sections.MENUS, PersistentStore.NO_BACKUP_FILES),
         // Case files, one file per case: calls with hold times, menu keys and reference numbers (sealed; references twice).
         PersistentStore("docs/case_files", StoreKind.FILES, backedUp, Sections.CASE_FILES, PersistentStore.NO_BACKUP_FILES),
+        // The number passport: when each saved number came onto its contact and from where (sealed). It describes this
+        // phone's address book; restored contacts are stamped as restored instead.
+        PersistentStore(
+            "docs/number_passport", StoreKind.FILES, local("Where each saved number came from on this phone (the fresh-number warning)"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         PersistentStore(
             "contact_list_head", StoreKind.FILES, local("The first screenful of the Contacts list, sealed, shown at a cold start"),
             location = PersistentStore.NO_BACKUP_FILES,

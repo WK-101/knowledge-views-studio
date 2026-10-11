@@ -3,6 +3,7 @@ package app.parley.ui.contact
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -40,6 +41,7 @@ import app.parley.common.ReachGroup
 import app.parley.common.ReachGroups
 import app.parley.common.StartTab
 import app.parley.common.people.ContactSection
+import app.parley.common.people.NumberOrigin
 import app.parley.common.people.SocialProfiles
 import app.parley.common.ux.Tips
 import app.parley.data.DataItem
@@ -84,6 +86,7 @@ private fun PhoneSection(sections: PageSections, ctx: ContactPageContext, reachG
     val context = LocalContext.current
     val sims by vm.sims.collectAsStateWithLifecycle()
     val advice by ctx.page.numberAdvice.collectAsStateWithLifecycle()
+    val origins by ctx.page.numberOrigins.collectAsStateWithLifecycle()
     val sep = stringResource(R.string.main_separator)
     val prefs = ctx.prefs
     val summary = if (d.phones.size == 1) {
@@ -103,6 +106,8 @@ private fun PhoneSection(sections: PageSections, ctx: ContactPageContext, reachG
                     apps.takeIf { it.isNotEmpty() }?.joinToString(resources.getString(R.string.format_list_separator)),
                     // A quiet word only: what to do about it is in the Contact health check.
                     resources.getString(R.string.number_seems_out_of_service).takeIf { p.value in advice.dead },
+                    // The number passport: where it came from and when (numbers saved before Parley kept track have none).
+                    origins[p.value]?.let { o -> resources.getString(numberOriginText(o.origin)) + sep + Format.shortWhen(context, o.since) },
                 ).joinToString(sep)
                 PhoneRow(
                     vm, p, first = i == 0, label = label,
@@ -286,4 +291,20 @@ private fun UsualAppIcon(app: MessengerApp, description: String) {
         runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(72, 72).asImageBitmap() }.getOrNull()
     }
     if (bmp != null) Image(bmp, description, Modifier.size(24.dp)) else Icon(Icons.AutoMirrored.Rounded.Chat, description)
+}
+
+/** Where a number came from, for its line on the contact's page. */
+@StringRes
+internal fun numberOriginText(origin: NumberOrigin): Int = when (origin) {
+    NumberOrigin.YOU -> R.string.number_origin_you
+    NumberOrigin.CARD -> R.string.number_origin_card
+    NumberOrigin.RESTORED -> R.string.number_origin_restored
+    NumberOrigin.PASTED -> R.string.number_origin_pasted
+    NumberOrigin.SCANNED -> R.string.number_origin_scanned
+    NumberOrigin.IMPORTED -> R.string.number_origin_imported
+    NumberOrigin.HANDED_OVER -> R.string.number_origin_handed_over
+    NumberOrigin.SHARED_LABEL -> R.string.number_origin_shared_label
+    NumberOrigin.OTHER_APP -> R.string.number_origin_other_app
+    NumberOrigin.SYNC -> R.string.number_origin_sync
+    NumberOrigin.UNKNOWN -> R.string.number_origin_unknown
 }

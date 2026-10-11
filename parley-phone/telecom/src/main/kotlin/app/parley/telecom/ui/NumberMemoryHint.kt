@@ -48,7 +48,8 @@ internal fun NumberMemoryHint(call: CallUi) {
 @Composable
 internal fun CallerHints(call: CallUi) {
     NumberMemoryHint(call)
-    PromisedHint(call)
+    // Under a safety card the promise follows it (InCallScreen's SafetyLine): the safety line comes first.
+    if (!call.hasSafetyCard) PromisedHint(call)
 }
 
 /**
@@ -56,7 +57,7 @@ internal fun CallerHints(call: CallUi) {
  * any note about them; nothing on the lock screen.
  */
 @Composable
-private fun PromisedHint(call: CallUi) {
+internal fun PromisedHint(call: CallUi) {
     val at = call.promisedAt ?: return
     if (rememberKeyguardLocked()) return
     val context = LocalContext.current
