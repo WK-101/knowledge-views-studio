@@ -155,7 +155,6 @@ class CapabilityRoutesTest {
             "$UI.sync.shared.SharedLabelRoutes.OpenFile" to "a shared label's Open an update, or a file opened in Parley",
             "$UI.sync.shared.SharedLabelRoutes.Shield" to "a shared label's Family spam shield, on the label's page",
             "$UI.timemachine.WatchRoutes.Restore" to "the sync watchdog's notification",
-            "$UI.situations.SituationRoutes.Edit" to "one Situation, a setting: Settings › Calls › Situations",
         )
     }
 }

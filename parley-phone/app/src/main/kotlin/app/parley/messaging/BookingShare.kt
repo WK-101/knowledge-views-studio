@@ -150,26 +150,29 @@ internal fun BookingPocket(c: DataContainer, text: String, done: () -> Unit) {
             )
         }
         people.forEach { t -> TargetRow(t, picked == t, null) { picked = t } }
-        val target = picked
         val chosen = codes.filter { it.value in ticked }
-        Button(
-            onClick = {
-                busy = true
-                scope.launch {
-                    val kept = keep(c, target ?: return@launch, chosen.map { res.getString(kindRes(it.kind)) to it.value }, region)
-                    busy = false
-                    showMessage(
-                        context,
-                        if (kept > 0) res.getQuantityString(R.plurals.booking_kept, kept, kept, target.name) else res.getString(R.string.booking_failed),
-                    )
-                    if (kept > 0) done()
-                }
-            },
-            enabled = target != null && chosen.isNotEmpty() && !busy,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = Spacing.xl, vertical = Spacing.s),
-        ) {
-            Text(target?.let { stringResource(R.string.booking_keep_in, it.name) } ?: stringResource(R.string.booking_pick_first))
+        KeepButton(picked, chosen.isNotEmpty() && !busy) { target ->
+            busy = true
+            scope.launch {
+                val kept = keep(c, target, chosen.map { res.getString(kindRes(it.kind)) to it.value }, region)
+                busy = false
+                val said = if (kept > 0) res.getQuantityString(R.plurals.booking_kept, kept, kept, target.name) else res.getString(R.string.booking_failed)
+                showMessage(context, said)
+                if (kept > 0) done()
+            }
         }
+    }
+}
+
+/** "Keep in Sky Air's case file", naming the organisation chosen; off until one is chosen. */
+@Composable
+private fun KeepButton(target: Target?, ready: Boolean, onKeep: (Target) -> Unit) {
+    Button(
+        onClick = { target?.let(onKeep) },
+        enabled = target != null && ready,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = Spacing.xl, vertical = Spacing.s),
+    ) {
+        Text(target?.let { stringResource(R.string.booking_keep_in, it.name) } ?: stringResource(R.string.booking_pick_first))
     }
 }
 
