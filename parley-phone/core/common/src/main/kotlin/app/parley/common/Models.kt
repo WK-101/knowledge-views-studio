@@ -43,6 +43,13 @@ data class CallEntry(
     val presentationHidden: Boolean,
     /** Android logged it as a video call (`CallLog.Calls.FEATURES_VIDEO`), even if Parley answered it as voice. */
     val video: Boolean = false,
+    /** The phone account that logged it (`PHONE_ACCOUNT_COMPONENT_NAME`), kept so a deleted call comes back as it was. */
+    val accountComponent: String? = null,
+    /**
+     * The app the call went through over the internet (WhatsApp, Signal…), or null for a phone call
+     * ([app.parley.common.calls.InternetCalls]).
+     */
+    val appPackage: String? = null,
 )
 
 data class SimAccount(

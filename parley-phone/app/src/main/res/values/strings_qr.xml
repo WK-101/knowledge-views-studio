@@ -6,14 +6,11 @@
     <string name="qs_scan_theirs">Scan theirs</string>
     <string name="qs_shortcut_short">Scan QR</string>
     <string name="qs_shortcut_long">Scan a QR code from a photo</string>
-    <string name="qs_tile_label">Scan QR</string>
     <string name="qs_tip_contacts">Add someone here: a new contact, a QR code such as their contact card, or several numbers at once</string>
-    <string name="qs_set_title">Scan QR code</string>
     <string name="qs_set_summary">Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access</string>
     <string name="qs_set_kw">qr, qr code, scan, scanner, barcode, vcard, business card, wifi, whatsapp, signal, telegram, camera</string>
 
     <!-- Scan screen -->
-    <string name="qs_title">Scan QR code</string>
     <string name="qs_intro">Take a photo of the code with your camera app, or choose a picture or screenshot. Parley reads it on your phone.</string>
     <string name="qs_take_photo">Take a photo</string>
     <string name="qs_pick_image">Pick an image</string>
@@ -37,7 +34,6 @@
     <string name="qs_clipboard_empty">Nothing to paste. Copy a link or text first.</string>
 
     <!-- What a code holds -->
-    <string name="qs_kind_contact">Contact</string>
     <plurals name="qs_kind_contacts">
         <item quantity="one">%d contact</item>
         <item quantity="other">%d contacts</item>
@@ -45,17 +41,14 @@
     <string name="qs_kind_parley_contact">Encrypted Parley contact</string>
     <string name="qs_kind_parley_simple">Simple mode setup</string>
     <string name="qs_kind_parley_template">Blocking rule pack</string>
-    <string name="qs_kind_phone">Phone number</string>
     <string name="qs_kind_code">Phone code</string>
     <string name="qs_kind_sms">Text message</string>
-    <string name="qs_kind_email">Email</string>
     <string name="qs_kind_geo">Place on a map</string>
     <string name="qs_kind_wifi">Wi-Fi network</string>
     <string name="qs_kind_event">Calendar event</string>
     <string name="qs_kind_url">Web address</string>
     <string name="qs_kind_text">Text</string>
     <string name="qs_link_phone">%1$s chat with a number</string>
-    <string name="qs_link_profile">%1$s profile</string>
     <string name="qs_link_id">%1$s ID</string>
     <string name="qs_link_group">%1$s group invite</string>
     <string name="qs_link_channel">%1$s channel</string>
@@ -64,28 +57,17 @@
     <string name="qs_hidden_removed">This code had hidden formatting characters. They are left out here so the text reads as it really is.</string>
 
     <!-- Fields -->
-    <string name="qs_field_phone">Phone</string>
-    <string name="qs_field_email">Email</string>
-    <string name="qs_field_address">Address</string>
-    <string name="qs_field_website">Website</string>
-    <string name="qs_field_date">Date</string>
-    <string name="qs_field_note">Note</string>
     <string name="qs_field_to">To</string>
     <string name="qs_field_cc">Copy to</string>
     <string name="qs_field_bcc">Hidden copy to (Bcc)</string>
     <string name="qs_bcc_note">This code also sends a hidden copy to the addresses above. Your mail app may not show them.</string>
     <string name="qs_field_subject">Subject</string>
-    <string name="qs_field_message">Message</string>
     <string name="qs_field_coordinates">Coordinates</string>
     <string name="qs_field_place">Place</string>
     <string name="qs_field_network">Network name</string>
     <string name="qs_field_security">Security</string>
     <string name="qs_field_identity">User name</string>
-    <string name="qs_field_password">Password</string>
-    <string name="qs_field_when">When</string>
-    <string name="qs_field_link">Link</string>
     <string name="qs_field_full_address">Full address</string>
-    <string name="qs_no_name">No name</string>
 
     <!-- Contacts -->
     <string name="qs_format_mecard">From a MECARD code</string>
@@ -96,7 +78,6 @@
         <item quantity="other">Import all %d contacts</item>
     </plurals>
     <string name="qs_back_to_list">Back to the list</string>
-    <string name="qs_add_contact">Add to contacts</string>
     <string name="qs_add_private">Add privately</string>
     <string name="qs_add_temporary">Add as temporary</string>
     <string name="qs_update_existing">Add to an existing contact</string>
@@ -118,7 +99,6 @@
     <string name="qs_open_in_parley">Open in Parley</string>
 
     <!-- Numbers, messages, email -->
-    <string name="qs_call">Call</string>
     <string name="qs_put_on_keypad">Put on the keypad</string>
     <string name="qs_code_warning">This is a phone code (it has * or #). Codes like this can change phone settings, for example forward your calls. Parley never dials it from here: check it on the keypad first.</string>
     <string name="qs_sms_note">Nothing is sent until you press Send in your messaging app.</string>
@@ -144,9 +124,7 @@
     <string name="qs_add_calendar">Add to calendar</string>
 
     <!-- Messengers -->
-    <string name="qs_open_in">Open in %1$s</string>
     <string name="qs_not_installed">%1$s isn\'t installed, or it can\'t open this link.</string>
-    <string name="qs_copy_link">Copy link</string>
     <string name="qs_open_browser">Open in browser</string>
     <string name="qs_browser_leaves">This leaves Parley: your browser opens the page and connects to the internet.</string>
     <string name="qs_store_page">%1$s in your app store</string>
@@ -167,8 +145,6 @@
     <string name="qs_warn_ip">%1$s is a bare number instead of a name. Well-known sites rarely use these.</string>
 
     <!-- Every result -->
-    <string name="qs_copy_text">Copy</string>
-    <string name="qs_share">Share</string>
     <string name="qs_share_chooser">Share what the code holds</string>
     <string name="qs_text_long">This is long; the rest is included when you copy or share it.</string>
     <string name="qs_no_app">No app on this phone can open this.</string>

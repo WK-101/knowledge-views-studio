@@ -120,7 +120,7 @@ object AddressMapLinks {
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(l)).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 
-    private fun launch(context: Context, intent: Intent) = context.startOrSay(intent, context.getString(R.string.main_no_app))
+    private fun launch(context: Context, intent: Intent) = context.startOrSay(intent, context.getString(R.string.blk_no_app))
 }
 
 /**
@@ -162,7 +162,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.AddLink, null) },
-        title = { Text(stringResource(R.string.map_link_title)) },
+        title = { Text(stringResource(R.string.map_link_add)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.map_link_intro), style = MaterialTheme.typography.bodyMedium)
@@ -178,7 +178,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 // The clipboard is read only when this is tapped.
                 AssistChip(
                     onClick = { Clipboard.readText(context, 2000)?.let { text = it } },
-                    label = { Text(stringResource(R.string.map_link_paste)) },
+                    label = { Text(stringResource(R.string.keypad_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp)) },
                 )
                 if (text.isNotBlank()) {
@@ -190,8 +190,8 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 }
             }
         },
-        confirmButton = { TextButton({ place?.let(onAdd) }, enabled = place != null) { Text(stringResource(R.string.map_link_add_button)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        confirmButton = { TextButton({ place?.let(onAdd) }, enabled = place != null) { Text(stringResource(R.string.agenda_add_save)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

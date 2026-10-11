@@ -22,12 +22,12 @@ internal fun SimAdviceBanner(ctx: ContactPageContext) {
     Banner(
         text = stringResource(R.string.sim_advice_text, name, tip.simLabel),
         icon = Icons.Rounded.SimCard,
-        action = stringResource(R.string.sim_advice_use, tip.simLabel),
+        action = stringResource(R.string.edit_native_language_use, tip.simLabel),
         onAction = {
             ctx.page.answerSimTip(tip, accept = true)
             ctx.vm.toast(done)
         },
         onDismiss = { ctx.page.answerSimTip(tip, accept = false) },
-        dismissLabel = stringResource(R.string.sim_advice_dismiss),
+        dismissLabel = stringResource(R.string.blk_no_thanks),
     )
 }

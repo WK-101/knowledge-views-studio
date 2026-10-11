@@ -62,7 +62,7 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.jr_title), onBack = back, actions = {
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
                         { Text(stringResource(R.string.jr_storage_menu)) },
@@ -93,7 +93,7 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
 
 private val HistoryTab.label: Int
     get() = when (this) {
-        HistoryTab.CONTACTS -> R.string.jr_tab_contacts
-        HistoryTab.CALLS -> R.string.jr_tab_calls
+        HistoryTab.CONTACTS -> R.string.rst_contacts
+        HistoryTab.CALLS -> R.string.quality_subject_all
         HistoryTab.SNAPSHOTS -> R.string.jr_tab_snapshots
     }

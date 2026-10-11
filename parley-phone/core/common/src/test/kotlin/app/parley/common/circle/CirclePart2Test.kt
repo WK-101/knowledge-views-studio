@@ -1,9 +1,9 @@
 package app.parley.common.circle
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.EventDate
 import app.parley.common.people.MetaRekey
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -21,7 +21,7 @@ class CirclePart2Test {
     private val today = LocalDate.of(2026, 9, 25)
     private val now = today.atStartOfDay(zone).toInstant().toEpochMilli() + 12 * hour
 
-    private fun call(type: CallType, at: Long, sec: Long = 60) = CallEntry(0, "+491701234567", null, type, at, sec, null, false, false)
+    private fun call(type: CallType, at: Long, sec: Long = 60) = testCall(0, "+491701234567", null, type, at, sec)
     private fun t(key: String, daysAgo: Double, kind: PeopleInsights.TouchKind) = PeopleInsights.Touch(key, now - (daysAgo * day).toLong(), kind)
 
     @Test fun promises_are_lines_with_a_box() {

@@ -78,8 +78,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
 
     val unlockReason = stringResource(R.string.ct_unlock_limits)
-    val allCalls = stringResource(R.string.ct_all_calls)
-    val contactFallback = stringResource(R.string.ct_contact)
+    val allCalls = stringResource(R.string.circle_all_calls)
+    val contactFallback = stringResource(R.string.rel_contact)
     fun set(f: (CallingConfig) -> CallingConfig) = vm.c.calling.update(f)
     fun limits(f: (CallingConfig) -> CallingConfig) = gate(unlockReason) { set(f) }
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
@@ -159,7 +159,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
                     headlineContent = { Text(stringResource(R.string.ct_supervised)) },
-                    supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
+                    supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.dc_off)) },
                     trailingContent = {
                         val label = stringResource(R.string.ct_supervised)
                         // Not a SwitchRow: turning supervised mode on or off first asks Parley's lock.
@@ -216,7 +216,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ pickLabel = false }) { Text(stringResource(R.string.set_cancel)) } },
+            dismissButton = { TextButton({ pickLabel = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
     if (noLock) {
@@ -224,7 +224,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             title = stringResource(R.string.ct_no_lock_title),
             text = stringResource(R.string.ct_no_lock_body),
             onDismiss = { noLock = false },
-            closeLabel = stringResource(R.string.set_ok),
+            closeLabel = stringResource(R.string.dc_ok),
         )
     }
 }
@@ -250,4 +250,4 @@ private fun Help(text: String) {
 }
 
 private fun warnText(context: Context, sec: Int): String =
-    if (sec % 60 == 0) context.getString(R.string.ct_minutes_short, sec / 60) else context.getString(R.string.ct_seconds_short, sec)
+    if (sec % 60 == 0) context.getString(R.string.hist_minutes_short, sec / 60) else context.getString(R.string.hist_seconds_short, sec)

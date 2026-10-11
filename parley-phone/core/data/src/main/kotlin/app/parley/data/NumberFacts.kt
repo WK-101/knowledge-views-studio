@@ -3,6 +3,7 @@ package app.parley.data
 import app.parley.common.LineType
 import app.parley.common.NumberValidity
 import app.parley.common.PhoneIdentity
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -11,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 data class NumberFactsResult(val region: String?, val lineType: LineType, val validity: NumberValidity)
 
 object NumberFacts {
-    private val util by lazy { PhoneNumberUtil.getInstance() }
+    private val util by lazy { PhoneData.util }
     private val cache = ConcurrentHashMap<String, NumberFactsResult>()
     private val UNKNOWN = NumberFactsResult(null, LineType.UNKNOWN, NumberValidity.UNKNOWN)
 

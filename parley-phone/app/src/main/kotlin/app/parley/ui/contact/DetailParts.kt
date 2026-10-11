@@ -113,7 +113,7 @@ fun RowScope.ActionTile(
 fun HeaderName(name: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val copyLabel = stringResource(R.string.main_copy)
+    val copyLabel = stringResource(R.string.hist_action_copy)
     Text(
         name, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
         modifier = modifier
@@ -135,7 +135,7 @@ fun HeaderName(name: String, modifier: Modifier = Modifier) {
 internal fun NativeNameLine(name: NativeName) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val copyLabel = stringResource(R.string.main_copy)
+    val copyLabel = stringResource(R.string.hist_action_copy)
     val text = name.shown
     val language = remember(name.language) { name.language.takeIf { it.isNotBlank() }?.let { Languages.display(it) }.orEmpty() }
     val desc = if (language.isEmpty()) text else stringResource(R.string.detail_native_name_desc, language, text)
@@ -177,8 +177,8 @@ fun HeaderFacts(parts: List<String>, separator: String, links: List<HeaderLink> 
     val shown = parts.filter { it.isNotBlank() }.map { HeaderLink(it, open = {}) to false } + links.map { it to true }
     if (shown.isEmpty()) return
     val context = LocalContext.current
-    val copyLabel = stringResource(R.string.main_copy)
-    val openLabel = stringResource(R.string.detail_open_person)
+    val copyLabel = stringResource(R.string.hist_action_copy)
+    val openLabel = stringResource(R.string.blk_open)
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     FlowRow(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
         shown.forEachIndexed { i, (part, opens) ->
@@ -222,10 +222,10 @@ fun GroupDataRow(
     Box {
         InfoRow(
             modifier = Modifier.combinedClickable(
-                onClickLabel = if (onClick == null) stringResource(R.string.main_copy) else null,
+                onClickLabel = if (onClick == null) stringResource(R.string.hist_action_copy) else null,
                 onClick = onClick ?: { Clipboard.copy(context, text) },
                 onLongClick = { if (menu != null) open = true else Clipboard.copy(context, text) },
-                onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.main_copy),
+                onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.hist_action_copy),
             ),
             leading = { if (showIcon) Icon(icon, null) },
             headline = headline ?: { Text(text) },
@@ -234,7 +234,7 @@ fun GroupDataRow(
         )
         if (menu != null) {
             DropdownMenu(open, { open = false }) {
-                DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })
+                DropdownMenuItem({ Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })
                 menu { open = false }
             }
         }

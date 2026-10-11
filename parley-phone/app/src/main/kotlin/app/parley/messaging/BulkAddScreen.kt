@@ -130,7 +130,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
 
     // Naming
     var pattern by rememberSaveable { mutableStateOf(BulkAdd.Pattern.NUMBERED) }
-    var prefix by rememberSaveable { mutableStateOf(rs.getString(R.string.bulk_default_prefix)) }
+    var prefix by rememberSaveable { mutableStateOf(rs.getString(R.string.rel_contact)) }
     var custom by rememberSaveable { mutableStateOf("{prefix} {n}") }
     // Destination
     var where by rememberSaveable { mutableStateOf(Where.CONTACTS) }
@@ -220,7 +220,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                 if (acc == null) return
                 BulkDestination.Label(acc, label.trim().ifEmpty { null }) to (label.trim().takeIf { it.isNotEmpty() }?.let { rs.getString(R.string.bulk_where_label, vm.accountLabel(acc), it) } ?: vm.accountLabel(acc))
             }
-            Where.PRIVATE -> BulkDestination.Private to rs.getString(R.string.bulk_private_contacts)
+            Where.PRIVATE -> BulkDestination.Private to rs.getString(R.string.rst_private)
             Where.TEMPORARY -> BulkDestination.Temporary(days, tempPrivate) to rs.getQuantityString(if (tempPrivate) R.plurals.bulk_where_temp_private else R.plurals.bulk_where_temp, days, days)
         }
         progress = 0f
@@ -257,7 +257,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
 
     ParleyScaffold(
         topBar = {
-            ParleyTopBar(stringResource(R.string.bulk_title), onBack = back)
+            ParleyTopBar(stringResource(R.string.discover_bulk_add_title), onBack = back)
         },
     ) { p ->
         val res = result
@@ -376,14 +376,14 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
         ConfirmDialog(
             title = stringResource(R.string.bulk_delete_title),
             text = pluralStringResource(R.plurals.bulk_delete_body, b.count, b.count, b.where),
-            confirmLabel = stringResource(R.string.main_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 deleteBatch = null
                 removeBatch(b, journal = true)
             },
             onDismiss = { deleteBatch = null },
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -393,7 +393,7 @@ private const val MAX_TEXT = 100_000
 /** Status of a reviewed number ([BulkAdd.Status.label] is the English original). */
 private val BulkAdd.Status.labelRes: Int
     get() = when (this) {
-        BulkAdd.Status.NEW -> R.string.bulk_status_new
+        BulkAdd.Status.NEW -> R.string.vmi_new
         BulkAdd.Status.CONTACT -> R.string.bulk_status_contact
         BulkAdd.Status.PRIVATE -> R.string.bulk_status_private
         BulkAdd.Status.DUPLICATE -> R.string.bulk_status_duplicate
@@ -404,7 +404,7 @@ private val BulkAdd.Pattern.labelRes: Int
     get() = when (this) {
         BulkAdd.Pattern.NUMBERED -> R.string.bulk_pattern_numbered
         BulkAdd.Pattern.WITH_NUMBER -> R.string.bulk_pattern_with_number
-        BulkAdd.Pattern.CUSTOM -> R.string.edit_custom
+        BulkAdd.Pattern.CUSTOM -> R.string.blk_sched_custom
     }
 
 /** "3 new · 1 already a contact · 1 repeated" ([BulkAdd.summary]). */
@@ -436,7 +436,7 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
         trailingContent = {
             IconButton({ onCall(c.e164 ?: c.raw) }) {
                 Icon(
-                    Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)),
+                    Icons.Rounded.Call, stringResource(R.string.circle_call_who, Bidi.ltr(shown)),
                     tint = CallColors.Accept,
                 )
             }
@@ -465,14 +465,14 @@ private fun DestinationPicker(
                 }
             }
         }
-        option(Where.CONTACTS, stringResource(R.string.tab_contacts), stringResource(R.string.bulk_contacts_sub))
+        option(Where.CONTACTS, stringResource(R.string.rst_contacts), stringResource(R.string.bulk_contacts_sub))
         if (where == Where.CONTACTS) {
             var accMenu by remember { mutableStateOf(false) }
             var labelMenu by remember { mutableStateOf(false) }
             Box {
                 ParleyListItem(
                     headlineContent = { Text(account?.let { vm.accountLabel(it) } ?: stringResource(R.string.bulk_no_account)) },
-                    supportingContent = { Text(stringResource(R.string.bulk_account)) },
+                    supportingContent = { Text(stringResource(R.string.ppl_chip_account)) },
                     trailingContent = { Icon(Icons.Rounded.ArrowDropDown, stringResource(R.string.bulk_choose_account)) },
                     modifier = Modifier.clickable(enabled = accounts.size > 1) { accMenu = true },
                 )
@@ -498,8 +498,8 @@ private fun DestinationPicker(
                 }
             }
         }
-        option(Where.PRIVATE, stringResource(R.string.bulk_private_contacts), stringResource(R.string.bulk_private_sub))
-        option(Where.TEMPORARY, stringResource(R.string.home_temporary), stringResource(R.string.bulk_temporary_sub))
+        option(Where.PRIVATE, stringResource(R.string.rst_private), stringResource(R.string.bulk_private_sub))
+        option(Where.TEMPORARY, stringResource(R.string.temp_title), stringResource(R.string.bulk_temporary_sub))
         if (where == Where.TEMPORARY) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(1, 7, 30).forEach { d -> FilterChip(days == d, { onDays(d) }, label = { Text(pluralStringResource(R.plurals.bulk_days, d, d)) }) }
@@ -509,7 +509,7 @@ private fun DestinationPicker(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.bulk_private))
+                    Text(stringResource(R.string.archive_private_section))
                     Text(
                         stringResource(if (tempPrivate) R.string.bulk_private_on else R.string.bulk_private_off),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -538,7 +538,7 @@ private fun LazyListScope.resultItems(
                 Text(stringResource(R.string.bulk_saved_of, r.saved, items.size, r.batch.where), style = MaterialTheme.typography.titleMedium)
             }
             r.failed.take(20).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            if (r.failed.size > 20) Text(stringResource(R.string.bulk_and_more, r.failed.size - 20), style = MaterialTheme.typography.bodySmall)
+            if (r.failed.size > 20) Text(stringResource(R.string.hist_import_more, r.failed.size - 20), style = MaterialTheme.typography.bodySmall)
             Text(
                 stringResource(R.string.bulk_remembered),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -547,7 +547,7 @@ private fun LazyListScope.resultItems(
     }
     item {
         ParleyListItem(
-            headlineContent = { Text(stringResource(R.string.sel_introduce)) },
+            headlineContent = { Text(stringResource(R.string.discover_introduce_title)) },
             supportingContent = { Text(stringResource(R.string.bulk_introduce_sub)) },
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
             modifier = Modifier.clickable(onClick = onIntroduce),
@@ -562,7 +562,7 @@ private fun LazyListScope.resultItems(
     item {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             TextButton(onMore) { Text(stringResource(R.string.bulk_add_more)) }
-            Button(onDone) { Text(stringResource(R.string.main_done)) }
+            Button(onDone) { Text(stringResource(R.string.dc_done)) }
         }
     }
 }

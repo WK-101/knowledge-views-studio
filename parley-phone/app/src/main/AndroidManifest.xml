@@ -247,7 +247,7 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
             <!-- A shared label's update or invitation file sent from any app, by its own type. -->
-            <intent-filter android:label="@string/shl_open_with">
+            <intent-filter android:label="@string/qs_open_in_parley">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -256,7 +256,7 @@
             <!-- Apps often give an unknown file type as octet-stream: Parley's own files (an update, an invitation, an
                  encrypted vCard) are then known by their name, when the link shows it. Never every unknown file. The
                  patterns repeat for names with more dots (a pattern's ".*" stops at the first match). -->
-            <intent-filter android:label="@string/shl_open_with">
+            <intent-filter android:label="@string/qs_open_in_parley">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="content" />
@@ -393,7 +393,7 @@
         <receiver
             android:name=".shortcuts.CircleWidget"
             android:exported="false"
-            android:label="@string/circle_widget_title">
+            android:label="@string/tab_circle">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -413,7 +413,7 @@
         <receiver
             android:name=".shortcuts.FavoritesWidget"
             android:exported="false"
-            android:label="@string/fav_widget_title">
+            android:label="@string/blk_favourites">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -474,7 +474,7 @@
             android:name=".ui.qr.QrScanTileService"
             android:exported="true"
             android:icon="@drawable/ic_tile_qr"
-            android:label="@string/qs_tile_label"
+            android:label="@string/qs_shortcut_short"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

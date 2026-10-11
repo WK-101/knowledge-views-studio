@@ -90,7 +90,7 @@ fun SealedImportDialog(uri: Uri, onDismiss: () -> Unit, onOpened: (CharArray) ->
     ConfirmDialog(
         title = stringResource(R.string.import_sealed_title),
         text = null,
-        confirmLabel = stringResource(R.string.import_sealed_open),
+        confirmLabel = stringResource(R.string.blk_open),
         onConfirm = ::check,
         onDismiss = onDismiss,
         confirmEnabled = pass.isNotEmpty() && !checking,

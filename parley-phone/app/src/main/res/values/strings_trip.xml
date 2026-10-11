@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Trip mode: who you know in a city. -->
 <resources>
-    <string name="trip_title">Who\'s in…</string>
-    <string name="trip_city">City</string>
     <string name="trip_hint">Type a city or pick one. Parley never uses your location.</string>
     <string name="trip_empty_title">Where are you going?</string>
     <string name="trip_empty_body">Parley lists people whose address, notes or phone number match the city.</string>
     <string name="trip_none">No one linked to %1$s</string>
     <string name="trip_none_body">Nobody\'s address, notes or number mention it yet.</string>
-    <string name="trip_list_separator">,\u0020</string>
     <string name="trip_summary">You\'re in %1$s: %2$s</string>
-    <string name="trip_reason_address">Address</string>
     <string name="trip_reason_number">Number from there</string>
     <string name="trip_reason_note">Mentioned in a note</string>
-    <string name="trip_menu">Who\'s in…</string>
     <!-- The Contacts search's city scope: the people tied to the typed city. -->
     <string name="trip_chip_query">People in %1$s</string>
     <plurals name="trip_summary_more">

@@ -66,9 +66,9 @@ object CircleText {
 
     fun mode(res: Resources, m: LogMode): String = res.getString(
         when (m) {
-            LogMode.ALWAYS -> R.string.circle_mode_always
+            LogMode.ALWAYS -> R.string.blk_always
             LogMode.ASK -> R.string.circle_mode_ask
-            LogMode.NEVER -> R.string.circle_mode_never
+            LogMode.NEVER -> R.string.blk_sched_never
         },
     )
 

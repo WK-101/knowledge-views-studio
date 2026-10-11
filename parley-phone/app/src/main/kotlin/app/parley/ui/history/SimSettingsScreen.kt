@@ -107,7 +107,7 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
     fun save(p: PlanConfig) = scope.launch { vm.c.history.savePlan(p) }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(sim?.label ?: stringResource(R.string.hist_filter_sim), onBack = back)
+        ParleyTopBar(sim?.label ?: stringResource(R.string.blk_editor_sim), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item { Section(stringResource(R.string.hist_plan_section)) }

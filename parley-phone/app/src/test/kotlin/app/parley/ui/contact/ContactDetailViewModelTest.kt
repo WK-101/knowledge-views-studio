@@ -146,7 +146,8 @@ class ContactDetailViewModelTest {
         assertTrue(vm.state.value.variants.isTemporary)
         vm.setExpiry(null)
         vm.until("the expiry to go") { it.temporary == null }
-        assertEquals(t.context.getString(R.string.detail_kept), messages.last())
+        // The message follows the change on its own way to the screen.
+        t.until("the kept message") { messages.lastOrNull() == t.context.getString(R.string.detail_kept) }
     }
 
     @Test fun the_usual_app_is_remembered() {

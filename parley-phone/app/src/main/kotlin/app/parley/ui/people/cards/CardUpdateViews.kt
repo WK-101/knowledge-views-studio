@@ -81,13 +81,13 @@ object CardUpdateText {
 
     fun fieldLabel(res: Resources, c: CardChange): String = c.label ?: res.getString(
         when (c.field) {
-            CardField.NAME -> R.string.me_name
-            CardField.PHONE -> R.string.me_number
-            CardField.EMAIL -> R.string.me_email
-            CardField.COMPANY -> R.string.me_company
-            CardField.TITLE -> R.string.me_job_title
-            CardField.WEBSITE -> R.string.me_website
-            CardField.ADDRESS -> R.string.me_address
+            CardField.NAME -> R.string.agenda_share_search
+            CardField.PHONE -> R.string.blk_check_number
+            CardField.EMAIL -> R.string.contact_page_sec_emails
+            CardField.COMPANY -> R.string.cs_sort_company
+            CardField.TITLE -> R.string.csv_field_title
+            CardField.WEBSITE -> R.string.csv_field_website
+            CardField.ADDRESS -> R.string.contact_page_sec_addresses
         },
     )
 
@@ -96,8 +96,8 @@ object CardUpdateText {
         fun v(s: String) = if (c.field == CardField.PHONE) Bidi.ltr(s) else s
         return when {
             c.old != null && c.new != null -> res.getString(R.string.card_change_replace, v(c.old!!), v(c.new!!))
-            c.new != null -> res.getString(R.string.card_change_add, v(c.new!!))
-            else -> res.getString(R.string.card_change_remove, v(c.old.orEmpty()))
+            c.new != null -> res.getString(R.string.editor_add_field, v(c.new!!))
+            else -> res.getString(R.string.edit_remove_citizenship, v(c.old.orEmpty()))
         }
     }
 }
@@ -134,7 +134,7 @@ fun CardUpdateBanner(vm: AppViewModel, navId: Long, key: String, details: Contac
             res.getString(R.string.card_update_banner, details.displayName, CardUpdateText.kinds(res, changes)),
             icon = Icons.Rounded.Verified,
             action = stringResource(R.string.card_update_review), onAction = { review = true },
-            onDismiss = { hidden = true }, dismissLabel = stringResource(R.string.card_update_not_now),
+            onDismiss = { hidden = true }, dismissLabel = stringResource(R.string.circle_not_now),
         )
     }
     if (review) CardUpdateDialog(vm, navId, key, details.displayName, link.fingerprint, changes) { review = false }
@@ -156,7 +156,7 @@ private fun HeldCardBanner(vm: AppViewModel, key: String, name: String, linkedFi
     when (offer.kind) {
         HeldOffer.Kind.LINK -> Banner(
             res.getString(R.string.card_held_offer, name, Bidi.ltr(held.fingerprint)), icon = Icons.Rounded.Badge,
-            action = stringResource(R.string.card_link), onAction = { linkIt() },
+            action = stringResource(R.string.picker_join_confirm), onAction = { linkIt() },
             onDismiss = { scope.launch { CardInbox.dropHeld(vm.c, held) } }, dismissLabel = stringResource(R.string.card_held_dont_link),
         )
         HeldOffer.Kind.DIFFERENT_SIGNER -> Banner(
@@ -208,7 +208,7 @@ private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: S
     }
     ParleyDialog(
         onDismissRequest = { if (!busy) onDone() },
-        title = { Text(stringResource(R.string.card_update_title, name)) },
+        title = { Text(stringResource(R.string.blk_update_list_q, name)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.card_update_body, Bidi.ltr(fingerprint)), style = MaterialTheme.typography.bodyMedium)
@@ -233,7 +233,7 @@ private fun CardUpdateDialog(vm: AppViewModel, navId: Long, key: String, name: S
         },
         confirmButton = {
             TextButton({ run(changes.filter { it in chosen }) }, enabled = !busy && chosen.isNotEmpty()) {
-                Text(stringResource(if (chosen.size == changes.size) R.string.card_update_apply_all else R.string.card_update_apply))
+                Text(stringResource(if (chosen.size == changes.size) R.string.card_update_apply_all else R.string.hist_filter_apply))
             }
         },
         dismissButton = { TextButton({ run(emptyList()) }, enabled = !busy) { Text(stringResource(R.string.card_update_ignore)) } },
@@ -276,13 +276,13 @@ fun CardArrivalNotes(vm: AppViewModel, text: String?, onOpen: (() -> Unit)? = nu
         when (r) {
             is CardInbox.Result.Update -> Banner(
                 res.getString(R.string.card_in_update, r.name), icon = Icons.Rounded.Verified,
-                action = stringResource(R.string.card_in_open), onAction = { open(r.navId) },
+                action = stringResource(R.string.blk_open), onAction = { open(r.navId) },
             )
             is CardInbox.Result.Current -> Banner(res.getString(R.string.card_in_current, r.name), icon = Icons.Rounded.Verified)
             is CardInbox.Result.Linked -> Banner(res.getString(R.string.card_in_linked, r.name), icon = Icons.Rounded.Verified)
             is CardInbox.Result.Offer -> Banner(
                 res.getString(R.string.card_in_offer, r.name, Bidi.ltr(r.card.fingerprint)), icon = Icons.Rounded.Badge,
-                action = stringResource(R.string.card_link), onAction = { linkAt(i, r.key, r.card, r.navId, r.name) },
+                action = stringResource(R.string.picker_join_confirm), onAction = { linkAt(i, r.key, r.card, r.navId, r.name) },
             )
             CardInbox.Result.Held -> Banner(res.getString(R.string.card_in_held), icon = Icons.Rounded.Badge)
             is CardInbox.Result.DifferentSigner -> Banner(

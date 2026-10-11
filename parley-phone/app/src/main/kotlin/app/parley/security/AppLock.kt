@@ -461,7 +461,7 @@ fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = fal
                 when {
                     p == null -> Spacer(Modifier.height(48.dp))
                     p.pinSet -> PinUnlock(autoFocus = emergencyNumber == null)
-                    else -> Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
+                    else -> Button(onUnlock) { Text(stringResource(R.string.cs_private_unlock)) }
                 }
                 // Parley is the phone app: its lock must never stand between the user and an emergency call.
                 var emergency by remember(emergencyNumber) { mutableStateOf(emergencyNumber != null) }
@@ -520,9 +520,9 @@ private fun EmergencyDialog(initial: String, onDismiss: () -> Unit) {
                     }
                 },
                 enabled = isEmergency,
-            ) { Text(stringResource(R.string.main_call)) }
+            ) { Text(stringResource(R.string.circle_widget_call)) }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

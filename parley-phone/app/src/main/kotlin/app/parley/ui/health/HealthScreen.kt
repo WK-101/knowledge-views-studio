@@ -129,7 +129,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 AccountDiagnosticsSection(vm)
                 EmptyState(
                     Icons.Rounded.HealthAndSafety, stringResource(R.string.health_all_tidy), stringResource(R.string.health_all_tidy_text),
-                    action = stringResource(R.string.main_done), onAction = back,
+                    action = stringResource(R.string.dc_done), onAction = back,
                 )
             }
             return@ParleyScaffold
@@ -142,7 +142,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
-                item { Section(stringResource(R.string.health_group, stringResource(title), group.size)) }
+                item { Section(stringResource(R.string.rst_with_count, stringResource(title), group.size)) }
                 item {
                     when (kind) {
                         HealthKind.NO_COUNTRY_CODE, HealthKind.TITLE_IS_COMPANY -> Button(
@@ -154,7 +154,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         ) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> StaleActions(
                             onAutoDelete = {
-                                val phoneLabel = res.getString(R.string.health_phone)
+                                val phoneLabel = res.getString(R.string.contact_page_sec_phones)
                                 // Never with one tap: list who and where first.
                                 scope.launch {
                                     confirmStale = withContext(Dispatchers.IO) {

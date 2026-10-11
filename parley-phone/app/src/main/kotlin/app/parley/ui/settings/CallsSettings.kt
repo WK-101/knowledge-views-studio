@@ -31,7 +31,7 @@ fun CallVibrationRow(vm: AppViewModel, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val current = CallVibration.of(config.haptics, config.connectHaptic)
     // In the order of CallVibration.
-    val choices = listOf(stringResource(R.string.set_off), stringResource(R.string.set_call_haptics_changes), stringResource(R.string.set_call_haptics_answer))
+    val choices = listOf(stringResource(R.string.dc_off), stringResource(R.string.set_call_haptics_changes), stringResource(R.string.set_call_haptics_answer))
     MenuRow(settingTitle("call_haptics"), choices, current.ordinal, icon, stringResource(R.string.set_call_haptics_sub)) { i ->
         val v = CallVibration.entries[i]
         vm.c.calling.update { it.copy(haptics = v.haptics, connectHaptic = v.onConnect) }

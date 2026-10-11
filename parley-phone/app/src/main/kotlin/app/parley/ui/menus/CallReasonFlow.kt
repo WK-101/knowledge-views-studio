@@ -105,7 +105,7 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
         ReasonStage.ASK_CALL -> ConfirmDialog(
             title = stringResource(R.string.reason_call_now_title, who),
             text = stringResource(R.string.reason_call_now_body),
-            confirmLabel = stringResource(R.string.reason_call),
+            confirmLabel = stringResource(R.string.circle_widget_call),
             icon = Icons.Rounded.Call,
             // This question is the confirmation: "Confirm before calling" isn't asked again.
             onConfirm = {
@@ -113,7 +113,7 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
                 vm.requestCall(target.number, target.name, skipConfirm = true, simId = target.simId)
             },
             onDismiss = onDone,
-            dismissLabel = stringResource(R.string.reason_not_now),
+            dismissLabel = stringResource(R.string.circle_not_now),
         )
     }
 }
@@ -166,7 +166,7 @@ private fun ReasonButtons(ways: List<ReasonWay>, clean: String?, onCall: (String
             CallButton { onCall(clean) }
         }
         text -> {
-            TextButton(onClick = { onCall(null) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.reason_call)) }
+            TextButton(onClick = { onCall(null) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.circle_widget_call)) }
             TextFirstButton(filled = true, enabled = clean != null) { clean?.let(onTextFirst) }
         }
         else -> CallButton { onCall(null) }
@@ -177,7 +177,7 @@ private fun ReasonButtons(ways: List<ReasonWay>, clean: String?, onCall: (String
 private fun CallButton(onClick: () -> Unit) {
     Button(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
         Icon(Icons.Rounded.Call, null, Modifier.padding(end = Spacing.xs))
-        Text(stringResource(R.string.reason_call))
+        Text(stringResource(R.string.circle_widget_call))
     }
 }
 

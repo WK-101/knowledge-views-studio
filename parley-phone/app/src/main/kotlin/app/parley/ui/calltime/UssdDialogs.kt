@@ -68,7 +68,7 @@ fun UssdDialog(vm: AppViewModel) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.set_cancel)) } },
+            dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.dc_cancel)) } },
         )
         is UssdState.Sending -> ParleyDialog(
             onDismissRequest = vm.ussd::dismiss,
@@ -80,7 +80,7 @@ fun UssdDialog(vm: AppViewModel) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.set_cancel)) } },
+            dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.dc_cancel)) } },
         )
         is UssdState.Reply -> ParleyDialog(
             onDismissRequest = vm.ussd::dismiss,
@@ -98,10 +98,10 @@ fun UssdDialog(vm: AppViewModel) {
                     }
                 }
             },
-            confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.ct_close)) } },
+            confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.main_close)) } },
             dismissButton = {
                 if (s.ok) {
-                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.ct_copy)) }
+                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.hist_action_copy)) }
                 } else {
                     TextButton({
                         vm.ussd.dismiss()
@@ -138,7 +138,7 @@ fun UssdHistoryDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.ct_close)) } },
-        dismissButton = { if (history.isNotEmpty()) TextButton({ vm.c.calling.clearUssd() }) { Text(stringResource(R.string.set_clear)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
+        dismissButton = { if (history.isNotEmpty()) TextButton({ vm.c.calling.clearUssd() }) { Text(stringResource(R.string.hist_filter_clear)) } },
     )
 }

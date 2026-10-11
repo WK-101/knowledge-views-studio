@@ -52,7 +52,7 @@ internal fun CallerRingGroup(vm: AppViewModel, open: (Destination) -> Unit) {
     var editing by rememberSaveable { mutableStateOf(false) }
     val answerSub = autoAnswerSummary(cfg)
     val vibrationSub = stringResource(R.string.set_caller_vibration_sub)
-    SegmentedGroup(stringResource(R.string.set_group_know_caller)) {
+    SegmentedGroup(stringResource(R.string.discover_job_know_who)) {
         linkRow("auto_answer", Icons.Rounded.PhoneInTalk, sub = answerSub) { editing = true }
         // Set on a person's page or a label's page; the labels list is one tap from here.
         linkRow("caller_vibration", Icons.Rounded.Vibration, sub = vibrationSub) { open(PeopleRoutes.Labels) }
@@ -63,7 +63,7 @@ internal fun CallerRingGroup(vm: AppViewModel, open: (Destination) -> Unit) {
 /** "Off", or what is on: "With a headset · For chosen people · After 5 seconds". */
 @Composable
 private fun autoAnswerSummary(cfg: CallExtrasConfig): String {
-    if (!AutoAnswer.enabled(cfg)) return stringResource(R.string.set_off)
+    if (!AutoAnswer.enabled(cfg)) return stringResource(R.string.dc_off)
     val parts = listOfNotNull(
         stringResource(R.string.set_auto_answer_headset).takeIf { cfg.autoAnswerHeadset },
         stringResource(R.string.set_auto_answer_simple).takeIf { cfg.autoAnswerSimple },
@@ -80,7 +80,7 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.PhoneInTalk, null) },
-        title = { Text(stringResource(R.string.set_auto_answer_title)) },
+        title = { Text(stringResource(R.string.caller_auto_answer)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.set_auto_answer_body), style = MaterialTheme.typography.bodyMedium)
@@ -103,7 +103,7 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
                     cfg.autoAnswerChosen,
                 ) { v -> set { it.copy(autoAnswerChosen = v) } }
                 Text(
-                    stringResource(R.string.set_auto_answer_delay), style = MaterialTheme.typography.titleSmall,
+                    stringResource(R.string.drive_answer_after), style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs).semantics { heading() },
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {

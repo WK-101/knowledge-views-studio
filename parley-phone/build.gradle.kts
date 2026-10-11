@@ -13,6 +13,45 @@ plugins {
 }
 
 /*
+ * One Android and Kotlin setup for every module: SDK levels from the version catalog, Java 17 bytecode and the shared
+ * lint rules. A module's own build file keeps only what is its own (namespace, features, dependencies).
+ */
+val compileSdkLevel = libs.versions.compileSdk.get().toInt()
+val targetSdkLevel = libs.versions.targetSdk.get().toInt()
+val minSdkLevel = libs.versions.minSdk.get().toInt()
+subprojects {
+    plugins.withType<com.android.build.gradle.api.AndroidBasePlugin> {
+        extensions.configure<com.android.build.api.dsl.CommonExtension<*, *, *, *, *, *>>("android") {
+            compileSdk = compileSdkLevel
+            defaultConfig.minSdk = minSdkLevel
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            lint {
+                abortOnError = true
+                lintConfig = rootProject.file("lint.xml")
+            }
+        }
+    }
+    plugins.withId("com.android.application") {
+        extensions.configure<com.android.build.api.dsl.ApplicationExtension> { defaultConfig.targetSdk = targetSdkLevel }
+    }
+    plugins.withId("com.android.test") {
+        extensions.configure<com.android.build.api.dsl.TestExtension> { defaultConfig.targetSdk = targetSdkLevel }
+    }
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        extensions.configure<JavaPluginExtension> {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+    }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>().configureEach {
+        compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+/*
  * Test coverage (Kover), on request only, so everyday builds and test runs aren't instrumented:
  *   ./gradlew -Pcoverage koverHtmlReport koverXmlReport
  * writes one report over the modules below to build/reports/kover/ (html/index.html, report.xml). It reports and
@@ -132,7 +171,7 @@ detekt {
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(
         listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater", "tools/detekt-rules", "baselineprofile").flatMap { m ->
-            listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
+            listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin", "$m/src/testFixtures/kotlin")
         }.map { file(it) }.filter { it.exists() },
     )
 }

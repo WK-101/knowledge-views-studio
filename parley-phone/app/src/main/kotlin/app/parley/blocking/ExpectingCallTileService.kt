@@ -45,7 +45,7 @@ class ExpectingCallTileService : TileService() {
         val remaining = BlockingActions.snoozeRemaining(container)
         tile.state = if (remaining > 0) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.blk_check_expecting)
-        tile.subtitle = if (remaining > 0) getString(R.string.blk_tile_on, formatLeft(this, remaining)) else getString(R.string.set_off)
+        tile.subtitle = if (remaining > 0) getString(R.string.blk_tile_on, formatLeft(this, remaining)) else getString(R.string.dc_off)
         tile.contentDescription = if (remaining > 0) getString(R.string.blk_tile_on_cd, formatLeft(this, remaining)) else getString(R.string.blk_tile_off_cd)
         tile.updateTile()
     }
@@ -55,7 +55,7 @@ class ExpectingCallTileService : TileService() {
             val min = ((ms + 59_999) / 60_000).toInt()
             return if (min >= 60) context.getString(
                 R.string.blk_tile_hours_minutes, min / 60, (min % 60).toString().padStart(2, '0'),
-            ) else context.getString(R.string.ct_minutes_short, min)
+            ) else context.getString(R.string.hist_minutes_short, min)
         }
 
         fun refresh(context: Context) {

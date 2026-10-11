@@ -180,7 +180,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                         val e = stored!!
                         val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked)
                         Text(
-                            stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v),
+                            stringResource(R.string.archive_page_work, Format.fullDate(context, e.time), v),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 8.dp),
                         )
@@ -208,7 +208,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.ct_close)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
         dismissButton = if (!live && stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text(stringResource(R.string.blk_test_today)) } }) else null,
     )
 }
@@ -223,7 +223,7 @@ private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDis
         confirmLabel = stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search),
         onConfirm = { onDismiss(); BlockingActions.searchWeb(context, d.number, url) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.blk_web_body, bidiLtr(Format.number(d.number, vm.countryIso))))
@@ -247,7 +247,7 @@ private fun FamilyShieldMarks(vm: AppViewModel, number: String, onDone: () -> Un
     val res = LocalResources.current
     Text(stringResource(R.string.fsh_report_title), style = MaterialTheme.typography.titleSmall)
     Row {
-        listOf(ShieldKind.SCAM to R.string.fsh_report_scam, ShieldKind.SPAM_LIKELY to R.string.fsh_report_spam).forEach { (kind, label) ->
+        listOf(ShieldKind.SCAM to R.string.fsh_report_scam, ShieldKind.SPAM_LIKELY to R.string.blk_ch_likely).forEach { (kind, label) ->
             TextButton({
                 // The dialog closes now; the mark and the runs that share it finish on their own.
                 vm.viewModelScope.launch {
@@ -272,7 +272,7 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
             confirmLabel = stringResource(R.string.blk_open),
             onConfirm = { onDismiss(); BlockingActions.openRegulator(context, regulator, number) },
             onDismiss = onDismiss,
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
         return
     }
@@ -298,7 +298,7 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
                 }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -323,7 +323,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
             onDismiss()
         },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -367,7 +367,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     ConfirmDialog(
         title = stringResource(R.string.blk_label_title, d.title),
         text = null,
-        confirmLabel = stringResource(R.string.set_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = {
             scope.launch {
                 when (choice) {
@@ -387,7 +387,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
             onDismiss()
         },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = choice != 2 || tone != null,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -431,6 +431,6 @@ private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

@@ -89,7 +89,7 @@ internal fun ScamCheckSheet(live: Boolean, actions: ScamCheckActions, onDismiss:
         actions.onVerify?.let { Way(Icons.Rounded.VerifiedUser, R.string.verify_title, R.string.verify_explainer, act(it)) }
         actions.onCallOfficial?.let { Way(Icons.Rounded.Phone, R.string.scam_official_number, R.string.scam_official_number_detail, act(it)) }
         actions.onHangUp?.let {
-            Way(Icons.Rounded.CallEnd, R.string.scam_hang_up, if (actions.blockReportNext) R.string.scam_hang_up_detail else null, act(it))
+            Way(Icons.Rounded.CallEnd, R.string.notif_hang_up, if (actions.blockReportNext) R.string.scam_hang_up_detail else null, act(it))
         }
         actions.onBlock?.let { Way(Icons.Rounded.Block, R.string.scam_block, null, act(it)) }
         actions.onReport?.let { Way(Icons.Rounded.Flag, R.string.scam_report, null, act(it)) }

@@ -145,13 +145,16 @@ project tree, in `dist/`, in `/tmp` or on a machine that builds untrusted code.
 ### Dependency verification
 
 Gradle checks every downloaded artifact (plugins, libraries, lint and detekt jars) against
-`gradle/verification-metadata.xml` (SHA-256), locally and in CI; a changed or unexpected artifact fails the build.
-After adding or updating a dependency, regenerate the file, review the diff (new components only, from the expected
-groups) and commit it with the change:
+`gradle/verification-metadata.xml`, locally and in CI; a changed or unexpected artifact fails the build. Signed
+artifacts are checked against their publisher's PGP key (`trusted-keys`, each limited to that publisher's groups; the
+keys themselves are in `gradle/verification-keyring.keys`), the others by SHA-256. After adding or updating a
+dependency, regenerate both files, review the diff (new components only, from the expected groups; a new
+`trusted-key` must belong to that project's known publisher) and commit them with the change:
 
 ```bash
-./gradlew --write-verification-metadata sha256 resolveAllDependencies \
-  :core:common:test testDebugUnitTest detekt lintDebug assembleDebug
+./gradlew --write-verification-metadata pgp,sha256 --export-keys resolveAllDependencies \
+  :app:compileDebugAndroidTestKotlin detekt lintDebug
+rm gradle/verification-keyring.gpg   # the reviewable .keys file is the one kept
 ```
 
 ## 3. Release checklist

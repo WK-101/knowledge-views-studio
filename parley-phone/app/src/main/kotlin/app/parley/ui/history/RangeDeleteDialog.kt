@@ -65,7 +65,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
     ConfirmDialog(
         title = stringResource(R.string.hist_range_title),
         text = null,
-        confirmLabel = if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.dc_delete),
+        confirmLabel = if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.blk_delete),
         onConfirm = {
             val r = range
             val p = picked

@@ -206,18 +206,18 @@ private class MultiKind(
 )
 
 private val PHONES = MultiKind(
-    "phone", Icons.Rounded.Phone, R.string.detail_phone, R.string.edit_add_phone, R.string.editor_remove_phone, phoneTypes, Phone.TYPE_MOBILE,
+    "phone", Icons.Rounded.Phone, R.string.contact_page_sec_phones, R.string.edit_add_phone, R.string.editor_remove_phone, phoneTypes, Phone.TYPE_MOBILE,
     KeyboardType.Phone, { r, t -> Phone.getTypeLabel(r, t, null).toString() }, { it.phones }, { d, l -> d.copy(phones = l) },
     EditorForm::phoneLooksWrong, R.string.editor_phone_hint,
 )
 private val EMAILS = MultiKind(
-    "email", Icons.Rounded.Email, R.string.detail_email, R.string.edit_add_email, R.string.editor_remove_email, emailTypes, Email.TYPE_HOME,
+    "email", Icons.Rounded.Email, R.string.contact_page_sec_emails, R.string.edit_add_email, R.string.editor_remove_email, emailTypes, Email.TYPE_HOME,
     KeyboardType.Email, { r, t -> Email.getTypeLabel(r, t, null).toString() }, { it.emails }, { d, l -> d.copy(emails = l) },
     EditorForm::emailLooksWrong, R.string.editor_email_hint,
 )
 private val WEBSITES = MultiKind(
-    "web", Icons.Rounded.Language, R.string.detail_website, R.string.edit_add_website, R.string.editor_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
-    { r, t -> r.getString(when (t) { Website.TYPE_HOMEPAGE -> R.string.edit_web_homepage; Website.TYPE_WORK -> R.string.edit_web_work; else -> R.string.edit_web_other }) },
+    "web", Icons.Rounded.Language, R.string.csv_field_website, R.string.edit_add_website, R.string.editor_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
+    { r, t -> r.getString(when (t) { Website.TYPE_HOMEPAGE -> R.string.edit_web_homepage; Website.TYPE_WORK -> R.string.rel_group_work; else -> R.string.circle_type_other }) },
     { it.websites }, { d, l -> d.copy(websites = l) },
 )
 
@@ -448,15 +448,15 @@ private fun EditorTopBar(editor: EditorViewModel, args: EditorScreenArgs, scroll
                         args.meCard -> R.string.me_title
                         editor.isVault && !editor.temporaryNew ->
                             if ((args.vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private
-                        args.contactId == null -> R.string.edit_title_new
-                        args.rawId != null -> R.string.edit_title_copy
+                        args.contactId == null -> R.string.hist_action_new_contact
+                        args.rawId != null -> R.string.ppl_edit_copy
                         else -> R.string.edit_title_edit
                     },
                 ),
                 maxLines = 1,
             )
         },
-        navigationIcon = { IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
+        navigationIcon = { IconButton(onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.dc_cancel)) } },
         actions = {
             // Save stays in the bar while the form scrolls; it's ready once there is something to save (new)
             // or something changed (existing), and says so by filling in.
@@ -466,7 +466,7 @@ private fun EditorTopBar(editor: EditorViewModel, args: EditorScreenArgs, scroll
                         val desc = stringResource(R.string.editor_saving)
                         CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
                     } else {
-                        Text(stringResource(R.string.main_save))
+                        Text(stringResource(R.string.pin_save))
                     }
                 }
             }
@@ -781,9 +781,9 @@ private fun FieldList.reachGroups(shape: EditorShape) {
         at(KEY_COMPANY)
         put("work") {
             val workLocked = lockedRow(d.orgId)
-            FormRow(Icons.Rounded.Business, stringResource(R.string.editor_work), Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
+            FormRow(Icons.Rounded.Business, stringResource(R.string.rel_group_work), Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
                 EditorField(
-                    stringResource(R.string.edit_company), d.company, shape = formFieldShape(0, 3), cap = KeyboardCapitalization.Words,
+                    stringResource(R.string.cs_sort_company), d.company, shape = formFieldShape(0, 3), cap = KeyboardCapitalization.Words,
                     locked = workLocked, focus = form.fr(KEY_COMPANY),
                 ) { v -> form.update { it.copy(company = v) } }
                 Spacer(Modifier.height(FormTokens.segmentGap))
@@ -793,7 +793,7 @@ private fun FieldList.reachGroups(shape: EditorShape) {
                 ) { v -> form.update { it.copy(title = v) } }
                 Spacer(Modifier.height(FormTokens.segmentGap))
                 EditorField(
-                    stringResource(R.string.edit_department), d.department, shape = formFieldShape(2, 3), cap = KeyboardCapitalization.Words,
+                    stringResource(R.string.csv_field_department), d.department, shape = formFieldShape(2, 3), cap = KeyboardCapitalization.Words,
                     locked = workLocked,
                 ) { v -> form.update { it.copy(department = v) } }
             }
@@ -826,7 +826,7 @@ private fun FieldList.placeGroups(shape: EditorShape) {
         val swap = if (!form.movable(d.addresses.map { it.id })) null else { a: Int, b: Int ->
             form.swapRows(G_ADDR, a, b, { it.addresses }) { c, l -> c.copy(addresses = l) }
         }
-        group(Icons.Rounded.Place, R.string.detail_address, form.keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
+        group(Icons.Rounded.Place, R.string.contact_page_sec_addresses, form.keys.keys(G_ADDR, d.addresses.size), FormTokens.groupGap, swap) { i, k, lead, _ ->
             val a = d.addresses.getOrNull(i) ?: return@group
             AddressRow(
                 a, form.fr(k), lead,
@@ -857,7 +857,7 @@ private fun FieldList.webGroups(shape: EditorShape) {
         val swap = if (!form.movable(d.handles.map { it.id })) null else { a: Int, b: Int ->
             form.swapRows(G_HANDLE, a, b, { it.handles }) { c, l -> c.copy(handles = l) }
         }
-        group(Icons.Rounded.Forum, R.string.edit_handles, form.keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap, swap) { i, k, lead, _ ->
+        group(Icons.Rounded.Forum, R.string.prov_field_handles, form.keys.keys(G_HANDLE, d.handles.size), FormTokens.segmentGap, swap) { i, k, lead, _ ->
             val h = d.handles.getOrNull(i) ?: return@group
             HandleRow(
                 h, form.fr(k), lead, i, d.handles.size,
@@ -878,7 +878,7 @@ private fun FieldList.profileGroups(shape: EditorShape) {
         form.swapRows(WEBSITES.group, profileIdx[a], profileIdx[b], WEBSITES.get, WEBSITES.set)
     }
     val profileKeys = profileIdx.map { shape.webKeys[it] }
-    group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileKeys, FormTokens.segmentGap, profileSwap) { j, k, lead, rowShape ->
+    group(Icons.Rounded.AlternateEmail, R.string.contact_page_sec_profiles, profileKeys, FormTokens.segmentGap, profileSwap) { j, k, lead, rowShape ->
         val i = profileIdx.getOrNull(j) ?: return@group
         val w = d.websites.getOrNull(i) ?: return@group
         // Never drops out mid-typing: a value that reads as no profile keeps the row's own service.
@@ -899,7 +899,7 @@ private fun FieldList.aboutGroups(vm: AppViewModel, editor: EditorViewModel, meC
         val swap = if (!form.movable(d.relations.map { it.id })) null else { a: Int, b: Int ->
             form.swapRows(G_REL, a, b, { it.relations }) { c, l -> c.copy(relations = l) }
         }
-        group(Icons.Rounded.People, R.string.edit_relations, form.keys.keys(G_REL, d.relations.size), FormTokens.segmentGap, swap) { i, k, lead, rowShape ->
+        group(Icons.Rounded.People, R.string.me_part_relations, form.keys.keys(G_REL, d.relations.size), FormTokens.segmentGap, swap) { i, k, lead, rowShape ->
             val item = d.relations.getOrNull(i) ?: return@group
             RelationRow(
                 vm, item, form.fr(k), lead, rowShape,
@@ -982,11 +982,12 @@ private fun FieldList.aboutRows(vm: AppViewModel, editor: EditorViewModel, meCar
         at(KEY_NOTE)
         put("note") {
             FormRow(
-                Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
+                Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.contact_page_kind_notes),
+                Modifier.animateItem().padding(bottom = FormTokens.groupGap),
             ) {
                 ParleyFormField(
                     // My card's note goes into the QR code or vCard only when you tick it.
-                    d.note, { v -> form.update { it.copy(note = v) } }, stringResource(R.string.edit_notes),
+                    d.note, { v -> form.update { it.copy(note = v) } }, stringResource(R.string.contact_page_kind_notes),
                     modifier = Modifier.fillMaxWidth().focusRequester(form.fr(KEY_NOTE)), singleLine = false, minLines = 2,
                     supporting = if (meCard) stringResource(R.string.me_note_hint) else null,
                     readOnly = lockedRow(d.noteId),
@@ -1037,7 +1038,7 @@ private fun FieldList.addChipsRow(shape: EditorShape) {
 
 private fun chipGroupTitle(g: EditorForm.ChipGroup): Int = when (g) {
     EditorForm.ChipGroup.CONTACT -> R.string.editor_add_group_contact
-    EditorForm.ChipGroup.ABOUT -> R.string.editor_add_group_about
+    EditorForm.ChipGroup.ABOUT -> R.string.contact_page_sec_about
     EditorForm.ChipGroup.CALLS -> R.string.editor_add_group_calls
 }
 
@@ -1106,7 +1107,7 @@ private fun EditorDialogs(editor: EditorViewModel, confirmDiscard: Boolean, setC
             onDismissRequest = {},
             title = { Text(stringResource(R.string.edit_keep_title)) },
             text = { Text(stringResource(R.string.edit_keep_body)) },
-            confirmButton = { TextButton({ editor.answerKeep(true) }) { Text(stringResource(R.string.edit_keep)) } },
+            confirmButton = { TextButton({ editor.answerKeep(true) }) { Text(stringResource(R.string.bkp_keep)) } },
             dismissButton = { TextButton({ editor.answerKeep(false) }) { Text(stringResource(R.string.edit_still_delete)) } },
         )
     }
@@ -1202,31 +1203,31 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
 
 @Suppress("CyclomaticComplexMethod") // One label per kind.
 private fun kindLabel(k: EditorForm.Kind): Int = when (k) {
-    EditorForm.Kind.PHONE -> R.string.detail_phone
-    EditorForm.Kind.EMAIL -> R.string.detail_email
-    EditorForm.Kind.WORK -> R.string.editor_work
-    EditorForm.Kind.DATE -> R.string.edit_date
-    EditorForm.Kind.ADDRESS -> R.string.detail_address
-    EditorForm.Kind.NOTE -> R.string.edit_notes
-    EditorForm.Kind.WEBSITE -> R.string.detail_website
+    EditorForm.Kind.PHONE -> R.string.contact_page_sec_phones
+    EditorForm.Kind.EMAIL -> R.string.contact_page_sec_emails
+    EditorForm.Kind.WORK -> R.string.rel_group_work
+    EditorForm.Kind.DATE -> R.string.hist_pdf_col_date
+    EditorForm.Kind.ADDRESS -> R.string.contact_page_sec_addresses
+    EditorForm.Kind.NOTE -> R.string.contact_page_kind_notes
+    EditorForm.Kind.WEBSITE -> R.string.csv_field_website
     EditorForm.Kind.PROFILE -> R.string.edit_profile
-    EditorForm.Kind.RELATION -> R.string.edit_relation
-    EditorForm.Kind.HANDLE -> R.string.edit_handles
-    EditorForm.Kind.WHEN_THEY_CALL -> R.string.edit_when_they_call
-    EditorForm.Kind.LABELS -> R.string.home_labels
+    EditorForm.Kind.RELATION -> R.string.cs_group_relation
+    EditorForm.Kind.HANDLE -> R.string.prov_field_handles
+    EditorForm.Kind.WHEN_THEY_CALL -> R.string.editor_add_group_calls
+    EditorForm.Kind.LABELS -> R.string.blk_check_labels
     EditorForm.Kind.CALL_BACKGROUND -> R.string.ppl_bg_title
     EditorForm.Kind.NAME_DETAILS -> R.string.edit_name_details
-    EditorForm.Kind.CUSTOM_FIELD -> R.string.edit_custom_field
-    EditorForm.Kind.LANGUAGE -> R.string.edit_languages
+    EditorForm.Kind.CUSTOM_FIELD -> R.string.detail_custom_field
+    EditorForm.Kind.LANGUAGE -> R.string.detail_languages
     EditorForm.Kind.NATIVE_NAME -> R.string.edit_native_name
-    EditorForm.Kind.CITIZENSHIP -> R.string.edit_citizenship
+    EditorForm.Kind.CITIZENSHIP -> R.string.detail_citizenship
 }
 
 /** The account's labels as chips. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LabelsRow(accountGroups: List<GroupInfo>, selected: Set<Long>, modifier: Modifier, onChange: (Set<Long>) -> Unit) {
-    FormRow(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels), modifier.padding(bottom = FormTokens.groupGap)) {
+    FormRow(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.blk_check_labels), modifier.padding(bottom = FormTokens.groupGap)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(min = FormTokens.fieldHeight)) {
             accountGroups.forEach { g ->
                 val on = g.id in selected
@@ -1243,7 +1244,7 @@ private fun LabelsRow(accountGroups: List<GroupInfo>, selected: Set<Long>, modif
 /** Private contacts: who this is and a note, shown on the call screen (and, outside discreet mode, a missed call). */
 @Composable
 private fun WhenTheyCallRow(d: ContactDetails, focus: FocusRequester, modifier: Modifier, update: ((ContactDetails) -> ContactDetails) -> Unit) {
-    FormRow(Icons.Rounded.PhoneInTalk, stringResource(R.string.edit_when_they_call), modifier.padding(bottom = FormTokens.groupGap)) {
+    FormRow(Icons.Rounded.PhoneInTalk, stringResource(R.string.editor_add_group_calls), modifier.padding(bottom = FormTokens.groupGap)) {
         ParleyFormField(
             d.context, { v -> update { it.copy(context = v.take(120)) } }, stringResource(R.string.edit_who_is_this),
             modifier = Modifier.focusRequester(focus),
@@ -1253,7 +1254,7 @@ private fun WhenTheyCallRow(d: ContactDetails, focus: FocusRequester, modifier: 
         )
         Spacer(Modifier.height(FormTokens.segmentGap))
         ParleyFormField(
-            d.pinnedNote, { v -> update { it.copy(pinnedNote = v) } }, stringResource(R.string.detail_note_title),
+            d.pinnedNote, { v -> update { it.copy(pinnedNote = v) } }, stringResource(R.string.contact_page_sec_note),
             placeholder = stringResource(R.string.detail_note_placeholder), shape = formFieldShape(1, 2), singleLine = false, minLines = 2,
             supporting = stringResource(R.string.edit_private_call_note),
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -1281,7 +1282,7 @@ private fun NameBlock(
     update: ((ContactDetails) -> ContactDetails) -> Unit,
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        val title = stringResource(R.string.editor_name_title)
+        val title = stringResource(R.string.agenda_share_search)
         Box(Modifier.width(FormTokens.gutter).heightIn(min = FormTokens.fieldHeight), contentAlignment = Alignment.CenterStart) {
             Icon(
                 Icons.Rounded.Person, null,
@@ -1339,22 +1340,22 @@ private fun NameFields(
                 update { it.copy(prefix = v) }
             }
         }
-        EditorField(stringResource(R.string.edit_first_name), d.given, shape = pos("first"), cap = words, locked = locked, focus = first) { v ->
+        EditorField(stringResource(R.string.csv_field_given), d.given, shape = pos("first"), cap = words, locked = locked, focus = first) { v ->
             update { it.copy(given = v) }
         }
         AnimatedVisibility(expanded, enter = enter, exit = exit) {
-            EditorField(stringResource(R.string.edit_middle_name), d.middle, gap, shape = pos("middle"), cap = words, locked = locked) { v ->
+            EditorField(stringResource(R.string.csv_field_middle), d.middle, gap, shape = pos("middle"), cap = words, locked = locked) { v ->
                 update { it.copy(middle = v) }
             }
         }
-        EditorField(stringResource(R.string.edit_last_name), d.family, gap, shape = pos("last"), cap = words, locked = locked) { v ->
+        EditorField(stringResource(R.string.csv_field_family), d.family, gap, shape = pos("last"), cap = words, locked = locked) { v ->
             update { it.copy(family = v) }
         }
         AnimatedVisibility(expanded, enter = enter, exit = exit) {
             Column {
                 if (showParts) {
                     EditorField(
-                        stringResource(R.string.edit_second_surname), d.secondSurname, gap, shape = pos("second"), cap = words, locked = partsLocked,
+                        stringResource(R.string.detail_second_surname), d.secondSurname, gap, shape = pos("second"), cap = words, locked = partsLocked,
                     ) { v ->
                         update { it.copy(secondSurname = v) }
                     }
@@ -1364,7 +1365,7 @@ private fun NameFields(
                 }
                 if (showParts) {
                     EditorField(
-                        stringResource(R.string.edit_generation), d.generation, gap, shape = pos("generation"), cap = words, locked = partsLocked,
+                        stringResource(R.string.detail_generation), d.generation, gap, shape = pos("generation"), cap = words, locked = partsLocked,
                     ) { v ->
                         update { it.copy(generation = v) }
                     }
@@ -1379,7 +1380,8 @@ private fun NameFields(
                     update { it.copy(phoneticFamily = v) }
                 }
                 EditorField(
-                    stringResource(R.string.edit_nickname), d.nickname, gap, shape = pos("nick"), cap = words, locked = lockedRow(d.nicknameId), focus = nick,
+                    stringResource(R.string.csv_field_nickname), d.nickname, gap, shape = pos("nick"), cap = words, locked = lockedRow(d.nicknameId),
+                    focus = nick,
                 ) { v ->
                     update { it.copy(nickname = v) }
                 }
@@ -1428,7 +1430,7 @@ private fun MultiRow(
     val locked = item.id != null && item.id in LocalLocked.current
     val iso = LocalCountryIso.current
     val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { NumberInfo.flag(NumberInfo.region(item.value, iso)) } else null
-    val current = if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else kind.typeLabel(res, item.type)
+    val current = if (item.type == 0) item.label ?: stringResource(R.string.blk_sched_custom) else kind.typeLabel(res, item.type)
     var custom by remember { mutableStateOf(false) }
     // Phones: Android's other types behind "More types…", before "Custom…".
     var moreTypes by remember { mutableStateOf(false) }
@@ -1479,7 +1481,7 @@ private fun DateRow(
             pill = if (locked) null else { { EventTypePill(ev, onChange) { custom = true } } },
         ) { trailing ->
             ParleyFormField(
-                if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, stringResource(R.string.edit_date),
+                if (ev.date.isBlank()) "" else describeEvent(ev.date, false).substringBefore(" ·"), {}, stringResource(R.string.hist_pdf_col_date),
                 modifier = Modifier.fillMaxWidth().semantics { if (!locked) onClick(label = pickLabel) { picking = true; true } },
                 shape = shape, readOnly = true, placeholder = pickLabel,
                 // The calendar it comes round by, when not the Gregorian one ("Chinese lunar calendar").
@@ -1537,7 +1539,7 @@ private fun AddressRow(
     val extra = a.poBox.isNotEmpty() || a.neighborhood.isNotEmpty()
     val lines = if (extra) 4 else 3
     var custom by remember { mutableStateOf(false) }
-    val current = if (a.type == 0) a.label ?: stringResource(R.string.edit_custom) else StructuredPostal.getTypeLabel(res, a.type, a.label).toString()
+    val current = if (a.type == 0) a.label ?: stringResource(R.string.blk_sched_custom) else StructuredPostal.getTypeLabel(res, a.type, a.label).toString()
     val gap = Modifier.padding(top = FormTokens.segmentGap)
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_address), onRemove) } } else null) {
         val typed = !locked
@@ -1594,7 +1596,7 @@ private fun AddressRow(
                 }
             },
             { m, sh ->
-                EditorField(stringResource(R.string.edit_country), a.country, m, shape = sh, cap = words, locked = locked) {
+                EditorField(stringResource(R.string.blk_type_region), a.country, m, shape = sh, cap = words, locked = locked) {
                     onChange(a.copy(country = it))
                 }
             },
@@ -1675,11 +1677,11 @@ private fun RelationRow(
         // The relation types are many and searchable, so the pill opens the search dialog rather than a menu.
         TypedLine(pill = if (locked) null else { { TypePill(label, emptyList(), onOpen = { typing = true }) } }) { trailing ->
             EditorField(
-                stringResource(R.string.edit_relation), item.value, shape = shape, cap = KeyboardCapitalization.Words, locked = locked, focus = focus,
+                stringResource(R.string.cs_group_relation), item.value, shape = shape, cap = KeyboardCapitalization.Words, locked = locked, focus = focus,
                 support = if (locked) label else null,
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton({ picking = true }) { Icon(Icons.Rounded.PersonSearch, stringResource(R.string.edit_choose_contact)) }
+                        IconButton({ picking = true }) { Icon(Icons.Rounded.PersonSearch, stringResource(R.string.picker_choose_contact)) }
                         trailing?.invoke()
                     }
                 },
@@ -1737,7 +1739,7 @@ private fun PrivateRelationDialog(name: String, storedIn: AccountRef, onDismiss:
         confirmButton = { TextButton(onKeepInParley) { Text(stringResource(R.string.edit_private_relation_keep)) } },
         dismissButton = {
             Row {
-                TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
                 TextButton(onStoreHere) { Text(stringResource(R.string.edit_private_relation_store)) }
             }
         },
@@ -1749,7 +1751,7 @@ private fun PrivateRelationDialog(name: String, storedIn: AccountRef, onDismiss:
 private fun relationTypeLabel(item: DataItem): String {
     val res = LocalResources.current
     return RelationTypes.fromAndroid(item.type, item.label)?.let { RelationText.label(res, it) }
-        ?: if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
+        ?: if (item.type == 0) item.label ?: stringResource(R.string.blk_sched_custom) else Relation.getTypeLabel(res, item.type, null).toString()
 }
 
 /** The searchable relation types, for [item]'s pill. */
@@ -1775,7 +1777,7 @@ private fun ParleyRelationRow(item: DataItem, lead: Lead, shape: Shape, onChange
     FormRow(lead.icon, lead.title, end = { RemoveButton(stringResource(R.string.edit_remove_relation), onRemove) }) {
         TypedLine(pill = { TypePill(label, emptyList(), onOpen = { typing = true }) }) { trailing ->
             ParleyFormField(
-                item.value, {}, stringResource(R.string.edit_relation), shape = shape, modifier = Modifier.fillMaxWidth(), readOnly = true,
+                item.value, {}, stringResource(R.string.cs_group_relation), shape = shape, modifier = Modifier.fillMaxWidth(), readOnly = true,
                 trailing = trailing, supporting = stringResource(R.string.edit_parley_relation_support),
             )
         }

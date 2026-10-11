@@ -5,7 +5,6 @@
     <string name="search_field_phonetic">phonetic name</string>
     <string name="search_field_relation">relation</string>
     <string name="search_field_date">date</string>
-    <string name="search_field_label">label</string>
     <string name="search_field_pronouns">pronouns</string>
     <string name="search_field_language">language</string>
     <string name="search_field_native_name">name in their language</string>
@@ -26,17 +25,10 @@
     <string name="cs_show_fewer">Show fewer</string>
 
     <string name="cs_group_kept">Private and temporary</string>
-    <string name="cs_group_country">Country</string>
     <string name="cs_group_place">City or region</string>
-    <string name="cs_group_company">Company</string>
     <string name="cs_group_birthday">Birthday</string>
     <string name="cs_group_relation">Relation</string>
-    <string name="cs_group_language">Language</string>
-    <string name="cs_group_citizenship">Citizenship</string>
-    <!-- A chosen filter's chip: "Speaks Russian", "Citizen of Portugal". -->
-    <string name="cs_speaks">Speaks %1$s</string>
     <string name="cs_citizen_of">Citizen of %1$s</string>
-    <string name="cs_group_custom">Custom field</string>
     <string name="cs_group_has">Has</string>
     <string name="cs_group_missing">Missing info</string>
 

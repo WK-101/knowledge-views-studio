@@ -23,7 +23,7 @@ fun ExpiryDialog(onDismiss: () -> Unit, onPick: (Int?) -> Unit) {
         text = {
             Column {
                 listOf(
-                    1 to R.string.vault_expiry_1_day, 7 to R.string.vault_expiry_1_week, 30 to R.string.vault_expiry_30_days,
+                    1 to R.string.vault_expiry_1_day, 7 to R.string.vault_expiry_1_week, 30 to R.string.hist_insight_month,
                     90 to R.string.vault_expiry_3_months, 365 to R.string.vault_expiry_1_year,
                 ).forEach { (d, label) ->
                     ParleyListItem(headlineContent = { Text(stringResource(label)) }, modifier = Modifier.clickable { onPick(d) })

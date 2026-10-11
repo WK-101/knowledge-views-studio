@@ -1,9 +1,9 @@
 package app.parley.common.cases
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.circle.Promises
 import app.parley.common.cases.CaseReport.Style
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -42,7 +42,7 @@ class CaseReportTest {
     )
     private val timeline = CaseTimelines.assemble(
         case,
-        listOf(CallEntry(1, "+442079460000", null, CallType.OUTGOING, day, 1_200, null, false, false)),
+        listOf(testCall(1, "+442079460000", null, CallType.OUTGOING, day, 1_200)),
         listOf(CaseNote(day, "Promised a refund")),
         Promises.parse("[ ] Refund by the 20th"),
     )

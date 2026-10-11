@@ -87,7 +87,7 @@ fun PrivateNameApprovalDialog(access: PrivateNameAccess, pkg: String, onDone: ()
                 Text(stringResource(R.string.pn_approve_body), style = MaterialTheme.typography.bodyMedium)
             }
         },
-        confirmButton = { TextButton(::allow, enabled = installed && activity != null) { Text(stringResource(R.string.privnames_allow)) } },
+        confirmButton = { TextButton(::allow, enabled = installed && activity != null) { Text(stringResource(R.string.blk_allow)) } },
         dismissButton = { TextButton({ answer(LookupApproval.DENIED) }) { Text(stringResource(R.string.privnames_deny)) } },
     )
 }

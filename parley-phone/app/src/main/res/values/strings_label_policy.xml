@@ -2,7 +2,6 @@
 <!-- Label policies: SIM, rhythm and Do Not Disturb per label. -->
 <resources>
     <string name="label_policy_section">For everyone in this label</string>
-    <string name="label_policy_sim">SIM for calls</string>
     <string name="label_policy_sim_none">No preference</string>
     <string name="label_policy_sim_missing">A SIM that isn\'t in this phone</string>
     <string name="label_policy_sim_on">Calls go out on %1$s</string>

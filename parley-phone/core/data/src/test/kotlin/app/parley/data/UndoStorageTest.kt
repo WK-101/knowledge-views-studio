@@ -2,10 +2,10 @@ package app.parley.data
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.backup.SnapshotIndex
 import app.parley.common.backup.SnapshotKeep
+import app.parley.common.testing.testCall
 import app.parley.data.db.JournalEntity
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
@@ -73,7 +73,7 @@ class UndoStorageTest {
     }
 
     @Test fun deletedCallsAreForgottenButNotTheCallLog() = runBlocking {
-        fun call(id: Long) = CallEntry(id, "+15550100", null, CallType.INCOMING, 1_700_000_000_000L + id, 30, null, false, false)
+        fun call(id: Long) = testCall(id, "+15550100", null, CallType.INCOMING, 1_700_000_000_000L + id, 30)
         val batch = c.history.delete(listOf(call(1), call(2)))!!
         c.history.delete(listOf(call(3)))
         assertEquals(3, c.undoStorage.usage().deletedCalls)

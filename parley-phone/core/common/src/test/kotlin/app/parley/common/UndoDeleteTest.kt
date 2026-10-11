@@ -1,6 +1,7 @@
 package app.parley.common
 
 import app.parley.common.history.HistoryMerge
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -15,7 +16,7 @@ class UndoDeleteTest {
         assertEquals(listOf("c|3"), HistoryMerge.missing(rows, listOf("a|1", "b|2")) { it })
         assertTrue(HistoryMerge.missing(rows, rows) { it }.isEmpty())
         // Keys ignore milliseconds, like the dedupe everywhere else.
-        fun e(ms: Long) = CallEntry(0, fr, null, CallType.INCOMING, ms, 10, null, false, false)
+        fun e(ms: Long) = testCall(0, fr, null, CallType.INCOMING, ms, 10)
         assertTrue(HistoryMerge.missing(listOf(e(10_500)), listOf(e(10_000)), HistoryMerge::key).isEmpty())
     }
 }

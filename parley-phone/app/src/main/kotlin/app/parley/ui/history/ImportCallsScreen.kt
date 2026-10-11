@@ -84,7 +84,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 throw e
             } catch (e: Exception) {
                 plan = null
-                error = res.getString(R.string.hist_import_read_failed_because, UserErrorText.of(context, e))
+                error = res.getString(R.string.blk_fail_read_file_because, UserErrorText.of(context, e))
             } finally {
                 busy = null
             }
@@ -164,7 +164,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         item {
                             ParleyListItem(
                                 headlineContent = {
-                                    Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.hist_private_number) })
+                                    Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.blk_private_number) })
                                 },
                                 supportingContent = {
                                     Text(
@@ -183,7 +183,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                                     // An app job: leaving this screen doesn't stop the import half way.
                                     vm.jobs.start(
                                         UserJobs.Kind.IMPORT, res.getString(R.string.hist_importing),
-                                        { e -> res.getString(R.string.set_import_failed_toast, UserErrorText.of(context, e)) },
+                                        { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)) },
                                     ) {
                                         val n = vm.c.history.runImport(pl)
                                         val text = if (n == 0) res.getString(R.string.hist_import_nothing)
@@ -240,26 +240,26 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
 private fun typeName(t: Int) = when (t) {
     ProviderColumns.INCOMING -> R.string.hist_type_incoming
     ProviderColumns.OUTGOING -> R.string.hist_type_outgoing
-    ProviderColumns.MISSED -> R.string.hist_type_missed
-    ProviderColumns.VOICEMAIL -> R.string.hist_type_voicemail
+    ProviderColumns.MISSED -> R.string.contact_page_kind_missed
+    ProviderColumns.VOICEMAIL -> R.string.blk_line_voicemail
     ProviderColumns.REJECTED -> R.string.hist_type_rejected
-    ProviderColumns.BLOCKED -> R.string.hist_type_blocked
+    ProviderColumns.BLOCKED -> R.string.blk_blocked
     ProviderColumns.ANSWERED_EXTERNALLY -> R.string.hist_type_answered_elsewhere
-    else -> R.string.hist_call
+    else -> R.string.circle_widget_call
 }
 
 /** Lets the user say which column holds what, for CSVs we don't recognise. */
 @Composable
 private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange: (ColumnMapping) -> Unit) {
     val fields: List<Triple<String, Int?, (Int?) -> ColumnMapping>> = listOf(
-        Triple(stringResource(R.string.hist_col_number), mapping.number) { i -> mapping.copy(number = i) },
+        Triple(stringResource(R.string.blk_check_number), mapping.number) { i -> mapping.copy(number = i) },
         Triple(stringResource(R.string.hist_col_type), mapping.type) { i -> mapping.copy(type = i) },
         Triple(stringResource(R.string.hist_col_date), mapping.date) { i -> mapping.copy(date = i) },
         Triple(stringResource(R.string.hist_col_time), mapping.time) { i -> mapping.copy(time = i) },
         Triple(stringResource(R.string.hist_col_timestamp), mapping.timestamp) { i -> mapping.copy(timestamp = i) },
-        Triple(stringResource(R.string.hist_col_duration), mapping.duration) { i -> mapping.copy(duration = i) },
-        Triple(stringResource(R.string.hist_col_name), mapping.name) { i -> mapping.copy(name = i) },
-        Triple(stringResource(R.string.hist_col_sim), mapping.sim) { i -> mapping.copy(sim = i) },
+        Triple(stringResource(R.string.hist_pdf_col_duration), mapping.duration) { i -> mapping.copy(duration = i) },
+        Triple(stringResource(R.string.agenda_share_search), mapping.name) { i -> mapping.copy(name = i) },
+        Triple(stringResource(R.string.blk_editor_sim), mapping.sim) { i -> mapping.copy(sim = i) },
     )
     Column {
         fields.forEach { (label, current, set) ->
@@ -274,7 +274,7 @@ private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange
                             DropdownMenuItem({ Text(stringResource(R.string.hist_col_missing)) }, onClick = { open = false; onChange(set(null)) })
                             header.forEachIndexed { i, h ->
                                 DropdownMenuItem(
-                                    { Text(h.ifBlank { stringResource(R.string.hist_col_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) },
+                                    { Text(h.ifBlank { stringResource(R.string.blk_column_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) },
                                 )
                             }
                         }

@@ -57,7 +57,7 @@ class BackupRoundTripTest {
         shadowOf(app).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
         provider = FakeContactsProvider.install()
         c = DataContainer(app)
-        // DataStore instances are process-wide, so settings would carry over from the previous test.
+        // Start from defaults, whatever an earlier test stored.
         runBlocking { c.settings.update { AppSettings() } }
     }
 

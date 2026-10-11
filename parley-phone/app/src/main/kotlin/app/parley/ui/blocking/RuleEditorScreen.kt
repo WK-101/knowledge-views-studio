@@ -71,7 +71,7 @@ import app.parley.common.ux.DefaultAppFeature
 @Composable
 internal fun typeLabel(t: RuleType) = stringResource(
     when (t) {
-        RuleType.EXACT -> R.string.blk_type_exact
+        RuleType.EXACT -> R.string.blk_check_number
         RuleType.PREFIX -> R.string.blk_type_prefix
         RuleType.WILDCARD -> R.string.blk_type_wildcard
         RuleType.CALLER_NAME -> R.string.blk_type_caller_name
@@ -142,7 +142,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             onBack = back,
             actions = {
                 if (ruleId != 0L) IconButton({ confirmDelete = true }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_delete_rule)) }
-                TextButton(::save, enabled = checked.error == null) { Text(stringResource(R.string.set_save)) }
+                TextButton(::save, enabled = checked.error == null) { Text(stringResource(R.string.pin_save)) }
             },
         )
     }) { p ->
@@ -303,7 +303,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     Text(stringResource(R.string.blk_editor_ringtone), style = MaterialTheme.typography.titleSmall)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton({ pickTone(r.ringtone) }) { Text(ringtoneTitle(context, r.ringtone) ?: stringResource(R.string.set_same_as_usual)) }
-                        if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text(stringResource(R.string.set_reset)) }
+                        if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text(stringResource(R.string.contact_page_reset)) }
                     }
                 }
             } else {
@@ -370,7 +370,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             },
             onDismiss = { confirmDelete = false },
             destructive = true,
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }

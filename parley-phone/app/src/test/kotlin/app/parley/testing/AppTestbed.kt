@@ -24,7 +24,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.fail
 import org.robolectric.Shadows.shadowOf
 
 /**
@@ -47,7 +46,7 @@ class AppTestbed {
         )
         VaultCrypto.appContext = context
         c = DataContainer(context)
-        // The settings store outlives a test (DataStore keeps one instance per file in the process): start from defaults.
+        // Start from defaults, whatever an earlier test stored.
         runBlocking { c.settings.update { AppSettings() } }
     }
 
@@ -103,15 +102,7 @@ class AppTestbed {
     fun until(what: String, check: () -> Boolean) = until({ what }, check)
 
     /** [until], with a description worked out when it times out (what was there instead). */
-    fun until(what: () -> String, check: () -> Boolean) {
-        val end = System.currentTimeMillis() + 10_000
-        while (!check()) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (System.currentTimeMillis() > end) fail("Timed out waiting for ${what()}")
-            Thread.sleep(5)
-        }
-        shadowOf(Looper.getMainLooper()).idle()
-    }
+    fun until(what: () -> String, check: () -> Boolean) = awaitMain(what, check = check)
 
     /** A device contact with [numbers]; returns its contact id. */
     fun contact(given: String, family: String = "", vararg numbers: String): Long = runBlocking {

@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Simple mode. -->
 <resources>
-    <string name="set_simple_title">Simple mode</string>
     <string name="set_simple_summary">Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else</string>
     <string name="set_simple_kw">elderly, senior, assisted, easy, large, big buttons, grandparent, accessibility, speak name, launcher, text to speech</string>
     <string name="simple_intro">A calm home for someone who wants only the essentials: big photo buttons for the people who matter, a larger keypad, and a question before a call is declined. Set it up here, or on your phone and send it over.</string>
-    <string name="simple_remove">Remove %1$s</string>
     <string name="simple_add">Add a person</string>
     <string name="simple_options">On this phone</string>
     <string name="simple_keypad">Keypad button</string>
@@ -25,18 +23,13 @@
     <string name="simple_import_file_body">From a file made on another phone</string>
     <string name="simple_file_saved">Setup saved</string>
     <string name="simple_file_failed">Couldn\'t save the setup file</string>
-    <string name="simple_pass">Passphrase</string>
-    <string name="simple_pass_again">Passphrase again</string>
     <string name="simple_pass_new">Choose a passphrase of at least 8 characters. The other phone needs it to open the file.</string>
     <string name="simple_pass_enter">Type the passphrase the setup was saved with.</string>
-    <string name="simple_qr_desc">Simple mode setup QR code</string>
     <string name="simple_qr_hint">Open the code with any QR scanner on the other phone; Parley opens and asks for this passcode.</string>
     <string name="simple_import_title">Import simple mode</string>
     <string name="simple_enter_passcode">Type the passcode shown on the other phone.</string>
     <string name="simple_wrong_pass">That didn\'t open it. Check the passcode or passphrase.</string>
-    <string name="simple_matched">Found: %1$s</string>
     <string name="simple_not_in_contacts">Not in your contacts</string>
-    <string name="simple_create">Create</string>
     <string name="simple_import_note">People who aren\'t in your contacts still get a button with their number. Create them to add a photo.</string>
     <string name="simple_use_on">Use this setup and turn on simple mode</string>
     <string name="simple_use_later">Save it for later</string>
@@ -44,9 +37,6 @@
     <string name="simple_leave_to_import">Leave simple mode to import a setup</string>
     <string name="simple_leave">Leave</string>
     <string name="simple_leave_hold">Press and hold to leave simple mode</string>
-    <string name="simple_keypad_open">Keypad</string>
-    <string name="simple_call_q">Call %1$s?</string>
-    <string name="simple_call">Call</string>
     <string name="simple_leave_q">Leave simple mode?</string>
     <string name="simple_leave_body">Parley goes back to its usual tabs. You can turn simple mode on again in Settings › Appearance.</string>
     <string name="simple_no_people">No one here yet. Ask whoever set up this phone to add people in Settings › Appearance › Simple mode.</string>

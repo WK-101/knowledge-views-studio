@@ -138,6 +138,8 @@ import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.ParleySheet
 import app.parley.ui.ListSectionHeader
+import app.parley.messaging.InternetCallBackDialog
+import app.parley.messaging.rememberCallAppLabel
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
 import androidx.compose.ui.semantics.heading
@@ -157,7 +159,23 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
     // The number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
-    menuFor?.let { g -> RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
+    // Call back for a call that came through an app over the internet: in the app, or by phone when the user picks it.
+    var appCallFor by remember { mutableStateOf<RecentGroup?>(null) }
+    appCallFor?.let { g ->
+        val pkg = g.latest.appPackage
+        if (pkg != null) {
+            InternetCallBackDialog(
+                g.number, g.latest.accountId, pkg,
+                onCallByPhone = { vm.requestCall(g.number, g.contact?.displayName) }, onDismiss = { appCallFor = null },
+            )
+        }
+    }
+    fun callBack(g: RecentGroup) {
+        if (g.latest.appPackage != null) appCallFor = g else vm.requestCall(g.number, g.contact?.displayName)
+    }
+    menuFor?.let { g ->
+        RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }, onCall = { callBack(g) }) { menuFor = null }
+    }
     messageFor?.let { (n, account) -> ReachSheet(ReachTarget.Number(n, account), onDismiss = { messageFor = null }, onCall = { num -> vm.requestCall(num) }) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> DaySummarySheet(vm, day, title) { daySummary = null } }
@@ -222,7 +240,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             CoachMark(
                 Tips.RECENTS_SWIPE,
                 stringResource(if (swipe.enabled) R.string.ux_tip_recents_swipe else R.string.ux_tip_recents_long_press),
-                action = if (swipe.enabled) null else stringResource(R.string.ux_tip_turn_on),
+                action = if (swipe.enabled) null else stringResource(R.string.blk_status_turn_on),
                 onAction = { open(Routes.settingsPage(SettingsCategory.LAYOUT, "swipe_actions")) },
             )
         }
@@ -235,11 +253,11 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                     query.isNotBlank() && recall.shows -> Unit
                     query.isNotBlank() -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
-                        action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
+                        action = stringResource(R.string.contact_page_clear_search), onAction = { recents.query.value = "" },
                     )
                     filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
                         Icons.Rounded.AccessTime,
-                        stringResource(R.string.recents_nothing_here),
+                        stringResource(R.string.jr_empty_title),
                         stringResource(R.string.ux_empty_calls_filter),
                         Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_show_all_calls),
@@ -277,7 +295,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                   listState = listState,
                   onAction = { a ->
                       when (a) {
-                          SwipeAction.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+                          SwipeAction.CALL -> callBack(g)
                           SwipeAction.MESSAGE -> g.contact?.let { quick.message(it, g.number) } ?: Intents.sms(context, g.number)
                           SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run {
                               messageFor = g.number to g.latest.accountId
@@ -306,7 +324,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                             !g.hidden -> open(Routes.history(g.number))
                         }
                     },
-                    onCall = { vm.requestCall(g.number, g.contact?.displayName) },
+                    onCall = { callBack(g) },
                 )
               }
                 }
@@ -352,7 +370,7 @@ fun RecentRow(
     ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
-            onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
+            onClickLabel = if (tapCalls) stringResource(R.string.circle_widget_call) else null,
             onLongClickLabel = stringResource(R.string.recents_select),
         )
             .then(if (RecentsMark.ACCENT in marks) Modifier.callAccent(hue) else Modifier)
@@ -387,7 +405,7 @@ fun RecentRow(
                     }
                 }
             } else {
-                val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
+                val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.rst_with_count, g.shownTitle, g.calls.size) else g.shownTitle
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         counted,
@@ -422,22 +440,24 @@ fun RecentRow(
                 // Android logged it as a video call (Parley answered it as voice).
                 if (RecentsMark.VIDEO in marks) {
                     Spacer(Modifier.width(4.dp))
-                    VideoCallMark(contentDescription = stringResource(R.string.recents_video_call))
+                    VideoCallMark(contentDescription = stringResource(R.string.circle_type_video))
                 }
                 Spacer(Modifier.width(6.dp))
                 // A saved, private or archived caller has a name: no place name under it.
                 val saved = g.contact != null || g.vaultId != null || g.archivedName != null
                 val location = rememberNumberLocation(g.number, countryIso, enabled = !saved && !g.hidden)
                 val shownNumber = remember(e.number, countryIso) { Bidi.ltr(Format.number(e.number, countryIso)) }
+                val appCall = rememberCallAppLabel(e.appPackage)?.let { stringResource(R.string.recents_app_call, it) }
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p ->
                             Format.phoneType(context.resources, p.type, p.label)
                         } else if (!g.hidden && g.contact == null && (g.archivedName ?: g.cachedName ?: g.networkName) != null) shownNumber else null,
-                    e.accountId?.let { simLabels[it] },
+                    // A call in an app names the app ("WhatsApp call"); a phone call its SIM when there are two.
+                    appCall ?: e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
-                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
+                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.case_call_unanswered) else null,
                     Format.shortWhen(context, e.date),
                 )
                 Text(
@@ -471,7 +491,7 @@ fun RecentRow(
                     CallBackPill(who, onCall)
                 } else {
                     IconButton(onClick = onCall) {
-                        Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, who), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, who), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -557,7 +577,8 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 @Composable
 @Suppress("CyclomaticComplexMethod") // One branch per action.
 private fun RecentActionsSheet(
-    vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit,
+    vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit,
+    onCall: () -> Unit, onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val res = LocalResources.current
@@ -574,8 +595,9 @@ private fun RecentActionsSheet(
         blocked = hasNumber && rememberBlocked(vm, listOf(g.number)),
         // A call with 112 or a local emergency service: never blocked.
         emergency = hasNumber && rememberEmergency(vm, listOf(g.number)),
-        // An outgoing call never rang, so there is nothing to ask "why" about.
-        rang = g.calls.any { it.type != CallType.OUTGOING },
+        // An outgoing call never rang, so there is nothing to ask "why" about; nor did a call in an app, which Parley
+        // never screened.
+        rang = g.calls.any { it.type != CallType.OUTGOING && it.appPackage == null },
     )
     val blockedCall = g.latest.type == CallType.BLOCKED
     fun runAction(a: RecentMenu.Action) {
@@ -585,7 +607,7 @@ private fun RecentActionsSheet(
         }
         act {
             when (a) {
-                RecentMenu.Action.CALL -> vm.requestCall(g.number, g.contact?.displayName)
+                RecentMenu.Action.CALL -> onCall()
                 RecentMenu.Action.MESSAGE -> Intents.sms(context, g.number)
                 RecentMenu.Action.MESSAGE_OR_CALL_ON -> onMessageOn(g.number)
                 RecentMenu.Action.COPY_NUMBER -> Clipboard.copy(context, g.number)
@@ -641,9 +663,9 @@ private fun RecentActionsSheet(
 /** The words and icon of a Recents call action; [blockedCall]: the row's call was blocked ("Why was this blocked?"). */
 @Composable
 private fun recentMenuLabel(a: RecentMenu.Action, blockedCall: Boolean): MenuLabel = when (a) {
-    RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.main_call), Icons.Rounded.Call)
+    RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.circle_widget_call), Icons.Rounded.Call)
     RecentMenu.Action.MESSAGE -> MenuLabel(stringResource(R.string.recents_send_message), Icons.AutoMirrored.Rounded.Message)
-    RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat)
+    RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.contact_page_sec_messengers), Icons.AutoMirrored.Rounded.Chat)
     RecentMenu.Action.COPY_NUMBER -> MenuLabel(stringResource(R.string.recents_copy_number), Icons.Rounded.ContentCopy)
     RecentMenu.Action.CREATE_CONTACT -> MenuLabel(stringResource(R.string.home_create_contact), Icons.Rounded.PersonAdd)
     // Searching your contacts for the one to add to, as on the post-call card.

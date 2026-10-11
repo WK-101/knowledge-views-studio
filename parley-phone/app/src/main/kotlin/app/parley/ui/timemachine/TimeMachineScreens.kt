@@ -65,7 +65,7 @@ fun describe(res: Resources, row: DataRow): String? {
         Mime.EMAIL -> v?.let { res.getString(R.string.tm_row_email, it) }
         Mime.POSTAL -> v?.let { res.getString(R.string.tm_row_address, it) }
         Mime.ORG -> listOfNotNull(v, row["data4"]).joinToString(", ").takeIf { it.isNotBlank() }?.let { res.getString(R.string.tm_row_work, it) }
-        Mime.NOTE -> v?.let { res.getString(R.string.tm_row_note, it.take(60)) }
+        Mime.NOTE -> v?.let { res.getString(R.string.case_pdf_note, it.take(60)) }
         Mime.EVENT -> v?.let { res.getString(R.string.tm_row_date, it) }
         Mime.WEBSITE -> v?.let { res.getString(R.string.tm_row_website, it) }
         Mime.NICKNAME -> v?.let { res.getString(R.string.tm_row_nickname, it) }
@@ -79,9 +79,9 @@ fun describe(res: Resources, row: DataRow): String? {
 internal fun lines(res: Resources, r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull { describe(res, it) }.distinct()
 
 private fun fieldLabel(res: Resources, field: String): String = when (field) {
-    "displayName" -> res.getString(R.string.tm_field_name)
+    "displayName" -> res.getString(R.string.agenda_share_search)
     "starred" -> res.getString(R.string.tm_field_starred)
-    "customRingtone" -> res.getString(R.string.tm_field_ringtone)
+    "customRingtone" -> res.getString(R.string.blk_editor_ringtone)
     "sendToVoicemail" -> res.getString(R.string.tm_field_voicemail)
     "accounts" -> res.getString(R.string.tm_field_accounts)
     else -> field

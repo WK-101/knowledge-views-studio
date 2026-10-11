@@ -173,22 +173,22 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destina
                 ClearStep.SCOPE -> TextButton({
                     chosen = selected()
                     step = ClearStep.EXPORT
-                }, enabled = count > 0) { Text(stringResource(R.string.clear_history_next)) }
-                ClearStep.EXPORT -> TextButton({ step = ClearStep.CONFIRM }, enabled = !busy) { Text(stringResource(R.string.clear_history_skip_export)) }
+                }, enabled = count > 0) { Text(stringResource(R.string.pin_next)) }
+                ClearStep.EXPORT -> TextButton({ step = ClearStep.CONFIRM }, enabled = !busy) { Text(stringResource(R.string.intro_skip)) }
                 ClearStep.CONFIRM -> TextButton({
                     vm.deleteCallsWithUndo(chosen, keepPrivate = true)
                     onDismiss()
-                }, enabled = count > 0) { Text(stringResource(R.string.main_delete), color = MaterialTheme.colorScheme.error) }
+                }, enabled = count > 0) { Text(stringResource(R.string.blk_delete), color = MaterialTheme.colorScheme.error) }
             }
         },
-        dismissButton = { TextButton({ onDismiss() }, enabled = !busy) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton({ onDismiss() }, enabled = !busy) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
 @Composable
 private fun scopeLabel(s: ClearScope): String = stringResource(
     when (s) {
-        ClearScope.ALL -> R.string.clear_history_scope_all
+        ClearScope.ALL -> R.string.circle_all_calls
         ClearScope.UNKNOWN_NUMBERS -> R.string.clear_history_scope_unknown
         ClearScope.MISSED -> R.string.clear_history_scope_missed
         ClearScope.SHOWN -> R.string.clear_history_scope_shown

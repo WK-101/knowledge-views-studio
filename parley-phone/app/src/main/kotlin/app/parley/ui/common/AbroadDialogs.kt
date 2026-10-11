@@ -75,7 +75,7 @@ private fun AbroadDialog(typed: String, plan: AssistedDial.Plan, onCall: () -> U
     ParleyDialog(
         onDismissRequest = onCancel,
         icon = { Icon(Icons.Rounded.Public, null) },
-        title = { Text(stringResource(R.string.abroad_title, Bidi.ltr(plan.shown))) },
+        title = { Text(stringResource(R.string.shortcut_call_confirm, Bidi.ltr(plan.shown))) },
         text = {
             Column {
                 Text(stringResource(R.string.abroad_body, countryName(plan.home)), style = MaterialTheme.typography.bodyMedium)
@@ -87,7 +87,7 @@ private fun AbroadDialog(typed: String, plan: AssistedDial.Plan, onCall: () -> U
                 }
             }
         },
-        confirmButton = { TextButton(onCall) { Text(stringResource(R.string.abroad_call)) } },
+        confirmButton = { TextButton(onCall) { Text(stringResource(R.string.circle_widget_call)) } },
         dismissButton = {
             TextButton(onAsTyped, Modifier.semantics { contentDescription = asTypedDesc }) { Text(stringResource(R.string.abroad_as_typed)) }
         },
@@ -101,7 +101,7 @@ private fun LocalSimDialog(hint: AssistedDial.LocalSimHint, onUse: () -> Unit, o
         icon = { Icon(Icons.Rounded.SimCard, null) },
         title = { Text(stringResource(R.string.local_sim_title, hint.local.label)) },
         text = { Text(stringResource(R.string.local_sim_body, hint.roaming.label, hint.local.label), style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = { TextButton(onUse) { Text(stringResource(R.string.local_sim_use, hint.local.label)) } },
+        confirmButton = { TextButton(onUse) { Text(stringResource(R.string.edit_native_language_use, hint.local.label)) } },
         dismissButton = { TextButton(onKeep) { Text(stringResource(R.string.local_sim_keep, hint.roaming.label)) } },
     )
 }

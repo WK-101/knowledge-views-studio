@@ -6,6 +6,7 @@ import app.parley.common.people.PasteParser.Kind
 import app.parley.common.people.PasteParser.Label
 import app.parley.common.people.PasteParser.LineKind
 import app.parley.common.people.PasteWords.Tag
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.util.Locale
 
@@ -16,7 +17,7 @@ import java.util.Locale
  * word; what is left is classified by [remainder] (name, organisation, title, address line or other).
  */
 internal object PasteLines {
-    private val util: PhoneNumberUtil by lazy { PhoneNumberUtil.getInstance() }
+    private val util: PhoneNumberUtil by lazy { PhoneData.util }
     private const val MAX_LINES = 300
     private const val MIN_NATIONAL = 6
 

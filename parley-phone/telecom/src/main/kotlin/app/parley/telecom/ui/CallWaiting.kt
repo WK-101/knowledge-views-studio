@@ -71,7 +71,7 @@ internal fun CurrentCallCard(call: CallUi, canHold: Boolean, modifier: Modifier 
             Column(Modifier.weight(1f)) {
                 Text(call.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val state = when (call.state) {
-                    CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
+                    CallState.HOLDING -> stringResource(R.string.holdmode_title)
                     CallState.ACTIVE -> clockText(seconds)
                     else -> stringResource(R.string.incall_other_connecting)
                 }
@@ -124,8 +124,8 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                         customActions = buildList {
                             if (canHoldAnswer) add(CustomAccessibilityAction(res.getString(R.string.incall_hold_and_answer)) { CallManager.holdAndAnswer(ringing.id); true })
                             if (active != null) add(CustomAccessibilityAction(res.getString(R.string.incall_end_and_answer)) { CallManager.endAndAnswer(ringing.id); true })
-                            if (active == null) add(CustomAccessibilityAction(res.getString(R.string.incall_answer)) { CallManager.answer(ringing.id); true })
-                            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { decline(); true })
+                            if (active == null) add(CustomAccessibilityAction(res.getString(R.string.notif_answer)) { CallManager.answer(ringing.id); true })
+                            add(CustomAccessibilityAction(res.getString(R.string.notif_decline)) { decline(); true })
                             if (canReply) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
                         }
                     },
@@ -145,12 +145,12 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     when {
                         canHoldAnswer -> WaitingAction(Icons.Rounded.PauseCircle, stringResource(R.string.incall_hold_answer_short), stringResource(R.string.incall_hold_and_answer), CallColors.Accept) { CallManager.holdAndAnswer(ringing.id) }
-                        active == null -> WaitingAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), stringResource(R.string.incall_answer), CallColors.Accept) { CallManager.answer(ringing.id) }
+                        active == null -> WaitingAction(Icons.Rounded.Call, stringResource(R.string.notif_answer), stringResource(R.string.notif_answer), CallColors.Accept) { CallManager.answer(ringing.id) }
                     }
                     if (active != null) {
                         WaitingAction(Icons.Rounded.PhoneInTalk, stringResource(R.string.incall_end_answer_short), stringResource(R.string.incall_end_and_answer), MaterialTheme.colorScheme.tertiary) { CallManager.endAndAnswer(ringing.id) }
                     }
-                    WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), stringResource(R.string.incall_decline), CallColors.Decline, onClick = decline)
+                    WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.notif_decline), stringResource(R.string.notif_decline), CallColors.Decline, onClick = decline)
                     if (canReply) {
                         WaitingAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.incall_reply), stringResource(R.string.incall_reply_a11y), MaterialTheme.colorScheme.secondary, onReply)
                     }

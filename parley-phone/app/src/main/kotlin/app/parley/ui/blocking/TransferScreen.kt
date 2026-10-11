@@ -205,7 +205,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                         "application/octet-stream",
                     ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     val what = res.getString(
-                        R.string.blk_joined,
+                        R.string.archive_page_work,
                         res.getQuantityString(R.plurals.blk_numbers_count, ex.numbers, ex.numbers.toString()),
                         res.getQuantityString(R.plurals.blk_ranges_count, ex.ranges, ex.ranges),
                     )
@@ -235,7 +235,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             onDismiss = { cbbk = null },
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             confirmEnabled = pw.isNotEmpty(),
             content = { OutlinedTextField(
                 pw,
@@ -251,7 +251,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
             title = stringResource(R.string.blk_cant_import),
             text = e,
             onDismiss = { error = null },
-            closeLabel = stringResource(R.string.set_ok),
+            closeLabel = stringResource(R.string.dc_ok),
         )
     }
 }
@@ -284,7 +284,7 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
             onDone()
         },
         onDismiss = onDone,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = checked.isNotEmpty(),
         content = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {

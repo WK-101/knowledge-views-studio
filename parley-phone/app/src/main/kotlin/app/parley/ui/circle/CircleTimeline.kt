@@ -103,10 +103,10 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
     ConfirmDialog(
         title = if (initial == null) stringResource(R.string.circle_log_with, name) else stringResource(R.string.circle_edit_entry),
         text = null,
-        confirmLabel = stringResource(R.string.main_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = { onSave(type, note.text.trim().ifEmpty { null }, time) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -121,7 +121,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                     colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.Event, null) },
                     headlineContent = { Text(Format.fullDate(context, time)) },
-                    supportingContent = { Text(stringResource(R.string.circle_when)) },
+                    supportingContent = { Text(stringResource(R.string.blk_editor_when)) },
                 )
             }
         },
@@ -147,7 +147,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                     picking = false
                 }) { Text(stringResource(R.string.dc_ok)) }
             },
-            dismissButton = { TextButton({ picking = false }) { Text(stringResource(R.string.main_cancel)) } },
+            dismissButton = { TextButton({ picking = false }) { Text(stringResource(R.string.dc_cancel)) } },
         ) { DatePicker(state) }
     }
 }
@@ -334,15 +334,15 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
         },
         trailingContent = if (item == null) null else ({
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.main_edit)) },
+                        { Text(stringResource(R.string.me_edit_short)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                         onClick = { menu = false; onEdit(item) },
                     )
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.main_delete)) },
+                        { Text(stringResource(R.string.blk_delete)) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                         onClick = { menu = false; onDelete(item) },
                     )

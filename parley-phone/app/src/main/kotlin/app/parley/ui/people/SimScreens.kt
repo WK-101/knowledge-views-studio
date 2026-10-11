@@ -89,7 +89,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
     ConfirmDialog(
         title = stringResource(R.string.sim_copy_title),
         text = null,
-        confirmLabel = stringResource(R.string.sim_copy),
+        confirmLabel = stringResource(R.string.hist_action_copy),
         onConfirm = {
             val e = fit.entry ?: return@ConfirmDialog
             val c = chosen ?: return@ConfirmDialog
@@ -186,7 +186,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
             if (cs == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
             else if (cs.isEmpty()) item { Text(stringResource(R.string.sim_none_read), Modifier.padding(16.dp)) }
             else if (cs.size > 1) {
-                item { Section(stringResource(R.string.sim_section)) }
+                item { Section(stringResource(R.string.blk_editor_sim)) }
                 cs.forEach { c ->
                     item {
                         ParleyListItem(

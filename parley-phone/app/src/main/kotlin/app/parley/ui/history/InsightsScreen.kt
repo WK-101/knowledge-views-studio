@@ -79,7 +79,7 @@ private enum class InsightPeriod(@StringRes val label: Int) {
     WEEK(R.string.hist_insight_week),
     MONTH(R.string.hist_insight_month),
     QUARTER(R.string.hist_insight_quarter),
-    YEAR(R.string.hist_insight_year),
+    YEAR(R.string.hist_period_this_year),
     ALL(R.string.hist_insight_all);
 
     fun period(now: Long, zone: ZoneId): Period = when (this) {
@@ -101,7 +101,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.hist_insights_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.contact_page_sec_insights), onBack = back)
     }) { p ->
         val idx = index
         if (idx == null) {

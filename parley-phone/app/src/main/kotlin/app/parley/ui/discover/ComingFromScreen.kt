@@ -45,7 +45,7 @@ import app.parley.ui.rowColors
 /** "Coming from another phone?" on its own (in Tools): the same list as onboarding's last step. */
 @Composable
 fun ComingFromScreen(vm: AppViewModel, back: () -> Unit) {
-    SettingsScaffold(stringResource(R.string.coming_title), back) {
+    SettingsScaffold(stringResource(R.string.discover_coming_from_title), back) {
         Text(
             stringResource(R.string.coming_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -103,8 +103,8 @@ private fun SourceRow(s: ComingFrom.Source, expanded: Boolean, onToggle: () -> U
 private val ComingFrom.Importer.groupTitle: Int
     get() = when (this) {
         ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_group_parley
-        ComingFrom.Importer.CONTACTS_FILE -> R.string.coming_group_contacts
-        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.coming_group_calls
+        ComingFrom.Importer.CONTACTS_FILE -> R.string.rst_contacts
+        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.hist_settings_title
         ComingFrom.Importer.BLOCK_LIST -> R.string.coming_group_blocking
     }
 
@@ -112,14 +112,14 @@ private val ComingFrom.Importer.action: Int
     get() = when (this) {
         ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_open_parley
         ComingFrom.Importer.CONTACTS_FILE -> R.string.coming_open_contacts
-        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.coming_open_calls
-        ComingFrom.Importer.BLOCK_LIST -> R.string.coming_open_blocking
+        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.hist_import_title
+        ComingFrom.Importer.BLOCK_LIST -> R.string.blk_transfer_import_title
     }
 
 private val ComingFrom.Source.title: Int
     get() = when (this) {
         ComingFrom.Source.PARLEY -> R.string.coming_source_parley
-        ComingFrom.Source.GOOGLE -> R.string.coming_source_google
+        ComingFrom.Source.GOOGLE -> R.string.csv_layout_google
         ComingFrom.Source.IPHONE -> R.string.coming_source_iphone
         ComingFrom.Source.SAMSUNG -> R.string.coming_source_samsung
         ComingFrom.Source.CALL_LOG_CSV -> R.string.coming_source_call_log

@@ -168,10 +168,15 @@ class UiSmokeTest {
         assertTrue(compose.onAllNodes(isRoot()).fetchSemanticsNodes().isNotEmpty())
     }
 
-    /** Waits until [text] is on screen (the lists load off the main thread). */
+    /**
+     * Waits until [text] is on screen (the lists load off the main thread), then checks what is there for TalkBack
+     * labels, touch-target sizes and duplicate labels ([A11yChecks]).
+     */
     private fun shows(text: String) {
         compose.waitUntil(10_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodesWithText(text, substring = true)[0].assertExists()
+        compose.waitForIdle()
+        A11yChecks.assertAccessible(compose)
     }
 
     private val noRoute: (Destination) -> Unit = {}
@@ -251,14 +256,17 @@ class UiSmokeTest {
 
     @Test fun keypad_light() {
         show(Look.LIGHT) { KeypadTab(it, noRoute) }
+        A11yChecks.assertAccessible(compose)
     }
 
     @Test fun keypad_dark() {
         show(Look.DARK) { KeypadTab(it, noRoute) }
+        A11yChecks.assertAccessible(compose)
     }
 
     @Test fun keypad_large_font_rtl() {
         show(Look.LARGE_FONT_RTL) { KeypadTab(it, noRoute) }
+        A11yChecks.assertAccessible(compose)
     }
 
     @Test fun keypad_with_recents_docked() {
@@ -366,6 +374,7 @@ class UiSmokeTest {
 
     @Test fun circle_light() {
         show(Look.LIGHT) { CircleTab(it, noRoute, query = "") }
+        A11yChecks.assertAccessible(compose)
     }
 
     @Test fun circle_dark() {

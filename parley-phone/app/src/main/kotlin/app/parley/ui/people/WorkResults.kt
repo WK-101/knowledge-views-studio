@@ -69,7 +69,7 @@ fun LazyListScope.workResultsSection(results: List<WorkContact>, onCall: (number
 
 @Composable
 private fun WorkSectionHeader() {
-    ListSectionHeader(stringResource(R.string.work_search_section), inset = Spacing.xl)
+    ListSectionHeader(stringResource(R.string.rel_group_work), inset = Spacing.xl)
 }
 
 /** A work contact: a tap opens the work profile's own card for it (or calls, if that can't open). */
@@ -99,7 +99,7 @@ private fun WorkContactRow(c: WorkContact, onCall: (number: String, name: String
         trailingContent = number?.let {
             {
                 IconButton({ onCall(it, c.name) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, c.name), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, c.name), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         },

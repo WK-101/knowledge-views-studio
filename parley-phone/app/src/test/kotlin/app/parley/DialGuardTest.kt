@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.parley.common.AppSettings
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.testing.testCall
 import app.parley.data.DataContainer
 import app.parley.data.DialGuard
 import app.parley.data.testing.FakeAndroidKeyStore
@@ -46,7 +47,7 @@ class DialGuardTest {
 
     @After fun tearDown() = c.scope.cancel()
 
-    private fun missed(at: Long) = CallEntry(1, number, null, CallType.MISSED, at, 0, null, isNew = true, presentationHidden = false)
+    private fun missed(at: Long) = testCall(1, number, null, CallType.MISSED, at, 0, null, isNew = true, presentationHidden = false)
 
     private fun guard(history: List<CallEntry>?, callLog: List<CallEntry>): Pair<DialGuard, MutableList<String>> {
         val asked = ArrayList<String>()

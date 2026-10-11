@@ -1,5 +1,6 @@
 package app.parley.common
 
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -13,7 +14,7 @@ class DialSearchTest {
 
     private fun entries(vararg c: ContactSummary) = c.map { DialSearch.Entry(it, T9.Encoded(it.displayName)) }
 
-    private fun call(number: String, type: CallType, date: Long = 1000L) = CallEntry(date, number, null, type, date, 0, null, false, false)
+    private fun call(number: String, type: CallType, date: Long = 1000L) = testCall(date, number, null, type, date, 0)
 
     private val john = contact(
         1, "John Smith",

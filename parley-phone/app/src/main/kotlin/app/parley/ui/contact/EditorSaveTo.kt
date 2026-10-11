@@ -113,7 +113,7 @@ internal fun SaveToLine(
                 s.vaultId != null -> InfoLine(Icons.Rounded.Lock, stringResource(R.string.editor_private_here))
                 s.isExisting -> InfoLine(
                     if (s.account?.isLocal != false) Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountCircle,
-                    stringResource(R.string.edit_saved_in, s.account?.displayLabel ?: stringResource(R.string.detail_phone)),
+                    stringResource(R.string.edit_saved_in, s.account?.displayLabel ?: stringResource(R.string.contact_page_sec_phones)),
                 )
                 else -> DestinationChip(s, label, onAccount, onTemporary)
             }
@@ -177,8 +177,8 @@ internal fun accountName(a: AccountRef, device: String): String = when {
 /** The Save-to chip's current destination: "Device", "Google · ana@…", "Private" or "Temporary". */
 @Composable
 private fun destinationLabel(s: EditorSaveTo, label: (AccountRef) -> String): String = when {
-    s.temporaryNew -> stringResource(R.string.editor_temporary)
-    s.privateNew -> stringResource(R.string.editor_save_private)
+    s.temporaryNew -> stringResource(R.string.cs_temporary)
+    s.privateNew -> stringResource(R.string.archive_private_section)
     else -> s.account?.let(label) ?: stringResource(R.string.editor_account_device)
 }
 
@@ -221,7 +221,7 @@ private fun DestinationChip(s: EditorSaveTo, label: (AccountRef) -> String, onAc
         DropdownMenuItem(
             text = {
                 Column {
-                    Text(stringResource(R.string.editor_temporary))
+                    Text(stringResource(R.string.cs_temporary))
                     Text(
                         stringResource(R.string.editor_temporary_sub), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -267,7 +267,7 @@ private fun ExpiryChip(expiresAt: Long?, pick: ExpiryChange?, onPick: (ExpiryCha
     var custom by rememberSaveable { mutableStateOf(false) }
     val text = when {
         pick is ExpiryChange.After -> pluralStringResource(R.plurals.editor_temp_after, pick.days, pick.days)
-        pick == ExpiryChange.Keep && expiresAt != null -> stringResource(R.string.temp_keep_permanently)
+        pick == ExpiryChange.Keep && expiresAt != null -> stringResource(R.string.contact_keep_permanently)
         expiresAt != null -> timeLeft(res, expiresAt)
         else -> stringResource(R.string.editor_make_temporary)
     }
@@ -277,7 +277,7 @@ private fun ExpiryChip(expiresAt: Long?, pick: ExpiryChange?, onPick: (ExpiryCha
         if (expiresAt != null || pick is ExpiryChange.After) {
             HorizontalDivider()
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.temp_keep_permanently)) },
+                text = { Text(stringResource(R.string.contact_keep_permanently)) },
                 leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
                 // Undoing a pick on a contact that isn't temporary simply leaves it as it was.
                 onClick = { close(); onPick(if (expiresAt != null) ExpiryChange.Keep else null) },
@@ -318,10 +318,10 @@ private fun CustomDaysDialog(initial: Int, onDismiss: () -> Unit, onDone: (Int) 
     ConfirmDialog(
         title = stringResource(R.string.temp_delete_after),
         text = null,
-        confirmLabel = stringResource(R.string.main_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = { days?.let(onDone) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = days != null,
         content = {
             OutlinedTextField(
@@ -371,20 +371,20 @@ internal fun MeShareLine(parts: Set<MeCards.Part>, onToggle: (MeCards.Part) -> U
 @Composable
 internal fun mePartLabel(p: MeCards.Part): String = stringResource(
     when (p) {
-        MeCards.Part.NAME -> R.string.me_name
-        MeCards.Part.PHONES -> R.string.me_numbers
-        MeCards.Part.EMAILS -> R.string.me_email
+        MeCards.Part.NAME -> R.string.agenda_share_search
+        MeCards.Part.PHONES -> R.string.blk_col_numbers
+        MeCards.Part.EMAILS -> R.string.contact_page_sec_emails
         MeCards.Part.WORK -> R.string.me_part_work
         MeCards.Part.WEBSITES -> R.string.me_websites
-        MeCards.Part.ADDRESS -> R.string.me_address
-        MeCards.Part.PROFILES -> R.string.me_profiles
+        MeCards.Part.ADDRESS -> R.string.contact_page_sec_addresses
+        MeCards.Part.PROFILES -> R.string.contact_page_sec_profiles
         MeCards.Part.NAME_DETAILS -> R.string.me_part_name_details
-        MeCards.Part.DATES -> R.string.me_part_dates
+        MeCards.Part.DATES -> R.string.contact_page_sec_dates
         MeCards.Part.HANDLES -> R.string.me_part_handles
         MeCards.Part.RELATIONS -> R.string.me_part_relations
         MeCards.Part.LANGUAGES -> R.string.me_part_languages
-        MeCards.Part.OTHER -> R.string.me_part_other
-        MeCards.Part.NOTE -> R.string.me_part_note
-        MeCards.Part.PHOTO -> R.string.me_part_photo
+        MeCards.Part.OTHER -> R.string.contact_page_sec_other
+        MeCards.Part.NOTE -> R.string.blk_col_note
+        MeCards.Part.PHOTO -> R.string.tm_row_photo
     },
 )

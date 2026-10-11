@@ -117,8 +117,8 @@ fun PickerScreen(
                 if (shown.isEmpty()) item {
                     if (query.isNotBlank()) {
                         EmptyState(
-                            Icons.Rounded.Search, stringResource(R.string.ux_empty_no_match, query),
-                            action = stringResource(R.string.ux_empty_clear_search), onAction = { query = "" },
+                            Icons.Rounded.Search, stringResource(R.string.contacts_no_matches, query),
+                            action = stringResource(R.string.contact_page_clear_search), onAction = { query = "" },
                         )
                     } else {
                         EmptyState(Icons.Rounded.Search, stringResource(R.string.picker_nothing))
@@ -149,7 +149,7 @@ fun PickerScreen(
 @Composable
 private fun PickerSearchField(query: String, onChange: (String) -> Unit) {
     OutlinedTextField(
-        query, onChange, placeholder = { Text(stringResource(R.string.picker_search)) }, singleLine = true,
+        query, onChange, placeholder = { Text(stringResource(R.string.blk_search)) }, singleLine = true,
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     )

@@ -332,7 +332,7 @@ private fun TuneButtons(playing: Boolean, ready: Boolean, onPlay: () -> Unit, on
         FilledTonalButton(onClick = onPlay, enabled = ready, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(if (playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, null, Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(stringResource(if (playing) R.string.caller_tune_stop else R.string.caller_tune_play))
+            Text(stringResource(if (playing) R.string.blk_stop else R.string.caller_tune_play))
         }
         OutlinedButton(onClick = onAnother, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(Icons.Rounded.Refresh, null, Modifier.size(ButtonDefaults.IconSize))

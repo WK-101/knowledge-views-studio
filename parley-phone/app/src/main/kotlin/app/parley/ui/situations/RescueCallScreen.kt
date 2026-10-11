@@ -170,7 +170,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
 private fun SoundGroup(choices: RescueCalls.Choices, onPick: () -> Unit, onSilence: () -> Unit) {
     SegmentedGroup(stringResource(R.string.rescue_after)) {
         item("rescue_sound") {
-            val sub = choices.clipName ?: stringResource(R.string.rescue_sound_none)
+            val sub = choices.clipName ?: stringResource(R.string.blk_action_silence)
             LinkRow(stringResource(R.string.rescue_sound), sub, Icons.Rounded.GraphicEq, onClick = onPick)
         }
         if (choices.clip != null) {
@@ -188,10 +188,10 @@ private fun TimeDialog(minuteOfDay: Int, onDismiss: () -> Unit, onPick: (Int) ->
     ConfirmDialog(
         title = stringResource(R.string.rescue_time_title),
         text = null,
-        confirmLabel = stringResource(R.string.set_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = { onPick(state.hour * 60 + state.minute) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = { TimePicker(state) },
     )
 }
@@ -203,7 +203,7 @@ private fun WhoGroup(choices: RescueCalls.Choices, onName: (String) -> Unit, onP
     if (number == null) {
         OutlinedTextField(
             choices.name, onName, singleLine = true,
-            label = { Text(stringResource(R.string.rescue_name_label)) },
+            label = { Text(stringResource(R.string.agenda_share_search)) },
             placeholder = { Text(stringResource(R.string.rescue_name_hint)) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
@@ -212,7 +212,7 @@ private fun WhoGroup(choices: RescueCalls.Choices, onName: (String) -> Unit, onP
         if (number == null) {
             item("rescue_contact") {
                 val sub = stringResource(R.string.rescue_choose_contact_sub)
-                LinkRow(stringResource(R.string.rescue_choose_contact), sub, Icons.Rounded.Person, onClick = onPick)
+                LinkRow(stringResource(R.string.picker_choose_contact), sub, Icons.Rounded.Person, onClick = onPick)
             }
         } else {
             item("rescue_contact") {
@@ -220,7 +220,7 @@ private fun WhoGroup(choices: RescueCalls.Choices, onName: (String) -> Unit, onP
                     IconButton(onUnpick) { Icon(Icons.Rounded.Close, stringResource(R.string.rescue_contact_remove)) }
                 }
             }
-            item("rescue_contact_change") { LinkRow(stringResource(R.string.rescue_choose_contact), null, onClick = onPick) }
+            item("rescue_contact_change") { LinkRow(stringResource(R.string.picker_choose_contact), null, onClick = onPick) }
         }
     }
 }
@@ -228,7 +228,7 @@ private fun WhoGroup(choices: RescueCalls.Choices, onName: (String) -> Unit, onP
 /** Now, in 1, 5 or 15 minutes, or at a time (which opens the clock). */
 @Composable
 private fun WhenGroup(context: Context, choices: RescueCalls.Choices, onTime: () -> Unit, onPick: (RescueWhen) -> Unit) {
-    SegmentedGroup(stringResource(R.string.rescue_when)) {
+    SegmentedGroup(stringResource(R.string.blk_editor_when)) {
         RescueWhen.entries.forEach { w ->
             item("rescue_when_${w.name}") {
                 val selected = choices.whenChoice == w
@@ -246,7 +246,7 @@ private fun WhenGroup(context: Context, choices: RescueCalls.Choices, onTime: ()
 }
 
 private fun whenLabel(w: RescueWhen): Int = when (w) {
-    RescueWhen.NOW -> R.string.rescue_when_now
+    RescueWhen.NOW -> R.string.tm_now
     RescueWhen.IN_1 -> R.string.rescue_when_1
     RescueWhen.IN_5 -> R.string.rescue_when_5
     RescueWhen.IN_15 -> R.string.rescue_when_15
@@ -303,7 +303,7 @@ private fun RescueContactPicker(vm: AppViewModel, onDismiss: () -> Unit, onPick:
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 OutlinedTextField(
-                    query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true,
+                    query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (shown.isEmpty()) {
@@ -318,7 +318,7 @@ private fun RescueContactPicker(vm: AppViewModel, onDismiss: () -> Unit, onPick:
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

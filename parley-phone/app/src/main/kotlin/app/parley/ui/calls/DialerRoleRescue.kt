@@ -100,7 +100,7 @@ fun DialerRoleGuide(onDismiss: () -> Unit) {
                 TextButton({ open(context, Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }) { Text(stringResource(R.string.role_rescue_default_apps)) }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.role_rescue_close)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
     )
 }
 

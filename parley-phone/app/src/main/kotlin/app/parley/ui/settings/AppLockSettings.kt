@@ -57,7 +57,7 @@ object AppLockRoutes {
 internal fun unlockWithSummary(vm: AppViewModel): String {
     val pin by vm.c.appPin.summary.collectAsStateWithLifecycle()
     val shownOff by vm.c.appPin.sessionShownOff.collectAsStateWithLifecycle()
-    return stringResource(if (pin?.pinSet == true && !shownOff) R.string.app_lock_method_pin else R.string.app_lock_method_device)
+    return stringResource(if (pin?.pinSet == true && !shownOff) R.string.pin_field_label else R.string.app_lock_method_device)
 }
 
 private enum class PinDialog { SET_PIN, PIN_OFF, DURESS_ABOUT, DURESS_SET, DURESS_MENU, DURESS_OFF, DURESS_INFO }
@@ -111,7 +111,7 @@ private typealias Confirm = (Int, () -> Unit) -> Unit
 @Composable
 private fun DuressGroup(vm: AppViewModel, s: AppPinStore.Summary, inDuress: Boolean, confirmed: Confirm, show: (PinDialog) -> Unit) {
     val scope = rememberCoroutineScope()
-    val duressSub = stringResource(if (s.duressSet) R.string.duress_on_summary else R.string.set_off)
+    val duressSub = stringResource(if (s.duressSet) R.string.duress_on_summary else R.string.dc_off)
     SegmentedGroup(stringResource(R.string.duress_group)) {
         item("duress_explainer") { InfoRow(stringResource(R.string.duress_explainer), null, Icons.Rounded.Shield) }
         linkRow("duress_pin", Icons.Rounded.Password, sub = duressSub) { show(if (s.duressSet) PinDialog.DURESS_MENU else PinDialog.DURESS_ABOUT) }
@@ -175,7 +175,7 @@ private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, inDuress: Boolean
     val scope = rememberCoroutineScope()
     val store = vm.c.appPin
     when (dialog) {
-        PinDialog.DURESS_ABOUT -> DuressAboutDialog(stringResource(R.string.duress_about_continue), onDismiss = { show(null) }) {
+        PinDialog.DURESS_ABOUT -> DuressAboutDialog(stringResource(R.string.duress_set_title), onDismiss = { show(null) }) {
             show(null)
             confirmed(R.string.duress_set_title) { show(PinDialog.DURESS_SET) }
         }
@@ -197,7 +197,7 @@ private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, inDuress: Boolean
                     confirmed(R.string.duress_change) { show(PinDialog.DURESS_SET) }
                 }) { Text(stringResource(R.string.duress_change)) }
             },
-            dismissButton = { TextButton({ show(PinDialog.DURESS_OFF) }) { Text(stringResource(R.string.duress_off)) } },
+            dismissButton = { TextButton({ show(PinDialog.DURESS_OFF) }) { Text(stringResource(R.string.pin_off_confirm)) } },
         )
         PinDialog.DURESS_OFF -> ConfirmDialog(
             title = stringResource(R.string.duress_off_title),
@@ -227,7 +227,7 @@ private fun DuressAboutDialog(continueLabel: String?, onDismiss: () -> Unit, onC
                 }
             }
         },
-        confirmButton = { TextButton(onContinue) { Text(continueLabel ?: stringResource(R.string.set_ok)) } },
-        dismissButton = continueLabel?.let { { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } } },
+        confirmButton = { TextButton(onContinue) { Text(continueLabel ?: stringResource(R.string.dc_ok)) } },
+        dismissButton = continueLabel?.let { { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } } },
     )
 }

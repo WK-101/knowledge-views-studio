@@ -64,7 +64,7 @@ fun CallQuestions(
     // Kept for the SIM dialog even when the guard sheet was answered first.
     var remember by remember(p.number) { mutableStateOf(false) }
     val shownNumber = Bidi.ltr(Format.number(p.number, countryIso))
-    val who = p.name?.let { stringResource(R.string.call_who_with_number, it, shownNumber) } ?: shownNumber
+    val who = p.name?.let { stringResource(R.string.circle_review_person_count, it, shownNumber) } ?: shownNumber
 
     // Abroad, the number with its country code and a local SIM come first: the warnings below are about the
     // number that will actually be dialled (taking the converted number swaps in its own warnings).
@@ -104,16 +104,16 @@ fun CallQuestions(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ onUpdate(null) }) { Text(stringResource(R.string.main_cancel)) } },
+            dismissButton = { TextButton({ onUpdate(null) }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     } else {
         ConfirmDialog(
-            title = stringResource(R.string.call_who_question, who),
+            title = stringResource(R.string.shortcut_call_confirm, who),
             text = null,
-            confirmLabel = stringResource(if (p.note != null) R.string.call_anyway else R.string.main_call),
+            confirmLabel = stringResource(if (p.note != null) R.string.call_anyway else R.string.circle_widget_call),
             onConfirm = { onPlace(p.number, p.simId, false, true) },
             onDismiss = { onUpdate(null) },
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = p.note?.let { { Text(stringResource(R.string.call_note_anyway, it)) } },
         )
     }

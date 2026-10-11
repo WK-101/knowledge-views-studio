@@ -24,10 +24,8 @@ import kotlinx.coroutines.launch
  * the background, and the end of a job that finished after its screen was gone ([UserJobs.Finished]).
  */
 object JobNotices {
-    private fun publicVersion(context: Context, text: Int): Notification = NotificationCompat.Builder(context, NotificationChannels.JOBS)
-        .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-        .setContentTitle(context.getString(text))
-        .build()
+    private fun publicVersion(context: Context, text: Int): Notification =
+        PrivateNotice.publicVersion(context, NotificationChannels.JOBS, app.parley.ui.R.drawable.ic_stat_call, context.getString(text))
 
     private fun openParley(context: Context): PendingIntent =
         PrivateNotice.open(context, NotificationRequests.JOB_OPEN, Intent(context, MainActivity::class.java))
@@ -93,7 +91,7 @@ object JobNotices {
         r.fraction?.let { r.copy(done = (it * PERCENT).toInt(), total = PERCENT) } ?: r
 
     fun post(context: Context, f: UserJobs.Finished) {
-        val title = context.getString(if (f.failed) R.string.job_failed_title else R.string.job_done_title)
+        val title = context.getString(if (f.failed) R.string.job_failed_title else R.string.dc_done)
         val tap = f.opener?.let {
             PendingIntent.getActivity(
                 context, NotificationRequests.JOB_FILE + (f.id % NotificationRequests.JOB_FILES).toInt(), openIntent(context, it),

@@ -166,7 +166,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         }
     }
 
-    SettingsScaffold(stringResource(R.string.qs_title), back) {
+    SettingsScaffold(stringResource(R.string.qs_menu), back) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.QrCodeScanner, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
             Text(

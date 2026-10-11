@@ -26,7 +26,7 @@ object HistoryText {
 
     @StringRes fun period(p: FilterPeriod): Int = when (p) {
         FilterPeriod.ANY -> R.string.hist_period_any
-        FilterPeriod.TODAY -> R.string.hist_period_today
+        FilterPeriod.TODAY -> R.string.blk_dry_today
         FilterPeriod.LAST_7_DAYS -> R.string.hist_period_7_days
         FilterPeriod.LAST_30_DAYS -> R.string.hist_period_30_days
         FilterPeriod.THIS_MONTH -> R.string.hist_period_this_month
@@ -37,25 +37,25 @@ object HistoryText {
     @StringRes fun typeGroup(g: TypeGroup): Int = when (g) {
         TypeGroup.INCOMING -> R.string.hist_type_incoming
         TypeGroup.OUTGOING -> R.string.hist_type_outgoing
-        TypeGroup.MISSED -> R.string.hist_type_missed
+        TypeGroup.MISSED -> R.string.contact_page_kind_missed
         TypeGroup.REJECTED -> R.string.hist_type_rejected
-        TypeGroup.BLOCKED -> R.string.hist_type_blocked
-        TypeGroup.VOICEMAIL -> R.string.hist_type_voicemail
+        TypeGroup.BLOCKED -> R.string.blk_blocked
+        TypeGroup.VOICEMAIL -> R.string.blk_line_voicemail
     }
 
     @StringRes fun callType(t: CallType): Int = when (t) {
         CallType.INCOMING -> R.string.hist_type_incoming
         CallType.OUTGOING -> R.string.hist_type_outgoing
-        CallType.MISSED -> R.string.hist_type_missed
+        CallType.MISSED -> R.string.contact_page_kind_missed
         CallType.REJECTED -> R.string.hist_type_rejected
-        CallType.BLOCKED -> R.string.hist_type_blocked
-        CallType.VOICEMAIL -> R.string.hist_type_voicemail
+        CallType.BLOCKED -> R.string.blk_blocked
+        CallType.VOICEMAIL -> R.string.blk_line_voicemail
         CallType.ANSWERED_EXTERNALLY -> R.string.hist_type_answered_elsewhere
         CallType.UNKNOWN -> R.string.hist_type_unknown
     }
 
     @StringRes fun deleteRange(r: DeleteRange): Int = when (r) {
-        DeleteRange.ALL -> R.string.hist_range_all
+        DeleteRange.ALL -> R.string.circle_all_calls
         DeleteRange.LAST_YEAR -> R.string.hist_range_year
         DeleteRange.LAST_MONTH -> R.string.hist_range_month
         DeleteRange.LAST_WEEK -> R.string.hist_range_week
@@ -99,7 +99,7 @@ object HistoryText {
         val used = res.getString(R.string.hist_plan_used, u.usedMinutes, u.config.allowanceMinutes)
         val left = if (u.daysLeft == 1) res.getString(R.string.hist_plan_last_day)
         else res.getQuantityString(R.plurals.hist_plan_days_left, u.daysLeft, u.daysLeft)
-        return res.getString(R.string.dc_joined_dot, used, left)
+        return res.getString(R.string.archive_page_work, used, left)
     }
 
     /** Short description for a chip without a name, e.g. "Missed · SIM 2 · Last 7 days". */
@@ -118,6 +118,6 @@ object HistoryText {
                 min != null -> add(res.getString(R.string.hist_duration_at_least, fmt(min)))
                 max != null -> add(res.getString(R.string.hist_duration_at_most, fmt(max)))
             }
-        }.joinToString(" · ").ifEmpty { res.getString(R.string.hist_all_calls) }
+        }.joinToString(" · ").ifEmpty { res.getString(R.string.circle_all_calls) }
     }
 }

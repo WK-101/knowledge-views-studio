@@ -183,8 +183,8 @@ private fun ringingActions(call: CallUi, ended: Boolean, onReply: () -> Unit): M
     val res = LocalResources.current
     return Modifier.semantics(mergeDescendants = true) {
         customActions = buildList {
-            add(CustomAccessibilityAction(res.getString(R.string.incall_answer)) { CallManager.answer(call.id); true })
-            add(CustomAccessibilityAction(res.getString(R.string.incall_decline)) { CallManager.reject(call.id); true })
+            add(CustomAccessibilityAction(res.getString(R.string.notif_answer)) { CallManager.answer(call.id); true })
+            add(CustomAccessibilityAction(res.getString(R.string.notif_decline)) { CallManager.reject(call.id); true })
             if (!call.hidden && !call.number.isNullOrBlank()) add(CustomAccessibilityAction(res.getString(R.string.incall_reply_a11y)) { onReply(); true })
             if (!call.silenced) add(CustomAccessibilityAction(res.getString(R.string.incall_stop_ringing)) { CallManager.ignore(call.id); true })
             if (call.canBlockAndDecline) {
@@ -252,7 +252,7 @@ private fun RingingFrame(ringing: Boolean, size: Dp) {
 @Composable
 private fun SecondaryLine(call: CallUi) {
     val sep = stringResource(R.string.tc_separator)
-    val label = call.label?.let { l -> if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }
+    val label = call.label?.let { l -> if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.incall_private) else l }
     val parts = buildList {
         label?.let(::add)
         call.number?.takeIf { call.name != null && !call.lockMasked }?.let { add(Bidi.ltr(it)) }
@@ -449,7 +449,7 @@ private fun statusText(call: CallUi, ended: Boolean): String? = when {
     // The SIM the call goes out on, even before Telecom has settled on it.
     call.state.dialling ->
         call.accountLabel?.let { stringResource(R.string.incall_status_calling_via, it) } ?: stringResource(R.string.incall_status_calling)
-    call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
+    call.state == CallState.HOLDING -> stringResource(R.string.holdmode_title)
     call.state == CallState.SELECT_ACCOUNT -> stringResource(R.string.incall_status_choose_sim)
     call.state == CallState.DISCONNECTING -> stringResource(R.string.incall_status_ending)
     call.state == CallState.ACTIVE -> null

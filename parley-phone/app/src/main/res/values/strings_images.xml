@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Save and Share for pictures: the photo viewers, the call-screen picture and Parley's QR codes. -->
 <resources>
-    <string name="img_save">Save</string>
-    <string name="img_share">Share</string>
     <string name="img_share_title">Share picture</string>
-    <string name="img_saved">Saved</string>
     <string name="img_save_failed">Couldn\'t save the picture there. Try another place.</string>
     <string name="img_unreadable">Couldn\'t read this picture</string>
-    <!-- Used as the file name when there is no name to give it. -->
-    <string name="img_file_fallback">Photo</string>
     <!-- What Save and Share hand out for a kept original, said per picture. -->
     <string name="img_note_original">The photo as you picked it, whole and in its own format.</string>
     <string name="img_note_original_no_location">The photo as you picked it, whole and in its own format. Details such as the camera and date stay in the file; its location was removed when Parley kept it.</string>

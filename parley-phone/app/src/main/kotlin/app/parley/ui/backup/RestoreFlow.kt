@@ -84,7 +84,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         Step.Unlock -> ConfirmDialog(
             title = stringResource(R.string.rst_open_title),
             text = null,
-            confirmLabel = stringResource(R.string.rst_open),
+            confirmLabel = stringResource(R.string.blk_open),
             onConfirm = {
                 val unlock = if (useRecovery) {
                     runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse {
@@ -139,7 +139,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             ConfirmDialog(
                 title = stringResource(R.string.rst_backup_from, Format.fullDate(context, s.opened.createdAt)),
                 text = null,
-                confirmLabel = stringResource(R.string.dc_next),
+                confirmLabel = stringResource(R.string.pin_next),
                 onConfirm = {
                     val opts = o.copy(mode = mode)
                     step = Step.Working(res.getString(R.string.rst_comparing))
@@ -163,7 +163,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         Text(stringResource(R.string.rst_what), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding8())
                         fun count(label: String, k: String) = c[k]?.let { res.getString(R.string.rst_with_count, label, it.toInt()) } ?: label
                         Check(count(stringResource(R.string.rst_contacts), "contacts"), o.contacts) { o = o.copy(contacts = it) }
-                        Check(count(stringResource(R.string.rst_call_history), "calllog"), o.callLog) { o = o.copy(callLog = it) }
+                        Check(count(stringResource(R.string.hist_settings_title), "calllog"), o.callLog) { o = o.copy(callLog = it) }
                         Check(stringResource(R.string.rst_blocking), o.blocking) { o = o.copy(blocking = it) }
                         Check(stringResource(R.string.rst_speed_dial), o.speedDial) { o = o.copy(speedDial = it) }
                         Check(stringResource(R.string.rst_private), o.vault) { o = o.copy(vault = it) }

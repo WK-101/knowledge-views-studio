@@ -76,7 +76,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
         onChange = { v -> scope.launch { store.setRecordEnabled(v) } },
     )
     ParleyListItem(
-        headlineContent = { Text(stringResource(R.string.home_messaged_numbers)) },
+        headlineContent = { Text(stringResource(R.string.discover_messaged_title)) },
         supportingContent = { Text(stringResource(R.string.rec_see_delete)) },
         modifier = Modifier.clickable(onClick = openList),
     )
@@ -104,7 +104,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
 
     ParleyScaffold(topBar = {
         ParleyTopBar(
-            stringResource(R.string.home_messaged_numbers),
+            stringResource(R.string.discover_messaged_title),
             onBack = back,
             actions = {
                 if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.rec_clear_all)) }
@@ -174,7 +174,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
             onConfirm = { confirmClear = false; scope.launch { store.clearAll() } },
             onDismiss = { confirmClear = false },
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -191,9 +191,9 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
             Row {
                 // Call the number straight from the list.
                 if (onCall != null) {
-                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
+                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, Bidi.ltr(shown)), tint = CallColors.Accept) }
                 }
-                IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) }
+                IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.case_reference_delete, shown)) }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

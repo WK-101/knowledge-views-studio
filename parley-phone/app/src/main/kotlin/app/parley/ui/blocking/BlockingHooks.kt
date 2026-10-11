@@ -215,7 +215,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
                 recents.clearSelection()
             },
             onDismiss = { confirming = false },
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     // A name the network sent says so: it isn't one you saved.

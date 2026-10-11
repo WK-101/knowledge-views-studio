@@ -33,7 +33,7 @@ fun ContactPickerScreen(vm: AppViewModel, back: () -> Unit, onPick: (Long) -> Un
     val all by vm.contacts.collectAsStateWithLifecycle()
     var q by remember { mutableStateOf("") }
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.picker_add_to_contact), onBack = back)
+        ParleyTopBar(stringResource(R.string.hist_action_add_to_contact), onBack = back)
     }) { p ->
         val shown = all.orEmpty().filter { TextSearch.matches(q, it.displayName) }
         // The A–Z index while nothing is typed, from the first contact on (the search field is row 0).
@@ -45,7 +45,7 @@ fun ContactPickerScreen(vm: AppViewModel, back: () -> Unit, onPick: (Long) -> Un
         Box(Modifier.padding(p)) {
             LazyColumn(state = state) {
                 item {
-                    OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))
+                    OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))
                 }
                 items(shown, key = { it.id }) { c ->
                     Box(Modifier.padding(end = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp)) { ContactRow(c) { onPick(c.id) } }

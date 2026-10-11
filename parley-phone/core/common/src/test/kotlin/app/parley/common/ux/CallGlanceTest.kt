@@ -1,15 +1,15 @@
 package app.parley.common.ux
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.SettingsCatalog
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CallGlanceTest {
     private fun call(id: Long, number: String, date: Long, type: CallType, duration: Long = 0, hidden: Boolean = false) =
-        CallEntry(id, number, null, type, date, duration, null, false, hidden)
+        testCall(id, number, null, type, date, duration, presentationHidden = hidden)
 
     private val key = { n: String -> n.filter(Char::isDigit).takeLast(9) }
 

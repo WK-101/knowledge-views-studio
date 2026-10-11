@@ -94,13 +94,13 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
     ParleyDialog(
         // The import runs on as an app job, so the dialog can always be closed.
         onDismissRequest = onDone,
-        title = { Text(stringResource(if (result != null) R.string.import_finished else R.string.import_into)) },
+        title = { Text(stringResource(if (result != null) R.string.hist_import_finished else R.string.import_into)) },
         text = {
             Column {
                 when {
                     result != null -> Text(result!!)
                     running -> {
-                        Text(stringResource(R.string.import_importing))
+                        Text(stringResource(R.string.hist_importing))
                         LinearProgressIndicator(progress = { progress })
                     }
                     else -> {
@@ -116,8 +116,8 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
                                         running = true
                                         // An app job: closing the dialog or leaving Parley doesn't stop the import half way.
                                         val job = vm.jobs.start(
-                                            UserJobs.Kind.IMPORT, res.getString(R.string.import_importing),
-                                            { e -> res.getString(R.string.import_failed, UserErrorText.of(context, e)).also { result = it } },
+                                            UserJobs.Kind.IMPORT, res.getString(R.string.hist_importing),
+                                            { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)).also { result = it } },
                                         ) { p ->
                                             val r = try {
                                                 vm.c.vcards.importVCard(
@@ -149,7 +149,7 @@ private fun ImportIntoDialog(vm: AppViewModel, uri: Uri, passphrase: CharArray?,
                 }
             }
         },
-        confirmButton = { if (!running) TextButton(onDone) { Text(stringResource(if (result != null) R.string.main_done else R.string.main_cancel)) } },
+        confirmButton = { if (!running) TextButton(onDone) { Text(stringResource(if (result != null) R.string.dc_done else R.string.dc_cancel)) } },
     )
 }
 

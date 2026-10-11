@@ -3,11 +3,9 @@
     <!-- Settings categories (keyed by SettingsCategory name) -->
     <string name="set_cat_appearance_title">Appearance</string>
     <string name="set_cat_appearance_summary">Theme, colours, language, lists, names</string>
-    <string name="set_cat_calls_title">Calls</string>
     <string name="set_cat_calls_summary">Answering, keypad, SIMs, situations</string>
     <string name="set_cat_blocking_title">Blocking &amp; spam</string>
     <string name="set_cat_blocking_summary">Rules, spam lists, off hours, tests</string>
-    <string name="set_cat_contacts_title">Contacts</string>
     <string name="set_cat_contacts_summary">Accounts, My card, import &amp; export</string>
     <string name="set_cat_history_title">Recents &amp; history</string>
     <string name="set_cat_history_summary">Parley\'s copy of calls, Android\'s call log, Recents</string>
@@ -63,13 +61,11 @@
     <string name="set_avatar_style_title">Avatars</string>
     <string name="set_avatar_style_summary">Colourful or grey letters; names that start with an emoji show it</string>
     <string name="set_avatar_style_kw">avatar, monogram, emoji, picture, letters, grey, gray</string>
-    <string name="set_default_dialer_title">Default phone app</string>
     <string name="set_default_dialer_summary">Needed to show calls, manage blocking and the call log</string>
     <string name="set_default_dialer_kw">default dialer, role, phone app</string>
     <string name="set_answer_gesture_title">Answer incoming calls by</string>
     <string name="set_answer_gesture_summary">Swipe or tap</string>
     <string name="set_answer_gesture_kw">slide, swipe, tap, pocket, answer</string>
-    <string name="set_call_background_title">Call screen background</string>
     <string name="set_call_background_summary">The caller\'s colour, plain, or Poster: a contact\'s call-screen picture fills the screen with their name over it. Their picture shows with every choice.</string>
     <string name="set_call_background_kw">tint, colour, color, plain, background, call screen, incoming screen, wallpaper, poster, contact poster, full screen, style</string>
     <string name="set_call_background_caller">Caller\'s colour</string>
@@ -81,7 +77,6 @@
     <string name="set_lock_screen_caller_summary">The name, initials or just \"Incoming call\" while the phone is locked. Notes for calls show only after you unlock, unless you choose Name and notes. Private contacts can hide more.</string>
     <string name="set_lock_screen_caller_kw">lock screen, lockscreen, caller name, hide name, initials, notification, incoming call, privacy, locked, note for calls, who is this, last call</string>
     <string name="set_lock_screen_caller_name_notes">Name and notes</string>
-    <string name="set_lock_screen_caller_name">Name</string>
     <string name="set_lock_screen_caller_initials">Initials</string>
     <string name="set_lock_screen_caller_none">Just \"Incoming call\"</string>
     <string name="set_caller_photo_title">Show contact photo on the call screen</string>
@@ -91,7 +86,6 @@
     <string name="set_network_names_kw">network name, caller name, caller ID, CNAP, carrier name, name from the network, unknown caller name, spoof</string>
     <string name="set_network_names_off_title">Delete the names already kept?</string>
     <string name="set_network_names_off_text">Parley won\'t keep or show names from the network now. The ones it kept stay on this phone only, until you delete them or turn this on again.</string>
-    <string name="set_network_names_delete">Delete</string>
     <string name="set_network_names_keep">Keep for later</string>
     <string name="set_network_names_deleted">Names from the network deleted</string>
     <string name="set_caller_photo_kw">photo, picture, avatar, image, caller, call screen, incoming screen, hide photo</string>
@@ -107,8 +101,6 @@
     <string name="set_pocket_guard_title">Ask before pocket calls</string>
     <string name="set_pocket_guard_summary">A favourite, the widget or a shortcut asks first while the phone is covered</string>
     <string name="set_pocket_guard_kw">pocket dial, butt dial, accidental, proximity, widget, shortcut, favourite, favorite</string>
-    <string name="set_missed_realert_title">Remind me of missed calls</string>
-    <string name="set_missed_realert_summary">Alert again every few minutes until you\'ve seen them</string>
     <string name="set_missed_realert_kw">re-alert, repeat, reminder, missed call, nag, notification</string>
     <string name="set_proximity_sensor_title">Turn the screen off at your ear</string>
     <string name="set_proximity_sensor_summary">During earpiece calls, or only once a call is answered</string>
@@ -122,7 +114,6 @@
     <string name="set_flip_to_silence_switch">Flip to silence</string>
     <string name="set_flip_on">Flip to silence on</string>
     <string name="set_ring_style">Ring style</string>
-    <string name="set_ring_normal">Normal</string>
     <string name="set_ring_normal_sub">Rings at your ring volume straight away</string>
     <string name="set_ring_increasing">Increasing</string>
     <string name="set_ring_increasing_sub">Starts quietly and gets louder, up to your ring volume</string>
@@ -131,7 +122,6 @@
     <string name="set_power_button_ends_call_title">Power button ends call</string>
     <string name="set_power_button_ends_call_summary">Android\'s accessibility setting</string>
     <string name="set_power_button_ends_call_kw">power, hang up, end call, accessibility, button</string>
-    <string name="set_voicemail_title">Voicemail</string>
     <string name="set_voicemail_summary">Your voicemail inbox and the carrier\'s voicemail settings</string>
     <string name="set_voicemail_kw">visual voicemail, vvm, inbox, mailbox, voice mail, messages</string>
     <string name="set_sims_title">SIMs and calling abroad</string>
@@ -152,7 +142,6 @@
     <string name="set_keypad_letters_title">Keypad letters</string>
     <string name="set_keypad_letters_summary">A second alphabet on the keys, for searching names</string>
     <string name="set_keypad_letters_kw">t9, alphabet, language, cyrillic, russian, ukrainian, greek, hebrew, arabic, chinese, japanese, korean</string>
-    <string name="set_speed_dial_title">Speed dial</string>
     <string name="set_speed_dial_summary">Long-press 2–9 on the keypad</string>
     <string name="set_speed_dial_kw">shortcut, quick dial, one touch</string>
     <string name="set_ussd_title">USSD replies</string>
@@ -161,10 +150,8 @@
     <string name="set_call_time_title">Reminders &amp; limits</string>
     <string name="set_call_time_summary">Talk-time reminders, call-length limits and allowances</string>
     <string name="set_call_time_kw">timer, beep, duration, limit, allowance, supervised, parental, talk time</string>
-    <string name="set_plan_minutes_title">Plan minutes per SIM</string>
     <string name="set_plan_minutes_summary" formatted="false">Billing increments and an 80 % warning (in Tools)</string>
     <string name="set_plan_minutes_kw">billing, minutes, plan, bundle, tariff</string>
-    <string name="set_blocking_title">Blocking &amp; screening</string>
     <string name="set_blocking_summary">Allow and block rules, off hours and extra checks</string>
     <string name="set_blocking_kw">block, blocked numbers, spam, reject, silence, screening, robocall, off hours, do not disturb</string>
     <string name="set_repeat_callers_title">Let repeat callers through</string>
@@ -174,20 +161,15 @@
     <string name="set_sales_lines_silence">Tag and silence</string>
     <!-- Under "Tag and silence". -->
     <string name="set_sales_lines_silence_sub">Contacts, numbers you allow and repeat callers still ring</string>
-    <string name="set_learn_from_calls_title">Sales lines (your calls)</string>
     <string name="set_learn_from_calls_summary">Tag numbers that look like sales lines, from how your own calls with them went, and silence them if you like. Stays on this phone.</string>
     <string name="set_learn_from_calls_kw">reputation, sales, telemarketing, spam, tag, learn, learn from your calls, range, silence, mute, silence numbers that look like sales lines</string>
-    <string name="set_expecting_call_title">Expecting a call</string>
     <string name="set_expecting_call_summary">Let unknown callers ring for a while</string>
     <string name="set_expecting_call_kw">snooze, delivery, courier, unknown</string>
-    <string name="set_spam_lists_title">Spam lists</string>
     <string name="set_spam_lists_summary">Offline lists you add yourself, nothing is sent anywhere</string>
     <string name="set_spam_lists_kw">lists, parleylist, ftc, arcep, database</string>
     <string name="set_templates_title">Rule templates</string>
     <string name="set_templates_summary">Ready-made rules for your country</string>
     <string name="set_templates_kw">regulator, presets, toll free, premium</string>
-    <string name="set_dry_run_title">Test a call</string>
-    <string name="set_dry_run_summary">See what your rules would do, and replay last week</string>
     <string name="set_dry_run_kw">simulate, dry run, test, why</string>
     <string name="set_transfer_title">Import &amp; share rules</string>
     <string name="set_transfer_summary">From Call Blocker, YACB, NoPhoneSpam or CSV</string>
@@ -196,22 +178,17 @@
     <string name="set_default_account_summary">The account new contacts go to</string>
     <string name="set_default_account_kw">account, google, phone, default account</string>
     <string name="set_default_account_system">Android puts new contacts in %1$s, your phone\'s default account. To keep new contacts on this phone only, change the default in your phone\'s Contacts settings.</string>
-    <string name="set_labels_title">Labels</string>
     <string name="set_labels_summary">Rename, merge, label ringtones</string>
     <string name="set_labels_kw">groups, tags, categories</string>
-    <string name="set_temporary_contacts_title">Temporary contacts</string>
     <string name="set_temporary_contacts_summary">Contacts that delete themselves after a while</string>
     <string name="set_temporary_contacts_kw">temp, expire, expiry, self-destruct, delete automatically</string>
-    <string name="set_duplicates_title">Find &amp; merge duplicates</string>
     <string name="set_duplicates_summary">Contacts saved twice</string>
     <string name="set_duplicates_kw">merge, duplicate, dedupe, join</string>
-    <string name="set_health_title">Contact health check</string>
     <string name="set_health_summary">Numbers without country code, empty and stale contacts</string>
     <string name="set_health_kw">tidy, clean up, fix, cleanup</string>
     <string name="set_import_file_title">Import from .vcf or .csv file</string>
     <string name="set_import_file_summary">Any CSV (Google, Outlook, a spreadsheet): choose what each column holds. With a report.</string>
     <string name="set_import_file_kw">vcard, vcf, csv, import, google, outlook, excel, spreadsheet, columns, mapping</string>
-    <string name="set_bulk_add_title">Add several numbers</string>
     <string name="set_bulk_add_summary">Paste a list of numbers and save them at once, to a label, privately or for a few days</string>
     <string name="set_bulk_add_kw">bulk, many, paste, list, batch, import numbers, leads</string>
     <string name="set_import_sim_title">Import from SIM card</string>
@@ -226,7 +203,6 @@
     <string name="set_export_account_title">Export one account to .vcf</string>
     <string name="set_export_account_summary">Contacts from one account only</string>
     <string name="set_export_account_kw">export, account</string>
-    <string name="set_birthdays_title">Birthdays &amp; dates</string>
     <string name="set_birthdays_summary">Upcoming birthdays and anniversaries</string>
     <string name="set_birthdays_kw">anniversary, events, dates</string>
     <string name="set_birthday_reminders_title">Birthday reminders</string>
@@ -241,13 +217,11 @@
     <string name="set_archive_title">Keep Parley\'s copy of calls</string>
     <string name="set_archive_summary">Parley keeps its own encrypted copy, because Android may drop old calls</string>
     <string name="set_archive_kw">archive, call log, history, forever, keep full call history</string>
-    <string name="set_history_details_title">Deleted calls</string>
     <string name="set_history_details_summary">Restore calls deleted in the last 30 days, in History &amp; undo</string>
     <string name="set_history_details_kw">undo, restore, recently deleted, trash, bin</string>
     <string name="set_retention_title">Trim Android\'s call log</string>
     <string name="set_retention_summary">Delete older calls from Android\'s call log once you choose a limit. Parley\'s copy keeps to the same limit</string>
     <string name="set_retention_kw">retention, delete old calls, auto delete, call log, keep call history</string>
-    <string name="set_insights_title">Call insights</string>
     <string name="set_insights_summary">Talk time, top people, calls you didn\'t return</string>
     <string name="set_insights_kw">statistics, stats, charts, talk time</string>
     <string name="set_import_calls_title">Import call history from CSV</string>
@@ -256,16 +230,12 @@
     <string name="set_quick_replies_title">Quick reply messages</string>
     <string name="set_quick_replies_summary">Sent when you decline a call with a message</string>
     <string name="set_quick_replies_kw">sms, decline, reply, text, unknown numbers, text me your name, who is calling</string>
-    <string name="set_my_details_title">My card</string>
     <string name="set_my_details_summary">Your own details: share them as a QR code or vCard, and use them for “Send my details”</string>
     <string name="set_my_details_kw">me, my details, my number, my name, share, business card, profile, vcard, qr</string>
-    <string name="set_messaged_numbers_title">Messaged numbers</string>
     <string name="set_messaged_numbers_summary">Numbers you opened a chat with from Parley: see, delete or stop keeping them</string>
     <string name="set_messaged_numbers_kw">whatsapp, signal, telegram, record, history, clear, privacy, last messaged</string>
-    <string name="set_messaged_expiry_title">Forget messaged numbers after</string>
     <string name="set_messaged_expiry_summary">Never, 7, 30 or 90 days</string>
     <string name="set_messaged_expiry_kw">expire, auto delete, retention, whatsapp, record</string>
-    <string name="set_app_lock_title">App lock</string>
     <string name="set_app_lock_summary">Fingerprint, face or screen lock to open Parley. Incoming calls always show.</string>
     <string name="set_app_lock_kw">lock, biometric, fingerprint, face, pin, password, security</string>
     <string name="set_lock_after_title">Lock again after</string>
@@ -274,10 +244,8 @@
     <string name="set_app_lock_method_title">Unlock with</string>
     <string name="set_app_lock_method_summary">Fingerprint or screen lock, or a Parley PIN</string>
     <string name="set_app_lock_method_kw">pin, code, passcode, unlock, lock screen</string>
-    <string name="set_parley_pin_title">Parley PIN</string>
     <string name="set_parley_pin_summary">A PIN of Parley\'s own instead of the phone\'s screen lock</string>
     <string name="set_parley_pin_kw">pin, code, passcode, own pin, app pin, separate pin, shared phone</string>
-    <string name="set_duress_pin_title">Duress PIN</string>
     <string name="set_duress_pin_summary">A second PIN that opens Parley with private contacts and sensitive notes hidden</string>
     <string name="set_duress_pin_kw">duress, coercion, forced, made to unlock, border, partner, abuse, safety, decoy, second pin, hide</string>
     <string name="set_duress_lock_vault_title">Keep private details locked</string>
@@ -292,37 +260,28 @@
     <string name="set_private_history_title">Private call history</string>
     <string name="set_private_history_summary">Calls with private contacts are moved out of the system call log</string>
     <string name="set_private_history_kw">vault, private calls, call log</string>
-    <string name="set_privacy_dashboard_title">Privacy dashboard</string>
     <string name="set_privacy_dashboard_summary">What Parley can access and why</string>
     <string name="set_privacy_dashboard_kw">permissions, data, internet, tracking</string>
-    <string name="set_who_can_see_title">Who can see your contacts</string>
     <string name="set_who_can_see_summary">Which apps can read your contacts</string>
     <string name="set_who_can_see_kw">apps, access, contact scopes, grapheneos</string>
-    <string name="set_private_directory_title">Private names in other phone apps</string>
     <string name="set_private_directory_summary">Off by default. A phone app you approve (for example Google Phone, also in the car) can show who is calling</string>
     <string name="set_private_directory_kw">directory, car, work profile, android auto, caller id, dialer, private names</string>
     <string name="set_app_permissions_title">App permissions (system)</string>
     <string name="set_app_permissions_summary">Android\'s settings for Parley</string>
     <string name="set_app_permissions_kw">permissions, system, app info</string>
-    <string name="set_backup_title">Backup &amp; restore</string>
     <string name="set_backup_summary">Encrypted backups to a folder you choose</string>
     <string name="set_backup_kw">restore, export, encrypted, new phone, move, transfer</string>
-    <string name="set_sync_title">Sync between your phones</string>
     <string name="set_sync_summary">Through a Syncthing / Nextcloud folder, no server</string>
     <string name="set_sync_kw">syncthing, nextcloud, folder, second phone</string>
-    <string name="set_journal_title">History &amp; undo</string>
     <string name="set_journal_summary">Deleted contacts and calls, changes and daily snapshots: undo for 30 days</string>
     <string name="set_journal_kw">undo, trash, restore, deleted, bin, recently deleted, journal</string>
-    <string name="set_time_machine_title">Daily snapshots</string>
     <string name="set_time_machine_summary">Daily snapshots for 6 months: see and undo changes</string>
     <string name="set_time_machine_kw">snapshots, history, versions, restore, time machine</string>
-    <string name="set_notification_settings_title">Notification settings</string>
     <string name="set_notification_settings_summary">Sounds and importance of Parley\'s notifications (system)</string>
     <string name="set_notification_settings_kw">sound, missed call, notification, alerts</string>
     <string name="set_full_screen_title">Allow full-screen incoming calls</string>
     <string name="set_full_screen_summary">Show incoming calls over the lock screen</string>
     <string name="set_full_screen_kw">lock screen, full screen, incoming, heads up</string>
-    <string name="set_battery_title">Battery optimisation</string>
     <string name="set_battery_summary">Some phones delay calls for optimised apps</string>
     <string name="set_battery_kw">battery, optimization, doze, unrestricted, background</string>
     <string name="set_xiaomi_title">Xiaomi: lock screen &amp; pop-up permissions</string>
@@ -331,7 +290,6 @@
     <string name="set_version_title">Parley version</string>
     <string name="set_version_summary">Free and open source (GPL-3.0). No internet access, no ads, no trackers, no accounts.</string>
     <string name="set_version_kw">version, about, licence, license, gpl, open source, build</string>
-    <string name="set_diagnostics_title">Export diagnostics</string>
     <string name="set_diagnostics_summary">App version, device and settings, with numbers masked</string>
     <string name="set_diagnostics_kw">debug, logs, bug report, support, raw, dump</string>
     <string name="set_crash_reports_title">Keep crash reports</string>
@@ -339,21 +297,8 @@
     <string name="set_crash_reports_kw">crash, bug, error, report, stack trace, debug</string>
 
     <!-- Settings screens: shared -->
-    <string name="set_settings">Settings</string>
     <string name="set_back">Back</string>
-    <string name="set_action_change">Change</string>
     <string name="set_search_settings">Search settings</string>
-    <string name="set_close_search">Close search</string>
-    <string name="set_clear">Clear</string>
-    <string name="set_save">Save</string>
-    <string name="set_reset">Reset</string>
-    <string name="set_cancel">Cancel</string>
-    <string name="set_ok">OK</string>
-    <string name="set_done">Done</string>
-    <string name="set_on">On</string>
-    <string name="set_off">Off</string>
-    <!-- Two parts of one line, e.g. "Exported 12 contacts · 1 failed". -->
-    <string name="set_joined">%1$s · %2$s</string>
     <string name="set_not_default">Parley is not the default phone app</string>
     <string name="set_is_default">Parley is your default phone app</string>
     <string name="set_not_default_body">Needed to show calls, manage blocking and the call log.</string>
@@ -363,11 +308,9 @@
     <string name="set_search_no_match">No settings match “%1$s”</string>
     <string name="set_search_shown_after">“%1$s” shows up here once “%2$s” is on or set to fit.</string>
     <string name="set_quick_replies_dialog">Quick replies</string>
-    <string name="set_import_finished">Import finished</string>
     <string name="set_not_imported">Not imported</string>
     <string name="set_unmapped_fields">Fields with no place in a contact</string>
     <string name="set_import_card_prefix">Card %1$d:\u0020</string>
-    <string name="set_import_imported_of">Imported %1$d of %2$d</string>
     <plurals name="set_import_duplicates_skipped">
         <item quantity="one">%1$d duplicate skipped</item>
         <item quantity="other">%1$d duplicates skipped</item>
@@ -394,27 +337,16 @@
     </plurals>
 
     <!-- Settings pages -->
-    <string name="set_group_theme">Theme</string>
-    <string name="set_group_navigation_bar">Navigation bar</string>
-    <string name="set_group_names">Names</string>
     <string name="set_group_feedback">Feedback</string>
     <string name="set_group_lists_rules">Lists and rules</string>
     <string name="set_group_organise">Organise</string>
     <string name="set_group_import_export">Import and export</string>
-    <string name="set_group_call_history">Call history</string>
-    <string name="set_group_recents">Recents</string>
-    <string name="set_group_app_lock">App lock</string>
-    <string name="set_group_private_contacts">Private contacts</string>
     <string name="set_group_your_data">Your data</string>
-    <string name="set_group_backups">Backups</string>
-    <string name="set_group_undo">Undo</string>
     <string name="set_theme_system">System</string>
     <string name="set_theme_light">Light</string>
     <string name="set_theme_dark">Dark</string>
     <string name="set_density_comfortable">Comfortable</string>
     <string name="set_density_compact">Compact</string>
-    <string name="set_sort_first_name">First name</string>
-    <string name="set_sort_last_name">Last name</string>
     <string name="set_name_order_first">First name first</string>
     <string name="set_name_order_last">Last name first</string>
     <string name="set_nav_tabs_help">Drag to reorder. Links that open a hidden tab (dialling a number, a missed call) still work.</string>
@@ -423,12 +355,9 @@
     <string name="set_same_as_usual">Same as usual</string>
     <string name="set_expecting_call_on">On: unknown callers ring for now</string>
     <string name="set_exporting">Exporting…</string>
-    <string name="set_importing">Importing…</string>
     <string name="set_birthday_reminders_at">A notification on the day, at %1$s</string>
-    <string name="set_import_into">Import contacts into</string>
     <string name="set_skip_duplicates">Skip contacts I already have</string>
     <string name="set_skip_duplicates_body">Same number or email</string>
-    <string name="set_import_failed_toast">Import failed: %1$s</string>
     <string name="set_forever">Forever</string>
     <plurals name="set_days">
         <item quantity="one">%1$d day</item>
@@ -468,9 +397,6 @@
 
     <!-- Navigation bar editor -->
     <string name="set_tab_shown">Shown in the navigation bar</string>
-    <string name="set_tab_hidden">Hidden</string>
-    <string name="set_move_up">Move up</string>
-    <string name="set_move_down">Move down</string>
     <string name="set_tab_one_stays">At least one tab stays</string>
 
     <!-- Privacy dashboard -->
@@ -524,7 +450,6 @@
     <string name="set_perm_read_sync_settings">Tell you in the health check when contacts sync is off for an account.</string>
 
     <!-- Speed dial -->
-    <string name="set_speed_dial_not_set">Not set</string>
     <string name="set_speed_dial_key">Speed dial %1$d</string>
     <string name="set_name_or_number">Name or number</string>
     <string name="set_use_number">Use number</string>
@@ -551,7 +476,6 @@
     <string name="set_calls_keypad_summary">Tones and vibration, letters, speed dial, phone menus</string>
     <string name="set_calls_sims_title">SIMs &amp; carrier</string>
     <string name="set_calls_sims_summary">SIMs, calling abroad, forwarding and voicemail settings</string>
-    <string name="set_calls_situations_title">Situations</string>
     <string name="set_calls_situations_summary">Driving, meeting, night and travelling; rescue call and helpers</string>
     <string name="set_calls_situations_intro">One tap sets a moment: who may ring, how calls are answered, which reply comes first and which SIM calls go out on. Turning it off puts back what you had. Below: helpers, phone menus and how long calls last.</string>
     <string name="set_group_before_calling">Before you call</string>
@@ -566,12 +490,9 @@
     <string name="set_pocket_guard_sub">A favourite, the direct-dial widget or a shortcut asks first while the proximity sensor is covered</string>
     <string name="set_proximity_on">The screen turns off at your ear so your cheek can\'t press buttons. Turn off if the sensor is broken or the screen goes dark in your pocket.</string>
     <string name="set_proximity_off">Off: the screen stays on during earpiece calls. Be careful not to press buttons with your cheek.</string>
-    <string name="set_proximity_during">During calls</string>
     <string name="set_proximity_once_answered">Once answered</string>
     <string name="set_proximity_once_answered_sub">The screen stays on while a call is being dialled, so you can see it connect, and turns off at your ear once the other person answers.</string>
     <string name="set_group_call_audio">Speaker and screen</string>
-    <string name="set_speaker_never">Never</string>
-    <string name="set_speaker_always">Always</string>
     <string name="set_speaker_unknown">Numbers not in your contacts</string>
     <string name="set_speaker_sub">Calls start on the speaker once they\'re answered or dialled. A headset, earbuds or your car always come first, and emergency calls are never switched. Tap Speaker to switch back.</string>
     <string name="set_speaker_off_sub">Calls start on the earpiece or your headset, as usual.</string>
@@ -585,7 +506,6 @@
     <string name="set_kl_help">Latin letters are always on the keys. Pick a second alphabet to show under them and to search names with.</string>
     <string name="set_kl_same_as_phone">Same as phone language</string>
     <string name="set_kl_suggested">Suggested from your contacts</string>
-    <string name="set_kl_all">All</string>
     <string name="set_kl_latin">Latin only (ABC)</string>
     <string name="set_kl_russian">Russian (АБВГ)</string>
     <string name="set_kl_ukrainian">Ukrainian (АБВГҐ)</string>
@@ -621,8 +541,6 @@
     <string name="ct_outgoing_only">outgoing only</string>
     <string name="ct_hours_short">%1$d h</string>
     <string name="ct_hours_minutes_short">%1$d h %2$d min</string>
-    <string name="ct_minutes_short">%1$d min</string>
-    <string name="ct_seconds_short">%1$d s</string>
     <string name="ct_limit_for">Limit for %1$s</string>
     <string name="ct_limit_for_label">Limit for label %1$s</string>
     <string name="ct_limit_for_a_label">Limit for label</string>
@@ -641,9 +559,7 @@
     <string name="ct_minutes_per_day">Minutes per day</string>
     <string name="ct_minutes_per_week">Minutes per week</string>
     <string name="ct_editor_allowance_help">When a daily or weekly allowance is used up, calling asks first. It never cuts a call.</string>
-    <string name="ct_incoming_calls">Incoming calls</string>
     <string name="ct_outgoing_calls">Outgoing calls</string>
-    <string name="ct_remove">Remove</string>
     <string name="ct_every_min">Every %1$d min</string>
     <string name="ct_every_min_inline">every %1$d min</string>
     <string name="ct_off_inline">off</string>
@@ -657,8 +573,6 @@
     <string name="ct_call_time_with">Call time with %1$s</string>
     <string name="ct_never_limit">Never limit</string>
     <string name="ct_never_limit_body">Like emergency numbers: no limit, no allowance, never silenced</string>
-    <string name="ct_all_calls">All calls</string>
-    <string name="ct_contact">Contact</string>
     <string name="ct_label_title">Label: %1$s</string>
     <string name="ct_section_reminders">Talk-time reminders</string>
     <string name="ct_reminders_help">A soft beep in the earpiece and a vibration during long calls, for example every 30 minutes. It never ends a call.</string>
@@ -691,20 +605,15 @@
     <string name="ct_ussd_asking_sim">Asking your carrier (%1$s)…</string>
     <string name="ct_ussd_asking">Asking your carrier…</string>
     <string name="ct_ussd_dial_hint">You can also dial it as a call: the phone then shows the carrier\'s menu itself.</string>
-    <string name="ct_close">Close</string>
-    <string name="ct_copy">Copy</string>
     <string name="ct_ussd_dial_as_call">Dial as a call</string>
     <string name="ct_ussd_history_empty">Replies to codes like *100# appear here after you dial them on the keypad.</string>
-    <string name="ct_health_role">Default phone app</string>
     <string name="ct_health_role_off">Parley can\'t show or answer calls until it is the default phone app.</string>
     <string name="ct_health_notif">Notifications allowed</string>
     <string name="ct_health_notif_off">Incoming and ongoing calls can\'t be shown.</string>
-    <string name="ct_health_allow">Allow</string>
     <string name="ct_health_fsi">Full-screen incoming calls</string>
     <string name="ct_health_fsi_off">Calls may appear only as a notification, not over the lock screen.</string>
     <string name="ct_health_channel">Incoming-call alerts</string>
     <string name="ct_health_channel_off">The incoming-calls notification category is silenced or turned down, so the answer screen may not appear.</string>
-    <string name="ct_health_fix">Fix</string>
     <string name="ct_health_battery">Not battery-optimised</string>
     <string name="ct_health_battery_off">Some phones delay calls for optimised apps. Choose “Unrestricted” for Parley.</string>
     <string name="ct_health_all_ok">Calls will reach you</string>
@@ -714,7 +623,6 @@
         <item quantity="one">(+%1$d more)</item>
         <item quantity="other">(+%1$d more)</item>
     </plurals>
-    <string name="ct_not_now">Not now</string>
     <string name="ct_chip_calling_via">Calling via %1$s…</string>
     <string name="ct_chip_calling">Calling…</string>
     <string name="ct_chip_return_to_call">Return to call</string>
@@ -731,7 +639,6 @@
     <string name="set_recents_layout_title">Call list layout</string>
     <string name="set_recents_layout_summary">Grouped, every call on its own row, or grouped by day</string>
     <string name="set_recents_layout_kw">chronological, grouped, by day, ungroup, list, call log, layout</string>
-    <string name="set_clear_history_title">Clear call history</string>
     <string name="set_clear_history_summary">All calls, calls from unknown numbers or missed calls, with an export first</string>
     <string name="set_clear_history_kw">delete, clear, wipe, erase, unknown numbers, call log</string>
     <string name="role_rescue_title">Set Parley as your phone app by hand</string>
@@ -741,7 +648,6 @@
     <string name="role_rescue_restricted">If Android says the setting is restricted: open App info, tap ⋮ › Allow restricted settings, then try again.</string>
     <string name="role_rescue_app_info">App info</string>
     <string name="role_rescue_default_apps">Default apps</string>
-    <string name="role_rescue_close">Close</string>
     <!-- Backup reminder and tips settings -->
     <string name="set_backup_reminder_title">Remind me to back up</string>
     <string name="set_backup_reminder_summary">A quiet reminder when there\'s been no backup for a while (at most one notification a month)</string>
@@ -756,16 +662,12 @@
     <string name="set_kept_forever_title">Numbers kept forever</string>
     <string name="set_kept_forever_summary">Calls with these numbers stay, whatever the retention</string>
     <string name="set_kept_forever_kw">keep forever, archive, retention, pin</string>
-    <string name="set_blk_hidden_numbers_title">Silence or block hidden numbers</string>
     <string name="set_blk_hidden_numbers_summary">Private, unknown and withheld numbers</string>
     <string name="set_blk_hidden_numbers_kw">hidden, private number, withheld, no caller id, anonymous, unknown</string>
-    <string name="set_blk_non_contacts_title">Only people I know ring</string>
     <string name="set_blk_non_contacts_summary">Numbers that aren\'t in your contacts are silenced or blocked</string>
     <string name="set_blk_non_contacts_kw">unknown, strangers, contacts only, whitelist, allow list</string>
-    <string name="set_blk_off_hours_title">Off hours</string>
     <string name="set_blk_off_hours_summary">Quiet times when only the people you choose ring</string>
     <string name="set_blk_off_hours_kw">schedule, night, sleep, work hours, weekend, quiet, bedtime</string>
-    <string name="set_blk_more_checks_title">More checks</string>
     <string name="set_blk_more_checks_summary">Neighbour spoofing, failed caller verification, numbers that can\'t exist</string>
     <string name="set_blk_more_checks_kw">spoofing, stir shaken, verification, invalid, neighbour, neighbor</string>
     <string name="set_blk_sounds_title">Sounds for screened calls</string>
@@ -777,7 +679,6 @@
     <string name="set_blk_notifications_title">Blocked call notifications</string>
     <string name="set_blk_notifications_summary">A notice when a call is blocked, reported or likely spam</string>
     <string name="set_blk_notifications_kw">notification, alert, blocked call</string>
-    <string name="set_blk_system_list_title">Blocked numbers (system list)</string>
     <string name="set_blk_system_list_summary">Android\'s own list, shared with other phone apps</string>
     <string name="set_blk_system_list_kw">system, blocked numbers, shared, android</string>
     <string name="set_simple_keypad_title">Simple mode: keypad button</string>
@@ -792,31 +693,23 @@
     <string name="set_simple_share_title">Simple mode: set up another phone</string>
     <string name="set_simple_share_summary">Share the setup as an encrypted file or QR code</string>
     <string name="set_simple_share_kw">share, qr, family, another phone</string>
-    <string name="set_ct_reminders_title">Talk-time reminders</string>
     <string name="set_ct_reminders_summary">A beep or a vibration every few minutes during a call</string>
     <string name="set_ct_reminders_kw">beep, vibrate, reminder, minutes</string>
-    <string name="set_ct_limits_title">Call time limits</string>
     <string name="set_ct_limits_summary">A warning, or the call ends, after a set time, for a contact or a label</string>
     <string name="set_ct_limits_kw">limit, maximum, end call</string>
-    <string name="set_ct_supervised_title">Supervised mode</string>
     <string name="set_ct_supervised_summary">Limits that can\'t be changed without unlocking</string>
     <string name="set_ct_supervised_kw">parental, child, lock, supervised</string>
-    <string name="set_backup_automatic_title">Automatic backups</string>
     <string name="set_backup_automatic_summary">Back up on a schedule to your folder</string>
     <string name="set_backup_automatic_kw">schedule, daily, weekly, auto</string>
     <string name="set_backup_keep_title">Backups to keep</string>
     <string name="set_backup_keep_summary">How many backups stay in the folder</string>
     <string name="set_backup_keep_kw">rotation, keep, old backups</string>
-    <string name="set_backup_restore_title">Restore a backup</string>
     <string name="set_backup_restore_summary">From a backup file, with an undo afterwards</string>
     <string name="set_backup_restore_kw">restore, import backup</string>
-    <string name="set_backup_move_phone_title">Move to a new phone</string>
     <string name="set_backup_move_phone_summary">Everything to your new phone, step by step</string>
     <string name="set_backup_move_phone_kw">new phone, transfer, migrate</string>
-    <string name="set_sync_auto_title">Sync automatically</string>
     <string name="set_sync_auto_summary">Keep two phones in step through a shared folder</string>
     <string name="set_sync_auto_kw">auto sync, syncthing, nextcloud</string>
-    <string name="set_section_chips_title">Jump to a section</string>
     <string name="set_section_chips_summary">Chips on long contact pages that jump to a section</string>
     <string name="set_section_chips_kw">chips, jump, sections</string>
     <string name="set_sim_billing_title">Billing increments per SIM</string>
@@ -826,7 +719,6 @@
     <!-- Settings structure: Layout & gestures, Advanced groups, Tools -->
     <string name="set_cat_layout_title">Layout &amp; gestures</string>
     <string name="set_cat_layout_summary">Navigation bar, combined tabs, taps, swipes, simple mode</string>
-    <string name="set_group_advanced">Advanced</string>
     <string name="set_group_gestures">Taps and swipes</string>
     <string name="set_group_contact_list">Contact list</string>
     <string name="set_advanced_show">Show advanced settings</string>
@@ -849,7 +741,6 @@
     <string name="wipe_confirm_word">DELETE</string>
     <string name="wipe_type_to_confirm">Type %1$s to confirm</string>
     <string name="wipe_confirm">Delete everything</string>
-    <string name="wipe_backing_up">Backing up…</string>
     <string name="wipe_backup_failed">The backup didn\'t work, so nothing was deleted. %1$s</string>
     <string name="wipe_deleting">Deleting…</string>
     <string name="wipe_in_call">Finish the call first, then try again.</string>
@@ -859,8 +750,6 @@
     <string name="wipe_unlock_private">Unlock and back up</string>
     <string name="wipe_without_private">Delete without backing up private contacts</string>
     <!-- Settings › Calls › Know who\'s calling, and Recents & history › Remember the Recents filter. -->
-    <string name="set_group_know_caller">Know who\'s calling</string>
-    <string name="set_auto_answer_title">Answer automatically</string>
     <string name="set_auto_answer_summary">Off. With a headset or Bluetooth, in simple mode, or for people you choose, after a few seconds</string>
     <string name="set_auto_answer_kw">auto answer, auto-answer, answer automatically, headset, bluetooth, car, hands-free, handsfree, earbuds, simple mode, chosen, countdown, seconds</string>
     <string name="set_auto_answer_body">Only people in your contacts, private contacts included. Never unknown numbers, blocked or likely spam calls, and never during another call. A countdown with Cancel shows first.</string>
@@ -870,7 +759,6 @@
     <string name="set_auto_answer_simple_sub">While simple mode is on</string>
     <string name="set_auto_answer_chosen">For chosen people and labels</string>
     <string name="set_auto_answer_chosen_sub">Choose them on a person\'s page or a label\'s page</string>
-    <string name="set_auto_answer_delay">Answer after</string>
     <plurals name="set_auto_answer_after">
         <item quantity="one">After %1$d second</item>
         <item quantity="other">After %1$d seconds</item>

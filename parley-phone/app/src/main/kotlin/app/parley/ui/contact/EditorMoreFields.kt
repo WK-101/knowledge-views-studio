@@ -84,7 +84,7 @@ internal fun CustomFieldRow(
     val lines = count * 2
     FormRow(icon, title, end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_custom_field), onRemove) } } else null) {
         EditorField(
-            stringResource(R.string.edit_custom_field_label), item.label, shape = formFieldShape(shapeIndex * 2, lines),
+            stringResource(R.string.blk_type_label), item.label, shape = formFieldShape(shapeIndex * 2, lines),
             cap = KeyboardCapitalization.Sentences, locked = locked, focus = focus,
             placeholder = stringResource(R.string.edit_custom_field_placeholder),
         ) { onChange(item.copy(label = it)) }
@@ -115,11 +115,11 @@ internal fun LanguagesRow(
     if (Languages.split(text) != values) text = Languages.join(values)
     // Matching a name scans every ISO language: only again when the text changes, not on every recomposition.
     val shown = remember(text) { Languages.displayList(Languages.toStoredList(Languages.split(text))) }
-    val support = if (text.isNotBlank() && shown != Languages.join(Languages.split(text))) stringResource(R.string.edit_language_saved_as, shown)
+    val support = if (text.isNotBlank() && shown != Languages.join(Languages.split(text))) stringResource(R.string.blk_editor_saved_as, shown)
     else stringResource(R.string.edit_languages_hint)
-    FormRow(icon, stringResource(R.string.edit_languages), modifier.padding(bottom = FormTokens.groupGap)) {
+    FormRow(icon, stringResource(R.string.detail_languages), modifier.padding(bottom = FormTokens.groupGap)) {
         EditorField(
-            stringResource(R.string.edit_languages), text, shape = formFieldShape(0, 1), cap = KeyboardCapitalization.Words,
+            stringResource(R.string.detail_languages), text, shape = formFieldShape(0, 1), cap = KeyboardCapitalization.Words,
             locked = locked, focus = focus, support = support,
         ) {
             text = it
@@ -140,7 +140,7 @@ internal fun NativeNameRow(name: NativeName, locked: Boolean, focus: FocusReques
     val lines = if (showParts) 4 else 2
     val stored = remember(name.language) { Languages.toStored(name.language) }
     val languageShown = remember(stored) { Languages.display(stored) }
-    val languageSupport = stringResource(R.string.edit_language_saved_as, languageShown)
+    val languageSupport = stringResource(R.string.blk_editor_saved_as, languageShown)
         .takeIf { name.language.isNotBlank() && languageShown != name.language.trim() }
     val suggested = remember(name.full, name.given, name.family) { Scripts.suggestLanguage(name.shown) }
     val words = KeyboardCapitalization.Words
@@ -218,7 +218,7 @@ internal fun NativeNameOffer(composedName: String, hasLanguages: Boolean, detail
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CitizenshipRow(codes: List<String>, locked: Boolean, modifier: Modifier, onAdd: () -> Unit, onRemove: (String) -> Unit) {
-    FormRow(Icons.Rounded.Flag, stringResource(R.string.edit_citizenship), modifier.padding(bottom = FormTokens.groupGap)) {
+    FormRow(Icons.Rounded.Flag, stringResource(R.string.detail_citizenship), modifier.padding(bottom = FormTokens.groupGap)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(min = FormTokens.fieldHeight)) {
             codes.forEach { code ->
                 val country = Citizenship.display(code)
@@ -264,7 +264,7 @@ internal fun PhoneMoreTypesDialog(current: Int, onDismiss: () -> Unit, onPick: (
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -290,7 +290,7 @@ private fun addressPartLabel(p: AddressParts.Part): Int = when (p) {
     AddressParts.Part.STREET_NUMBER -> R.string.addr_part_street_number
     AddressParts.Part.STREET_NAME -> R.string.addr_part_street_name
     AddressParts.Part.BUILDING -> R.string.addr_part_building
-    AddressParts.Part.BLOCK -> R.string.addr_part_block
+    AddressParts.Part.BLOCK -> R.string.blk_block
     AddressParts.Part.SUBDISTRICT -> R.string.addr_part_subdistrict
     AddressParts.Part.DISTRICT -> R.string.addr_part_district
     AddressParts.Part.LANDMARK -> R.string.addr_part_landmark

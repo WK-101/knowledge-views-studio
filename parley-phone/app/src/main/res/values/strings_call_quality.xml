@@ -10,7 +10,6 @@
         <item quantity="other">%1$d of %2$d calls dropped</item>
     </plurals>
     <string name="quality_percent">%1$d%% dropped</string>
-    <string name="quality_wifi">Wi-Fi calling</string>
     <string name="quality_mobile">Mobile network</string>
 
     <!-- Patterns: "Calls with Mum often drop on SIM 2 in the evening" -->

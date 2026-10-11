@@ -152,7 +152,7 @@ object ExportFiles {
     private val SHARED_DIRS = listOf("share", "transfer", "label_updates")
 
     private fun title(context: Context, subject: String?) =
-        if (subject.isNullOrBlank()) context.getString(R.string.hist_export_title) else context.getString(R.string.hist_export_title_subject, subject)
+        if (subject.isNullOrBlank()) context.getString(R.string.hist_settings_title) else context.getString(R.string.hist_export_title_subject, subject)
 
     private const val A4_WIDTH = 595
     private const val A4_HEIGHT = 842
@@ -200,14 +200,14 @@ object ExportFiles {
             y += 24f
             val w = width - 2 * margin
             val cols = floatArrayOf(0f, 92f, 170f, w - 110f, w - 55f)
-            val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.hist_pdf_col_sim).map { context.getString(it) }
+            val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.blk_editor_sim).map { context.getString(it) }
             heads.forEachIndexed { i, h -> canvas.drawText(h, margin + cols[i], y, bold) }
             y += 4f
             canvas.drawLine(margin, y, width - margin, y, line)
             y += rowH - 4f
             for (i in range) {
                 val r = rows[i]
-                val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.hist_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")
+                val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.blk_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")
                 val cells = listOf(
                     fmt.format(Instant.ofEpochMilli(r.date).atZone(zone)),
                     context.getString(HistoryText.callType(r.type)),
@@ -221,13 +221,13 @@ object ExportFiles {
                 }
                 r.notes.take(3).forEach { n ->
                     y += noteH
-                    canvas.drawText(TextUtils.ellipsize(context.getString(R.string.hist_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)
+                    canvas.drawText(TextUtils.ellipsize(context.getString(R.string.case_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)
                 }
                 y += 4f
                 canvas.drawLine(margin, y, width - margin, y, line)
                 y += rowH - 4f
             }
-            canvas.drawText(context.getString(R.string.hist_pdf_page, page + 1, pageCount), margin, height - margin, grey)
+            canvas.drawText(context.getString(R.string.case_pdf_page, page + 1, pageCount), margin, height - margin, grey)
         }
     }
 

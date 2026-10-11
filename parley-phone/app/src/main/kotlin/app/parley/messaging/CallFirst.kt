@@ -29,7 +29,7 @@ import app.parley.ui.CallColors
  */
 @Composable
 fun CallFirstButton(number: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val description = stringResource(R.string.reach_call_number, Bidi.ltr(number))
+    val description = stringResource(R.string.circle_call_who, Bidi.ltr(number))
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).heightIn(min = 56.dp)
@@ -38,6 +38,6 @@ fun CallFirstButton(number: String, modifier: Modifier = Modifier, onClick: () -
     ) {
         Icon(Icons.Rounded.Call, null)
         Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.main_call))
+        Text(stringResource(R.string.circle_widget_call))
     }
 }

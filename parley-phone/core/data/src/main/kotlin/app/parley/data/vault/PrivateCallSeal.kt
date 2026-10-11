@@ -41,7 +41,9 @@ internal class PrivateCallSeal(context: Context) {
     /** The private call sealed in [e], or null when it can't be opened now. */
     fun opened(e: PrivateCallEntity): PrivateCall? = runCatching {
         val o = JSONObject(String(open(e.blob)))
-        PrivateCall(e.id, e.vaultId, o.optString("n"), o.optString("name"), e.date, e.durationSec, e.type, o.optBoolean("v"))
+        PrivateCall(e.id, e.vaultId, o.optString("n"), o.optString("name"), e.date, e.durationSec, e.type, o.optBoolean("v"),
+            o.optString("app").ifBlank { null },
+        )
     }.getOrNull()
 
     @Volatile private var resealing = false

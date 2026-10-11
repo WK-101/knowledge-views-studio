@@ -128,7 +128,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         }
     }
 
-    SettingsScaffold(stringResource(R.string.set_simple_title), back) {
+    SettingsScaffold(stringResource(R.string.discover_simple_mode_title), back) {
         Text(
             stringResource(R.string.simple_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -142,7 +142,8 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
                             IconButton({ store.updateSimple { c -> c.copy(people = c.people.filterIndexed { j, _ -> j != i }) } }) {
-                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.simple_remove, r.person.name), tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, r.person.name),
+                                    tint = MaterialTheme.colorScheme.error)
                             }
                         },
                     )
@@ -253,7 +254,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
         text = {
             Column {
                 OutlinedTextField(
-                    q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth(),
+                    q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.helpers_search)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { c ->
@@ -303,7 +304,7 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
     ConfirmDialog(
         title = title,
         text = null,
-        confirmLabel = stringResource(R.string.main_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = { onDone(a.toCharArray()) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -312,11 +313,11 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(if (confirm) R.string.simple_pass_new else R.string.simple_pass_enter))
                 OutlinedTextField(
-                    a, { a = it }, singleLine = true, label = { Text(stringResource(R.string.simple_pass)) },
+                    a, { a = it }, singleLine = true, label = { Text(stringResource(R.string.shl_join_pass)) },
                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 )
                 if (confirm) OutlinedTextField(
-                    b, { b = it }, singleLine = true, label = { Text(stringResource(R.string.simple_pass_again)) },
+                    b, { b = it }, singleLine = true, label = { Text(stringResource(R.string.shl_pass_again)) },
                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     isError = b.isNotEmpty() && a != b,
                 )
@@ -337,14 +338,15 @@ private fun SimpleQrDialog(vm: AppViewModel, cfg: SimpleConfig, onDismiss: () ->
         title = { Text(stringResource(R.string.simple_show_qr)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.simple_qr_desc), Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.img_name_simple_qr),
+                    Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.sqr_passcode), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
                 Text(stringResource(R.string.simple_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 actions?.let { CodeImageActions(it) }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
     )
 }
 
@@ -373,7 +375,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 Text(stringResource(if (qr != null) R.string.simple_enter_passcode else R.string.simple_pass_enter))
                 OutlinedTextField(
                     code, { code = it; error = null }, singleLine = true, isError = error != null,
-                    label = { Text(stringResource(if (qr != null) R.string.sqr_passcode else R.string.simple_pass)) },
+                    label = { Text(stringResource(if (qr != null) R.string.sqr_passcode else R.string.shl_join_pass)) },
                     supportingText = error?.let { e -> { Text(e) } },
                     visualTransformation = if (qr != null) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(capitalization = if (qr != null) KeyboardCapitalization.Characters else KeyboardCapitalization.None),
@@ -394,7 +396,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         }
                         if (imported == null) error = res.getString(R.string.simple_wrong_pass)
                     }
-                }, enabled = code.isNotEmpty()) { Text(stringResource(R.string.msg_open)) }
+                }, enabled = code.isNotEmpty()) { Text(stringResource(R.string.blk_open)) }
             }
         } else {
             val resolved = SimpleSetup.resolve(cfg.people, contacts.orEmpty())
@@ -415,7 +417,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                                 Column {
                                     Text(Bidi.ltr(r.person.number))
                                     Text(
-                                        r.contact?.let { stringResource(R.string.simple_matched, it.displayName) } ?: stringResource(
+                                        r.contact?.let { stringResource(R.string.map_link_found, it.displayName) } ?: stringResource(
                                             R.string.simple_not_in_contacts,
                                         ),
                                     )
@@ -423,7 +425,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                             },
                             trailingContent = {
                                 if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) {
-                                    Text(stringResource(R.string.simple_create))
+                                    Text(stringResource(R.string.lbl_create))
                                 }
                                 else Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                             },

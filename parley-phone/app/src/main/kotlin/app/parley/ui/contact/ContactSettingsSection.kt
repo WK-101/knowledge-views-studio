@@ -93,7 +93,7 @@ private fun SegmentedGroupScope.callingRows(ctx: ContactPageContext) {
                 else runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull()
             }
             GroupDataRow(
-                Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone),
+                Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.lbl_default_ringtone), resources.getString(R.string.blk_editor_ringtone),
                 onClick = {
                     val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
                     ctx.pickRingtone(picker.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
@@ -127,7 +127,7 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
         item {
             InfoRow(
                 leading = { Icon(Icons.Rounded.Lock, null) },
-                headline = { Text(stringResource(R.string.detail_saved_in)) },
+                headline = { Text(stringResource(R.string.lbl_saved_in)) },
                 supporting = { Text(stringResource(R.string.contact_saved_private)) },
             )
         }
@@ -139,7 +139,7 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
             leading = { Icon(Icons.Rounded.Sync, null) },
             headline = {
                 val n = d.rawContacts.size
-                Text(if (n > 1) resources.getQuantityString(R.plurals.detail_linked_from, n, n) else resources.getString(R.string.detail_saved_in))
+                Text(if (n > 1) resources.getQuantityString(R.plurals.detail_linked_from, n, n) else resources.getString(R.string.lbl_saved_in))
             },
             supporting = {
                 AccountChips(ctx.vm, d, ctx.open) { newId ->
@@ -188,7 +188,7 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
             val resources = LocalResources.current
             GroupDataRow(
                 Icons.Rounded.Timer, true, resources.getString(R.string.detail_deletes_on, Format.fullDate(context, temp.expiresAt)),
-                resources.getString(R.string.detail_change_expiry), onClick = { ctx.show(ContactDialog.Expiry) },
+                resources.getString(R.string.editor_change_expiry), onClick = { ctx.show(ContactDialog.Expiry) },
             )
         }
         item {

@@ -3250,3 +3250,62 @@ Automated: `BaselineProfileRulesTest` (every rule names code that exists; the 6.
 ### 48.8 The scale benchmark (JVM)
 Automated: `ScaleBenchmarkTest` (off by default; `PARLEY_BENCH=1 ./gradlew :core:data:testDebugUnitTest --tests '*ScaleBenchmarkTest'`): 10,000 contacts, 500 private, 1,000 archived, 50,000 calls; prints `BENCH` lines.
 1. Run it on this build and on the build before, on the same machine; the figures in docs/PERFORMANCE_BENCHMARKS.md ("6.5: the gate on the JVM") come from it. They are JVM figures; the device gate (cold screening, Contacts list, Recents keystroke, Recall's first result) is measured on the owner's phones with the macrobenchmarks.
+
+### 48.9 Call notifications after the shared template
+
+1. Have a contact call, with Privacy › Caller on the lock screen set to *Name*: the heading, Decline and Answer, the photo once loaded, and full-screen while locked all look as before. Answer: the ongoing notification has Hang up, Mute, Speaker and the running time.
+2. Set Caller on the lock screen to *Initials*, lock the phone and call again: the lock screen shows the initials only, no number or label, also in the ongoing notification.
+3. Start a rescue call (Safety › Rescue call): it rings and is answered like a real call, with its own notification; with the screen locked and "hide sensitive content" on, only the masked caller shows.
+4. A finished export (a job notification), missed calls and a blocked call on the lock screen with sensitive content hidden: each shows only its neutral title ("Parley finished", "2 missed calls", …), never a name or number.
+
+### 48.10 Editor drafts and every contact field
+
+1. Open a contact's editor, change a name part, a phone label, an address, an event with another calendar, a language, a citizenship, a custom field and a messenger handle. Turn on Developer options › Don't keep activities, switch to another app and back: every change is still in the form.
+2. Do the same on a private contact while the vault is unlocked; lock the vault meanwhile: the editor asks to unlock and nothing shows before.
+3. Share a contact with every field filled as a vCard and import it on another phone (or as a new contact): every field arrives, the ringtone, "send to voicemail" and Parley-only notes excepted.
+
+### 48.11 Updating keeps every setting
+
+1. On 6.4, change a few settings in each place they live: Appearance (theme, AMOLED), Calls (confirm before calling, retention), Contacts (second line, avatar style, sort order, swipe actions) and Recents & history (keep the full history off, a saved filter, a plan). Update to this build over it.
+2. Every one of those choices is unchanged, at once on first start; nothing asks again. Settings › Backup: back up, change two of them, restore: both come back.
+3. Delete all Parley data (Settings › Privacy): every setting is back to its default after the restart.
+
+### 48.12 Where a number is from, after the data pack
+
+1. Recents and a number's history for unsaved numbers from your own country show the area ("Mountain View, CA", "Berlin") as before; a foreign number shows its country; a number from China or Australia shows the country only.
+2. With the app language German, Spanish, French, Portuguese or Arabic the place names follow it where the data has them; with Hindi or Urdu they are in English.
+3. Typing on the keypad formats the number as you type; 112, 911 and 999 are recognised as emergency numbers; the time-zone hint on a contact abroad still shows.
+4. Parley Lists still converts a CSV list and installs it in Parley.
+
+### 48.13 Strings that were merged
+
+1. Walk Settings (every page and sub-page), Tools, a contact page, the editor, To call, My card, Recall and the QR scanner: every label, button and TalkBack name reads as before, nothing is blank or shows a resource name.
+
+### 48.14 The Parley Lists companion
+
+1. With Parley Lists installed, open it and update the lists: the download finishes, the pack is checked and Parley shows the new list under Blocking › Spam lists with its date.
+2. Turn on airplane mode and update: Lists says it couldn't reach the source and Parley keeps its last list.
+3. A list file whose signature was changed (edit one byte) is refused in Lists and never reaches Parley.
+
+### 48.15 Calls made in apps over the internet
+Automated: `InternetCallsTest` (rows told apart by their phone account; Call back's route, best first; a call missed in an app is never one to call back by phone, though a call in the app returns a missed phone call) (core:common); `InternetCallRowsTest` (the reader, the missed-call notice, the archive and Undo, a private contact's history keep the app) (core:data, Robolectric); `NumberSignalsTest` (an app call never shows the phone line works); `A11yChecksTest` (the Call back question) (app, Robolectric).
+1. On One UI 9 (or Android 14+ with an app that logs its calls, e.g. WhatsApp's "show calls in the phone's call history" where offered), take a WhatsApp call from the second phone, then miss one. Recents shows them as their own rows, never grouped with phone calls from the same number; the line under the name says "WhatsApp call" where a phone call shows its SIM. The number's history says the same on those calls.
+2. Tap the row's call button (and the Call back pill on the missed one, a swipe to call, and ⋮ › Call): "Call back on WhatsApp?" asks. Call on WhatsApp opens WhatsApp's call or the chat with the number (a hint says where the call button is); nothing dials through the phone network. Call by phone dials as usual. Tapping outside calls nobody.
+3. Uninstall WhatsApp, then Call back on such a row: the question says WhatsApp isn't on the phone now; Call by phone dials, Cancel does nothing.
+4. The missed WhatsApp call raises no Parley missed-call notification, isn't counted on the Missed chip or in To call, and ⋮ has no "Why did this ring?" for it. Phone calls from the same number still behave as before.
+5. A saved number whose phone line is cut off but whose WhatsApp still rings: after two failed phone calls the health check still says the number may be out of service (a WhatsApp call doesn't count as the line working).
+6. With Private call history on, have a private contact call on WhatsApp: the row leaves the system call log at the next sweep and shows in their history as "WhatsApp call". Back up and restore: still a WhatsApp call.
+
+### 48.16 Android 17's contact picker
+Automated: `A11yChecksTest` (the Android 17 line of "Who can see your contacts") (app, Robolectric).
+1. On Android 17: Settings › Privacy › Who can see your contacts › Share one contact: the text says apps can also use Android's own picker, and that it never shows private or archived contacts because they aren't in the address book. On Android 16 the line isn't there.
+2. In Messages (or any app), pick a contact with Android's own picker: no private and no archived contact is listed. With Parley's picker the same holds for archived contacts.
+
+### 48.17 Automated accessibility checks
+Automated: `UiSmokeTest` now runs `A11yChecks` on every tab, the contact page and the call screen in light, dark and the largest font right to left: a tappable control without words, under 48 dp or saying the same words as its neighbour fails the build; `A11yChecksTest` shows each check catches its problem (app, Robolectric).
+1. Nothing to do by hand: run `./gradlew :app:testDebugUnitTest --tests '*UiSmokeTest' --tests '*A11yChecksTest'`; both pass.
+
+### 48.18 Accessibility checks on a device (off by default)
+1. With one phone or emulator connected and `androidx.test.espresso:espresso-accessibility` in the instrumented tests' dependencies, run `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true`: `AccessibilitySmokeTest` runs Android's checks over the first screen and passes, or lists each error.
+2. Without the argument the test is skipped and the other smoke tests run as before; with it but without the library it fails and names the line to add.
+

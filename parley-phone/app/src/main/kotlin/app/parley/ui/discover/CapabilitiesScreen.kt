@@ -107,7 +107,7 @@ fun CapabilitiesScreen(vm: AppViewModel, back: () -> Unit) {
         if (shown.isEmpty()) {
             EmptyState(
                 Icons.Rounded.SearchOff, stringResource(R.string.discover_no_match, query.trim()),
-                action = stringResource(R.string.ux_empty_clear_search), onAction = { query = "" },
+                action = stringResource(R.string.contact_page_clear_search), onAction = { query = "" },
             )
         }
         val searching = query.isNotBlank()
@@ -164,7 +164,7 @@ private fun HubSearchField(query: String, onQuery: (String) -> Unit) {
         placeholder = { Text(stringResource(R.string.discover_search)) },
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
         trailingIcon = {
-            if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.set_clear)) }
+            if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.hist_filter_clear)) }
         },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -193,7 +193,7 @@ private fun HubRow(c: Capability, title: String, summary: String, snoozing: Bool
  */
 @Composable
 private fun MoreRow(open: Boolean, count: Int, job: String, toggle: () -> Unit) {
-    val label = if (open) stringResource(R.string.discover_fewer) else pluralStringResource(R.plurals.discover_more, count, count)
+    val label = if (open) stringResource(R.string.cs_show_fewer) else pluralStringResource(R.plurals.discover_more, count, count)
     val action = if (open) stringResource(R.string.discover_fewer_in, job) else pluralStringResource(R.plurals.discover_more_in, count, count, job)
     val state = stringResource(if (open) R.string.blk_expanded else R.string.blk_collapsed)
     ParleyListItem(

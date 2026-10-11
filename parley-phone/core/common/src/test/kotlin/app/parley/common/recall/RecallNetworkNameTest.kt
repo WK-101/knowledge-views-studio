@@ -1,12 +1,12 @@
 package app.parley.common.recall
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.PhoneIdentity
 import app.parley.common.people.ContactListSearch
 import app.parley.common.people.ContactSearch
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -22,7 +22,7 @@ class RecallNetworkNameTest {
     private fun at(m: Int, d: Int): Long = LocalDate.of(2026, m, d).atTime(12, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
 
     private fun call(id: Long, number: String, date: Long, name: String? = null) =
-        CallEntry(id, number, name, CallType.INCOMING, date, 30, null, isNew = false, presentationHidden = false)
+        testCall(id, number, name, CallType.INCOMING, date, 30)
 
     private val mike = run {
         val c = ContactSummary(1, "k1", "Mike Silva", null, false, listOf(PhoneEntry("+919812300001", 2, null)))
@@ -134,7 +134,7 @@ class RecallNetworkNameTest {
 
     @Test fun the_name_is_asked_with_the_calls_sim() {
         // A national number on a French SIM: only that SIM's reading of it finds the name.
-        val french = CallEntry(6, "0612345678", null, CallType.INCOMING, at(9, 2), 30, "sim-fr", isNew = false, presentationHidden = false)
+        val french = testCall(6, "0612345678", null, CallType.INCOMING, at(9, 2), 30, "sim-fr")
         val asked = ArrayList<Pair<String, String?>>()
         val corpus = RecallCorpus(calls = listOf(french), region = "IN", networkName = { n, account ->
             asked += n to account

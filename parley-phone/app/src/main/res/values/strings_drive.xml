@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Settings › Calls › Drive profile: the cars the user marks and what Parley does while one is connected. -->
 <resources>
-    <string name="set_drive_profile_title">Drive profile</string>
     <string name="set_drive_profile_summary">When your car connects: hear who\'s calling, answer favourites, reply that you\'re driving</string>
     <string name="set_drive_profile_kw">car, driving, drive, bluetooth, android auto, announce, say caller name, hands-free, handsfree, auto answer, silence unknown, driving reply</string>
     <!-- Settings › Calls: the group holding the drive profile and the settings for abroad -->

@@ -62,8 +62,8 @@ fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.n
     val days = e.daysUntil(today)
     val whenText = when {
         res != null -> when (days) {
-            0L -> res.getString(R.string.event_today)
-            1L -> res.getString(R.string.event_tomorrow)
+            0L -> res.getString(R.string.life_today)
+            1L -> res.getString(R.string.life_tomorrow)
             else -> res.getQuantityString(R.plurals.event_in_days, days.toInt(), days.toInt())
         }
         days == 0L -> "today"

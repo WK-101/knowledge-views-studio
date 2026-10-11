@@ -102,8 +102,8 @@ internal fun CallFeedbackGroup(vm: AppViewModel) {
     val powerEnds = remember { powerButtonEndsCall(context) }
     val powerSub = listOfNotNull(
         when (powerEnds) {
-            true -> stringResource(R.string.set_on)
-            false -> stringResource(R.string.set_off)
+            true -> stringResource(R.string.dc_on)
+            false -> stringResource(R.string.dc_off)
             null -> null
         },
         stringResource(R.string.set_power_button_sub),
@@ -141,10 +141,10 @@ internal fun CallSpeakerGroup(vm: AppViewModel) {
     )
     // In the order of ScreenAtEar.Mode.
     val proximityChoices = listOf(
-        stringResource(R.string.set_off), stringResource(R.string.set_proximity_during), stringResource(R.string.set_proximity_once_answered),
+        stringResource(R.string.dc_off), stringResource(R.string.set_calls_during_title), stringResource(R.string.set_proximity_once_answered),
     )
     // In the order of SpeakerDefault.
-    val choices = listOf(stringResource(R.string.set_speaker_never), stringResource(R.string.set_speaker_always), stringResource(R.string.set_speaker_unknown))
+    val choices = listOf(stringResource(R.string.blk_sched_never), stringResource(R.string.blk_always), stringResource(R.string.set_speaker_unknown))
     val sub = stringResource(if (cfg.speakerDefault == SpeakerDefault.OFF) R.string.set_speaker_off_sub else R.string.set_speaker_sub)
     SegmentedGroup(stringResource(R.string.set_group_call_audio)) {
         menuRow("speaker_default", choices, cfg.speakerDefault.ordinal, Icons.AutoMirrored.Rounded.VolumeUp, sub = sub) { i ->
@@ -172,7 +172,7 @@ internal fun RingingRow(vm: AppViewModel) {
 
 @Composable
 private fun ringStyleNames(): List<String> =
-    listOf(stringResource(R.string.set_ring_normal), stringResource(R.string.set_ring_increasing), stringResource(R.string.set_ring_vibrate_first))
+    listOf(stringResource(R.string.blk_notify_normal), stringResource(R.string.set_ring_increasing), stringResource(R.string.set_ring_vibrate_first))
 
 @Composable
 private fun RingingDialog(vm: AppViewModel, style: RingStyle, flip: Boolean, names: List<String>, onDismiss: () -> Unit) {

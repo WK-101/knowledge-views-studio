@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 internal fun LazyListScope.deadNumbersSection(vm: AppViewModel, dead: List<NumberSignals.DeadNumber>, open: (Destination) -> Unit) {
     if (dead.isEmpty()) return
     item(key = "dead_title") {
-        Section(stringResource(R.string.health_group, stringResource(R.string.health_out_of_service), dead.size))
+        Section(stringResource(R.string.rst_with_count, stringResource(R.string.health_out_of_service), dead.size))
     }
     item(key = "dead_explain") {
         Text(
@@ -73,7 +73,7 @@ private fun DeadNumberRow(vm: AppViewModel, d: NumberSignals.DeadNumber, open: (
     ParleyListItem(
         modifier = Modifier.clickable { open(Routes.contact(d.navId)) },
         headlineContent = { Text(d.name) },
-        supportingContent = { Text(stringResource(R.string.health_out_of_service_line, shown, why), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        supportingContent = { Text(stringResource(R.string.archive_page_work, shown, why), color = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = { DeadNumberMenu(vm, d, shown, open) },
     )
 }
@@ -121,7 +121,7 @@ private fun DeadNumberMenu(vm: AppViewModel, d: NumberSignals.DeadNumber, shown:
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.health_out_of_service_dismiss)) },
+                text = { Text(stringResource(R.string.blk_dismiss)) },
                 leadingIcon = { Icon(Icons.Rounded.Close, null) },
                 onClick = {
                     expanded = false

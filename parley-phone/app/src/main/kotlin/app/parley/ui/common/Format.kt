@@ -36,7 +36,7 @@ object Format {
     }
 
     fun dayHeader(context: Context, millis: Long): String = when {
-        DateUtils.isToday(millis) -> context.getString(R.string.main_today)
+        DateUtils.isToday(millis) -> context.getString(R.string.blk_dry_today)
         DateUtils.isToday(millis + DateUtils.DAY_IN_MILLIS) -> context.getString(R.string.main_yesterday)
         else -> {
             val now = Calendar.getInstance()

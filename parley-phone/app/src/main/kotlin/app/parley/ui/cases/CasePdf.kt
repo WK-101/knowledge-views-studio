@@ -35,7 +35,7 @@ object CasePdf {
     class Words(private val context: Context) : CaseReport.Words {
         private val res = context.resources
 
-        override fun title(name: String) = res.getString(R.string.case_pdf_title, name)
+        override fun title(name: String) = res.getString(R.string.case_title_who, name)
         override fun madeOn(date: String) = res.getString(R.string.case_pdf_made, date)
         override fun numbers(numbers: List<String>) = res.getString(R.string.case_pdf_numbers, numbers.joinToString(", "))
         override val summary: String get() = res.getString(R.string.case_summary)
@@ -128,7 +128,7 @@ internal fun callLine(context: Context, e: CaseEntry.Call): String {
         e.type == CallType.MISSED -> R.string.case_call_missed
         e.type == CallType.REJECTED -> R.string.case_call_declined
         e.type == CallType.BLOCKED -> R.string.case_call_blocked
-        e.type == CallType.VOICEMAIL -> R.string.case_call_voicemail
+        e.type == CallType.VOICEMAIL -> R.string.blk_line_voicemail
         !e.incoming && e.durationSec <= 0 -> R.string.case_call_unanswered
         e.incoming -> R.string.case_call_incoming
         else -> R.string.case_call_outgoing

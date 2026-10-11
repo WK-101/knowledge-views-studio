@@ -107,7 +107,7 @@ internal fun MeCardDetailsSections(
         val events = d.events.filter { it.date.isNotBlank() }
         if (events.isNotEmpty()) {
             val today = LocalDate.now()
-            SegmentedGroup(stringResource(R.string.me_part_dates)) {
+            SegmentedGroup(stringResource(R.string.contact_page_sec_dates)) {
                 events.forEachIndexed { i, ev ->
                     item {
                         val text = describeCalendarEvent(res, ev.date, ev.calendar, today) ?: describeLifeEvent(res, d, ev)
@@ -161,12 +161,12 @@ internal fun MeCardDetailsSections(
         }
         val more = moreFacts(res, d)
         if (more.isNotEmpty()) {
-            SegmentedGroup(stringResource(R.string.me_part_other)) {
+            SegmentedGroup(stringResource(R.string.contact_page_sec_other)) {
                 more.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = { copy(f.value) }) } }
             }
         }
         if (d.note.isNotBlank()) {
-            SegmentedGroup(stringResource(R.string.me_part_note)) {
+            SegmentedGroup(stringResource(R.string.blk_col_note)) {
                 item {
                     GroupDataRow(
                         Icons.AutoMirrored.Rounded.Notes, true, d.note, stringResource(R.string.me_note_hint), onClick = { copy(d.note) },

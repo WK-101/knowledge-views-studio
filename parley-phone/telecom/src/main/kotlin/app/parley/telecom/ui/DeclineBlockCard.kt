@@ -40,11 +40,11 @@ internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: (
     val number = Bidi.ltr(block.number)
     val masked = block.masked
     val (title, body) = when {
-        block.pending -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_pending)
-        block.undone -> stringResource(R.string.decline_title) to
+        block.pending -> stringResource(R.string.call_disconnect_declined) to stringResource(R.string.decline_block_pending)
+        block.undone -> stringResource(R.string.call_disconnect_declined) to
             if (masked) stringResource(R.string.decline_block_undone_masked) else stringResource(R.string.decline_block_undone, number)
-        block.ruleId == null -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_failed)
-        block.ruleId == 0L -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_already)
+        block.ruleId == null -> stringResource(R.string.call_disconnect_declined) to stringResource(R.string.decline_block_failed)
+        block.ruleId == 0L -> stringResource(R.string.call_disconnect_declined) to stringResource(R.string.decline_block_already)
         block.answered -> stringResource(R.string.decline_blocked_title) to
             if (masked) stringResource(R.string.decline_blocked_answered_masked) else stringResource(R.string.decline_blocked_answered, number)
         else -> stringResource(R.string.decline_blocked_title) to

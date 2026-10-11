@@ -6,7 +6,6 @@
 <resources>
     <string name="help_title">Help &amp; troubleshooting</string>
     <string name="help_intro">Short answers to what people ask most. Each one ends where you can fix it.</string>
-    <string name="help_open">Open %1$s</string>
 
     <string name="help_call_screen_title">Parley\'s call screen doesn\'t show</string>
     <string name="help_call_screen_body">Calls show on Parley\'s own screen only while Parley is your default phone app. Without it, Parley still lists your calls and contacts, and your old phone app answers calls.\n\nIf Android says \"Restricted setting\", Parley was installed from a file: open App info, tap ⋮ › Allow restricted settings, then try again.</string>
@@ -14,15 +13,12 @@
 
     <string name="help_did_not_ring_title">A call didn\'t ring</string>
     <string name="help_did_not_ring_body">Your blocking rules, the spam lists or a Situation may have kept it quiet. Test a call shows what your rules would do with any number, and replays last week\'s calls so you can see which rule stopped one. On a number\'s page in Recents, \"Why it rang, or didn\'t\" says the same for one call.</string>
-    <string name="help_did_not_ring_action">Test a call</string>
 
     <string name="help_situation_quiet_title">Calls are quiet while a Situation is on</string>
     <string name="help_situation_quiet_body">A Situation (Driving, Meeting, Night, Travelling or your own) sets who may ring while it\'s on. The chip above the tabs shows which one is on and turns it off in one tap. Turning it off puts every setting back as it was. To let more people ring during one, open it and choose who may ring.</string>
-    <string name="help_situation_quiet_action">Situations</string>
 
     <string name="help_expecting_title">I\'m waiting for a call from a number I don\'t know</string>
     <string name="help_expecting_body">A delivery, a doctor or a new job may call from a number you haven\'t saved. Expecting a call lets unknown callers ring for a while, then your usual rules come back on their own. Numbers you blocked stay blocked.</string>
-    <string name="help_expecting_action">Expecting a call</string>
 
     <string name="help_notifications_title">Missed calls and reminders don\'t show</string>
     <string name="help_notifications_body">Android may have turned off Parley\'s notifications, or one of their kinds. Check that Parley\'s notifications are allowed, Missed calls among them. On the lock screen, Parley shows only \"Missed call\" or \"Reminder\" until you unlock, as you chose.</string>
@@ -34,28 +30,19 @@
 
     <string name="help_archived_title">A contact disappeared after Archive</string>
     <string name="help_archived_body">Archive takes a contact out of your address book and other apps, while Parley keeps them sealed and still names their calls. Nothing is lost. Archived contacts are listed together, and Unarchive puts one back in your address book.</string>
-    <string name="help_archived_action">Archived contacts</string>
 
     <string name="help_undo_title">I deleted or changed a contact by mistake</string>
     <string name="help_undo_body">History &amp; undo keeps 30 days of changes to your contacts: deletes, edits and merges. Find the change and tap Undo. Older versions are in the daily snapshots, on the same screen.</string>
-    <string name="help_undo_action">History &amp; undo</string>
 
     <string name="help_new_phone_title">I\'m moving to a new phone</string>
     <string name="help_new_phone_body">On this phone, open Encrypted backups and choose Move to a new phone, or Back up now. Copy the backup to the new phone, install Parley there and choose \"From another phone with Parley? Restore a backup\" on the first screen. Private contacts, notes, Situations and settings come along.</string>
-    <string name="help_new_phone_action">Encrypted backups</string>
 
     <string name="help_something_else_title">Something else isn\'t working</string>
     <string name="help_something_else_body">Export diagnostics makes a short report about your phone and Parley\'s settings, with no names, numbers or notes in it. You choose whether to share it, and with whom.</string>
-    <string name="help_something_else_action">Export diagnostics</string>
 
-    <string name="help_chapters_title">Chapters</string>
     <string name="help_chapters_body">Give a label an end: a move, a hospital stay, a project or a trip. When it ends, Parley asks once what to do with it, such as keep the label as it is or archive its people. Nothing changes until you choose. Open a label, then choose Give it an end.</string>
-    <string name="help_chapters_action">Labels</string>
 
-    <string name="help_talk_about_title">To talk about</string>
     <string name="help_talk_about_body">Something to bring up with someone: ask about the trip, return the book. It shows on the call screen when you next call them or they call you, and you tick it off there. Add one from a contact\'s page or a number\'s page, or share text to Parley and choose Add to talk about with….</string>
 
-    <string name="help_family_shield_title">Family spam shield</string>
     <string name="help_family_shield_body">Members of a label you share, such as Family, can share their block and scam verdicts. Only coded fingerprints of numbers are shared: no names and no notes. A number is warned about, silenced or blocked, as you choose for that label, and never if it\'s a saved contact or an emergency number. Open a shared label, then Family spam shield.</string>
-    <string name="help_family_shield_action">Shared labels</string>
 </resources>

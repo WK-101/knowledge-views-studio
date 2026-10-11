@@ -136,7 +136,7 @@ private fun BlockBody(members: List<PageSections.Entry>) {
 @Composable
 fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> Unit) {
     val turn by animateFloatAsState(if (folded) 0f else 180f, ParleyMotion.spatial(), label = "chevron")
-    val state = stringResource(if (folded) R.string.contact_page_folded else R.string.contact_page_open)
+    val state = stringResource(if (folded) R.string.contact_page_folded else R.string.blk_open)
     Row(
         Modifier
             .fillMaxWidth()
@@ -200,7 +200,7 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
 @Suppress("CyclomaticComplexMethod") // One title per section.
 fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
     when (s) {
-        ContactSection.STAY -> R.string.contact_page_sec_stay
+        ContactSection.STAY -> R.string.circle_stay_in_touch
         ContactSection.DATES -> R.string.contact_page_sec_dates
         ContactSection.PHONES -> R.string.contact_page_sec_phones
         ContactSection.EMAILS -> R.string.contact_page_sec_emails
@@ -210,7 +210,7 @@ fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
         ContactSection.ABOUT -> R.string.contact_page_sec_about
         ContactSection.OTHER -> R.string.contact_page_sec_other
         ContactSection.MORE -> R.string.contact_page_sec_more
-        ContactSection.TIMELINE -> R.string.contact_page_sec_timeline
+        ContactSection.TIMELINE -> R.string.circle_timeline
         ContactSection.INSIGHTS -> R.string.contact_page_sec_insights
         ContactSection.NOTE -> R.string.contact_page_sec_note
         ContactSection.SETTINGS -> R.string.contact_page_sec_settings

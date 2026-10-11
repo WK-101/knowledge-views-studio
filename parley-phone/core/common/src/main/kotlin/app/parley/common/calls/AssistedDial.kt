@@ -1,6 +1,7 @@
 package app.parley.common.calls
 
 import app.parley.common.Codecs
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
@@ -21,8 +22,8 @@ import kotlinx.serialization.Serializable
  * that already carry a country code are never touched.
  */
 object AssistedDial {
-    private val util: PhoneNumberUtil by lazy { PhoneNumberUtil.getInstance() }
-    private val short: ShortNumberInfo by lazy { ShortNumberInfo.getInstance() }
+    private val util: PhoneNumberUtil by lazy { PhoneData.util }
+    private val short: ShortNumberInfo by lazy { PhoneData.shortNumbers }
 
     /** Shortest national number that is converted; anything shorter is a short code or a service number. */
     private const val MIN_DIGITS = 6

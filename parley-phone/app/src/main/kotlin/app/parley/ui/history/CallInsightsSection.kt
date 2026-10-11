@@ -69,7 +69,7 @@ import java.time.format.FormatStyle
 fun CallInsightsSection(
     vm: AppViewModel,
     numbers: List<String>,
-    title: String = stringResource(R.string.hist_calls_section),
+    title: String = stringResource(R.string.quality_subject_all),
     showTitle: Boolean = true,
     index: CallLogIndex? = null,
 ) {

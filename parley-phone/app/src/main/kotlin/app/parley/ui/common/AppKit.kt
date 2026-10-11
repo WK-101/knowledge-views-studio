@@ -12,8 +12,8 @@ import app.parley.ui.LocalKitStrings
 fun ProvideAppKit(content: @Composable () -> Unit) {
     val strings = KitStrings(
         back = stringResource(R.string.set_back),
-        cancel = stringResource(R.string.set_cancel),
-        change = stringResource(R.string.set_action_change),
+        cancel = stringResource(R.string.dc_cancel),
+        change = stringResource(R.string.callphoto_change),
         close = stringResource(R.string.main_close),
     )
     CompositionLocalProvider(LocalKitStrings provides strings, content = content)

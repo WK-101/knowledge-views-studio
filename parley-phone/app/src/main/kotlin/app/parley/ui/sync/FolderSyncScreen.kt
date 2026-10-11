@@ -132,7 +132,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
             }
             // Labels shared with other people's phones, each through a folder of its own.
             item {
-                LinkRow(stringResource(R.string.set_shared_labels_title), stringResource(R.string.set_shared_labels_summary), Icons.Rounded.Groups) {
+                LinkRow(stringResource(R.string.discover_shared_labels_title), stringResource(R.string.set_shared_labels_summary), Icons.Rounded.Groups) {
                     open(SharedLabelRoutes.All)
                 }
             }

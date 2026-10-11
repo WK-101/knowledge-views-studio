@@ -90,16 +90,16 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     quickHost()
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.trip_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.discover_whos_in_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "field") {
                 OutlinedTextField(
                     city, { city = it },
-                    label = { Text(stringResource(R.string.trip_city)) },
+                    label = { Text(stringResource(R.string.edit_city)) },
                     leadingIcon = { Icon(Icons.Rounded.LocationCity, null) },
                     trailingIcon = {
-                        if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.home_clear_search)) }
+                        if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.contact_page_clear_search)) }
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
@@ -141,7 +141,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                 }
                 else -> {
                     item(key = "summary") {
-                        val names = hits.take(3).joinToString(stringResource(R.string.trip_list_separator)) { it.person.name }
+                        val names = hits.take(3).joinToString(stringResource(R.string.contact_page_list_separator)) { it.person.name }
                         val more = hits.size - 3
                         Text(
                             if (more > 0) pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
@@ -176,7 +176,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
 
 @Composable
 private fun reasonText(h: TripMatch.Hit): String {
-    val address = stringResource(R.string.trip_reason_address)
+    val address = stringResource(R.string.contact_page_sec_addresses)
     val number = stringResource(R.string.trip_reason_number)
     val note = stringResource(R.string.trip_reason_note)
     return h.reasons.sortedBy { it.ordinal }.joinToString(stringResource(R.string.main_separator)) { r ->

@@ -64,7 +64,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
             uri,
             arrayOf(
                 Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION, Calls.PHONE_ACCOUNT_ID, Calls.NEW,
-                Calls.NUMBER_PRESENTATION, Calls.FEATURES,
+                Calls.NUMBER_PRESENTATION, Calls.FEATURES, Calls.PHONE_ACCOUNT_COMPONENT_NAME,
             ),
             selection, args,
             sort = Calls.DATE + " DESC",
@@ -81,6 +81,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
                     isNew = c.getInt(7) != 0,
                     presentationHidden = c.getInt(8) != Calls.PRESENTATION_ALLOWED,
                     video = (c.getInt(9) and Calls.FEATURES_VIDEO) != 0,
+                    accountComponent = c.getString(10),
+                    appPackage = TelephonyPackages.appOf(context, c.getString(10)),
                 )
             }
         }
@@ -134,14 +136,17 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
         pastCalls(number, System.currentTimeMillis(), limit = LAST_CALL_ROWS)
             .firstOrNull { !it.presentationHidden && PhoneIdentity.same(it.number, number, region) }
 
-    /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
+    /**
+     * Unseen missed calls, newest first (what Telecom counts: missed, new and not read). Calls missed in an app over
+     * the internet are left out: the app tells about them itself, and its call back isn't the phone's.
+     */
     fun unseenMissed(limit: Int = 50): List<CallEntry> {
         if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         return query(
             Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(),
             "${Calls.TYPE} = ? AND ${Calls.NEW} = 1 AND (${Calls.IS_READ} = 0 OR ${Calls.IS_READ} IS NULL)",
             arrayOf(Calls.MISSED_TYPE.toString()),
-        )
+        ).filter { it.appPackage == null }
     }
 
     /** Every row of the system call log, oldest first, with the columns a backup keeps. */

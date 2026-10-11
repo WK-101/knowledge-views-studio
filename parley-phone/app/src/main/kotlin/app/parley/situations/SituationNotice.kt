@@ -52,7 +52,7 @@ object SituationNotice {
         )
         val b = PrivateNotice.builder(
             context, NotificationChannels.SITUATION, R.drawable.ic_tile_situation,
-            context.getString(R.string.sit_chip_on, name), context.getString(R.string.sit_notice_public), text, open,
+            context.getString(R.string.sit_chip_on, name), context.getString(R.string.sit_notice_channel), text, open,
         )
             .setOngoing(true)
             .setAutoCancel(false)
@@ -60,7 +60,7 @@ object SituationNotice {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .addAction(0, context.getString(R.string.sit_chip_off), off)
+            .addAction(0, context.getString(R.string.pin_off_confirm), off)
         PrivateNotice.post(context, NotificationIds.TAG_SITUATION, NotificationIds.SITUATION_ID, b)
     }
 

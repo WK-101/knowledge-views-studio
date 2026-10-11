@@ -127,7 +127,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                 dd?.let { stringResource(
                     R.string.contact_page_timeline_of,
                     it.given.ifBlank { it.displayName },
-                ) } ?: stringResource(R.string.contact_page_sec_timeline),
+                ) } ?: stringResource(R.string.circle_timeline),
                 onBack = back,
                 scrollBehavior = bar,
             )
@@ -211,11 +211,11 @@ private fun entryKey(e: TimelineEntry): String = when (e) {
 
 private fun kindLabel(res: Resources, k: TimelineKind): String = res.getString(
     when (k) {
-        TimelineKind.CALL -> R.string.contact_page_kind_calls
+        TimelineKind.CALL -> R.string.quality_subject_all
         TimelineKind.MISSED -> R.string.contact_page_kind_missed
         TimelineKind.LOGGED -> R.string.contact_page_kind_logged
         TimelineKind.NOTE -> R.string.contact_page_kind_notes
-        TimelineKind.DATE -> R.string.contact_page_kind_dates
+        TimelineKind.DATE -> R.string.contact_page_sec_dates
     },
 )
 

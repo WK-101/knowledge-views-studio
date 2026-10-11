@@ -11,12 +11,10 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
-import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.LockScreenCaller
 import app.parley.telecom.ui.InCallActivity
-import app.parley.ui.PhotoCache
 
 /**
  * A rescue call's notifications ([RescueCall]): like a real call's (the incoming call with Decline and Answer that opens
@@ -30,21 +28,10 @@ internal object RescueNotifier {
     fun incoming(context: Context, call: CallUi): Boolean {
         CallNotifier.createChannels(context)
         val person = person(context, call)
-        val n = NotificationCompat.Builder(context, CallNotifier.CH_INCOMING)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(shownTitle(context, call))
-            .setContentText(context.getString(R.string.notif_incoming_call))
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(publicVersion(context, call, CallNotifier.CH_INCOMING))
-            .setContentIntent(open(context))
-            .setFullScreenIntent(open(context), true)
-            .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, decline(context, call.id), answer(context, call.id)))
-            .addPerson(person)
-            .build()
+        val n = CallNotificationTemplate.incoming(
+            context, CallNotifier.CH_INCOMING, shownTitle(context, call), context.getString(R.string.notif_incoming_call), person,
+            VISIBILITY, publicVersion(context, call, CallNotifier.CH_INCOMING), open(context), decline(context, call.id), answer(context, call.id),
+        ).build()
         val posted = notify(context, NotificationIds.RESCUE_INCOMING, n)
         return posted && fullScreenWorks(context)
     }
@@ -54,21 +41,10 @@ internal object RescueNotifier {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm?.cancel(NotificationIds.RESCUE_INCOMING)
         val person = person(context, call)
-        val n = NotificationCompat.Builder(context, CallNotifier.CH_ONGOING)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(shownTitle(context, call))
-            .setContentText(context.getString(R.string.notif_ongoing_call))
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(publicVersion(context, call, CallNotifier.CH_ONGOING))
-            .setContentIntent(open(context))
-            // CallStyle needs a full-screen intent; the ongoing channel never pops up, so this only satisfies the check.
-            .setFullScreenIntent(open(context), false)
-            .setStyle(NotificationCompat.CallStyle.forOngoingCall(person, hangUp(context, call.id)))
-            .addPerson(person)
+        val n = CallNotificationTemplate.ongoing(
+            context, CallNotifier.CH_ONGOING, shownTitle(context, call), context.getString(R.string.notif_ongoing_call), person,
+            VISIBILITY, publicVersion(context, call, CallNotifier.CH_ONGOING), open(context), hangUp(context, call.id),
+        )
             .setUsesChronometer(true)
             .setWhen(call.connectTimeMillis)
             .setShowWhen(true)
@@ -109,18 +85,19 @@ internal object RescueNotifier {
         context.getString(if (call.state == CallState.RINGING) R.string.notif_incoming_call else R.string.notif_ongoing_call)
 
     private fun publicVersion(context: Context, call: CallUi, channel: String): Notification =
-        NotificationCompat.Builder(context, channel)
-            .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
-            .setContentTitle(call.forLockScreen(lockMode(), placeholder(context, call)).title)
-            .setContentText(placeholder(context, call))
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .build()
+        CallNotificationTemplate.publicVersion(context, channel, call.forLockScreen(lockMode(), placeholder(context, call)).title, placeholder(context, call))
 
-    private fun person(context: Context, call: CallUi): Person {
-        val b = Person.Builder().setName(shownTitle(context, call)).setImportant(true)
-        call.photoUri?.let { uri -> PhotoCache.peek("$uri@256")?.let { b.setIcon(IconCompat.createWithBitmap(it)) } }
-        return b.build()
-    }
+    /**
+     * No contact URI: a rescue call is never placed, so Do Not Disturb has nothing to match, and the made-up caller
+     * must not point at a real contact.
+     */
+    private fun person(context: Context, call: CallUi): Person = CallNotificationTemplate.person(shownTitle(context, call), null, call.photoUri)
+
+    /**
+     * Always private: the rescue call's notification never shows in full on a lock screen that hides sensitive
+     * content, whatever "Caller on the lock screen" says (its public version does follow that choice).
+     */
+    private const val VISIBILITY = NotificationCompat.VISIBILITY_PRIVATE
 
     private fun open(context: Context): PendingIntent = PendingIntent.getActivity(
         context, NotificationRequests.RESCUE_OPEN, InCallActivity.intent(context, false),

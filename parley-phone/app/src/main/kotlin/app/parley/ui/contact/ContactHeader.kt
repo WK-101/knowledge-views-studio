@@ -132,7 +132,7 @@ private fun ActionTiles(ctx: ContactPageContext) {
         // Press and hold Call (through the phone) for "Call with a reason…".
         val reasonNumber = primary?.value?.takeIf { preferredCall == null && CallReason.offered(it) }
         ActionTile(
-            Icons.Rounded.Call, preferredCall?.appName ?: stringResource(R.string.main_call), ctx.canCall,
+            Icons.Rounded.Call, preferredCall?.appName ?: stringResource(R.string.circle_widget_call), ctx.canCall,
             onLongClick = reasonNumber?.let { n -> { ctx.show(ContactDialog.CallReason(ReasonTarget(n, d.displayName))) } },
             longClickLabel = stringResource(R.string.reason_call_with),
         ) { ctx.call() }
@@ -145,7 +145,7 @@ private fun ActionTiles(ctx: ContactPageContext) {
             }
         }
         ActionTile(
-            Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.main_message), ctx.canMessage,
+            Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.circle_type_message), ctx.canMessage,
             onLongClick = { ctx.show(ContactDialog.MessageOn(primary?.value.orEmpty())) }, longClickLabel = stringResource(R.string.detail_choose_message),
         ) { ctx.message() }
         if (ctx.reach.videoRows.isNotEmpty()) {
@@ -155,7 +155,7 @@ private fun ActionTiles(ctx: ContactPageContext) {
             ) { ctx.video() }
         }
         val email = ctx.email
-        ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), email != null) {
+        ActionTile(Icons.Rounded.Email, stringResource(R.string.contact_page_sec_emails), email != null) {
             email?.let { Intents.email(context, it.value) }
         }
     }

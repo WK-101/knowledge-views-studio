@@ -125,7 +125,7 @@ fun ToCallStrip(open: (Destination) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs).animateContentSize(),
         ) {
             Row(
-                Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.to_call_title)) { open(ToCallRoutes.List) }
+                Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.discover_to_call_title)) { open(ToCallRoutes.List) }
                     .heightIn(min = 48.dp)
                     .padding(start = Spacing.l),
                 verticalAlignment = Alignment.CenterVertically,
@@ -144,7 +144,7 @@ fun ToCallStrip(open: (Destination) -> Unit) {
                 IconButton({ model.setFolded(!folded) }) {
                     Icon(
                         if (folded) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
-                        stringResource(if (folded) R.string.to_call_unfold else R.string.to_call_fold),
+                        stringResource(if (folded) R.string.to_call_unfold else R.string.contact_page_fold),
                     )
                 }
             }
@@ -164,7 +164,7 @@ fun ToCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     LaunchedEffect(model) { model.followCalls() }
     val now = System.currentTimeMillis()
     val (due, later) = rows.partition { it.entry.isDue(now) }
-    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.to_call_title), onBack = back) }) { p ->
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.discover_to_call_title), onBack = back) }) { p ->
         LazyColumn(Modifier.fillMaxSize().padding(p)) {
             if (rows.isEmpty()) {
                 item(key = "empty") {
@@ -174,9 +174,9 @@ fun ToCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                     )
                 }
             }
-            if (due.isNotEmpty() && later.isNotEmpty()) item(key = "h-now") { Header(stringResource(R.string.to_call_now)) }
+            if (due.isNotEmpty() && later.isNotEmpty()) item(key = "h-now") { Header(stringResource(R.string.tm_now)) }
             items(due, key = { "d" + it.entry.key }) { r -> ToCallRowItem(vm, model, r, open) }
-            if (later.isNotEmpty()) item(key = "h-later") { Header(stringResource(R.string.to_call_later)) }
+            if (later.isNotEmpty()) item(key = "h-later") { Header(stringResource(R.string.bday_later)) }
             items(later, key = { "l" + it.entry.key }) { r -> ToCallRowItem(vm, model, r, open) }
         }
     }
@@ -217,10 +217,10 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton({ vm.requestCall(r.number, r.name) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.to_call_call_who, title), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, title), tint = MaterialTheme.colorScheme.primary)
                 }
                 RowMenu(model, r, title) { undoText, before ->
-                    snackbar?.show(res.getString(undoText), res.getString(R.string.to_call_undo)) { model.undoDone(e, before) }
+                    snackbar?.show(res.getString(undoText), res.getString(R.string.dc_undo)) { model.undoDone(e, before) }
                 }
             }
         },
@@ -231,7 +231,7 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
 private fun kindLine(context: Context, e: ToCallEntry): String {
     e.missedAt?.let { return context.getString(R.string.to_call_missed_again, Format.shortWhen(context, it)) }
     return when (e.kind) {
-        ToCallKind.MISSED -> context.getString(R.string.to_call_missed_at, Format.shortWhen(context, e.since))
+        ToCallKind.MISSED -> context.getString(R.string.missed_one_at, Format.shortWhen(context, e.since))
         ToCallKind.REMINDER -> context.getString(R.string.to_call_remind_at, RemindTimes.whenText(context, e.dueAt ?: e.since))
         ToCallKind.FOLLOW_UP -> context.getString(R.string.to_call_follow_up_at, RemindTimes.whenText(context, e.dueAt ?: e.since))
     }
@@ -252,7 +252,7 @@ private fun RowMenu(model: ToCallModel, r: ToCallRow, title: String, onUndoable:
     var open by remember { mutableStateOf(false) }
     var times by remember { mutableStateOf(false) }
     Box {
-        IconButton({ open = true; times = false }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.to_call_more_for, title)) }
+        IconButton({ open = true; times = false }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, title)) }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.to_call_later_menu)) },
@@ -284,12 +284,12 @@ private fun RowMenu(model: ToCallModel, r: ToCallRow, title: String, onUndoable:
                 )
             }
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.to_call_done)) },
+                text = { Text(stringResource(R.string.dc_done)) },
                 leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
                 onClick = { open = false; onUndoable(R.string.to_call_done_undo, model.done(e)) },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.to_call_remove)) },
+                text = { Text(stringResource(R.string.jr_remove)) },
                 leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                 onClick = { open = false; onUndoable(R.string.to_call_removed_undo, model.done(e)) },
             )

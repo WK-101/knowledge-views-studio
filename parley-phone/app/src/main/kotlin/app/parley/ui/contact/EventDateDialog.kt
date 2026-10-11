@@ -74,15 +74,15 @@ fun EventDateDialog(
     }
 
     ConfirmDialog(
-        title = stringResource(R.string.date_choose),
+        title = stringResource(R.string.editor_pick_date),
         text = null,
-        confirmLabel = stringResource(R.string.main_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = {
             val date = EventDate(if (withYear) yearValue else null, month, day).format()
             if (onPickCalendar != null) onPickCalendar(date, if (calendarPicked) calendar.takeIf { withYear } else initialCalendar) else onPick(date)
         },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = valid,
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

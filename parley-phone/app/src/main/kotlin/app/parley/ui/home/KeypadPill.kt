@@ -128,7 +128,7 @@ private fun RoundIconButton(label: String, onClick: () -> Unit, content: @Compos
 @Composable
 private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    val label = stringResource(R.string.main_delete)
+    val label = stringResource(R.string.blk_delete)
     val clearLabel = stringResource(R.string.keypad_clear_number)
     Box(
         Modifier.size(56.dp).clip(CircleShape)
@@ -164,7 +164,7 @@ private fun CallPillView(
     val haptics = LocalHapticFeedback.current
     val reasonLabel = stringResource(R.string.reason_call_with)
     if (segments.isEmpty()) {
-        val label = stringResource(R.string.main_call)
+        val label = stringResource(R.string.circle_widget_call)
         Box(
             modifier.width(112.dp).height(CALL_PILL_HEIGHT).clip(shape).background(CallColors.Accept)
                 .combinedClickable(

@@ -105,7 +105,7 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.discover_whats_new_open)) }
-                TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }
+                TextButton(::seen) { Text(stringResource(R.string.dc_got_it)) }
             }
         }
     }
@@ -127,7 +127,7 @@ private fun IntroCard(modifier: Modifier, open: (Destination) -> Unit, seen: () 
             Text(stringResource(R.string.basics_intro_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.basics_intro_open)) }
-                TextButton(seen) { Text(stringResource(R.string.ux_tip_got_it)) }
+                TextButton(seen) { Text(stringResource(R.string.dc_got_it)) }
             }
         }
     }

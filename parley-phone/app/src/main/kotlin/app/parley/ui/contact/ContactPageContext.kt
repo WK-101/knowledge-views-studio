@@ -138,7 +138,7 @@ internal class ContactPageContext(
     fun dateText(i: Int, days: Long): String {
         val label = eventLabel(res, d.events[i])
         return when (days) {
-            0L -> res.getString(R.string.contact_page_date_today, label)
+            0L -> res.getString(R.string.circle_next_date_today, label)
             1L -> res.getString(R.string.contact_page_date_tomorrow, label)
             else -> res.getQuantityString(R.plurals.contact_page_date_in, days.toInt(), label, days.toInt())
         }

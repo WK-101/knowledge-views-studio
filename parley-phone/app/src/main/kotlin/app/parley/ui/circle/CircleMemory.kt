@@ -227,7 +227,7 @@ fun PreCallPeekSheet(
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
                     supportingContent = {
-                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.agenda_item_label else R.string.circle_open_promise))
+                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.agenda_title else R.string.circle_open_promise))
                     },
                 )
             }
@@ -242,10 +242,10 @@ fun PreCallPeekSheet(
                     onCall()
                 }) { Text(stringResource(R.string.circle_peek_dont_show)) }
                 Spacer(Modifier.weight(1f))
-                TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) }
+                TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
                 Button(onCall) {
                     Icon(Icons.Rounded.Call, null, Modifier.padding(end = 6.dp))
-                    Text(stringResource(R.string.main_call))
+                    Text(stringResource(R.string.circle_widget_call))
                 }
             }
         }

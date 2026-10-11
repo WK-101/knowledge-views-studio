@@ -1,15 +1,13 @@
 package app.parley.common.backup
 
-import app.parley.common.ContactSummary
-import app.parley.common.PhoneEntry
 import app.parley.common.extras.CallerChoice
+import app.parley.common.testing.testContact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CallerChoiceRestoreTest {
-    private fun contact(id: Long, key: String, name: String, vararg numbers: String) =
-        ContactSummary(id, key, name, null, false, numbers.map { PhoneEntry(it, 2, null) })
+    private fun contact(id: Long, key: String, name: String, vararg numbers: String) = testContact(id, name, key, *numbers)
 
     private val buzz = CallerChoice(vibration = "sos", autoAnswer = true)
 

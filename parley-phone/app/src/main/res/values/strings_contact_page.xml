@@ -8,10 +8,8 @@
 
     <!-- Foldable sections on a contact's page -->
     <string name="contact_page_folded">Folded</string>
-    <string name="contact_page_open">Open</string>
     <string name="contact_page_fold">Fold</string>
     <string name="contact_page_unfold">Unfold</string>
-    <string name="contact_page_sec_stay">Stay in touch</string>
     <string name="contact_page_sec_dates">Dates</string>
     <string name="contact_page_sec_phones">Phone</string>
     <string name="contact_page_sec_emails">Email</string>
@@ -19,7 +17,6 @@
     <string name="contact_page_sec_messengers">Message or call on…</string>
     <string name="contact_page_sec_about">About them</string>
     <string name="contact_page_sec_other">Other fields</string>
-    <string name="contact_page_sec_timeline">Timeline</string>
     <string name="contact_page_sec_insights">Call insights</string>
     <string name="contact_page_sec_note">Note for calls</string>
     <string name="contact_page_sec_settings">Settings for this contact</string>
@@ -31,7 +28,6 @@
         <item quantity="one">%1$d entry</item>
         <item quantity="other">%1$d entries</item>
     </plurals>
-    <string name="contact_page_date_today">%1$s today</string>
     <string name="contact_page_date_tomorrow">%1$s tomorrow</string>
     <plurals name="contact_page_date_in">
         <item quantity="one">%1$s in %2$d day</item>
@@ -65,8 +61,6 @@
     <string name="contact_page_settings_summary">Circle, ringtone, voicemail, where it\'s saved</string>
     <!-- The group that joins numbers, emails, addresses and apps on a contact's page -->
     <string name="contact_page_info">Contact info</string>
-    <!-- Supporting line of the default number or email: "Mobile · Default" -->
-    <string name="contact_page_default">Default</string>
     <!-- Joins the apps that reach a number: "WhatsApp, Signal" -->
     <string name="contact_page_list_separator">,\u0020</string>
     <!-- Part of the line under a contact's name -->
@@ -80,11 +74,9 @@
     <string name="contact_page_clear_search">Clear search</string>
     <string name="contact_page_timeline_no_match">Nothing matches</string>
     <string name="contact_page_timeline_clear_filters">Clear search and filters</string>
-    <string name="contact_page_kind_calls">Calls</string>
     <string name="contact_page_kind_missed">Missed</string>
     <string name="contact_page_kind_logged">Logged</string>
     <string name="contact_page_kind_notes">Notes</string>
-    <string name="contact_page_kind_dates">Dates</string>
     <!-- Settings › Contacts › Contact page sections -->
     <string name="contact_page_settings_title">Contact page sections</string>
     <string name="contact_page_reset">Reset</string>
@@ -93,14 +85,10 @@
     <string name="contact_page_chips_title">Jump to a section</string>
     <string name="contact_page_chips_summary">Chips under the pinned buttons, on long contact pages</string>
     <string name="contact_page_choose_start">Choose how it starts</string>
-    <string name="contact_page_mode_open">Open</string>
-    <string name="contact_page_mode_folded">Folded</string>
     <string name="contact_page_mode_hidden">Hidden</string>
-    <string name="set_contact_page_title">Contact page sections</string>
     <string name="set_contact_page_summary">Order, fold or hide the sections of a contact\'s page</string>
     <string name="set_contact_page_kw">contact page, sections, order, reorder, fold, collapse, expand, hide, timeline, layout, jump</string>
     <!-- Block from a swipe, with Undo -->
-    <string name="contacts_swipe_already_blocked">Already blocked</string>
 
     <!-- One contact, several variants (docs/CONTACT_MODEL.md): private and temporary are shown as small chips, and the
          page converts between them. -->
@@ -148,8 +136,6 @@
     <string name="detail_reach_number">Message or call on…, %1$s</string>
     <string name="detail_message_number_on">Message %1$s on %2$s</string>
     <string name="detail_text_number">Text message to %1$s</string>
-    <!-- The header's one-line variant chips; TalkBack reads the long forms above. -->
-    <string name="contact_variant_private_short">Private</string>
     <string name="contact_variant_temporary_short">Temporary · %1$s</string>
     <string name="contact_page_sec_profiles">Profiles</string>
     <!-- A profile's row: the button opens it in the service's app, or in the browser. %1$s: the service. -->
@@ -174,7 +160,6 @@
     <string name="detail_partner_of">Partner of %1$s</string>
     <!-- An ex-spouse relation's row, in place of its type. -->
     <string name="detail_formerly_married">Formerly married to</string>
-    <string name="detail_open_person">Open</string>
     <string name="detail_relation_from_them">%1$s · From their contact</string>
     <string name="detail_relation_parley_only">%1$s · Kept in Parley only</string>
     <string name="detail_relation_my_card">%1$s · My card</string>

@@ -74,7 +74,7 @@ fun ReachViaApps(
     modifier: Modifier = Modifier,
 ) {
     if (groups.isEmpty()) return
-    SegmentedGroup(stringResource(R.string.reach_reach_title), modifier) {
+    SegmentedGroup(stringResource(R.string.contact_page_sec_messengers), modifier) {
         reachViaAppsRows(groups, prefs, showNumbers, onOpen, onToggleUsual)
     }
 }
@@ -116,9 +116,9 @@ fun MessengerPrefs.toggleUsual(row: ReachRow): MessengerPrefs {
 private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolean, onOpen: (ReachRow) -> Unit, onToggleUsual: (ReachRow) -> Unit) {
     val sep = stringResource(R.string.main_separator)
     val can = listOfNotNull(
-        g.message?.let { stringResource(R.string.reach_can_message) },
+        g.message?.let { stringResource(R.string.circle_type_message) },
         g.voice?.let { stringResource(R.string.reach_can_voice) },
-        g.video?.let { stringResource(R.string.reach_can_video) },
+        g.video?.let { stringResource(R.string.detail_video) },
     ).joinToString(sep)
     val usual = listOfNotNull(
         g.message?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.reach_usual_message) },

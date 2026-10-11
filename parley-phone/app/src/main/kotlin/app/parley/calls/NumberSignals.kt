@@ -166,11 +166,14 @@ object NumberSignals {
 
     private suspend fun showPrivate(c: DataContainer): Boolean = c.privacy.now().privateShown
 
-    /** The latest call per line that shows it works: any call from it, or one to it that was answered. */
+    /**
+     * The latest call per line that shows it works: any call from it, or one to it that was answered. A call in an app
+     * over the internet says nothing about the phone line (the app keeps working after the number is cut off).
+     */
     internal fun aliveSince(calls: List<CallEntry>, iso: String): PhoneIdentity.LineMap<Long> {
         val map = PhoneIdentity.LineMap<Long>(iso)
         calls.sortedByDescending { it.date }.forEach { e ->
-            if (e.type != CallType.OUTGOING || e.durationSec > 0) map.putIfAbsent(e.number, e.date)
+            if (e.appPackage == null && (e.type != CallType.OUTGOING || e.durationSec > 0)) map.putIfAbsent(e.number, e.date)
         }
         return map
     }

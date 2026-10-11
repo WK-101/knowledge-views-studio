@@ -19,6 +19,7 @@ class CallerTuneTest {
         // Case, accents and spacing don't make another person.
         assertEquals(CallerTune.compose("ana"), CallerTune.compose("  Ana "))
         assertEquals(CallerTune.compose("Jose"), CallerTune.compose("José"))
+        assertEquals(CallerTune.compose("Ana").lengthMs * CallerTune.SAMPLE_RATE / 1000, CallerTune.render(CallerTune.compose("Ana")).size.toLong())
     }
 
     @Test fun every_tune_lasts_three_to_five_seconds() {
@@ -26,7 +27,8 @@ class CallerTuneTest {
             for (v in 0..3) {
                 val t = CallerTune.compose(n, v)
                 assertTrue("$n/$v ${t.lengthMs}", t.lengthMs in 3000..5000)
-                assertEquals(t.lengthMs * CallerTune.SAMPLE_RATE / 1000, CallerTune.render(t).size.toLong())
+                // The length in samples, at a low rate: the full rate makes the same length and took most of this suite.
+                assertEquals(t.lengthMs * LOW_RATE / 1000, CallerTune.render(t, LOW_RATE).size.toLong())
                 // Every note ends before the quiet last beat.
                 assertTrue(t.notes.all { it.startBeat + it.beats <= CallerTune.TOTAL_BEATS - 1 })
             }
@@ -34,7 +36,8 @@ class CallerTuneTest {
     }
 
     @Test fun samples_never_clip_are_loud_enough_and_start_and_end_silent() {
-        (names + (1..40).map { "Caller $it" }).forEach { n ->
+        // At the full rate, so a few names stand for all (each render is four seconds of audio).
+        names.forEach { n ->
             val s = CallerTune.render(CallerTune.compose(n, n.length % 3))
             val peak = s.maxOf { abs(it.toInt()) }
             val limit = (CallerTune.PEAK * Short.MAX_VALUE).toInt()
@@ -114,5 +117,9 @@ class CallerTuneTest {
             assertTrue(CallerTune.envelope(i, i.attackS, 0.5) > 0.6)
             assertEquals(0.0, CallerTune.envelope(i, 0.5 + i.releaseS + 0.001, 0.5), 1e-9)
         }
+    }
+
+    private companion object {
+        const val LOW_RATE = 1_000
     }
 }

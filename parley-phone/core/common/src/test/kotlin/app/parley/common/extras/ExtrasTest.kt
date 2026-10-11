@@ -1,9 +1,8 @@
 package app.parley.common.extras
 
-import app.parley.common.ContactSummary
-import app.parley.common.PhoneEntry
 import app.parley.common.SettingsCatalog
 import java.util.Locale
+import app.parley.common.testing.testContact
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,8 +73,7 @@ class ExtrasTest {
 
     // Simple mode
 
-    private fun contact(id: Long, name: String, key: String, vararg numbers: String) =
-        ContactSummary(id, key, name, null, false, numbers.map { PhoneEntry(it, 2, null) })
+    private fun contact(id: Long, name: String, key: String, vararg numbers: String) = testContact(id, name, key, *numbers)
 
     @Test fun simple_setup_exports_without_keys_and_never_on() {
         val c = SimpleConfig(enabled = true, people = listOf(SimplePerson("Ana", "+351 912 345 678", "k1")), speakName = true)

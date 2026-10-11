@@ -120,7 +120,7 @@ private fun RateRows(r: QualityReport) {
         if (rate.calls == 0) return@forEach
         ParleyListItem(
             leadingContent = { Icon(if (n == CallNetwork.WIFI) Icons.Rounded.Wifi else Icons.Rounded.NetworkCheck, null) },
-            headlineContent = { Text(stringResource(if (n == CallNetwork.WIFI) R.string.quality_wifi else R.string.quality_mobile)) },
+            headlineContent = { Text(stringResource(if (n == CallNetwork.WIFI) R.string.callfacts_wifi else R.string.quality_mobile)) },
             supportingContent = { Text(droppedOf(rate)) },
         )
     }

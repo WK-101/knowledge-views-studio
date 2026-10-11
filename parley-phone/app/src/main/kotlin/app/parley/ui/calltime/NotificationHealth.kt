@@ -70,11 +70,11 @@ object NotificationHealth {
         val battery = context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
         fun s(id: Int) = context.getString(id)
         return listOf(
-            HealthCheck("role", s(R.string.ct_health_role), dialer, s(R.string.ct_health_role_off), s(R.string.set_set_default), critical = true),
-            HealthCheck("notif", s(R.string.ct_health_notif), notifications, s(R.string.ct_health_notif_off), s(R.string.ct_health_allow), critical = true),
-            HealthCheck("fsi", s(R.string.ct_health_fsi), fullScreen, s(R.string.ct_health_fsi_off), s(R.string.ct_health_allow), critical = true),
-            HealthCheck("channel", s(R.string.ct_health_channel), channel, s(R.string.ct_health_channel_off), s(R.string.ct_health_fix), critical = true),
-            HealthCheck("battery", s(R.string.ct_health_battery), battery, s(R.string.ct_health_battery_off), s(R.string.set_action_change), critical = false),
+            HealthCheck("role", s(R.string.help_call_screen_action), dialer, s(R.string.ct_health_role_off), s(R.string.set_set_default), critical = true),
+            HealthCheck("notif", s(R.string.ct_health_notif), notifications, s(R.string.ct_health_notif_off), s(R.string.blk_allow), critical = true),
+            HealthCheck("fsi", s(R.string.ct_health_fsi), fullScreen, s(R.string.ct_health_fsi_off), s(R.string.blk_allow), critical = true),
+            HealthCheck("channel", s(R.string.ct_health_channel), channel, s(R.string.ct_health_channel_off), s(R.string.ppl_fix), critical = true),
+            HealthCheck("battery", s(R.string.ct_health_battery), battery, s(R.string.ct_health_battery_off), s(R.string.callphoto_change), critical = false),
         )
     }
 
@@ -188,7 +188,7 @@ fun NotificationHealthBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(end = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
-            TextButton({ vm.c.calling.update { it.copy(healthBannerDismissed = key) } }) { Text(stringResource(R.string.ct_not_now)) }
+            TextButton({ vm.c.calling.update { it.copy(healthBannerDismissed = key) } }) { Text(stringResource(R.string.circle_not_now)) }
             TextButton({ fix(first) }) { Text(first.fixLabel) }
         }
     }

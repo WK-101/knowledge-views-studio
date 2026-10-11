@@ -172,7 +172,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     SettingsSearchBar(query, { query = it }) { searching = false; query = "" }
                 } else {
                     ParleyTopBar(
-                        stringResource(R.string.set_settings),
+                        stringResource(R.string.home_settings),
                         onBack = back,
                         actions = { IconButton({ searching = true }) { Icon(Icons.Rounded.Search, stringResource(R.string.set_search_settings)) } },
                         scrollBehavior = scroll,
@@ -269,7 +269,7 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     ParleyTopBar(
-        navigationIcon = { BackButton(onClose, stringResource(R.string.set_close_search)) },
+        navigationIcon = { BackButton(onClose, stringResource(R.string.home_close_search)) },
         title = {
             TextField(
                 value = query,
@@ -278,7 +278,8 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.set_clear)) } },
+                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close,
+                    stringResource(R.string.hist_filter_clear)) } },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
@@ -307,7 +308,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
         // No match: clear the search and start again.
         EmptyState(
             Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_no_match, query), modifier = modifier,
-            action = stringResource(R.string.ux_empty_clear_search), onAction = onClear,
+            action = stringResource(R.string.contact_page_clear_search), onAction = onClear,
         )
         return
     }
@@ -404,9 +405,9 @@ internal fun QuickRepliesDialog(
                 )
             }
         },
-        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }, name.trim()) }) { Text(stringResource(R.string.set_save)) } },
+        confirmButton = { TextButton({ onSave(items.filter { t -> t.isNotBlank() }, name.trim()) }) { Text(stringResource(R.string.pin_save)) } },
         dismissButton = {
-            TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES, AppSettings.DEFAULT_NAME_REPLY) }) { Text(stringResource(R.string.set_reset)) }
+            TextButton({ onSave(AppSettings.DEFAULT_QUICK_REPLIES, AppSettings.DEFAULT_NAME_REPLY) }) { Text(stringResource(R.string.contact_page_reset)) }
         },
     )
 }
@@ -415,7 +416,8 @@ internal fun exportMessage(context: Context, r: VCardIO.ExportResult): String {
     val res = context.resources
     val done = res.getQuantityString(R.plurals.set_exported_contacts, r.exported, r.exported)
     return if (r.failures.isEmpty()) done else
-        res.getString(R.string.set_joined, done, res.getQuantityString(R.plurals.set_export_failed, r.failures.size, r.failures.size, r.failures.first()))
+        res.getString(R.string.archive_page_work, done, res.getQuantityString(R.plurals.set_export_failed, r.failures.size, r.failures.size,
+            r.failures.first()))
 }
 
 /** [ImportReport.summary] in the current language: "Imported 12 of 14 · 1 duplicate skipped · 1 failed". */
@@ -424,7 +426,7 @@ internal fun importSummary(report: ImportReport): String = importSummaryText(Loc
 
 /** [importSummary] outside composition (the end of an import job). */
 internal fun importSummaryText(res: android.content.res.Resources, report: ImportReport): String = buildList {
-    add(res.getString(R.string.set_import_imported_of, report.imported, report.cardsParsed + report.cardsFailed))
+    add(res.getString(R.string.import_summary_imported, report.imported, report.cardsParsed + report.cardsFailed))
     if (report.skippedDuplicates > 0) add(res.getQuantityString(R.plurals.set_import_duplicates_skipped, report.skippedDuplicates, report.skippedDuplicates))
     if (report.cardsFailed > 0) add(res.getQuantityString(R.plurals.set_import_failed, report.cardsFailed, report.cardsFailed))
     val unmapped = report.unmappedProperties.values.sum()
@@ -437,7 +439,7 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
     val res = LocalResources.current
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.set_import_finished)) },
+        title = { Text(stringResource(R.string.hist_import_finished)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(importSummary(report), style = MaterialTheme.typography.bodyLarge)
@@ -461,7 +463,7 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_ok)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_ok)) } },
     )
 }
 

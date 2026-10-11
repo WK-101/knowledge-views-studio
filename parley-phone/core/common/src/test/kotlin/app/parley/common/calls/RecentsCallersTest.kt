@@ -1,8 +1,8 @@
 package app.parley.common.calls
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.calls.RecentsCallers.Who
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,7 +10,7 @@ import org.junit.Test
 
 class RecentsCallersTest {
     private fun call(n: String, type: CallType, date: Long, hidden: Boolean = false, id: Long = date) =
-        CallEntry(id, n, null, type, date, 0, null, false, hidden)
+        testCall(id, n, null, type, date, 0, presentationHidden = hidden)
 
     @Test fun unknown_and_contacts_split_every_call() {
         assertTrue(RecentsCallers.matches(Who.CONTACTS, isContact = true, hidden = false))

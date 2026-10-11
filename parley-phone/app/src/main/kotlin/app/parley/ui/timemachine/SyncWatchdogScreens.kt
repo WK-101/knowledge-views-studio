@@ -100,7 +100,7 @@ fun NavGraphBuilder.watchGraph(nav: NavController) {
 /** The watchdog's words, shared by its card and its notification. Accounts are named; people never are. */
 object WatchText {
     fun account(res: Resources, type: String?, name: String?): String =
-        if (type == null || AccountKinds.isLocalType(type)) res.getString(R.string.ppl_phone) else AccountRef(type, name).displayLabel
+        if (type == null || AccountKinds.isLocalType(type)) res.getString(R.string.contact_page_sec_phones) else AccountRef(type, name).displayLabel
 
     fun title(res: Resources, e: WatchEvent): String {
         val where = account(res, e.accountType, e.accountName)
@@ -110,7 +110,7 @@ object WatchText {
             WatchKind.ACCOUNT_REMOVED -> res.getString(R.string.watch_removed_title, where)
             WatchKind.NUMBERS_LOST -> res.getQuantityString(R.plurals.watch_numbers_title, e.count, e.count)
             WatchKind.MASTER_SYNC_OFF -> res.getString(R.string.watch_master_off_title)
-            WatchKind.SYNC_OFF -> res.getString(R.string.watch_sync_off_title, where)
+            WatchKind.SYNC_OFF -> res.getString(R.string.ppl_sync_off, where)
         }
     }
 
@@ -125,8 +125,8 @@ object WatchText {
 
     /** "Since yesterday", "Since Mon", "Since 12 Mar". */
     private fun since(context: Context, at: Long): String =
-        if (DateUtils.isToday(at + DateUtils.DAY_IN_MILLIS)) context.getString(R.string.watch_since_yesterday)
-        else context.getString(R.string.watch_since, Format.shortWhen(context, at))
+        if (DateUtils.isToday(at + DateUtils.DAY_IN_MILLIS)) context.getString(R.string.tm_since_yesterday)
+        else context.getString(R.string.hist_range_since, Format.shortWhen(context, at))
 }
 
 /** Android's account sync settings, on the contacts authority. */
@@ -268,7 +268,7 @@ fun WatchRestoreScreen(vm: AppViewModel, fingerprint: String, back: () -> Unit) 
         }
     }
     ParleyScaffold(
-        topBar = { ParleyTopBar(stringResource(R.string.watch_restore_title), onBack = back) },
+        topBar = { ParleyTopBar(stringResource(R.string.watch_restore), onBack = back) },
         bottomBar = { RestoreBar(st, restore) },
     ) { p ->
         val list = st.picks

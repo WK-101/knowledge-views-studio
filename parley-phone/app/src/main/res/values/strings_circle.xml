@@ -25,13 +25,10 @@
     <string name="circle_type_other">Other</string>
     <string name="circle_channel_other_apps">Other chat apps</string>
     <string name="circle_channel_video">Video calls</string>
-    <string name="circle_mode_always">Always</string>
     <string name="circle_mode_ask">Ask</string>
-    <string name="circle_mode_never">Never</string>
     <string name="circle_never">Not in touch yet</string>
     <string name="circle_last_today">In touch today · %1$s</string>
     <string name="circle_suggested">Suggested for your Circle</string>
-    <string name="circle_add">Add</string>
     <string name="circle_added">%1$s is in your Circle</string>
     <string name="circle_removed">%1$s is no longer in your Circle</string>
     <string name="circle_suggest_dismiss">Hide suggestions</string>
@@ -48,7 +45,6 @@
     <string name="circle_log_with">Log time with %1$s</string>
     <string name="circle_edit_entry">Edit entry</string>
     <string name="circle_note">Note (optional)</string>
-    <string name="circle_when">When</string>
     <string name="circle_logged">Logged time with %1$s</string>
     <string name="circle_note_failed">The note couldn’t be saved. Please try again.</string>
     <string name="circle_entry_deleted">Entry deleted</string>
@@ -170,7 +166,6 @@
     <string name="circle_time_there">%1$s there</string>
     <string name="circle_widget_date_soon">A date coming up</string>
     <string name="circle_widget_empty">Nothing coming up. Add people to your Circle from a contact\'s page.</string>
-    <string name="circle_widget_today">Today</string>
     <string name="circle_widget_tomorrow">Tomorrow</string>
     <string name="circle_yearly_label">Remembered yearly</string>
     <string name="circle_yearly_off">No longer remembered yearly</string>
@@ -180,7 +175,6 @@
     <string name="circle_widget_call">Call</string>
     <string name="circle_widget_dates">Coming up</string>
     <string name="circle_widget_description">Upcoming dates and people from your Circle, with a Call button. With the app lock on, only counts show while the phone is locked.</string>
-    <string name="circle_widget_title">Circle</string>
     <string name="circle_widget_preview_line_0">Might enjoy hearing from you</string>
     <string name="circle_widget_preview_line_1">Birthday in 3 days</string>
     <string name="circle_widget_preview_date_0">Marco · Tomorrow · Anniversary</string>

@@ -37,7 +37,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
     ConfirmDialog(
         title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
         text = stringResource(R.string.move_private_text),
-        confirmLabel = stringResource(R.string.move_private_move),
+        confirmLabel = stringResource(R.string.be_move_confirm),
         onConfirm = {
             onDismiss()
             // The outcome may arrive after this screen is gone (a rotation, or leaving it): only the app's resources.
@@ -95,7 +95,7 @@ fun PrivateMoveProgress(vm: AppViewModel) {
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },
-                confirmButton = { TextButton(vm.privateMoves::dismiss) { Text(stringResource(R.string.main_ok)) } },
+                confirmButton = { TextButton(vm.privateMoves::dismiss) { Text(stringResource(R.string.dc_ok)) } },
             )
         }
         null -> Unit

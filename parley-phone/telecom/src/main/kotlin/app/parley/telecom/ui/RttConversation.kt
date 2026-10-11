@@ -110,8 +110,8 @@ internal fun RttCallCard(call: CallUi, onOpen: () -> Unit, autoOpened: MutableSe
                 }
                 Text(stringResource(R.string.rtt_request_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Spacing.xs))
                 Row(Modifier.fillMaxWidth().padding(top = Spacing.s), horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.End)) {
-                    TextButton({ CallRtt.respond(call.id, false) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.rtt_decline)) }
-                    Button({ CallRtt.respond(call.id, true) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.rtt_accept)) }
+                    TextButton({ CallRtt.respond(call.id, false) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.memory_skip)) }
+                    Button({ CallRtt.respond(call.id, true) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.rtt_more_start)) }
                 }
             }
         }
@@ -147,7 +147,7 @@ internal fun RttSheet(call: CallUi, onDismiss: () -> Unit) {
     ParleySheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(SHEET_HEIGHT).imePadding()) {
             Row(Modifier.fillMaxWidth().padding(end = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-                SheetTitle(stringResource(R.string.rtt_sheet_title), Modifier.weight(1f))
+                SheetTitle(stringResource(R.string.rtt_more_open), Modifier.weight(1f))
                 if (!rtt.transcript.isEmpty) {
                     val saveLabel = stringResource(if (rtt.saved) R.string.rtt_saved else R.string.rtt_save)
                     TextButton({ CallRtt.save(call.id, them, you) }, enabled = !rtt.saved, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -176,7 +176,7 @@ private fun ModeChips(callId: String, mode: RttMode) {
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.xl),
         horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(R.string.rtt_mode_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.audio_button), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         RttMode.entries.forEach { m ->
             FilterChip(
                 selected = m == mode, onClick = { CallRtt.setMode(callId, m) },
@@ -273,7 +273,7 @@ private fun TypingField(callId: String, rtt: RttUi) {
         )
         Spacer(Modifier.width(Spacing.s))
         FilledIconButton(::send, enabled = field.text.isNotBlank(), modifier = Modifier.size(56.dp)) {
-            Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.rtt_send))
+            Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.incall_send))
         }
     }
     Spacer(Modifier.height(Spacing.s))

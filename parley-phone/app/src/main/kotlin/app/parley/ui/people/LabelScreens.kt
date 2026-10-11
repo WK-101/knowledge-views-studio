@@ -137,7 +137,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         ParleyTopBar(
             scrollBehavior = barTint,
-            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size, picked.size) else stringResource(R.string.lbl_title)) },
+            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size,
+                picked.size) else stringResource(R.string.blk_check_labels)) },
             navigationIcon = {
                 if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.lbl_stop_merging)) }
                 else BackButton(back)
@@ -148,7 +149,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 } else {
                     IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
                     Box {
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
+                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem(
                                 { Text(stringResource(R.string.lbl_merge_labels)) },
@@ -183,7 +184,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
                     },
                     leadingContent = { Icon(Icons.AutoMirrored.Rounded.LabelOff, null) },
-                    headlineContent = { Text(stringResource(R.string.lbl_unlabelled)) },
+                    headlineContent = { Text(stringResource(R.string.ppl_chip_unlabelled)) },
                     supportingContent = { Text(pluralStringResource(R.plurals.lbl_unlabelled_count, unlabelled, unlabelled)) },
                 )
             }
@@ -212,12 +213,12 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                             val count = pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })
                             // A chapter says what is left of it beside the count.
                             val left = chapters[l.title]?.let { chapterLeft(res, it, now) }
-                            Text(if (left == null) count else stringResource(R.string.chapter_in_list, count, left))
+                            Text(if (left == null) count else stringResource(R.string.archive_page_work, count, left))
                         }
                     },
                     trailingContent = if (merging) null else ({
                         Box {
-                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.lbl_more_for, l.title)) }
+                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, l.title)) }
                             DropdownMenu(rowMenu, { rowMenu = false }) {
                                 DropdownMenuItem(
                                     { Text(stringResource(R.string.lbl_rename)) },
@@ -280,7 +281,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
         ConfirmDialog(
             title = stringResource(R.string.lbl_delete_title, t),
             text = stringResource(R.string.lbl_delete_text),
-            confirmLabel = stringResource(R.string.dc_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 deleting = null
                 scope.launch {
@@ -327,7 +328,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
         confirmEnabled = name.isNotBlank() && account != null,
         content = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.lbl_name)) }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.agenda_share_search)) }, singleLine = true)
                 Text(stringResource(R.string.lbl_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
                 accounts.forEach { a ->
                     ParleyListItem(
@@ -459,7 +460,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, res.getString(R.string.lbl_ringtone_for, current))
+            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, res.getString(R.string.caller_tune_title, current))
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
@@ -481,7 +482,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
                         LabelBlockingMenuItem(current) { menu = false }
@@ -574,7 +575,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                             supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
                             trailingContent = {
                                 if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
-                                    Text(stringResource(R.string.lbl_reset))
+                                    Text(stringResource(R.string.contact_page_reset))
                                 }
                             },
                         )
@@ -603,7 +604,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         ConfirmDialog(
             title = stringResource(R.string.lbl_delete_title, current),
             text = pluralStringResource(R.plurals.lbl_delete_text_n, members.size, members.size),
-            confirmLabel = stringResource(R.string.dc_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 confirmDelete = false
                 scope.launch {

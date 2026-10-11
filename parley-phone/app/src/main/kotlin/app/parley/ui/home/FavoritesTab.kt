@@ -142,7 +142,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp),
-                action = onClearQuery?.let { stringResource(R.string.ux_empty_clear_search) }, onAction = onClearQuery,
+                action = onClearQuery?.let { stringResource(R.string.contact_page_clear_search) }, onAction = onClearQuery,
             )
         }
         if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -161,7 +161,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                 if (favorites.size > 1) TextButton({
                     if (!reordering && ps.favoriteSort != FavoriteSort.CUSTOM) vm.people.setFavoriteOrder(favorites.map { it.lookupKey })
                     reordering = !reordering
-                }) { Text(stringResource(if (reordering) R.string.main_done else R.string.fav_reorder)) }
+                }) { Text(stringResource(if (reordering) R.string.dc_done else R.string.fav_reorder)) }
             }
         }
         // What Favourites are, the first time there are some.
@@ -237,9 +237,9 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
 /** Chip text of a favourites order ([FavoriteSort.title] is the English original). */
 private val FavoriteSort.labelRes: Int
     get() = when (this) {
-        FavoriteSort.CUSTOM -> R.string.fav_sort_custom
+        FavoriteSort.CUSTOM -> R.string.blk_sched_custom
         FavoriteSort.NAME -> R.string.fav_sort_name
-        FavoriteSort.MOST_CALLED -> R.string.fav_sort_most_called
+        FavoriteSort.MOST_CALLED -> R.string.cs_sort_most_called
     }
 
 private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary> {
@@ -265,7 +265,7 @@ internal fun Tile(
                 if (reorder) Modifier else Modifier.combinedClickable(
                     onClick = onClick,
                     onLongClick = onLong,
-                    onClickLabel = stringResource(R.string.main_call),
+                    onClickLabel = stringResource(R.string.circle_widget_call),
                     onLongClickLabel = stringResource(R.string.main_open_contact),
                 ),
             )

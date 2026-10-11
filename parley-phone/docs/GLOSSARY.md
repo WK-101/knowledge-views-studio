@@ -51,6 +51,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 | Term | What it means | Not |
 |---|---|---|
 | **Message or call on…** | The one sheet, and the one menu name, for reaching a number through an app: **Call** (through the phone) first, then **Message on** (chat apps, SMS), then **Call on** (voice and video calls in apps). The same sheet opens for saved contacts, private contacts and unsaved numbers. The contact page's section of the same name uses the same rows. | Not "Message on…", "Reach via apps" or "Messengers". |
+| **App call** | A call an app (WhatsApp, Signal…) made over the internet and logged in Android's call log: Recents and a number's history say "WhatsApp call" where a phone call names its SIM. Call back asks "Call back on WhatsApp?": **Call on WhatsApp** first, **Call by phone** (through the phone network, which may cost) only when chosen. | Not a phone call: never grouped with one, and never in missed-call notices or To call. Not "VoIP call". |
 | **Usual** | The way Parley remembers for a person (their usual chat app, call app or video app). Long-press a button to make it the usual one. | Not "default" or "preferred" in the interface. |
 
 ## Calls

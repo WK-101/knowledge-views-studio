@@ -43,7 +43,7 @@ object ChapterNotices {
 
     private fun notify(ctx: Context, titles: List<String>) {
         val one = titles.singleOrNull()
-        val title = if (one != null) ctx.getString(R.string.chapter_notice_one, one)
+        val title = if (one != null) ctx.getString(R.string.chapter_ended_title, one)
         else ctx.resources.getQuantityString(R.plurals.chapter_notice_title, titles.size, titles.size)
         val intent = IntentRoutes.own(ctx).setAction(IntentRoutes.ACTION_OPEN_LABEL).apply { one?.let { putExtra(IntentRoutes.EXTRA_LABEL, it) } }
         val open = PrivateNotice.open(ctx, NotificationRequests.CHAPTER_ENDED, intent, update = true)

@@ -87,7 +87,7 @@ internal object LabelUpdateFiles {
         val send = Intent(Intent.ACTION_SEND).setType(SharedLabelUpdates.MIME).putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         send.clipData = ClipData.newRawUri(file.name, uri)
-        context.startOrSay(Intent.createChooser(send, context.getString(R.string.shl_send_chooser)), context.getString(R.string.main_no_app))
+        context.startOrSay(Intent.createChooser(send, context.getString(R.string.shl_send_chooser)), context.getString(R.string.blk_no_app))
     }.getOrDefault(false)
 
     /**
@@ -291,7 +291,7 @@ fun OpenLabelFileScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) 
     }
     val tone = if (opened != null && problem == null) BannerTone.INFO else BannerTone.WARNING
     val label = opened?.state
-    SettingsScaffold(stringResource(R.string.shl_open_title), ::done) {
+    SettingsScaffold(stringResource(R.string.shl_open_update), ::done) {
         val m = message
         if (m == null) {
             Text(stringResource(R.string.shl_open_reading), modifier = Modifier.padding(horizontal = Spacing.xl))

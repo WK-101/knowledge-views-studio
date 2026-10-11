@@ -92,7 +92,7 @@ fun ArchivedContactScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (D
                     Avatar(card.name, null, 96.dp, isCompany = card.company.isNotBlank() && card.company == card.name)
                     Text(card.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
                     // The archived marker, the same tag as the other variants (Private, Temporary).
-                    ParleyTag(stringResource(R.string.kept_as_archived), tone = TagTone.INFO, icon = Icons.Rounded.Archive)
+                    ParleyTag(stringResource(R.string.archive_title_screen), tone = TagTone.INFO, icon = Icons.Rounded.Archive)
                     Text(
                         stringResource(R.string.archive_row_when, DateUtils.formatDateTime(context, card.archivedAt, DateUtils.FORMAT_SHOW_DATE)),
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,

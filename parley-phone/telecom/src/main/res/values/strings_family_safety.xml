@@ -28,7 +28,6 @@
     <string name="helper_cant_merge">Your network can\'t join these calls. Swap to talk to each one.</string>
     <string name="helper_joined">%1$s joined the call</string>
     <string name="helper_gone">%1$s didn\'t answer</string>
-    <string name="helper_cancel">Cancel</string>
 
     <!-- Why a call rang through: "Expecting a call" turned on by a hint -->
     <string name="call_rang_expecting_notes">Rang through: expecting a call (from your notes)</string>

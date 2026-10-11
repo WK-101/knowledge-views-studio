@@ -56,7 +56,7 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
             chips.forEach { chip ->
                 when (chip) {
                     VariantChip.Private -> VariantChipView(
-                        Icons.Rounded.Lock, stringResource(R.string.contact_variant_private_short), stringResource(R.string.contact_variant_private),
+                        Icons.Rounded.Lock, stringResource(R.string.archive_private_section), stringResource(R.string.contact_variant_private),
                     ) { onClick(chip) }
                     is VariantChip.Temporary -> VariantChipView(
                         Icons.Rounded.Timer,

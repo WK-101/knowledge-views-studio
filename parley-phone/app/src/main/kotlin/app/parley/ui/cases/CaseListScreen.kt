@@ -74,7 +74,7 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val changeable = privacy.notesShown
     ParleyScaffold(topBar = {
         ParleyTopBar(
-            stringResource(R.string.case_list_title), onBack = back,
+            stringResource(R.string.recall_group_case_files), onBack = back,
             actions = {
                 if (changeable && listed.isNotEmpty()) {
                     Box {
@@ -115,7 +115,7 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             items(active, key = { it.id }) { c -> CaseRow(vm, c) { open(HistoryRoutes.Case(c.id)) } }
             if (resolved.isNotEmpty()) {
-                item(key = "resolved") { Section(stringResource(R.string.case_list_resolved)) }
+                item(key = "resolved") { Section(stringResource(R.string.case_status_resolved)) }
                 items(resolved, key = { it.id }) { c -> CaseRow(vm, c) { open(HistoryRoutes.Case(c.id)) } }
             }
         }

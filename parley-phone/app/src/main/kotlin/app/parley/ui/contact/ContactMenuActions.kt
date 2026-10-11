@@ -55,9 +55,9 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
         Icon(if (d.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (d.starred) R.string.sel_unstar else R.string.sel_star))
     }
     IconButton({ ctx.open(if (ctx.isPrivate) Routes.edit(vault = -contactId) else Routes.edit(id = contactId)) }) {
-        Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit))
+        Icon(Icons.Rounded.Edit, stringResource(R.string.me_edit_short))
     }
-    IconButton({ ctx.show(ContactDialog.Menu) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
+    IconButton({ ctx.show(ContactDialog.Menu) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
     val entries = ContactMenu.build(
         ContactMenu.Facts(
             canShareFile = ctx.can(ContactCapability.SHARE_VCARD_FILE),
@@ -120,20 +120,20 @@ private fun contactMenuLabel(a: ContactMenu.Action): MenuLabel = MenuLabel(strin
 
 @Suppress("CyclomaticComplexMethod") // One label per action.
 private fun contactMenuText(a: ContactMenu.Action): Int = when (a) {
-    ContactMenu.Action.SHARE_FILE -> R.string.detail_share_file
+    ContactMenu.Action.SHARE_FILE -> R.string.me_share_file
     ContactMenu.Action.SHOW_QR -> R.string.detail_show_qr
     ContactMenu.Action.SHARE_ENCRYPTED_QR -> R.string.detail_share_private
-    ContactMenu.Action.VERSION_HISTORY -> R.string.detail_versions
+    ContactMenu.Action.VERSION_HISTORY -> R.string.tm_history_title
     ContactMenu.Action.REMIND_TO_CALL -> R.string.to_call_remind_me_to_call
     ContactMenu.Action.BLOCK_NUMBERS -> R.string.detail_block_numbers
     ContactMenu.Action.UNBLOCK_NUMBERS -> R.string.detail_unblock_numbers
     ContactMenu.Action.LOG_CHAT_OR_VISIT -> R.string.circle_log_interaction
     ContactMenu.Action.CASE_FILE -> R.string.case_keep
     ContactMenu.Action.ADD_TO_HOME_SCREEN -> R.string.detail_add_home
-    ContactMenu.Action.COPY_TO_SIM -> R.string.detail_copy_sim
+    ContactMenu.Action.COPY_TO_SIM -> R.string.sim_copy_title
     ContactMenu.Action.ALLOW_SIMILAR_NUMBERS -> R.string.blk_prefix_title
     ContactMenu.Action.SEPARATE -> R.string.detail_separate
-    ContactMenu.Action.DELETE -> R.string.main_delete
+    ContactMenu.Action.DELETE -> R.string.blk_delete
 }
 
 /**

@@ -167,7 +167,7 @@ private fun PresetDialog(st: BlockingState, pr: ScreeningPreset, close: () -> Un
         confirmLabel = stringResource(R.string.blk_use_this),
         onConfirm = { st.setSettings { pr.apply(it, keepSchedule = keep) }; close() },
         onDismiss = close,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = removed?.let { sch ->
             {
                 Text(stringResource(R.string.blk_known_removes_schedule, BlockingText.schedule(context, sch)), style = MaterialTheme.typography.bodyMedium)
@@ -196,7 +196,7 @@ private fun AddNumberDialog(vm: AppViewModel, close: () -> Unit) {
             close()
         },
         onDismiss = close,
-        dismissLabel = stringResource(R.string.set_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle())
         },

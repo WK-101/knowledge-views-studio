@@ -535,10 +535,11 @@ class NumberActionActivity : LockedActivity() {
         }
 
         Column(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.num_message_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(stringResource(R.string.shortcut_message_number_short), style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp))
             OutlinedTextField(
                 typed, { typed = it.take(40) },
-                label = { Text(stringResource(R.string.num_phone_number)) },
+                label = { Text(stringResource(R.string.blk_phone_number)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).focusRequester(focus),
@@ -629,7 +630,7 @@ class NumberActionActivity : LockedActivity() {
             // Call is the primary action, above the messengers.
             if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
             ParleyListItem(
-                headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
+                headlineContent = { Text(stringResource(R.string.contact_page_sec_messengers)) },
                 supportingContent = { Text(stringResource(R.string.reach_apps_line)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
@@ -832,21 +833,21 @@ fun TemporaryNameDialog(
     ConfirmDialog(
         title = title ?: stringResource(R.string.num_save_temporary),
         text = null,
-        confirmLabel = stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately),
+        confirmLabel = stringResource(if (visible) R.string.pin_save else R.string.temp_save_privately),
         onConfirm = { onSave(name, visible) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.num_not_now),
+        dismissLabel = stringResource(R.string.circle_not_now),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
                 Text(pluralStringResource(if (visible) R.plurals.num_temp_visible_body else R.plurals.num_temp_private_body, days, days))
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.edit_name)) }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.agenda_share_search)) }, singleLine = true)
                 Row(
                     Modifier.fillMaxWidth().toggleable(visible, role = Role.Checkbox, onValueChange = { visible = it }),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(visible, onCheckedChange = null)
-                    Text(stringResource(R.string.num_save_visible), Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.temp_visible), Modifier.padding(start = 8.dp))
                 }
             }
         },

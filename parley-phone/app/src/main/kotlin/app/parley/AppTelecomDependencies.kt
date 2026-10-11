@@ -270,7 +270,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val kind = when (prev.type) {
             CallType.MISSED -> R.string.caller_last_missed
             CallType.OUTGOING -> R.string.caller_last_outgoing
-            else -> R.string.caller_last_call
+            else -> R.string.hist_last_call
         }
         val line = app.getString(kind, ago)
         return prev.durationSec.takeIf { it > 0 }?.let { line + app.getString(R.string.main_separator) + Format.duration(it) } ?: line

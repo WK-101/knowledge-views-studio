@@ -88,7 +88,7 @@ private fun fieldValueLabel(facet: Facet, key: String, choices: List<FacetChoice
     return when (facet) {
         Facet.BIRTHDAY_MONTH -> stringResource(R.string.cs_birthday_in, monthName(key))
         Facet.CUSTOM_LABEL -> stringResource(R.string.cs_custom_value, display)
-        Facet.LANGUAGE -> stringResource(R.string.cs_speaks, display)
+        Facet.LANGUAGE -> stringResource(R.string.detail_speaks, display)
         Facet.CITIZENSHIP -> stringResource(R.string.cs_citizen_of, display)
         Facet.HAS -> stringResource(
             when (key) {
@@ -129,14 +129,14 @@ private fun ContactFilterSheet(vm: AppViewModel, vaultHidden: Boolean, onDismiss
             Text(stringResource(R.string.cs_filter_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             KeptGroup(vm, vaultHidden)
             LabelAndAccountGroups(vm)
-            ValueGroup(stringResource(R.string.cs_group_country), Facet.COUNTRY, choices, fields::has, ::toggle)
-            ValueGroup(stringResource(R.string.cs_group_citizenship), Facet.CITIZENSHIP, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.blk_type_region), Facet.COUNTRY, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.detail_citizenship), Facet.CITIZENSHIP, choices, fields::has, ::toggle)
             ValueGroup(stringResource(R.string.cs_group_place), Facet.PLACE, choices, fields::has, ::toggle)
-            ValueGroup(stringResource(R.string.cs_group_company), Facet.COMPANY, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.cs_sort_company), Facet.COMPANY, choices, fields::has, ::toggle)
             BirthdayGroup(choices[Facet.BIRTHDAY_MONTH].orEmpty(), fields::has, ::toggle)
             ValueGroup(stringResource(R.string.cs_group_relation), Facet.RELATION, choices, fields::has, ::toggle)
-            ValueGroup(stringResource(R.string.cs_group_language), Facet.LANGUAGE, choices, fields::has, ::toggle)
-            ValueGroup(stringResource(R.string.cs_group_custom), Facet.CUSTOM_LABEL, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.detail_language), Facet.LANGUAGE, choices, fields::has, ::toggle)
+            ValueGroup(stringResource(R.string.detail_custom_field), Facet.CUSTOM_LABEL, choices, fields::has, ::toggle)
             FlagGroup(
                 stringResource(R.string.cs_group_has), Facet.HAS,
                 listOf(
@@ -180,7 +180,7 @@ private fun KeptGroup(vm: AppViewModel, vaultHidden: Boolean) {
         if (!vaultHidden) {
             FilterChip(
                 showVault, { vm.showVault.value = !showVault },
-                label = { Text(stringResource(R.string.ppl_chip_private)) },
+                label = { Text(stringResource(R.string.archive_private_section)) },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(16.dp)) },
             )
         }
@@ -201,7 +201,7 @@ private fun LabelAndAccountGroups(vm: AppViewModel) {
     val accounts by vm.people.accountChoices.collectAsStateWithLifecycle()
     val labels = idx.labelCounts.keys.sortedBy { it.lowercase() }
     if (labels.isNotEmpty()) {
-        Group(stringResource(R.string.ppl_chip_labels)) {
+        Group(stringResource(R.string.blk_check_labels)) {
             FilterChip(
                 filter.unlabelled, { vm.people.setUnlabelled(!filter.unlabelled) },
                 label = { Text(stringResource(R.string.ppl_chip_unlabelled)) },
@@ -209,7 +209,7 @@ private fun LabelAndAccountGroups(vm: AppViewModel) {
             labels.forEach { t ->
                 FilterChip(
                     t in filter.labels, { vm.people.toggleLabel(t) },
-                    label = { Text(stringResource(R.string.ppl_account_count, t, idx.labelCounts[t] ?: 0)) },
+                    label = { Text(stringResource(R.string.rst_with_count, t, idx.labelCounts[t] ?: 0)) },
                 )
             }
         }
@@ -220,7 +220,7 @@ private fun LabelAndAccountGroups(vm: AppViewModel) {
                 val on = filter.account == label
                 FilterChip(
                     on, { vm.people.setAccount(if (on) null else label) },
-                    label = { Text(stringResource(R.string.ppl_account_count, label, n)) },
+                    label = { Text(stringResource(R.string.rst_with_count, label, n)) },
                 )
             }
         }
@@ -239,7 +239,7 @@ private fun BirthdayGroup(months: List<FacetChoice>, isOn: (Facet, String) -> Bo
         months.forEach { m ->
             FilterChip(
                 isOn(Facet.BIRTHDAY_MONTH, m.key), { toggle(Facet.BIRTHDAY_MONTH, m.key) },
-                label = { Text(stringResource(R.string.ppl_account_count, monthName(m.key), m.count)) },
+                label = { Text(stringResource(R.string.rst_with_count, monthName(m.key), m.count)) },
             )
         }
     }
@@ -271,7 +271,7 @@ private fun ValueGroup(
     Group(title) {
         visible.forEach { v ->
             val label = if (facet == Facet.CUSTOM_LABEL) stringResource(R.string.cs_custom_value, v.display) else v.display
-            FilterChip(isOn(facet, v.key), { toggle(facet, v.key) }, label = { Text(stringResource(R.string.ppl_account_count, label, v.count)) })
+            FilterChip(isOn(facet, v.key), { toggle(facet, v.key) }, label = { Text(stringResource(R.string.rst_with_count, label, v.count)) })
         }
         if (values.size > FIRST) {
             TextButton({ all = !all }) { Text(stringResource(if (all) R.string.cs_show_fewer else R.string.cs_show_all)) }

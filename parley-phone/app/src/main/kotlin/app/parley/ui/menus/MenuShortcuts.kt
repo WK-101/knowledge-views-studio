@@ -79,22 +79,22 @@ private fun ShortcutRow(vm: AppViewModel, sc: MenuShortcut, who: String, photoUr
         leadingContent = { Icon(Icons.Rounded.Dialpad, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.menus_shortcut_more, sc.name)) }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, sc.name)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.menus_rename)) }, onClick = { menu = false; onRename() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menus_add_home)) }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.detail_add_home)) }, onClick = {
                         menu = false
                         if (!Shortcuts.pinMenu(context, sc.id, sc.name, dial, who, photoUri)) {
                             vm.toast(res.getString(R.string.menus_home_unavailable))
                         }
                     })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menus_delete)) }, onClick = { menu = false; onDelete() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.blk_delete)) }, onClick = { menu = false; onDelete() })
                 }
             }
         },
         colors = rowColors(),
         modifier = Modifier.fillMaxWidth().clickable(
-            role = Role.Button, onClickLabel = stringResource(R.string.menus_call_shortcut, sc.name),
+            role = Role.Button, onClickLabel = stringResource(R.string.circle_call_who, sc.name),
         ) { vm.requestCall(dial, who) },
     )
 }
@@ -106,7 +106,7 @@ private fun RenameDialog(vm: AppViewModel, sc: MenuShortcut, who: String, photoU
     ConfirmDialog(
         title = stringResource(R.string.menus_rename_title),
         text = null,
-        confirmLabel = stringResource(R.string.main_save),
+        confirmLabel = stringResource(R.string.pin_save),
         confirmEnabled = MenuMemory.cleanName(name) != null,
         onConfirm = {
             onDone()
@@ -121,7 +121,7 @@ private fun RenameDialog(vm: AppViewModel, sc: MenuShortcut, who: String, photoU
         content = {
             OutlinedTextField(
                 value = name, onValueChange = { name = it.take(MenuMemory.MAX_NAME) }, singleLine = true,
-                label = { Text(stringResource(R.string.menus_name)) }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.agenda_share_search)) }, modifier = Modifier.fillMaxWidth(),
             )
         },
     )
@@ -134,7 +134,7 @@ private fun DeleteDialog(vm: AppViewModel, sc: MenuShortcut, onDone: () -> Unit)
     ConfirmDialog(
         title = stringResource(R.string.menus_delete_title, sc.name),
         text = stringResource(R.string.menus_delete_body),
-        confirmLabel = stringResource(R.string.menus_delete),
+        confirmLabel = stringResource(R.string.blk_delete),
         destructive = true,
         onConfirm = {
             onDone()

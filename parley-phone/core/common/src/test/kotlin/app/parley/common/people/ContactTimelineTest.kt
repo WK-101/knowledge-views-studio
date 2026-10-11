@@ -1,18 +1,18 @@
 package app.parley.common.people
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.EventDate
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.TimelineEntry
 import app.parley.common.circle.TimelineFilter
 import app.parley.common.circle.TimelineKind
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ContactTimelineTest {
-    private fun call(n: String, type: CallType, t: Long) = TimelineEntry.Call(CallEntry(t, n, null, type, t, 30, null, false, false))
+    private fun call(n: String, type: CallType, t: Long) = TimelineEntry.Call(testCall(t, n, null, type, t, 30))
 
     @Test fun timeline_filter_by_kind_and_words() {
         val entries = listOf(

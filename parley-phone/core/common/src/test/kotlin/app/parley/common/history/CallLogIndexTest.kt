@@ -1,8 +1,8 @@
 package app.parley.common.history
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import java.time.LocalDate
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -22,7 +22,7 @@ internal fun at(y: Int, mo: Int, d: Int, h: Int = 12, mi: Int = 0): Long =
 private var nextId = 1L
 
 internal fun call(number: String, type: CallType, date: Long, dur: Long = 0, sim: String? = null, name: String? = null, hidden: Boolean = false) =
-    CallEntry(nextId++, number, name, type, date, dur, sim, false, hidden)
+    testCall(nextId++, number, name, type, date, dur, sim, false, hidden)
 
 class CallLogIndexTest {
     private val anna = IndexContact(1, "anna", "Anna", listOf("+33 6 12 34 56 78", "01 23 45 67 89"))

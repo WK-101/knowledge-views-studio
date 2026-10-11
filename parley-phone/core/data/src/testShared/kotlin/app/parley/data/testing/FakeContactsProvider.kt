@@ -125,7 +125,8 @@ class FakeContactsProvider : ContentProvider() {
         db.execSQL(
             "CREATE VIEW data_view AS SELECT d.*, r.contact_id AS contact_id, r.account_type AS account_type, r.account_name AS account_name, " +
                 "r.data_set AS data_set, r.starred AS starred, $name AS display_name, " +
-                "COALESCE((SELECT o.lookup FROM lookup_override o WHERE o.contact_id = r.contact_id), 'lk' || r.contact_id) AS lookup, NULL AS photo_uri " +
+                "COALESCE((SELECT o.lookup FROM lookup_override o WHERE o.contact_id = r.contact_id), 'lk' || r.contact_id) AS lookup, " +
+                "NULL AS photo_uri, NULL AS photo_thumb_uri " +
                 "FROM data d JOIN raw_contacts r ON d.raw_contact_id = r._id WHERE r.deleted = 0",
         )
         for (t in listOf("raw_contacts", "data", "groups")) {

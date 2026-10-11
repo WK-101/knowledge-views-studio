@@ -190,7 +190,7 @@ private fun MenuSaveDialog(call: CallUi, p: MenuPath, st: MenuRowState) {
     ConfirmDialog(
         title = stringResource(R.string.menu_save_title),
         text = stringResource(R.string.menu_save_body, Bidi.ltr(number), Bidi.ltr(MenuMemory.label(p.steps))),
-        confirmLabel = stringResource(R.string.menu_save),
+        confirmLabel = stringResource(R.string.tc_save),
         confirmEnabled = MenuMemory.cleanName(name) != null,
         onConfirm = {
             st.saving = false
@@ -205,7 +205,7 @@ private fun MenuSaveDialog(call: CallUi, p: MenuPath, st: MenuRowState) {
         content = {
             OutlinedTextField(
                 value = name, onValueChange = { name = it.take(MenuMemory.MAX_NAME) }, singleLine = true,
-                label = { Text(stringResource(R.string.menu_save_name)) }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.postcall_name)) }, modifier = Modifier.fillMaxWidth(),
             )
         },
     )

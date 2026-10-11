@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Screening decisions: reasons, verdicts and the decision trace (BlockingText maps CallPolicy's English) -->
-    <string name="blk_joined">%1$s · %2$s</string>
     <string name="blk_reason_hidden">hidden number</string>
     <string name="blk_reason_not_contact">not a contact</string>
     <string name="blk_reason_neighbour">neighbour spoofing</string>
@@ -144,12 +143,10 @@
     <string name="blk_title">Blocking &amp; screening</string>
     <string name="blk_expanded">Expanded</string>
     <string name="blk_collapsed">Collapsed</string>
-    <string name="blk_notify_default">Default</string>
     <string name="blk_notify_none">None</string>
     <string name="blk_notify_quiet">Quiet</string>
     <string name="blk_notify_normal">Normal</string>
     <string name="blk_notify_default_inline">default</string>
-    <string name="blk_notify_none_inline">none</string>
     <string name="blk_notify_quiet_inline">quiet</string>
     <string name="blk_notify_normal_inline">normal</string>
     <!-- %1$d days, %2$d hours. -->
@@ -236,9 +233,7 @@
     </plurals>
     <string name="blk_suggested_for_sim">Suggested for your SIM: %1$s</string>
     <string name="blk_added">Added: %1$s</string>
-    <string name="blk_add">Add</string>
     <string name="blk_no_thanks">No thanks</string>
-    <string name="blk_off_hours">Off hours</string>
     <string name="blk_only_who">Only %1$s</string>
     <string name="blk_use_off_hours">Use off hours</string>
     <string name="blk_all_day">All day</string>
@@ -247,9 +242,7 @@
     <string name="blk_offer_reply_help">When someone you know is silenced, a notification offers to text them \"%1$s\" (your SMS app opens; Parley never sends texts itself).</string>
     <string name="blk_reply_text">Reply text</string>
     <string name="blk_more_checks">More checks</string>
-    <string name="blk_neighbour">Neighbour spoofing</string>
     <string name="blk_neighbour_help">Unknown numbers that differ from yours only in the last 4 digits</string>
-    <string name="blk_verification">Caller verification</string>
     <string name="blk_invalid_numbers">Invalid numbers</string>
     <string name="blk_failed_verification">Failed caller verification</string>
     <string name="blk_failed_verification_help">The carrier says the caller ID is spoofed (STIR/SHAKEN, mostly US)</string>
@@ -261,8 +254,6 @@
     <string name="blk_sounds">Sounds &amp; notifications</string>
     <string name="blk_sum_loud_favourites">Loud for favourites</string>
     <string name="blk_sum_loud_repeat">Loud for repeat callers</string>
-    <string name="blk_sum_notify_blocked">Blocked: %1$s</string>
-    <string name="blk_emergency">Emergency</string>
     <plurals name="blk_sum_extra_numbers">
         <item quantity="one">%1$d extra number</item>
         <item quantity="other">%1$d extra numbers</item>
@@ -429,7 +420,6 @@
     <!-- %1$s is a day name: "Monday, on". -->
     <string name="blk_day_on">%1$s, on</string>
     <string name="blk_day_off">%1$s, off</string>
-    <string name="blk_sched_from">From %1$s</string>
     <string name="blk_sched_to">To %1$s</string>
     <string name="blk_sched_next_morning">(ends the next morning)</string>
     <string name="blk_sched_starts_at">Starts at</string>
@@ -506,7 +496,6 @@
     <string name="blk_update_list_q">Update %1$s?</string>
     <string name="blk_add_list_q">Add %1$s?</string>
     <string name="blk_version">version %1$s</string>
-    <string name="blk_from">From %1$s</string>
     <string name="blk_signed_key">Signed · key %1$s</string>
     <string name="blk_unsigned_warning">Unsigned: the file is intact, but anyone could have made it.</string>
     <!-- %1$d flagged, %2$d unknown calls (the plural follows %2$d). -->
@@ -545,7 +534,6 @@
     <string name="blk_pack_fr_arcep_desc">Numbers ARCEP reserved for telemarketing platforms: 01 62, 01 63, 02 70, 02 71, 03 77, 03 78, 04 24, 04 25, 05 68, 05 69, 09 48, 09 49.</string>
 
     <!-- Rule editor -->
-    <string name="blk_type_exact">Number</string>
     <string name="blk_type_prefix">Starts with</string>
     <string name="blk_type_wildcard">Pattern</string>
     <string name="blk_type_caller_name">Caller name</string>
@@ -751,7 +739,6 @@
     <string name="blk_tpl_share_mine">Share my rules as a template</string>
     <string name="blk_tpl_group_country">For your country</string>
     <string name="blk_tpl_group_anywhere">Anywhere</string>
-    <string name="blk_tpl_group_other">Other countries</string>
     <string name="blk_tpl_group_received">Received from others</string>
     <string name="blk_tpl_incoming_title">Template: %1$s</string>
     <string name="blk_tpl_signed_by">Signed by key %1$s</string>
@@ -797,7 +784,6 @@
     <string name="blk_tpl_de_premium_desc">Warns about calls from mass-traffic (0137), service (0180) and premium (0900) numbers, which cost extra to call back.</string>
     <string name="blk_tpl_es_400_name">Spain: commercial calls (400 prefix)</string>
     <string name="blk_tpl_es_400_desc">Warns about calls from numbers starting 400, which Spanish law reserves for commercial calls from 17 October 2026.</string>
-    <string name="blk_tpl_fr_arcep_name">France: telemarketing ranges (ARCEP)</string>
     <string name="blk_tpl_fr_arcep_desc">Warns about calls from the numbers ARCEP reserved for automated calling platforms (Numéros Polyvalents Vérifiés): 01 62, 01 63, 02 70, 02 71, 03 77, 03 78, 04 24, 04 25, 05 68, 05 69, 09 48, 09 49.</string>
     <string name="blk_tpl_night_name">Only contacts at night</string>
     <string name="blk_tpl_night_desc">From 22:00 to 07:00 only your contacts ring and everyone else is silenced. Repeat callers still get through.</string>
@@ -875,7 +861,6 @@
     <string name="blk_decides_title">What decides</string>
     <string name="blk_decides_help">Where a call\'s verdict can come from. Each is set where it lives.</string>
     <string name="blk_decides_rules">Your rules</string>
-    <string name="blk_decides_lists">Spam lists</string>
     <string name="blk_decides_sales">Sales lines (your calls)</string>
     <string name="blk_decides_shield">Family spam shield</string>
     <string name="blk_decides_shield_on">On in %1$s (%2$s)</string>

@@ -24,7 +24,7 @@ private val HINTS: Map<ContactSearch.Field, Int> = mapOf(
     ContactSearch.Field.HANDLE to R.string.search_field_handle,
     ContactSearch.Field.PROFILE to R.string.search_field_profile,
     ContactSearch.Field.CUSTOM to R.string.search_field_custom,
-    ContactSearch.Field.LABEL to R.string.search_field_label,
+    ContactSearch.Field.LABEL to R.string.blk_who_label,
     ContactSearch.Field.PRONOUNS to R.string.search_field_pronouns,
     ContactSearch.Field.LANGUAGE to R.string.search_field_language,
     ContactSearch.Field.CITIZENSHIP to R.string.search_field_citizenship,

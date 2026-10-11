@@ -71,7 +71,7 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
                     return@launch
                 }
                 asking = null
-                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.msg_open) })
+                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.blk_open) })
                 if (saved != null && r == SnackbarResult.ActionPerformed) if (saved.private) openPrivate(saved.id) else openContact(saved.id)
             }
         }
@@ -103,6 +103,6 @@ object WhatsAppNotice {
     suspend fun maybeShow(res: Resources, c: DataContainer, chat: OpenedChat, snackbar: SnackbarHostState) {
         if (!chat.appLabel.startsWith("WhatsApp") || c.messaging.whatsappSyncNoticeShown) return
         c.messaging.whatsappSyncNoticeShown = true
-        snackbar.showSnackbar(res.getString(TEXT_RES), actionLabel = res.getString(R.string.main_ok), duration = SnackbarDuration.Long)
+        snackbar.showSnackbar(res.getString(TEXT_RES), actionLabel = res.getString(R.string.dc_ok), duration = SnackbarDuration.Long)
     }
 }

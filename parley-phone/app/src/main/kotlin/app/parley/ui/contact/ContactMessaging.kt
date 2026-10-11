@@ -142,9 +142,9 @@ fun ConfirmWebLink(link: HandleLink, onDismiss: () -> Unit) {
     ConfirmDialog(
         title = stringResource(R.string.msg_open_browser_title),
         text = stringResource(R.string.msg_open_browser_body, Uri.parse(link.uri).host ?: stringResource(R.string.msg_this_link)),
-        confirmLabel = stringResource(R.string.msg_open),
+        confirmLabel = stringResource(R.string.blk_open),
         onConfirm = { onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }

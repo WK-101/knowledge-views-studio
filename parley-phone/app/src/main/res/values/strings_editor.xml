@@ -9,7 +9,6 @@
     <string name="editor_private_here">Private · only in Parley</string>
     <string name="editor_name_more">Show more name fields</string>
     <string name="editor_name_less">Show fewer name fields</string>
-    <string name="editor_work">Work</string>
     <string name="editor_type">Type: %1$s</string>
     <string name="editor_change_type">Change type</string>
     <string name="editor_remove_phone">Remove number</string>
@@ -25,10 +24,7 @@
     <string name="editor_add_field">Add %1$s</string>
     <string name="editor_add_title">Add a field</string>
     <string name="editor_add_group_contact">Ways to reach them</string>
-    <string name="editor_add_group_about">About them</string>
     <string name="editor_add_group_calls">When they call</string>
-    <!-- Save to: Temporary (a new contact that deletes itself, like the keypad's "Save temporary contact"). -->
-    <string name="editor_temporary">Temporary</string>
     <string name="editor_temporary_sub">Deletes itself after a time you choose</string>
     <plurals name="editor_temp_after">
         <item quantity="one">After %1$d day</item>
@@ -54,18 +50,13 @@
     <!-- The photo menu: Parley keeps the picture whole; other apps get Android's reduced copy. -->
     <string name="editor_photo_kept_whole">Parley keeps the whole photo for their page. Circles and other apps show the part you framed.</string>
     <string name="edit_pronouns">Pronouns</string>
-    <!-- The name block's heading for TalkBack (the person icon in the form's gutter). -->
-    <string name="editor_name_title">Name</string>
     <!-- Save-to chip: the phone's own storage, without the account's contact count. -->
     <string name="editor_account_device">Device</string>
     <string name="editor_account_system_default">Android puts new contacts in %1$s, your phone\'s default account, so Device isn\'t offered here</string>
-    <string name="editor_save_private">Private</string>
     <!-- My card: what its QR code and shared vCard include. -->
     <string name="me_share_includes">Your QR code and shared card include</string>
     <string name="me_share_nothing">Nothing chosen yet</string>
     <string name="me_open">Open my card</string>
-    <!-- Social and professional profiles (Instagram, LinkedIn…), kept as labelled website rows. -->
-    <string name="edit_profiles">Profiles</string>
     <string name="edit_profile">Profile</string>
     <string name="edit_add_profile_title">Add a profile</string>
     <string name="edit_profile_other_link">Other link</string>
@@ -75,7 +66,6 @@
     <!-- %1$s: the service, such as Instagram (brand names aren't translated). -->
     <string name="edit_profile_format">This doesn\'t look like a %1$s user name</string>
     <string name="edit_profile_needs_server">Add the server too, like name@mastodon.social</string>
-    <string name="me_profiles">Profiles</string>
     <!-- The photo menu and "Frame photo": the square of the photo that shows in circles (the avatar). -->
     <string name="editor_choose_photo">Choose photo</string>
     <string name="editor_take_photo">Take photo</string>
@@ -93,25 +83,16 @@
     <string name="frame_move_up">Move photo up</string>
     <string name="frame_move_down">Move photo down</string>
     <string name="frame_face">Centre on face</string>
-    <string name="frame_reset">Reset</string>
     <string name="frame_whole">Use whole photo</string>
     <string name="frame_loading">Opening the photo</string>
     <string name="frame_unreadable">This photo can\'t be framed here, so it will be used whole.</string>
 
     <!-- More fields: name parts, custom fields, language, phone types, other calendars -->
     <string name="edit_phonetic_middle">Phonetic middle name</string>
-    <string name="edit_second_surname">Second surname</string>
-    <string name="edit_generation">Generation</string>
-    <string name="edit_custom_field">Custom field</string>
     <string name="edit_custom_fields">Custom fields</string>
-    <string name="edit_custom_field_label">Label</string>
     <string name="edit_custom_field_placeholder">Shoe size</string>
     <string name="edit_custom_field_value">Value</string>
     <string name="edit_remove_custom_field">Remove custom field</string>
-    <string name="edit_language">Language</string>
-    <string name="edit_language_saved_as">Saved as %1$s</string>
-    <!-- Several languages in one field, in order: the first is the one to use with them. -->
-    <string name="edit_languages">Languages</string>
     <string name="edit_languages_hint">The languages they speak, like Russian, English. The first is the one to use with them</string>
     <!-- The name in their own language and script ("Иван Петров" beside "Ivan Petrov"), kept beside the everyday name. -->
     <string name="edit_native_name">Name in their language</string>
@@ -129,7 +110,6 @@
     <!-- Offered when the name was typed in another script: the typed name moves to "Name in their language" and the
          main name becomes its Latin spelling, which they can edit. -->
     <string name="edit_english_spelling">Add an English spelling</string>
-    <string name="edit_citizenship">Citizenship</string>
     <string name="edit_citizenship_add">Add a country</string>
     <string name="edit_citizenship_hint">Only shown on their page, never on the call screen</string>
     <!-- %1$s: a country ("Portugal"). -->
@@ -150,7 +130,6 @@
     <string name="addr_part_street_number">Street number</string>
     <string name="addr_part_street_name">Street name</string>
     <string name="addr_part_building">Building</string>
-    <string name="addr_part_block">Block</string>
     <string name="addr_part_subdistrict">Subdistrict</string>
     <string name="addr_part_district">District</string>
     <string name="addr_part_landmark">Landmark</string>

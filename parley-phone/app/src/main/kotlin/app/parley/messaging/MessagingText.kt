@@ -29,7 +29,7 @@ object MessagingText {
 
     /** "3 of 12", or "Done" at the end ([app.parley.common.messaging.IntroQueue.progress]). */
     fun introProgress(res: Resources, q: IntroQueue): String =
-        if (q.finished) res.getString(R.string.main_done) else res.getString(R.string.intro_progress, q.index + 1, q.targets.size)
+        if (q.finished) res.getString(R.string.dc_done) else res.getString(R.string.move_private_progress, q.index + 1, q.targets.size)
 
     /** "Opened 9 chats · skipped 2" ([app.parley.common.messaging.IntroQueue.summary]). */
     fun introSummary(res: Resources, q: IntroQueue): String = buildList {
@@ -41,7 +41,7 @@ object MessagingText {
 
     /** "Never" or "After 30 days" ([app.parley.common.MessagedRecord.expiryLabel]). */
     fun expiryLabel(res: Resources, days: Int): String =
-        if (days <= 0) res.getString(R.string.rec_never) else res.getQuantityString(R.plurals.rec_after_days, days, days)
+        if (days <= 0) res.getString(R.string.blk_sched_never) else res.getQuantityString(R.plurals.rec_after_days, days, days)
 
     /** "Install or enable WhatsApp" ([MessengerLinks.unavailableMessage]). */
     fun installOrEnable(res: Resources, app: MessengerApp): String = res.getString(R.string.msg_install_or_enable, app.label)

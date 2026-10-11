@@ -182,7 +182,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

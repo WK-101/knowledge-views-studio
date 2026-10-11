@@ -93,7 +93,7 @@ fun HomeHeader(
                     }
                     actions()
                     Box {
-                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.home_more_options)) }
+                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
                         DropdownMenu(menuOpen, { menuOpen = false }) { menu { menuOpen = false } }
                     }
                 },
@@ -122,7 +122,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                 trailingIcon = {
                     // Clearing an empty field closes the search, like the back arrow.
                     IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) {
-                        Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search))
+                        Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.contact_page_clear_search))
                     }
                 },
                 shape = ParleyShapes.pill,

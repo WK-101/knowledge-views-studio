@@ -33,6 +33,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.ScreenedCall
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
+import app.parley.work.PrivateNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -237,9 +238,8 @@ object BlockingNotifier {
      * no number); never mirrored to a watch.
      */
     private fun NotificationCompat.Builder.private(context: Context, channel: String, icon: Int, publicTitle: String, category: String) = apply {
-        val public = NotificationCompat.Builder(context, channel).setSmallIcon(icon).setContentTitle(publicTitle).setCategory(category).build()
         setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-        setPublicVersion(public)
+        setPublicVersion(PrivateNotice.publicVersion(context, channel, icon, publicTitle, category))
         setLocalOnly(true)
     }
 

@@ -227,7 +227,7 @@ private class WipeJob(
 
     /** Null when the backup is good enough to wipe after, otherwise the step that says why not. */
     private suspend fun backUp(show: (WipeStep) -> Unit): WipeStep? {
-        show(WipeStep.Working(res.getString(R.string.wipe_backing_up)))
+        show(WipeStep.Working(res.getString(R.string.bkp_backing_up)))
         val b = c.backup.backupNow(scheduled = false)
         return when {
             !b.ok -> WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))

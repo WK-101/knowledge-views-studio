@@ -1,8 +1,8 @@
 package app.parley.common.cases
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.circle.Promises
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,7 +12,7 @@ class CaseTimelineTest {
     private val bank = "+442079460000"
 
     private fun entry(id: Long, at: Long, type: CallType, sec: Long = 0, hidden: Boolean = false) =
-        CallEntry(id, bank, null, type, at, sec, null, isNew = false, presentationHidden = hidden)
+        testCall(id, bank, null, type, at, sec, presentationHidden = hidden)
 
     private val case = CaseFile(
         "a", "Barclays", listOf(bank), CaseMode.AUTO,

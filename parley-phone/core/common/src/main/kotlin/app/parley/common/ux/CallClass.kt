@@ -97,7 +97,9 @@ object CallGlance {
      * Ids of missed calls not returned yet: no outgoing call to the number (answered or not: you tried) and no answered
      * call from it came after. Only each number's latest missed call counts, and only within [maxAgeMs] of [now].
      * Private and withheld numbers can't be called back, and numbers that are [excluded] (blocked, or marked as spam)
-     * aren't worth it: neither counts. [calls] are newest first (Recents' merged list, not sorted again); [key]
+     * aren't worth it: neither counts. A call missed in an app over the internet doesn't count either (the app keeps
+     * its own missed call, and calling back is the app's), though any call with the number returns one that does.
+     * [calls] are newest first (Recents' merged list, not sorted again); [key]
      * gives a number's match key. One pass, and [excluded] is asked only about the candidates.
      */
     fun unreturnedMissed(
@@ -116,7 +118,7 @@ object CallGlance {
             when (CallClass.of(e)) {
                 CallClass.OUTGOING, CallClass.NO_ANSWER, CallClass.INCOMING, CallClass.ANSWERED_ELSEWHERE -> handled += k
                 CallClass.MISSED -> {
-                    if (!excluded(e.number)) out += e.id
+                    if (e.appPackage == null && !excluded(e.number)) out += e.id
                     handled += k
                 }
                 else -> Unit

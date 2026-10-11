@@ -12,8 +12,6 @@
     <string name="menu_dont_remember">Don\'t remember digits for this number</string>
     <string name="menu_save_title">Save as shortcut</string>
     <string name="menu_save_body">Calls %1$s and sends %2$s with the same pauses. It\'s on the contact page and can go on your home screen.</string>
-    <string name="menu_save_name">Name</string>
-    <string name="menu_save">Save</string>
     <string name="menu_saved">Saved as \"%1$s\"</string>
     <string name="menu_save_failed">Couldn\'t save the shortcut. Try again in a moment.</string>
     <string name="menu_stop_title">Don\'t remember digits for this number?</string>

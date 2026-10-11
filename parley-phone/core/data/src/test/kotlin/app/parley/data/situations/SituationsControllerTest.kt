@@ -44,6 +44,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import java.io.File
 import java.time.DayOfWeek
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
 
@@ -268,12 +270,15 @@ class SituationsControllerTest {
     @Test fun theLookBeforeScreeningNeverWaitsForTheSwitch() = runBlocking {
         assertTrue(c.situations.edit(Situations.NIGHT) { it.copy(schedule = Situations.NIGHT_WINDOW) })
         // The first look (from memory) is quick; the switch's own reads are slow, as a busy phone's disk can be.
+        // Held until the look is over, rather than for a fixed time.
         val calls = AtomicInteger()
+        val disk = CountDownLatch(1)
         val slow = SituationsController(app, c.settings, { c.driveProfile }, { c.callExtras }, { c.roaming }, c.scope) {
-            if (calls.incrementAndGet() > 1) Thread.sleep(1_500)
+            if (calls.incrementAndGet() > 1) disk.await(10, TimeUnit.SECONDS)
             at(DayOfWeek.MONDAY, 23)
         }
         val took = measureTimeMillis { slow.lookBriefly(300) }
+        disk.countDown()
         assertTrue("waited $took ms", took < 1_200)
         // The switch still happens, in the background.
         withTimeout(10_000) { slow.state.first { it.activeId == Situations.NIGHT && !it.pending } }
