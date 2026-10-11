@@ -88,6 +88,8 @@ android {
         )
     }
 
+    testOptions { unitTests.isIncludeAndroidResources = true }
+
     lint {
         checkReleaseBuilds = true
     }
@@ -102,6 +104,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.work)
     implementation(libs.kotlinx.serialization.json)
+
+    // Download, checks and the hand-off to Parley, under Robolectric with answers instead of the network.
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
 
 // Privacy guard (allow-list): the updater may only reach the network. No contacts, phone, call log, SMS,

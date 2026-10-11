@@ -54,7 +54,7 @@ fun InternetCallBackDialog(number: String, accountId: String?, pkg: String, onCa
             if (installed) {
                 TextButton(onClick = { onDismiss(); onCallByPhone() }) { Text(stringResource(R.string.recents_app_call_by_phone)) }
             } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.main_cancel)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dc_cancel)) }
             }
         },
     )

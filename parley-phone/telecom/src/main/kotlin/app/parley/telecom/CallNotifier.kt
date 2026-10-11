@@ -399,7 +399,8 @@ class CallNotifier internal constructor(
             b.addAction(0, context.getString(R.string.notif_plus_5_min), action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
             b.addAction(0, context.getString(R.string.notif_dont_end), action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
         } else {
-            b.addAction(0, context.getString(if (audio.current?.type == RouteType.SPEAKER) R.string.notif_speaker_off else R.string.audio_route_speaker), action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
+            val speaker = if (audio.current?.type == RouteType.SPEAKER) R.string.notif_speaker_off else R.string.audio_route_speaker
+            b.addAction(0, context.getString(speaker), action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))
         }
         if ((call.state == CallState.ACTIVE || call.state == CallState.HOLDING) && call.connectTimeMillis > 0) {
             b.setUsesChronometer(true).setChronometerCountDown(chrono.countDown).setWhen(chrono.whenMillis).setShowWhen(true)

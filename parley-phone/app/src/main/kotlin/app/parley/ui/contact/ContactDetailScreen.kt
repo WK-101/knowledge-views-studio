@@ -408,7 +408,8 @@ private fun PinnedBar(ctx: ContactPageContext, listState: LazyListState, barColo
         } else {
             null
         },
-        if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.contact_page_sec_emails), true) { Intents.email(context, email.value) } else null,
+        if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.contact_page_sec_emails), true) { Intents.email(context,
+            email.value) } else null,
     )
     val jumps = unfold.mapIndexed { i, (title, open) ->
         title to {

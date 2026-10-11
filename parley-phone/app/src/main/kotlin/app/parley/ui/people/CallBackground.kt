@@ -83,7 +83,11 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
                     OutlinedButton({ picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
                         Text(if (shown == null) stringResource(R.string.ppl_bg_choose) else stringResource(R.string.callphoto_change))
                     }
-                    if (shown != null) TextButton({ onChange(if (change is BackgroundChange.Set && current == null) BackgroundChange.None else BackgroundChange.Remove) }) { Text(stringResource(R.string.jr_remove)) }
+                    if (shown != null) {
+                        TextButton({ onChange(if (change is BackgroundChange.Set && current == null) BackgroundChange.None else BackgroundChange.Remove) }) {
+                            Text(stringResource(R.string.jr_remove))
+                        }
+                    }
                 }
             }
         }

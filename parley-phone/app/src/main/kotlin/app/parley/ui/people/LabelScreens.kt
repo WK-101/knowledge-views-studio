@@ -137,7 +137,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         ParleyTopBar(
             scrollBehavior = barTint,
-            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size, picked.size) else stringResource(R.string.blk_check_labels)) },
+            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size,
+                picked.size) else stringResource(R.string.blk_check_labels)) },
             navigationIcon = {
                 if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.lbl_stop_merging)) }
                 else BackButton(back)

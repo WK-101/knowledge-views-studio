@@ -154,6 +154,9 @@ dependencies {
     // The runner's own monitor is older than core's; core's (already verified) is the one used.
     androidTestImplementation(libs.androidx.test.runner) { exclude(group = "androidx.test", module = "monitor") }
     androidTestImplementation(libs.androidx.test.uiautomator)
+    // Accessibility checks on every screen the instrumented tests open (AccessibilitySmokeTest, with
+    // -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true).
+    androidTestImplementation(libs.androidx.test.espresso.accessibility)
 }
 
 // Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own

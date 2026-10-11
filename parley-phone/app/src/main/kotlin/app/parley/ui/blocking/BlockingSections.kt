@@ -554,7 +554,8 @@ internal fun MoreChecksSection(st: BlockingState) {
         ToggleScheduleRow(stringResource(R.string.blk_hidden_numbers), s.hiddenSchedule) { sc -> st.setScreening { it.copy(hiddenSchedule = sc) } }
         ToggleScheduleRow(stringResource(R.string.blk_preset_known), s.nonContactsSchedule) { sc -> st.setScreening { it.copy(nonContactsSchedule = sc) } }
         ToggleScheduleRow(stringResource(R.string.blk_check_neighbour), s.neighbourSchedule) { sc -> st.setScreening { it.copy(neighbourSchedule = sc) } }
-        ToggleScheduleRow(stringResource(R.string.blk_check_verification), s.verificationSchedule) { sc -> st.setScreening { it.copy(verificationSchedule = sc) } }
+        ToggleScheduleRow(stringResource(R.string.blk_check_verification),
+            s.verificationSchedule) { sc -> st.setScreening { it.copy(verificationSchedule = sc) } }
         ToggleScheduleRow(stringResource(R.string.blk_invalid_numbers), s.invalidSchedule) { sc -> st.setScreening { it.copy(invalidSchedule = sc) } }
     }
 }

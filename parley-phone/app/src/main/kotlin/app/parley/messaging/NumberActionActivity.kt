@@ -535,7 +535,8 @@ class NumberActionActivity : LockedActivity() {
         }
 
         Column(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.shortcut_message_number_short), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(stringResource(R.string.shortcut_message_number_short), style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp))
             OutlinedTextField(
                 typed, { typed = it.take(40) },
                 label = { Text(stringResource(R.string.blk_phone_number)) },

@@ -142,7 +142,8 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
                             IconButton({ store.updateSimple { c -> c.copy(people = c.people.filterIndexed { j, _ -> j != i }) } }) {
-                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, r.person.name), tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, r.person.name),
+                                    tint = MaterialTheme.colorScheme.error)
                             }
                         },
                     )
@@ -337,7 +338,8 @@ private fun SimpleQrDialog(vm: AppViewModel, cfg: SimpleConfig, onDismiss: () ->
         title = { Text(stringResource(R.string.simple_show_qr)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.img_name_simple_qr), Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.img_name_simple_qr),
+                    Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.sqr_passcode), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
                 Text(stringResource(R.string.simple_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))

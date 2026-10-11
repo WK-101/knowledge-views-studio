@@ -213,7 +213,8 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
             }
         }
         item("sit_speaker") {
-            MenuRow(stringResource(R.string.set_speaker_default_title), speakerOptions, s.speaker?.let { it.ordinal + 1 } ?: 0, Icons.AutoMirrored.Rounded.VolumeUp) { i ->
+            MenuRow(stringResource(R.string.set_speaker_default_title), speakerOptions, s.speaker?.let { it.ordinal + 1 } ?: 0,
+                Icons.AutoMirrored.Rounded.VolumeUp) { i ->
                 edit { it.copy(speaker = if (i == 0) null else SpeakerDefault.entries[i - 1]) }
             }
         }
@@ -294,7 +295,8 @@ private fun AbroadAndSims(vm: AppViewModel, s: Situation, edit: ((Situation) -> 
     }
     SegmentedGroup(stringResource(R.string.sit_group_abroad)) {
         item("sit_assisted") {
-            TriRow(stringResource(R.string.set_assisted_dialling_title), s.assistedDialling, Icons.Rounded.Public) { v -> edit { it.copy(assistedDialling = v) } }
+            TriRow(stringResource(R.string.set_assisted_dialling_title), s.assistedDialling,
+                Icons.Rounded.Public) { v -> edit { it.copy(assistedDialling = v) } }
         }
         item("sit_local_sim") {
             TriRow(stringResource(R.string.set_local_sim_hint_title), s.localSimHint, Icons.Rounded.SimCard) { v -> edit { it.copy(localSimHint = v) } }

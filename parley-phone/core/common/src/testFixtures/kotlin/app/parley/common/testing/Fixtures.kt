@@ -20,7 +20,9 @@ fun testCall(
     isNew: Boolean = false,
     presentationHidden: Boolean = false,
     video: Boolean = false,
-) = CallEntry(id, number, cachedName, type, date, durationSec, accountId, isNew, presentationHidden, video)
+    accountComponent: String? = null,
+    appPackage: String? = null,
+) = CallEntry(id, number, cachedName, type, date, durationSec, accountId, isNew, presentationHidden, video, accountComponent, appPackage)
 
 /** A contact in the list with [numbers] as mobile numbers. */
 fun testContact(id: Long, name: String, key: String = "k$id", vararg numbers: String) =

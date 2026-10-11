@@ -43,7 +43,8 @@ class HistoryPrefs(context: Context, scope: CoroutineScope) {
     val state: StateFlow<HistorySettings> = store.data.map { it.toSettings().also { _loaded.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, HistorySettings())
 
-    suspend fun current(): HistorySettings = if (_loaded.value) state.value else store.data.first().toSettings()
+    /** As stored now, a change just made included (the file is served from memory once read). */
+    suspend fun current(): HistorySettings = store.data.first().toSettings()
 
     private fun Preferences.toSettings() = HistorySettings(
         archiveEnabled = this[K.archive] ?: true,

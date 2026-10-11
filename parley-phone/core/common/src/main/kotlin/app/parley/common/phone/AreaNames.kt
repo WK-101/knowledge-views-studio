@@ -76,8 +76,10 @@ object AreaNames {
         return if (valid.size == 1) regionName(valid[0], language) else ""
     }
 
-    private fun regionName(region: String?, language: Locale): String =
-        if (region == null || region == UNKNOWN_REGION || region == NON_GEO_REGION) "" else Locale.Builder().setRegion(region).build().getDisplayCountry(language)
+    private fun regionName(region: String?, language: Locale): String = when (region) {
+        null, UNKNOWN_REGION, NON_GEO_REGION -> ""
+        else -> Locale.Builder().setRegion(region).build().getDisplayCountry(language)
+    }
 
     private const val NANPA_BASE = 1000
     private const val NANPA_AREA_DIVISOR = 10_000_000L

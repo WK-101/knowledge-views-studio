@@ -78,7 +78,8 @@ class PhoneDataTest {
             for (lang in GeoLanguages.SHIPPED) {
                 val locale = Locale.forLanguageTag(lang)
                 for (userRegion in listOf(region, "US")) {
-                    assertEquals("$number in $lang from $userRegion", geocoder.getDescriptionForNumber(number, locale, userRegion), AreaNames.describe(number, locale, userRegion))
+                    val expected = geocoder.getDescriptionForNumber(number, locale, userRegion)
+                    assertEquals("$number in $lang from $userRegion", expected, AreaNames.describe(number, locale, userRegion))
                     compared++
                 }
             }

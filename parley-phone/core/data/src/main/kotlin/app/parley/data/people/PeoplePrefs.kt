@@ -62,7 +62,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
     /** False until the stored preferences have been read once. */
     val loaded: Boolean get() = loadedFlag.value
 
-    suspend fun current(): PeopleSettings = if (loadedFlag.value) settings.value else store.data.first().read()
+    /** As stored now, a change just made included (the file is served from memory once read). */
+    suspend fun current(): PeopleSettings = store.data.first().read()
 
     suspend fun update(f: (PeopleSettings) -> PeopleSettings) {
         store.edit { p -> p.write(f(p.read())) }

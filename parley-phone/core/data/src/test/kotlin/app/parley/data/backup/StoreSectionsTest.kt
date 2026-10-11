@@ -54,7 +54,7 @@ class StoreSectionsTest {
     }
 
     @Test fun a_list_added_from_a_file_comes_back_and_a_built_in_one_stays_out() = runBlocking {
-        val manifest = PackManifest(id = "user.neighbours", name = "Neighbour scams", publisher = "Me", source = "", licence = "", version = 1, created = 0, ttlDays = 0)
+        val manifest = PackManifest(id = "user.neighbours", name = "Neighbour scams", publisher = "Me", ttlDays = 0)
         val pack = PackBuilder(manifest).apply { addNumber("+44 20 7946 0999", 1, 80) }.build(now = 0)
         assertTrue(lists.install(ListPack.parse(pack), PackOrigin.FILE) is SpamListStore.InstallResult.Installed)
         lists.installBuiltIn(BuiltInPacks.FRANCE_ARCEP)

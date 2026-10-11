@@ -3206,6 +3206,42 @@ Automated: `SituationsTest` (the notice only while a Situation lets some people 
 
 ## 48. Proven, fast and lighter (6.5)
 
+### 48.9 Call notifications after the shared template
+
+1. Have a contact call, with Privacy › Caller on the lock screen set to *Name*: the heading, Decline and Answer, the photo once loaded, and full-screen while locked all look as before. Answer: the ongoing notification has Hang up, Mute, Speaker and the running time.
+2. Set Caller on the lock screen to *Initials*, lock the phone and call again: the lock screen shows the initials only, no number or label, also in the ongoing notification.
+3. Start a rescue call (Safety › Rescue call): it rings and is answered like a real call, with its own notification; with the screen locked and "hide sensitive content" on, only the masked caller shows.
+4. A finished export (a job notification), missed calls and a blocked call on the lock screen with sensitive content hidden: each shows only its neutral title ("Parley finished", "2 missed calls", …), never a name or number.
+
+### 48.10 Editor drafts and every contact field
+
+1. Open a contact's editor, change a name part, a phone label, an address, an event with another calendar, a language, a citizenship, a custom field and a messenger handle. Turn on Developer options › Don't keep activities, switch to another app and back: every change is still in the form.
+2. Do the same on a private contact while the vault is unlocked; lock the vault meanwhile: the editor asks to unlock and nothing shows before.
+3. Share a contact with every field filled as a vCard and import it on another phone (or as a new contact): every field arrives, the ringtone, "send to voicemail" and Parley-only notes excepted.
+
+### 48.11 Updating keeps every setting
+
+1. On 6.4, change a few settings in each place they live: Appearance (theme, AMOLED), Calls (confirm before calling, retention), Contacts (second line, avatar style, sort order, swipe actions) and Recents & history (keep the full history off, a saved filter, a plan). Update to this build over it.
+2. Every one of those choices is unchanged, at once on first start; nothing asks again. Settings › Backup: back up, change two of them, restore: both come back.
+3. Delete all Parley data (Settings › Privacy): every setting is back to its default after the restart.
+
+### 48.12 Where a number is from, after the data pack
+
+1. Recents and a number's history for unsaved numbers from your own country show the area ("Mountain View, CA", "Berlin") as before; a foreign number shows its country; a number from China or Australia shows the country only.
+2. With the app language German, Spanish, French, Portuguese or Arabic the place names follow it where the data has them; with Hindi or Urdu they are in English.
+3. Typing on the keypad formats the number as you type; 112, 911 and 999 are recognised as emergency numbers; the time-zone hint on a contact abroad still shows.
+4. Parley Lists still converts a CSV list and installs it in Parley.
+
+### 48.13 Strings that were merged
+
+1. Walk Settings (every page and sub-page), Tools, a contact page, the editor, To call, My card, Recall and the QR scanner: every label, button and TalkBack name reads as before, nothing is blank or shows a resource name.
+
+### 48.14 The Parley Lists companion
+
+1. With Parley Lists installed, open it and update the lists: the download finishes, the pack is checked and Parley shows the new list under Blocking › Spam lists with its date.
+2. Turn on airplane mode and update: Lists says it couldn't reach the source and Parley keeps its last list.
+3. A list file whose signature was changed (edit one byte) is refused in Lists and never reaches Parley.
+
 ### 48.15 Calls made in apps over the internet
 Automated: `InternetCallsTest` (rows told apart by their phone account; Call back's route, best first; a call missed in an app is never one to call back by phone, though a call in the app returns a missed phone call) (core:common); `InternetCallRowsTest` (the reader, the missed-call notice, the archive and Undo, a private contact's history keep the app) (core:data, Robolectric); `NumberSignalsTest` (an app call never shows the phone line works); `A11yChecksTest` (the Call back question) (app, Robolectric).
 1. On One UI 9 (or Android 14+ with an app that logs its calls, e.g. WhatsApp's "show calls in the phone's call history" where offered), take a WhatsApp call from the second phone, then miss one. Recents shows them as their own rows, never grouped with phone calls from the same number; the line under the name says "WhatsApp call" where a phone call shows its SIM. The number's history says the same on those calls.

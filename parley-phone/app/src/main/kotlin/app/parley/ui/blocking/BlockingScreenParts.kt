@@ -145,7 +145,9 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         modifier = Modifier.clickable { target = "repeat"; pick(s.repeatRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
         supportingContent = { Text(ringtoneTitle(context, s.repeatRingtone) ?: stringResource(R.string.set_same_as_usual)) },
-        trailingContent = { if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) } },
+        trailingContent = {
+            if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) }
+        },
     )
     ParleyListItem(
         modifier = Modifier.clickable { target = "spam"; pick(s.likelySpamRingtone) },

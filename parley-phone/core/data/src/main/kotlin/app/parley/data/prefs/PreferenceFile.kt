@@ -2,6 +2,7 @@ package app.parley.data.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
+import app.parley.common.catching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -98,7 +99,7 @@ class PreferenceFile internal constructor(private val open: () -> SharedPreferen
         legacy?.takeIf { it.exists() }?.let { old ->
             // Moved only into an empty file: if deleting the old one failed after a move, it must not undo later changes.
             // An old file that can't be read stays where it is, so nothing is lost for good.
-            val moved = if (p.all.isEmpty()) runCatching { DataStoreFile.read(old.readBytes()) }.getOrNull() else emptyMap()
+            val moved = if (p.all.isEmpty()) catching { DataStoreFile.read(old.readBytes()) }.getOrNull() else emptyMap()
             if (moved != null) {
                 val e = p.edit()
                 moved.forEach { (k, v) -> e.put(k, v) }

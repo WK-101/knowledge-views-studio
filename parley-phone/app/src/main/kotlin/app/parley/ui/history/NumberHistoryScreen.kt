@@ -292,7 +292,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 }
             }
             item {
-                CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.contact_page_sec_insights))
+                CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(),
+                    title = stringResource(R.string.contact_page_sec_insights))
             }
             // Case files: an organisation's calls, hold times and reference numbers, before you call.
             item(key = "case") {

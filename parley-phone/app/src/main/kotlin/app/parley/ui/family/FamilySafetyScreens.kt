@@ -275,7 +275,8 @@ fun HelpersScreen(vm: AppViewModel, back: () -> Unit) {
                         },
                         trailingContent = {
                             IconButton({ scope.launch { store.setHelpers(helpers.filterIndexed { j, _ -> j != i }) } }) {
-                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, h.name), tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, h.name),
+                                    tint = MaterialTheme.colorScheme.error)
                             }
                         },
                     )

@@ -982,7 +982,8 @@ private fun FieldList.aboutRows(vm: AppViewModel, editor: EditorViewModel, meCar
         at(KEY_NOTE)
         put("note") {
             FormRow(
-                Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.contact_page_kind_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
+                Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.contact_page_kind_notes),
+                Modifier.animateItem().padding(bottom = FormTokens.groupGap),
             ) {
                 ParleyFormField(
                     // My card's note goes into the QR code or vCard only when you tick it.
@@ -1379,7 +1380,8 @@ private fun NameFields(
                     update { it.copy(phoneticFamily = v) }
                 }
                 EditorField(
-                    stringResource(R.string.csv_field_nickname), d.nickname, gap, shape = pos("nick"), cap = words, locked = lockedRow(d.nicknameId), focus = nick,
+                    stringResource(R.string.csv_field_nickname), d.nickname, gap, shape = pos("nick"), cap = words, locked = lockedRow(d.nicknameId),
+                    focus = nick,
                 ) { v ->
                     update { it.copy(nickname = v) }
                 }

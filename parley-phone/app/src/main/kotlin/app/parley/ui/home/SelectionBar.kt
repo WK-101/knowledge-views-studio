@@ -196,7 +196,8 @@ fun SelectionBar(vm: AppViewModel) {
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
-            IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, stringResource(R.string.watch_select_all)) }
+            IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll,
+                stringResource(R.string.watch_select_all)) }
             val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
             IconButton({
                 scope.launch { bulk.star(ids, !allStarred) }

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.CoroutineWorker
 import androidx.work.ListenableWorker
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -52,7 +53,7 @@ class WorkersTest {
 
     @After fun tearDown() = app.container.scope.cancel()
 
-    private inline fun <reified W : ListenableWorker> run(): ListenableWorker.Result =
+    private inline fun <reified W : CoroutineWorker> run(): ListenableWorker.Result =
         runBlocking { TestListenableWorkerBuilder<W>(app).build().doWork() }
 
     private fun reminders(): List<Notification> =

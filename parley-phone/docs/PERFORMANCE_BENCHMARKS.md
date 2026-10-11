@@ -157,6 +157,23 @@ download): `./gradlew :app:checkReleaseApkSize` fails above it, and CI runs it. 
 the code stored uncompressed; 5.5 compresses the code (below), so the budget follows the download and not the
 installed size.
 
+### 6.5: a lighter download, again
+
+Measured on unsigned `:app:assembleRelease` builds (no keystore; signing adds a few KB to both), 6.4.0 against this
+release with the low-risk levers only:
+
+| Part | 6.4.0 | 6.5 | Saved | Why |
+|---|---|---|---|---|
+| Parley release APK | 6,865,231 bytes (6.55 MiB) | 6,541,539 bytes (6.24 MiB) | 323,692 (4.7%) | All of the below. |
+| ZIP entries | 1,217 | 125 | about 205,000 of headers | libphonenumber's 1,092 metadata and area-name files ship as two (`PhoneData`). |
+| Number metadata and short numbers | 495 files, 121,379 | `phone_metadata.bin`, 70,784 | 50,595 | One compressed stream of every region's file, read through libphonenumber's own loader API (`PhoneNumberUtil.createInstance(MetadataLoader)`); the 46 alternate-format files stay as they are (`PhoneNumberMatcher` reads them itself, and Parley never asks for them). |
+| Area names | 599 files, 540,176 | `area_names.bin`, 539,157 | 1,019 (plus the headers) | Same data and languages (decision D8: the names stay in the app), each file compressed on its own behind an index, so one area is read without the rest. `AreaNames` gives the geocoder's own answers (`PhoneDataTest` compares them for every region, both number kinds and all six languages). |
+| `classes.dex` (compressed) | 5,408,541 | 5,359,556 | 48,985 | DataStore and its shaded protobuf are gone: the three settings files are SharedPreferences (`PreferenceFile`), moved over once from the DataStore file on first start. |
+| `resources.arsc` (stored) | 435,900 | 416,844 | 19,056 | 796 exact duplicate strings merged into one each. |
+
+Not done here: arm-only ABIs (about 20 KB, the benchmark build needs x86_64) and xz for the area names (about 300 KB
+more, but it needs a decoder).
+
 ### A process started for a ringing call (6.3)
 
 What `ParleyApp.onCreate` starts before screening, when the process starts for an incoming call, and what waits for the
@@ -205,7 +222,7 @@ measured at release time (docs/RELEASING.md §3).
 
 Looked at and left alone:
 
-- **Settings in SharedPreferences instead of DataStore** (about 110 KB of uncompressed code, about 50 KB of the
+- **Settings in SharedPreferences instead of DataStore** (done in 6.5, with a small reader for the old file; about 110 KB of uncompressed code, about 50 KB of the
   download now that the code is compressed). The settings' DataStore files are protobuf; moving them needs DataStore
   itself to read them once (so the library stays for the migration) or a hand-written protobuf reader on the path that
   loads every setting. Not worth the risk for this gain.

@@ -278,7 +278,8 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(R.string.hist_filter_clear)) } },
+                trailingIcon = { if (query.isNotEmpty()) IconButton({ onQuery("") }) { Icon(Icons.Rounded.Close,
+                    stringResource(R.string.hist_filter_clear)) } },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
@@ -415,7 +416,8 @@ internal fun exportMessage(context: Context, r: VCardIO.ExportResult): String {
     val res = context.resources
     val done = res.getQuantityString(R.plurals.set_exported_contacts, r.exported, r.exported)
     return if (r.failures.isEmpty()) done else
-        res.getString(R.string.archive_page_work, done, res.getQuantityString(R.plurals.set_export_failed, r.failures.size, r.failures.size, r.failures.first()))
+        res.getString(R.string.archive_page_work, done, res.getQuantityString(R.plurals.set_export_failed, r.failures.size, r.failures.size,
+            r.failures.first()))
 }
 
 /** [ImportReport.summary] in the current language: "Imported 12 of 14 · 1 duplicate skipped · 1 failed". */
