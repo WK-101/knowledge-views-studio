@@ -41,6 +41,7 @@ object HelpText {
         HelpTopic.TALK_ABOUT -> HelpTexts(R.string.label_to_talk_about, R.string.help_talk_about_body, null)
         HelpTopic.FAMILY_SHIELD -> HelpTexts(R.string.label_family_spam_shield, R.string.help_family_shield_body, R.string.label_shared_labels)
         HelpTopic.PROMISE_TIME -> HelpTexts(R.string.label_promise_time, R.string.help_promise_time_body, R.string.label_to_call)
+        HelpTopic.NEXT_UP -> HelpTexts(R.string.next_up_label, R.string.help_next_up_body, R.string.label_to_call)
         HelpTopic.CALLBACK_WATCH -> HelpTexts(R.string.callback_title, R.string.help_callback_watch_body, R.string.label_to_call)
     }
 }

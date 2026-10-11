@@ -395,6 +395,7 @@ class InCallActivity : ComponentActivity() {
             // Saved without unlocking (like a note during the call); nothing is shown back.
             is PostCallChoice.Remember -> {
                 runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
+                choice.catchUpAt?.let { at -> runCatching { deps.setCatchUp(choice.number, at) } }
                 systemMessage(this, getString(R.string.memory_saved))
                 if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
             }

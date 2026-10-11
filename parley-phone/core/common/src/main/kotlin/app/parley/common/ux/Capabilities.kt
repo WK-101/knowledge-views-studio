@@ -165,6 +165,9 @@ object CapabilityCatalog {
             "birthday", "anniversary", "dates").top(),
         screen("to_call", TOUCH, "To call", "Calls you said you'd make, and missed calls you haven't returned", AppScreen.TO_CALL,
             "remind me", "call back", "missed").top(),
+        // The strip at the top of Recents: its page says what it shows, and opens To call.
+        help("next_up", TOUCH, "Next up", "Calls you owe, today's birthdays and who's due now, at the top of Recents", HelpTopic.NEXT_UP,
+            "next up", "now", "birthday today", "catch-up", "due", since = "6.7"),
         // Choices on a call (declined, missed, ended) and on Remind me to call: their pages say where, and open To call.
         help("promise_time", TOUCH, "Promise a time", "Text someone when you'll call back; Parley reminds you then", HelpTopic.PROMISE_TIME,
             "call you back", "promise", "later", "decline", "busy", since = "6.6"),

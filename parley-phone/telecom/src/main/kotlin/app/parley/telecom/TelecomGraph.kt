@@ -21,6 +21,7 @@ import app.parley.common.calls.RingStyle
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.VerifyCallBack
 import app.parley.common.calltime.CallTimePlan
+import app.parley.common.circle.Occasion
 import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
@@ -60,8 +61,6 @@ data class CallerDisplay(
     val ownRingtone: String? = null,
     /** A favourite (starred contact, or a private contact with Parley's star): the drive profile may answer it. */
     val favourite: Boolean = false,
-    /** In Your Circle, for the "who" auto-answer and the drive profile answer ([app.parley.common.who.Who]). */
-    val inCircle: Boolean = false,
     /** Their labels' titles, read only while auto-answer or the drive profile answers a label. */
     val labels: Set<String> = emptySet(),
     /**
@@ -69,6 +68,13 @@ data class CallerDisplay(
      * contact that discreet mode or a duress session hides): the name the network sends may show under [name].
      */
     val networkNameUnder: Boolean = false,
+    /** Their birthday or anniversary is today: one quiet line, on the lock screen only where notes may show. */
+    val occasion: Occasion? = null,
+    /**
+     * A Circle member: "Anything to remember?" offers the next catch-up, and auto-answer and the drive profile answer
+     * Your Circle ([app.parley.common.who.Who]).
+     */
+    val inCircle: Boolean = false,
 )
 
 /**
@@ -311,6 +317,12 @@ interface CallRecordHooks {
      * timeline) and, with [followUpDays], sets a one-off reminder to follow up.
      */
     fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {}
+
+    /**
+     * "Next catch-up" after a call with a Circle member: a date kept for yourself on their To call item ([at], epoch
+     * ms), which the rhythm waits for. Never said back to them.
+     */
+    fun setCatchUp(number: String, at: Long) {}
 
     /**
      * "Remind me" ("Decline & remind", the post-call card): puts [number] on the To call list for [at] (epoch ms).

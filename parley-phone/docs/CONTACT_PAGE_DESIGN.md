@@ -83,8 +83,10 @@ live in one container with the label as a quiet second line, and settings go las
    A number's supporting line names its type, "Default", a remembered SIM and the apps that reach it
    ("Mobile · Default · WhatsApp, Signal"); its trailing actions are "Message or call on…" (when apps reach it)
    and Message. Separate app rows remain only for apps on numbers not saved here, and for typed-in handles.
-4. **Stay in touch** shows only when it has something to say: the Circle rhythm, a good time to call, or open
-   promises. For everyone else "Add to your Circle" moves into the settings group.
+4. **Stay in touch** shows only when it has something to say: the Circle rhythm, a good time to call, or what is
+   open with them. For everyone else "Add to your Circle" moves into the settings group. Since 6.7 what is open is one
+   **Open with them** card (`OpenWithThem.kt`): their To call item, the things to talk about (from the note for calls)
+   and the promises in their other notes, each kept where it was; the Note for calls section keeps the note itself.
 5. **About {name}.** Dates (with the "Add birthday" / "Add anniversary" chips as one row), websites, relations,
    the contact's note and the note for calls, joined into one group.
 6. **Timeline.** The latest three entries in one group (no month headings; each entry carries its date) and

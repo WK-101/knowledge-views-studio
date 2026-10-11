@@ -103,6 +103,7 @@ import app.parley.common.ux.Tips
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallClock
+import app.parley.common.calls.CallerLine
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallRtt
 import app.parley.telecom.CallState
@@ -420,6 +421,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     }
     Spacer(Modifier.height(if (s.others.isEmpty() && !twoPane) Spacing.xxl else Spacing.l))
     val shown = s.shown ?: return
+    val lines = callerLinesFor(shown, ended = primary == null, locked = rememberKeyguardLocked())
     CallerHeader(
         call = shown,
         ended = primary == null,
@@ -429,9 +431,10 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         avatarSize = avatar,
         onReply = { sheets.replyFor = shown.id },
         poster = poster,
+        lines = lines,
     )
-    SafetyLine(s, sheets, a)
-    AgendaUnderCaller(s)
+    SafetyLine(s, sheets, a, lines)
+    AgendaUnderCaller(s, lines)
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     // "Drive profile on" while the marked car is connected.
@@ -447,9 +450,10 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
 
 /** The agenda: things to talk about with them, for the call in front (not over the keypad). */
 @Composable
-private fun AgendaUnderCaller(s: ScreenState) {
+private fun AgendaUnderCaller(s: ScreenState, lines: Set<CallerLine>) {
     val primary = s.primary?.takeIf { it.id == s.shown?.id } ?: return
-    if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m))
+    // Read even while ringing leaves it no room, so it can count for the lines and show once answered.
+    if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m), visible = CallerLine.AGENDA in lines)
     // The booking pocket: the organisation's codes, hidden until Show (over the keypad while it is open).
     if (!s.keypadOpen) CaseCodesCard(primary, Modifier.padding(top = Spacing.m))
 }
@@ -459,16 +463,19 @@ private fun AgendaUnderCaller(s: ScreenState) {
  * scam sheet), else the fresh-number line (their older number, after the unlock). For the call in front, while it lasts.
  */
 @Composable
-private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
+private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions, lines: Set<CallerLine>) {
     val primary = s.primary?.takeIf { it.id == s.shown?.id } ?: return
     if (s.keypadOpen) return
     val verify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null
+    val promised = CallerLine.PROMISED in lines
     if (primary.neverCallsYouNotice) {
-        NeverCallsYouCard(onVerify = verify, onScamCheck = { sheets.scamFor = primary }, modifier = Modifier.padding(top = Spacing.m))
-        PromisedHint(primary)
+        if (CallerLine.NEVER_CALLS_YOU in lines) {
+            NeverCallsYouCard(onVerify = verify, onScamCheck = { sheets.scamFor = primary }, modifier = Modifier.padding(top = Spacing.m))
+        }
+        if (promised) PromisedHint(primary)
         return
     }
-    val fresh = primary.freshNumber?.takeIf { primary.freshNumberNotice } ?: return
+    val fresh = primary.freshNumber?.takeIf { primary.freshNumberNotice && CallerLine.FRESH_NUMBER in lines } ?: return
     val app = LocalContext.current.applicationContext
     val older = fresh.older?.takeIf { primary.canVerify }?.let { number ->
         {
@@ -479,7 +486,7 @@ private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
     }
     FreshNumberCard(fresh, onCallOlder = older, onVerify = verify, modifier = Modifier.padding(top = Spacing.m))
     // "You said you'd call at 15:30" follows the safety line rather than sitting above it.
-    PromisedHint(primary)
+    if (promised) PromisedHint(primary)
 }
 
 /** The bottom half: what can be done now. */

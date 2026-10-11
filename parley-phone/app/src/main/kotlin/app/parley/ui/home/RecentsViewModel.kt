@@ -27,6 +27,7 @@ import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.history.CallHistory
+import app.parley.ui.calls.NextUpModel
 import app.parley.ui.calls.ToCallModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -239,6 +240,11 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     /** The To call list: its strip tops Recents; fed by these calls and the missed calls still to return. */
     val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed) }
+
+    /** Next up: the To call strip with today's dates, a Circle member in their good hours and Chapters ending. */
+    val nextUp: NextUpModel by lazy {
+        NextUpModel(viewModelScope, toCall, c.toCall.state, allCalls, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, countryIso)
+    }
 
     /**
      * Numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or

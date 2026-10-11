@@ -88,4 +88,19 @@
     <!-- %1$s: when the watch ends, "Fri 20:00" -->
     <string name="callback_set">Expecting their call until %1$s. If it doesn\'t come, it goes on To call.</string>
     <string name="label_promise_time">Promise a time</string>
+    <!-- %1$s: the day of a Circle member's next catch-up, "Sat 09:00" -->
+    <string name="to_call_catch_up_at">Next catch-up · %1$s</string>
+    <!-- Next up: the To call strip's "now" lines at the top of Recents. %1$s: a contact's name -->
+    <string name="next_up_label">Next up</string>
+    <string name="next_up_birthday">%1$s\'s birthday is today</string>
+    <string name="next_up_anniversary">%1$s\'s anniversary is today</string>
+    <string name="next_up_good_time">%1$s might enjoy hearing from you</string>
+    <!-- %1$s: a Chapter's label, "Exams"; %2$s: a weekday, "Friday" -->
+    <string name="next_up_chapter_today">%1$s ends today</string>
+    <string name="next_up_chapter_tomorrow">%1$s ends tomorrow</string>
+    <string name="next_up_chapter_on">%1$s ends on %2$s</string>
+    <!-- "Open with them" on a contact's page: what is open with this person (To call, To talk about, promises) -->
+    <string name="open_with_them">Open with them</string>
+    <string name="open_with_them_you_promised">You promised</string>
+    <string name="open_with_them_to_call">On your To call list</string>
 </resources>

@@ -49,6 +49,8 @@ import app.parley.common.calls.VerifyCallBack
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.catching
 import app.parley.common.circle.Agenda
+import app.parley.common.circle.Occasion
+import app.parley.common.circle.Occasions
 import app.parley.common.circle.Promises
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
@@ -70,6 +72,7 @@ import app.parley.data.calls.ReputationLearner
 import app.parley.data.circle.CircleRepository
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.CallUsageEntity
+import app.parley.data.people.IcuCalendars
 import app.parley.data.people.NumberOwners
 import app.parley.data.vault.VaultCallChoices
 import app.parley.messaging.TemporaryContact
@@ -104,6 +107,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import java.time.ZoneId
 import app.parley.blocking.DialText as PlaceFailureText
 
@@ -159,11 +163,17 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 val notesOnLock = c.privacy.now().lockScreen.showsNotes
                 val memory = async { it.lookupKey?.let { k -> catching { memoryFor(k, it.contactId, number, notesOnLock) }.getOrNull() } }
                 val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
-                // Your Circle and, only when a "who" names a label, the labels: for auto-answer and the drive profile.
-                val who = async { whoFacts(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
+                // A birthday or anniversary today, and whether "Anything to remember?" offers the next catch-up.
+                val occasion = async { catching { occasionOf(it.contactId) }.getOrNull() }
+                val inCircle = async { it.lookupKey?.let { k -> catching { c.circle.isMember(k) }.getOrNull() } == true }
+                // Only when a "who" of auto-answer or the drive profile names a label: the labels.
+                val who = async { whoFacts(null) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
                 val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
-                val parts = CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await())
+                val parts = CallerParts(
+                    note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await(),
+                    occasion.await(), inCircle.await(),
+                )
                 Triple(parts, choices.await(), who.await())
             }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
@@ -179,8 +189,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 nativeName = parts.nativeName,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
                 favourite = it.starred,
-                inCircle = whoOf.inCircle, labels = whoOf.labels,
+                labels = whoOf.labels,
                 networkNameUnder = networkNamesOn(),
+                occasion = parts.occasion,
+                inCircle = parts.inCircle,
             )
         } ?: found.private?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
@@ -233,6 +245,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val alternative: String?,
         /** Their name in their own language. */
         val nativeName: String? = null,
+        val occasion: Occasion? = null,
+        val inCircle: Boolean = false,
     )
 
     /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */
@@ -354,6 +368,20 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 ToCallReminders.remind(app, number, null, ToCall.inDays(followUpDays, now, ZoneId.systemDefault()), ToCallSource.FOLLOW_UP, now)
             }
         }
+    }
+
+    /** A Circle member's next catch-up, from "Anything to remember?": their To call item, a date kept for yourself. */
+    override fun setCatchUp(number: String, at: Long) {
+        c.scope.launch { catching { ToCallReminders.catchUp(app, number, at) } }
+    }
+
+    /**
+     * Today's birthday or anniversary of [contactId] ([Occasions]), for the call screen's quiet line; a date kept in
+     * another calendar counts on the day it falls this year.
+     */
+    private fun occasionOf(contactId: Long): Occasion? {
+        val dates = c.contacts.events(contactId).map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }
+        return Occasions.today(dates, LocalDate.now(), IcuCalendars)
     }
 
     /** "Decline & remind" and the post-call card's "Remind me": the To call list. */

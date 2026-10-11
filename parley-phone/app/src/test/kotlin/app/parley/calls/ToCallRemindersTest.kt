@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
 import app.parley.common.NotificationIds
+import app.parley.common.calls.CatchUp
 import app.parley.common.calls.ToCall
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
@@ -118,5 +119,20 @@ class ToCallRemindersTest {
         val first = infos().single().id
         ToCallReminders.update(context) { it }
         assertEquals(listOf(first), infos().map { it.id })
+    }
+
+    /** A Circle member's next catch-up replaces what the call just settled, kept for yourself and never said back. */
+    @Test fun a_catch_up_is_kept_for_yourself_on_their_to_call_item() = runBlocking {
+        val now = System.currentTimeMillis()
+        val number = "+1 202 555 0100"
+        ToCallReminders.remind(context, number, null, at = now - 60_000, now = now - 120_000)
+        val at = now + 7 * 24 * 3_600_000L
+        assertTrue(ToCallReminders.catchUp(context, number, at, now))
+        val item = c.toCall.state.value.items.single()
+        assertEquals(at, item.at)
+        assertEquals(now, item.since)
+        assertEquals(false, item.promised?.told)
+        assertEquals(at, CatchUp.of(c.toCall.state.value, listOf(item.key)))
+        assertEquals(null, ToCall.promisedTo(c.toCall.state.value, item.key))
     }
 }

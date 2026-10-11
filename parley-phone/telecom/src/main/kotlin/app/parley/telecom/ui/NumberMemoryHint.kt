@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.parley.common.calls.CallerLine
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
 import app.parley.ui.Spacing
@@ -44,12 +45,16 @@ internal fun NumberMemoryHint(call: CallUi) {
     }
 }
 
-/** The quiet lines under a caller: what Parley remembers about the number, and a time you promised them. */
+/**
+ * The quiet lines under a caller: what Parley remembers about the number, a time you promised them and a birthday
+ * today, each only when [lines] keeps it (while ringing, at most three lines show).
+ */
 @Composable
-internal fun CallerHints(call: CallUi) {
-    NumberMemoryHint(call)
+internal fun CallerHints(call: CallUi, lines: Set<CallerLine>) {
+    if (CallerLine.NUMBER_MEMORY in lines) NumberMemoryHint(call)
     // Under a safety card the promise follows it (InCallScreen's SafetyLine): the safety line comes first.
-    if (!call.hasSafetyCard) PromisedHint(call)
+    if (!call.hasSafetyCard && CallerLine.PROMISED in lines) PromisedHint(call)
+    if (CallerLine.OCCASION in lines) OccasionLine(call)
 }
 
 /**

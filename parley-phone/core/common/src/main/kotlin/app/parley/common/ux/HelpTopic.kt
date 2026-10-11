@@ -51,6 +51,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** They'll call me back: after a call and Remind me to call; a line that hasn't called back shows in To call. */
     CALLBACK_WATCH(CapabilityTarget.Screen(AppScreen.TO_CALL), explainsFeature = true),
+
+    /** Next up: the strip at the top of Recents, which grew out of To call's. */
+    NEXT_UP(CapabilityTarget.Screen(AppScreen.TO_CALL), explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */
