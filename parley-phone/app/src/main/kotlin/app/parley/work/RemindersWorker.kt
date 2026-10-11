@@ -22,7 +22,6 @@ import app.parley.common.ContactSummary
 import app.parley.common.EventDate
 import app.parley.common.NotificationChannels
 import app.parley.common.PhoneIdentity
-import app.parley.common.catching
 import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
