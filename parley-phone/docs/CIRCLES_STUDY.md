@@ -239,3 +239,5 @@ It fits around AUDIT_3 §9. 6.5 is merged (`fb002282`), so the next release is 6
 | C9 | Show people starred only for Do Not Disturb apart from chosen favourites (FC-1)? | **Yes**, in 6.6 |
 | C10 | Merge the two widgets (FC-6)? | **Optional**, 6.9. Do it if the code merge (round 2 A21) is wanted anyway |
 | C11 | Borrow any Bondwidth code (GPL-3.0-only)? | **No need.** Everything here builds on Parley's own code; if a snippet is ever reused, keep its file header and attribution |
+
+**Owner decisions (11 Oct 2026):** C1–C10 accepted as recommended. CI-0 shipped in 6.5; FC-1 goes into 6.6; the rest follow the plan above.
