@@ -4,6 +4,7 @@ import app.parley.common.calls.AutoAnswer.Facts
 import app.parley.common.calls.AutoAnswer.Reason
 import app.parley.common.calls.DriveProfile.Caller
 import app.parley.common.calls.DriveProfile.Connected
+import app.parley.common.who.Who
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -145,12 +146,12 @@ class DriveProfileTest {
         assertNull(DriveProfile.answerScope(cfg, true))
         val fav = cfg.copy(answerFavourites = true, answerSeconds = 10)
         assertNull(DriveProfile.answerScope(fav, false))
-        assertEquals(AutoAnswer.DriveScope(10, favourites = true, chosen = false), DriveProfile.answerScope(fav, true))
+        assertEquals(AutoAnswer.DriveScope(10, who = Who.FAVOURITES, chosen = false), DriveProfile.answerScope(fav, true))
     }
 
     @Test fun drive_auto_answer_reuses_the_safety_rules() {
         val off = CallExtrasConfig()
-        val scope = AutoAnswer.DriveScope(3, favourites = true, chosen = true)
+        val scope = AutoAnswer.DriveScope(3, who = Who.FAVOURITES, chosen = true)
         val fav = Facts(knownCaller = true, favourite = true, drive = scope)
         assertEquals(Reason.DRIVING, AutoAnswer.reason(off, fav))
         assertEquals(3, AutoAnswer.waitSeconds(off, Reason.DRIVING, fav))
@@ -158,7 +159,7 @@ class DriveProfileTest {
         // Not a favourite nor chosen, or not driving.
         assertNull(AutoAnswer.reason(off, Facts(knownCaller = true, drive = scope)))
         assertNull(AutoAnswer.reason(off, fav.copy(drive = null)))
-        assertNull(AutoAnswer.reason(off, fav.copy(drive = scope.copy(favourites = false))))
+        assertNull(AutoAnswer.reason(off, fav.copy(drive = scope.copy(who = null))))
         // Never unknown, hidden, blocked, during another call or an emergency.
         assertNull(AutoAnswer.reason(off, fav.copy(knownCaller = false)))
         assertNull(AutoAnswer.reason(off, fav.copy(hidden = true)))

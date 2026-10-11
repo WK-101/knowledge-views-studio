@@ -46,6 +46,13 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.situations.SituationArea
+import app.parley.common.who.Who
+import app.parley.common.who.WhoPlace
+import app.parley.common.who.WhoRules
+import app.parley.ui.situations.SituationOverrideBanner
+import app.parley.ui.situations.WhoRow
+import app.parley.ui.situations.rememberLabelRows
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.CarDevice
 import app.parley.common.calls.DriveProfile
@@ -79,7 +86,9 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
     fun set(f: (DriveProfileConfig) -> DriveProfileConfig) = store.update(transform = f)
 
-    SettingsScaffold(stringResource(R.string.label_drive_profile), back) {
+    // Driving › Your car: the drive profile lives inside the Driving Situation only.
+    SettingsScaffold(stringResource(R.string.label_your_car), back) {
+        SituationOverrideBanner(vm, SituationArea.DRIVE)
         Text(
             stringResource(R.string.drive_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
@@ -110,7 +119,7 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
         }
-        WhileConnected(cfg, ::set)
+        WhileConnected(cfg, rememberLabelRows(vm).keys, ::set)
     }
 }
 
@@ -136,7 +145,7 @@ private fun DeviceRow(row: DriveProfile.DeviceRow, onMark: (Boolean) -> Unit) {
 /** What happens while the car is connected; off (and explained) until a car is marked. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -> DriveProfileConfig) -> Unit) {
+private fun WhileConnected(cfg: DriveProfileConfig, labels: Collection<String>, set: ((DriveProfileConfig) -> DriveProfileConfig) -> Unit) {
     val on = cfg.enabled
     val answerSub = stringResource(R.string.drive_answer_sub)
     SegmentedGroup(stringResource(R.string.drive_group_while)) {
@@ -147,9 +156,12 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
             ) { v -> set { it.copy(announce = v) } }
         }
         item("answer_favourites") {
-            SwitchRow(stringResource(R.string.action_answer_favourites_automatically), answerSub, cfg.answerFavourites, Icons.Rounded.Star, on) { v ->
-                set { it.copy(answerFavourites = v) }
-            }
+            // The one "who" picker; Nobody is off. Favourites stays the stored switch, so an older version still answers.
+            val who = if (cfg.answerFavourites) WhoRules.answering(cfg.answerWho, Who.FAVOURITES) else null
+            WhoRow(
+                stringResource(R.string.action_answer_automatically), answerSub, Icons.Rounded.Star, who, WhoPlace.ANSWER, labels,
+                none = stringResource(R.string.who_nobody),
+            ) { w -> set { it.copy(answerFavourites = w != null, answerWho = w?.takeIf { x -> x != Who.FAVOURITES }) } }
         }
         item("answer_chosen") {
             SwitchRow(

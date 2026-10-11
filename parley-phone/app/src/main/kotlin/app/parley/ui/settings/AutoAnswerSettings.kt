@@ -32,6 +32,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.who.Who
+import app.parley.common.who.WhoPlace
+import app.parley.common.who.WhoRules
+import app.parley.ui.situations.WhoRow
+import app.parley.ui.situations.rememberLabelRows
+import app.parley.ui.situations.whoName
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.CallExtrasConfig
 import app.parley.ui.Destination
@@ -66,6 +72,7 @@ private fun autoAnswerSummary(cfg: CallExtrasConfig): String {
     if (!AutoAnswer.enabled(cfg)) return stringResource(R.string.dc_off)
     val parts = listOfNotNull(
         stringResource(R.string.set_auto_answer_headset).takeIf { cfg.autoAnswerHeadset },
+        cfg.autoAnswerWho?.takeIf { cfg.autoAnswerHeadset }?.let { whoName(WhoRules.answering(it, Who.CONTACTS)) },
         stringResource(R.string.set_auto_answer_simple).takeIf { cfg.autoAnswerSimple },
         stringResource(R.string.set_auto_answer_chosen).takeIf { cfg.autoAnswerChosen },
         pluralStringResource(R.plurals.set_auto_answer_after, cfg.autoAnswerSeconds, cfg.autoAnswerSeconds),
@@ -77,6 +84,7 @@ private fun autoAnswerSummary(cfg: CallExtrasConfig): String {
 @Composable
 private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss: () -> Unit) {
     fun set(f: (CallExtrasConfig) -> CallExtrasConfig) = vm.c.callExtras.update(transform = f)
+    val labels = rememberLabelRows(vm).keys
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.PhoneInTalk, null) },
@@ -90,6 +98,13 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
                     stringResource(R.string.set_auto_answer_headset_sub),
                     cfg.autoAnswerHeadset,
                 ) { v -> set { it.copy(autoAnswerHeadset = v) } }
+                if (cfg.autoAnswerHeadset) {
+                    // The one "who" picker: everyone you know, as before, or fewer.
+                    WhoRow(
+                        stringResource(R.string.set_auto_answer_headset_who), null, Icons.Rounded.People,
+                        WhoRules.answering(cfg.autoAnswerWho, Who.CONTACTS), WhoPlace.ANSWER, labels,
+                    ) { w -> set { it.copy(autoAnswerWho = w?.takeIf { x -> x != Who.CONTACTS }) } }
+                }
                 SituationRow(
                     Icons.Rounded.Accessibility,
                     stringResource(R.string.set_auto_answer_simple),

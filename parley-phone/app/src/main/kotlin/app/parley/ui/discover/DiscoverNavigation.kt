@@ -29,9 +29,9 @@ import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.settings.settingRoute
 import app.parley.ui.settings.CallsRoutes
-import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.situations.SituationRoutes
+import app.parley.common.situations.Situations
 import kotlinx.serialization.Serializable
 
 /** Tools, "Coming from another phone?" and Help & troubleshooting. */
@@ -105,7 +105,8 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.SIMS -> HistoryRoutes.Sims(plans = true)
     AppScreen.SIMPLE_MODE -> ExtrasRoutes.SimpleSetup
     AppScreen.INTRODUCE -> MessagingRoutes.Introduce
-    AppScreen.DRIVE_PROFILE -> DriveRoutes.Profile
+    // The drive profile lives inside Driving: its row opens the Driving Situation, where Your car is.
+    AppScreen.DRIVE_PROFILE -> SituationRoutes.Edit(Situations.DRIVING)
     AppScreen.PHONE_MENUS -> CallsRoutes.PhoneMenus
     AppScreen.SPEED_DIAL -> Routes.SpeedDial
     AppScreen.SHARED_LABELS -> SharedLabelRoutes.All

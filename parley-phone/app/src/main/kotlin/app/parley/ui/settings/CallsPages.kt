@@ -43,6 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.situations.SituationArea
+import app.parley.ui.situations.SituationOverrideBanner
 import app.parley.common.AnswerGesture
 import app.parley.common.SettingPlace
 import app.parley.common.calls.NetworkName
@@ -116,6 +118,8 @@ internal fun CallsSubPageScreen(vm: AppViewModel, page: CallsSubPage, focus: Str
         SettingsScaffold(stringResource(page.title), back) {
             // Answering and During calls happen on Parley's call screen: said in place when it isn't the phone app.
             if (page == CallsSubPage.ANSWERING || page == CallsSubPage.DURING) DefaultAppNote(vm, DefaultAppFeature.CALL_SCREEN)
+            // "Set by Meeting · Turn off" where the Situation on now sets this page's values.
+            page.situationArea?.let { SituationOverrideBanner(vm, it) }
             when (page) {
                 CallsSubPage.ANSWERING -> AnsweringPage(vm, open)
                 CallsSubPage.DURING -> DuringCallsPage(vm, open)
@@ -309,7 +313,7 @@ private fun SimsCarrierPage(open: (Destination) -> Unit) {
 
 /**
  * Calls › Situations: the Situations themselves (one tap sets a moment; the first row is where search lands), then the
- * rescue call, helpers and the drive profile. Nothing else: phone menus are on Keypad & dialling, call time on During
+ * rescue call and helpers (the drive profile is Driving's Your car). Nothing else: phone menus are on Keypad & dialling, call time on During
  * calls.
  */
 @Composable
@@ -335,8 +339,15 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             }
         }
     }
-    // Helpers to bring into a call.
+    // Helpers to bring into a call. The drive profile lives inside Driving (Your car), not here.
     FamilySafetyCallsGroup(vm, open)
-    // The drive profile.
-    OnTheRoadGroup(vm, open)
 }
+
+/** The values of this page a Situation may set while it is on, or null. */
+private val CallsSubPage.situationArea: SituationArea?
+    get() = when (this) {
+        CallsSubPage.ANSWERING -> SituationArea.ANSWERING
+        CallsSubPage.DURING -> SituationArea.DURING
+        CallsSubPage.SIMS -> SituationArea.SIMS
+        else -> null
+    }

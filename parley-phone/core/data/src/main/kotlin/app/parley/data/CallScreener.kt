@@ -28,6 +28,8 @@ import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.calls.NetworkName
 import app.parley.common.catching
+import app.parley.common.people.ContactRef
+import app.parley.common.who.WhoRules
 import app.parley.common.people.PrivateLabels
 import app.parley.common.security.Concealed
 import app.parley.common.spam.ParsedPack
@@ -108,6 +110,13 @@ class CallScreener(
      */
     @Volatile
     var situationsWatching: () -> Boolean = { false }
+
+    /**
+     * Whether the contact with this Parley key (a lookup key, or a private contact's key) is in Your Circle; asked only
+     * while off hours lets the Circle ring. Throws when it can't be read (off hours then lets them ring). Set by the container.
+     */
+    @Volatile
+    var inCircle: suspend (String) -> Boolean = { false }
 
     @Volatile
     var beforeScreen: (suspend () -> Unit)? = null
@@ -279,6 +288,8 @@ class CallScreener(
         /** A private contact's own ringtone and "send to voicemail" (sealed in its vault entry). */
         val privateTone: String? = null,
         val privateVoicemail: Boolean = false,
+        val inCircle: Boolean = false,
+        val circleFailed: Boolean = false,
     )
 
     /** What the contacts provider says about a number: a contact (with its row when it is a personal one), not one, or unknown. */
@@ -347,7 +358,8 @@ class CallScreener(
         }
         val needLabels = rules.any { it.enabled && it.type == RuleType.LABEL } || (s.offHours.enabled && s.offHours.allow == OffHoursAllow.LABEL) ||
             tones.isNotEmpty()
-        val who = if (isContact && !lookupFailed) caller(primary, iso, inContacts.firstOrNull(), inVault.firstOrNull(), needLabels) else Caller()
+        val needCircle = WhoRules.needsCircle(s.offHours)
+        val who = if (isContact && !lookupFailed) caller(primary, iso, inContacts.firstOrNull(), inVault.firstOrNull(), needLabels, needCircle) else Caller()
         val nf = NumberFacts.of(primary, iso)
         val emergency = EmergencyNumbers.isEmergency(context, primary)
         val lookup = if (!isContact) listLookup?.await()?.getOrThrow() else null
@@ -366,6 +378,8 @@ class CallScreener(
             isEmergency = emergency,
             contactLookupFailed = lookupFailed,
             contactStarred = who.starred,
+            contactInCircle = who.inCircle,
+            circleLookupFailed = who.circleFailed,
             contactLabels = who.labels,
             labelLookupFailed = who.labelFailed,
             callerName = req.callerName,
@@ -393,27 +407,45 @@ class CallScreener(
         val ringtone: String? = null,
         val privateTone: String? = null,
         val privateVoicemail: Boolean = false,
+        val inCircle: Boolean = false,
+        val circleFailed: Boolean = false,
     )
 
     /**
      * The contact behind [primary], from the answers already gathered ([contact], [private]; a replay, which knew the
-     * contact already, asks now). Labels are read only when [needLabels].
+     * contact already, asks now). Labels are read only when [needLabels], Circle membership only when [needCircle].
      */
     @Suppress("TooGenericExceptionCaught") // Labels that can't be read are a fact of their own (labelLookupFailed).
-    private suspend fun caller(primary: String, iso: String, contact: ContactAnswer?, private: VaultAnswer?, needLabels: Boolean): Caller = try {
+    private suspend fun caller(
+        primary: String, iso: String, contact: ContactAnswer?, private: VaultAnswer?, needLabels: Boolean, needCircle: Boolean,
+    ): Caller = try {
         val personal = ((contact ?: withContext(Dispatchers.IO) { contactLookup(primary) }) as? ContactAnswer.Found)?.bits
         if (personal != null) {
             // Titles in every account: label rules, off hours and ringtones name labels by title.
             val labels = if (needLabels) labelsOf(personal.id) else emptySet()
-            Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone)
+            val circle = if (needCircle) circleOf(personal.lookupKey) else null
+            val circleFailed = needCircle && circle == null
+            Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone, inCircle = circle == true, circleFailed = circleFailed)
         } else {
-            privateCaller((private ?: vaultLookup(primary, iso))?.hit, needLabels)?.let { p ->
-                Caller(p.name, p.starred, p.labels, privateTone = p.ringtone, privateVoicemail = p.sendToVoicemail)
-            } ?: Caller()
+            privateCallerOf((private ?: vaultLookup(primary, iso))?.hit, needLabels, needCircle)
         }
     } catch (_: Exception) {
-        Caller(labelFailed = true)
+        Caller(labelFailed = true, circleFailed = needCircle)
     }
+
+    /** A private contact's [Caller] (or none: [Caller] of nobody), its Circle membership read only when [needCircle]. */
+    private suspend fun privateCallerOf(hit: Pair<Long, CallerInfo>?, needLabels: Boolean, needCircle: Boolean): Caller {
+        val p = privateCaller(hit, needLabels) ?: return Caller()
+        val circle = if (needCircle && hit != null) circleOf(ContactRef.privateKey(hit.first)) else null
+        return Caller(
+            p.name, p.starred, p.labels, privateTone = p.ringtone, privateVoicemail = p.sendToVoicemail,
+            inCircle = circle == true, circleFailed = needCircle && hit != null && circle == null,
+        )
+    }
+
+    /** Whether [key] is in Your Circle; null when it can't be read (or the contact has no key). */
+    private suspend fun circleOf(key: String?): Boolean? =
+        key?.takeIf { it.isNotEmpty() }?.let { k -> catching { withContext(Dispatchers.IO) { inCircle(k) } }.getOrNull() }
 
     private suspend fun blockedTimes(number: String, at: Long, s: ScreeningSettings): List<Long> =
         runCatching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
@@ -480,7 +512,7 @@ class CallScreener(
             .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
     }
 
-    private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?)
+    private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?, val lookupKey: String? = null)
 
     private class PrivateCaller(val name: String?, val starred: Boolean, val labels: Set<String>, val ringtone: String?, val sendToVoicemail: Boolean)
 
@@ -510,9 +542,10 @@ class CallScreener(
                 ContactsContract.PhoneLookup.DISPLAY_NAME,
                 ContactsContract.PhoneLookup.STARRED,
                 ContactsContract.PhoneLookup.CUSTOM_RINGTONE,
+                ContactsContract.PhoneLookup.LOOKUP_KEY,
             ),
             null, null, null,
-        )?.use { c -> if (c.moveToFirst()) ContactBits(c.getLong(0), c.getString(1), c.getInt(2) != 0, c.getString(3)) else null }
+        )?.use { c -> if (c.moveToFirst()) ContactBits(c.getLong(0), c.getString(1), c.getInt(2) != 0, c.getString(3), c.getString(4)) else null }
     }
 
     /** What was already logged, counted and notified for a number screened moments ago. */

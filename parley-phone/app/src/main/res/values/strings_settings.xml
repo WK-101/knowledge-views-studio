@@ -755,6 +755,7 @@
     <string name="set_auto_answer_body">Only people in your contacts, private contacts included. Never unknown numbers, blocked or likely spam calls, and never during another call. A countdown with Cancel shows first.</string>
     <string name="set_auto_answer_headset">With a headset or Bluetooth</string>
     <string name="set_auto_answer_headset_sub">A headset, earbuds or a car kit that takes calls is connected (not a speaker that only plays music)</string>
+    <string name="set_auto_answer_headset_who">Who is answered with a headset</string>
     <string name="set_auto_answer_simple">In simple mode</string>
     <string name="set_auto_answer_simple_sub">While simple mode is on</string>
     <string name="set_auto_answer_chosen">For chosen people and labels</string>

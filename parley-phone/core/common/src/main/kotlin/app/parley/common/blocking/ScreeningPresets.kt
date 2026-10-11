@@ -2,12 +2,12 @@ package app.parley.common.blocking
 
 import app.parley.common.AppSettings
 import app.parley.common.BlockAction
-import app.parley.common.OffHours
-import app.parley.common.OffHoursAllow
 import app.parley.common.Schedule
 import app.parley.common.ScreeningSettings
 import app.parley.common.TraceMark
 import app.parley.common.TraceStep
+import app.parley.common.situations.Situation
+import app.parley.common.situations.Situations
 
 /**
  * The quick setups of Blocking & screening: situations, not mechanisms. Each changes a few switches; [current] names
@@ -30,11 +30,8 @@ enum class ScreeningPreset {
             ),
         )
         TELEMARKETERS -> a.copy(screening = a.screening.copy(blockFailedVerification = true, blockInvalid = true, blockNonContacts = false))
-        NIGHTS -> a.copy(
-            screening = a.screening.copy(
-                offHours = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.CONTACTS),
-            ),
-        )
+        // The Night Situation carries it (on by itself from 22:00 to 07:00, contacts ring): see [situation].
+        NIGHTS -> a
         EVERYONE -> a.copy(
             screening = a.screening.copy(
                 blockNonContacts = false, blockHidden = false, blockInvalid = false, blockFailedVerification = false,
@@ -43,22 +40,36 @@ enum class ScreeningPreset {
         )
     }
 
+    /**
+     * What this setup does to the Night Situation: Quiet nights is the Night Situation switching on by itself at night
+     * ([Situations.quietNights]); "Everyone can ring" stops it switching on by itself (it can still be switched on by
+     * hand). Null for the others, which leave it alone.
+     */
+    fun situation(night: Situation): Situation? = when (this) {
+        NIGHTS -> Situations.quietNights(night)
+        EVERYONE -> night.copy(schedule = null).takeIf { night.schedule != null }
+        else -> null
+    }
+
     /** The schedule for unknown callers this setup would remove from [s] (null: none), for the confirm dialog. */
     fun removedSchedule(s: ScreeningSettings): Schedule? = if (this == KNOWN) s.nonContactsSchedule else null
 
     companion object {
         /**
          * The setups [s] matches, in display order; empty when the switches are a mix of their own. "Only people I
-         * know" covers "Stop telemarketers" (strangers are silenced anyway), and "Quiet nights" adds to either.
+         * know" covers "Stop telemarketers" (strangers are silenced anyway), and "Quiet nights" adds to either: it is
+         * the Night Situation switching on by itself ([nightScheduled]), or off hours of one's own.
          */
-        fun current(s: ScreeningSettings): List<ScreeningPreset> {
+        private fun nothingOn(s: ScreeningSettings): Boolean = !s.blockNonContacts && !s.blockHidden && !s.blockInvalid &&
+            !s.blockFailedVerification && !s.blockNeighbourSpoofing && !s.offHours.enabled
+
+        fun current(s: ScreeningSettings, nightScheduled: Boolean = false): List<ScreeningPreset> {
             val known = s.blockNonContacts && s.nonContactsSchedule == null
-            val nothingOn = !s.blockNonContacts && !s.blockHidden && !s.blockInvalid && !s.blockFailedVerification &&
-                !s.blockNeighbourSpoofing && !s.offHours.enabled
+            val nothingOn = nothingOn(s) && !nightScheduled
             return buildList {
                 if (known) add(KNOWN)
                 if (!known && s.blockFailedVerification && s.blockInvalid) add(TELEMARKETERS)
-                if (s.offHours.enabled) add(NIGHTS)
+                if (s.offHours.enabled || nightScheduled) add(NIGHTS)
                 if (nothingOn) add(EVERYONE)
             }
         }

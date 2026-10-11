@@ -3499,6 +3499,39 @@ Automated: `RingingLinesTest` (core:common: three lines at most while ringing, s
 5. An unsaved number with a "Looks like a sales line" tag, number memory and "Rang through": all three show; nothing else is added.
 6. On a small phone (or the largest font), the answer slider is never covered. With TalkBack, the lines that show are read in order.
 
+### 51.11 One night: Quiet nights is the Night situation
+Automated: `OneNightTest` (core:common: the move, no behaviour lost in and out of the window, anything else left alone, the presets and Night, which pages a Situation controls), `ScreeningPresetsTest`, `SituationsControllerTest.quiet_nights_move_into_night_once` (core:data).
+1. On a build before 6.7, apply Blocking & screening › **Quiet nights** (off hours 22:00–07:00, contacts ring). Update to 6.7 and open Parley once. Calls › Situations › **Night** now reads "Turns on Every day 22:00–07:00" with Who may ring **Contacts**; Blocking & screening › Off hours is **Off**; the Night row beside it reads "Situation · Every day 22:00–07:00 · who may ring: Contacts".
+2. At 23:00, ring from an unsaved number: it rings silently and shows as missed; ring from a contact: it rings. At 08:00 both ring. The silent notice "Night is on" shows during the window.
+3. Repeat step 1 with off hours of your own (23:00–06:00, or Favourites, or Decline): nothing moves; Night is unchanged. With Night changed before the update (a reply set), nothing moves either. With a Situation on during the update, nothing moves until the next start after it goes off.
+4. On a fresh install, Blocking & screening › **Quiet nights** › Use this: Night gets its 22:00–07:00 window (inside the window it turns on at once). **Everyone can ring** afterwards stops Night turning on by itself; Night can still be turned on by hand.
+5. First run, Basics: choose Quiet nights: the same as step 4.
+6. Tap the Night row on Blocking & screening: Night's editor opens.
+
+### 51.12 "Set by" banner, and the drive profile inside Driving
+Automated: `OneNightTest.a_situation_says_which_pages_it_controls` (core:common).
+1. Turn on **Meeting** by hand. Blocking & screening and Calls › Answering show "Set by Meeting. Changes you make here stay after it goes off." with **Turn off**; Calls › During calls and Calls › SIMs don't. Tap Turn off: the banner goes and your own off hours come back.
+2. Give a Situation "Start calls on speaker: Always" and a SIM, turn it on: During calls and SIMs show its banner. Driving on: Driving › Your car shows it.
+3. Calls › Situations no longer has an "On the road" group. Tools › **Your car** and Settings search for "android auto" open the Driving situation; Your car is its last row of In the car. Other Situations' editors have no In the car group (one that already sets the car's switches keeps it).
+4. With TalkBack, the banner reads its text, then "Turn off". Check in dark mode, right to left and at the largest font (the text wraps; the button stays reachable).
+
+### 51.13 One "who" picker
+Automated: `WhoTest` (core:common: the choices and their order, who is in, off hours storing Your Circle as Favourites plus a flag and an older version reading Favourites, an unknown choice reading as Favourites, off hours letting the Circle ring and failing open, auto-answer and the drive profile, labels followed or gone).
+1. Situations › Meeting › Who may ring, off hours' Who may still ring, Calls › Answering › Answer automatically › With a headset › Who is answered with a headset, and Driving › Your car › Answer automatically: each offers the same choices in the same order (Everyone only for Situations; As it is or Nobody first where it applies), and never more than seven items. **A label…** opens Choose a label.
+2. The Situations and off hours rows say "Your Circle and labels work in Parley's own screening. Android's own Do Not Disturb lets only Favourites through."
+3. Off hours on all day, Who may still ring: **Your Circle**. A contact in your Circle rings; a starred contact not in it rings silently; a private contact in your Circle rings (private contacts shown and hidden).
+4. Auto-answer with a headset for **Your Circle**: a Circle contact is answered after the countdown, another contact isn't. Your car's Answer automatically **Label: Family**: a Family member is answered in the car, others aren't. Rename Family to Home on its label page: the choice reads Label: Home. Delete it: it reads Favourites.
+5. Back up with off hours on Your Circle and restore on a 6.6 phone: the backup restores, off hours lets Favourites ring.
+
+### 51.14 Booking pocket
+Automated: `BookingCodesTest` (core:common: named codes first, never a card, phone number, date or time, codes by shape unticked, letters alone only when named, at most eight, grouped to read out).
+1. Share a booking email's text (or an SMS) to Parley from Gmail or Messages (Share › Parley). The sheet offers **Keep the codes in a case file** ("2 codes found · shown when you call them"). The card number and the phone number in the text are never offered.
+2. Tap it: the named codes are ticked, a code found by its shape alone isn't. Under Which organisation?, a case file with a number from the text is chosen already ("Has a number in the text"); others and Find a contact are below. The button names the organisation ("Keep in Sky Air's case file"); with nothing chosen it reads "Choose the organisation first" and is off.
+3. Keep: "2 codes kept in Sky Air's case file". Its case file lists them as reference numbers, hidden until Show. For a contact without a case file, one is started (as Keep a case file).
+4. Call Sky Air: under the caller (and over the keypad), "Your codes for them" lists "Booking reference · •••• R2B". **Show** opens the code large and grouped ("QX7 R2B") with Copy; the Android 13+ clipboard preview hides it. Have Sky Air call you: the card shows once answered, not while ringing.
+5. Not on the lock screen, not while Parley's app lock is locked, not after a duress unlock (case files hidden; the share sheet doesn't offer the codes either), and a private contact's codes only while private contacts show.
+6. TalkBack reads each code's row, then "Show"; in the read-out view it reads the code character by character. Check dark mode, right to left (the code stays left to right) and the largest font.
+
 ### 51.15 Circle at a glance
 Automated: `KeepInTouchTest.glance_hides_below_four_and_keeps_only_counts_while_insights_are_hidden` (core:common), `DuressWalkTest.a_duress_unlock_hides_every_relationship_insight` (app).
 1. With three people in the Circle, open the Circle: no header, the list as before. Add a fourth: above the list, three chips read "1 due", "1 soon", "2 fine" (whatever matches the rows' own chips), then "In touch with 3 of 4 this month" with "· up from 1" only when this month is higher than the month before, and, when you had calls this month, "38% of your talk time this month was with your Circle". No score, no colours beyond the chips.

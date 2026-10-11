@@ -109,6 +109,8 @@ object SituationTriggers {
             )
         }
         c.scope.launch {
+            // Once: the Quiet nights preset becomes the Night Situation, before the triggers are looked at.
+            suspendRunCatching { c.situations.moveQuietNights() }
             suspendRunCatching { c.situations.reconcile() }
             // After a reboot the notice is gone while the Situation is still on.
             SituationNotice.update(app, c.situations)

@@ -58,6 +58,7 @@ import app.parley.common.memory.NumberMemory
 import app.parley.common.people.ArchivedCard
 import app.parley.common.people.CallerCard
 import app.parley.common.people.ContactRef
+import app.parley.common.who.WhoChoice
 import app.parley.common.people.NameOrder
 import app.parley.common.spam.RangeProposal
 import app.parley.data.DataContainer
@@ -150,7 +151,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             val lastFirst = c.settings.settings.value.showNamesLastFirst
             // The extra reads run side by side, so they stay well inside the call path's lookup time (a timeout there
             // treats a contact as unknown).
-            val (parts, choices) = coroutineScope {
+            val (parts, choices, whoOf) = coroutineScope {
                 // The agenda's items have a card of their own, with their own lock-screen rules.
                 val note = async { it.lookupKey?.let { k -> Agenda.withoutItems(c.meta.meta(k)?.pinnedNote) } }
                 // Job and company under the name.
@@ -165,12 +166,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // A birthday or anniversary today, and whether "Anything to remember?" offers the next catch-up.
                 val occasion = async { catching { occasionOf(it.contactId) }.getOrNull() }
                 val inCircle = async { it.lookupKey?.let { k -> catching { c.circle.isMember(k) }.getOrNull() } == true }
+                // Only when a "who" of auto-answer or the drive profile names a label: the labels.
+                val who = async { whoFacts(null) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
                 val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
-                CallerParts(
+                val parts = CallerParts(
                     note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await(),
                     occasion.await(), inCircle.await(),
-                ) to choices.await()
+                )
+                Triple(parts, choices.await(), who.await())
             }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
             val photo = showsPhoto(it.lookupKey)
@@ -185,6 +189,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 nativeName = parts.nativeName,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
                 favourite = it.starred,
+                labels = whoOf.labels,
                 networkNameUnder = networkNamesOn(),
                 occasion = parts.occasion,
                 inCircle = parts.inCircle,
@@ -197,6 +202,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             val card = c.vault.callerCard(id)
             // Its vibration, auto-answer and labels are in the same caller-ID copy (readable while the phone is locked).
             val choices = callerChoices(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
+            val who = whoFacts(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
             CallerDisplay(
                 // "Show names as" last name first, as for the address book's contacts above.
                 NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),
@@ -204,6 +210,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
                 pronouns = card?.pronouns, nativeName = card?.nativeName, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
                 favourite = info.starred,
+                inCircle = who.inCircle, labels = who.labels,
                 // Its own ringtone reaches Parley's ringer through screening already.
                 // Reached only while its name may show (discreet mode and a duress session returned above).
                 networkNameUnder = networkNamesOn(),
@@ -259,6 +266,19 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             vibration = CallerHaptics.resolve(own.vibration, titles, labelPolicies.mapNotNull { (t, p) -> p.vibration?.let { t to it } }.toMap()),
             autoAnswer = own.autoAnswer || CallerChoices.labelAutoAnswer(titles, labelPolicies),
         )
+    }
+
+    /** What the "who" of auto-answer and the drive profile needs to know about a caller. */
+    private class CallerWho(val inCircle: Boolean = false, val labels: Set<String> = emptySet())
+
+    /**
+     * Whether [key] is in Your Circle, and their labels (read only when auto-answer or the drive profile answers a
+     * label). Nothing when it can't be read: the caller is then answered only by the other choices.
+     */
+    private suspend fun whoFacts(key: String?, labels: suspend () -> Set<String>): CallerWho {
+        val circle = key?.let { k -> catching { c.meta.meta(k)?.reachOutDays != null }.getOrDefault(false) } == true
+        val byLabel = listOf(c.callExtras.config.value.autoAnswerWho, c.driveProfile.config.value.answerWho).any { it?.choice == WhoChoice.LABEL }
+        return CallerWho(circle, if (byLabel) catching { labels() }.getOrDefault(emptySet()) else emptySet())
     }
 
     override fun autoAnswer(): CallExtrasConfig = c.callExtras.config.value

@@ -11,4 +11,14 @@
     <string name="incall_case_reference_hide">Hide the number</string>
     <string name="incall_case_reference_kept">Kept in the case file</string>
     <string name="incall_case_reference_not_kept">Couldn\'t keep it. Try again after the call.</string>
+    <!-- Booking pocket: the organisation's codes, under the caller and over the keypad, when you call them or they call you. -->
+    <string name="incall_case_codes_title">Your codes for them</string>
+    <!-- A code, hidden. %1$s what it is ("Booking reference"), %2$s its last characters ("•••• 2B"). -->
+    <string name="incall_case_code_hidden">%1$s · %2$s</string>
+    <string name="incall_case_code_show">Show</string>
+    <string name="incall_case_code_read_out">Read it out</string>
+    <string name="incall_case_code_copy">Copy</string>
+    <string name="incall_case_code_copied">Copied</string>
+    <string name="incall_case_code_unopened">Couldn\'t open it right now</string>
+    <string name="incall_case_code_close">Done</string>
 </resources>

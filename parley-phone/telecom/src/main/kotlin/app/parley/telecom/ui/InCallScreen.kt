@@ -454,6 +454,8 @@ private fun AgendaUnderCaller(s: ScreenState, lines: Set<CallerLine>) {
     val primary = s.primary?.takeIf { it.id == s.shown?.id } ?: return
     // Read even while ringing leaves it no room, so it can count for the lines and show once answered.
     if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m), visible = CallerLine.AGENDA in lines)
+    // The booking pocket: the organisation's codes, hidden until Show (over the keypad while it is open).
+    if (!s.keypadOpen) CaseCodesCard(primary, Modifier.padding(top = Spacing.m))
 }
 
 /**
@@ -825,6 +827,8 @@ private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
         // "Last time: 2 › 1 › 4" with Replay, for a number Parley remembers menu digits for.
         MenuMemoryRow(call)
+        // The codes kept for this organisation, to type or read out.
+        CaseCodesCard(call, Modifier.padding(bottom = Spacing.s))
         Text(
             Bidi.ltr(typed), style = ParleyType.typedDigits, maxLines = 1,
             overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurface,

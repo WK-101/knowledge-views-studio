@@ -48,8 +48,8 @@ data class BasicsChoice(
  */
 object Basics {
     /** What the questions start on: the settings as they are now (on a fresh install, everyone rings, tabs apart). */
-    fun current(a: AppSettings): BasicsChoice = BasicsChoice(
-        screening = ScreeningPreset.current(a.screening).firstOrNull(),
+    fun current(a: AppSettings, nightScheduled: Boolean = false): BasicsChoice = BasicsChoice(
+        screening = ScreeningPreset.current(a.screening, nightScheduled).firstOrNull(),
         forSomeoneElse = false,
         layout = layoutOf(a.surfaces),
     )

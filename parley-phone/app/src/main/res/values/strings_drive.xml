@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Settings › Calls › Drive profile: the cars the user marks and what Parley does while one is connected. -->
 <resources>
-    <string name="set_drive_profile_summary">When your car connects: hear who\'s calling, answer favourites, reply that you\'re driving</string>
+    <string name="set_drive_profile_summary">When your car connects: hear who\'s calling, answer the people you choose, reply that you\'re driving</string>
     <string name="set_drive_profile_kw">car, driving, drive, bluetooth, android auto, announce, say caller name, hands-free, handsfree, auto answer, silence unknown, driving reply</string>
-    <!-- Settings › Calls: the group holding the drive profile and the settings for abroad -->
-    <string name="set_group_on_the_road">On the road</string>
     <!-- %1$s: the car's Bluetooth name, or several joined with " · " -->
     <string name="drive_summary_cars">On for %1$s</string>
 
-    <string name="drive_intro">Mark your car\'s Bluetooth. While it\'s connected, Parley can say who\'s calling, answer favourites for you and offer replies like \"I\'m driving\". It turns off when the car disconnects. No location is used.</string>
+    <string name="drive_intro">Mark your car\'s Bluetooth. While it\'s connected, Parley can say who\'s calling, answer the people you choose and offer replies like \"I\'m driving\". It turns off when the car disconnects. No location is used.</string>
     <string name="label_your_car">Your car</string>
     <string name="drive_connected_now">Connected now</string>
     <!-- A car the user marked that isn't paired with the phone any more -->
@@ -28,7 +26,6 @@
     <string name="drive_group_while">While the car is connected</string>
     <string name="drive_announce">Say who\'s calling</string>
     <string name="drive_announce_sub">Once, through the car, for your contacts. Not while the phone is on silent or Do Not Disturb.</string>
-    <string name="action_answer_favourites_automatically">Answer favourites automatically</string>
     <string name="drive_answer_chosen">Answer people chosen for auto-answer</string>
     <string name="drive_answer_chosen_sub">Chosen on their page or their label\'s page</string>
     <string name="drive_answer_sub">With a countdown and Cancel on the call screen. Never during another call.</string>

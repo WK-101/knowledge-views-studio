@@ -1,5 +1,9 @@
 package app.parley.common.calls
 
+import app.parley.common.who.Who
+import app.parley.common.who.WhoFacts
+import app.parley.common.who.WhoRules
+
 /**
  * Auto-answer (Settings › Calls › Answer automatically). Off by default. When one of the chosen situations applies
  * (a headset or Bluetooth device is connected, simple mode is on, or the caller is a person or in a label chosen on
@@ -17,9 +21,9 @@ object AutoAnswer {
 
     /**
      * The drive profile's own auto-answer ([DriveProfile]): only while a car marked in Settings › Calls › Drive profile
-     * is connected, for favourites and/or the people chosen for auto-answer, after its own [seconds].
+     * is connected, for [who] (null: nobody that way) and/or the people chosen for auto-answer, after its own [seconds].
      */
-    data class DriveScope(val seconds: Int, val favourites: Boolean, val chosen: Boolean)
+    data class DriveScope(val seconds: Int, val who: Who?, val chosen: Boolean)
 
     /** What the call path knows when the caller has been looked up. */
     data class Facts(
@@ -39,11 +43,18 @@ object AutoAnswer {
         val chosen: Boolean = false,
         /** The caller is a favourite (a starred contact, or a private contact with Parley's star). */
         val favourite: Boolean = false,
+        /** The caller is in Your Circle. */
+        val inCircle: Boolean = false,
+        /** The caller's labels (titles, every account). */
+        val labels: Set<String> = emptySet(),
         /** Set only while the drive profile's car is connected and its auto-answer is on. */
         val drive: DriveScope? = null,
     ) {
         /** A call never answered on its own, whatever is switched on. */
         val excluded: Boolean get() = listOf(hidden, blockedOrSpam, otherCall, emergency).any { it }
+
+        /** The caller as the "who" picker sees them. */
+        val who: WhoFacts get() = WhoFacts(knownCaller, favourite, inCircle, labels)
     }
 
     /** The reason to answer automatically, or null to let the call ring as usual. */
@@ -53,7 +64,7 @@ object AutoAnswer {
         if (drives(f)) return Reason.DRIVING
         return when {
             cfg.autoAnswerChosen && f.chosen -> Reason.CHOSEN
-            cfg.autoAnswerHeadset && f.headsetConnected -> Reason.HEADSET
+            cfg.autoAnswerHeadset && f.headsetConnected && WhoRules.includes(WhoRules.answering(cfg.autoAnswerWho, Who.CONTACTS), f.who) -> Reason.HEADSET
             cfg.autoAnswerSimple && f.simpleMode -> Reason.SIMPLE_MODE
             else -> null
         }
@@ -62,10 +73,10 @@ object AutoAnswer {
     /** Whether any auto-answer situation is switched on (the call path skips the checks otherwise). */
     fun enabled(cfg: CallExtrasConfig): Boolean = cfg.autoAnswerHeadset || cfg.autoAnswerSimple || cfg.autoAnswerChosen
 
-    /** The drive profile's scope covers this caller (a favourite, or chosen). */
+    /** The drive profile's scope covers this caller (its "who", or chosen). */
     private fun drives(f: Facts): Boolean {
         val d = f.drive ?: return false
-        return (d.favourites && f.favourite) || (d.chosen && f.chosen)
+        return (d.who != null && WhoRules.includes(d.who, f.who)) || (d.chosen && f.chosen)
     }
 
     /** How long a call armed for [reason] rings first: the drive profile has its own wait. */

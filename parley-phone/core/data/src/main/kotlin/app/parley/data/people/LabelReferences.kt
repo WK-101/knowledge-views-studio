@@ -8,6 +8,8 @@ import app.parley.common.calltime.LimitRule
 import app.parley.common.extras.LabelPolicy
 import app.parley.common.OffHoursAllow
 import app.parley.common.RuleType
+import app.parley.common.who.Who
+import app.parley.common.who.WhoRules
 import app.parley.data.DataContainer
 import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +61,18 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.extras.labelsRenamed(renames)
         // A label's safe word follows it too.
         c.familySafety.labelsRenamed(renames)
+        // The "who" auto-answer and the drive profile answer.
+        whoLabels { WhoRules.renamed(it, renames) }
+    }
+
+    /** Applies [f] to the "who" of auto-answer and of the drive profile, writing only what changed. */
+    private fun whoLabels(f: (Who?) -> Who?) {
+        if (f(c.callExtras.config.value.autoAnswerWho) != c.callExtras.config.value.autoAnswerWho) {
+            c.callExtras.update { it.copy(autoAnswerWho = f(it.autoAnswerWho)) }
+        }
+        if (f(c.driveProfile.config.value.answerWho) != c.driveProfile.config.value.answerWho) {
+            c.driveProfile.update { it.copy(answerWho = f(it.answerWho)) }
+        }
     }
 
     /**
@@ -72,6 +86,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         prefs.update { s -> s.copy(labelRingtones = s.labelRingtones.filterKeys { !LabelRefs.refersTo(it, titles) }) }
         c.extras.labelsDeleted(titles)
         c.familySafety.labelsDeleted(titles)
+        whoLabels { WhoRules.labelsDeleted(it, titles) }
         val oh = c.settings.current().screening.offHours
         // While a Situation is on, off hours holds its values: what it puts back is the user's own (said below).
         val situationOn = c.situations.state.value.activeId != null

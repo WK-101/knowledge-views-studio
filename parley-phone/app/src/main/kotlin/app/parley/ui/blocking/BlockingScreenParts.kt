@@ -26,7 +26,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,7 +42,6 @@ import app.parley.blocking.BlockingNotifier
 import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
-import app.parley.common.LabelRefs
 import app.parley.common.NotifyLevel
 import app.parley.common.OffHours
 import app.parley.common.OffHoursAllow
@@ -54,13 +52,15 @@ import app.parley.common.Schedule
 import app.parley.common.ScreeningSettings
 import app.parley.common.blocking.ScreeningPreset
 import app.parley.common.blocking.ScreeningWeek
-import app.parley.data.GroupInfo
+import app.parley.common.who.WhoPlace
+import app.parley.common.who.WhoRules
+import app.parley.ui.situations.WhoRow
+import app.parley.ui.situations.rememberLabelRows
+import androidx.compose.material.icons.rounded.People
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -71,7 +71,7 @@ import androidx.compose.runtime.setValue
 @Composable
 internal fun offHoursWho(o: OffHours) = when (o.allow) {
     OffHoursAllow.CONTACTS -> stringResource(R.string.blk_who_contacts)
-    OffHoursAllow.FAVOURITES -> stringResource(R.string.blk_who_favourites)
+    OffHoursAllow.FAVOURITES -> stringResource(if (o.circle) R.string.who_circle else R.string.blk_who_favourites)
     OffHoursAllow.LABEL -> "'${o.labelTitle ?: stringResource(R.string.label_label_lower)}'"
 }
 
@@ -95,35 +95,14 @@ internal fun ToggleScheduleRow(title: String, schedule: Schedule?, onChange: (Sc
     if (open) ScheduleField(schedule, onChange)
 }
 
+/** Off hours' "Who may still ring": the one "who" picker (Contacts · Favourites · Your Circle · A label…). */
 @Composable
 internal fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> Unit) {
-    var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
-    LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        Text(stringResource(R.string.blk_who_may_ring), style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(
-                oh.allow == OffHoursAllow.CONTACTS,
-                { onChange(oh.copy(allow = OffHoursAllow.CONTACTS)) },
-                label = { Text(stringResource(R.string.blk_all_contacts)) },
-            )
-            FilterChip(
-                oh.allow == OffHoursAllow.FAVOURITES,
-                { onChange(oh.copy(allow = OffHoursAllow.FAVOURITES)) },
-                label = { Text(stringResource(R.string.label_favourites)) },
-            )
-            // By title: the label in every account.
-            groups.map { LabelRefs.key(it.title) }.distinct().forEach { t ->
-                val on = oh.allow == OffHoursAllow.LABEL && oh.labelTitle?.let { LabelRefs.key(it) } == t
-                FilterChip(on, { onChange(oh.copy(allow = OffHoursAllow.LABEL, labelId = null, labelTitle = t)) }, label = { Text(t) })
-            }
-        }
-        Text(
-            stringResource(R.string.blk_off_hours_still_through),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    val labels = rememberLabelRows(vm).keys
+    WhoRow(
+        stringResource(R.string.blk_who_may_ring), stringResource(R.string.blk_off_hours_still_through), Icons.Rounded.People,
+        WhoRules.ofOffHours(oh), WhoPlace.OFF_HOURS, labels,
+    ) { who -> who?.let { onChange(WhoRules.intoOffHours(oh, it)) } }
 }
 
 @Composable

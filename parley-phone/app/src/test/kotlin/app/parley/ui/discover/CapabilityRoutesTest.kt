@@ -137,6 +137,7 @@ class CapabilityRoutesTest {
             "$UI.family.FamilyRoutes.SafeWords" to "Family safe word, set on a label's page",
             "$UI.history.HistoryRoutes.Settings" to "an old link to Settings › Recents & history",
             "$UI.history.HistoryRoutes.Sim" to "one SIM's plan minutes",
+            "$UI.drive.DriveRoutes.Profile" to "Your car, inside the Driving situation (Tools › Your car opens Driving)",
             "$UI.history.HistoryRoutes.Case" to "an organisation's case file, from its card on the contact or number page",
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
@@ -154,7 +155,6 @@ class CapabilityRoutesTest {
             "$UI.sync.shared.SharedLabelRoutes.OpenFile" to "a shared label's Open an update, or a file opened in Parley",
             "$UI.sync.shared.SharedLabelRoutes.Shield" to "a shared label's Family spam shield, on the label's page",
             "$UI.timemachine.WatchRoutes.Restore" to "the sync watchdog's notification",
-            "$UI.situations.SituationRoutes.Edit" to "one Situation, a setting: Settings › Calls › Situations",
         )
     }
 }

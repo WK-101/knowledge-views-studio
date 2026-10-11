@@ -97,4 +97,22 @@
     <string name="sit_notice_text_until">Others ring silently and show as missed calls, until %1$s</string>
     <!-- On because a device is connected or the phone is abroad: it goes off by itself when that ends. -->
     <string name="sit_notice_text_while">Others ring silently and show as missed calls, until it turns off by itself</string>
+    <!-- The one "who" picker (Situations, off hours, auto-answer, Your car). -->
+    <string name="who_circle">Your Circle</string>
+    <string name="who_label_pick">A label…</string>
+    <!-- A chosen label in the picker. %1$s the label's name. -->
+    <string name="who_label_named">Label: %1$s</string>
+    <string name="who_nobody">Nobody</string>
+    <string name="who_pick_label_title">Choose a label</string>
+    <string name="who_no_labels">No labels yet. Make one in Contacts › Labels.</string>
+    <string name="who_dnd_note">Your Circle and labels work in Parley\'s own screening. Android\'s own Do Not Disturb lets only Favourites through.</string>
+
+    <!-- On a page whose values a Situation sets while it's on. %1$s its name ("Meeting"). -->
+    <string name="sit_set_by">Set by %1$s. Changes you make here stay after it goes off.</string>
+
+    <!-- Blocking & screening, beside off hours: the one night concept. %1$s when ("Every day 22:00–07:00"), %2$s who ("Contacts"). -->
+    <string name="sit_night_row_sub">Situation · %1$s · who may ring: %2$s</string>
+    <string name="sit_night_row_off">Situation · only by hand · tap to set its times</string>
+    <!-- Driving › Your car. -->
+    <string name="sit_drive_answer_sub">Only while your car is connected · who is chosen in Your car</string>
 </resources>

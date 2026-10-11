@@ -130,6 +130,8 @@ class DataContainer(context: Context) {
                 // found once per ring and shared with the call screen and everything else that asks.
                 s.archivedCaller = { n, iso -> numberOwners.archivedIn(n, iso).getOrNull() != null }
                 s.privateLookup = { n, iso -> numberOwners.privateIn(n, iso) }
+                // Off hours or a Situation letting Your Circle ring: membership is a keep-in-touch rhythm on the contact.
+                s.inCircle = { key -> meta.meta(key)?.reachOutDays != null }
             }
             // Windows from notes, the To call list and delivery QR codes count as "Expecting a call".
             .also { s ->

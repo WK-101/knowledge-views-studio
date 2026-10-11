@@ -168,9 +168,9 @@
     <string name="blk_preset_telemarketers">Stop telemarketers</string>
     <string name="blk_preset_telemarketers_help">Blocks spoofed and impossible numbers; strangers still ring.</string>
     <string name="blk_preset_nights">Quiet nights</string>
-    <string name="blk_preset_nights_help">From 22:00 to 07:00 only contacts ring; others are silenced.</string>
+    <string name="blk_preset_nights_help">The Night situation turns on from 22:00 to 07:00: only contacts ring, others are silenced. Change it in Calls › Situations › Night.</string>
     <string name="blk_preset_everyone">Let everyone ring</string>
-    <string name="blk_preset_everyone_help">Turns the checks off. Your own rules and lists stay as they are.</string>
+    <string name="blk_preset_everyone_help">Turns the checks off, and Night stops turning on by itself. Your own rules and lists stay as they are.</string>
     <string name="blk_need_own_number">Needed to know your own number</string>
     <string name="blk_snooze_active">Unknown callers ring · %1$s left</string>
     <string name="action_stop">Stop</string>

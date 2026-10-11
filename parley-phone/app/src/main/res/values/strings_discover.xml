@@ -155,7 +155,7 @@
     <string name="discover_parley_pin_summary">Open Parley with its own PIN; a second one keeps private things hidden</string>
     <string name="discover_private_names_summary">A phone app you approve can show who\'s calling</string>
     <string name="label_drive_profile">Drive profile</string>
-    <string name="discover_drive_profile_summary">Your car for the Driving Situation: announce callers, answer chosen people</string>
+    <string name="discover_drive_profile_summary">Inside the Driving situation: announce callers, answer the people you choose</string>
     <string name="discover_calling_abroad_title">Calling abroad</string>
     <string name="discover_calling_abroad_summary">Numbers in your home format dialled right, and a local SIM suggested</string>
     <string name="label_phone_menus">Phone menus</string>

@@ -10,6 +10,8 @@ import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
+import app.parley.R
+import app.parley.telecom.CaseCode
 import app.parley.telecom.CaseFileHooks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,6 +67,22 @@ class CaseFileBridge(private val app: Context, private val c: DataContainer) : C
         val case = CaseFiles.find(state, listOf(number), PhoneEnv.countryIso(app, accountId))
         // Whether the contact is private is asked now, not taken from when the case was made.
         case != null && case.kept && (c.privacy.now().privateShown || !c.cases.isPrivateNow(case))
+    }
+
+    /** The case file the call screen may show for [number] now, or null ([hasCaseFile]'s rules). */
+    private suspend fun shownCase(number: String, accountId: String?) =
+        if (!hasCaseFile(number, accountId)) null else CaseFiles.find(c.cases.load(), listOf(number), PhoneEnv.countryIso(app, accountId))
+
+    override suspend fun caseCodes(number: String, accountId: String?): List<CaseCode> = withContext(Dispatchers.IO) {
+        val case = shownCase(number, accountId) ?: return@withContext emptyList()
+        // Opened only to show the last characters; the code itself reaches the screen only with Show.
+        case.references.sortedByDescending { it.at }.mapNotNull { r ->
+            c.cases.openReference(r)?.let { CaseCode(r.id, r.label.ifBlank { app.getString(R.string.case_reference_unnamed) }, CaseFiles.masked(it)) }
+        }
+    }
+
+    override suspend fun openCaseCode(number: String, accountId: String?, id: String): String? = withContext(Dispatchers.IO) {
+        shownCase(number, accountId)?.references?.firstOrNull { it.id == id }?.let { c.cases.openReference(it) }
     }
 
     override suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = withContext(Dispatchers.IO) {
