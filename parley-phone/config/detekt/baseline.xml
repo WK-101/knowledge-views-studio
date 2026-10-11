@@ -381,15 +381,15 @@
     <ID>MaxLineLength:AppViewModel.kt$AppViewModel$(p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId)).let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }</ID>
     <ID>MaxLineLength:BackupArchive.kt$BackupArchiveReader.Companion$val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.CALLHISTORY || name == BackupArchive.JOURNAL</ID>
     <ID>MaxLineLength:BackupRepository.kt$BackupRepository$val featureValues = if (o.contacts || o.blocking || o.settings) runCatching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()</ID>
-    <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.bday_message, e.name)) }</ID>
-    <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.bday_call, e.name), tint = MaterialTheme.colorScheme.primary) }</ID>
+    <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, e.name)) }</ID>
+    <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, e.name), tint = MaterialTheme.colorScheme.primary) }</ID>
     <ID>MaxLineLength:BirthdaysScreen.kt$val kind = if (LifeEvents.isDeath(e.type, e.label)) resources.getString(R.string.life_date_of_death) else if (e.type == Event.TYPE_CUSTOM &amp;&amp; !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$dismissButton = if (!live &amp;&amp; stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text(stringResource(R.string.blk_test_today)) } }) else null</ID>
     <ID>MaxLineLength:BlockingHooks.kt$headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked))) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$OutlinedTextField</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }</ID>
+    <ID>MaxLineLength:BlockingScreen.kt$TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.agenda_add_save)) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.number?.let { bidiLtr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number))) }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$trailingIcon = { if (text != s.busyReplyText &amp;&amp; text.isNotBlank()) TextButton({ setScreening { it.copy(busyReplyText = text.trim()) } }) { Text(stringResource(R.string.set_save)) } }</ID>
+    <ID>MaxLineLength:BlockingScreen.kt$trailingIcon = { if (text != s.busyReplyText &amp;&amp; text.isNotBlank()) TextButton({ setScreening { it.copy(busyReplyText = text.trim()) } }) { Text(stringResource(R.string.pin_save)) } }</ID>
     <ID>MaxLineLength:BlockingUi.kt$fun</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$BulkAdd.Status.entries.mapNotNull { s -&gt; list.count { it.status == s }.takeIf { it &gt; 0 }?.let { n -&gt; res.getString(R.string.bulk_summary_item, n, res.getString(s.labelRes).lowercase()) } }</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$BulkDestination.Label(acc, label.trim().ifEmpty { null }) to (label.trim().takeIf { it.isNotEmpty() }?.let { rs.getString(R.string.bulk_where_label, vm.accountLabel(acc), it) } ?: vm.accountLabel(acc))</ID>
@@ -418,20 +418,20 @@
     <ID>MaxLineLength:CallManager.kt$CallManager$val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }</ID>
     <ID>MaxLineLength:CallModels.kt$CallUi$get() = accountLabel?.let { l -&gt; listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$.</ID>
-    <ID>MaxLineLength:CallNotifier.kt$CallNotifier$b.addAction(0, context.getString(if (audio.current?.type == RouteType.SPEAKER) R.string.notif_speaker_off else R.string.notif_speaker), action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))</ID>
+    <ID>MaxLineLength:CallNotifier.kt$CallNotifier$b.addAction(0, context.getString(if (audio.current?.type == RouteType.SPEAKER) R.string.notif_speaker_off else R.string.audio_route_speaker), action(CallActionReceiver.ACTION_SPEAKER, call.id, 8))</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$return listOfNotNull(timing.source, context.getString(R.string.notif_ends_at, at)).joinToString(context.getString(R.string.tc_separator)).replaceFirstChar { it.uppercase() }</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$val signature = listOf(variant, call.id, call.state, call.title, call.label, call.number, call.accountLabel, call.connectTimeMillis, photoReady, confirmDecline()).joinToString("|")</ID>
     <ID>MaxLineLength:CallPolicy.kt$CallPolicy$fun</ID>
     <ID>MaxLineLength:CallPolicy.kt$CallPolicy.Evaluation$fun</ID>
     <ID>MaxLineLength:CallTimePlanner.kt$CallTimePlanner$(contactKey != null &amp;&amp; contactKey == s.facts.contactKey) || (!number.isNullOrBlank() &amp;&amp; number in line) || (lineKey != null &amp;&amp; lineKey in lineKeys)</ID>
     <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.extend(call.id, 2) }, label = { Text(stringResource(R.string.calltime_plus_2)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
-    <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.calltime_plus_5)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
+    <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.notif_plus_5_min)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
     <ID>MaxLineLength:CallTimeUi.kt$cd?.endAt != null -&gt; stringResource(R.string.calltime_ends_in, clockText((cd.remainingMs(now) ?: 0) / 1000)) + (timing.source?.let { sep + it } ?: "")</ID>
     <ID>MaxLineLength:CallWaiting.kt$Text(stringResource(if (ringing.silenced) R.string.incall_waiting_call_silenced else R.string.incall_waiting_call), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)</ID>
     <ID>MaxLineLength:CallWaiting.kt$WaitingAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.incall_reply), stringResource(R.string.incall_reply_a11y), MaterialTheme.colorScheme.secondary, onReply)</ID>
-    <ID>MaxLineLength:CallWaiting.kt$WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), stringResource(R.string.incall_decline), CallColors.Decline, onClick = decline)</ID>
+    <ID>MaxLineLength:CallWaiting.kt$WaitingAction(Icons.Rounded.CallEnd, stringResource(R.string.notif_decline), stringResource(R.string.notif_decline), CallColors.Decline, onClick = decline)</ID>
     <ID>MaxLineLength:CallWaiting.kt$WaitingAction(Icons.Rounded.PhoneInTalk, stringResource(R.string.incall_end_answer_short), stringResource(R.string.incall_end_and_answer), MaterialTheme.colorScheme.tertiary) { CallManager.endAndAnswer(ringing.id) }</ID>
-    <ID>MaxLineLength:CallWaiting.kt$active == null -&gt; WaitingAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), stringResource(R.string.incall_answer), CallColors.Accept) { CallManager.answer(ringing.id) }</ID>
+    <ID>MaxLineLength:CallWaiting.kt$active == null -&gt; WaitingAction(Icons.Rounded.Call, stringResource(R.string.notif_answer), stringResource(R.string.notif_answer), CallColors.Accept) { CallManager.answer(ringing.id) }</ID>
     <ID>MaxLineLength:CallWaiting.kt$canHoldAnswer -&gt; WaitingAction(Icons.Rounded.PauseCircle, stringResource(R.string.incall_hold_answer_short), stringResource(R.string.incall_hold_and_answer), CallColors.Accept) { CallManager.holdAndAnswer(ringing.id) }</ID>
     <ID>MaxLineLength:CallWaiting.kt$if (active != null) add(CustomAccessibilityAction(res.getString(R.string.incall_end_and_answer)) { CallManager.endAndAnswer(ringing.id); true })</ID>
     <ID>MaxLineLength:CallWaiting.kt$if (canHoldAnswer) add(CustomAccessibilityAction(res.getString(R.string.incall_hold_and_answer)) { CallManager.holdAndAnswer(ringing.id); true })</ID>
@@ -461,8 +461,8 @@
     <ID>MaxLineLength:ContactEditScreen.kt$EditorForm.Kind.ADDRESS -&gt; addRow(G_ADDR, cur.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }</ID>
     <ID>MaxLineLength:ContactEditScreen.kt$EditorForm.Kind.WEBSITE -&gt; addRow(WEBSITES.group, cur.websites.size) { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }</ID>
     <ID>MaxLineLength:ContactEditScreen.kt$if (custom) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { custom = false }) { onChange(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }</ID>
-    <ID>MaxLineLength:ContactEditScreen.kt$navigationIcon = { IconButton({ if (changed) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } }</ID>
-    <ID>MaxLineLength:ContactEditScreen.kt${ r, t -&gt; r.getString(when (t) { Website.TYPE_HOMEPAGE -&gt; R.string.edit_web_homepage; Website.TYPE_WORK -&gt; R.string.edit_web_work; else -&gt; R.string.edit_web_other }) }</ID>
+    <ID>MaxLineLength:ContactEditScreen.kt$navigationIcon = { IconButton({ if (changed) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.dc_cancel)) } }</ID>
+    <ID>MaxLineLength:ContactEditScreen.kt${ r, t -&gt; r.getString(when (t) { Website.TYPE_HOMEPAGE -&gt; R.string.edit_web_homepage; Website.TYPE_WORK -&gt; R.string.rel_group_work; else -&gt; R.string.circle_type_other }) }</ID>
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$if (err == null &amp;&amp; m.kind != ReachKind.VOICE) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))</ID>
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName).also { if (it == null) offerLog(context, r, InteractionChannel.forPackage(route.accountType)) }</ID>
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$is MessageRoute.Sms</ID>
@@ -470,17 +470,17 @@
     <ID>MaxLineLength:ContactPageSettings.kt$Text(modeText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 6.dp))</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$if (i &lt; order.size - 1) HorizontalDivider(Modifier.padding(start = 64.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$onDragStart = { dragging = sec; dragOffset = 0f; haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }</ID>
-    <ID>MaxLineLength:ContactPickerScreen.kt$OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))</ID>
+    <ID>MaxLineLength:ContactPickerScreen.kt$OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$private</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$while (c.moveToNext()) if (ContentDiff.isUserGroup(c.getString(1), c.getString(2), c.getInt(3) != 0, c.getInt(4) != 0, c.getInt(5) != 0)) out += c.getLong(0)</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$pluralStringResource(R.plurals.contact_page_entries, n, n)</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } })</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$val</ID>
-    <ID>MaxLineLength:ContactsChips.kt$AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })</ID>
-    <ID>MaxLineLength:ContactsChips.kt$DropdownMenuItem({ Text(stringResource(R.string.ppl_account_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })</ID>
+    <ID>MaxLineLength:ContactsChips.kt$AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.blk_check_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })</ID>
+    <ID>MaxLineLength:ContactsChips.kt$DropdownMenuItem({ Text(stringResource(R.string.rst_with_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.isEmpty &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.unlabelled &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.ppl_chip_unlabelled)) })</ID>
-    <ID>MaxLineLength:ContactsChips.kt$label = { Text(filter.account?.let { a -&gt; stringResource(R.string.ppl_account_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.ppl_chip_account)) }</ID>
+    <ID>MaxLineLength:ContactsChips.kt$label = { Text(filter.account?.let { a -&gt; stringResource(R.string.rst_with_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.ppl_chip_account)) }</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$(if (group.account.type == null) "${RawContacts.ACCOUNT_TYPE} IS NULL" else "${RawContacts.ACCOUNT_TYPE}=? AND ${RawContacts.ACCOUNT_NAME}=?")</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$)</ID>
     <ID>MaxLineLength:ContactsRepository.kt$ContactsRepository$arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES)</ID>
@@ -502,7 +502,7 @@
     <ID>MaxLineLength:CsvColumnMappingTest.kt$CsvColumnMappingTest$val h = listOf("First Name", "Middle Name", "Last Name", "Phonetic First Name", "Name Prefix", "Organization Name", "Organization Title", "Labels", "Phone 1 - Label", "Phone 1 - Value")</ID>
     <ID>MaxLineLength:CsvColumnMappingTest.kt$CsvColumnMappingTest$val h = listOf("Title", "First Name", "Middle Name", "Last Name", "Suffix", "Company", "Job Title", "Business Phone", "Home Phone", "Mobile Phone", "Business Fax", "E-mail Address", "E-mail Display Name", "Categories", "Notes")</ID>
     <ID>MaxLineLength:DetailExtras.kt$modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)</ID>
-    <ID>MaxLineLength:DetailParts.kt$DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })</ID>
+    <ID>MaxLineLength:DetailParts.kt$DropdownMenuItem({ Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Clipboard.copy(context, text) })</ID>
     <ID>MaxLineLength:DetailParts.kt$trailing = if (link != null) ({ Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.detail_open_in_app), tint = MaterialTheme.colorScheme.onSurfaceVariant) }) else null</ID>
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$"deleted=${c.getInt(4)} dirty=${c.getInt(5)} v=${c.getInt(6)} synced=${!c.isNull(7)} starred=${c.getInt(8)} dataSet=${c.getString(9) ?: "-"}"</ID>
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$"raw ${c.getLong(0)} contact=${c.getLong(1)} type=${c.getString(2) ?: "local"} account=${Masking.mask(c.getString(3).orEmpty()).let { if (it == c.getString(3)) shape(it) else it }} "</ID>
@@ -515,13 +515,13 @@
     <ID>MaxLineLength:DialerRoleRescue.kt$Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
     <ID>MaxLineLength:DryRunScreen.kt$(BlockingText.verdict(context, r.result.verdict?.text) ?: stringResource(if (r.result.blocked) R.string.blk_would_block else R.string.blk_would_ring))</ID>
     <ID>MaxLineLength:DuplicatesScreen.kt$supportingContent = { Text((c.phones.map { Bidi.ltr(it.number) } + c.emails).take(2).joinToString(stringResource(R.string.main_separator))) }</ID>
-    <ID>MaxLineLength:EditorParts.kt$OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
+    <ID>MaxLineLength:EditorParts.kt$OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
     <ID>MaxLineLength:EditorViewModel.kt$EditorViewModel$is SaveContactUseCase.Outcome.Failed -&gt; eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_save_failed, outcome.message)))</ID>
     <ID>MaxLineLength:EventDateDialog.kt$Picker(stringResource(R.string.date_month), Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault()), Month.entries.map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }, m) { month = it + 1 }</ID>
-    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$canvas.drawText(TextUtils.ellipsize(context.getString(R.string.hist_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)</ID>
+    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$canvas.drawText(TextUtils.ellipsize(context.getString(R.string.case_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$canvas.drawText(context.resources.getQuantityString(R.plurals.hist_pdf_made_with, rows.size, rows.size, fmt.format(Instant.now().atZone(zone))), margin, y, grey)</ID>
-    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.hist_pdf_col_sim).map { context.getString(it) }</ID>
-    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.hist_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")</ID>
+    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.blk_editor_sim).map { context.getString(it) }</ID>
+    <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.blk_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")</ID>
     <ID>MaxLineLength:FakeContactsProvider.kt$FakeContactsProvider$"data" -&gt; db.update("data", known("data", values), where("_id"), if (s.size &gt; 1) null else selectionArgs).also { bump(where("_id"), selectionArgs.takeIf { s.size == 1 }) }</ID>
     <ID>MaxLineLength:FakeContactsProvider.kt$FakeContactsProvider$if (workNumbers.any { sameLine(it, number) }) out.addRow(cols.map { c -&gt; if (c == "_id") 1_000_000_001L /* past the enterprise id base */ else null })</ID>
     <ID>MaxLineLength:FakeContactsProvider.kt$FakeContactsProvider$val ringtone = db.rawQuery("SELECT custom_ringtone FROM contacts WHERE _id = ?", arrayOf(row["_id"].toString())).use { r -&gt; if (r.moveToFirst()) r.getString(0) else null }</ID>
@@ -532,7 +532,7 @@
     <ID>MaxLineLength:FolderSyncScreen.kt$headlineContent = { Text(if (st.lastSyncAt &gt; 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) }</ID>
     <ID>MaxLineLength:HistoryFilter.kt$HistoryFilter.Companion$fun decode(s: String?): HistoryFilter</ID>
     <ID>MaxLineLength:HomeScreen.kt$private</ID>
-    <ID>MaxLineLength:IncomingControls.kt$BigAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })</ID>
+    <ID>MaxLineLength:IncomingControls.kt$BigAction(Icons.Rounded.Call, stringResource(R.string.notif_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })</ID>
     <ID>MaxLineLength:InsertPrefill.kt$InsertPrefill$Email.CONTENT_ITEM_TYPE -&gt; cv.getAsString(Email.ADDRESS)?.let { emails += DataItem(value = it, type = cv.getAsInteger(Email.TYPE) ?: Email.TYPE_OTHER, label = cv.getAsString(Email.LABEL)) }</ID>
     <ID>MaxLineLength:InsertPrefill.kt$InsertPrefill$Event.CONTENT_ITEM_TYPE -&gt; cv.getAsString(Event.START_DATE)?.let { events += EventItem(date = it, type = cv.getAsInteger(Event.TYPE) ?: Event.TYPE_OTHER, label = cv.getAsString(Event.LABEL)) }</ID>
     <ID>MaxLineLength:InsertPrefill.kt$InsertPrefill$Phone.CONTENT_ITEM_TYPE -&gt; cv.getAsString(Phone.NUMBER)?.let { phones += DataItem(value = it, type = cv.getAsInteger(Phone.TYPE) ?: Phone.TYPE_MOBILE, label = cv.getAsString(Phone.LABEL)) }</ID>
@@ -540,15 +540,15 @@
     <ID>MaxLineLength:InsertPrefill.kt$InsertPrefill$if (v.isNotEmpty()) phones += DataItem(value = v, type = typeOf(intent, t, Phone.TYPE_MOBILE), isPrimary = prim?.let { intent.getBooleanExtra(it, false) } ?: false)</ID>
     <ID>MaxLineLength:InsertPrefill.kt$InsertPrefill$listOf(Insert.EMAIL to Insert.EMAIL_TYPE, Insert.SECONDARY_EMAIL to Insert.SECONDARY_EMAIL_TYPE, Insert.TERTIARY_EMAIL to Insert.TERTIARY_EMAIL_TYPE)</ID>
     <ID>MaxLineLength:InsightsScreen.kt$headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) stringResource(R.string.hist_no_sim) else stringResource(R.string.hist_other_sim)) }</ID>
-    <ID>MaxLineLength:IntroduceScreen.kt$OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.intro_next else R.string.intro_skip)) }</ID>
-    <ID>MaxLineLength:IntroduceScreen.kt$trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.keypad_set_up else R.string.main_edit)) } }</ID>
+    <ID>MaxLineLength:IntroduceScreen.kt$OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.pin_next else R.string.intro_skip)) }</ID>
+    <ID>MaxLineLength:IntroduceScreen.kt$trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.bkp_set_up else R.string.me_edit_short)) } }</ID>
     <ID>MaxLineLength:JournalScreen.kt$}</ID>
     <ID>MaxLineLength:KeepRhythm.kt$KeepRhythm.Companion$fun decode(text: String?): KeepRhythm</ID>
     <ID>MaxLineLength:KeypadLettersSetting.kt$LayoutRow(stringResource(R.string.set_kl_same_as_phone), phoneLanguage.localLabel(), choice == null) { store.setKeypadLayout(null); pickLayout = false }</ID>
     <ID>MaxLineLength:KeypadTab.kt$in '2'..'9' -&gt; ({ typed -&gt; longPress(typed) { keypad.speedDial(d - '0', onCall = { n, label -&gt; vm.requestCall(n, label) }) { unassigned = d - '0' } } })</ID>
     <ID>MaxLineLength:LabelScreens.kt$if (account == null) account = accounts.firstOrNull { it.type == s.defaultAccountType &amp;&amp; it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()</ID>
     <ID>MaxLineLength:LayoutSettings.kt$repeat(2) { r -&gt; repeat(3) { c -&gt; drawCircle(accent, radius = 1.3f * u, center = Offset(w * (c + 1) / 4f, tileTop + 1.4f * u + r * 3.2f * u)) } }</ID>
-    <ID>MaxLineLength:LayoutSettings.kt$trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_back_action)) } }</ID>
+    <ID>MaxLineLength:LayoutSettings.kt$trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_calls_separate)) } }</ID>
     <ID>MaxLineLength:ListImport.kt$ListImport$(listOf("list", "listtype", "category").firstNotNullOfOrNull { keys[it] }?.let { (e[it] as? JsonPrimitive)?.contentOrNull }.orEmpty())</ID>
     <ID>MaxLineLength:ListsUpdaterSection.kt$is SpamListStore.InstallResult.Failed -&gt; if ("different key" in r.reason) keyConflict = id to BlockingText.installFailure(context, r.reason) else vm.toast(BlockingText.installFailure(context, r.reason))</ID>
     <ID>MaxLineLength:MessagingDialogs.kt$OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.msg_search_countries)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
@@ -617,8 +617,8 @@
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$CircleDigest.Reason.YEARLY</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$YearlyEvents.upcoming(e.lookupKey, e.label?.takeIf { it.isNotBlank() } ?: applicationContext.getString(R.string.work_special_date), d, today, CircleDigest.DATE_WINDOW_DAYS)</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, applicationContext.getString(R.string.circle_mark_wished), CircleActionReceiver.wished(applicationContext, code + 3, tag, e.lookupKey, e.contactId, occasion))</ID>
-    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))</ID>
-    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, ctx.getString(R.string.work_action_message), PendingIntent.getActivity(ctx, code + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))</ID>
+    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, ctx.getString(R.string.circle_widget_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))</ID>
+    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, ctx.getString(R.string.circle_type_message), PendingIntent.getActivity(ctx, code + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$else -&gt; ctx.resources.getQuantityString(R.plurals.circle_date_in_days, days, days, e.name, e.label ?: ctx.getString(R.string.work_special_date))</ID>
     <ID>MaxLineLength:RestoreFlow.kt$dismissButton = { TextButton({ scope.launch { repo.discardPendingRestore(); repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } }</ID>
     <ID>MaxLineLength:RingFacts.kt$RingExplainer$is NoRing.Silenced -&gt; r.reason.let { s -&gt; if (s.startsWith("Silenced", ignoreCase = true) || s.startsWith("Blocked", ignoreCase = true)) s else "Silenced: ${lower(s)}" }</ID>
@@ -647,7 +647,7 @@
     <ID>MaxLineLength:SettingsScreen.kt$Text(report.unmappedProperties.entries.joinToString("\n") { unmappedLabel(res, it.key) + " × ${it.value}" }, style = MaterialTheme.typography.bodySmall)</ID>
     <ID>MaxLineLength:SettingsScreen.kt$leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) }</ID>
     <ID>MaxLineLength:SettingsScreen.kt$leadingContent = { TonalIcon(c.icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) }</ID>
-    <ID>MaxLineLength:SettingsText.kt$SettingsText$"notification_settings" to Triple(R.string.set_notification_settings_title, R.string.set_notification_settings_summary, R.string.set_notification_settings_kw)</ID>
+    <ID>MaxLineLength:SettingsText.kt$SettingsText$"notification_settings" to Triple(R.string.help_notifications_action, R.string.set_notification_settings_summary, R.string.set_notification_settings_kw)</ID>
     <ID>MaxLineLength:SettingsText.kt$SettingsText$"power_button_ends_call" to Triple(R.string.set_power_button_ends_call_title, R.string.set_power_button_ends_call_summary, R.string.set_power_button_ends_call_kw)</ID>
     <ID>MaxLineLength:SettingsText.kt$SettingsText$"simple_confirm_decline" to Triple(R.string.set_simple_confirm_decline_title, R.string.set_simple_confirm_decline_summary, R.string.set_simple_confirm_decline_kw)</ID>
     <ID>MaxLineLength:Shortcuts.kt$Shortcuts$val bmp = photoUri?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -&gt; BitmapFactory.decodeStream(s) } }.getOrNull() }</ID>
@@ -669,7 +669,7 @@
     <ID>MaxLineLength:SpamListsScreen.kt$FilterChip(pk.mode == ListMode.WARN, { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(mode = ListMode.WARN) } } }, label = { Text(stringResource(R.string.blk_warn_only)) })</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$Slider(t, { t = it }, valueRange = 0f..100f, steps = 19, onValueChangeFinished = { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(threshold = t.toInt()) } } })</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$Text(pluralStringResource(R.plurals.blk_marked_not_spam_count, pk.suppressed.size, pk.suppressed.size), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)</ID>
-    <ID>MaxLineLength:SpamListsScreen.kt$TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.set_clear)) }</ID>
+    <ID>MaxLineLength:SpamListsScreen.kt$TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.hist_filter_clear)) }</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (added.isNotEmpty()) " (" + added.take(3).joinToString { bidiLtr(Format.number(it.call.number, vm.countryIso)) } + if (added.size &gt; 3) "…)" else ")" else ""</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (pk.publisher.isNotBlank() || pk.licence.isNotBlank()) Text(listOf(pk.publisher, pk.licence).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (stale) Text(pluralStringResource(R.plurals.blk_out_of_date_days, pk.ttlDays, pk.ttlDays), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)</ID>
@@ -677,7 +677,7 @@
     <ID>MaxLineLength:SpeakCallerName.kt$(nm == null || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN)</ID>
     <ID>MaxLineLength:SpeakCallerName.kt$AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()</ID>
     <ID>MaxLineLength:SpeedDialScreen.kt$ParleyListItem</ID>
-    <ID>MaxLineLength:SpeedDialScreen.kt$trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.set_clear)) } }</ID>
+    <ID>MaxLineLength:SpeedDialScreen.kt$trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_filter_clear)) } }</ID>
     <ID>MaxLineLength:SpeedDialScreen.kt$val matches = contacts.orEmpty().filter { q.length &gt;= 2 &amp;&amp; it.phones.isNotEmpty() &amp;&amp; TextSearch.matches(q, it.displayName, it.phones.map { p -&gt; p.number }) }.take(5)</ID>
     <ID>MaxLineLength:TemplatesScreen.kt$"${s.title.ifBlank { stringResource(R.string.blk_tpl_source) }}\n${s.url}" + (s.accessed.takeIf { it.isNotBlank() }?.let { " " + stringResource(R.string.blk_tpl_checked, it) } ?: "")</ID>
     <ID>MaxLineLength:TemplatesScreen.kt$OutlinedButton({ scope.launch { busy = true; vm.toast(gallery.install(vm.c, t)); busy = false } }, enabled = !busy) { Text(stringResource(R.string.blk_tpl_install)) }</ID>
@@ -704,10 +704,10 @@
     <ID>MaxLineLength:VCardMapper.kt$VCardMapper$return normalizeDate("%04d-%02d-%02d".format(Locale.ROOT, local.get(ChronoField.YEAR), local.get(ChronoField.MONTH_OF_YEAR), local.get(ChronoField.DAY_OF_MONTH)))</ID>
     <ID>MaxLineLength:VCardMapper.kt$VCardMapper$t == "1" &amp;&amp; !hadAnniversary -&gt; { hadAnniversary = true; p = add(dateProperty(date, ::Anniversary, ::Anniversary, ::Anniversary)); consumed += Col.D2 }</ID>
     <ID>MaxLineLength:VaultRepository.kt$VaultRepository$val</ID>
-    <ID>MaxLineLength:VoicemailInbox.kt$AssistChip(onDelete, { Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })</ID>
+    <ID>MaxLineLength:VoicemailInbox.kt$AssistChip(onDelete, { Text(stringResource(R.string.blk_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$AssistChip({ vm.callVoicemail() }, { Text(stringResource(R.string.keypad_long_voicemail)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })</ID>
-    <ID>MaxLineLength:VoicemailInbox.kt$AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text(stringResource(R.string.missed_call_back)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })</ID>
-    <ID>MaxLineLength:VoicemailInbox.kt$Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.vmi_play))</ID>
+    <ID>MaxLineLength:VoicemailInbox.kt$AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text(stringResource(R.string.hist_call_back)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })</ID>
+    <ID>MaxLineLength:VoicemailInbox.kt$Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.caller_tune_play))</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.vmi_play_from, title))</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$SegmentedButton(!speaker, { onSpeaker(false) }, SegmentedButtonDefaults.itemShape(1, 2), icon = { Icon(Icons.Rounded.PhoneInTalk, null, Modifier.size(18.dp)) }) { Text(stringResource(app.parley.telecom.R.string.audio_route_earpiece)) }</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$SegmentedButton(speaker, { onSpeaker(true) }, SegmentedButtonDefaults.itemShape(0, 2), icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null, Modifier.size(18.dp)) }) { Text(stringResource(app.parley.telecom.R.string.audio_route_speaker)) }</ID>
@@ -715,7 +715,7 @@
     <ID>MaxLineLength:VoicemailInbox.kt$else</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$if</ID>
     <ID>MaxLineLength:VoicemailInbox.kt$listOfNotNull(Format.shortWhen(context, v.date), VoicemailFiles.clock(v.durationSec * 1000), sim, if (!v.hasAudio) stringResource(R.string.vmi_not_downloaded) else null)</ID>
-    <ID>MaxLineLength:VoicemailInbox.kt$val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.main_private_number)</ID>
+    <ID>MaxLineLength:VoicemailInbox.kt$val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number)</ID>
     <ID>MaxLineLength:VoicemailInbox.kt${ runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { vm.toast(res.getString(R.string.vmi_open_failed)) } }</ID>
     <ID>MaxLineLength:VoicemailInbox.kt${ runCatching { context.startActivity(Intent(VoicemailRepository.CONFIGURE_ACTION)) }.onFailure { vm.toast(res.getString(R.string.vmi_no_settings)) } }</ID>
     <ID>MaxLineLength:VoicemailRepository.kt$VoicemailRepository$cr.update(Voicemails.CONTENT_URI, ContentValues().apply { put(Voicemails.IS_READ, if (heard) 1 else 0) }, "${Voicemails._ID} IN (${ids.joinToString(",")})", null)</ID>

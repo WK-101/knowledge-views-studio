@@ -84,7 +84,7 @@ private fun ScheduleDetails(value: Schedule, onChange: (Schedule) -> Unit) {
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton({ editing = 0 }) { Text(stringResource(R.string.blk_sched_from, Schedule.hm(value.startMinute))) }
+        OutlinedButton({ editing = 0 }) { Text(stringResource(R.string.blk_title_from, Schedule.hm(value.startMinute))) }
         OutlinedButton({ editing = 1 }) { Text(stringResource(R.string.blk_sched_to, Schedule.hm(value.endMinute))) }
     }
     Text(
@@ -97,14 +97,14 @@ private fun ScheduleDetails(value: Schedule, onChange: (Schedule) -> Unit) {
         ConfirmDialog(
             title = stringResource(if (which == 0) R.string.blk_sched_starts_at else R.string.blk_sched_ends_at),
             text = null,
-            confirmLabel = stringResource(R.string.set_ok),
+            confirmLabel = stringResource(R.string.dc_ok),
             onConfirm = {
                 val m = state.hour * 60 + state.minute
                 onChange(if (which == 0) value.copy(startMinute = m) else value.copy(endMinute = m))
                 editing = null
             },
             onDismiss = { editing = null },
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = { TimePicker(state) },
         )
     }

@@ -2,14 +2,12 @@ package app.parley.data.people
 
 import app.parley.common.people.ContactSort
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.MutablePreferences
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import app.parley.data.prefs.MutablePreferences
+import app.parley.data.prefs.PreferenceFile
+import app.parley.data.prefs.Preferences
+import app.parley.data.prefs.booleanPreferencesKey
+import app.parley.data.prefs.intPreferencesKey
+import app.parley.data.prefs.stringPreferencesKey
 import app.parley.common.people.AvatarStyle
 import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.FavoriteSort
@@ -54,10 +52,8 @@ data class PeopleSettings(
     val contactSort: ContactSort = ContactSort.NAME,
 )
 
-private val Context.peopleStore: DataStore<Preferences> by preferencesDataStore(name = "people")
-
 class PeoplePrefs(context: Context, scope: CoroutineScope) {
-    private val store = context.applicationContext.peopleStore
+    private val store = PreferenceFile(context, "people")
     private val loadedFlag = MutableStateFlow(false)
 
     val settings: StateFlow<PeopleSettings> = store.data.map { it.read().also { loadedFlag.value = true } }
@@ -66,7 +62,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
     /** False until the stored preferences have been read once. */
     val loaded: Boolean get() = loadedFlag.value
 
-    suspend fun current(): PeopleSettings = if (loadedFlag.value) settings.value else store.data.first().read()
+    /** As stored now, a change just made included (the file is served from memory once read). */
+    suspend fun current(): PeopleSettings = store.data.first().read()
 
     suspend fun update(f: (PeopleSettings) -> PeopleSettings) {
         store.edit { p -> p.write(f(p.read())) }

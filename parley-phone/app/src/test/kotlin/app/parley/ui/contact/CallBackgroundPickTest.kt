@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.os.Looper
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
@@ -16,6 +15,7 @@ import app.parley.data.DataItem
 import app.parley.data.people.CallBackgrounds
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
+import app.parley.testing.awaitMain
 import app.parley.ui.people.BackgroundChange
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
@@ -24,7 +24,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,14 +56,7 @@ class CallBackgroundPickTest {
         c.contacts.save(null, ContactDetails(given = given, phones = listOf(DataItem(null, number, Phone.TYPE_MOBILE))), null, null, false)!!.contactId
     }
 
-    private fun until(what: String, check: () -> Boolean) {
-        val end = System.currentTimeMillis() + 10_000
-        while (!check()) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (System.currentTimeMillis() > end) fail("Timed out waiting for $what")
-            Thread.sleep(5)
-        }
-    }
+    private fun until(what: String, check: () -> Boolean) = awaitMain(what, check)
 
     private fun picture(name: String, colour: Int): Uri {
         val f = File(context.cacheDir, name)

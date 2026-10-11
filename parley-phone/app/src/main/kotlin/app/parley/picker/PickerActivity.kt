@@ -200,7 +200,7 @@ data class Pick(val contactId: Long, val uri: Uri, val title: String, val subtit
 @Composable
 private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole: () -> Unit, onNumber: (Uri) -> Unit, onDismiss: () -> Unit) {
     ConfirmDialog(
-        title = stringResource(R.string.picker_share_title, pick.title),
+        title = stringResource(R.string.blk_share_chooser, pick.title),
         text = null,
         confirmLabel = stringResource(R.string.picker_whole),
         onConfirm = onWhole,
@@ -210,7 +210,7 @@ private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole:
             Column {
                 Text(stringResource(R.string.picker_share_one))
                 phones.forEach { (n, uri) ->
-                    TextButton({ onNumber(uri) }) { Text(stringResource(R.string.picker_only, DataL10n.ltr(n))) }
+                    TextButton({ onNumber(uri) }) { Text(stringResource(R.string.blk_only_who, DataL10n.ltr(n))) }
                 }
             }
         },

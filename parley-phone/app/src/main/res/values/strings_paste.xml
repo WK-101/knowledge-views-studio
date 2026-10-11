@@ -14,29 +14,16 @@
         <item quantity="other">This text has %1$d people. Choose one:</item>
     </plurals>
     <string name="paste_fill">Fill in</string>
-    <string name="paste_new_contact">New contact</string>
-    <string name="paste_add_to">Add to %1$s</string>
-    <!-- The detected type shown above each value. -->
-    <string name="paste_type_name">Name</string>
-    <string name="paste_type_company">Company</string>
-    <string name="paste_type_title">Job title</string>
-    <string name="paste_type_mobile">Mobile</string>
     <string name="paste_type_work_phone">Work phone</string>
     <string name="paste_type_home_phone">Home phone</string>
     <string name="paste_type_main">Main number</string>
     <string name="paste_type_fax">Work fax</string>
-    <string name="paste_type_phone">Phone</string>
     <string name="paste_type_work_email">Work email</string>
     <string name="paste_type_personal_email">Personal email</string>
-    <string name="paste_type_email">Email</string>
     <string name="paste_type_work_address">Work address</string>
     <string name="paste_type_home_address">Home address</string>
-    <string name="paste_type_map">Map link</string>
-    <string name="paste_type_website">Website</string>
     <!-- %1$s is the service's name: "Instagram profile". -->
     <string name="paste_type_profile">%1$s profile</string>
-    <string name="paste_type_birthday">Birthday</string>
-    <string name="paste_type_note">Note</string>
     <!-- A number with its extension: "+1 650-253-0000 ext. 1234". -->
     <string name="paste_extension">%1$s ext. %2$s</string>
     <!-- The share sheet, for shared text that is more than a number or a map link. -->

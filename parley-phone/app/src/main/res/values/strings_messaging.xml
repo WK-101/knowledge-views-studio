@@ -2,10 +2,8 @@
 <!-- "Message or call on…": reaching a contact through messenger apps. -->
 <resources>
     <!-- Direct Call on "Message on…" and number-action surfaces -->
-    <string name="reach_call_number">Call %1$s</string>
 
     <!-- Entry points -->
-    <string name="reach_message_or_call_on">Message or call on…</string>
     <string name="reach_message_or_call">Message or call</string>
     <string name="reach_apps_line">WhatsApp, Signal, Telegram, Viber or SMS</string>
 
@@ -34,11 +32,7 @@
     <string name="reach_make_usual">Use by default</string>
     <string name="reach_stop_usual">Stop using by default</string>
 
-    <!-- "Reach via apps" on the contact page -->
-    <string name="reach_reach_title">Message or call on…</string>
-    <string name="reach_can_message">Message</string>
     <string name="reach_can_voice">Voice</string>
-    <string name="reach_can_video">Video</string>
     <string name="reach_usual_message">Usual for messages</string>
     <string name="reach_usual_voice">Usual for calls</string>
     <string name="reach_usual_video">Usual for video</string>

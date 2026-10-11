@@ -73,17 +73,17 @@ internal object SharedLabelTexts {
     fun field(res: Resources, f: CardField): String = res.getString(
         when (f) {
             CardField.NAME -> R.string.shl_f_name
-            CardField.NICKNAME -> R.string.shl_f_nickname
+            CardField.NICKNAME -> R.string.search_field_nickname
             CardField.ORGANISATION -> R.string.shl_f_organisation
             CardField.PHONES -> R.string.shl_f_phones
-            CardField.EMAILS -> R.string.shl_f_emails
-            CardField.ADDRESSES -> R.string.shl_f_addresses
-            CardField.WEBSITES -> R.string.shl_f_websites
+            CardField.EMAILS -> R.string.search_field_email
+            CardField.ADDRESSES -> R.string.search_field_address
+            CardField.WEBSITES -> R.string.search_field_website
             CardField.DATES -> R.string.shl_f_dates
             CardField.RELATIONS -> R.string.shl_f_relations
             CardField.NOTE -> R.string.shl_f_note
             CardField.CHAT -> R.string.shl_f_chat
-            CardField.PRONOUNS -> R.string.shl_f_pronouns
+            CardField.PRONOUNS -> R.string.search_field_pronouns
         },
     )
 
@@ -129,9 +129,9 @@ internal object SharedLabelTexts {
     fun status(res: Resources, s: SharedLabelState): String = when {
         // Shared by file and no update opened yet: nothing is here until one is.
         s.byFile && s.header == null -> res.getString(R.string.shl_status_waiting_update)
-        s.byFile && s.lastSyncAt > 0 -> res.getString(R.string.shl_status_updated, ago(s.lastSyncAt))
+        s.byFile && s.lastSyncAt > 0 -> res.getString(R.string.blk_list_updated, ago(s.lastSyncAt))
         s.lastSyncAt > 0 -> res.getString(R.string.shl_status_synced, ago(s.lastSyncAt))
-        else -> res.getString(R.string.shl_status_never)
+        else -> res.getString(R.string.sync_never)
     }
 
     /** Where the label travels: its folder, or update files. */
@@ -174,7 +174,7 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
             val paused = s.lastResult == SharedRunResult.PAUSED
             Banner(
                 p, tone = BannerTone.WARNING,
-                action = if (paused) stringResource(R.string.shl_apply) else null, onAction = if (paused) ({ sync(allow = true) }) else null,
+                action = if (paused) stringResource(R.string.hist_filter_apply) else null, onAction = if (paused) ({ sync(allow = true) }) else null,
             )
         }
         if (s.pending.isNotEmpty()) {
@@ -206,7 +206,7 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
                 leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 headlineContent = { Text(SharedLabelTexts.status(res, s)) },
                 supportingContent = { Text(listOfNotNull(s.folderName, SharedLabelTexts.notice(res, s)).joinToString("\n")) },
-                trailingContent = { TextButton({ sync() }, enabled = !syncing) { Text(stringResource(R.string.shl_sync_now)) } },
+                trailingContent = { TextButton({ sync() }, enabled = !syncing) { Text(stringResource(R.string.sync_now)) } },
                 colors = rowColors(),
             )
         }
@@ -267,7 +267,7 @@ internal fun HistoryList(s: SharedLabelState, me: String?, filter: String?, onFi
         ParleyListItem(
             leadingContent = { Icon(Icons.Rounded.History, null) },
             headlineContent = {
-                val text = res.getString(R.string.shl_h_when, SharedLabelTexts.line(res, item, me), SharedLabelTexts.ago(item.at))
+                val text = res.getString(R.string.archive_page_work, SharedLabelTexts.line(res, item, me), SharedLabelTexts.ago(item.at))
                 Text(text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             },
             colors = rowColors(),
@@ -291,7 +291,7 @@ private fun ConflictDialog(vm: AppViewModel, s: SharedLabelState, onDone: () -> 
     }
     val theirsCard = remember(p.theirs) { SharedCards.decode(p.theirs) }
     val who = p.authorName.ifBlank { stringResource(R.string.shl_someone) }
-    val empty = stringResource(R.string.shl_conflict_empty)
+    val empty = stringResource(R.string.edit_merge_empty)
     ParleyDialog(
         onDismissRequest = onDone,
         title = { Text(stringResource(R.string.shl_conflict_title)) },
@@ -326,7 +326,7 @@ private fun ConflictDialog(vm: AppViewModel, s: SharedLabelState, onDone: () -> 
 @Composable
 private fun ConflictValue(side: String, value: String) {
     Text(
-        stringResource(R.string.shl_conflict_value, side, value), style = MaterialTheme.typography.bodySmall,
+        stringResource(R.string.blk_trace_step, side, value), style = MaterialTheme.typography.bodySmall,
         maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = Spacing.l),
     )
 }

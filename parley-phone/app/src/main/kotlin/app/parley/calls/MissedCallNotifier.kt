@@ -44,6 +44,7 @@ import app.parley.messaging.MessageOn
 import app.parley.messaging.NumberActionActivity
 import app.parley.ui.Bidi
 import app.parley.ui.calls.RingText
+import app.parley.work.PrivateNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -126,7 +127,7 @@ object MissedCallNotifier {
                 // shows up when the gate has something to ask.
                 if (!risky) {
                     b.addAction(
-                        0, context.getString(R.string.missed_call_back),
+                        0, context.getString(R.string.hist_call_back),
                         PendingIntent.getActivity(
                             context, NotificationRequests.MISSED_CALL_BACK + i, NumberActionActivity.callBackIntent(context, caller.number),
                             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -214,7 +215,7 @@ object MissedCallNotifier {
         val who = NoticeCaller.find(c, number, simRegion, privacy)
         val contact = who.contact
         val network = who.network
-        val name = (who.name ?: number)?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
+        val name = (who.name ?: number)?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.blk_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
         val sim = caller.accountId?.let { simLabels[it] }
         val sep = context.getString(R.string.main_separator)
@@ -233,7 +234,7 @@ object MissedCallNotifier {
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
         val why = RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
-        val counted = if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name
+        val counted = if (caller.count > 1) context.getString(R.string.rst_with_count, name, caller.count) else name
         // The grouped summary's lines and its collapsed text say it too.
         val inboxLine = inboxLine(counted, tag, time, sim, sep)
         val taggedTitle = taggedTitle(name, tag, sep)
@@ -261,12 +262,9 @@ object MissedCallNotifier {
         emptyList()
     }
 
-    private fun publicVersion(context: Context, count: Int) = NotificationCompat.Builder(context, CHANNEL)
-        .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
-        .setContentTitle(title(context, count))
-        .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
-        .setNumber(count)
-        .build()
+    private fun publicVersion(context: Context, count: Int) = PrivateNotice.publicVersion(
+        context, CHANNEL, app.parley.ui.R.drawable.ic_stat_missed, title(context, count), NotificationCompat.CATEGORY_MISSED_CALL, count,
+    )
 
     private fun openRecents(context: Context) = PendingIntent.getActivity(
         context, NotificationRequests.MISSED_OPEN,
@@ -287,7 +285,7 @@ object MissedCallNotifier {
      */
     private fun blockAction(context: Context, number: String, req: Int, notificationId: Int, ask: Boolean = false): NotificationCompat.Action {
         if (Build.VERSION.SDK_INT >= 31 && !ask) {
-            return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
+            return NotificationCompat.Action.Builder(0, context.getString(R.string.blk_block), broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
                 .setAuthenticationRequired(true).build()
         }
         val pi = PendingIntent.getActivity(
@@ -297,12 +295,12 @@ object MissedCallNotifier {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), pi).build()
+        return NotificationCompat.Action.Builder(0, context.getString(R.string.blk_block), pi).build()
     }
 
     /** "Missed call" or "3 missed calls" (the words of [MissedCalls.title], localised). */
     private fun title(context: Context, count: Int): String =
-        if (count <= 1) context.getString(R.string.missed_title_one) else context.resources.getQuantityString(R.plurals.missed_title_many, count, count)
+        if (count <= 1) context.getString(R.string.case_call_missed) else context.resources.getQuantityString(R.plurals.missed_title_many, count, count)
 
     /** "5 missed calls from 3 callers". */
     private fun summaryTitle(context: Context, total: Int, callers: Int): String =

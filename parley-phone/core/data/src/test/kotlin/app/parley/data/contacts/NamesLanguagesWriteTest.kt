@@ -175,11 +175,8 @@ class NamesLanguagesWriteTest {
     }
 
     @Test fun aSingleStoredLanguageBecomesAListOfOne() {
-        // A private contact and an editor draft saved before languages were a list.
+        // A private contact saved before languages were a list (editor drafts never outlive one editor).
         assertEquals(listOf("es"), ContactDetailsJson.decode("""{"given":"Ana","lang":"es"}""").languages)
-        val draft = ContactDraftJson.decode("""{"given":"Ana","languageId":5,"lang":"es"}""")
-        assertEquals(listOf("es"), draft.languages)
-        assertEquals(listOf(5L), draft.languageIds)
         assertEquals(emptyList<String>(), ContactDetailsJson.decode("""{"given":"Ana"}""").languages)
     }
 

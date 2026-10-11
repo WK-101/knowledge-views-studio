@@ -85,7 +85,7 @@ enum class CallsSubPage(val place: SettingPlace, val title: Int, val summary: In
     /** The Keypad category and phone menus, once a root row and a Situations row of their own. */
     KEYPAD(SettingPlace.CALLS_KEYPAD, R.string.set_calls_keypad_title, R.string.set_calls_keypad_summary, Icons.Rounded.Dialpad),
     SIMS(SettingPlace.CALLS_SIMS, R.string.set_calls_sims_title, R.string.set_calls_sims_summary, Icons.Rounded.SimCard),
-    SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.set_calls_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
+    SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.discover_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
     ;
 
     companion object {
@@ -203,7 +203,7 @@ private fun NetworkNamesRow(vm: AppViewModel) {
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     var askDelete by remember { mutableStateOf(false) }
-    // The latest choice made here: DataStore may not have the new value yet when the names have been looked at.
+    // The latest choice made here: the settings may not have the new value yet when the names have been looked at.
     var wantOn by remember { mutableStateOf<Boolean?>(null) }
     SwitchRow(settingTitle("network_names"), settingSummary("network_names"), s.rememberNetworkNames, Icons.Rounded.Badge) { on ->
         wantOn = on
@@ -225,7 +225,7 @@ private fun NetworkNamesRow(vm: AppViewModel) {
         ConfirmDialog(
             title = stringResource(R.string.set_network_names_off_title),
             text = stringResource(R.string.set_network_names_off_text),
-            confirmLabel = stringResource(R.string.set_network_names_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             dismissLabel = stringResource(R.string.set_network_names_keep),
             destructive = true,
             onConfirm = {
@@ -321,7 +321,7 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     )
     val situations by vm.c.situations.list.collectAsStateWithLifecycle()
     val now by vm.c.situations.state.collectAsStateWithLifecycle()
-    SegmentedGroup(stringResource(R.string.sit_group)) {
+    SegmentedGroup(stringResource(R.string.discover_situations_title)) {
         // Search for Situations lands on the first one.
         situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }
         situations.drop(1).forEach { s -> item("situation_${s.id}") { SituationRow(vm, s, now, open) } }

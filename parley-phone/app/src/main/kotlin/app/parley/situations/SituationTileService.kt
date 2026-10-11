@@ -53,7 +53,7 @@ class SituationTileService : TileService() {
         val name = active?.let { SituationTriggers.name(this, it) }
         tile.state = if (active != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = getString(R.string.sit_tile_label)
-        tile.subtitle = name ?: getString(R.string.set_off)
+        tile.subtitle = name ?: getString(R.string.dc_off)
         tile.contentDescription = if (name != null) getString(R.string.sit_tile_on_cd, name) else getString(R.string.sit_tile_off_cd)
         tile.updateTile()
     }

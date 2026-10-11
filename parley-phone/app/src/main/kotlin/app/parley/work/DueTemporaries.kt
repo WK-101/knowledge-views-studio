@@ -88,7 +88,7 @@ object DueTemporaries {
      * the phone is unlocked, and Parley's app lock applies), where the same choice is shown with the names.
      */
     private fun deleteAction(ctx: Context, open: PendingIntent): NotificationCompat.Action {
-        val label = ctx.getString(R.string.temp_due_delete)
+        val label = ctx.getString(R.string.blk_delete)
         return if (Build.VERSION.SDK_INT >= 31) {
             NotificationCompat.Action.Builder(0, label, DueActionReceiver.pending(ctx, TemporaryDue.Decision.DELETE))
                 .setAuthenticationRequired(true)
@@ -110,7 +110,7 @@ object DueTemporaries {
             .setAutoCancel(false)
             .addAction(deleteAction(ctx, open))
             .addAction(0, ctx.getString(R.string.temp_due_keep_longer), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP_LONGER))
-            .addAction(0, ctx.getString(R.string.temp_keep_permanently), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP))
+            .addAction(0, ctx.getString(R.string.contact_keep_permanently), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP))
         PrivateNotice.post(ctx, NotificationIds.TAG_TEMPORARY, ID, b)
     }
 }

@@ -187,7 +187,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             onBack = back.takeUnless { inPane },
             actions = {
                 Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         // To call by hand (the same fixed times as Remind me after a call).
                         DropdownMenuItem(
@@ -248,15 +248,15 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     if (contact == null) app.parley.ui.memory.HistoryNumberMemory(vm, number, open)
                     // The same tiles as a contact's page: one icon per action, even widths, labels that wrap
                     // rather than break mid-word.
-                    val messageOnLabel = stringResource(R.string.reach_message_or_call_on)
+                    val messageOnLabel = stringResource(R.string.contact_page_sec_messengers)
                     Row(
                         Modifier.fillMaxWidth().padding(top = 16.dp).height(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        ActionTile(Icons.Rounded.Call, stringResource(R.string.hist_action_call), true, fillHeight = true) {
+                        ActionTile(Icons.Rounded.Call, stringResource(R.string.circle_widget_call), true, fillHeight = true) {
                             vm.requestCall(number, contact?.displayName)
                         }
-                        ActionTile(Icons.Rounded.Sms, stringResource(R.string.hist_action_message), true, fillHeight = true) {
+                        ActionTile(Icons.Rounded.Sms, stringResource(R.string.circle_type_message), true, fillHeight = true) {
                             Intents.sms(context, number)
                         }
                         ActionTile(
@@ -286,13 +286,14 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         // An emergency number is never blocked: no Block (or Unblock) for it.
                         if (!emergency) ActionTile(
                             if (blocked) Icons.Rounded.RemoveModerator else Icons.Rounded.Block,
-                            stringResource(if (blocked) R.string.hist_action_unblock else R.string.hist_action_block), true, lines = 2, fillHeight = true,
+                            stringResource(if (blocked) R.string.blk_unblock else R.string.blk_block), true, lines = 2, fillHeight = true,
                         ) { if (blocked) unblockWithUndo(vm, listOf(number), contact?.displayName) else askToBlock(listOf(number), contact?.displayName) }
                     }
                 }
             }
             item {
-                CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title))
+                CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(),
+                    title = stringResource(R.string.contact_page_sec_insights))
             }
             // Case files: an organisation's calls, hold times and reference numbers, before you call.
             item(key = "case") {
@@ -326,7 +327,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     )
                 }
             }
-            if (history.isNotEmpty()) item { Section(stringResource(R.string.hist_calls_section)) }
+            if (history.isNotEmpty()) item { Section(stringResource(R.string.quality_subject_all)) }
             // Beside "First call from them to you": whether a call faking a saved organisation's number is warned about.
             item(key = "never-calls") { NeverCallsWatchLine(vm, number, calls?.size) }
             items(history, key = { it.id }) { e ->
@@ -336,7 +337,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     supportingContent = {
                         // The rich style names the call class ("No answer" for an outgoing call nobody took).
                         val typeText = if (richCalls()) callClassLabel(CallClass.of(e)) else HistoryText.callType(e.type)
-                        val video = if (e.video) stringResource(R.string.recents_video_call) else null
+                        val video = if (e.video) stringResource(R.string.circle_type_video) else null
                         val length = Format.duration(e.durationSec).ifBlank { null }
                         val first = if (e.date == firstFromThem && e.type != CallType.OUTGOING) stringResource(R.string.hist_first_call_from_them) else null
                         // A call in an app names the app ("WhatsApp call") where a phone call names its SIM.

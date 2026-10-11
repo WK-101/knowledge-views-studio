@@ -39,14 +39,11 @@
     <string name="archive_private_unarchive_failed">Couldn\'t put this private contact back. It stays archived.</string>
     <string name="archive_private_section">Private</string>
     <string name="recall_group_archived">Archived contacts</string>
-    <string name="recall_archived_on">Archived %1$s</string>
     <!-- "Kept as" on a contact's page: one row for Visible, Private and Archived. -->
     <string name="kept_as_title">Kept as</string>
     <string name="kept_as_visible">Visible</string>
     <string name="kept_as_visible_sub">In your contacts, where other apps can see it</string>
-    <string name="kept_as_private">Private</string>
     <string name="kept_as_private_sub">Only in Parley, hidden from other apps</string>
-    <string name="kept_as_archived">Archived</string>
     <string name="kept_as_archived_sub">Out of your lists, still named when they call</string>
     <string name="kept_as_unarchive_first">Unarchive first, then make it visible</string>
     <string name="kept_as_row_sub">%1$s. Change how they\'re kept</string>

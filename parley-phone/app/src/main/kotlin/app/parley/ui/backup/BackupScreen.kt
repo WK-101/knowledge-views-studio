@@ -238,7 +238,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                                     Text(
                                         stringResource(
                                             when (s) {
-                                                BackupSchedule.OFF -> R.string.bkp_schedule_off
+                                                BackupSchedule.OFF -> R.string.dc_off
                                                 BackupSchedule.DAILY -> R.string.bkp_schedule_daily
                                                 BackupSchedule.WEEKLY -> R.string.bkp_schedule_weekly
                                             },
@@ -279,7 +279,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     },
                 )
             }
-            item { Section(stringResource(R.string.bkp_restore)) }
+            item { Section(stringResource(R.string.dc_restore)) }
             item {
                 ParleyListItem(
                     modifier = Modifier.clickable { filePicker.launch(arrayOf("*/*")) },
@@ -374,7 +374,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = { TextButton({ recovery = null }) { Text(stringResource(R.string.bkp_recovery_saved)) } },
-            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.bkp_copy)) } },
+            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.hist_action_copy)) } },
         )
     }
     restoreUri?.let { uri -> RestoreFlow(vm, uri) { restoreUri = null; refresh++ } }
@@ -392,7 +392,7 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
     ConfirmDialog(
         title = if (change) stringResource(R.string.bkp_change_pass_title) else stringResource(R.string.bkp_pass_title),
         text = null,
-        confirmLabel = stringResource(R.string.dc_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = { onSave(old.takeIf { change }, new) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),

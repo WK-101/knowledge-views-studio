@@ -182,8 +182,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     private fun addCallAndMessage(b: NotificationCompat.Builder, phone: String?, contactId: Long, code: Int) {
         val ctx = applicationContext
         phone ?: return
-        b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))
-        b.addAction(0, ctx.getString(R.string.work_action_message), PendingIntent.getActivity(ctx, code + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))
+        b.addAction(0, ctx.getString(R.string.circle_widget_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE))
+        b.addAction(0, ctx.getString(R.string.circle_type_message), PendingIntent.getActivity(ctx, code + 2, Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", phone, null)), PendingIntent.FLAG_IMMUTABLE))
     }
 
     private fun post(tag: String, b: NotificationCompat.Builder) = PrivateNotice.post(applicationContext, tag, 0, b)

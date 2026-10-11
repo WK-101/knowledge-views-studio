@@ -71,7 +71,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
             list == null -> Box(Modifier.fillMaxSize().padding(p), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             list.isEmpty() -> EmptyState(
                 Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p),
-                action = stringResource(R.string.main_done), onAction = back,
+                action = stringResource(R.string.dc_done), onAction = back,
             )
             else -> LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
@@ -100,7 +100,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                                             vm.toast(res.getQuantityString(R.plurals.sel_merged, g.size, g.size))
                                         }
                                     }
-                                }) { Text(stringResource(R.string.dup_merge)) }
+                                }) { Text(stringResource(R.string.lbl_merge)) }
                             }
                         }
                     }

@@ -240,7 +240,7 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
                                 }
                             }) {
                                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.padding(end = 6.dp))
-                                Text(stringResource(R.string.circle_add))
+                                Text(stringResource(R.string.agenda_add_save))
                             }
                         },
                     )

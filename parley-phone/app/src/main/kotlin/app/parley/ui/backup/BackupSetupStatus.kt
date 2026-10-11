@@ -70,7 +70,7 @@ private fun statusText(res: Resources, status: BackupStatus, ago: String, where:
     BackupStatus.FOLDER_GONE -> res.getString(R.string.bkp_check_folder_gone) to res.getString(R.string.bkp_check_folder_gone_body)
     BackupStatus.FAILED -> res.getString(R.string.bkp_check_failed) to res.getString(R.string.bkp_check_retry_body)
     BackupStatus.NOT_VERIFIED -> res.getString(R.string.bkp_check_not_verified) to res.getString(R.string.bkp_check_retry_body)
-    BackupStatus.NEVER -> res.getString(R.string.bkp_check_never) to res.getString(R.string.bkp_check_never_body)
+    BackupStatus.NEVER -> res.getString(R.string.bkp_no_backup) to res.getString(R.string.bkp_check_never_body)
     BackupStatus.OVERDUE -> res.getString(R.string.bkp_check_overdue, ago) to res.getString(R.string.bkp_check_overdue_body)
     BackupStatus.PHONE_ONLY -> res.getString(R.string.bkp_check_phone_only) to res.getString(R.string.bkp_check_phone_only_body)
     BackupStatus.REMOVABLE -> res.getString(R.string.bkp_check_removable) to res.getString(R.string.bkp_check_removable_body)
@@ -86,6 +86,6 @@ private fun fixLabel(status: BackupStatus, fix: BackupFix): String? = when (fix)
     BackupFix.CHOOSE_FOLDER -> stringResource(
         if (status == BackupStatus.PHONE_ONLY || status == BackupStatus.REMOVABLE) R.string.bkp_fix_other_folder else R.string.bkp_fix_folder,
     )
-    BackupFix.BACK_UP_NOW -> stringResource(R.string.bkp_fix_now)
+    BackupFix.BACK_UP_NOW -> stringResource(R.string.bkp_back_up_now)
     BackupFix.NONE -> null
 }

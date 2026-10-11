@@ -14,12 +14,12 @@ import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeCallLogProvider
 import app.parley.data.testing.FakeContactsProvider
 import app.parley.messaging.NumberActionActivity
+import app.parley.testing.awaitMain
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -76,14 +76,7 @@ class WidgetCallTest {
 
     private fun placed(): Int = shadowOf(app.getSystemService(TelecomManager::class.java)).allOutgoingCalls.size
 
-    private fun until(what: String, check: () -> Boolean) {
-        val end = System.currentTimeMillis() + 10_000
-        while (!check()) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (System.currentTimeMillis() > end) fail("Timed out waiting for $what")
-            Thread.sleep(5)
-        }
-    }
+    private fun until(what: String, check: () -> Boolean) = awaitMain(what, check)
 
     /** Lets the app's background work run for a moment (nothing should change in it). */
     private fun settle() = repeat(40) {

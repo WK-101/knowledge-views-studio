@@ -49,14 +49,14 @@ fun richCalls(): Boolean = LocalRecentsStyle.current.rich
 /** The words for a call class: "Missed call", "No answer"… (TalkBack reads these; the legend shows them). */
 @StringRes
 fun callClassLabel(cls: CallClass): Int = when (cls) {
-    CallClass.MISSED -> R.string.hist_type_missed
+    CallClass.MISSED -> R.string.contact_page_kind_missed
     CallClass.DECLINED -> R.string.hist_type_rejected
     CallClass.INCOMING -> R.string.hist_type_incoming
     CallClass.ANSWERED_ELSEWHERE -> R.string.hist_type_answered_elsewhere
-    CallClass.VOICEMAIL -> R.string.hist_type_voicemail
+    CallClass.VOICEMAIL -> R.string.blk_line_voicemail
     CallClass.OUTGOING -> R.string.hist_type_outgoing
-    CallClass.NO_ANSWER -> R.string.recents_class_no_answer
-    CallClass.BLOCKED -> R.string.hist_type_blocked
+    CallClass.NO_ANSWER -> R.string.case_call_unanswered
+    CallClass.BLOCKED -> R.string.blk_blocked
     CallClass.UNKNOWN -> R.string.hist_type_unknown
 }
 
@@ -120,7 +120,7 @@ fun CallBackPill(who: String, onClick: () -> Unit) {
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.recents_call_back), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        Text(stringResource(R.string.hist_call_back), style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
 
@@ -136,7 +136,7 @@ fun CallLengthGlance(e: CallEntry) {
     when {
         cls.answered -> CallDurationBar(CallGlance.durationFraction(e.durationSec), cls)
         cls == CallClass.NO_ANSWER -> Text(
-            stringResource(R.string.recents_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue),
+            stringResource(R.string.case_call_unanswered), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue),
         )
     }
 }

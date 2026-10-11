@@ -283,7 +283,7 @@ private fun ChapterEndDialog(initial: LocalDate?, onDismiss: () -> Unit, onRemov
         confirmEnabled = valid,
         onConfirm = { onSet(lengthOf(onDate, day ?: today.toEpochDay(), n ?: 1, months)) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             ParleyListItem(
                 modifier = Modifier.clickable { onDate = true },

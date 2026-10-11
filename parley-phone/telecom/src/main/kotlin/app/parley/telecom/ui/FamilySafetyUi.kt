@@ -388,7 +388,7 @@ internal fun HelperJoinCard(progress: HelperProgress) {
             when (progress.stage) {
                 HelperStage.CALLING -> {
                     Text(stringResource(R.string.helper_calling_body), style = MaterialTheme.typography.bodyMedium)
-                    TextButton({ HelperCalls.cancel(progress) }, Modifier.align(Alignment.End)) { Text(stringResource(R.string.helper_cancel)) }
+                    TextButton({ HelperCalls.cancel(progress) }, Modifier.align(Alignment.End)) { Text(stringResource(R.string.call_auto_answer_cancel)) }
                 }
                 HelperStage.ANSWERED -> {
                     val call = progress.call

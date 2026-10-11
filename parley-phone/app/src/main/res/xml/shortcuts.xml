@@ -31,7 +31,7 @@
         android:icon="@drawable/ic_shortcut_rescue"
         android:shortcutId="rescue_call"
         android:shortcutLongLabel="@string/shortcut_rescue_long"
-        android:shortcutShortLabel="@string/shortcut_rescue_short">
+        android:shortcutShortLabel="@string/rescue_title">
         <intent
             android:action="app.parley.action.RESCUE_CALL"
             android:targetClass="app.parley.InternalEntry"
@@ -43,7 +43,7 @@
         android:icon="@drawable/ic_shortcut_search"
         android:shortcutId="search_everything"
         android:shortcutLongLabel="@string/shortcut_search_everything_long"
-        android:shortcutShortLabel="@string/shortcut_search_everything_short">
+        android:shortcutShortLabel="@string/recall_chip">
         <intent
             android:action="app.parley.action.SEARCH_EVERYTHING"
             android:targetClass="app.parley.InternalEntry"

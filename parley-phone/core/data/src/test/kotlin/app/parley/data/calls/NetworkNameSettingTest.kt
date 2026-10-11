@@ -2,17 +2,15 @@ package app.parley.data.calls
 
 import android.app.Application
 import android.content.Context
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.NetworkName
 import app.parley.data.SettingsRepository
+import app.parley.data.prefs.PreferenceFile
+import app.parley.data.prefs.booleanPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,7 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 
 /**
  * "Remember names from the network": off on a new phone and after an upgrade from a version without it (whose kept
@@ -33,7 +30,7 @@ import java.io.File
 class NetworkNameSettingTest {
     private val app: Application = ApplicationProvider.getApplicationContext()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val file = File(app.filesDir, "network-names-${System.nanoTime()}.preferences_pb")
+    private val file = "network-names-${System.nanoTime()}"
     private val now = System.currentTimeMillis()
 
     private object Keys : SealedLineStore.Keys {
@@ -50,7 +47,7 @@ class NetworkNameSettingTest {
         scope.cancel()
     }
 
-    private fun repo(fresh: Boolean): SettingsRepository = SettingsRepository(PreferenceDataStoreFactory.create(scope = scope) { file }, scope) { fresh }
+    private fun repo(fresh: Boolean): SettingsRepository = SettingsRepository(PreferenceFile(app, file), scope) { fresh }
 
     /** What the app does with a name the network sent ([app.parley.AppTelecomDependencies.onNetworkName]'s rule). */
     private fun sent(store: NetworkNameStore, enabled: Boolean, number: String, name: String, private: Boolean? = false) {
@@ -69,11 +66,7 @@ class NetworkNameSettingTest {
         // 6.2.1 kept a name, and stored settings without this key.
         val store = NetworkNameStore(app, Keys)
         store.record("+919812300002", "Ravi Kumar", now, "sim1", "IN", now)
-        val before = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        PreferenceDataStoreFactory.create(scope = before) { file }.edit { it[booleanPreferencesKey("show_caller_photo")] = true }
-        // One store per file at a time: the earlier version's is closed before this one opens.
-        before.cancel()
-        delay(100)
+        PreferenceFile(app, file).edit { it[booleanPreferencesKey("show_caller_photo")] = true }
 
         val settings = repo(fresh = false).current()
         assertFalse(settings.rememberNetworkNames)

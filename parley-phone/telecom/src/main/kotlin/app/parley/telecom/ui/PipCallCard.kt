@@ -100,7 +100,7 @@ private fun pipStatus(call: CallUi): String? {
         !call.isLive -> call.failureText ?: call.dropText?.let { stringResource(R.string.call_drop_title) } ?: call.disconnectReason
             ?: stringResource(R.string.incall_call_ended)
         holdNow > 0 -> stringResource(R.string.holdmode_pip, clockText(holdModeSeconds(call, holdNow)))
-        call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
+        call.state == CallState.HOLDING -> stringResource(R.string.holdmode_title)
         call.state == CallState.ACTIVE -> null
         else -> stringResource(R.string.incall_status_calling)
     }

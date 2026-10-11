@@ -294,7 +294,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     ): List<RecentGroup> {
         val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys, archived) }
         val tz = TimeZone.getDefault()
-        val privateNumber = c.appContext.getString(R.string.main_private_number)
+        val privateNumber = c.appContext.getString(R.string.blk_private_number)
         val unknown = c.appContext.getString(R.string.main_unknown)
         fun rowKeyOf(e: CallEntry) = rowKey(keyOf(e), e)
 

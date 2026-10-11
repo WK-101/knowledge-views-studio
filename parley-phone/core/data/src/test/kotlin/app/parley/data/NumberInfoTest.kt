@@ -1,11 +1,8 @@
 package app.parley.data
 
-import app.parley.common.GeoLanguages
-import java.io.File
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NumberInfoTest {
@@ -30,13 +27,5 @@ class NumberInfoTest {
     @Test fun invalidNumbersStillHaveNoPlace() {
         assertNull(NumberInfo.location("+8612", "CN", Locale.ENGLISH))
         assertNull(NumberInfo.location("", "AU", Locale.ENGLISH))
-    }
-
-    @Test fun theApkDropsExactlyTheseCountriesAreaFiles() {
-        val gradle = File("../../app/build.gradle.kts").readText()
-        val line = Regex("""listOf\(([^)]*)\)\.map \{ "com/google/i18n/phonenumbers/geocoding/data/\$\{it\}_\*" \}""").find(gradle)
-        assertTrue("app/build.gradle.kts no longer drops any area file", line != null)
-        val dropped = Regex("\"(\\d+)\"").findAll(line!!.groupValues[1]).map { it.groupValues[1].toInt() }.toSet()
-        assertEquals(GeoLanguages.COUNTRIES_WITHOUT_AREAS, dropped)
     }
 }

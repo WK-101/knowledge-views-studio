@@ -120,12 +120,12 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
             if (query.isBlank()) {
                 EmptyState(
                     Icons.Rounded.Voicemail, stringResource(R.string.vmi_empty), modifier = Modifier.padding(top = 32.dp),
-                    action = stringResource(R.string.ux_empty_call_voicemail), onAction = { vm.callVoicemail() },
+                    action = stringResource(R.string.keypad_long_voicemail), onAction = { vm.callVoicemail() },
                 )
             } else {
                 EmptyState(
                     Icons.Rounded.Voicemail, stringResource(R.string.ux_empty_voicemail_no_match, query), modifier = Modifier.padding(top = 32.dp),
-                    action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
+                    action = stringResource(R.string.contact_page_clear_search), onAction = { recents.query.value = "" },
                 )
             }
         }
@@ -163,7 +163,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
         ConfirmDialog(
             title = stringResource(R.string.vmi_delete_title),
             text = stringResource(R.string.vmi_delete_body),
-            confirmLabel = stringResource(R.string.main_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 confirmDelete = null
                 if (playing.id == v.id) player.stop()
@@ -171,7 +171,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
             },
             onDismiss = { confirmDelete = null },
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -237,7 +237,7 @@ private fun VoicemailRow(
 ) {
     val context = LocalContext.current
     val contact = remember(v.number) { vm.contactFor(v.number) }
-    val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.main_private_number)
+    val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number)
     Column {
         ParleyListItem(
             modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle),
@@ -279,7 +279,7 @@ private fun VoicemailRow(
                     val positionLabel = stringResource(R.string.vmi_position)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         FilledIconButton(onPlay) {
-                            Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.vmi_play))
+                            Icon(if (playing?.playing == true) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (playing?.playing == true) stringResource(R.string.vmi_pause) else stringResource(R.string.caller_tune_play))
                         }
                         Spacer(Modifier.width(8.dp))
                         Slider(
@@ -306,15 +306,15 @@ private fun VoicemailRow(
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (v.number.isNotBlank()) {
-                        AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text(stringResource(R.string.missed_call_back)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
+                        AssistChip({ vm.requestCall(v.number, contact?.displayName) }, { Text(stringResource(R.string.hist_call_back)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
                     }
                     AssistChip(
                         onHeard, { Text(stringResource(if (v.heard) R.string.vmi_mark_new else R.string.vmi_mark_heard)) },
                         leadingIcon = { Icon(if (v.heard) Icons.Rounded.MarkEmailUnread else Icons.Rounded.MarkEmailRead, null, Modifier.size(18.dp)) },
                     )
-                    if (v.hasAudio) AssistChip(onShare, { Text(stringResource(R.string.main_share)) }, leadingIcon = { Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)) })
+                    if (v.hasAudio) AssistChip(onShare, { Text(stringResource(R.string.diag_share)) }, leadingIcon = { Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)) })
                     else AssistChip(onDownload, { Text(stringResource(R.string.vmi_download)) }, leadingIcon = { Icon(Icons.Rounded.CloudDownload, null, Modifier.size(18.dp)) })
-                    AssistChip(onDelete, { Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })
+                    AssistChip(onDelete, { Text(stringResource(R.string.blk_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp)) })
                 }
             }
         }

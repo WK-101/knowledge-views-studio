@@ -156,7 +156,7 @@ private fun ReachLayout(
     footer: @Composable ColumnScope.() -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-        Text(stringResource(R.string.reach_message_or_call_on), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+        Text(stringResource(R.string.contact_page_sec_messengers), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
         header()
         // Calling is the first, primary action; the number is dialled as given (the SIM's country applies).
         if (onCall != null && callNumber != null) CallFirstButton(callNumber) { onCall(callNumber) }
@@ -565,7 +565,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                         val text = MessagingText.myDetails(res, myCard.name, myCard.firstNumber)
                         if (text == null) editDetails = true else draft = text
                     },
-                    label = { Text(stringResource(R.string.msg_send_details)) },
+                    label = { Text(stringResource(R.string.discover_my_card_title)) },
                     leadingIcon = { Icon(Icons.Rounded.Badge, null) },
                 )
                 if (myCard.name.isNotEmpty() || myCard.firstNumber != null) {

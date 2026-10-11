@@ -1,5 +1,4 @@
 import java.util.Properties
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /**
  * "Parley Lists": the optional companion that downloads public spam lists. It is a separate app so that
@@ -25,12 +24,8 @@ val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System
 
 android {
     namespace = "app.parley.lists"
-    compileSdk = 36
-
     defaultConfig {
         applicationId = "app.parley.lists"
-        minSdk = 29
-        targetSdk = 36
         // Plain literals only (F-Droid's update check reads them with a regex). Tag lists-v<versionName>.
         versionCode = 3
         versionName = "1.1.1"
@@ -71,11 +66,6 @@ android {
     // English-only, like Parley.
     androidResources { localeFilters += listOf("en") }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     dependenciesInfo {
         includeInApk = false
         includeInBundle = false
@@ -88,18 +78,21 @@ android {
         // ez-vcard comes along with :core:common, but none of its code survives shrinking here (the updater reads no
         // vCards), so its messages, licence copies and HTML template are dead weight.
         resources.excludes += "ezvcard/**"
+        // libphonenumber's data comes packed with :core:common (PhoneData); the updater never looks up area names.
+        resources.excludes += listOf(
+            "com/google/i18n/phonenumbers/data/PhoneNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/data/ShortNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/geocoding/**",
+            "com/google/i18n/phonenumbers/timezones/**",
+            "app/parley/common/phone/area_names.bin",
+        )
     }
+
+    testOptions { unitTests.isIncludeAndroidResources = true }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = true
-        // Missing translations are warnings (they fall back to English); see lint.xml.
-        lintConfig = rootProject.file("lint.xml")
     }
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 dependencies {
@@ -111,6 +104,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.work)
     implementation(libs.kotlinx.serialization.json)
+
+    // Download, checks and the hand-off to Parley, under Robolectric with answers instead of the network.
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
 
 // Privacy guard (allow-list): the updater may only reach the network. No contacts, phone, call log, SMS,

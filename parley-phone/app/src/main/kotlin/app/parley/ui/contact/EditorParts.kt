@@ -432,10 +432,10 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     val shown = remember(query, res) { RelationText.search(res, query) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_relation)) },
+        title = { Text(stringResource(R.string.cs_group_relation)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ParleyListItem(
@@ -456,7 +456,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
     if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
 }
@@ -473,10 +473,10 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_choose_contact)) },
+        title = { Text(stringResource(R.string.picker_choose_contact)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
                         ParleyListItem(
@@ -495,7 +495,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -506,10 +506,10 @@ internal fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: 
     ConfirmDialog(
         title = stringResource(R.string.edit_custom_label),
         text = null,
-        confirmLabel = stringResource(R.string.main_ok),
+        confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = { onDismiss(); onDone(text.trim()) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = text.isNotBlank(),
         content = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
     )

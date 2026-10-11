@@ -49,8 +49,8 @@ internal fun keptAsIcon(k: KeptAs): ImageVector = when (k) {
 internal fun keptAsName(res: Resources, k: KeptAs): String = res.getString(
     when (k) {
         KeptAs.VISIBLE -> R.string.kept_as_visible
-        KeptAs.PRIVATE -> R.string.kept_as_private
-        KeptAs.ARCHIVED -> R.string.kept_as_archived
+        KeptAs.PRIVATE -> R.string.archive_private_section
+        KeptAs.ARCHIVED -> R.string.archive_title_screen
     },
 )
 
@@ -103,7 +103,7 @@ internal fun KeptAsDialog(ctx: ContactPageContext) {
                 }
             }
         },
-        confirmButton = { TextButton(close) { Text(stringResource(R.string.main_cancel)) } },
+        confirmButton = { TextButton(close) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

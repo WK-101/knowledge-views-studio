@@ -36,7 +36,7 @@ internal fun CallStateAnnouncer(call: CallUi, ended: Boolean) {
     LaunchedEffect(call.id, phase) {
         when (CallAnnouncements.on(last, phase)) {
             Say.CONNECTED -> spoken = res.getString(R.string.incall_announce_connected)
-            Say.ON_HOLD -> spoken = res.getString(R.string.incall_status_on_hold)
+            Say.ON_HOLD -> spoken = res.getString(R.string.holdmode_title)
             Say.RESUMED -> spoken = res.getString(R.string.incall_announce_resumed)
             Say.ENDED -> spoken = call.disconnectReason ?: res.getString(R.string.incall_call_ended)
             null -> Unit

@@ -1,14 +1,12 @@
 package app.parley.data.history
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import app.parley.data.prefs.PreferenceFile
+import app.parley.data.prefs.Preferences
+import app.parley.data.prefs.booleanPreferencesKey
+import app.parley.data.prefs.longPreferencesKey
+import app.parley.data.prefs.stringPreferencesKey
+import app.parley.data.prefs.stringSetPreferencesKey
 import app.parley.common.history.HistoryFilter
 import app.parley.common.history.PlanConfig
 import kotlinx.coroutines.CoroutineScope
@@ -18,8 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-
-private val Context.historyStore: DataStore<Preferences> by preferencesDataStore(name = "history")
 
 data class HistorySettings(
     /** Mirror every call into Parley's encrypted archive (on by default). */
@@ -38,16 +34,17 @@ data class HistorySettings(
     val archiveResetSeen: Boolean = true,
 )
 
-/** Call-history settings in their own DataStore file (kept apart from the main settings). */
+/** Call-history settings in their own file (kept apart from the main settings). */
 class HistoryPrefs(context: Context, scope: CoroutineScope) {
-    private val store = context.applicationContext.historyStore
+    private val store = PreferenceFile(context, "history")
     private val _loaded = MutableStateFlow(false)
     val loaded: StateFlow<Boolean> = _loaded
 
     val state: StateFlow<HistorySettings> = store.data.map { it.toSettings().also { _loaded.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, HistorySettings())
 
-    suspend fun current(): HistorySettings = if (_loaded.value) state.value else store.data.first().toSettings()
+    /** As stored now, a change just made included (the file is served from memory once read). */
+    suspend fun current(): HistorySettings = store.data.first().toSettings()
 
     private fun Preferences.toSettings() = HistorySettings(
         archiveEnabled = this[K.archive] ?: true,

@@ -1,7 +1,6 @@
 package app.parley.common.blocking
 
 import app.parley.common.BlockRule
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.IncomingCallFacts
 import app.parley.common.LineType
@@ -10,6 +9,7 @@ import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.ScreeningResult
 import app.parley.common.ScreeningSettings
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -148,7 +148,7 @@ class BlockingToolsTest {
         assertFalse(WangiriGuard.isSuspect(CallType.INCOMING, 3_000, LineType.PREMIUM_RATE, "TN", "FR"))
     }
 
-    private fun call(n: String, type: CallType, t: Long, d: Long = 0) = CallEntry(t, n, null, type, t, d, null, false, false)
+    private fun call(n: String, type: CallType, t: Long, d: Long = 0) = testCall(t, n, null, type, t, d)
 
     @Test fun reputation_with_regret_window() {
         val h = 3_600_000L

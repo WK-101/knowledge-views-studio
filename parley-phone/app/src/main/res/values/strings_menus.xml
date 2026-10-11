@@ -4,21 +4,14 @@
     <string name="menus_shortcuts">Shortcuts</string>
     <!-- Under a shortcut's name: the number and the digits it sends. %1$s is the number, %2$s like "2 › 1 › 4". -->
     <string name="menus_shortcut_summary">%1$s, then %2$s</string>
-    <string name="menus_call_shortcut">Call %1$s</string>
-    <string name="menus_shortcut_more">More for %1$s</string>
     <string name="menus_rename">Rename…</string>
     <string name="menus_rename_title">Rename shortcut</string>
-    <string name="menus_name">Name</string>
-    <string name="menus_add_home">Add to home screen</string>
     <string name="menus_home_unavailable">Your home screen doesn\'t take shortcuts</string>
-    <string name="menus_delete">Delete</string>
     <string name="menus_delete_title">Delete \"%1$s\"?</string>
     <string name="menus_delete_body">The shortcut goes from here and from your home screen. The number stays.</string>
     <string name="menus_deleted">Shortcut deleted</string>
 
     <!-- Settings › Calls › Phone menus: menu memory's own page. -->
-    <string name="set_phone_menus_title">Phone menus</string>
-    <string name="set_phone_menus_summary">The keys you pressed in a phone menu, offered again next time</string>
     <string name="set_phone_menus_kw">phone menu, ivr, menu keys, touch tones, dtmf, replay, direct my call</string>
     <string name="set_menu_memory_title">Remember menu keys</string>
     <string name="set_menu_memory_summary">Never 4 or more digits in a row, so PINs and card numbers aren\'t kept</string>
@@ -38,12 +31,10 @@
     <!-- Without network support: the message the user sends themselves before the call. %1$s is the reason. -->
     <string name="reason_text_body">Your network can\'t send a reason with the call. Text first opens your messaging app with the message ready; you send it, then come back to call.</string>
     <string name="reason_no_way">Your network can\'t send a reason with the call, and there\'s no messaging app to text first.</string>
-    <string name="reason_call">Call</string>
     <string name="reason_text_first">Text first</string>
     <string name="reason_message">Calling you about %1$s</string>
     <string name="reason_call_now_title">Call %1$s now?</string>
     <string name="reason_call_now_body">If you sent the text, they know why you\'re calling.</string>
-    <string name="reason_not_now">Not now</string>
     <string name="reason_no_app">No messaging app to open</string>
     <string name="reason_tip">Press and hold Call to say why you\'re calling.</string>
 </resources>

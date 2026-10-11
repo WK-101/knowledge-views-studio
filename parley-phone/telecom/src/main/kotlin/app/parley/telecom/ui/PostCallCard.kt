@@ -152,7 +152,7 @@ internal fun PostCallCard(call: CallUi, safetyChecked: Boolean, onChoice: (PostC
                 onChoice(PostCallChoice.SavePrivately(number, name.trim().ifEmpty { number }))
             },
             onDismiss = { saving = false },
-            dismissLabel = stringResource(R.string.tc_cancel),
+            dismissLabel = stringResource(R.string.call_auto_answer_cancel),
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.postcall_name)) }, singleLine = true)
@@ -228,7 +228,7 @@ private fun postCallLabel(a: PostCallActions.Action): Pair<ImageVector, String> 
     PostCallActions.Action.ASK_NAME -> Icons.Rounded.Sms to stringResource(R.string.postcall_name_reply)
     PostCallActions.Action.SCAM_CHECK -> Icons.Rounded.Shield to stringResource(R.string.scam_postcall)
     PostCallActions.Action.CALL_SAVED_NUMBER -> Icons.Rounded.VerifiedUser to stringResource(R.string.verify_postcall)
-    PostCallActions.Action.SAVE -> Icons.Rounded.PersonAdd to stringResource(R.string.postcall_save)
+    PostCallActions.Action.SAVE -> Icons.Rounded.PersonAdd to stringResource(R.string.tc_save)
     PostCallActions.Action.REMIND_ME -> Icons.Rounded.AlarmAdd to stringResource(R.string.remind_me)
 }
 
@@ -240,7 +240,7 @@ private fun SaveAction(onNew: () -> Unit, onAdd: () -> Unit, onPrivately: () -> 
         Button({ open = true }) {
             Icon(Icons.Rounded.PersonAdd, null, Modifier.size(18.dp))
             Spacer(Modifier.size(6.dp))
-            Text(stringResource(R.string.postcall_save))
+            Text(stringResource(R.string.tc_save))
         }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             MenuItem(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_new_contact)) { open = false; onNew() }

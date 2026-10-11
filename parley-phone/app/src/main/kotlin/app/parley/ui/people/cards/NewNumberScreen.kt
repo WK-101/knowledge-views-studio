@@ -181,7 +181,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
                 via == null -> PickWay(installed) { via = it }
                 queue.finished -> Finished(queue, back)
                 else -> CurrentPerson(
-                    queue, app?.label ?: stringResource(R.string.card_new_number_sms), ::openCurrent, ::sendCard,
+                    queue, app?.label ?: stringResource(R.string.detail_sms), ::openCurrent, ::sendCard,
                     onNext = ::next,
                     onStop = { set(queue.stop()) }, onChangeWay = { via = null },
                 )
@@ -233,7 +233,7 @@ private fun PickWay(installed: List<MessengerApp>, onPick: (String) -> Unit) {
         )
     }
     ParleyListItem(
-        headlineContent = { Text(stringResource(R.string.card_new_number_sms)) },
+        headlineContent = { Text(stringResource(R.string.detail_sms)) },
         supportingContent = { Text(stringResource(R.string.card_new_number_filled_in)) },
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
         modifier = Modifier.clickable { onPick(SMS) },
@@ -246,7 +246,7 @@ private fun Finished(queue: IntroQueue, back: () -> Unit) {
         Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
         Text(MessagingText.introSummary(LocalResources.current, queue), style = MaterialTheme.typography.titleMedium)
     }
-    Button(back) { Text(stringResource(R.string.main_done)) }
+    Button(back) { Text(stringResource(R.string.dc_done)) }
 }
 
 /** The person whose turn it is: open the chat (or SMS), or send the card; next, skip, stop, another way. */
@@ -264,8 +264,8 @@ private fun CurrentPerson(
     Button(onOpen, Modifier.fillMaxWidth()) { Text(stringResource(if (wasOpened) R.string.intro_open_again else R.string.intro_open_in_app, way)) }
     OutlinedButton(onSendCard, Modifier.fillMaxWidth()) { Text(stringResource(R.string.card_new_number_send_card)) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        OutlinedButton(onNext) { Text(stringResource(if (wasOpened) R.string.intro_next else R.string.intro_skip)) }
-        TextButton(onStop) { Text(stringResource(R.string.intro_stop)) }
+        OutlinedButton(onNext) { Text(stringResource(if (wasOpened) R.string.pin_next else R.string.intro_skip)) }
+        TextButton(onStop) { Text(stringResource(R.string.blk_stop)) }
         TextButton(onChangeWay) { Text(stringResource(R.string.intro_change_app)) }
     }
 }

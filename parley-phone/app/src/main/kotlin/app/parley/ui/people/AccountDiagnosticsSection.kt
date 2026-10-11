@@ -50,13 +50,13 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(round) { report = vm.c.people.accounts.report() }
     val r = report ?: return
-    fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.ppl_phone)
+    fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.contact_page_sec_phones)
     fun syncSettings() = runCatching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
     }.onFailure { vm.toast(res.getString(R.string.ppl_sync_settings_failed)) }
 
     Column {
-        Section(stringResource(R.string.ppl_accounts))
+        Section(stringResource(R.string.tm_field_accounts))
         r.findings.forEach { f ->
             val a = f.account?.let { AccountRef(it.type, it.name) }
             when (f.kind) {
@@ -106,14 +106,14 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
         Text(
             stringResource(
                 R.string.ppl_signed_in,
-                r.signedIn.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty {
+                r.signedIn.joinToString { res.getString(R.string.rst_with_count, it.first.displayLabel, it.second) }.ifEmpty {
                     res.getString(R.string.ppl_signed_in_none)
                 },
             ) +
                 "\n" + stringResource(
                     R.string.ppl_holding,
-                    r.owning.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty {
-                        res.getString(R.string.ppl_holding_none)
+                    r.owning.joinToString { res.getString(R.string.rst_with_count, it.first.displayLabel, it.second) }.ifEmpty {
+                        res.getString(R.string.blk_res_none)
                     },
                 ),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

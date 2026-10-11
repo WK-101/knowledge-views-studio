@@ -1,7 +1,7 @@
 package app.parley.common.calls
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -9,7 +9,7 @@ import org.junit.Test
 
 class ClearHistoryTest {
     private fun call(id: Long, number: String, day: Long, type: CallType = CallType.INCOMING, hidden: Boolean = false) =
-        CallEntry(id, number, null, type, day * 86_400_000L + id, 0, null, false, hidden)
+        testCall(id, number, null, type, day * 86_400_000L + id, 0, presentationHidden = hidden)
 
     @Test fun clear_history_scopes() {
         val list = listOf(

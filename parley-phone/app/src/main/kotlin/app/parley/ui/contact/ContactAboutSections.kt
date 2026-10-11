@@ -172,7 +172,7 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
     sections.addRows(ContactSection.ABOUT, title, resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
         sites.forEachIndexed { i, w ->
             item {
-                val label = resources.getString(R.string.detail_website)
+                val label = resources.getString(R.string.csv_field_website)
                 GroupDataRow(Icons.Rounded.Language, i == 0, w.value, label, onClick = { Intents.web(context, w.value) })
             }
         }
@@ -220,7 +220,7 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
         if (d.note.isNotBlank()) {
             item {
                 GroupDataRow(
-                    Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.detail_note), onClick = {},
+                    Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.blk_col_note), onClick = {},
                     headline = { LinkifiedText(d.note) },
                 )
             }
@@ -252,7 +252,7 @@ private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext)
                 modifier = Modifier.combinedClickable(
                     onClick = { ctx.show(ContactDialog.EditNote) },
                     onLongClick = full?.let { n -> { Clipboard.copy(context, n) } },
-                    onLongClickLabel = full?.let { stringResource(R.string.main_copy) },
+                    onLongClickLabel = full?.let { stringResource(R.string.hist_action_copy) },
                 ),
                 leading = {
                     val cs = MaterialTheme.colorScheme

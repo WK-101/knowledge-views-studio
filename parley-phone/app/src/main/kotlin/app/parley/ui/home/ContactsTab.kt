@@ -186,10 +186,10 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                         // One way on for each case.
                         action = stringResource(
                             when {
-                                query.isNotBlank() -> R.string.ux_empty_clear_search
+                                query.isNotBlank() -> R.string.contact_page_clear_search
                                 !filter.isEmpty -> R.string.ux_empty_clear_filter
                                 privateOnly -> R.string.ux_empty_add_private
-                                else -> R.string.ux_empty_add_contact
+                                else -> R.string.home_create_contact
                             },
                         ),
                         onAction = {
@@ -321,10 +321,10 @@ fun ContactRow(
             val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number
             Row {
                 IconButton({ if (onMessage != null) onMessage(n) else Intents.sms(ctx, n) }) {
-                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.main_message_who, c.displayName))
+                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, c.displayName))
                 }
                 IconButton({ onCall(n) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, c.displayName), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, c.displayName), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }) else menu,

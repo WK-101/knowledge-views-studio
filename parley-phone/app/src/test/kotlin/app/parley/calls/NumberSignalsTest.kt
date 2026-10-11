@@ -1,8 +1,8 @@
 package app.parley.calls
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
+import app.parley.common.testing.testCall
 import app.parley.data.DataItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -25,15 +25,15 @@ class NumberSignalsTest {
     }
 
     @Test fun the_call_history_passed_in_clears_a_line_that_works() {
-        fun call(type: CallType, date: Long, sec: Long = 0) = CallEntry(date, "07700 900123", null, type, date, sec, null, false, false)
+        fun call(type: CallType, date: Long, sec: Long = 0) = testCall(date, "07700 900123", null, type, date, sec)
         val calls = listOf(call(CallType.OUTGOING, 30), call(CallType.OUTGOING, 20, sec = 45), call(CallType.MISSED, 10))
         assertEquals(20L, NumberSignals.aliveSince(calls, "GB")["+447700900123"])
         assertNull(NumberSignals.aliveSince(listOf(call(CallType.OUTGOING, 30)), "GB")["+447700900123"])
     }
 
     @Test fun a_call_in_an_app_over_the_internet_never_shows_the_phone_line_works() {
-        val whatsApp = CallEntry(40, "07700 900123", null, CallType.INCOMING, 40, 60, "acc", false, false, appPackage = "com.whatsapp")
-        val phone = CallEntry(10, "07700 900123", null, CallType.INCOMING, 10, 60, null, false, false)
+        val whatsApp = testCall(40, "07700 900123", null, CallType.INCOMING, 40, 60, "acc", appPackage = "com.whatsapp")
+        val phone = testCall(10, "07700 900123", null, CallType.INCOMING, 10, 60)
         assertNull(NumberSignals.aliveSince(listOf(whatsApp), "GB")["+447700900123"])
         assertEquals(10L, NumberSignals.aliveSince(listOf(whatsApp, phone), "GB")["+447700900123"])
     }

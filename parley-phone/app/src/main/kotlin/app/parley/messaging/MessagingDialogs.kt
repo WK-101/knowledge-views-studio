@@ -98,7 +98,7 @@ fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (Strin
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -116,15 +116,15 @@ fun MyCardNameNumberDialog(card: MeCard, suggestNumber: suspend () -> String?, o
     ConfirmDialog(
         title = stringResource(R.string.me_title),
         text = null,
-        confirmLabel = stringResource(R.string.main_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = { onSave(name, number) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         confirmEnabled = name.isNotBlank() || number.isNotBlank(),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.msg_my_details_body), style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.msg_your_name)) }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.me_your_name)) }, singleLine = true)
                 OutlinedTextField(number, { number = it }, label = { Text(stringResource(R.string.msg_your_number)) }, singleLine = true)
             }
         },

@@ -168,7 +168,7 @@ private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAnd
         }
         Slot {
             if (call.silenced) {
-                QuietAction(Icons.Rounded.NotificationsOff, stringResource(R.string.incall_silenced), onClick = null, selected = true)
+                QuietAction(Icons.Rounded.NotificationsOff, stringResource(R.string.call_silenced), onClick = null, selected = true)
             } else {
                 QuietAction(
                     Icons.Rounded.NotificationsOff, stringResource(R.string.incall_silence), { CallManager.ignore(call.id) },
@@ -208,7 +208,7 @@ internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.incall_decline_q)) },
         text = { Text(stringResource(R.string.incall_decline_body)) },
-        confirmButton = { TextButton(onClick = onDecline) { Text(stringResource(R.string.incall_decline), color = CallColors.Decline) } },
+        confirmButton = { TextButton(onClick = onDecline) { Text(stringResource(R.string.notif_decline), color = CallColors.Decline) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.incall_keep_ringing)) } },
     )
 }
@@ -218,8 +218,8 @@ internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
 private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (sim != null) Box(Modifier.align(Alignment.CenterHorizontally)) { LineLabel(sim) }
-        BigAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })
-        BigAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline, height = 80)
+        BigAction(Icons.Rounded.Call, stringResource(R.string.notif_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })
+        BigAction(Icons.Rounded.CallEnd, stringResource(R.string.notif_decline), CallColors.Decline, onDecline, height = 80)
     }
 }
 
@@ -278,10 +278,10 @@ private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> U
         rememberInfiniteTransition(label = "halo").animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "t")
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-        CallActionButton(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline, Modifier.width(CallButtonSize.slot))
+        CallActionButton(Icons.Rounded.CallEnd, stringResource(R.string.notif_decline), CallColors.Decline, onDecline, Modifier.width(CallButtonSize.slot))
         CallActionButton(
-            Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, Modifier.width(CallButtonSize.slot),
-            spoken = sim?.let { stringResource(R.string.incall_answer_on, it) } ?: stringResource(R.string.incall_answer),
+            Icons.Rounded.Call, stringResource(R.string.notif_answer), CallColors.Accept, onAnswer, Modifier.width(CallButtonSize.slot),
+            spoken = sim?.let { stringResource(R.string.incall_answer_on, it) } ?: stringResource(R.string.notif_answer),
             halo = halo?.let { h -> { h.value } },
         )
     }
@@ -301,8 +301,8 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
-    val answerLabel = stringResource(R.string.incall_answer)
-    val declineLabel = stringResource(R.string.incall_decline)
+    val answerLabel = stringResource(R.string.notif_answer)
+    val declineLabel = stringResource(R.string.notif_decline)
     val description = if (sim != null) stringResource(R.string.incall_slider_description_sim, sim) else stringResource(R.string.incall_slider_description)
     val settleSpec = ParleyMotion.fastSpatial<Float>()
     val state = remember { SlideState() }

@@ -180,7 +180,7 @@ private fun EditStepPicker(
                 confirmLabel = stringResource(R.string.be_move_confirm),
                 onConfirm = { onConfirmMove(s.account) },
                 onDismiss = close,
-                dismissLabel = stringResource(R.string.main_cancel),
+                dismissLabel = stringResource(R.string.dc_cancel),
             )
         }
     }
@@ -280,6 +280,6 @@ private fun Picker(title: String, choices: List<Pair<String, String?>>, onDismis
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

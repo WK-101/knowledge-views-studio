@@ -1,11 +1,10 @@
 package app.parley.data
 
 import android.app.Application
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.history.RetentionDefaults
+import app.parley.data.prefs.PreferenceFile
+import app.parley.data.prefs.intPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,7 +19,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 
 /**
  * The five-year default for call history is Parley's archive only: no default may ever trim the phone's own call log,
@@ -30,15 +28,15 @@ import java.io.File
 class RetentionDefaultTest {
     private val app: Application = ApplicationProvider.getApplicationContext()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val file = File(app.filesDir, "retention-${System.nanoTime()}.preferences_pb")
+    private val file = "retention-${System.nanoTime()}"
 
     @After fun tearDown() {
         scope.cancel()
     }
 
-    /** A settings store on [file], as this install sees it, once start-up has pinned what it pins. */
-    private fun repo(fresh: Boolean, storeScope: CoroutineScope = scope, on: File = file): SettingsRepository = runBlocking {
-        val store = PreferenceDataStoreFactory.create(scope = storeScope) { on }
+    /** A settings file [file], as this install sees it, once start-up has pinned what it pins. */
+    private fun repo(fresh: Boolean, storeScope: CoroutineScope = scope, on: String = file): SettingsRepository = runBlocking {
+        val store = PreferenceFile(app, on)
         SettingsRepository(store, storeScope) { fresh }.also { s ->
             withTimeout(5_000) { while ("call_log_retention_chosen" !in s.exportMap()) delay(10) }
         }
@@ -76,7 +74,7 @@ class RetentionDefaultTest {
     }
 
     @Test fun an_upgrade_keeps_a_limit_chosen_before_and_its_call_log_trimming() = runBlocking {
-        val store = PreferenceDataStoreFactory.create(scope = scope) { file }
+        val store = PreferenceFile(app, file)
         // As an earlier version stored it: the value only, with no mark.
         store.edit { it[intPreferencesKey("call_log_retention_days")] = 90 }
         val s = SettingsRepository(store, scope) { false }
@@ -108,7 +106,7 @@ class RetentionDefaultTest {
         assertEquals("b:true", backup["call_log_retention_chosen"])
 
         // The same backup on another new phone: the choice comes with it.
-        val other = repo(fresh = true, on = File(app.filesDir, "other-${System.nanoTime()}.preferences_pb"))
+        val other = repo(fresh = true, on = "other-${System.nanoTime()}")
         other.importMap(RetentionDefaults.restored(backup, SettingsRepository.RETENTION_KEY))
         assertEquals(RetentionDefaults.NEW_INSTALL_DAYS, systemLogDays(other))
     }

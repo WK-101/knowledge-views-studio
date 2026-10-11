@@ -1,5 +1,6 @@
 package app.parley.work
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -23,7 +24,6 @@ object PrivateNotice {
         open: PendingIntent? = null,
     ): NotificationCompat.Builder {
         NoticeChannels.ensure(context, channel)
-        val public = NotificationCompat.Builder(context, channel).setSmallIcon(icon).setContentTitle(publicTitle).build()
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(icon)
             .setContentTitle(title)
@@ -31,9 +31,27 @@ object PrivateNotice {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(public)
+            .setPublicVersion(publicVersion(context, channel, icon, publicTitle))
             .setLocalOnly(true)
     }
+
+    /**
+     * What the lock screen shows in place of a private notice: a neutral [title] only, never a name or a number.
+     * [category] and [count] let the system group it (missed calls) without saying more.
+     */
+    fun publicVersion(
+        context: Context,
+        channel: String,
+        @DrawableRes icon: Int,
+        title: CharSequence,
+        category: String? = null,
+        count: Int = 0,
+    ): Notification = NotificationCompat.Builder(context, channel)
+        .setSmallIcon(icon)
+        .setContentTitle(title)
+        .apply { if (category != null) setCategory(category) }
+        .apply { if (count > 0) setNumber(count) }
+        .build()
 
     /** Posts [b]; false when notifications aren't allowed (the screens still show what it said). */
     fun post(context: Context, tag: String?, id: Int, b: NotificationCompat.Builder): Boolean = try {

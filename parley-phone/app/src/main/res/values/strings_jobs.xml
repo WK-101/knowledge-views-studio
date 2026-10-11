@@ -3,7 +3,6 @@
 <resources>
     <string name="job_channel">Exports and imports</string>
     <string name="job_channel_desc">When an export, import or backup you started finishes after you left its screen</string>
-    <string name="job_done_title">Done</string>
     <string name="job_failed_title">Didn\'t finish</string>
     <string name="job_public_text">Parley finished something you started</string>
     <string name="job_running">Still working… You can leave this screen.</string>
@@ -15,8 +14,6 @@
     <string name="job_public_running">Parley is working on something you started</string>
     <string name="job_interrupted">An export or import stopped when Parley was closed. Nothing half-done was kept. Start it again when you\'re ready.</string>
     <string name="job_file_ready">Your file is ready</string>
-    <string name="job_share">Share</string>
-    <string name="job_print">Print</string>
     <string name="job_file_ready_share">Your file is ready. Tap to share it.</string>
     <string name="job_file_ready_print">Your file is ready. Tap to print it.</string>
     <string name="job_file_gone">That file is no longer here. Export it again.</string>

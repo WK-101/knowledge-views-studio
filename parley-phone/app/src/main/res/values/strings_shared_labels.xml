@@ -2,7 +2,6 @@
 <!-- Shared labels: one label kept the same on several people's phones, by update files or a folder (docs/SHARED_LABELS.md). -->
 <resources>
     <!-- Settings entry (Backup & sync › Sync between your phones › Shared labels; searchable) -->
-    <string name="set_shared_labels_title">Shared labels</string>
     <string name="set_shared_labels_summary">A family phonebook: one label kept the same on several people\'s phones</string>
     <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud, update file, send an update, open an update, family spam shield, spam warnings, scam warnings</string>
     <string name="set_shared_labels_join_title">Join a shared label</string>
@@ -14,7 +13,6 @@
     <string name="shl_section">Shared</string>
     <string name="shl_tip">Everyone in this label sees the same contacts, and each change says who made it.</string>
     <string name="shl_status_synced">Synced %1$s</string>
-    <string name="shl_status_never">Not synced yet</string>
     <string name="shl_status_folder_gone">Can\'t open the folder. Check that your sync app still shares it.</string>
     <string name="shl_status_loading">The folder is still loading. Parley tries again later.</string>
     <string name="shl_status_no_permission">Parley needs access to your contacts to sync this label.</string>
@@ -26,7 +24,6 @@
         <item quantity="one">Waiting: %d contact would be deleted</item>
         <item quantity="other">Waiting: %d contacts would be deleted at once</item>
     </plurals>
-    <string name="shl_apply">Apply</string>
     <plurals name="shl_members_n">
         <item quantity="one">%d member</item>
         <item quantity="other">%d members</item>
@@ -45,7 +42,6 @@
     <string name="shl_everyone">Everyone</string>
     <string name="shl_manage">Members &amp; invitations</string>
     <string name="shl_all_changes">All changes</string>
-    <string name="shl_sync_now">Sync now</string>
 
     <!-- History lines: "Ana changed Dr Lee's number · 2 days ago" -->
     <string name="shl_you">You</string>
@@ -55,40 +51,29 @@
     <string name="shl_h_changed">%1$s changed %2$s\'s %3$s</string>
     <string name="shl_h_changed_two">%1$s changed %2$s\'s %3$s and %4$s</string>
     <string name="shl_h_edited">%1$s edited %2$s</string>
-    <string name="shl_h_when">%1$s · %2$s</string>
     <string name="shl_f_name">name</string>
-    <string name="shl_f_nickname">nickname</string>
     <string name="shl_f_organisation">work details</string>
     <string name="shl_f_phones">number</string>
-    <string name="shl_f_emails">email</string>
-    <string name="shl_f_addresses">address</string>
-    <string name="shl_f_websites">website</string>
     <string name="shl_f_dates">dates</string>
     <string name="shl_f_relations">relations</string>
     <string name="shl_f_note">notes</string>
     <string name="shl_f_chat">chat addresses</string>
-    <string name="shl_f_pronouns">pronouns</string>
 
     <!-- Changed on two phones -->
     <string name="shl_conflict_title">Changed on two phones</string>
     <string name="shl_conflict_body">%1$s and you both changed %2$s. Choose what to keep; everything else is merged already.</string>
     <string name="shl_conflict_theirs">%1$s\'s</string>
     <string name="shl_conflict_mine">Yours</string>
-    <string name="shl_conflict_value">%1$s: %2$s</string>
-    <string name="shl_conflict_empty">(empty)</string>
     <string name="shl_conflict_apply">Keep these</string>
     <string name="shl_conflict_failed">Couldn\'t save the choice. Try again when the folder is available.</string>
 
     <!-- Sharing a label -->
-    <string name="shl_share_title">Share %1$s</string>
     <string name="shl_share_intro">Keep this label the same on the phones of people you choose, such as your family: no server, no account. Each person signs their changes with their card key.</string>
-    <string name="shl_share_folder">Folder</string>
     <string name="shl_share_folder_none">An empty folder that your sync app shares with them</string>
     <string name="shl_share_pass">Passphrase for this label</string>
     <string name="shl_share_pass_text">Its own passphrase, not your backup\'s or your sync\'s. You need it to send invitation files and to remove someone.</string>
     <string name="shl_pass_again">Passphrase again</string>
     <string name="shl_your_name">Your name, as the others see it</string>
-    <string name="shl_share_start">Share</string>
     <string name="shl_share_done">%1$s is shared. Invite people next.</string>
     <string name="shl_err_same_as_sync">That\'s the folder of Sync between your phones. Choose a folder of its own.</string>
     <string name="shl_err_in_use">That folder already holds a shared label. Choose an empty one, or join with an invitation.</string>
@@ -115,9 +100,6 @@
     <string name="shl_member_started">Shared the label</string>
     <string name="shl_member_needs_invite">Needs a new invitation from you</string>
     <string name="shl_fingerprint">Key %1$s</string>
-    <string name="shl_remove">Remove</string>
-    <string name="shl_remove_desc">Remove %1$s</string>
-    <string name="shl_remove_title">Remove %1$s?</string>
     <string name="shl_remove_text">The label gets a new key, from a new passphrase. Everyone else needs a new invitation from you. %1$s keeps the contacts they already have but can\'t read anything new. Remove them from the folder in your sync app too.</string>
     <string name="shl_remove_new_pass">New passphrase</string>
     <string name="shl_remove_done">%1$s was removed. Invite the others again.</string>
@@ -128,12 +110,10 @@
     <string name="shl_left">You left %1$s</string>
 
     <!-- Joining -->
-    <string name="shl_join_title">Join a shared label</string>
     <string name="shl_join_passcode">Type the code shown under the QR code.</string>
     <string name="shl_join_passphrase">Type the label\'s passphrase. The person who sent the file can tell you.</string>
     <string name="shl_join_pass">Passphrase</string>
     <string name="shl_join_wrong">That doesn\'t open this invitation</string>
-    <string name="shl_join_open">Open</string>
     <string name="shl_join_invited">%1$s invited you to %2$s</string>
     <string name="shl_join_key">Their key: %1$s. It\'s the same as on their My card › Shared with.</string>
     <string name="shl_join_folder_hint">Their folder: %1$s. Add the same folder in your sync app, then choose it here.</string>
@@ -165,7 +145,6 @@
     <string name="shl_join_into">It joins your label %1$s</string>
     <string name="shl_join_use_existing">Use a label you already have</string>
     <string name="shl_join_use_new">Make a new label instead</string>
-    <string name="shl_join_pick_label">Choose a label</string>
     <string name="shl_join_share_title">Share %1$s?</string>
     <plurals name="shl_join_share_body">
         <item quantity="one">%1$d contact in %2$s will be shared with everyone in this label.</item>
@@ -195,10 +174,7 @@
     <string name="shl_member_last_update">Last update from them %1$s</string>
     <string name="shl_member_no_update">No update from them yet</string>
     <string name="shl_status_waiting_update">Open the update you were sent to see this label\'s contacts</string>
-    <string name="shl_status_updated">Updated %1$s</string>
     <string name="shl_invite_then_update">After they join, send them an update, and ask them to send one back.</string>
-    <string name="shl_open_with">Open in Parley</string>
-    <string name="shl_open_title">Open an update</string>
     <string name="shl_open_reading">Reading the update…</string>
     <string name="shl_open_merged">The update from %1$s is in %2$s.</string>
     <string name="shl_open_merged_someone">The update is in %1$s.</string>

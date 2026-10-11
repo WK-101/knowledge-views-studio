@@ -173,7 +173,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             val groups = listOf(
                 R.string.blk_tpl_group_country to entries.filter { it.builtIn && it.template.country.equals(iso, true) },
                 R.string.blk_tpl_group_anywhere to entries.filter { it.builtIn && it.template.country == null },
-                R.string.blk_tpl_group_other to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
+                R.string.blk_type_not_my_region to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
                 R.string.blk_tpl_group_received to entries.filter { !it.builtIn },
             )
             groups.forEach { (title, list) ->
@@ -200,7 +200,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                 incoming = null
             },
             onDismiss = { incoming = null },
-            dismissLabel = stringResource(R.string.set_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val mine = op.fingerprint == remember { vm.c.lists.shareFingerprint() }
@@ -224,7 +224,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             title = stringResource(R.string.blk_tpl_cant_open),
             text = e,
             onDismiss = { error = null },
-            closeLabel = stringResource(R.string.set_ok),
+            closeLabel = stringResource(R.string.dc_ok),
         )
     }
     qrFor?.let { t -> TemplateQrDialog(vm, t) { qrFor = null } }
@@ -346,7 +346,7 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
                 )
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_done)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
     )
 }
 
@@ -378,6 +378,6 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
                 TextButton({ onFile(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.blk_file)) }
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

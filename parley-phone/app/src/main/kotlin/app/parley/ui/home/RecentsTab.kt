@@ -240,7 +240,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             CoachMark(
                 Tips.RECENTS_SWIPE,
                 stringResource(if (swipe.enabled) R.string.ux_tip_recents_swipe else R.string.ux_tip_recents_long_press),
-                action = if (swipe.enabled) null else stringResource(R.string.ux_tip_turn_on),
+                action = if (swipe.enabled) null else stringResource(R.string.blk_status_turn_on),
                 onAction = { open(Routes.settingsPage(SettingsCategory.LAYOUT, "swipe_actions")) },
             )
         }
@@ -253,11 +253,11 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                     query.isNotBlank() && recall.shows -> Unit
                     query.isNotBlank() -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
-                        action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
+                        action = stringResource(R.string.contact_page_clear_search), onAction = { recents.query.value = "" },
                     )
                     filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
                         Icons.Rounded.AccessTime,
-                        stringResource(R.string.recents_nothing_here),
+                        stringResource(R.string.jr_empty_title),
                         stringResource(R.string.ux_empty_calls_filter),
                         Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_show_all_calls),
@@ -370,7 +370,7 @@ fun RecentRow(
     ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
-            onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
+            onClickLabel = if (tapCalls) stringResource(R.string.circle_widget_call) else null,
             onLongClickLabel = stringResource(R.string.recents_select),
         )
             .then(if (RecentsMark.ACCENT in marks) Modifier.callAccent(hue) else Modifier)
@@ -405,7 +405,7 @@ fun RecentRow(
                     }
                 }
             } else {
-                val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
+                val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.rst_with_count, g.shownTitle, g.calls.size) else g.shownTitle
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         counted,
@@ -440,7 +440,7 @@ fun RecentRow(
                 // Android logged it as a video call (Parley answered it as voice).
                 if (RecentsMark.VIDEO in marks) {
                     Spacer(Modifier.width(4.dp))
-                    VideoCallMark(contentDescription = stringResource(R.string.recents_video_call))
+                    VideoCallMark(contentDescription = stringResource(R.string.circle_type_video))
                 }
                 Spacer(Modifier.width(6.dp))
                 // A saved, private or archived caller has a name: no place name under it.
@@ -457,7 +457,7 @@ fun RecentRow(
                     // A call in an app names the app ("WhatsApp call"); a phone call its SIM when there are two.
                     appCall ?: e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
-                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
+                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.case_call_unanswered) else null,
                     Format.shortWhen(context, e.date),
                 )
                 Text(
@@ -491,7 +491,7 @@ fun RecentRow(
                     CallBackPill(who, onCall)
                 } else {
                     IconButton(onClick = onCall) {
-                        Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, who), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, who), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -663,9 +663,9 @@ private fun RecentActionsSheet(
 /** The words and icon of a Recents call action; [blockedCall]: the row's call was blocked ("Why was this blocked?"). */
 @Composable
 private fun recentMenuLabel(a: RecentMenu.Action, blockedCall: Boolean): MenuLabel = when (a) {
-    RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.main_call), Icons.Rounded.Call)
+    RecentMenu.Action.CALL -> MenuLabel(stringResource(R.string.circle_widget_call), Icons.Rounded.Call)
     RecentMenu.Action.MESSAGE -> MenuLabel(stringResource(R.string.recents_send_message), Icons.AutoMirrored.Rounded.Message)
-    RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat)
+    RecentMenu.Action.MESSAGE_OR_CALL_ON -> MenuLabel(stringResource(R.string.contact_page_sec_messengers), Icons.AutoMirrored.Rounded.Chat)
     RecentMenu.Action.COPY_NUMBER -> MenuLabel(stringResource(R.string.recents_copy_number), Icons.Rounded.ContentCopy)
     RecentMenu.Action.CREATE_CONTACT -> MenuLabel(stringResource(R.string.home_create_contact), Icons.Rounded.PersonAdd)
     // Searching your contacts for the one to add to, as on the post-call card.

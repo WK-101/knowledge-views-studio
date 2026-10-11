@@ -197,7 +197,7 @@ class CallTimePlanner(private val c: DataContainer) {
         fun minutes(context: Context, m: Int): String = when {
             m % 60 == 0 -> context.getString(R.string.ct_hours_short, m / 60)
             m > 60 -> context.getString(R.string.ct_hours_minutes_short, m / 60, m % 60)
-            else -> context.getString(R.string.ct_minutes_short, m)
+            else -> context.getString(R.string.hist_minutes_short, m)
         }
 
         /** [CallLimits.describe] in the app's language: "Limit for Ana", shown during the call. */

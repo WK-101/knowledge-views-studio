@@ -1,8 +1,8 @@
 package app.parley.common.circle
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.EventDate
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -236,7 +236,7 @@ class CircleTest {
     @Test fun timeline_merges_sources_and_groups_by_month_newest_first() {
         val sep = LocalDate.of(2026, 9, 10).atStartOfDay(zone).toInstant().toEpochMilli()
         val aug = LocalDate.of(2026, 8, 3).atStartOfDay(zone).toInstant().toEpochMilli()
-        val call = TimelineEntry.Call(CallEntry(1, "+1", null, CallType.INCOMING, sep, 60, null, false, false))
+        val call = TimelineEntry.Call(testCall(1, "+1", null, CallType.INCOMING, sep, 60))
         val met = TimelineEntry.Logged(2, sep, InteractionType.MEET, null, "Coffee")
         val note = TimelineEntry.Note(3, aug, "Moving in May")
         val months = Timeline.group(listOf(note, call, met), zone)

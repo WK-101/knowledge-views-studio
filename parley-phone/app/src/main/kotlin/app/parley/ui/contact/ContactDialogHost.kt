@@ -143,7 +143,7 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
             icon = Icons.Rounded.QrCode2,
             onConfirm = { ctx.show(ContactDialog.Qr) },
             onDismiss = close,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
         is ContactDialog.SimFor -> SimForDialog(ctx, dialog.number)
     }
@@ -154,12 +154,12 @@ private fun EditNoteDialog(ctx: ContactPageContext) {
     // What was typed survives a rotation, with the dialog.
     var text by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(ctx.ui.meta?.pinnedNote.orEmpty())) }
     ConfirmDialog(
-        title = stringResource(R.string.detail_note_title),
+        title = stringResource(R.string.contact_page_sec_note),
         text = null,
-        confirmLabel = stringResource(R.string.main_save),
+        confirmLabel = stringResource(R.string.pin_save),
         onConfirm = { ctx.show(ContactDialog.None); ctx.page.setPinnedNote(text.text) },
         onDismiss = { ctx.show(ContactDialog.None) },
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = { PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
     )
 }
@@ -194,12 +194,12 @@ private fun AddToHomeScreenDialog(ctx: ContactPageContext) {
                 d.phones.forEach { p ->
                     val shown = Bidi.ltr(Format.number(p.value, ctx.vm.countryIso))
                     ParleyListItem(
-                        headlineContent = { Text(stringResource(R.string.main_call_who, shown)) },
+                        headlineContent = { Text(stringResource(R.string.circle_call_who, shown)) },
                         leadingContent = { Icon(Icons.Rounded.Call, null) },
                         modifier = Modifier.clickable { pin(Shortcuts.Kind.CALL, p.value) },
                     )
                     ParleyListItem(
-                        headlineContent = { Text(stringResource(R.string.main_message_who, shown)) },
+                        headlineContent = { Text(stringResource(R.string.circle_message_who, shown)) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
                         modifier = Modifier.clickable { pin(Shortcuts.Kind.MESSAGE, p.value) },
                     )
@@ -212,7 +212,7 @@ private fun AddToHomeScreenDialog(ctx: ContactPageContext) {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(close) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(close) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -237,7 +237,7 @@ private fun ChooseRelationDialog(ctx: ContactPageContext, people: List<ContactSu
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(close) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(close) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -252,7 +252,7 @@ private fun DeleteDialogs(ctx: ContactPageContext, dialog: ContactDialog) {
             text = stringResource(if (ctx.isPrivate) R.string.vault_delete_text else R.string.detail_delete_body),
             // Archive keeps naming their calls, which deleting doesn't: offered here, where it's chosen against Delete.
             content = if (keptAs(ctx) == KeptAs.ARCHIVED) null else ({ ArchiveInstead { ctx.show(ContactDialog.ConfirmArchive) } }),
-            confirmLabel = stringResource(R.string.main_delete),
+            confirmLabel = stringResource(R.string.blk_delete),
             onConfirm = {
                 close()
                 if (ctx.isPrivate) {
@@ -264,7 +264,7 @@ private fun DeleteDialogs(ctx: ContactPageContext, dialog: ContactDialog) {
             },
             onDismiss = close,
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
         ConfirmDialog(
@@ -277,7 +277,7 @@ private fun DeleteDialogs(ctx: ContactPageContext, dialog: ContactDialog) {
             },
             onDismiss = close,
             destructive = true,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -292,13 +292,13 @@ private fun MakePrivateDialog(ctx: ContactPageContext) {
     ConfirmDialog(
         title = stringResource(R.string.contact_make_private_title, d.given.ifBlank { d.displayName }),
         text = stringResource(R.string.contact_make_private_body),
-        confirmLabel = stringResource(R.string.detail_move_vault),
+        confirmLabel = stringResource(R.string.sel_move_private),
         icon = Icons.Rounded.Lock,
         onConfirm = {
             ctx.show(ContactDialog.None)
             scope.launchVault(
                 context as? ComponentActivity,
-                { e -> ctx.vm.toast(resources.getString(R.string.detail_move_failed, UserErrorText.of(context, e))) },
+                { e -> ctx.vm.toast(resources.getString(R.string.vault_move_failed, UserErrorText.of(context, e))) },
             ) {
                 // The note for calls and the messaging choice go with them, sealed; the rest is re-keyed.
                 val sealed = d.copy(pinnedNote = ctx.ui.meta?.pinnedNote.orEmpty(), messengerPrefs = ctx.prefs.encode().orEmpty())
@@ -309,7 +309,7 @@ private fun MakePrivateDialog(ctx: ContactPageContext) {
             }
         },
         onDismiss = { ctx.show(ContactDialog.None) },
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 
@@ -348,7 +348,7 @@ private fun MakeVisibleDialog(ctx: ContactPageContext) {
             }
         },
         onDismiss = { ctx.show(ContactDialog.None) },
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 
@@ -375,7 +375,7 @@ private fun SimForDialog(ctx: ContactPageContext, number: String) {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(close) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(close) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

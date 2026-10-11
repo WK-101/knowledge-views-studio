@@ -1,11 +1,11 @@
 package app.parley.common.recall
 
-import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.people.ContactListSearch
 import app.parley.common.people.ContactSearch
+import app.parley.common.testing.testCall
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,7 +39,7 @@ class RecallScaleTest {
     private val calls = (0 until CALLS).map { i ->
         val who = if (i % 3 == 0) 20_000 + i % 4_000 else 1 + i % CONTACTS
         val type = CallType.entries[i % 3]
-        CallEntry(i.toLong(), number(who), null, type, start - i * 600_000L, 60, null, isNew = false, presentationHidden = false)
+        testCall(i.toLong(), number(who), null, type, start - i * 600_000L, 60)
     }
 
     /** The app names numbers through PhoneIdentity's line map, built once; here a plain map of the same numbers. */

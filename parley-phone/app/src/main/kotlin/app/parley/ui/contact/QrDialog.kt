@@ -59,10 +59,10 @@ fun QrDialog(vm: AppViewModel, details: ContactDetails, private: Boolean, onDism
     val actions = rememberImageActions(vm, bitmap?.let { generatedImage(fileName, it, private) })
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.qr_share_title, details.displayName)) },
+        title = { Text(stringResource(R.string.blk_share_chooser, details.displayName)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.qr_code), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.blk_qr_code), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 actions?.let { ImageActionButtons(it, Modifier.padding(top = 8.dp)) }
                 Text(stringResource(R.string.qr_scan_hint), modifier = Modifier.padding(vertical = 8.dp))
                 fields.forEachIndexed { i, (_, v) ->
@@ -73,7 +73,7 @@ fun QrDialog(vm: AppViewModel, details: ContactDetails, private: Boolean, onDism
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
     )
 }
 

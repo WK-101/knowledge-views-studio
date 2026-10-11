@@ -198,7 +198,7 @@ object TemplateText {
     private val texts: Map<String, Pair<Int, Int>> = mapOf(
         "de.premium-warn" to (R.string.blk_tpl_de_premium_name to R.string.blk_tpl_de_premium_desc),
         "es.commercial-400" to (R.string.blk_tpl_es_400_name to R.string.blk_tpl_es_400_desc),
-        "fr.arcep-telemarketing" to (R.string.blk_tpl_fr_arcep_name to R.string.blk_tpl_fr_arcep_desc),
+        "fr.arcep-telemarketing" to (R.string.blk_pack_fr_arcep_name to R.string.blk_tpl_fr_arcep_desc),
         "general.contacts-at-night" to (R.string.blk_tpl_night_name to R.string.blk_tpl_night_desc),
         "general.foreign-except-mine" to (R.string.blk_tpl_foreign_name to R.string.blk_tpl_foreign_desc),
         "general.silence-invalid" to (R.string.blk_tpl_invalid_name to R.string.blk_tpl_invalid_desc),

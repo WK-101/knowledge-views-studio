@@ -5,9 +5,6 @@ enum class StoreKind {
     /** A table of a Room database ([PersistentStore.location] is the database file name). */
     ROOM_TABLE,
 
-    /** A Preferences DataStore (`files/datastore/<name>.preferences_pb`). */
-    DATASTORE,
-
     /** A SharedPreferences file (`shared_prefs/<name>.xml`). */
     PREFS,
 
@@ -61,7 +58,7 @@ data class PersistentStore(
 /**
  * Every persistent store Parley has, with its backup policy. The backup is driven by it (every backed-up store must have
  * a section that writes it, or the backup reports that section as missing), "Delete all Parley data" wipes all of it,
- * and a unit test fails when code uses a preferences file, DataStore, database, table or files entry that isn't listed
+ * and a unit test fails when code uses a preferences file, database, table or files entry that isn't listed
  * here. Add a store here in the same change that adds it to the code.
  */
 object PersistentStores {
@@ -123,10 +120,10 @@ object PersistentStores {
         table("archived_calls", backedUp, Sections.CALL_HISTORY, HISTORY_DB),
         table("keep_forever", backedUp, Sections.CALL_HISTORY, HISTORY_DB),
         table("call_trash", local("The 30-day undo of deleted calls"), db = HISTORY_DB),
-        // ---- DataStores
-        PersistentStore("settings", StoreKind.DATASTORE, backedUp, Sections.SETTINGS),
-        PersistentStore("people", StoreKind.DATASTORE, backedUp, Sections.PEOPLE),
-        PersistentStore("history", StoreKind.DATASTORE, backedUp, Sections.HISTORY_SETTINGS),
+        // ---- Settings files (PreferenceFile; older versions kept them in DataStore files, moved over on first open)
+        PersistentStore("settings", StoreKind.PREFS, backedUp, Sections.SETTINGS),
+        PersistentStore("people", StoreKind.PREFS, backedUp, Sections.PEOPLE),
+        PersistentStore("history", StoreKind.PREFS, backedUp, Sections.HISTORY_SETTINGS),
         // ---- SharedPreferences
         PersistentStore("parley_calling", StoreKind.PREFS, backedUp, Sections.CALL_TIME),
         PersistentStore("parley_call_extras", StoreKind.PREFS, backedUp, Sections.CALL_TIME),

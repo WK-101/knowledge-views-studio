@@ -366,7 +366,7 @@ private fun CallTimeSection(call: CallUi, timing: CallTiming?, onDismiss: () -> 
                 val canExtend = cd?.endAt != null && cd.canExtend
                 if (canExtend) {
                     AssistChip(onClick = { CallClock.extend(call.id, 2) }, label = { Text(stringResource(R.string.calltime_plus_2)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
-                    AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.calltime_plus_5)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
+                    AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.notif_plus_5_min)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
                 }
                 AssistChip(
                     onClick = { CallClock.endIn(call.id, 1); onDismiss() },
@@ -375,7 +375,7 @@ private fun CallTimeSection(call: CallUi, timing: CallTiming?, onDismiss: () -> 
                 if (canExtend) {
                     AssistChip(
                         onClick = { CallClock.keepGoing(call.id); onDismiss() },
-                        label = { Text(stringResource(R.string.calltime_dont_end)) }, leadingIcon = { Icon(Icons.Rounded.TimerOff, null) },
+                        label = { Text(stringResource(R.string.notif_dont_end)) }, leadingIcon = { Icon(Icons.Rounded.TimerOff, null) },
                     )
                 }
             }

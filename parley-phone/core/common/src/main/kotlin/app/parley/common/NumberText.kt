@@ -1,5 +1,6 @@
 package app.parley.common
 
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import com.google.i18n.phonenumbers.Phonenumber
@@ -13,7 +14,7 @@ import java.util.Locale
  * with. A number written with "+" or an international prefix keeps its own country.
  */
 object NumberText {
-    private val util: PhoneNumberUtil by lazy { PhoneNumberUtil.getInstance() }
+    private val util: PhoneNumberUtil by lazy { PhoneData.util }
 
     data class Found(
         /** The number as written in the text. */

@@ -110,7 +110,7 @@ internal fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         stringResource(R.string.recents_layout_by_day_hint),
     )
     val styles = recentsStyleLabels()
-    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.home_tap_call))
+    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.circle_widget_call))
     val scope = rememberCoroutineScope()
     fun set(f: (AppSettings) -> AppSettings) = scope.launch { vm.c.settings.update(f) }
     ParleyDialog(
@@ -140,7 +140,7 @@ internal fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 TextButton({ onDismiss(); showRecentsLegend() }) { Text(stringResource(R.string.recents_legend_menu)) }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.clear_history_close)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
     )
 }
 

@@ -51,11 +51,9 @@
     <string name="case_call_missed">Missed call</string>
     <string name="case_call_declined">Declined call</string>
     <string name="case_call_blocked">Screened call</string>
-    <string name="case_call_voicemail">Voicemail</string>
     <string name="case_call_unanswered">No answer</string>
     <string name="case_call_length">%1$s long</string>
     <string name="case_call_hold">on hold %1$s</string>
-    <string name="case_note">Note</string>
     <string name="case_reference_added_on">Reference number added: %1$s</string>
     <string name="case_more">More options</string>
     <string name="case_stop">Stop keeping this case file</string>
@@ -81,8 +79,6 @@
     <string name="case_export_preparing">Preparing the case file…</string>
     <string name="case_export_failed">Couldn\'t make the PDF: %1$s</string>
 
-    <!-- The PDF itself. -->
-    <string name="case_pdf_title">Case file: %1$s</string>
     <string name="case_pdf_made">Made with Parley on %1$s, from this phone\'s own records.</string>
     <string name="case_pdf_numbers">Numbers: %1$s</string>
     <plurals name="case_pdf_calls">
@@ -111,18 +107,15 @@
 
     <!-- Where a case stands: one tap on its page, printed in its PDF. -->
     <string name="case_status_title">Where it stands</string>
-    <string name="case_status_open">Open</string>
     <string name="case_status_waiting">Waiting for them</string>
     <string name="case_status_resolved">Resolved</string>
     <string name="case_status_line">Status: %1$s</string>
     <string name="case_status_line_since">Status: %1$s, since %2$s</string>
 
     <!-- Tools › Case files: every case kept, the newest activity first. -->
-    <string name="case_list_title">Case files</string>
     <string name="case_list_explain">For banks, insurers and other services: your calls with them, hold times and reference numbers, in one place. Stays on this phone.</string>
     <string name="case_list_empty">No case files yet</string>
     <string name="case_list_empty_body">Parley starts one when you call a bank, an insurer or another service you saved, or when you choose Keep a case file on someone\'s page.</string>
-    <string name="case_list_resolved">Resolved</string>
     <string name="case_list_stop_all">Stop keeping case files for all</string>
     <string name="case_list_stop_all_title">Stop keeping case files for all?</string>
     <string name="case_list_stop_all_body">Every case file\'s reference numbers, hold times and menu keys are deleted, and organisations\' calls don\'t start new ones. Your calls and notes stay. You can still keep one for someone from their page.</string>

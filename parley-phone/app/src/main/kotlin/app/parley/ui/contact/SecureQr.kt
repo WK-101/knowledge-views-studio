@@ -133,7 +133,7 @@ fun SecureQrDialog(vm: AppViewModel, details: ContactDetails, private: Boolean, 
                 actions?.let { CodeImageActions(it) }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
     )
 }
 
@@ -151,7 +151,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
         ConfirmDialog(
             title = stringResource(R.string.sqr_encrypted_contact),
             text = null,
-            confirmLabel = stringResource(R.string.msg_open),
+            confirmLabel = stringResource(R.string.blk_open),
             onConfirm = {
                 scope.launch {
                     result = try {
@@ -163,7 +163,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                 }
             },
             onDismiss = onDone,
-            dismissLabel = stringResource(R.string.main_cancel),
+            dismissLabel = stringResource(R.string.dc_cancel),
             content = {
                 Column {
                     Text(stringResource(R.string.sqr_enter_passcode))
@@ -190,7 +190,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
         }
         ParleyDialog(
             onDismissRequest = onDone,
-            title = { Text(r.displayName.ifBlank { stringResource(R.string.sqr_contact) }) },
+            title = { Text(r.displayName.ifBlank { stringResource(R.string.rel_contact) }) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator)))
@@ -205,7 +205,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                     scope.launchVault(activity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
                         val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(NavEvent.Vault(id))
                     }
-                }) { Text(stringResource(R.string.sqr_save_privately)) }
+                }) { Text(stringResource(R.string.temp_save_privately)) }
             },
             dismissButton = {
                 TextButton({

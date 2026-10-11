@@ -159,7 +159,7 @@ This Directory is the only way another app can ask Parley for a private name. Th
 ```
 core/common   Pure Kotlin (unit-tested): numbers, T9, block rules, duplicates, dates, lossless ContactRecord,
               vCard/CSV mapping, backup crypto + archive + retention + merge planning + snapshots
-core/data     ContactsContract, CallLog, SIMs, blocking, Room, DataStore, vault, backup, daily snapshots,
+core/data     ContactsContract, CallLog, SIMs, blocking, Room, settings files, vault, backup, daily snapshots,
               folder sync, journal, health check, offline number info
 core/ui       Theme, avatars, shared components
 telecom       InCallService, CallManager, notifications, in-call UI (no dependency on data/features)

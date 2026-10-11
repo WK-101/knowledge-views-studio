@@ -1,12 +1,12 @@
 package app.parley.data.history
 
 import app.parley.common.history.NumberCategory
-import com.google.i18n.phonenumbers.PhoneNumberUtil
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberType
 
 /** Offline number classification with libphonenumber's `getNumberType`, relative to the SIM country. */
 object NumberCategorizer {
-    private val util by lazy { PhoneNumberUtil.getInstance() }
+    private val util by lazy { PhoneData.util }
 
     fun categorize(number: String, simCountryIso: String): NumberCategory {
         val parsed = try {

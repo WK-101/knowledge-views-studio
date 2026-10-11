@@ -21,12 +21,15 @@ object Downloader {
 
     private const val USER_AGENT = "ParleyLists/1.0"
 
+    /** Opens a connection; tests answer with their own instead of the network. */
+    internal var open: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection }
+
     fun get(res: Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result {
         var current = url
         repeat(5) {
             if (!current.startsWith("https://", ignoreCase = true)) return Result.Failed(res.getString(R.string.lists_err_https))
             val c = try {
-                URL(current).openConnection() as HttpURLConnection
+                open(URL(current))
             } catch (e: Exception) {
                 return Result.Failed(res.getString(R.string.lists_err_link))
             }

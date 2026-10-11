@@ -103,7 +103,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                 modifier = Modifier.weight(1f).semantics { heading() },
             )
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
                         { Text(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) },

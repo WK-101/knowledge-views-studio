@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Situations: one tap sets a moment (Settings › Calls › Situations, the Quick Settings tile, the home screen). -->
-    <string name="set_situations_title">Situations</string>
     <string name="set_situations_summary">One tap for driving, a meeting, the night or travelling</string>
     <string name="set_situations_kw">situation, moment, mode, profile, routine, driving, meeting, night, sleep, travelling, traveling, travel, abroad, roaming, for 1 hour, quiet, focus, do not disturb, schedule, automatic, drive profile, car, bluetooth, android auto, announce, say caller name, hands-free, silence unknown, driving reply, who can ring, sim for calls</string>
 
@@ -12,7 +11,6 @@
     <string name="sit_name_unnamed">My situation</string>
 
     <!-- The list on Calls › Situations. -->
-    <string name="sit_group">Situations</string>
     <string name="sit_on_manual">On until you turn it off</string>
     <!-- %1$s a time ("07:00"). -->
     <string name="sit_on_until">On until %1$s</string>
@@ -36,51 +34,32 @@
     <string name="sit_add">Add a situation</string>
     <string name="sit_add_sub">Your own moment, with its own name</string>
     <string name="sit_add_title">Name your situation</string>
-    <string name="sit_name_label">Name</string>
     <string name="sit_name_hint">Gym, Hospital visit, School run…</string>
-    <string name="sit_save">Save</string>
 
     <!-- The home screen's line while one is on. %1$s its name. -->
     <string name="sit_chip_on">%1$s is on</string>
     <!-- %1$s its name, %2$s a time ("11:00"). -->
     <string name="sit_chip_on_until">%1$s is on until %2$s</string>
-    <string name="sit_chip_off">Turn off</string>
     <string name="sit_chip_off_cd">Turn off %1$s and put your settings back</string>
     <string name="sit_chip_open">Open Situations</string>
 
     <!-- The editor. -->
-    <string name="sit_rename">Name</string>
     <string name="sit_group_sets">While it\'s on</string>
     <string name="sit_group_car">In the car</string>
     <string name="sit_group_abroad">Abroad and SIMs</string>
     <string name="sit_group_auto">Turns on by itself</string>
     <string name="sit_as_is">As it is</string>
-    <string name="sit_turn_on">On</string>
-    <string name="sit_turn_off">Off</string>
     <string name="sit_ring">Who may ring</string>
-    <string name="sit_ring_everyone">Everyone</string>
-    <string name="sit_ring_contacts">Contacts</string>
-    <string name="sit_ring_favourites">Favourites</string>
     <string name="sit_ring_sub">Others ring silently and show as missed calls. Emergency calls, and people you always let through, still ring.</string>
     <string name="sit_reply">Reply offered first</string>
-    <string name="sit_reply_none">None</string>
-    <string name="sit_reply_title">Reply offered first</string>
     <string name="sit_reply_body">Shown first when you decline a call with a message. Leave it empty to keep your usual order.</string>
     <string name="sit_reply_silenced">Offer the reply to people silenced</string>
     <string name="sit_reply_silenced_sub">When someone you know rings silently, a notification offers this reply in one tap, through your messages app</string>
-    <string name="sit_speaker">Start calls on speaker</string>
     <string name="sit_auto_headset">Answer automatically with a headset</string>
     <string name="sit_auto_chosen">Answer chosen people automatically</string>
     <string name="sit_auto_answer_sub">After a few seconds, with a countdown and Cancel, as set in Calls › Answering</string>
-    <string name="sit_drive_announce">Say who\'s calling</string>
-    <string name="sit_drive_favourites">Answer favourites automatically</string>
-    <string name="sit_drive_silence">Silence unknown callers</string>
     <string name="sit_drive_sub">Only while your car is connected</string>
-    <string name="sit_drive_cars">Your car</string>
     <string name="sit_drive_no_car">Mark your car in the drive profile so these can work</string>
-    <string name="sit_assisted">Assisted dialling abroad</string>
-    <string name="sit_local_sim">Suggest a local SIM abroad</string>
-    <string name="sit_sim">SIM for calls</string>
     <string name="sit_sim_sub">For numbers without a SIM of their own or of their label</string>
     <!-- %1$s a SIM's name. -->
     <string name="sit_sim_missing">%1$s (not in this phone)</string>
@@ -95,12 +74,8 @@
     <string name="sit_device_sub">Parley notices it while it\'s running, and checks again before every call. A device is matched by the name it gives; choose one while it\'s connected.</string>
     <string name="sit_delete">Delete this situation</string>
     <string name="sit_reset">Back to how it came</string>
-    <!-- %1$s its name. -->
-    <string name="sit_delete_title">Delete %1$s?</string>
     <string name="sit_reset_title">Reset %1$s?</string>
     <string name="sit_delete_body">If it\'s on, it goes off first and your settings come back as they were.</string>
-    <string name="sit_delete_confirm">Delete</string>
-    <string name="sit_reset_confirm">Reset</string>
     <string name="sit_editor_intro">Choose what changes while it\'s on. Everything left as it is stays yours, and turning it off puts back what you had.</string>
 
     <!-- The Quick Settings tile. -->
@@ -112,14 +87,11 @@
     <!-- Switching one on by hand asks how long, each time. %1$s its name. -->
     <string name="sit_end_title">How long should %1$s stay on?</string>
     <string name="sit_end_hour">For 1 hour</string>
-    <!-- %1$s a time ("18:00"). -->
-    <string name="sit_end_until">Until %1$s</string>
     <string name="sit_end_off">Until I turn it off</string>
 
     <!-- The silent ongoing notice while a Situation lets only some people ring. -->
     <string name="sit_notice_channel">Situation on</string>
     <string name="sit_notice_channel_desc">A silent reminder while a situation lets only some people ring</string>
-    <string name="sit_notice_public">Situation on</string>
     <string name="sit_notice_text">Others ring silently and show as missed calls, until you turn it off</string>
     <!-- %1$s a time ("11:00"). -->
     <string name="sit_notice_text_until">Others ring silently and show as missed calls, until %1$s</string>

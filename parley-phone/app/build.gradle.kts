@@ -2,7 +2,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Locale
 import java.util.Properties
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -25,12 +24,8 @@ val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System
 
 android {
     namespace = "app.parley"
-    compileSdk = 36
-
     defaultConfig {
         applicationId = "app.parley.phone"
-        minSdk = 29
-        targetSdk = 36
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
         versionCode = 36
@@ -77,11 +72,6 @@ android {
     // costs a full offset table in resources.arsc (4 bytes for every string Parley has), so only English is kept.
     androidResources { localeFilters += listOf("en") }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
     // Reproducible-build friendly: no signed dependency blob, no VCS info.
     dependenciesInfo {
         includeInApk = false
@@ -98,34 +88,23 @@ android {
         // ez-vcard's hCard (HTML) writer template and its placeholder picture: Parley never writes HTML (that writer
         // needs FreeMarker, which isn't included).
         resources.excludes += "ezvcard/io/html/**"
-        // DataStore's native counter is loaded only by multi-process DataStore, which Parley doesn't use.
-        jniLibs.excludes += "**/libdatastore_shared_counter.so"
-        // "Where is this number from" place names: only English and the app's other languages the geocoder has
-        // data for (German, Spanish, French, Portuguese, Arabic; none for Hindi or Urdu). The Chinese set alone was
-        // 790 KB. NumberInfo asks in English for any other language (GeoLanguages), so a dropped file is never read.
+        // libphonenumber's number metadata, short numbers and area names ship packed in two files instead (core/common's
+        // packPhoneData, read by PhoneData and AreaNames): about 1,100 fewer ZIP entries. The pack keeps only the area
+        // names of English and the app's other languages the geocoder has data for, without China and Australia.
         resources.excludes += listOf(
-            "be", "bg", "bs", "el", "fa", "fi", "hr", "hu", "hy", "id", "it", "iw", "ja", "kk", "ko", "nl", "pl", "ro",
-            "ru", "sq", "sr", "sv", "th", "tr", "uk", "vi", "zh", "zh_Hant",
-        ).map { "com/google/i18n/phonenumbers/geocoding/data/*_$it" }
-        // Area names for China and Australia, the two largest files (about 580 KB of the APK): those numbers show
-        // the country only. NumberInfo never reads them (GeoLanguages.COUNTRIES_WITHOUT_AREAS; keep both in step).
-        resources.excludes += listOf("86", "61").map { "com/google/i18n/phonenumbers/geocoding/data/${it}_*" }
+            "com/google/i18n/phonenumbers/data/PhoneNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/data/ShortNumberMetadataProto_*",
+            "com/google/i18n/phonenumbers/geocoding/data/**",
+        )
     }
 
     lint {
-        abortOnError = true
         checkReleaseBuilds = true
-        // Missing translations are warnings (they fall back to English); see lint.xml.
-        lintConfig = rootProject.file("lint.xml")
     }
 
     testOptions { unitTests.isIncludeAndroidResources = true }
     // The fake Keystore and Contacts Provider are shared with core:data's Robolectric tests.
     sourceSets["test"].java.srcDir(rootProject.file("core/data/src/testShared/kotlin"))
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 // `./gradlew :app:generateBaselineProfile` with a device connected writes src/release/generated/baselineProfiles/;
@@ -157,6 +136,7 @@ dependencies {
 
     testImplementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
+    testImplementation(testFixtures(project(":core:common")))
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -174,6 +154,9 @@ dependencies {
     // The runner's own monitor is older than core's; core's (already verified) is the one used.
     androidTestImplementation(libs.androidx.test.runner) { exclude(group = "androidx.test", module = "monitor") }
     androidTestImplementation(libs.androidx.test.uiautomator)
+    // Accessibility checks on every screen the instrumented tests open (AccessibilitySmokeTest, with
+    // -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true).
+    androidTestImplementation(libs.androidx.test.espresso.accessibility)
 }
 
 // Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own

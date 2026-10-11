@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -8,23 +6,9 @@ plugins {
 
 android {
     namespace = "app.parley.ui"
-    compileSdk = 36
-    defaultConfig { minSdk = 29 }
     buildFeatures { compose = true }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
     // Theme.kt's top level touches android.graphics.Color (system-bar scrims); the token tests don't need real values.
     testOptions { unitTests.isReturnDefaultValues = true }
-    lint {
-        abortOnError = true
-        lintConfig = rootProject.file("lint.xml")
-    }
-}
-
-kotlin {
-    compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
 dependencies {

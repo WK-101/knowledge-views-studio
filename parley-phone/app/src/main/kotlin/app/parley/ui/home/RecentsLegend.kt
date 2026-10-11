@@ -139,8 +139,8 @@ internal enum class RecentsMark(val section: RecentsLegend.Section, val rich: Bo
  */
 internal object RecentsLegend {
     enum class Section(@StringRes val title: Int) {
-        CALLS(R.string.recents_legend_section_calls),
-        FILTERS(R.string.recents_legend_section_filters),
+        CALLS(R.string.quality_subject_all),
+        FILTERS(R.string.cs_filters),
         ROWS(R.string.recents_legend_section_rows),
     }
 
@@ -241,9 +241,9 @@ internal object RecentsLegend {
         RecentsMark.MISSED_NAME -> R.string.recents_legend_missed_name
         RecentsMark.SEQUENCE -> R.string.recents_legend_sequence
         RecentsMark.DURATION -> R.string.recents_legend_duration
-        RecentsMark.CALL_BACK -> R.string.recents_call_back
-        RecentsMark.VIDEO -> R.string.recents_video_call
-        RecentsMark.PRIVATE -> R.string.recents_legend_private
+        RecentsMark.CALL_BACK -> R.string.hist_call_back
+        RecentsMark.VIDEO -> R.string.circle_type_video
+        RecentsMark.PRIVATE -> R.string.helpers_private
         RecentsMark.NETWORK_NAME -> R.string.network_name_tag
         RecentsMark.SCREENING -> R.string.recents_legend_screening
     }
@@ -317,7 +317,7 @@ private fun MarkGlyph(m: RecentsMark, rich: Boolean) {
             Text(sample, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
         }
         RecentsMark.COUNT -> CallCountChip(SAMPLE_COUNT, CallClass.MISSED)
-        RecentsMark.COUNT_TEXT -> Text(stringResource(R.string.missed_name_count, sample, SAMPLE_COUNT), maxLines = 1)
+        RecentsMark.COUNT_TEXT -> Text(stringResource(R.string.rst_with_count, sample, SAMPLE_COUNT), maxLines = 1)
         RecentsMark.MISSED_NAME -> Text(sample, color = MaterialTheme.colorScheme.error)
         RecentsMark.SEQUENCE -> CallSequenceDots(listOf(CallClass.MISSED, CallClass.MISSED, CallClass.OUTGOING))
         RecentsMark.DURATION -> CallDurationBar(CallGlance.durationFraction(SAMPLE_TALK_SEC), CallClass.INCOMING)

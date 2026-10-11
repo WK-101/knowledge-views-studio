@@ -22,11 +22,11 @@ object NoticeChannels {
     private val specs: Map<String, Spec> = mapOf(
         NotificationChannels.REMINDERS to Spec(R.string.work_channel_reminders, NotificationManager.IMPORTANCE_DEFAULT),
         // To call: never a badge on the app icon.
-        NotificationChannels.TO_CALL to Spec(R.string.to_call_channel, NotificationManager.IMPORTANCE_DEFAULT, badge = false),
+        NotificationChannels.TO_CALL to Spec(R.string.discover_to_call_title, NotificationManager.IMPORTANCE_DEFAULT, badge = false),
         NotificationChannels.BACKUP_REMINDER to Spec(R.string.work_channel_backup_reminder, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.BACKUPS to Spec(R.string.work_channel_backups, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.HOUSEKEEPING to Spec(R.string.work_channel_housekeeping, NotificationManager.IMPORTANCE_LOW),
-        NotificationChannels.PLAN to Spec(R.string.work_channel_plan, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.PLAN to Spec(R.string.hist_plan_section, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.CONTACTS_SAFETY to Spec(R.string.watch_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.PRIVATE_NAMES to Spec(R.string.privnames_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.JOBS to Spec(R.string.job_channel, NotificationManager.IMPORTANCE_LOW, description = R.string.job_channel_desc),

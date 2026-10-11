@@ -54,7 +54,7 @@ fun AgendaAddDialog(name: String?, onAdd: (String) -> Unit, onDismiss: () -> Uni
         confirmEnabled = Agenda.clean(text) != null,
         onConfirm = { onAdd(text) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.main_cancel),
+        dismissLabel = stringResource(R.string.dc_cancel),
         content = {
             OutlinedTextField(
                 text, { text = it.take(Agenda.MAX_LENGTH) },

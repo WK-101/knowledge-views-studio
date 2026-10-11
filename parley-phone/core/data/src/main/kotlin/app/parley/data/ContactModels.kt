@@ -5,8 +5,10 @@ import app.parley.common.people.Handle
 import app.parley.common.people.HandleService
 import app.parley.common.people.NativeName
 import app.parley.common.record.AccountKinds
+import kotlinx.serialization.Serializable
 
 /** One editable multi-value row (phone, e-mail, website). [id] is null for rows not yet saved. */
+@Serializable
 data class DataItem(
     val id: Long? = null,
     val value: String = "",
@@ -18,6 +20,7 @@ data class DataItem(
 /** The row marked as default, else the first (numbers and emails). */
 fun List<DataItem>.primary(): DataItem? = firstOrNull { it.isPrimary } ?: firstOrNull()
 
+@Serializable
 data class PostalItem(
     val id: Long? = null,
     val street: String = "",
@@ -42,6 +45,7 @@ data class PostalItem(
     val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country, parts).all { it.isBlank() }
 }
 
+@Serializable
 data class EventItem(
     val id: Long? = null,
     /** yyyy-MM-dd or --MM-dd (no year). */
@@ -56,6 +60,7 @@ data class EventItem(
  * A custom field ("Shoe size: 38"). [mime] is the kind it's stored as (Google's in a Google account, Parley's
  * elsewhere, [app.parley.common.people.CustomFields]); null for one not saved yet, which takes its account's kind.
  */
+@Serializable
 data class CustomFieldItem(
     val id: Long? = null,
     val label: String = "",
@@ -69,6 +74,7 @@ data class CustomFieldItem(
  * A messenger handle row (Im or SipAddress). [id] is null for rows not yet saved. [customProtocol] keeps an
  * unknown service's own name.
  */
+@Serializable
 data class HandleItem(
     val id: Long? = null,
     val service: HandleService = HandleService.SIGNAL,
@@ -78,6 +84,7 @@ data class HandleItem(
     val handle: Handle get() = Handle(service, value, customProtocol)
 }
 
+@Serializable
 data class AccountRef(val type: String?, val name: String?) {
     /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone`. */
     val isLocal: Boolean get() = AccountKinds.isLocalType(type)
@@ -90,10 +97,12 @@ data class AccountRef(val type: String?, val name: String?) {
         }
 }
 
+@Serializable
 data class RawContactRef(val id: Long, val account: AccountRef)
 
 data class GroupInfo(val id: Long, val title: String, val account: AccountRef)
 
+@Serializable
 data class ContactDetails(
     val id: Long = 0,
     val lookupKey: String = "",

@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 
 /**
@@ -28,7 +29,7 @@ class PhoneTyping private constructor(
     }
 
     companion object {
-        private val util: PhoneNumberUtil by lazy { PhoneNumberUtil.getInstance() }
+        private val util: PhoneNumberUtil by lazy { PhoneData.util }
 
         /** Only plain digits (optionally after one leading "+") are formatted. */
         fun formattable(text: String): Boolean {

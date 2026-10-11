@@ -253,7 +253,7 @@ private fun ReferenceRow(vm: AppViewModel, case: CaseFile, r: CaseReference) {
     )
     if (deleting) {
         ConfirmDialog(
-            title = stringResource(R.string.case_reference_delete, label), text = null, confirmLabel = stringResource(R.string.main_delete), destructive = true,
+            title = stringResource(R.string.case_reference_delete, label), text = null, confirmLabel = stringResource(R.string.blk_delete), destructive = true,
             onConfirm = {
                 deleting = false
                 vm.viewModelScope.launch { vm.cases.update { CaseFiles.removeReference(it, case.id, r.id) } }
@@ -295,7 +295,7 @@ private fun EntryRow(e: CaseEntry) {
         )
         is CaseEntry.Note -> ParleyListItem(
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-            overlineContent = { Text(stringResource(R.string.case_note)) },
+            overlineContent = { Text(stringResource(R.string.blk_col_note)) },
             headlineContent = { Text(e.text) },
             supportingContent = { Text(date) },
         )
@@ -314,7 +314,7 @@ private fun AddReferenceDialog(vm: AppViewModel, case: CaseFile, onDone: () -> U
     var label by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
     ConfirmDialog(
-        title = stringResource(R.string.case_add_reference), text = null, confirmLabel = stringResource(R.string.main_save),
+        title = stringResource(R.string.case_add_reference), text = null, confirmLabel = stringResource(R.string.pin_save),
         confirmEnabled = CaseFiles.cleanReference(value) != null,
         onConfirm = {
             onDone()

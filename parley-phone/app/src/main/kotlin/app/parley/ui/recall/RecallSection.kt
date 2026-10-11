@@ -175,21 +175,21 @@ private fun PrivateLocked(vm: AppViewModel) {
 
 @Composable
 private fun GroupHeader(g: RecallGroup) {
-    ListSectionHeader(stringResource(R.string.recall_group_count, stringResource(groupLabel(g.source)), g.total), inset = Spacing.xl)
+    ListSectionHeader(stringResource(R.string.rst_with_count, stringResource(groupLabel(g.source)), g.total), inset = Spacing.xl)
 }
 
 private fun groupLabel(s: RecallSource): Int = when (s) {
-    RecallSource.CONTACT -> R.string.recall_group_contacts
+    RecallSource.CONTACT -> R.string.rst_contacts
     RecallSource.ARCHIVED -> R.string.recall_group_archived
-    RecallSource.CALL -> R.string.recall_group_calls
+    RecallSource.CALL -> R.string.quality_subject_all
     RecallSource.AGENDA -> R.string.agenda_title
-    RecallSource.PROMISE -> R.string.recall_group_promises
-    RecallSource.NOTE -> R.string.recall_group_notes
+    RecallSource.PROMISE -> R.string.circle_promises
+    RecallSource.NOTE -> R.string.contact_page_kind_notes
     RecallSource.CALL_NOTE -> R.string.recall_group_call_notes
     RecallSource.CASE_FILE -> R.string.recall_group_case_files
     RecallSource.MESSAGED -> R.string.recall_group_messaged
     RecallSource.DELETED -> R.string.recall_group_deleted
-    RecallSource.DELETED_PRIVATE -> R.string.recall_group_deleted_private
+    RecallSource.DELETED_PRIVATE -> R.string.jr_storage_private
     RecallSource.SNAPSHOT -> R.string.recall_group_snapshots
     RecallSource.REMEMBERED -> R.string.recall_group_remembered
 }
@@ -206,12 +206,12 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
     val target = remember(hit) { targetOf(vm, hit) }
     val isNumber = hit.title == hit.number && hit.number != null
     val title = when {
-        hit.title.isBlank() -> AnnotatedString(stringResource(R.string.recall_private_number))
+        hit.title.isBlank() -> AnnotatedString(stringResource(R.string.blk_private_number))
         else -> highlighted(hit.title, hit.titleMarks, ltr = isNumber)
     }
     val line = supporting(context, vm, hit)
     val restore = restoreAction(vm, hit, open, context, scope, activity)
-    val openLabel = stringResource(R.string.recall_open_hint)
+    val openLabel = stringResource(R.string.blk_open)
     // Its ⋮: something to talk about with whoever the result is about (a visible menu, not a hidden long-press).
     val res = LocalResources.current
     var adding by remember { mutableStateOf(false) }
@@ -250,7 +250,7 @@ private fun RecallRowMenu(title: String, onAddAgenda: () -> Unit) {
         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, title)) }
         DropdownMenu(menu, { menu = false }) {
             DropdownMenuItem(
-                { Text(stringResource(R.string.recall_add_agenda)) }, leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
+                { Text(stringResource(R.string.agenda_add)) }, leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
                 onClick = { menu = false; onAddAgenda() },
             )
         }
@@ -345,13 +345,13 @@ private fun supporting(context: Context, vm: AppViewModel, hit: RecallHit): Anno
         // A saved contact found by the name the network sent for their number says so ("Network: Ravi Traders").
         RecallSource.CONTACT -> hit.field?.let { AnnotatedString(matchHint(res, it)) }
             ?: hit.networkMatch?.let { AnnotatedString(res.getString(R.string.network_name_under, it)) }
-        RecallSource.ARCHIVED -> plain(stringResource(R.string.recall_archived_on, dayText(hit.at)), number)
+        RecallSource.ARCHIVED -> plain(stringResource(R.string.archive_row_when, dayText(hit.at)), number)
         // A name from the network keeps its number in sight.
         RecallSource.CALL -> AnnotatedString(listOfNotNull(callLine(context, hit, sep), number.takeIf { hit.fromNetwork }).joinToString(sep))
         RecallSource.AGENDA, RecallSource.PROMISE -> highlighted(hit.detail, hit.detailMarks)
         RecallSource.NOTE, RecallSource.CALL_NOTE -> noteLine(context, hit, sep)
         RecallSource.CASE_FILE -> plain(stringResource(R.string.recall_case_line, Format.shortWhen(context, hit.at)), number)
-        RecallSource.MESSAGED -> plain(stringResource(R.string.recall_messaged_on, hit.detail, Format.shortWhen(context, hit.at)))
+        RecallSource.MESSAGED -> plain(stringResource(R.string.archive_page_work, hit.detail, Format.shortWhen(context, hit.at)))
         RecallSource.DELETED, RecallSource.DELETED_PRIVATE -> plain(stringResource(R.string.recall_deleted_on, dayText(hit.at)), number)
         RecallSource.SNAPSHOT -> plain(stringResource(R.string.recall_snapshot_until, dayText(hit.at)), number)
         RecallSource.REMEMBERED -> hit.memory?.let { AnnotatedString(NumberMemoryText.line(context, it)) }
@@ -432,12 +432,12 @@ private fun describe(context: Context, q: RecallQuery): String {
     val parts = ArrayList<String>()
     val types = q.callTypes
     if (types != null) {
-        parts += types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.recall_kind_separator)) { res.getString(HistoryText.callType(it)) }
+        parts += types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.contact_page_list_separator)) { res.getString(HistoryText.callType(it)) }
     } else if (q.callsOnly) {
-        parts += res.getString(R.string.recall_kind_calls)
+        parts += res.getString(R.string.quality_subject_all)
     }
     q.dates?.let { parts += span(context, it) }
-    if (!q.search.isEmpty) parts += res.getString(R.string.recall_words, q.words)
+    if (!q.search.isEmpty) parts += res.getString(R.string.callfacts_subject, q.words)
     return parts.joinToString(res.getString(R.string.main_separator))
 }
 
@@ -446,9 +446,9 @@ private fun span(context: Context, d: RecallQuery.DateSpan): String {
     val zone = ZoneId.systemDefault()
     fun skeleton(s: String) = android.icu.text.DateFormat.getInstanceForSkeleton(s, Locale.getDefault()).format(java.util.Date(d.startMillis(zone)))
     return when (d.kind) {
-        RecallQuery.DateSpan.Kind.TODAY -> res.getString(R.string.recall_span_today)
-        RecallQuery.DateSpan.Kind.YESTERDAY -> res.getString(R.string.recall_span_yesterday)
-        RecallQuery.DateSpan.Kind.WEEK_SO_FAR -> res.getString(R.string.recall_span_week_so_far)
+        RecallQuery.DateSpan.Kind.TODAY -> res.getString(R.string.blk_dry_today)
+        RecallQuery.DateSpan.Kind.YESTERDAY -> res.getString(R.string.main_yesterday)
+        RecallQuery.DateSpan.Kind.WEEK_SO_FAR -> res.getString(R.string.bday_this_week)
         RecallQuery.DateSpan.Kind.SINCE_LAST_WEEK -> res.getString(R.string.recall_span_since_last_week)
         RecallQuery.DateSpan.Kind.SINCE_LAST_MONTH -> res.getString(R.string.recall_span_since_last_month)
         RecallQuery.DateSpan.Kind.SINCE_LAST_YEAR -> res.getString(R.string.recall_span_since_last_year)

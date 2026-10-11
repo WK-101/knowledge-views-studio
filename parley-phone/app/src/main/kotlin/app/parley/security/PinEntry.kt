@@ -77,7 +77,7 @@ internal fun PinUnlock(autoFocus: Boolean) {
     )
     Spacer(Modifier.height(8.dp))
     Button(submit, enabled = state.canSubmit) {
-        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.lock_unlock))
+        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.cs_private_unlock))
     }
 }
 
@@ -214,6 +214,6 @@ internal fun NewPinDialog(
                 Text(stringResource(if (first == null) R.string.pin_next else R.string.pin_save))
             }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

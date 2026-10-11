@@ -68,7 +68,7 @@ object Shortcuts {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
         val label = when (kind) {
             Kind.CALL -> name
-            Kind.MESSAGE -> context.getString(R.string.shortcut_text_name, name)
+            Kind.MESSAGE -> context.getString(R.string.blk_text_code, name)
             Kind.OPEN -> name
         }
         val info = ShortcutInfoCompat.Builder(context, "pin-${kind.name}-${contactId ?: number}")
@@ -129,7 +129,7 @@ object Shortcuts {
         runCatching {
             val list = ArrayList<ShortcutInfoCompat>()
             list += ShortcutInfoCompat.Builder(context, "new-contact")
-                .setShortLabel(context.getString(R.string.shortcut_new_contact))
+                .setShortLabel(context.getString(R.string.hist_action_new_contact))
                 .setIcon(IconCompat.createWithResource(context, R.drawable.ic_shortcut_add))
                 .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_INSERT).setType("vnd.android.cursor.dir/contact"))
                 .build()

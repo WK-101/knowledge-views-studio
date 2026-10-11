@@ -228,7 +228,7 @@ fun HomeScreen(
                         StartTab.RECENTS -> stringResource(
                             if (vm.recentsRecall.everything.collectAsStateWithLifecycle().value) R.string.recall_chip else R.string.home_search_recents,
                         )
-                        StartTab.CONTACTS -> stringResource(R.string.home_search_contacts)
+                        StartTab.CONTACTS -> stringResource(R.string.helpers_search)
                         StartTab.KEYPAD -> stringResource(R.string.home_search_keypad)
                         StartTab.CIRCLE -> stringResource(R.string.circle_search)
                     },
@@ -325,14 +325,14 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
     when (tab) {
         // Call insights is in ⋮; with the keypad docked here, its Speed dial comes along.
         StartTab.RECENTS -> if (vm.settings.collectAsStateWithLifecycle().value.homeLayout.keypadDocked) {
-            IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
+            IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.discover_speed_dial_title)) }
         }
         StartTab.CONTACTS -> {
             // Scan QR is in the add button's menu; Labels is the chip row's. One lock: private contacts, Parley, or a
             // small menu with both.
             ContactsLockButton(vm, appLock)
         }
-        StartTab.KEYPAD -> IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
+        StartTab.KEYPAD -> IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.discover_speed_dial_title)) }
         StartTab.FAVORITES, StartTab.CIRCLE -> Unit
     }
 }
@@ -354,21 +354,21 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     when (tab) {
         StartTab.RECENTS -> {
             // Right after a spam call: the rules that decide which calls ring.
-            MenuItem(stringResource(R.string.set_blocking_title), Icons.Rounded.Block) { go(Routes.Blocking) }
-            MenuItem(stringResource(R.string.hist_insights_action), Icons.Rounded.Insights) { go(HistoryRoutes.Insights()) }
+            MenuItem(stringResource(R.string.blk_title), Icons.Rounded.Block) { go(Routes.Blocking) }
+            MenuItem(stringResource(R.string.contact_page_sec_insights), Icons.Rounded.Insights) { go(HistoryRoutes.Insights()) }
             // Layout, style, what a tap does and the colours' legend, in one dialog.
             RecentsLayoutMenuItem(close)
             RecentsExportMenuItem(close)
             ClearHistoryMenuItem(close)
         }
         StartTab.CONTACTS -> {
-            MenuItem(stringResource(R.string.home_select_all), Icons.Rounded.SelectAll) {
+            MenuItem(stringResource(R.string.watch_select_all), Icons.Rounded.SelectAll) {
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             // Name, recently added, most called or company: kept in the list, remembered. ("Add several" is on the add button.)
             MenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
-            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
+            MenuItem(stringResource(R.string.discover_duplicates_title), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // Archived contacts are out of the list: this is where they are, once there are some.
@@ -391,7 +391,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE) {
         HorizontalDivider()
     }
-    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
+    MenuItem(stringResource(R.string.discover_title), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
     MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
 }
 

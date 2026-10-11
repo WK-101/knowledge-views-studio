@@ -506,6 +506,10 @@ see your contacts" says so on Android 17 and later.
 
 ## Build and release
 
-Gradle verifies every dependency against `gradle/verification-metadata.xml` (SHA-256). Releases are signed outside
+Gradle verifies every dependency against `gradle/verification-metadata.xml`: by its publisher's PGP signature where the
+publisher signs (Google's AndroidX and Android tools, JetBrains' Kotlin and the other keys listed under `trusted-keys`,
+each trusted only for its own groups; the public keys are in `gradle/verification-keyring.keys`, so no key server is
+asked during a build), and by SHA-256 for the rest, including artifacts whose signing key no key server had (listed
+under `ignored-keys`). Releases are signed outside
 the repository: see [RELEASING.md](RELEASING.md). Spam-list packs from the companion app are pinned to the key that
 first signed them; the companion's own packs must carry its pinned key.

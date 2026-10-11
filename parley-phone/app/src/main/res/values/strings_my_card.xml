@@ -13,16 +13,10 @@
     <string name="card_kind_link">new link</string>
     <string name="card_kind_address">new address</string>
     <string name="card_update_review">Review</string>
-    <string name="card_update_not_now">Not now</string>
-    <!-- %1$s: the contact's name. -->
-    <string name="card_update_title">Update %1$s?</string>
     <!-- %1$s: the signing key's short fingerprint. -->
     <string name="card_update_body">Signed with the same key as their earlier card (%1$s). Tick what to change:</string>
     <!-- %1$s: old value; %2$s: new value. -->
     <string name="card_change_replace">%1$s → %2$s</string>
-    <string name="card_change_add">Add %1$s</string>
-    <string name="card_change_remove">Remove %1$s</string>
-    <string name="card_update_apply">Apply</string>
     <string name="card_update_apply_all">Apply all</string>
     <string name="card_update_ignore">Ignore</string>
     <string name="card_update_applied">Contact updated</string>
@@ -30,13 +24,11 @@
 
     <!-- What a scanned code or opened file with a signed card means. %1$s: the contact's name. -->
     <string name="card_in_update">%1$s sent an updated card. You can review it on their page.</string>
-    <string name="card_in_open">Open</string>
     <string name="card_in_current">%1$s\'s contact already has this card.</string>
     <string name="card_in_linked">Signed card, linked to %1$s: Parley will offer their future updates.</string>
     <string name="card_in_held">Signed card. Once you save this contact, their page asks whether to link it for future updates.</string>
     <!-- A first card for a contact who has none linked: nothing is linked until the user taps Link. %1$s: the contact's name; %2$s: the card key's short fingerprint. -->
     <string name="card_in_offer">This card says it\'s %1$s (key %2$s). Link it to %1$s so their future updates show here?</string>
-    <string name="card_link">Link</string>
     <string name="card_link_failed">Couldn\'t link the card. Try again in a moment.</string>
     <string name="card_in_unchecked">Parley couldn\'t check this card\'s signature right now. Open it again in a moment.</string>
     <!-- The same file or text also holds cards without a signature. -->
@@ -72,15 +64,12 @@
         <item quantity="other">%1$d people</item>
     </plurals>
     <string name="card_shared_intro">Everyone Parley saw your card go to, newest first. Only you see this list; it stays on this phone and in your encrypted backups.</string>
-    <string name="card_shared_empty">Nobody yet</string>
     <string name="card_shared_empty_body">When you swap QR codes, send your details or introduce yourself, the person shows here.</string>
     <string name="card_shared_unreadable">This list can\'t be opened right now. Try again in a moment.</string>
     <plurals name="card_shared_times">
         <item quantity="one">%1$d time</item>
         <item quantity="other">%1$d times</item>
     </plurals>
-    <!-- %1$s: name or number. -->
-    <string name="card_shared_remove_who">Remove %1$s</string>
     <string name="card_shared_remove_title">Remove %1$s from this list?</string>
     <string name="card_shared_remove_body">This only changes your list. They keep the card you gave them.</string>
     <string name="card_shared_clear">Clear list</string>
@@ -88,8 +77,6 @@
     <!-- %1$s: the key's short fingerprint. -->
     <string name="card_shared_key">Your card\'s signing key: %1$s. Someone whose Parley shows this key on your card knows it came from you.</string>
     <string name="card_method_qr_swap">QR swap</string>
-    <string name="card_method_send_details">Send my details</string>
-    <string name="card_method_introduce">Introduce myself</string>
     <string name="card_method_file">Card file</string>
     <string name="card_method_new_number">New number</string>
 
@@ -108,7 +95,6 @@
     <string name="card_new_number_copied">The message was copied. Paste it in the chat.</string>
     <string name="card_new_number_filled_in">The message is filled in</string>
     <string name="card_new_number_for_pasting">The message is copied for pasting</string>
-    <string name="card_new_number_sms">SMS</string>
     <string name="card_new_number_send_card">Send my card</string>
     <string name="card_new_number_nobody">Everyone is up to date</string>
     <string name="card_new_number_nobody_body">Nobody in Shared with has an old number of yours.</string>

@@ -337,10 +337,10 @@ class InCallActivity : ComponentActivity() {
         )
         val mute = action(
             if (muted) R.drawable.ic_pip_mic_off else R.drawable.ic_pip_mic,
-            getString(if (muted) R.string.incall_unmute else R.string.incall_mute),
+            getString(if (muted) R.string.notif_unmute else R.string.notif_mute),
             CallActionReceiver.ACTION_MUTE, NotificationRequests.PIP_MUTE,
         ).apply { isEnabled = call.canMute }
-        val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, NotificationRequests.PIP_HANG_UP)
+        val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.tile_end_call), CallActionReceiver.ACTION_HANGUP, NotificationRequests.PIP_HANG_UP)
         // In hold mode the window offers the way out ("They're back") first.
         val holdEnd = if (call.holdModeSince > 0) {
             action(R.drawable.ic_pip_hold_end, getString(R.string.holdmode_end), CallActionReceiver.ACTION_HOLD_MODE_END, NotificationRequests.PIP_HOLD_END)

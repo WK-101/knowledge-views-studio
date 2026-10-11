@@ -8,8 +8,6 @@
     <string name="me_emergency_open_settings">Open Settings</string>
     <string name="me_ice_label">ICE label</string>
     <string name="me_ice_label_sub">“In case of emergency”: put the people to call in a label named ICE, so anyone helping you can find them</string>
-    <!-- Search: read-only results from the work profile, under the personal ones. -->
-    <string name="work_search_section">Work</string>
     <string name="work_search_badge">Work contact</string>
     <string name="work_search_from_profile">From your work profile</string>
     <string name="work_search_open_hint">open in your work apps</string>
