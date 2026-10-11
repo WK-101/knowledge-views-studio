@@ -24,10 +24,7 @@ import app.parley.data.recall.RecallSources
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -75,7 +72,7 @@ class ScaleBenchmarkTest {
     }
 
     private fun seedContacts() {
-        (0 until CONTACTS).chunked(200).forEach { chunk ->
+        (0 until CONTACTS).chunked(150).forEach { chunk ->
             val ops = ArrayList<ContentProviderOperation>()
             for (i in chunk) {
                 val back = ops.size
@@ -128,7 +125,8 @@ class ScaleBenchmarkTest {
                 )
             }
         }
-        withTimeout(120_000) { c.contacts.contacts.filterNotNull().first { it.size >= CONTACTS } }
+        val listed = timed("contacts.load_10k") { c.contacts.loadNow() }
+        assertEquals(CONTACTS, listed.size)
 
         callEnd(c)
         recall(c)
@@ -164,15 +162,15 @@ class ScaleBenchmarkTest {
         assertEquals(1, c.callQuality.forNumber(number(UNSAVED_BASE + 2_000)).size)
     }
 
-    /** Recall opened, then opened again for a new search with nothing changed in between. */
+    /** The day's snapshot and the versions number memory reads; Recall opened, then again with nothing changed. */
     private suspend fun recall(c: DataContainer) {
+        timed("memory.snapshot_take") { c.timeMachine.snapshotIfDue() }
+        timed("memory.snapshot_versions_first") { c.timeMachine.peopleForMemory() }
+        timed("memory.snapshot_versions_again") { c.timeMachine.peopleForMemory() }
         val sources = RecallSources(c)
         val access = RecallSources.Access(privateShown = false)
         timed("recall.corpus_first") { sources.load(access) }
         timed("recall.corpus_again") { sources.load(access) }
-        timed("memory.snapshot_take") { c.timeMachine.snapshotIfDue() }
-        timed("memory.snapshot_versions_first") { c.timeMachine.peopleForMemory() }
-        timed("memory.snapshot_versions_again") { c.timeMachine.peopleForMemory() }
     }
 
     /** Number memory's daily tally of the archive: built, then again after retention took the older half. */
