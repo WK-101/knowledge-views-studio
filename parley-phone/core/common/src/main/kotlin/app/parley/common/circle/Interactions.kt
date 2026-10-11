@@ -70,13 +70,19 @@ object Interactions {
      * Unique key of an interaction logged from a launch: (channel, person, 10-minute bucket), so accepting the
      * question twice, or "Always" plus a second launch a minute later, records one entry.
      */
-    fun promptKey(channel: InteractionChannel, lookupKey: String, time: Long): String = "p:${channel.name}:$lookupKey:${time / BUCKET_MS}"
+    fun promptKey(channel: InteractionChannel, lookupKey: String, time: Long): String = "$PROMPT_PREFIX${channel.name}:$lookupKey:${time / BUCKET_MS}"
+
+    /** Keys of entries logged after Parley opened a chat or video call: you reached out. */
+    const val PROMPT_PREFIX = "p:"
+
+    /** Keys of "Mark as wished" entries. */
+    const val WISHED_PREFIX = "w:"
 
     /** Unique key of an entry added by hand (never collides with another). */
     fun manualKey(nonce: String): String = "m:$nonce"
 
     /** Unique key of a "Mark as wished" entry: one per occasion. */
-    fun wishedKey(occurrence: String): String = "w:$occurrence"
+    fun wishedKey(occurrence: String): String = "$WISHED_PREFIX$occurrence"
 
     private val carriedJson = Codecs.stored
 

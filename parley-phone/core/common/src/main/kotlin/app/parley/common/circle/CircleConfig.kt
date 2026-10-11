@@ -52,6 +52,12 @@ data class CircleConfig(
 ) {
     fun logMode(channel: InteractionChannel): LogMode = logModes[channel] ?: LogMode.ASK
 
+    /**
+     * "Who usually reaches out first" may be said anywhere (the People card, a contact's Stay in touch, the digest's
+     * "your turn"): the People card choice is on with it.
+     */
+    val firstMoverShown: Boolean get() = peopleCard && firstMover
+
     fun withLogMode(channel: InteractionChannel, mode: LogMode): CircleConfig = copy(logModes = logModes + (channel to mode))
 
     companion object {

@@ -40,6 +40,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import app.parley.ui.history.HistoryRoutes
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +61,7 @@ import app.parley.ui.common.tipPending
 import app.parley.ui.common.CoachMark
 import app.parley.common.TextSearch
 import app.parley.common.calls.CallSource
+import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CircleStatus
 import app.parley.common.circle.CircleSuggestions
 import app.parley.ui.Avatar
@@ -69,6 +74,20 @@ import kotlinx.coroutines.launch
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
+
+/** What the Circle tab lists: the [shown] rows, the status [filter] in force and the [header] over them. */
+private class CircleView(val shown: List<CircleRow>, val filter: CircleStatus?, val header: CircleGlance.Glance?)
+
+/**
+ * The rows matching [q], narrowed to the status [only] chosen in the header. The header and its filter are for the whole
+ * Circle, so neither applies while searching; the filter lets go by itself once nobody has that status any more.
+ */
+private fun circleView(all: List<CircleRow>, q: String, only: CircleStatus?, glance: CircleGlance.Glance?): CircleView {
+    val searched = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
+    val header = glance.takeIf { q.isEmpty() }
+    val filter = only.takeIf { s -> header != null && searched.any { it.status == s } }
+    return CircleView(if (filter == null) searched else searched.filter { it.status == filter }, filter, header)
+}
 
 /** The Circle's explainer shows over people, not over the empty state (which explains it) or a search. */
 private fun showCircleTip(pending: Boolean, empty: Boolean, query: String) = pending && !empty && query.isEmpty()
@@ -87,12 +106,18 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     quickHost()
     val all = rows ?: return
     val q = query.trim()
-    val shown = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
+    val glance by vm.circle.glance.collectAsStateWithLifecycle()
+    var only by rememberSaveable { mutableStateOf<CircleStatus?>(null) }
+    val view = circleView(all, q, only, glance)
+    val shown = view.shown
     val circleTip = showCircleTip(tipPending(Tips.CONCEPT_CIRCLE), all.isEmpty(), q)
     LazyColumn(contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // What the Circle is, once it has people in it (the empty state explains it before that).
         if (circleTip) item(key = "tip") {
             CoachMark(Tips.CONCEPT_CIRCLE, stringResource(R.string.tip_concept_circle))
+        }
+        view.header?.let { g ->
+            item(key = "glance") { CircleGlanceHeader(g, view.filter, { only = it }) { open(HistoryRoutes.Insights()) } }
         }
         when {
             all.isEmpty() -> item(key = "empty") {

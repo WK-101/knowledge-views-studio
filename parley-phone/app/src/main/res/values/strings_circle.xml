@@ -234,4 +234,69 @@
     <string name="circle_widget_tap_reveal">Tap to show names</string>
     <!-- Year in review: a name and how many times (a number). -->
     <string name="format_bracket_pair">%1$s (%2$s)</string>
+    <!-- The quiet header on the Circle: counts only, each a filter. -->
+    <plurals name="circle_glance_due">
+        <item quantity="one">%1$d due</item>
+        <item quantity="other">%1$d due</item>
+    </plurals>
+    <plurals name="circle_glance_soon">
+        <item quantity="one">%1$d soon</item>
+        <item quantity="other">%1$d soon</item>
+    </plurals>
+    <plurals name="circle_glance_fine">
+        <item quantity="one">%1$d fine</item>
+        <item quantity="other">%1$d fine</item>
+    </plurals>
+    <!-- %1$d of %2$d people in the Circle. -->
+    <plurals name="circle_glance_reach">
+        <item quantity="one">In touch with %1$d of %2$d this month</item>
+        <item quantity="other">In touch with %1$d of %2$d this month</item>
+    </plurals>
+    <string name="circle_glance_up">up from %1$d</string>
+    <string name="circle_glance_talk">%1$d%% of your talk time this month was with your Circle</string>
+    <string name="circle_glance_open">Open Call insights</string>
+    <string name="circle_glance_filters">Show only</string>
+    <!-- How you two keep in touch: plain facts, never a verdict. -->
+    <plurals name="circle_keep_turn">
+        <item quantity="one">%1$s has called you the last time. Your turn to call?</item>
+        <item quantity="other">%1$s has called you the last %2$d times. Your turn to call?</item>
+    </plurals>
+    <plurals name="circle_keep_every_days">
+        <item quantity="one">about every day</item>
+        <item quantity="other">about every %1$d days</item>
+    </plurals>
+    <plurals name="circle_keep_every_weeks">
+        <item quantity="one">about every week</item>
+        <item quantity="other">about every %1$d weeks</item>
+    </plurals>
+    <plurals name="circle_keep_since_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="circle_keep_since_weeks">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
+    </plurals>
+    <!-- "You usually talk about every 3 weeks; it's been 5 weeks." -->
+    <string name="circle_keep_rhythm">You usually talk %1$s; it\'s been %2$s.</string>
+    <string name="circle_keep_rhythm_today">You usually talk %1$s; you were in touch today.</string>
+    <string name="circle_keep_first_them">%1$s usually reaches out first.</string>
+    <string name="circle_keep_first_you">You usually reach out first.</string>
+    <string name="circle_keep_first_both">You both reach out.</string>
+    <!-- %2$s / %1$s: when, like "Tue" or "yesterday". -->
+    <string name="circle_keep_their_call">A call from %1$s (%2$s) is still waiting for a call back.</string>
+    <string name="circle_keep_your_try">Your call (%1$s) hasn\'t been answered yet.</string>
+    <plurals name="circle_keep_calls">
+        <item quantity="one">%1$d call in the last year</item>
+        <item quantity="other">%1$d calls in the last year</item>
+    </plurals>
+    <!-- %2$s: talk time, like "3 h 10 min". -->
+    <plurals name="circle_keep_calls_talk">
+        <item quantity="one">%1$d call, %2$s in the last year</item>
+        <item quantity="other">%1$d calls, %2$s in the last year</item>
+    </plurals>
+    <plurals name="circle_keep_chats">
+        <item quantity="one">%1$d chat started from Parley</item>
+        <item quantity="other">%1$d chats started from Parley</item>
+    </plurals>
 </resources>
