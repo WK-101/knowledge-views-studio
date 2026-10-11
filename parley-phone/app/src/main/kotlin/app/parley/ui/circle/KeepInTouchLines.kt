@@ -26,6 +26,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CirclePlanner
@@ -65,12 +66,14 @@ fun rememberKeepInTouch(
     history: List<CallEntry>,
     interactions: List<Interaction>,
     config: CircleConfig,
+    /** Their next catch-up ([CatchUp.of]): the rhythm stays quiet about them until then. */
+    catchUpAt: Long? = null,
 ): KeepInTouchLines? {
     val privacy by vm.privacy.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val res = LocalResources.current
     val firstMover = config.firstMoverShown
-    return remember(lookupKey, name, everyDays, rhythmText, history, interactions, firstMover, privacy) {
+    return remember(lookupKey, name, everyDays, rhythmText, history, interactions, firstMover, privacy, catchUpAt) {
         if (!privacy.insightsShown || lookupKey.isEmpty()) return@remember null
         val now = System.currentTimeMillis()
         val touches = history.mapNotNull { PeopleInsights.touchOf(lookupKey, it) } +
@@ -81,7 +84,8 @@ fun rememberKeepInTouch(
                 history.firstOrNull { it.durationSec > 0 && it.type.isAnsweredKind() }?.date,
                 interactions.firstOrNull()?.let { it.time to it.type },
             )
-            CirclePlanner.status(CirclePlanner.Member(lookupKey, rhythm.days(every), last?.time, rhythm.snoozedUntil), now) == CircleStatus.DUE
+            CirclePlanner.status(CirclePlanner.Member(lookupKey, rhythm.days(every), last?.time, CatchUp.quietUntil(rhythm.snoozedUntil, catchUpAt)), now) ==
+                CircleStatus.DUE
         } ?: false
         val facts = KeepInTouch.facts(touches, due, firstMover, now, ZoneId.systemDefault())
         KeepInTouchLines(

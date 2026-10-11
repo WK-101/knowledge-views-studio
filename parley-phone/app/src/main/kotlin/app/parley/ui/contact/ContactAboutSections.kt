@@ -71,6 +71,7 @@ import java.time.ZoneId
 internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext) {
     val d = ctx.d
     val toCall by ctx.page.toCall.collectAsStateWithLifecycle()
+    val catchUpAt by ctx.page.catchUpAt.collectAsStateWithLifecycle()
     // What's open with them (To call, to talk about, promises) is one card here: "Open with them".
     val open = hasOpenWithThem(ctx, toCall)
     val stayHasNews = ctx.inCircle || ctx.goodTime != null || open
@@ -80,7 +81,7 @@ internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext)
             if (ctx.inCircle || ctx.goodTime != null) {
                 StayInTouchCard(
                     ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false,
-                    keep = ctx.keepInTouch,
+                    keep = ctx.keepInTouch, catchUpAt = catchUpAt,
                 ) {
                     ctx.show(ContactDialog.Rhythm)
                 }

@@ -3,6 +3,9 @@ package app.parley.ui.circle
 import app.parley.common.catching
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
+import app.parley.common.PhoneIdentity
+import app.parley.common.suspendRunCatching
+import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.CircleStatus
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 /** One person in the Circle, as the list shows them. */
@@ -43,8 +47,12 @@ data class CircleSuggestion(val contact: ContactSummary, val calls: Int, val day
  */
 class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List<ContactSummary>?>) {
     /** Circle members, most urgent first; null while loading. */
-    val rows: StateFlow<List<CircleRow>?> = combine(contacts, c.meta.allMeta(), c.circle.interactions.latest, c.history.index) { list, metas, latest, idx ->
+    val rows: StateFlow<List<CircleRow>?> = combine(
+        contacts, c.meta.allMeta(), c.circle.interactions.latest, c.history.index,
+        c.toCall.state.onStart { suspendRunCatching { c.toCall.load() } },
+    ) { list, metas, latest, idx, toCall ->
         list ?: return@combine null
+        val iso = c.directory.countryIso
         val now = System.currentTimeMillis()
         val byKey = list.associateBy { it.lookupKey }
         val members = metas.mapNotNull { m ->
@@ -55,7 +63,10 @@ class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List
                 personKey = "c:${m.lookupKey}",
             )?.firstOrNull { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.date
             val last = Interactions.lastContact(call, latest[m.lookupKey])
-            Triple(contact, rhythm, last) to CirclePlanner.Member(m.lookupKey, rhythm.days(every), last?.time, rhythm.snoozedUntil)
+            // A next catch-up set after a call keeps them quiet until that day, as in Next up and the reminders.
+            val catchUp = CatchUp.of(toCall, contact.phones.map { PhoneIdentity.key(it.number, iso) })
+            val quiet = CatchUp.quietUntil(rhythm.snoozedUntil, catchUp)
+            Triple(contact, rhythm, last) to CirclePlanner.Member(m.lookupKey, rhythm.days(every), last?.time, quiet)
         }
         val order = CirclePlanner.sort(members.map { it.second }, now).map { it.lookupKey }.withIndex().associate { it.value to it.index }
         members.map { (info, m) -> CircleRow(info.first, m.days, info.second, info.third, CirclePlanner.status(m, now)) }

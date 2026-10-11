@@ -30,6 +30,7 @@ import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.EventDate
+import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.KeepRhythm
@@ -71,6 +72,8 @@ fun StayInTouchCard(
     invite: Boolean = true,
     /** How you two keep in touch (none while a duress unlock hides insights). */
     keep: KeepInTouchLines? = null,
+    /** Their next catch-up ([CatchUp.of]): the rhythm stays quiet about them until then. */
+    catchUpAt: Long? = null,
     onEdit: () -> Unit,
 ) {
     val res = LocalResources.current
@@ -95,7 +98,8 @@ fun StayInTouchCard(
             }
         } else {
             item("stay") {
-                val status = CirclePlanner.status(CirclePlanner.Member(d.lookupKey, rhythm.days(every), last?.time, rhythm.snoozedUntil), now)
+                val quiet = CatchUp.quietUntil(rhythm.snoozedUntil, catchUpAt)
+                val status = CirclePlanner.status(CirclePlanner.Member(d.lookupKey, rhythm.days(every), last?.time, quiet), now)
                 ParleyListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
                     colors = rowColors,
