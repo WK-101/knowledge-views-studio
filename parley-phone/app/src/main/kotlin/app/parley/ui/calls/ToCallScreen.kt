@@ -5,18 +5,13 @@ package app.parley.ui.calls
 
 import app.parley.ui.PrivateMarked
 import android.content.Context
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,8 +19,6 @@ import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PhoneCallback
 import androidx.compose.material3.Checkbox
@@ -35,7 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,13 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -64,7 +53,6 @@ import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallEntry
 import app.parley.common.calls.ToCallKind
 import app.parley.common.calls.ToCallState
-import app.parley.common.ux.Tips
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.Destination
@@ -73,14 +61,12 @@ import app.parley.ui.ListSectionHeader
 import app.parley.ui.LocalSnackbar
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.activityViewModel
 import app.parley.ui.appVm
 import app.parley.ui.avatarSize
-import app.parley.ui.common.CoachMark
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
 import app.parley.telecom.ui.RemindTimes
@@ -98,62 +84,8 @@ fun NavGraphBuilder.toCallGraph(nav: NavController) {
     composable<ToCallRoutes.List> { ToCallScreen(appVm(), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
 }
 
-/**
- * The quiet strip at the top of Recents: "3 to call", with the first names; it folds to one line and never shows a
- * badge. Tap to open the list. Nothing at all when there is nothing to call.
- */
-@Composable
-fun ToCallStrip(open: (Destination) -> Unit) {
-    val recents: RecentsViewModel = activityViewModel()
-    val model = recents.toCall
-    val rows by model.rows.collectAsStateWithLifecycle()
-    val folded by model.folded.collectAsStateWithLifecycle()
-    LaunchedEffect(model) { model.followCalls() }
-    if (rows.isEmpty()) return
-    val count = ToCall.count(rows.map { it.entry }, System.currentTimeMillis())
-    val text = if (count.due > 0) {
-        pluralStringResource(R.plurals.to_call_strip, count.due, count.due)
-    } else {
-        pluralStringResource(R.plurals.to_call_strip_later, count.later, count.later)
-    }
-    val names = rows.filter { count.due == 0 || it.entry.isDue(System.currentTimeMillis()) }.map { titleOf(it) }
-    Column {
-        CoachMark(Tips.TO_CALL, stringResource(R.string.to_call_tip))
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = ParleyShapes.card,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs).animateContentSize(),
-        ) {
-            Row(
-                Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.label_to_call)) { open(ToCallRoutes.List) }
-                    .heightIn(min = 48.dp)
-                    .padding(start = Spacing.l),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.PhoneCallback, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(Spacing.m))
-                Column(Modifier.weight(1f).padding(vertical = Spacing.s)) {
-                    Text(text, style = MaterialTheme.typography.labelLarge)
-                    if (!folded) {
-                        Text(
-                            names.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                IconButton({ model.setFolded(!folded) }) {
-                    Icon(
-                        if (folded) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
-                        stringResource(if (folded) R.string.to_call_unfold else R.string.action_fold),
-                    )
-                }
-            }
-        }
-    }
-}
-
 /** The name, or the number kept left to right. */
-private fun titleOf(r: ToCallRow): String = r.name?.takeIf { it.isNotBlank() } ?: Bidi.ltr(r.number)
+internal fun titleOf(r: ToCallRow): String = r.name?.takeIf { it.isNotBlank() } ?: Bidi.ltr(r.number)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -228,12 +160,13 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
 }
 
 /**
- * "Missed call · 14:05", "Reminder · 18:00", "Follow-up · Mon 09:00", "You said you'd call · 15:30", "Hasn't called
- * back", or a missed call after the reminder.
+ * "Missed call · 14:05", "Reminder · 18:00", "Follow-up · Mon 09:00", "You said you'd call · 15:30", "Next catch-up ·
+ * 14 Oct", "Hasn't called back", or a missed call after the reminder.
  */
 private fun kindLine(context: Context, e: ToCallEntry): String {
     e.missedAt?.let { return context.getString(R.string.to_call_missed_again, Format.shortWhen(context, it)) }
     e.promisedAt?.let { return context.getString(R.string.to_call_promised_at, RemindTimes.whenText(context, it)) }
+    e.catchUpAt?.let { return context.getString(R.string.to_call_catch_up_at, RemindTimes.whenText(context, it)) }
     return when (e.kind) {
         ToCallKind.MISSED -> context.getString(R.string.label_missed_call_at, Format.shortWhen(context, e.since))
         ToCallKind.REMINDER -> context.getString(R.string.to_call_remind_at, RemindTimes.whenText(context, e.dueAt ?: e.since))

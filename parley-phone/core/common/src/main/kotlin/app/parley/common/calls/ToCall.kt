@@ -106,6 +106,8 @@ data class ToCallEntry(
     val missedAt: Long? = null,
     /** The time you told them you'd call ([PromisedTime.told]), or null. */
     val promisedAt: Long? = null,
+    /** A next catch-up date kept for yourself ([CatchUp]: a [PromisedTime] not told), or null. */
+    val catchUpAt: Long? = null,
 ) {
     fun isDue(now: Long): Boolean = dueAt == null || dueAt <= now
 }
@@ -321,6 +323,7 @@ object ToCall {
             ToCallEntry(
                 i.key, i.number, kindOf(i.source), i.since, i.dueAt, i.theirEvening, i.zone, i.accountId, missedAt = m?.date,
                 promisedAt = i.promised?.takeIf { it.told }?.at,
+                catchUpAt = i.promised?.takeIf { !it.told }?.at,
             )
         }
         val have = state.items.map { it.key }.toSet()

@@ -18,6 +18,7 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.CatchUp
 import app.parley.common.calls.PromisedTime
 import app.parley.common.calls.SettlingCall
 import app.parley.common.calls.ToCall
@@ -77,6 +78,19 @@ object ToCallReminders {
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId, promised = promised) }
         // A number nobody saved may call back before then (asked once; off until accepted).
         runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
+        return containerOf(context).toCall.available
+    }
+
+    /**
+     * A Circle member's next catch-up ([CatchUp]): on the list for [at] as a date kept for yourself (never said back
+     * as "You said you'd call"), in place of whatever the call that just ended settles. False as for [remind].
+     */
+    suspend fun catchUp(context: Context, number: String, at: Long, now: Long = System.currentTimeMillis()): Boolean {
+        val iso = PhoneEnv.countryIso(context, null)
+        val key = PhoneIdentity.key(number, iso)
+        if (!canRemind(key, number)) return false
+        val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
+        update(context) { CatchUp.set(it, key, number, at, now, zone) }
         return containerOf(context).toCall.available
     }
 

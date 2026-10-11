@@ -299,6 +299,18 @@ Five gaps from COMPETITIVE_ANALYSIS_7 (§4.2, §6.4, §8.5: E1–E5), with no ne
 
 Left out: Transfer (above), a flip gesture during a call (the phone may be on the table on speaker), and speaker-by-default for emergency calls (the phone behaves exactly as Android would).
 
+## 6.7: the ringing header
+
+While a call rings, the header keeps at most **three** of the lines under the name and the status pill, in a fixed
+order (`RingingLines`, core/common): **safety** ("This number never calls you", the fresh-number line, the sales-line
+tag, why it rang through), then **who** (the network's name, the name in their language, the subject they sent, "You
+said you'd call at…", "Birthday today", number memory, job, pronouns, the caller card), then **To talk about**. The rest
+appear once the call is answered. A line that hides on the lock screen ("You said you'd call") makes room for the next.
+The caller card no longer lists open promises from other notes: only what was added as something to talk about shows
+on the call screen ("Open with them" on the contact page holds the rest). "Birthday today" / "Anniversary today" is one
+quiet line from the contact's dates (another calendar's date counts on the day it falls), shown on the lock screen only
+with "Name and notes".
+
 ## Without the default phone app
 
 Many people keep the phone maker's dialer (for its visual voicemail, for example) and use Parley for contacts. Where a feature needs Parley as the default phone app, the feature's own row or screen says so in one line with **Make Parley the default** (`DefaultAppNote`, with the by-hand guide when Android refuses without asking), rather than only the setup guide. Nothing shows while Parley is the default. The decision is `DefaultAppNeeds` (core/common, `DefaultAppFeature`), unit-tested.

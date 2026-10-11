@@ -1,5 +1,7 @@
 package app.parley.ui.contact
 
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.provider.ContactsContract
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
@@ -51,7 +53,6 @@ import app.parley.ui.OnGroupSurface
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.circle.ContactTimeline
-import app.parley.ui.circle.PromisesCard
 import app.parley.ui.circle.StayInTouchCard
 import app.parley.ui.circle.timelineEntries
 import app.parley.ui.common.Intents
@@ -69,16 +70,19 @@ import java.time.ZoneId
 @Composable
 internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext) {
     val d = ctx.d
-    val memory = ctx.ui.memory
-    // The agenda's items show with the note for calls.
-    val stayHasNews = ctx.inCircle || ctx.goodTime != null || memory.owed.isNotEmpty()
+    val toCall by ctx.page.toCall.collectAsStateWithLifecycle()
+    // What's open with them (To call, to talk about, promises) is one card here: "Open with them".
+    val open = hasOpenWithThem(ctx, toCall)
+    val stayHasNews = ctx.inCircle || ctx.goodTime != null || open
     if (d.lookupKey.isEmpty() || !stayHasNews) return
     sections.add(ContactSection.STAY, sectionTitle(LocalResources.current, ContactSection.STAY), ctx.lastTalked) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            StayInTouchCard(ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false) {
-                ctx.show(ContactDialog.Rhythm)
+            if (ctx.inCircle || ctx.goodTime != null) {
+                StayInTouchCard(ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false) {
+                    ctx.show(ContactDialog.Rhythm)
+                }
             }
-            if (memory.owed.isNotEmpty()) PromisesCard(ctx.vm, d.lookupKey, memory)
+            OpenWithThemCard(ctx, toCall)
         }
     }
 }
@@ -239,6 +243,7 @@ private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext)
     val full = ctx.ui.meta?.pinnedNote
     val note = Agenda.withoutItems(full)
     val agenda = ctx.ui.memory.agenda
+    val toCall by ctx.page.toCall.collectAsStateWithLifecycle()
     val canAdd = ctx.d.lookupKey.isNotEmpty() && (!ctx.isPrivate || ctx.ui.access == PrivateAccess.OPEN)
     val summary = note?.lineSequence()?.firstOrNull()?.takeIf { it.isNotBlank() } ?: when {
         agenda.isNotEmpty() -> resources.getQuantityString(R.plurals.agenda_count, agenda.size, agenda.size)
@@ -262,7 +267,8 @@ private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext)
                 supporting = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
             )
         }
-        agendaRows(ctx, agenda, canAdd) { n, p -> scope.launch { tickPromise(ctx.vm, ctx.d.lookupKey, n, p, true) } }
+        // The items themselves are in "Open with them" (Stay in touch); adding one stays here while nothing is open.
+        if (!hasOpenWithThem(ctx, toCall)) agendaRows(ctx, emptyList(), canAdd) { n, p -> scope.launch { tickPromise(ctx.vm, ctx.d.lookupKey, n, p, true) } }
     }
 }
 

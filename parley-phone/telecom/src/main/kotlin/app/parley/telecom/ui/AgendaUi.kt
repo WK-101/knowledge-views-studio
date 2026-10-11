@@ -157,10 +157,11 @@ private fun toggle(context: Context, call: CallUi, s: CallAgendas.State, text: S
  * "To talk about" under the caller: the open items of the person on the line, when you call them or they call you.
  * Compact (the first two, "Show 3 more"), each ticked off with one tap. Unlocked: the items. On the lock screen: the
  * items only when notes may show there, else how many; nothing for a private contact or a masked caller
- * ([Agenda.shown]). Read once the screen is up and again when the phone is unlocked; never slows the ringing.
+ * ([Agenda.shown]). Read once the screen is up and again when the phone is unlocked; never slows the ringing. Not
+ * drawn while [visible] is false (the ringing header's lines leave it no room), though it is still read.
  */
 @Composable
-internal fun AgendaCard(call: CallUi, modifier: Modifier = Modifier) {
+internal fun AgendaCard(call: CallUi, modifier: Modifier = Modifier, visible: Boolean = true) {
     val applies = agendaApplies(call) && call.isLive
     val locked = rememberKeyguardLocked()
     LaunchedEffect(call.id, applies, locked) {
@@ -169,7 +170,8 @@ internal fun AgendaCard(call: CallUi, modifier: Modifier = Modifier) {
         val agenda = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.agendaFor(number, call.accountId) } }.getOrNull()
         CallAgendas.loaded(call.id, agenda)
     }
-    val s = CallAgendas.calls[call.id] ?: return
+    // Read but not drawn while not [visible] (a ringing call keeps its room for the lines before it): nothing counts as shown yet.
+    val s = CallAgendas.calls[call.id]?.takeIf { visible } ?: return
     val open = s.items.filterNot { it in s.ticked }
     val shown = Agenda.shown(s.items.size, locked, s.agenda.textOnLockScreen, call.lockMasked, s.agenda.privateContact)
     LaunchedEffect(s, shown) { s.shown = shown }

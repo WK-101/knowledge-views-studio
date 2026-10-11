@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="memory_open_promise" translatable="false">☐ %1$s</string>
     <string name="memory_title">Anything to remember?</string>
     <string name="memory_placeholder">Their news, a promise, a date…</string>
     <string name="memory_promise_hint">Lines starting with [ ] become promises you can tick off later.</string>
@@ -12,8 +11,12 @@
     <string name="memory_skip">Not now</string>
     <string name="memory_saved">Saved to their timeline</string>
     <string name="memory_last_note">Last note: %1$s</string>
-    <plurals name="memory_more_promises">
-        <item quantity="one">+%1$d more promise</item>
-        <item quantity="other">+%1$d more promises</item>
-    </plurals>
+    <string name="memory_catch_up_title">Next catch-up</string>
+    <string name="memory_catch_up_usual">Usual rhythm</string>
+    <string name="memory_catch_up_week">In a week</string>
+    <string name="memory_catch_up_date">On a date</string>
+    <string name="memory_catch_up_on">On %1$s</string>
+    <string name="memory_catch_up_set">Set</string>
+    <string name="incall_birthday_today">Birthday today</string>
+    <string name="incall_anniversary_today">Anniversary today</string>
 </resources>

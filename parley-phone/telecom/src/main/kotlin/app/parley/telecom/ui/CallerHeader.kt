@@ -66,7 +66,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -80,6 +79,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.parley.common.NotificationPrivacy
 import app.parley.common.Verification
+import app.parley.common.calls.CallerLine
 import app.parley.common.circle.GoodTime
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
@@ -118,6 +118,7 @@ internal fun CallerHeader(
     avatarSize: Dp,
     onReply: () -> Unit,
     poster: Boolean = false,
+    lines: Set<CallerLine> = CallerLine.entries.toSet(),
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = ringingActions(call, ended, onReply).fillMaxWidth()) {
         if (!compact && !poster) {
@@ -125,32 +126,39 @@ internal fun CallerHeader(
             Spacer(Modifier.height(Spacing.l))
         }
         CallerName(call, compact, poster, onOpenContact)
-        // Their name in their own language, as a second line under the name.
-        CallerNativeName(call.nativeName.takeUnless { compact })
-        // The name the network sent, when it differs from the saved one (the setting is on and the name may show).
-        CallerNetworkName(call.networkNameUnderSaved.takeUnless { compact })
-        // The caller's pronouns, right under the name.
-        call.pronouns?.let { CallerPronouns(it) }
-        SecondaryLine(call)
-        call.subtitle?.let {
-            Text(
-                it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (!compact) SubjectLine(call)
-        if (!compact && !ended) CallerHints(call)
+        // While it rings, only the lines [lines] keeps (safety, who, agenda; at most three): the rest after answering.
+        NameLines(call, compact, lines)
+        if (!compact && !ended) CallerHints(call, lines)
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
         // TalkBack hears "Call connected", "On hold" and "Call ended" without looking for the pill.
         CallStateAnnouncer(call, ended)
-        if (!ended && call.state == CallState.RINGING) RangThroughLine(call)
+        if (!ended && call.state == CallState.RINGING && CallerLine.RANG_THROUGH in lines) RangThroughLine(call)
         // "Looks like a sales line (your calls)", with Why?
-        ReputationLine(call, ended, compact)
+        if (CallerLine.REPUTATION in lines) ReputationLine(call, ended, compact)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
-        if (!compact) CallerCard(call, ended)
+        if (!compact && CallerLine.CALLER_CARD in lines) CallerCard(call, ended)
     }
+}
+
+/** Under the name: their name in their language, the network's name, pronouns, label and number, job, the subject. */
+@Composable
+private fun NameLines(call: CallUi, compact: Boolean, lines: Set<CallerLine>) {
+    // Their name in their own language, as a second line under the name.
+    CallerNativeName(call.nativeName.takeUnless { compact || CallerLine.NATIVE_NAME !in lines })
+    // The name the network sent, when it differs from the saved one (the setting is on and the name may show).
+    CallerNetworkName(call.networkNameUnderSaved.takeUnless { compact || CallerLine.NETWORK_NAME !in lines })
+    // The caller's pronouns, right under the name.
+    call.pronouns?.takeIf { CallerLine.PRONOUNS in lines }?.let { CallerPronouns(it) }
+    SecondaryLine(call)
+    call.subtitle?.takeIf { CallerLine.SUBTITLE in lines }?.let {
+        Text(
+            it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (!compact && CallerLine.SUBJECT in lines) SubjectLine(call)
 }
 
 /** The caller's name: emphasized, smaller with the keypad open, large over a poster. */
@@ -467,11 +475,15 @@ private fun CallTimer(connectTime: Long) {
     )
 }
 
-/** Who is this, the pinned note, the last note and open promises, and the last call: one quiet card. */
+/**
+ * Who is this, the pinned note, the last note and the last call: one quiet card. Open promises from earlier notes stay
+ * on the contact page ("Open with them"): only what was added as something to talk about shows on the call screen, in
+ * its own card, so a to-do list kept in a note isn't read out as an agenda.
+ */
 @Composable
 private fun CallerCard(call: CallUi, ended: Boolean) {
-    // The last note and open promises, only while unlocked unless allowed on the lock screen.
-    val memory = call.memory?.takeIf { !ended && !it.isEmpty && (it.onLockScreen || !rememberKeyguardLocked()) }
+    // The last note, only while unlocked unless allowed on the lock screen.
+    val memory = call.memory?.takeIf { !ended && !it.lastNote.isNullOrBlank() && (it.onLockScreen || !rememberKeyguardLocked()) }
     if (listOfNotNull(call.context, call.note, call.lastCall, memory).isEmpty()) return
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -518,18 +530,11 @@ internal fun rememberKeyguardLocked(): Boolean {
     return locked
 }
 
-/** "Last note: …" and up to three open promises. */
+/** "Last note: …". */
 @Composable
 private fun MemoryLines(m: CallerMemory) {
     m.lastNote?.takeIf { it.isNotBlank() }?.let {
         Text(stringResource(R.string.memory_last_note, it), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
-    m.promises.take(3).forEach { p ->
-        Text(stringResource(R.string.memory_open_promise, p), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-    if (m.promises.size > 3) {
-        val more = m.promises.size - 3
-        Text(pluralStringResource(R.plurals.memory_more_promises, more, more), style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.calls.ToCallItem
 import app.parley.common.people.NumberStamp
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -252,6 +253,13 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     /** Call notes are stored under each line's key, or under the old last-digits key until migrated. */
     private val numberKeys = phones.map { list -> list.flatMap { PhoneIdentity.lookupKeys(it, countryIso) }.toSet() }.distinctUntilChanged()
+
+    /** Their To call item, for "Open with them": the first of their numbers on the list (read once the page opens). */
+    val toCall: StateFlow<ToCallItem?> = combine(phones, c.toCall.state) { mine, s ->
+        val keys = mine.map { PhoneIdentity.key(it, countryIso) }.toSet()
+        s.items.firstOrNull { it.key in keys }
+    }.onStart { suspendRunCatching { c.toCall.load() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /**
      * Parley's row for them. A private contact's note for calls and usual app live in its sealed vault entry (the call
