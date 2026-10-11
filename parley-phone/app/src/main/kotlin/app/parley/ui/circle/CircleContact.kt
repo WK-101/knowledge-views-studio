@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Handshake
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.HorizontalDivider
@@ -68,6 +69,8 @@ fun StayInTouchCard(
     showNext: Boolean = true,
     /** False where "Add to your Circle" is offered elsewhere (the contact page's settings group). */
     invite: Boolean = true,
+    /** How you two keep in touch (none while a duress unlock hides insights). */
+    keep: KeepInTouchLines? = null,
     onEdit: () -> Unit,
 ) {
     val res = LocalResources.current
@@ -103,6 +106,8 @@ fun StayInTouchCard(
                 )
             }
         }
+        // "You usually talk about every 3 weeks; it's been 5 weeks. Ana usually reaches out first."
+        keep?.let { k -> item("keep") { KeepInTouchRow(k) } }
         // "Usually free 6–9 pm · 7:40 pm there".
         if (goodTime != null) item("good_time") {
             ParleyListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
@@ -123,6 +128,18 @@ fun StayInTouchCard(
             )
         }
     }
+}
+
+/** How you two keep in touch: the facts, then the last year's summary under them. */
+@Composable
+private fun KeepInTouchRow(keep: KeepInTouchLines) {
+    val lines = listOfNotNull(keep.sentence, keep.summary)
+    ParleyListItem(
+        colors = rowColors,
+        leadingContent = { Icon(Icons.Rounded.Insights, null) },
+        headlineContent = { Text(lines.first()) },
+        supportingContent = lines.getOrNull(1)?.let { { Text(it) } },
+    )
 }
 
 /**

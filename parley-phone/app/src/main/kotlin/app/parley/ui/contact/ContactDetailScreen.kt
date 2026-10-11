@@ -87,6 +87,11 @@ import app.parley.ui.blocking.rememberBlocked
 import app.parley.ui.blocking.rememberEmergency
 import app.parley.ui.circle.goodTimeText
 import app.parley.ui.circle.hasPeek
+import app.parley.ui.circle.rememberKeepInTouch
+import app.parley.common.circle.PeopleInsights
+import app.parley.common.circle.CircleConfig
+import app.parley.ui.circle.KeepInTouchLines
+import app.parley.ui.circle.asksForPeek
 import app.parley.ui.common.Intents
 import app.parley.ui.menus.MenuShortcutsBlock
 import app.parley.ui.cases.CaseCard
@@ -233,12 +238,14 @@ private fun pageContext(
     // Case files: an organisation's calls and reference numbers, on the page and before calling.
     val caseOwner = remember(d?.displayName, d?.phones, ui.isPrivate) { d?.let { caseOwnerOf(it, ui.isPrivate) } ?: CaseOwner("", emptyList()) }
     val case = rememberCaseShown(vm, caseOwner)
+    val keepInTouch = keepInTouchOf(vm, ui, circleCfg)
     if (d == null) return null
     return ContactPageContext(
         vm, page, ui, d, contactId, context, scope, resources, goodTime, lastTalked, today, dated, parleyRelations, relationsFromOthers,
         open = open, back = back, show = show,
         callPeek = { number, name ->
-            if (circleCfg.preCallPeek && (hasPeek(ui.memory, goodTime) || case.shown)) show(ContactDialog.Peek(number)) else vm.requestCall(number, name)
+            val peek = hasPeek(ui.memory, goodTime, keepInTouch.asksForPeek) || case.shown
+            if (circleCfg.preCallPeek && peek) show(ContactDialog.Peek(number)) else vm.requestCall(number, name)
         },
         openRelation = { name ->
             page.openRelation(name) { target ->
@@ -251,6 +258,7 @@ private fun pageContext(
         },
         pickRingtone = { ringtonePicker.launch(it) },
         case = case,
+        keepInTouch = keepInTouch,
     )
 }
 
@@ -428,3 +436,13 @@ private fun PinnedBar(ctx: ContactPageContext, listState: LazyListState, barColo
 
 /** Jump chips appear from this many shown groups. */
 private const val JUMP_CHIPS_FROM = 4
+
+/** How you two keep in touch, for the Stay in touch card and the pre-call peek (none while insights are hidden). */
+@Composable
+private fun keepInTouchOf(vm: AppViewModel, ui: ContactDetailUiState, config: CircleConfig): KeepInTouchLines? {
+    val d = ui.details
+    return rememberKeepInTouch(
+        vm, d?.lookupKey.orEmpty(), d?.let { PeopleInsights.shortName(it.given, it.displayName) }.orEmpty(),
+        ui.meta?.reachOutDays, ui.meta?.rhythm, ui.history, ui.interactions, config,
+    )
+}

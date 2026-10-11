@@ -310,7 +310,9 @@ in History & undo, private names in notifications and on the call screen. And, b
 - **Notes for calls and call notes**, for everyone: they read as none on the contact page and on the call screen.
 - **Relationship insights**, for everyone: Insights' People card (reach, open loops, who usually reaches out first,
   the year in review), a natural rhythm's learned gap (it reads "Natural rhythm"), a good time to call, and the Circle's
-  suggestions with their call counts. A rhythm you set yourself still shows.
+  suggestions with their call counts; the Circle header's reach and talk-time share (its Due/Soon/Fine counts stay, as
+  every row's chip does), how you two keep in touch on a contact's page and in the pre-call peek, and "your turn" in the
+  weekly digest (it says "might enjoy hearing from you" as before). A rhythm you set yourself still shows.
 - **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
   call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
   read (`NumberMemory.concealNotes`), not only where the notes are.

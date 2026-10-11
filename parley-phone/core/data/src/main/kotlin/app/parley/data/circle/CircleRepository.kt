@@ -342,7 +342,8 @@ class CircleRepository(
     /**
      * Every contact entry since [since] as [PeopleInsights.Touch]es keyed by lookup key: calls with contacts from
      * the call log (private contacts' calls aren't there, and their interactions travel sealed in the vault entry) and
-     * logged interactions ("Mark as wished" entries as [PeopleInsights.TouchKind.WISHED]).
+     * logged interactions ("Mark as wished" entries as [PeopleInsights.TouchKind.WISHED], chats started from Parley as
+     * [PeopleInsights.TouchKind.CHAT_OUT]).
      */
     suspend fun touches(since: Long, idx: CallLogIndex? = index().value): List<PeopleInsights.Touch> {
         val calls = idx?.calls(Period(since, Long.MAX_VALUE)).orEmpty().mapNotNull { c ->
@@ -350,7 +351,7 @@ class CircleRepository(
             PeopleInsights.touchOf(key, c.call)
         }
         val logged = runCatching { interactions.touchesSince(since) }.getOrDefault(emptyList()).map {
-            PeopleInsights.Touch(it.lookupKey, it.time, if (it.dedupeKey.startsWith("w:")) PeopleInsights.TouchKind.WISHED else PeopleInsights.TouchKind.LOGGED)
+            PeopleInsights.Touch(it.lookupKey, it.time, PeopleInsights.loggedKind(it.dedupeKey))
         }
         return calls + logged
     }
