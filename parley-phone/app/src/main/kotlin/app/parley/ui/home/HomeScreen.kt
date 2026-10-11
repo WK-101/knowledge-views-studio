@@ -75,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.ui.blocking.RecentsSelectionBar
 import app.parley.RecentFilter
 import app.parley.common.SettingsCategory
 import app.parley.ui.discover.DiscoverRoutes
@@ -132,6 +133,7 @@ fun HomeScreen(
     val recents: RecentsViewModel = activityViewModel()
     val keypad: KeypadViewModel = activityViewModel()
     val selection by vm.selection.collectAsStateWithLifecycle()
+    val recentsSelection by recents.selection.collectAsStateWithLifecycle()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     // Which tabs the bar shows and where the keypad and the favourites live.
     val layout = settings.homeLayout
@@ -179,6 +181,7 @@ fun HomeScreen(
             if (searching) closeSearch()
         }
         if (tab != StartTab.CONTACTS) vm.selection.value = emptySet()
+        if (tab != StartTab.RECENTS) recents.clearSelection()
         scroll.state.contentOffset = 0f
     }
     // After the tab change above has closed the previous tab's search (it updates lastTab), never before it.
@@ -193,9 +196,8 @@ fun HomeScreen(
     }
     // Switching an option on while its tab is open moves to the surface that now hosts it.
     LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
-    BackHandler(enabled = selection.isNotEmpty()) { vm.selection.value = emptySet() }
     // Back closes the page beside a list only once nothing more pressing (a selection, a search) is waiting for it.
-    val paneBack = selection.isEmpty() && !searching
+    val paneBack = selection.isEmpty() && recentsSelection.isEmpty() && !searching
     // Back folds the docked keypad first.
     BackHandler(enabled = tab == StartTab.RECENTS && layout.keypadDocked && dockOpen && !searching) { dockOpen = false }
     BackHandler(enabled = searching) { closeSearch() }
@@ -209,8 +211,14 @@ fun HomeScreen(
     ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
+            // A selection takes the top bar's place (SelectionTopBar, whose Close and Back end it) on every list.
             if (tab == StartTab.CONTACTS && selection.isNotEmpty()) {
                 SelectionBar(vm)
+            } else if (tab == StartTab.RECENTS && recentsSelection.isNotEmpty()) {
+                RecentsSelectionBar(vm, recents.list.collectAsStateWithLifecycle().value?.groups.orEmpty(), onActions = { g ->
+                    recents.clearSelection()
+                    recents.actionsFor.value = g
+                })
             } else {
                 val query = when (tab) {
                     StartTab.CONTACTS -> vm.contactQuery.collectAsStateWithLifecycle().value
@@ -287,7 +295,7 @@ fun HomeScreen(
             }
             Column(Modifier.weight(1f).fillMaxSize()) {
                 // "What's new" once after an update, as a card above the tab (the layout itself never changes).
-                if (!searching && selection.isEmpty()) WhatsNewCard(vm, open)
+                if (!searching && selection.isEmpty() && recentsSelection.isEmpty()) WhatsNewCard(vm, open)
                 Box(Modifier.weight(1f).fillMaxSize()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {

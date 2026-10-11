@@ -16,4 +16,10 @@
     <string name="ui_index">Alphabet index</string>
     <string name="ui_index_next">Next letter</string>
     <string name="ui_index_previous">Previous letter</string>
+    <!-- The selection bar shared by every multi-select list: its Close button and how many rows are selected. -->
+    <string name="ui_clear_selection">Clear selection</string>
+    <plurals name="ui_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
 </resources>

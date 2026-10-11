@@ -377,11 +377,6 @@
     <string name="blk_search_web_long">Search number on the web</string>
     <string name="blk_search_web">Search web</string>
     <string name="blk_dont_call_back">Don\'t call back</string>
-    <string name="blk_clear_selection">Clear selection</string>
-    <plurals name="blk_selected">
-        <item quantity="one">%1$d selected</item>
-        <item quantity="other">%1$d selected</item>
-    </plurals>
     <string name="blk_block_n">Block %1$d</string>
     <plurals name="blk_block_numbers_q">
         <item quantity="one">Block this number?</item>

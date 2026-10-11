@@ -1021,10 +1021,6 @@
     <string name="dup_someone_else">It\'s someone else</string>
 
     <!-- People: labels -->
-    <plurals name="lbl_selected">
-        <item quantity="one">%1$d selected</item>
-        <item quantity="other">%1$d selected</item>
-    </plurals>
     <string name="lbl_stop_merging">Stop merging</string>
     <string name="lbl_merge">Merge</string>
     <string name="lbl_new">New label</string>
