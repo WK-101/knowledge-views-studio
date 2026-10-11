@@ -4,11 +4,8 @@ import app.parley.ui.people.ContactsLockButton
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,23 +28,24 @@ import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
-import androidx.compose.material3.ToggleFloatingActionButton
+import app.parley.ui.ParleyFabDefaults
+import app.parley.ui.ParleyFabMenu
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import app.parley.security.DiscreetSwitch
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,7 +95,6 @@ import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.Spacing
 import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
@@ -160,7 +157,10 @@ fun HomeScreen(
         val r = tabRequest ?: return@LaunchedEffect
         // A request for a tab that another surface hosts opens that surface (tel:, ACTION_DIAL, shortcuts
         // and the headset's Call button open the docked keypad, unfolded).
-        tab = layout.hostOf(r.tab)
+        // The Circle while its tab is hidden: the favourites' Favourites · Circle switch, turned to the Circle.
+        val circleOn = if (r.tab == StartTab.CIRCLE) layout.circleOpensOn(vm.circle.rows.value?.size ?: 0) else null
+        if (circleOn != null && circleOn != StartTab.CIRCLE) vm.c.circle.updateConfig { it.copy(circleChosen = true) }
+        tab = circleOn ?: layout.hostOf(r.tab)
         if (layout.opensDockedKeypad(r.tab)) {
             // The tab doesn't change, so an open Recents search would keep hiding the keypad and the number.
             if (searching) closeSearch()
@@ -256,7 +256,7 @@ fun HomeScreen(
                     onSearch = { on -> if (on) searching = true else closeSearch() },
                     scrollBehavior = scroll,
                     actions = { TabActions(vm, tab, settings.appLock, open) },
-                    menu = { close -> TabMenu(vm, tab, settings.appLock, open, close, onReorderFavorites = { reorderFavorites = true }) },
+                    menu = { close -> TabMenu(vm, tab, settings.appLock, open, close) },
                 )
             }
         },
@@ -309,7 +309,7 @@ fun HomeScreen(
                             }
                             StartTab.CONTACTS -> HomeListDetail(
                                 vm, t, window, open, backEnabled = paneBack,
-                                overlay = { Box(Modifier.align(Alignment.BottomEnd).padding(Spacing.l)) { AddButton(vm, open, paneBack) } },
+                                overlay = { Box(Modifier.align(Alignment.BottomEnd).padding(ParleyFabDefaults.Margin)) { AddButton(vm, open, paneBack) } },
                             ) { o -> ContactsTab(vm, o, onReorderFavorites = { reorderFavorites = true }) }
                             StartTab.KEYPAD -> Centred(window.keypadMaxDp) { KeypadTab(vm, open, keypadQuery.takeIf { searching }) }
                             StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
@@ -355,11 +355,28 @@ private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 /**
+ * "Hide private contacts" as a checkable item, ticked while the switch is on (as the Privacy page shows it). A tap
+ * flips it with the same rules as the Quick Settings tile ([DiscreetSwitch]).
+ */
+@Composable
+private fun HidePrivateMenuItem(vm: AppViewModel, close: () -> Unit) {
+    val context = LocalContext.current
+    val on = DiscreetSwitch.shown(vm.settings.collectAsStateWithLifecycle().value)
+    DropdownMenuItem(
+        { Text(stringResource(R.string.set_hide_vault_title)) },
+        leadingIcon = { Icon(Icons.Rounded.VisibilityOff, null) },
+        trailingIcon = { Checkbox(on, onCheckedChange = null) },
+        onClick = { close(); DiscreetSwitch.flip(context, vm.c) },
+        modifier = Modifier.semantics { role = Role.Checkbox; toggleableState = ToggleableState(on) },
+    )
+}
+
+/**
  * "More options": at most seven items, the tab's own first, then Tools (the one hub: everything Parley does, by what
  * you want done) and Settings. Settings pages aren't repeated here.
  */
 @Composable
-private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
+private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit, close: () -> Unit) {
     fun go(route: Destination) { close(); open(route) }
     val settings = vm.settings.collectAsStateWithLifecycle().value
     val layout = settings.homeLayout
@@ -381,8 +398,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             // Name, recently added, most called or company: kept in the list, remembered. ("Add several" is on the add button.)
             MenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
             MenuItem(stringResource(R.string.action_find_merge_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
-            // Favourites shown in Contacts are reordered from here too.
-            if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
+            // Favourites shown in Contacts are reordered from their own header (Reorder), not from here.
+            HidePrivateMenuItem(vm, close)
             // Archived contacts are out of the list: this is where they are, once there are some.
             val archived = vm.c.archive.cards.collectAsStateWithLifecycle().value
             // Archived private contacts count only while private contacts may show.
@@ -409,37 +426,26 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
 
 /**
  * Contacts' add button: a tap opens its menu (New contact, Scan QR code, Add several numbers), the ways to add
- * someone in one place. New contact is private while only private contacts show.
+ * someone in one place. New contact is private while only private contacts show. [visible]: Contacts is open, with no
+ * selection or search; hidden, it comes back closed.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
+private fun AddButton(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    // Hidden for a selection or a search: it comes back closed.
     LaunchedEffect(visible) { if (!visible) expanded = false }
     BackHandler(expanded) { expanded = false }
     fun go(d: Destination) { expanded = false; open(d) }
-    val addLabel = stringResource(R.string.home_add_contact_menu)
-    val state = stringResource(if (expanded) R.string.home_add_menu_open else R.string.home_add_menu_closed)
-    val action = stringResource(if (expanded) R.string.home_add_menu_hide else R.string.home_add_menu_show)
-    FloatingActionButtonMenu(
-        expanded = expanded,
-        button = {
-            CoachMarkAnchor(Tips.CONTACTS_ADD_MENU, stringResource(R.string.qs_tip_contacts)) {
-                ToggleFloatingActionButton(
-                    checked = expanded, onCheckedChange = { expanded = it },
-                    // A button that opens a menu, not an on/off switch: TalkBack says "Add a contact, menu closed".
-                    modifier = Modifier.clearAndSetSemantics {
-                        contentDescription = addLabel
-                        stateDescription = state
-                        role = Role.Button
-                        onClick(label = action) { expanded = !expanded; true }
-                    },
-                ) {
-                    Icon(if (checkedProgress > 0.5f) Icons.Rounded.Close else Icons.Rounded.PersonAdd, null)
-                }
-            }
-        },
+    val tip = stringResource(R.string.qs_tip_contacts)
+    ParleyFabMenu(
+        expanded = expanded, onExpandedChange = { expanded = it },
+        icon = Icons.Rounded.PersonAdd,
+        // TalkBack: "Add a contact, menu closed".
+        contentDescription = stringResource(R.string.home_add_contact_menu),
+        stateDescription = stringResource(if (expanded) R.string.home_add_menu_open else R.string.home_add_menu_closed),
+        actionLabel = stringResource(if (expanded) R.string.home_add_menu_hide else R.string.home_add_menu_show),
+        visible = visible,
+        wrap = { button -> CoachMarkAnchor(Tips.CONTACTS_ADD_MENU, tip) { button() } },
     ) {
         FloatingActionButtonMenuItem(
             onClick = { go(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) },
@@ -452,13 +458,5 @@ private fun AddContactFab(vm: AppViewModel, open: (Destination) -> Unit, visible
             onClick = { go(MessagingRoutes.BulkAdd) }, text = { Text(stringResource(R.string.home_add_several)) },
             icon = { Icon(Icons.Rounded.GroupAdd, null) },
         )
-    }
-}
-
-/** Contacts' add button while it can be used ([visible]: Contacts is open, with no selection or search). */
-@Composable
-private fun AddButton(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
-    AnimatedVisibility(visible, enter = scaleIn(), exit = scaleOut()) {
-        AddContactFab(vm, open, visible = visible)
     }
 }

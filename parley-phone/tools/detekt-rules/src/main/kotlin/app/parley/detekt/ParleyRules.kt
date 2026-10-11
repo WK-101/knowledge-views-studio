@@ -77,6 +77,14 @@ class DesignSystemComponent(config: Config = Config.empty) : Rule(config) {
             // Rows follow the list density and the kit's colours; a switch row is one TalkBack stop.
             "ListItem" to "ParleyListItem, PersonRow, SwitchRow, LinkRow or InfoRow",
             "Switch" to "SwitchRow",
+            // One floating button: one size, corner and place on every screen.
+            "FloatingActionButton" to "ParleyFab",
+            "SmallFloatingActionButton" to "ParleyFab",
+            "MediumFloatingActionButton" to "ParleyFab",
+            "LargeFloatingActionButton" to "ParleyFab",
+            "ExtendedFloatingActionButton" to "ParleyFab(text = …)",
+            "ToggleFloatingActionButton" to "ParleyFabMenu",
+            "FloatingActionButtonMenu" to "ParleyFabMenu",
         )
     }
 }

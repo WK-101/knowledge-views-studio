@@ -38,6 +38,7 @@ import app.parley.DialResult
 import app.parley.common.KeypadLayout
 import app.parley.common.calls.PressOrder
 import app.parley.ui.Routes
+import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ParleyShapes
 import app.parley.ui.topOnly
 import androidx.compose.foundation.layout.ColumnScope
@@ -64,6 +65,8 @@ internal fun KeypadResults(
 ) {
     val numberActions = actions.numberActions
     val showNumberActions = numberActions.chips.isNotEmpty()
+    // Docked and folded, the keypad button sits at the bottom end: rows and chips keep clear of it.
+    val fabRoom = if (dock != null && !dock.expanded) ParleyFabDefaults.Reserve else 0.dp
     Box(if (dock != null) modifier.nestedScroll(fold.listConnection) else modifier) {
         if (input.isEmpty() && dock != null) {
             // Nothing typed: the recent calls, as on the Recents tab.
@@ -74,7 +77,8 @@ internal fun KeypadResults(
         } else if (input.isEmpty()) {
             KeypadHint(vm.countryIso, qwerty, showKeypad, open, onPaste, Modifier.align(Alignment.Center))
         } else {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp)) {
+            val chipsRoom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = maxOf(chipsRoom, fabRoom))) {
                 items(
                     results, key = { (it.contact?.id?.toString() ?: "n") + it.number },
                     contentType = { if (it.secondary) "secondary" else "result" },
@@ -100,7 +104,7 @@ internal fun KeypadResults(
             Surface(
                 color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT),
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Box(Modifier.padding(end = fabRoom), contentAlignment = Alignment.Center) {
                     NumberActionChips(numberActions.chips, actions::runNumberAction)
                 }
             }

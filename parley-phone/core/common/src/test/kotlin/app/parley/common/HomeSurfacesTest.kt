@@ -74,7 +74,9 @@ class HomeSurfacesTest {
         StartTab.entries.forEach { assertEquals(it, l.hostOf(it)) }
         assertFalse(l.keypadDocked)
         assertFalse(l.favoritesInContacts)
-        assertEquals(StartTab.FAVORITES, l.circleHost)
+        // The Circle is a switch on the Favourites tab, not a section of Contacts.
+        assertTrue(l.hasCircleSwitch(StartTab.FAVORITES))
+        assertFalse(l.hasCircleSwitch(StartTab.CONTACTS))
     }
 
     @Test fun combined_calls_hide_the_keypad_tab_without_touching_nav_tabs() {
@@ -113,19 +115,30 @@ class HomeSurfacesTest {
         assertTrue(f.isVisible(StartTab.FAVORITES))
     }
 
-    @Test fun favourites_in_contacts_hide_the_tab_and_move_the_circle() {
+    @Test fun favourites_in_contacts_hide_the_tab_and_take_the_circle_switch() {
         val l = HomeLayout(NavTabs(), favSection)
         assertTrue(l.favoritesInContacts)
         assertEquals(listOf(StartTab.RECENTS, StartTab.CONTACTS, StartTab.KEYPAD), l.visible)
         assertEquals(StartTab.CONTACTS, l.hostOf(StartTab.FAVORITES))
-        // The Circle section follows the favourites into Contacts.
-        assertEquals(StartTab.CONTACTS, l.circleHost)
-        // Keeping the Favorites tab keeps the Circle there, as before.
+        // The Circle's switch follows the favourites into Contacts.
+        assertTrue(l.hasCircleSwitch(StartTab.CONTACTS))
+        // Keeping the Favourites tab: the switch shows in both places the favourites are.
         val kept = HomeLayout(NavTabs(), favSection.copy(keepFavoritesTab = true))
         assertEquals(four, kept.visible)
-        assertEquals(StartTab.FAVORITES, kept.circleHost)
-        // A shown Circle tab has no section anywhere.
-        assertNull(HomeLayout(NavTabs().setVisible(StartTab.CIRCLE, true), favSection).circleHost)
+        assertTrue(kept.hasCircleSwitch(StartTab.FAVORITES) && kept.hasCircleSwitch(StartTab.CONTACTS))
+        // A shown Circle tab is its home: no switch anywhere.
+        val tab = HomeLayout(NavTabs().setVisible(StartTab.CIRCLE, true), favSection)
+        assertFalse(tab.circleSwitch)
+        StartTab.entries.forEach { assertFalse(tab.hasCircleSwitch(it)) }
+        // A request for the Circle opens where the switch is, once the Circle has people.
+        assertEquals(StartTab.CONTACTS, l.circleOpensOn(members = 2))
+        assertEquals(StartTab.CIRCLE, l.circleOpensOn(members = 0))
+        assertEquals(StartTab.FAVORITES, kept.circleOpensOn(members = 2))
+        assertEquals(StartTab.CIRCLE, tab.circleOpensOn(members = 2))
+        // No favourites shown anywhere: the Circle tab on its own, as before.
+        assertEquals(StartTab.CIRCLE, HomeLayout(NavTabs().setVisible(StartTab.FAVORITES, false), SurfaceLayout()).circleOpensOn(members = 2))
+        // Never on Recents or the keypad.
+        assertFalse(l.hasCircleSwitch(StartTab.RECENTS) || l.hasCircleSwitch(StartTab.KEYPAD))
     }
 
     @Test fun start_tab_falls_back_to_the_host() {

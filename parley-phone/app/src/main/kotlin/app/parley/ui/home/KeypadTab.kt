@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.Destination
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -263,8 +264,8 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                 fold = fold,
                 number = fabNumber?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
                 badge = fabNumber?.let { CallPill.badge(it) },
-                modifier = Modifier.align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 16.dp + if (actions.numberActions.chips.isNotEmpty()) NUMBER_ACTIONS_HEIGHT else 0.dp),
+                // The one place of every floating button; the number actions make room for it, it never moves for them.
+                modifier = Modifier.align(Alignment.BottomEnd).padding(ParleyFabDefaults.Margin),
             ) { dock.onExpandedChange(true) }
         }
     }

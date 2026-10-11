@@ -1,10 +1,16 @@
 package app.parley
 
 import app.parley.calls.AbroadCalls
+import app.parley.calls.NumberSignals
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.PhoneIdentity
+import app.parley.common.suspendRunCatching
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.SimCard
+import app.parley.common.calls.SimChoice
+import app.parley.common.calls.SimReason
+import app.parley.common.calls.SimSuggestion
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PlaceResult
@@ -45,11 +51,29 @@ class CallGate(private val c: DataContainer) {
         return if (ask) {
             PendingCall(
                 number, name, confirm || note != null, chooseSim, note, simId, warnings, abroad = roam.plan, localSim = roam.localSim,
-                abroadWarnings = abroadWarnings(roam),
+                abroadWarnings = abroadWarnings(roam), simCards = simCards(number, chooseSim),
             )
         } else {
             null
         }
+    }
+
+    /**
+     * With [chooseSim], the SIMs as "Call with" shows them: network and own number where Android gives them, roaming
+     * now, and the one calls with [number] drop less on (SIM that learns). A remembered or label SIM never gets here:
+     * the call goes straight out on it. Anything unreadable is just left off the card.
+     */
+    private suspend fun simCards(number: String, chooseSim: Boolean): List<SimCard> {
+        if (!chooseSim) return emptyList()
+        return withContext(Dispatchers.IO) { readSimCards(number) }
+    }
+
+    private suspend fun readSimCards(number: String): List<SimCard> {
+        val sims = suspendRunCatching { c.sims.accounts() }.getOrDefault(emptyList())
+        val lines = suspendRunCatching { c.sims.lines() }.getOrDefault(emptyMap())
+        val roaming = suspendRunCatching { c.roaming.simStates(sims).filter { it.roaming }.map { it.id }.toSet() }.getOrDefault(emptySet())
+        val learned = suspendRunCatching { NumberSignals.simTip(c, listOf(number), sims) }.getOrNull()
+        return SimChoice.cards(sims, lines, roaming, learned?.let { SimSuggestion(it.simId, SimReason.FEWER_DROPS) })
     }
 
     /** What [place] did: placed the call (with its result), or needs the user to answer [Ask.pending] first. */

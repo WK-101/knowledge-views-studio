@@ -116,6 +116,8 @@ data class PendingCall(
     val localSim: AssistedDial.LocalSimHint? = null,
     /** The dial guard's warnings for [abroad]'s number, shown instead of [warnings] once the user takes it. */
     val abroadWarnings: List<DialWarning> = emptyList(),
+    /** With [chooseSim]: each SIM as the chooser shows it (network, number, roaming, suggested). */
+    val simCards: List<app.parley.common.calls.SimCard> = emptyList(),
 )
 
 sealed interface UiEvent {

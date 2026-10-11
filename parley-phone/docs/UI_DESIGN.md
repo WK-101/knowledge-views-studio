@@ -39,3 +39,27 @@ None of them puts the index over content that isn't alphabetical.
 - **TalkBack.** The lane is one node, "Alphabet index", whose state is the current letter. It is adjustable (swipe up or down to move a letter) and has the actions "Next letter" and "Previous letter" in place of the drag. It steps through the letters only, not "★": the favourites are above the letters, where the index hides, so jumping there would take the control away from under TalkBack's focus. The favourites are reached by heading navigation. The bubble is hidden from TalkBack. Letter headers are headings, so heading navigation works as well.
 - **Where.** Contacts (with letter headers), the "Add to contact" picker, the picker other apps open (contacts, numbers, emails, addresses) and a label's members. Each appears only for more than 30 rows, sorted by name, while nothing is typed in search. The pickers sort with the Contacts list's collation and gather each starting letter into one block (`AlphabetIndex.grouped`), so they group by the same key they sort by. In Contacts the targets count everything that leads the list, the "private details locked" card included (`AlphabetIndex.Lead`).
 - **Scrolling.** The index reads the list's layout in derived states and in the layout phase (its top and height), so a fling doesn't recompose it each frame; it recomposes when it shows or hides or its letter changes.
+
+## Floating buttons (6.7)
+
+### What was wrong
+
+Three screens had a floating button, each built differently. Contacts' add button was Material's expressive FAB menu
+(16 dp corners, and the menu pads its button 16 dp in from the end and up from the bottom); the docked keypad's button
+in Recents was a plain `FloatingActionButton`, which takes the theme's large shape (24 dp in Parley) and sat 16 dp from
+the edges, then jumped up when the number actions showed; the contact page's "Log a chat or visit" was an extended FAB
+with the theme's shape again. Switching between Recents and Contacts, the button changed shape and moved.
+
+### Parley's design
+
+- **One component.** core/ui's `ParleyFab` (and `ParleyFabMenu` for a button that opens a short menu) is the only
+  floating button: 56 dp, `ParleyShapes.fab` (16 dp, `ParleyFabDefaults.CornerRadius`), the primary container colour,
+  Material's elevation, the same spring in and out. The detekt rule `DesignSystemComponent` reports Material's own FABs
+  outside core/ui, and `FloatingButtonsTest` scans the app for them.
+- **One place.** Bottom end, `ParleyFabDefaults.Margin` (16 dp) from the end edge and from the navigation bar: the
+  Scaffold's own FAB place, or the list pane's bottom end beside a detail pane (tablets, landscape). `ParleyFabMenu`
+  undoes the menu's own padding so its closed button sits exactly there. Only the icon and the action change between
+  tabs.
+- **It never moves.** What sits along the bottom makes room for it (`ParleyFabDefaults.Reserve`): the keypad's number
+  actions end before it, and lists leave space under their last row. Nothing hides it on scroll; the contact page's
+  labelled button folds to its icon once the header scrolls away, at the same height and corner.

@@ -58,7 +58,7 @@
         <item quantity="other">%1$d calls</item>
     </plurals>
     <string name="contact_page_no_note">No note yet</string>
-    <string name="contact_page_settings_summary">Circle, ringtone, voicemail, where it\'s saved</string>
+    <string name="contact_page_settings_summary">Kept as (visible, private, archived), Circle, ringtone, voicemail</string>
     <!-- The group that joins numbers, emails, addresses and apps on a contact's page -->
     <string name="contact_page_info">Contact info</string>
     <!-- Joins the apps that reach a number: "WhatsApp, Signal" -->

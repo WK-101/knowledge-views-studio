@@ -1,12 +1,6 @@
 package app.parley.ui.home
 
 import app.parley.ui.Destination
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,9 +32,6 @@ import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +55,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -79,16 +69,23 @@ import app.parley.R
 import app.parley.RecentGroup
 import app.parley.common.ContactSummary
 import app.parley.common.FavoritesPlacement
+import app.parley.common.StartTab
+import app.parley.common.circle.FavouritesView
+import app.parley.common.homeLayout
+import app.parley.ui.circle.CircleRows
+import app.parley.ui.circle.FavouritesCircleSwitch
+import app.parley.ui.circle.rememberCircleDue
+import app.parley.ui.circle.rememberFavouritesView
 import app.parley.common.calls.CallSource
 import app.parley.ui.Avatar
-import app.parley.ui.ForceLtr
 import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyFab
+import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
-import app.parley.ui.ParleyMotion
 
 /**
  * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
@@ -110,51 +107,30 @@ fun CallsSurface(vm: AppViewModel, open: (Destination) -> Unit, searching: Boole
         vm, open,
         dock = KeypadDock(expanded, onExpandedChange) {
             // Room under the last call for the keypad button while the keypad is folded.
-            RecentsTab(vm, open, bottomPadding = if (expanded) 0.dp else 88.dp)
+            RecentsTab(vm, open, bottomPadding = if (expanded) 0.dp else ParleyFabDefaults.Reserve)
         },
     )
 }
 
 /**
- * The folded keypad: a keypad button. A Material 3 FAB with the keypad icon that springs in as the
- * keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the keypad follows), to bring
- * the keypad back.
+ * The folded keypad: a keypad button, the screen's [ParleyFab] (same size, corner and place as Contacts' add button),
+ * that springs in as the keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the
+ * keypad follows), to bring the keypad back.
  */
 @Composable
 internal fun DockedKeypadButton(
     visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
 ) {
     val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.home_show_keypad_with, number)
-    val spring = ParleyMotion.fastSpatial<Float>()
-    AnimatedVisibility(
+    ParleyFab(
+        Icons.Rounded.Dialpad, label, onExpand,
+        modifier = modifier
+            // Fades as a drag up brings the keypad in.
+            .graphicsLayer { alpha = 1f - (fold.value * 1.5f).coerceIn(0f, 1f) }
+            .draggable(rememberDraggableState { fold.drag(it) }, Orientation.Vertical, onDragStopped = { v -> fold.release(v) }),
         visible = visible,
-        modifier = modifier,
-        enter = scaleIn(spring, initialScale = 0.4f) + fadeIn(spring),
-        exit = scaleOut(spring, targetScale = 0.4f) + fadeOut(spring),
-    ) {
-        FloatingActionButton(
-            onClick = onExpand,
-            modifier = Modifier
-                // Fades as a drag up brings the keypad in.
-                .graphicsLayer { alpha = 1f - (fold.value * 1.5f).coerceIn(0f, 1f) }
-                .draggable(
-                    rememberDraggableState { fold.drag(it) },
-                    Orientation.Vertical,
-                    onDragStopped = { v -> fold.release(v) },
-                )
-                .semantics { contentDescription = label },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ) {
-            BadgedBox(badge = {
-                if (badge != null) {
-                    Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
-                        ForceLtr { Text(badge, maxLines = 1) }
-                    }
-                }
-            }) { Icon(Icons.Rounded.Dialpad, null) }
-        }
-    }
+        badge = badge,
+    )
 }
 
 // ---------------------------------------------------------------- Favourites in Contacts
@@ -162,7 +138,9 @@ internal fun DockedKeypadButton(
 /**
  * The favourites at the top of Contacts, as a folding section (tiles in the Favourites grid's columns)
  * or a strip of avatars, with an optional "Frequent" row. Tap calls, a long press opens the contact, as on the
- * Favourites tab. The folded state is remembered (it's the user's choice).
+ * Favourites tab. The folded state is remembered (it's the user's choice). While the Circle tab is hidden, a
+ * Favourites · Circle switch under the header shows the Circle here instead (its one home); Reorder is the
+ * favourites' own.
  */
 @Composable
 fun ContactsFavorites(vm: AppViewModel, open: (Destination) -> Unit, onReorder: () -> Unit) {
@@ -176,37 +154,51 @@ fun ContactsFavorites(vm: AppViewModel, open: (Destination) -> Unit, onReorder: 
     fun toggle() {
         scope.launch { vm.c.settings.update { it.copy(surfaces = it.surfaces.copy(favoritesCollapsed = !it.surfaces.favoritesCollapsed)) } }
     }
-    fun call(c: ContactSummary) {
-        c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
-    }
     val shownFrequents = if (surfaces.frequentsRow) frequents else emptyList()
+    val (switchShown, view) = rememberFavouritesView(vm, settings.homeLayout.hasCircleSwitch(StartTab.CONTACTS))
+    val circle = view == FavouritesView.CIRCLE
 
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
         SectionHeader(
-            title = stringResource(R.string.label_favourites),
-            count = favorites.size,
+            title = stringResource(if (circle) R.string.circle_section else R.string.label_favourites),
+            count = if (circle) 0 else favorites.size,
             collapsed = collapsed,
             onToggle = ::toggle,
-            onReorder = if (favorites.size > 1 && !collapsed) onReorder else null,
+            onReorder = if (!circle && favorites.size > 1 && !collapsed) onReorder else null,
         )
         if (collapsed) return@Column
-        if (favorites.isEmpty()) {
-            Text(
-                stringResource(R.string.home_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
-            )
-        } else if (surfaces.favorites == FavoritesPlacement.STRIP) {
-            AvatarStrip(favorites.map { StripItem("f" + it.id, it.displayName, it.photoUri, { call(it) }, { open(Routes.contact(it.id)) }) })
-        } else {
-            FavoriteGrid(favorites, ps.favoriteColumns, onCall = ::call, onOpen = { open(Routes.contact(it.id)) })
-        }
-        // Starred only for a label's Do Not Disturb: one folded row, as on the Favourites tab.
-        DndStarredRow(vm, open)
-        if (shownFrequents.isNotEmpty()) {
-            ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.xl)
-            AvatarStrip(shownFrequents.map { g -> g.stripItem(vm, open) })
-        }
+        if (switchShown) FavouritesCircleSwitch(vm, view, Modifier.padding(bottom = Spacing.s))
+        if (circle) CircleRows(vm, open, "") else FavouritesBody(vm, open, favorites, surfaces.favorites, ps.favoriteColumns, shownFrequents)
         HorizontalDivider(Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    }
+}
+
+/** The favourites side of the section: tiles or a strip, the Do Not Disturb row and Frequent. */
+@Composable
+private fun FavouritesBody(
+    vm: AppViewModel, open: (Destination) -> Unit, favorites: List<ContactSummary>, placement: FavoritesPlacement, columns: Int,
+    frequents: List<RecentGroup>,
+) {
+    fun call(c: ContactSummary) {
+        c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
+    }
+    // Circle members due a catch-up get a small dot on their tile.
+    val due = rememberCircleDue(vm)
+    if (favorites.isEmpty()) {
+        Text(
+            stringResource(R.string.home_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+        )
+    } else if (placement == FavoritesPlacement.STRIP) {
+        AvatarStrip(favorites.map { StripItem("f" + it.id, it.displayName, it.photoUri, { call(it) }, { open(Routes.contact(it.id)) }) })
+    } else {
+        FavoriteGrid(favorites, columns, due, onCall = ::call, onOpen = { open(Routes.contact(it.id)) })
+    }
+    // Starred only for a label's Do Not Disturb: one folded row, as on the Favourites tab.
+    DndStarredRow(vm, open)
+    if (frequents.isNotEmpty()) {
+        ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.xl)
+        AvatarStrip(frequents.map { g -> g.stripItem(vm, open) })
     }
 }
 
@@ -240,14 +232,17 @@ private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggl
 
 /** The section's tiles, in the Favourites tab's number of columns (automatic: as many as fit). */
 @Composable
-private fun FavoriteGrid(favorites: List<ContactSummary>, columns: Int, onCall: (ContactSummary) -> Unit, onOpen: (ContactSummary) -> Unit) {
+private fun FavoriteGrid(favorites: List<ContactSummary>, columns: Int, due: Set<String>, onCall: (ContactSummary) -> Unit, onOpen: (ContactSummary) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         val n = if (columns > 0) columns else (maxWidth / 104.dp).toInt().coerceIn(2, 8)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             favorites.chunked(n).forEach { row ->
                 Row(Modifier.fillMaxWidth()) {
                     row.forEach { c ->
-                        Tile(c.displayName, c.photoUri, onClick = { onCall(c) }, onLong = { onOpen(c) }, modifier = Modifier.weight(1f), isPrivate = c.id < 0)
+                        Tile(
+                            c.displayName, c.photoUri, onClick = { onCall(c) }, onLong = { onOpen(c) }, modifier = Modifier.weight(1f), isPrivate = c.id < 0,
+                            due = c.lookupKey in due,
+                        )
                     }
                     repeat(n - row.size) { Spacer(Modifier.weight(1f)) }
                 }
@@ -282,7 +277,7 @@ private fun AvatarStrip(items: List<StripItem>) {
 }
 
 /**
- * Reorder the favourites from Contacts (the section header or Contacts ⋮): drag a row by its handle, or use
+ * Reorder the favourites from Contacts (the section header's Reorder): drag a row by its handle, or use
  * TalkBack's "Move earlier / later". The order is the same custom order the Favourites tab uses.
  */
 @OptIn(ExperimentalMaterial3Api::class)

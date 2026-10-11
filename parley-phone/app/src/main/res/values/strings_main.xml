@@ -69,6 +69,15 @@
     <string name="main_share_contact">Share contact</string>
     <string name="call_who_with">Call %1$s with</string>
     <string name="call_remember_sim">Remember for this number</string>
+    <!-- "Call with": the SIM is remembered for this contact, for the number being called (their name). -->
+    <string name="call_remember_sim_for">Remember for %1$s at this number</string>
+    <!-- "Call with": where a SIM sits in the phone, on its colour chip and for TalkBack. -->
+    <string name="call_sim_slot">SIM %1$d</string>
+    <!-- "Call with": the SIM is on another network than its own now (abroad, or national roaming). -->
+    <string name="call_sim_roaming">Roaming</string>
+    <!-- "Call with": the SIM Parley offers first, with the reason under it. -->
+    <string name="call_sim_suggested">Suggested</string>
+    <string name="call_sim_reason_fewer_drops">Calls to this number drop less on this SIM</string>
     <!-- A note (e.g. "Your call time with Ana is used up.") followed by the question. -->
     <string name="call_note_anyway">%1$s Call anyway?</string>
     <string name="call_anyway">Call anyway</string>

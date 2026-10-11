@@ -34,13 +34,13 @@ private fun <A> MutableList<MenuEntry<A>>.add(action: A, shown: Boolean = true) 
 }
 
 /**
- * The contact page's ⋮: Remind me to call and Block (or Unblock) at the top, as the everyday ones; Version history
- * and the rest of the rarer ones under More…. How the contact is kept (Visible · Private · Archived), how long
- * (Delete automatically) and its ringtone are rows of the page's own settings ("Kept as", D9), not menu items.
+ * The contact page's ⋮: Remind me to call, Make private and Block (or Unblock) at the top, as the everyday ones;
+ * Version history and the rest of the rarer ones under More…. How the contact is kept (Visible · Private · Archived)
+ * is the first row of the page's own settings ("Kept as"); Make private here is its shortcut for a visible contact.
  */
 object ContactMenu {
     enum class Action {
-        REMIND_TO_CALL,
+        REMIND_TO_CALL, MAKE_PRIVATE,
         SHARE_FILE, SHOW_QR, SHARE_ENCRYPTED_QR,
         BLOCK_NUMBERS, UNBLOCK_NUMBERS,
         LOG_CHAT_OR_VISIT, CASE_FILE, VERSION_HISTORY, ADD_TO_HOME_SCREEN, COPY_TO_SIM, ALLOW_SIMILAR_NUMBERS, SEPARATE,
@@ -65,10 +65,14 @@ object ContactMenu {
         val caseShown: Boolean = false,
         /** A company rather than a person: "Keep a case file" is at the top for it, under More… for a person. */
         val isCompany: Boolean = false,
+        /** A visible device contact: "Make private" is a shortcut to the "Kept as" row's Private (never for a private one). */
+        val canMakePrivate: Boolean = false,
     )
 
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.REMIND_TO_CALL, f.hasNumbers)
+        // The one "Kept as" change people look for in the menu; Visible and Archived stay on the row (and the header chip).
+        add(Action.MAKE_PRIVATE, f.canMakePrivate)
         group(MenuGroup.SHARE, listOfNotNull(Action.SHARE_FILE.takeIf { f.canShareFile }, Action.SHOW_QR, Action.SHARE_ENCRYPTED_QR))?.let(::add)
         add(if (f.blocked) Action.UNBLOCK_NUMBERS else Action.BLOCK_NUMBERS, f.hasNumbers && !f.onlyEmergency)
         // Case files are for organisations: a company's is a tap away; anyone else's (a bank saved under a person's name,

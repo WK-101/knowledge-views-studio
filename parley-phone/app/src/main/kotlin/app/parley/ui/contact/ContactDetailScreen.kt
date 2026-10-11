@@ -32,8 +32,6 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.ui.ParleyFab
 import app.parley.common.EventDate
 import app.parley.common.people.ContactGlance
 import app.parley.common.people.ContactRef
@@ -160,13 +159,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         // Beside the list, Home's screen already shows the app's snackbar.
         snackbarHost = { if (!inPane) ScreenSnackbarHost() },
         floatingActionButton = {
-            if (ctx != null && ctx.inCircle) {
-                ExtendedFloatingActionButton(
-                    onClick = { dialog = ContactDialog.LogInteraction },
-                    icon = { Icon(Icons.Rounded.Handshake, null) },
-                    text = { Text(stringResource(R.string.circle_log_interaction)) },
-                )
-            }
+            // Labelled at the top of the page; once the header has scrolled away, the icon alone (same place and size).
+            val log = stringResource(R.string.circle_log_interaction)
+            ParleyFab(
+                Icons.Rounded.Handshake, log, onClick = { dialog = ContactDialog.LogInteraction },
+                visible = ctx != null && ctx.inCircle, text = log, expanded = !collapsed,
+            )
         },
     ) { padding ->
         if (ctx == null) {
