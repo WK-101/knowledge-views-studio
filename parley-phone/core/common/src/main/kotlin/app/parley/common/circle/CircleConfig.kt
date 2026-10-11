@@ -1,6 +1,7 @@
 package app.parley.common.circle
 
 import app.parley.common.Codecs
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** How keep-in-touch reminders arrive. */
@@ -26,8 +27,12 @@ data class CircleConfig(
     val dateLeadDays: Int = 0,
     /** "Log this?" per channel; channels not listed ask. */
     val logModes: Map<InteractionChannel, LogMode> = emptyMap(),
-    /** The Circle section at the top of Favourites is folded. */
-    val favoritesSectionCollapsed: Boolean = false,
+    /**
+     * The Favourites · Circle switch was last left on the Circle ([FavouritesView]). Stored under the name of the
+     * folding Circle section it replaced, so nothing new is written and older versions read it as that fold.
+     */
+    @SerialName("favoritesSectionCollapsed")
+    val circleChosen: Boolean = false,
     /** "Suggested for your Circle" was dismissed. */
     val suggestionsDismissed: Boolean = false,
     /** The People card in Insights ([PeopleCardChoice] with [firstMover]). */

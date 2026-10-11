@@ -5,9 +5,11 @@ import android.content.Context
 import android.os.Build
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
+import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import app.parley.common.SimAccount
+import app.parley.common.calls.SimLine
 
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
@@ -61,6 +63,33 @@ class SimRepository(private val context: Context) {
     } catch (_: SecurityException) {
         emptyList()
     }
+
+    /**
+     * Each SIM's network name and own number by account id, where Android gives them ("Call with" shows them on the
+     * SIM's card). The number needs READ_PHONE_NUMBERS, which Parley may not have: then only the network.
+     */
+    fun lines(): Map<String, SimLine> = try {
+        if (handles.isEmpty()) accounts()
+        val sm = context.getSystemService(SubscriptionManager::class.java)
+        val subs = sm.activeSubscriptionInfoList.orEmpty()
+        handles.mapNotNull { (id, h) ->
+            val subId = subIdFor(h)
+            val info = subs.firstOrNull { it.subscriptionId == subId } ?: subs.firstOrNull { iccIdOf(it) == id } ?: return@mapNotNull null
+            val number = runCatching { if (Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId) else olderNumberOf(info) }
+                .getOrNull()?.ifBlank { null }
+            id to SimLine(carrier = info.carrierName?.toString(), number = number)
+        }.toMap()
+    } catch (_: SecurityException) {
+        emptyMap()
+    }
+
+    // getPhoneNumber needs Android 13; this is the older path.
+    @Suppress("DEPRECATION")
+    private fun olderNumberOf(info: SubscriptionInfo): String? = info.number
+
+    // The ICCID is deprecated for apps but still matches a handle on Android 10.
+    @Suppress("DEPRECATION")
+    private fun iccIdOf(info: SubscriptionInfo): String? = runCatching { info.iccId }.getOrNull()
 
     private fun subscriptionSlots(): Map<Int, Int> = try {
         context.getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()

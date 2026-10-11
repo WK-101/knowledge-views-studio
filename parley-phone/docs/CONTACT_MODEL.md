@@ -322,6 +322,11 @@ the menu asked (Make private, Make visible, Archive, `KeptAs.stepTo`); an archiv
 private contacts with Unarchive and is made visible from there (Visible shows, greyed, "Unarchive first"). How long it
 stays (Delete automatically) and its ringtone are rows of the same section, so the ⋮ menu no longer repeats them.
 
+Kept as is the **first** row of that section (above the Circle and calling rows), and the section's folded summary
+starts "Kept as". A device contact's ⋮ also has **Make private** at its top (`ContactMenu.Action.MAKE_PRIVATE`), which
+asks the same question as Kept as › Private, so making a contact private is two taps from the page (⋮, Make private)
+even with the section folded or hidden. Visible and Archived stay on the row (and the header's Private chip).
+
 From the page (**Settings for this contact**) and, for the expiry, from the editor:
 
 | From → to | How | Lossless |

@@ -81,6 +81,9 @@ object ParleyShapes {
         @ReadOnlyComposable
         get() = MaterialTheme.shapes.extraLargeIncreased
 
+    /** Every floating button, closed ([ParleyFabDefaults.CornerRadius]; see [ParleyFab]). */
+    val fab: CornerBasedShape get() = RoundedCornerShape(ParleyFabDefaults.CornerRadius)
+
     /** Fully round ends (pills, drag handles, the call button). */
     val pill: Shape get() = CircleShape
 

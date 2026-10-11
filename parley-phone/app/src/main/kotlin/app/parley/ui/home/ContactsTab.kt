@@ -51,7 +51,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
-import app.parley.common.StartTab
 import app.parley.common.homeLayout
 import app.parley.common.people.AlphabetIndex
 import app.parley.common.people.ContactSort
@@ -72,7 +71,6 @@ import app.parley.ui.PrivateBadge
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.avatarSize
-import app.parley.ui.circle.CircleFavoritesSection
 import app.parley.ui.common.Intents
 import app.parley.ui.contact.rememberQuickMessenger
 import app.parley.ui.people.ContactSortSheet
@@ -137,14 +135,13 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     // Build (index of first item for each section) for the A–Z index.
     // "My card" leads the list when nothing is being searched or filtered.
     val showMe = query.isBlank() && filter.isEmpty && !selectingAny
-    // The favourites (and the Circle, when it moved with them) under "My card", while not searching.
+    // The favourites (with the Favourites · Circle switch while the Circle tab is hidden) under "My card", while not searching.
     val layout = settings.homeLayout
     val showFavorites = showMe && layout.favoritesInContacts
-    val showCircle = showFavorites && layout.circleHost == StartTab.CONTACTS
     // Searching or filtering while private contacts' details are locked: a card says so, with the unlock.
     val lockedShown = privateLocked && (query.isNotBlank() || !filter.fields.isEmpty)
-    // Item 0 is the group chips row, then that card, "My card", the favourites and the Circle.
-    val lead = AlphabetIndex.Lead(privateLocked = lockedShown, me = showMe, favourites = showFavorites, circle = showCircle)
+    // Item 0 is the group chips row, then that card, "My card" and the favourites (the Circle is their switch's other side).
+    val lead = AlphabetIndex.Lead(privateLocked = lockedShown, me = showMe, favourites = showFavorites)
     val sections = remember(rows, lead) { ListSections.firstRows(rows, lead.rows) }
     val count = remember(rows) { rows.count { it is ListSections.Row.Item } }
     // Private contacts listed among the others have negative ids.
@@ -154,7 +151,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val rowActions = settings.contactRowActions
     val swipe = peopleSettings.swipe
     // The A–Z index belongs to the name order only, beside the alphabetical part (never over the chips, My card, the
-    // favourites or the Circle); "★" leads it when the favourites are in Contacts and jumps to them.
+    // favourites); "★" leads it when the favourites are in Contacts and jumps to them.
     val byName = peopleSettings.contactSort == ContactSort.NAME
     val indexed = query.isBlank() && count > AlphabetIndex.MIN_ITEMS && byName
     val indexEntries = remember(sections, lead) {
@@ -170,7 +167,6 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             if (lockedShown) item(key = "private-locked") { PrivateSearchLocked(vm) }
             if (showMe) item(key = "me") { MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
-            if (showCircle) item(key = "circle") { CircleFavoritesSection(vm, open, "") }
             if (count == 0 && work.isEmpty() && !recallShows) {
                 item(key = "empty") {
                     EmptyState(

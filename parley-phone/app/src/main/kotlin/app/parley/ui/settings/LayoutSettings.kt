@@ -139,7 +139,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                     set { it.copy(surfaces = it.surfaces.copy(frequentsRow = v)) }
                 }
             }
-            if (s.homeLayout().circleHost == StartTab.CONTACTS) item("circle_moves") {
+            if (s.homeLayout().hasCircleSwitch(StartTab.CONTACTS)) item("circle_moves") {
                 InfoRow(stringResource(R.string.home_circle_moves), null)
             }
         }

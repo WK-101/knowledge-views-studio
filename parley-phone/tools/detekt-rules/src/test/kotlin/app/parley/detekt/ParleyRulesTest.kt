@@ -40,6 +40,21 @@ class ParleyRulesTest {
         assertTrue(found.any { "SwitchRow" in it })
     }
 
+    @Test fun raw_floating_buttons_are_reported_and_parley_fab_is_not() {
+        val code = """
+            fun Screen() {
+                FloatingActionButton(onClick = {}) {}
+                ExtendedFloatingActionButton(text = {}, icon = {}, onClick = {})
+                FloatingActionButtonMenu(false, button = {}) {}
+                ParleyFab(icon, "Add", {})
+                ParleyFabMenu(false, {}, icon, "Add", "closed", "open") {}
+            }
+        """
+        val found = lint(DesignSystemComponent(), code).map { it.message }
+        assertEquals(found.toString(), 3, found.size)
+        assertTrue(found.all { "ParleyFab" in it })
+    }
+
     @Test fun a_system_toast_is_reported() {
         val code = """
             fun f(c: Context) {

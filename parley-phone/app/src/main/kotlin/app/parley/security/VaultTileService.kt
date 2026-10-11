@@ -4,6 +4,7 @@ import app.parley.common.AppSettings
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.R
 import app.parley.container
+import app.parley.data.DataContainer
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 
@@ -59,7 +61,7 @@ class VaultTileService : TileService() {
     }
 
     /** Discreet mode as the switch is set: after a duress unlock the tile looks as it did before. */
-    private fun AppSettings.shownHidden() = duress?.hideVault ?: hideVault
+    private fun AppSettings.shownHidden() = DiscreetSwitch.shown(this)
 
     private fun render(hidden: Boolean) {
         val tile = qsTile ?: return
@@ -67,6 +69,33 @@ class VaultTileService : TileService() {
         tile.label = getString(if (hidden) R.string.tile_private_hidden else R.string.tile_private_shown)
         if (Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(R.string.app_name)
         tile.updateTile()
+    }
+}
+
+/**
+ * "Hide private contacts" (discreet mode) switched from inside Parley, Contacts ⋮, under the tile's rules: hiding is
+ * always allowed and closes their details too; showing them again asks for Parley's unlock first while the app lock
+ * is on ([DiscreetRevealActivity]). Parley itself stays open (the tile locks it as well: it's used from outside).
+ */
+object DiscreetSwitch {
+    /** The switch as the user left it (after a duress unlock: as it was before), as the Privacy page shows it. */
+    fun shown(s: AppSettings): Boolean = s.duress?.hideVault ?: s.hideVault
+
+    /** Turns it on when off, else off (with the unlock while the app lock is on). */
+    fun flip(context: Context, c: DataContainer) {
+        val s = c.settings.settings.value
+        if (shown(s) && s.appLock) {
+            context.startOrSay(Intent(context, DiscreetRevealActivity::class.java), context.getString(R.string.blk_no_app))
+            return
+        }
+        val hide = !shown(s)
+        c.scope.launch {
+            // While a duress unlock hides things this changes only what is shown, never the stored switch.
+            c.settings.update { it.copy(hideVault = hide) }
+            // Hidden means locked too, as with "Lock private contacts".
+            if (hide) c.vault.lockAll()
+            TileService.requestListeningState(context.applicationContext, ComponentName(context.applicationContext, VaultTileService::class.java))
+        }
     }
 }
 
