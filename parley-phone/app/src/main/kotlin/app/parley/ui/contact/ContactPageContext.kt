@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.circle.KeepInTouchLines
 import android.content.Context
 import androidx.activity.ComponentActivity
 import android.content.Intent
@@ -63,6 +64,8 @@ internal class ContactPageContext(
     val pickRingtone: (Intent) -> Unit,
     /** Their case file, when one is kept or they look like an organisation. */
     val case: CaseShown = CaseShown(null, false),
+    /** How you two keep in touch: the Stay in touch card and the pre-call peek's first line. */
+    val keepInTouch: KeepInTouchLines? = null,
 ) {
     /** Who a case file for them is about. */
     val caseOwner: CaseOwner get() = caseOwnerOf(d, ui.isPrivate)

@@ -3439,3 +3439,37 @@ Automated: `BookingCodesTest` (core:common: named codes first, never a card, pho
 4. Call Sky Air: under the caller (and over the keypad), "Your codes for them" lists "Booking reference · •••• R2B". **Show** opens the code large and grouped ("QX7 R2B") with Copy; the Android 13+ clipboard preview hides it. Have Sky Air call you: the card shows once answered, not while ringing.
 5. Not on the lock screen, not while Parley's app lock is locked, not after a duress unlock (case files hidden; the share sheet doesn't offer the codes either), and a private contact's codes only while private contacts show.
 6. TalkBack reads each code's row, then "Show"; in the read-out view it reads the code character by character. Check dark mode, right to left (the code stays left to right) and the largest font.
+
+### 51.15 Circle at a glance
+Automated: `KeepInTouchTest.glance_hides_below_four_and_keeps_only_counts_while_insights_are_hidden` (core:common), `DuressWalkTest.a_duress_unlock_hides_every_relationship_insight` (app).
+1. With three people in the Circle, open the Circle: no header, the list as before. Add a fourth: above the list, three chips read "1 due", "1 soon", "2 fine" (whatever matches the rows' own chips), then "In touch with 3 of 4 this month" with "· up from 1" only when this month is higher than the month before, and, when you had calls this month, "38% of your talk time this month was with your Circle". No score, no colours beyond the chips.
+2. Tap "1 due": only the due row shows and the chip is selected; tap it again, everyone shows. A chip with 0 is greyed out. Call the due person (answered): the filter lets go by itself once nobody is due.
+3. Tap the reach or talk-time lines: Call insights opens (the People card is on it). TalkBack reads the lines' action as "Open Call insights".
+4. Type in the Circle's search: the header and the filter go while searching; clear the search and they're back.
+5. Unlock with the duress PIN: the chips stay (they repeat every row's chip), the reach and talk-time lines are gone, with nothing saying so. Unlock with the real PIN: they're back.
+6. Check in dark, right to left, the largest font (the chips wrap) and landscape.
+
+### 51.16 How you two keep in touch
+Automated: `KeepInTouchTest.facts_come_most_useful_first_and_at_most_three`, `summary_counts_answered_calls_talk_and_chats_of_the_last_year`, `usual_gap_is_the_plain_median`, `parley_started_chats_are_you_reaching_out` (core:common), `DuressWalkTest.a_duress_unlock_hides_every_relationship_insight` (app).
+1. Open a Circle member you call every couple of weeks: the Stay in touch card has a line like "You usually talk about every 2 weeks; it's been 3 weeks. Ana usually reaches out first." and under it "14 calls, 3 h 10 min in the last year · 6 chats started from Parley". At most three facts; never "you failed to", never a score.
+2. With their missed call from Tuesday not returned, the line ends "A call from Ana (Tue) is still waiting for a call back." Your unanswered call reads "Your call (Tue) hasn't been answered yet." Call them: the loose end goes.
+3. Turn the People card's choice to On without "who usually reaches out first" (Settings › Recents & history › People card): the "reaches out first" sentence goes; the rhythm and loose end stay.
+4. Call from the contact page with the pre-call peek on and something else to show (a note): the same line is the peek's first line, before "Usually free…".
+5. Unlock with the duress PIN: the line and the summary are gone from the card and the peek, with nothing saying so; the rhythm row and its chip stay.
+
+### 51.17 Your turn
+Automated: `KeepInTouchTest.their_turns_in_a_row_stop_at_your_call_or_chat`, `your_turn_needs_due_three_in_a_row_and_the_switch` (core:common), `DuressWalkTest.a_duress_unlock_hides_every_relationship_insight` (app).
+1. Have a Circle member who is due call you three times in a row (answered or not) with no call or chat from you in between. Their Stay in touch line starts "Ana has called you the last 3 times. Your turn to call?"
+2. Call from their page with the pre-call peek on and nothing else to show: the peek opens anyway and leads with that sentence. Not due, or with only two in a row: no peek, no sentence.
+3. Open a WhatsApp chat with them from Parley and log it (Log this? › Yes): it counts as you reaching out, and the sentence goes.
+4. Set Reminders to the weekly digest and make them the most overdue: on the digest day the line reads "Ana has called you the last 3 times. Your turn to call?" instead of "Ana might enjoy hearing from you". On the lock screen the digest shows only "Reminder".
+5. With "who usually reaches out first" off, or after a duress unlock, the digest says "might enjoy hearing from you" as before and nothing says whose turn it is.
+
+### 51.18 Keypad and Backup & restore, unchanged after the split
+Automated: `KeypadKeyInputTest` (app).
+No new behaviour: the keypad and Backup & restore are split into parts. Check they work as before.
+1. Keypad: type a number with the on-screen keys (tones and haptics as set), long-press 0 for +, 1 for voicemail, an unset 2–9 ("Speed dial 5 is empty" › Set up), * and #. Paste a copied number. Type `*#06#`: the IMEI sheet opens, and closing it clears the code.
+2. Keypad results: matches highlight; with no contact matching, the rows Message or call on…, Create new contact, Add to a contact and Save temporary contact show; with matches, the same as chips at the results' foot. Save temporary contact saves and clears the number. Long-press Call: Call with a reason….
+3. Hardware keys (or an emulator keyboard): digits type with a short tone; Enter and Call call; Delete and Forward delete edit at the cursor; on a QWERTY keyboard letters search names. Docked keypad in Recents: Enter on a focused Recents row belongs to that row.
+4. Backup & restore: set a passphrase (the recovery key shows once; Copy works), change it (wrong current passphrase says so), choose a folder, Back up now (progress, then the result), Automatic backups, Keep, the reminder choice, Restore from a file, a backup in the folder, Move to a new phone (the share sheet), Undo last restore, and Mark this phone's backups as yours on old keys.
+

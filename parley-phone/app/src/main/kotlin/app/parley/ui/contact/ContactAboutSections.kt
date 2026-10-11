@@ -75,7 +75,10 @@ internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext)
     if (d.lookupKey.isEmpty() || !stayHasNews) return
     sections.add(ContactSection.STAY, sectionTitle(LocalResources.current, ContactSection.STAY), ctx.lastTalked) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            StayInTouchCard(ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false) {
+            StayInTouchCard(
+                ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false,
+                keep = ctx.keepInTouch,
+            ) {
                 ctx.show(ContactDialog.Rhythm)
             }
             if (memory.owed.isNotEmpty()) PromisesCard(ctx.vm, d.lookupKey, memory)
