@@ -236,7 +236,8 @@ private fun pageContext(
     // Case files: an organisation's calls and reference numbers, on the page and before calling.
     val caseOwner = remember(d?.displayName, d?.phones, ui.isPrivate) { d?.let { caseOwnerOf(it, ui.isPrivate) } ?: CaseOwner("", emptyList()) }
     val case = rememberCaseShown(vm, caseOwner)
-    val keepInTouch = keepInTouchOf(vm, ui, circleCfg)
+    val catchUpAt by page.catchUpAt.collectAsStateWithLifecycle()
+    val keepInTouch = keepInTouchOf(vm, ui, circleCfg, catchUpAt)
     if (d == null) return null
     return ContactPageContext(
         vm, page, ui, d, contactId, context, scope, resources, goodTime, lastTalked, today, dated, parleyRelations, relationsFromOthers,
@@ -437,10 +438,10 @@ private const val JUMP_CHIPS_FROM = 4
 
 /** How you two keep in touch, for the Stay in touch card and the pre-call peek (none while insights are hidden). */
 @Composable
-private fun keepInTouchOf(vm: AppViewModel, ui: ContactDetailUiState, config: CircleConfig): KeepInTouchLines? {
+private fun keepInTouchOf(vm: AppViewModel, ui: ContactDetailUiState, config: CircleConfig, catchUpAt: Long?): KeepInTouchLines? {
     val d = ui.details
     return rememberKeepInTouch(
         vm, d?.lookupKey.orEmpty(), d?.let { PeopleInsights.shortName(it.given, it.displayName) }.orEmpty(),
-        ui.meta?.reachOutDays, ui.meta?.rhythm, ui.history, ui.interactions, config,
+        ui.meta?.reachOutDays, ui.meta?.rhythm, ui.history, ui.interactions, config, catchUpAt,
     )
 }

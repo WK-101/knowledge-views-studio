@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.calls.CatchUp
 import app.parley.common.calls.ToCallItem
 import app.parley.common.people.NumberStamp
 import android.net.Uri
@@ -258,6 +259,12 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     val toCall: StateFlow<ToCallItem?> = combine(phones, c.toCall.state) { mine, s ->
         val keys = mine.map { PhoneIdentity.key(it, countryIso) }.toSet()
         s.items.firstOrNull { it.key in keys }
+    }.onStart { suspendRunCatching { c.toCall.load() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+
+    /** The next catch-up kept for any of their numbers ([CatchUp.of]): the rhythm stays quiet about them until then. */
+    val catchUpAt: StateFlow<Long?> = combine(phones, c.toCall.state) { mine, s ->
+        CatchUp.of(s, mine.map { PhoneIdentity.key(it, countryIso) })
     }.onStart { suspendRunCatching { c.toCall.load() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 

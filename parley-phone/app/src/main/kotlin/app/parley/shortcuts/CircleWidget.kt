@@ -20,6 +20,8 @@ import app.parley.common.catching
 import app.parley.security.AppLock
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
+import app.parley.common.PhoneIdentity
+import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.people.LifeEvents
@@ -152,7 +154,13 @@ class CircleWidget : AppWidgetProvider() {
             val idx = c.history.index.value ?: withTimeoutOrNull(INDEX_WAIT_MS) { c.history.awaitIndex() }
             val members = c.circle.members().filter { it.lookupKey in contacts }
             val lasts = members.associate { m -> m.lookupKey to c.circle.lastContact(m.lookupKey, idx) }
-            val planned = members.map { m -> CirclePlanner.Member(m.lookupKey, m.days, lasts[m.lookupKey]?.time, m.rhythm.snoozedUntil) }
+            // A next catch-up set after a call keeps them off the widget until that day, as in the reminders.
+            val toCall = catching { c.toCall.load() }.getOrNull()
+            val iso = c.directory.countryIso
+            val planned = members.map { m ->
+                val catchUp = toCall?.let { s -> contacts[m.lookupKey]?.let { ct -> CatchUp.of(s, ct.phones.map { PhoneIdentity.key(it.number, iso) }) } }
+                CirclePlanner.Member(m.lookupKey, m.days, lasts[m.lookupKey]?.time, CatchUp.quietUntil(m.rhythm.snoozedUntil, catchUp))
+            }
             val upcoming = events.filter { it.first.lookupKey in planned.map { p -> p.lookupKey }.toSet() }
                 .map { (e, days) -> CircleDigest.UpcomingDate(e.lookupKey, days) }
             val picks = CircleDigest.pick(planned, upcoming, now, quiet = emptyList())
@@ -277,7 +285,7 @@ class CircleWidget : AppWidgetProvider() {
                     } else {
                         combine(
                             c.meta.allMeta().map { rows -> rows.map { Triple(it.lookupKey, it.reachOutDays, it.rhythm) } },
-                            c.circle.interactions.changes,
+                            combine(c.circle.interactions.changes, c.toCall.state) { changes, toCall -> changes to toCall },
                             c.history.index,
                             c.contacts.contacts,
                             combine(c.settings.settings.map { it.appLock }, AppLock.locked) { on, engaged -> on to engaged },
