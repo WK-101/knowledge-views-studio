@@ -18,6 +18,7 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.PromisedTime
 import app.parley.common.calls.SettlingCall
 import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallItem
@@ -66,14 +67,14 @@ object ToCallReminders {
      */
     suspend fun remind(
         context: Context, number: String, accountId: String?, at: Long, source: ToCallSource = ToCallSource.REMINDER,
-        now: Long = System.currentTimeMillis(),
+        now: Long = System.currentTimeMillis(), promised: PromisedTime? = null,
     ): Boolean {
         val iso = PhoneEnv.countryIso(context, accountId)
         val key = PhoneIdentity.key(number, iso)
         if (!canRemind(key, number)) return false
         // Their time zone, when the number tells it (offline), for "after 6 pm their time".
         val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
-        update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId) }
+        update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId, promised = promised) }
         // A number nobody saved may call back before then (asked once; off until accepted).
         runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
         return containerOf(context).toCall.available
@@ -174,9 +175,7 @@ object ToCallReminders {
             .setNumber(0)
         if (one != null) {
             b.setContentTitle(context.getString(R.string.action_call_named, names[0]))
-                .setContentText(
-                    context.getString(if (one.source == ToCallSource.FOLLOW_UP) R.string.to_call_notif_follow_up else R.string.to_call_notif_reminder),
-                )
+                .setContentText(notifText(context, one))
                 .addAction(
                     0, context.getString(R.string.action_call),
                     PendingIntent.getActivity(
@@ -192,6 +191,20 @@ object ToCallReminders {
         }
         b.addAction(0, context.getString(R.string.label_not_now), notNow)
         PrivateNotice.post(context, NotificationIds.TAG_TO_CALL, NotificationIds.TO_CALL_ID, b)
+    }
+
+    /** The reminder's line for one item: what you promised, that they haven't called back, or why it's there. */
+    private fun notifText(context: Context, item: ToCallItem): String {
+        item.promised?.takeIf { it.told }?.let { p ->
+            return context.getString(R.string.to_call_notif_promised, android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(p.at)))
+        }
+        return context.getString(
+            when (item.source) {
+                ToCallSource.FOLLOW_UP -> R.string.to_call_notif_follow_up
+                ToCallSource.CALLBACK -> R.string.to_call_notif_callback
+                ToCallSource.REMINDER -> R.string.to_call_notif_reminder
+            },
+        )
     }
 
     /**

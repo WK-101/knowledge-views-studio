@@ -207,7 +207,7 @@ class FamilySafetyStore(context: Context) {
     /** The windows that are on now or still to come, for screening (each call reads them; nothing heavy). */
     suspend fun windows(now: Long = System.currentTimeMillis()): List<ExpectedWindow> {
         if (!load()) return emptyList()
-        return ExpectedCalls.prune(_summary.value.windows, now).filter { _summary.value.consents[it.source] == true }
+        return ExpectedCalls.inForce(_summary.value.windows, _summary.value.consents, now)
     }
 
     /**
@@ -217,7 +217,7 @@ class FamilySafetyStore(context: Context) {
     fun windowsNow(now: Long = System.currentTimeMillis()): List<ExpectedWindow>? {
         if (!loaded) return null
         val s = _summary.value
-        return ExpectedCalls.prune(s.windows, now).filter { s.consents[it.source] == true }
+        return ExpectedCalls.inForce(s.windows, s.consents, now)
     }
 
     /** Whether the document has been read (the call path reads only from memory). */

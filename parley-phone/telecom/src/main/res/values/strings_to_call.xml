@@ -14,4 +14,10 @@
     <string name="remind_set">Parley will remind you at %1$s. It\'s under To call in Recents.</string>
     <!-- %1$s: when, "18:00" or "Wed 09:00" -->
     <string name="remind_declined_set">Declined. Parley will remind you at %1$s, under To call in Recents.</string>
+    <!-- Promise a time and They'll call me back, from the call screen (they open Parley's sheet). -->
+    <string name="remind_decline_promise">Decline &amp; promise a time</string>
+    <string name="remind_promise">Promise a time…</string>
+    <string name="remind_callback">They\'ll call me back…</string>
+    <!-- Under a caller you promised a time to. %1$s: when, "15:30" or "Wed 09:00" -->
+    <string name="promised_line">You said you\'d call at %1$s</string>
 </resources>

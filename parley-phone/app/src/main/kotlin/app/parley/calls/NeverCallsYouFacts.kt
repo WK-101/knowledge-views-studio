@@ -2,6 +2,8 @@ package app.parley.calls
 
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.ExpectedCalls
+import app.parley.common.calls.ExpectedWindow
 import app.parley.common.calls.NeverCallsYou
 import app.parley.common.catching
 import app.parley.data.DataContainer
@@ -27,6 +29,11 @@ object NeverCallsYouFacts {
         if (emergency || line == null) return@withContext false
         val saved = savedFor(c, number, iso, NumberOwners.Use.CALL_PATH)
         if (saved.owners.isEmpty()) return@withContext false
+        // "They'll call me back": the call you're waiting for isn't flagged, and isn't counted as them calling you.
+        expectedCallback(c, number, iso, saved.vaultId)?.let { w ->
+            catching { c.disownedCalls.expect(number, w.start, w.end) }
+            return@withContext false
+        }
         // "They never call me" on the contact: no history needed.
         if (NeverCallsYou.shows(number, line, saved.owners, emptyList(), null, emergency = false)) return@withContext true
         // The history is read only for an organisation: most callers stop at the contact lookup.
@@ -57,6 +64,24 @@ object NeverCallsYouFacts {
         if (saved.owners.any { it.neverCalls }) return@withContext NeverCallsYou.watch(saved.owners, emptyList(), null)
         if (!saved.owners.all(NeverCallsYou::organisation)) return@withContext null
         NeverCallsYou.watch(saved.owners, pastCalls(c, number, saved.vaultId, iso), keptSince(c, number))
+    }
+
+    /**
+     * The "They'll call me back" window open now for whoever [number] is saved for: one for this line, or for another
+     * of the same contact's numbers (organisations call back from any of their lines). Null when none (the usual case,
+     * read from memory without looking anything up).
+     */
+    private suspend fun expectedCallback(c: DataContainer, number: String, iso: String, vaultId: Long?): ExpectedWindow? {
+        val open = ExpectedCalls.callbacksAt(c.familySafety.windowsNow().orEmpty(), System.currentTimeMillis())
+        if (open.isEmpty()) return null
+        open.firstOrNull { w -> w.number != null && PhoneIdentity.same(w.number, number, iso) }?.let { return it }
+        val ids = catching { c.contacts.lookupAll(number) }.getOrDefault(emptyList()).map { it.contactId }.toSet()
+        return open.firstOrNull { w ->
+            val other = w.number ?: return@firstOrNull false
+            val theirs = catching { c.contacts.lookupAll(other) }.getOrDefault(emptyList()).map { it.contactId }
+            theirs.any { it in ids } ||
+                (vaultId != null && catching { c.numberOwners.findIn(other, iso, NumberOwners.Use.CALL_PATH).private?.first }.getOrNull() == vaultId)
+        }
     }
 
     /** Who a number is saved for when that is an organisation: the name to show, and whether it is a private contact's. */
@@ -111,14 +136,16 @@ object NeverCallsYouFacts {
 
     /**
      * Every call with the line Parley can read: the call log and the archive, and a private contact's sealed calls,
-     * without the calls you said weren't them ([app.parley.data.calls.DisownedCalls]). [region] is the call's SIM's, so
+     * without the calls you said weren't them and those that rang in a "They'll call me back" window
+     * ([app.parley.data.calls.DisownedCalls]). [region] is the call's SIM's, so
      * rows logged on that SIM in its own national format are matched too.
      */
     private suspend fun pastCalls(c: DataContainer, number: String, vaultId: Long?, region: String): List<NeverCallsYou.PastCall> {
         val shared = c.history.callsFor(number, region = region)
         val private = vaultId?.let { id -> catching { c.vault.privateCallsOf(id) }.getOrDefault(emptyList()).map { CallHistory.privateEntry(it) } }
         val past = (shared + private.orEmpty()).map { NeverCallsYou.PastCall(it.type, it.date) }
-        return NeverCallsYou.withoutDisowned(past, catching { c.disownedCalls.forNumber(number) }.getOrDefault(emptyList()))
+        val kept = NeverCallsYou.withoutExpected(past, catching { c.disownedCalls.expectedFor(number) }.getOrDefault(emptyList()))
+        return NeverCallsYou.withoutDisowned(kept, catching { c.disownedCalls.forNumber(number) }.getOrDefault(emptyList()))
     }
 
     /** "It wasn't them": [number]'s latest call is left out of the history "This number never calls you" reads. */

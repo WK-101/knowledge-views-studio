@@ -139,7 +139,7 @@ internal fun CallerHeader(
             )
         }
         if (!compact) SubjectLine(call)
-        if (!compact && !ended) NumberMemoryHint(call)
+        if (!compact && !ended) CallerHints(call)
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)

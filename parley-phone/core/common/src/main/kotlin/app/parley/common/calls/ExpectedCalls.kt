@@ -30,6 +30,11 @@ enum class ExpectedSource {
  * [privateName] says it's a private contact's name, hidden in discreet mode. [key] is the source the window came from
  * (one note, one call note, one To call line), so saving that note again replaces its window, and editing, ticking or
  * deleting it withdraws it.
+ *
+ * [callback] marks "They'll call me back" (a To call window the user opened by hand for [number], so it is in force
+ * without the To call hint's yes). [anyCaller] lets unknown numbers ring too ("from any number"): organisations often
+ * call back from a line nobody saved. Both are fields rather than sources: an older version restoring a backup ignores
+ * unknown fields but can't read an unknown source, and reads such a window as a plain To call one.
  */
 @Serializable
 data class ExpectedWindow(
@@ -40,6 +45,8 @@ data class ExpectedWindow(
     val label: String? = null,
     val number: String? = null,
     val privateName: Boolean = false,
+    val callback: Boolean = false,
+    val anyCaller: Boolean = false,
 ) {
     fun covers(now: Long): Boolean = now in start until end
 
@@ -260,8 +267,18 @@ object ExpectedCalls {
     fun covering(windows: List<ExpectedWindow>, number: String?, region: String?, now: Long): ExpectedWindow? {
         val live = windows.filter { it.covers(now) }
         if (number != null) live.firstOrNull { it.number != null && PhoneIdentity.same(it.number, number, region) }?.let { return it }
-        return live.firstOrNull { it.number == null }
+        return live.firstOrNull { it.number == null || it.anyCaller }
     }
+
+    /**
+     * The windows in force: not ended, and of a kind the user said yes to ([consents]), or a callback they opened by
+     * hand, which needs no yes.
+     */
+    fun inForce(windows: List<ExpectedWindow>, consents: Map<ExpectedSource, Boolean>, now: Long): List<ExpectedWindow> =
+        prune(windows, now).filter { it.callback || consents[it.source] == true }
+
+    /** The "They'll call me back" windows open at [now]. */
+    fun callbacksAt(windows: List<ExpectedWindow>, now: Long): List<ExpectedWindow> = windows.filter { it.callback && it.covers(now) }
 
     /** [windows] with [w] in place of any window from the same source, without ended ones, at most [MAX_WINDOWS]. */
     fun put(windows: List<ExpectedWindow>, w: ExpectedWindow, now: Long): List<ExpectedWindow> =
@@ -278,6 +295,7 @@ object ExpectedCalls {
      */
     fun untracked(w: ExpectedWindow): Boolean = w.source == ExpectedSource.NOTE && !trackedNote.matches(w.key)
 
-    /** Without the windows of [source] (its toggle turned off). */
-    fun without(windows: List<ExpectedWindow>, source: ExpectedSource): List<ExpectedWindow> = windows.filterNot { it.source == source }
+    /** Without the windows of [source] (its toggle turned off); callbacks opened by hand stay. */
+    fun without(windows: List<ExpectedWindow>, source: ExpectedSource): List<ExpectedWindow> =
+        windows.filterNot { it.source == source && !it.callback }
 }

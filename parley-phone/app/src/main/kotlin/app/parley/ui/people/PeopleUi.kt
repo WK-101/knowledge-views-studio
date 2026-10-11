@@ -3,6 +3,7 @@ package app.parley.ui.people
 import android.os.SystemClock
 import app.parley.R
 import app.parley.StartTimings
+import app.parley.common.extras.DndStars
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.catching
@@ -56,6 +57,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -306,13 +309,41 @@ class PeopleUi(
         counts as Map<Long, Int>
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index, headFavourites) { list, s, counts, idx, kept ->
+    /** Every starred contact, in the favourites order: the chosen favourites and those starred for Do Not Disturb. */
+    private val starred: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index, headFavourites) { list, s, counts, idx, kept ->
         // Before the list loads: the strip as it was last shown, with the kept head.
         if (list == null) return@combine kept
         val favs = list.filter { it.starred }
             .map { ct -> if (s.preferNickname) NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
         FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts, favoritesCollator)
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Starred contacts split into chosen favourites and those Parley starred only for a label's Do Not Disturb. The
+     * ledger is reached inside the flow, so its store is first read off the main thread.
+     */
+    private val starredSplit: StateFlow<DndStars.Split<ContactSummary>> = combine(starred, flow { emitAll(c.extras.dndStars) }) { list, ledger ->
+        DndStars.split(list, ledger) { it.lookupKey.takeIf { _ -> it.id > 0 } }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), DndStars.Split(emptyList(), emptyList(), emptyList()))
+
+    /**
+     * The favourites you chose: starred contacts, without those Parley starred only so a label's people ring through
+     * Do Not Disturb ([dndStarred]). Android sees them all starred, as before.
+     */
+    val favorites: StateFlow<List<ContactSummary>> = starredSplit.map { it.chosen }
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The people starred only for a label's "Allow through Do Not Disturb", and those labels: shown apart, folded. */
+    val dndStarred: StateFlow<DndStars.Split<ContactSummary>> = starredSplit
+
+    /**
+     * "Make a favourite" for a contact starred for Do Not Disturb: its star becomes your own, so switching the label
+     * off no longer takes it away. Returns an undo.
+     */
+    fun makeFavourite(contact: ContactSummary): () -> Unit {
+        val labels = c.extras.makeFavourite(contact.lookupKey)
+        return { c.extras.dndRecord(contact.lookupKey, labels) }
+    }
 
     init {
         // Kept a while after the list settles (as shown: unsearched, unfiltered), and only when its first screenful changed.

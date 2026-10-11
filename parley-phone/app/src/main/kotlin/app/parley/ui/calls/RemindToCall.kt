@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.PhoneCallback
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,6 +30,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.calls.CallPromiseActivity
 import app.parley.calls.ToCallReminders
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.ToCall
@@ -43,7 +46,8 @@ import kotlinx.coroutines.launch
 
 /**
  * "Remind me to call" by hand, from Recents' long-press, the contact page and number history: the same fixed times as
- * Remind me on a missed call or after a call, onto the same To call list. [name] titles the sheet when known.
+ * Remind me on a missed call or after a call, onto the same To call list, then Promise a time and They'll call me back
+ * for the chosen number. [name] titles the sheet when known.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +91,23 @@ fun RemindToCallSheet(
                 modifier = Modifier.clickable(role = Role.Button) { onDismiss(); remindWithUndo(vm, chosen, accountId, at) },
             )
         }
+        HorizontalDivider()
+        // Tell them a time, or wait for their call: the same sheets as on the call screen.
+        ParleyListItem(
+            headlineContent = { Text(stringResource(R.string.promise_row)) },
+            supportingContent = { Text(stringResource(R.string.promise_row_body)) },
+            leadingContent = { Icon(Icons.Rounded.Schedule, null) },
+            modifier = Modifier.clickable(role = Role.Button) { onDismiss(); context.startActivity(CallPromiseActivity.intent(context, chosen, accountId)) },
+        )
+        ParleyListItem(
+            headlineContent = { Text(stringResource(R.string.callback_row)) },
+            supportingContent = { Text(stringResource(R.string.callback_row_body)) },
+            leadingContent = { Icon(Icons.Rounded.PhoneCallback, null) },
+            modifier = Modifier.clickable(role = Role.Button) {
+                onDismiss()
+                context.startActivity(CallPromiseActivity.intent(context, chosen, accountId, callback = true))
+            },
+        )
         Spacer(Modifier.navigationBarsPadding().padding(bottom = Spacing.l))
     }
 }

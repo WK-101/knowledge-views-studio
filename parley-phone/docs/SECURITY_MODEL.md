@@ -40,7 +40,7 @@ Parley whenever the phone is on, including while it is locked.
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
 | The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key, never written plain: while the Keystore can't seal, a change is refused and a try count stays in memory (failing closed); a plain record from an older version is sealed at its next read | None | Checked on the lock screen; never in backups |
 | Archived contacts (`files/archive`: the card and the whole record with photos) | Small-records key, never written plain: while the Keystore can't seal, archiving is refused and the contact stays in the address book; plain files from older versions are sealed by the re-sealing pass. All cards are also kept as one sealed `index.sealed` (rewritten on every archive and unarchive), so caller ID opens one file; a card file the index doesn't list is opened on its own and added | None | Caller ID for archived contacts while the phone is locked |
-| Per-call facts: ring facts, call quality, names the network sent, "It wasn't them" marks (`call_facts` in the history database) | Archive key: each fact one row, keyed by the archive's fingerprint of the line (never the number) and sealed on its own. The call's start time is in the clear beside it, as an archived call's date is, so pruning is one SQL statement | None | Written as a call ends, on a locked phone; rows earlier versions kept in preferences are copied in once, byte for byte |
+| Per-call facts: ring facts, call quality, names the network sent, "It wasn't them" marks, the "They'll call me back" windows a saved line rang in (`call_facts` in the history database) | Archive key: each fact one row, keyed by the archive's fingerprint of the line (never the number) and sealed on its own. The call's start time is in the clear beside it, as an archived call's date is, so pruning is one SQL statement | None | Written as a call ends, on a locked phone; rows earlier versions kept in preferences are copied in once, byte for byte |
 | To call, menu memory, case files (`no_backup/docs/<name>/`) | Small-records key, never written plain; one file each (case files one per case), written synced off the main thread (`SealedDocument`) | None | The call screen writes them on a locked phone; the document earlier versions kept in preferences is copied in once and the preferences value removed only after |
 | The family shield's index (`shared_labels/shield-index.sealed`: each shielded label's title, mode, hashing key and verdict hashes) | Sealed as the labels' states are, and used only while those states are the ones on disk (their names, sizes and times are stamped in it) | None | A process started for a ringing call reads one small file, not every label's whole state |
 | The rule-pack signing key (`blocking/share.key`) | Small-records key; a plain key from an older version is sealed at its next use (the same key, so its fingerprint doesn't change); a new key made while the Keystore can't seal waits in memory | None | Signing rule packs and templates family members pin |
@@ -281,12 +281,25 @@ while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackof
 | Android's own screens and other apps: the system call log, Android's Settings › Apps (storage size), Google Contacts, messaging apps, other apps' notifications | **No.** Parley can't change them. "Private call history" keeps private contacts' calls out of the system call log, and private contacts are never in the address book; everything else outside Parley stays as it is. Parley's own notifications are cleared at the duress unlock (missed calls, reminders, expected-call hints); a call in progress stays |
 | A guess at the PIN | Five tries are free, then each wrong PIN waits 30 s, doubling to an hour (`PinBackoff`, counted in elapsed time so a clock change doesn't help; a restart starts the wait over). Each try is counted and stored before the PIN is checked; when the count can't be stored, it is kept in memory and Parley fails closed: the first such try isn't checked at all and every wrong one waits, so restarting Parley buys nothing. PIN changes count the same way (five free until the next unlock with the Parley PIN) |
 
+### Promised times and expected callbacks (6.6)
+
+- **Promise a time** keeps the time on the person's To call item (sealed, see the table), never in a note. Parley only
+  opens the messaging app with the sentence filled in; the user sends it. When that person rings, the call screen says
+  "You said you'd call at…" only while the phone is unlocked, and never for a private contact while private contacts
+  are hidden (discreet mode, a duress unlock), where the caller is a plain number.
+- **They'll call me back** opens an expected-call window for that line (and for numbers nobody saved when "From any
+  number" is chosen) until its date. It is the user's own action, so it needs no yes to the To call hint, and it stays
+  below rules, block lists and scam signals like every window. While it is open, "This number never calls you" stays
+  quiet for that organisation's numbers, and a call that rang in it is recorded (sealed, per line) so it is left out of
+  the history that warning reads: a spoofed call outside the window is still warned about. The window goes when its To
+  call line is done or settled.
+
 ### What a duress unlock hides
 
 Everything discreet mode ("Hide private contacts") hides, with discreet mode forced on whatever its switch says:
 private contacts in every list and search, the private call history, number memory's lines from private sources,
-To call items about private contacts, deleted private contacts in History & undo, private names in notifications and
-on the call screen. And, beyond discreet mode (`Concealed`):
+To call items about private contacts (and the "You said you'd call at…" line when one rings), deleted private contacts
+in History & undo, private names in notifications and on the call screen. And, beyond discreet mode (`Concealed`):
 
 - **Circle notes and promises**, for everyone (promises are lines of a note). Logged moments stay, without notes.
 - **Notes for calls and call notes**, for everyone: they read as none on the contact page and on the call screen.

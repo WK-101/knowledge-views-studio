@@ -43,4 +43,49 @@
     <string name="to_call_remind_me_to_call">Remind me to call</string>
     <string name="to_call_remind_me_to_call_name">Remind me to call %1$s</string>
     <string name="to_call_which_number">Which number</string>
+    <!-- %1$s: when you said you'd call, "15:30" or "Wed 09:00" -->
+    <string name="to_call_promised_at">You said you\'d call · %1$s</string>
+    <!-- %1$s: the day and time the callback is expected by, "Fri 20:00" -->
+    <string name="to_call_callback_by">Expecting their call · by %1$s</string>
+    <string name="to_call_callback_due">Hasn\'t called back</string>
+    <!-- Notification lines. %1$s: a time, "15:30" -->
+    <string name="to_call_notif_promised">You said you\'d call at %1$s</string>
+    <string name="to_call_notif_callback">They haven\'t called back</string>
+    <!-- Promise a time: tell someone when you'll call back (a declined or missed call, after a call, Remind me to call) -->
+    <string name="promise_row">Promise a time…</string>
+    <string name="promise_row_body">Text them when you\'ll call back</string>
+    <string name="promise_title">I\'ll call you at…</string>
+    <!-- %1$s: the time where they are now, "22:10" -->
+    <string name="promise_their_clock">It\'s %1$s for them. Times are said in their time.</string>
+    <string name="promise_why_free">When your Situation ends</string>
+    <string name="promise_why_hour">In about an hour</string>
+    <string name="promise_why_evening">This evening</string>
+    <string name="promise_why_their_evening">Early evening for them</string>
+    <string name="promise_why_morning">Tomorrow morning</string>
+    <!-- %1$s: why the time is offered, "Early evening for them"; %2$s: the same time on your clock, "23:00" -->
+    <string name="promise_why_yours">%1$s · %2$s for you</string>
+    <!-- The message the messaging app opens with; the user sends it. %1$s: a time, "15:30" or "18:00 your time" -->
+    <string name="promise_sms_today">I\'ll call you back at %1$s.</string>
+    <!-- %1$s: a time, "09:00" or "09:00 your time" -->
+    <string name="promise_sms_tomorrow">I\'ll call you back tomorrow at %1$s.</string>
+    <!-- %1$s: a weekday, "Wednesday"; %2$s: a time -->
+    <string name="promise_sms_day">I\'ll call you back on %1$s at %2$s.</string>
+    <!-- %1$s: a time on their clock, "18:00" -->
+    <string name="promise_sms_your_time">%1$s your time</string>
+    <!-- %1$s: when, "15:30" or "Wed 09:00" -->
+    <string name="promise_set">Parley will remind you at %1$s. It\'s under To call in Recents.</string>
+    <!-- They'll call me back: an expected callback, by a day -->
+    <string name="callback_row">They\'ll call me back…</string>
+    <string name="callback_row_body">Let their call through, and remind me if it doesn\'t come</string>
+    <string name="callback_title">They\'ll call me back</string>
+    <string name="callback_body">Until then their call rings through, and Parley won\'t say this number never calls you. If they haven\'t called by then, it goes on To call.</string>
+    <string name="callback_any_number">From any number</string>
+    <string name="callback_any_number_body">Numbers nobody saved ring too: organisations often call back from another line</string>
+    <string name="callback_by_today">By this evening</string>
+    <string name="callback_by_tomorrow">By tomorrow</string>
+    <string name="callback_by_friday">By Friday</string>
+    <string name="callback_by_week">Within a week</string>
+    <!-- %1$s: when the watch ends, "Fri 20:00" -->
+    <string name="callback_set">Expecting their call until %1$s. If it doesn\'t come, it goes on To call.</string>
+    <string name="label_promise_time">Promise a time</string>
 </resources>

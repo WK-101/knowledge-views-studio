@@ -78,6 +78,8 @@ object CapabilityText {
         "chapters" to (R.string.label_chapters to R.string.discover_chapters_summary),
         "to_talk_about" to (R.string.label_to_talk_about to R.string.discover_to_talk_about_summary),
         "help" to (R.string.help_title to R.string.discover_help_summary),
+        "promise_time" to (R.string.label_promise_time to R.string.discover_promise_time_summary),
+        "callback_watch" to (R.string.callback_title to R.string.discover_callback_watch_summary),
     )
 
     /** Title and summary of [c]; a row without texts fails loudly in the catalog test, never silently on screen. */

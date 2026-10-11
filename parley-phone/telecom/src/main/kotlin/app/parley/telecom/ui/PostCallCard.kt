@@ -1,5 +1,6 @@
 package app.parley.telecom.ui
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -85,6 +86,9 @@ sealed interface PostCallChoice {
 
     /** "Was it a scam?": the warning signs, handled on the call screen itself. */
     data object ScamCheck : PostCallChoice
+
+    /** One of Parley's own sheets (Promise a time, They'll call me back), opened once the phone is unlocked. */
+    data class OpenSheet(val intent: Intent) : PostCallChoice
 
     /** "Ask their name": the messaging app opens with the "Text me your name" reply for the user to send. */
     data class NameReply(val number: String, val text: String) : PostCallChoice
@@ -198,7 +202,9 @@ private fun PostCallButtons(
                     onPrivately = onSavePrivately,
                 )
                 // Call them back later, from the To call list (saved without unlocking, like a note).
-                PostCallActions.Action.REMIND_ME -> RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
+                PostCallActions.Action.REMIND_ME -> RemindMeAction(number, call.accountId, { onChoice(PostCallChoice.OpenSheet(it)) }) {
+                    onChoice(PostCallChoice.Done)
+                }
                 else -> postCallLabel(a).let { (icon, text) -> Action(icon, text) { choose(a) } }
             }
         }

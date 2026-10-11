@@ -34,6 +34,9 @@ internal class CallSession(val id: String) {
     /** A saved organisation whose number you have only ever called ([CallerInfoSource.neverCallsYou]). */
     var neverCallsYou = false
 
+    /** The time you told this caller you'd call back ([CallerInfoSource.promisedCall]), once looked up. */
+    var promisedAt: Long? = null
+
     // ---- Screening ----
 
     /**

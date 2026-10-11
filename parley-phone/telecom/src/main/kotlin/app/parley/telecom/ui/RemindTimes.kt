@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.PhoneCallback
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -68,8 +70,9 @@ object RemindTimes {
 internal fun offersDeclineFollowUp(call: CallUi): Boolean = !call.hidden && !call.number.isNullOrBlank() && !call.isEmergency
 
 /**
- * The incoming ⋮ menu's follow-ups: "Decline & remind" opens its three fixed times in place, and "Decline &
- * message or call on…" declines, then opens that sheet once the phone is unlocked. [close] closes the menu.
+ * The incoming ⋮ menu's follow-ups: "Decline & remind" opens its three fixed times in place; "Decline & promise a
+ * time" and "Decline & message or call on…" decline, then open that sheet once the phone is unlocked. [close] closes
+ * the menu.
  */
 @Composable
 internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
@@ -99,30 +102,55 @@ internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
             )
         }
     }
+    // The ringing stops at once; the call is declined and the sheet opens once the phone is unlocked.
+    fun declineThenOpen(intent: Intent) {
+        CallManager.ignore(call.id)
+        val open = {
+            CallManager.reject(call.id)
+            context.startOrSay(intent)
+        }
+        val km = context.getSystemService(KeyguardManager::class.java)
+        if (activity != null && km.isKeyguardLocked) {
+            km.requestDismissKeyguard(activity, object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() {
+                    open()
+                }
+            })
+        } else {
+            open()
+        }
+    }
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.remind_decline_promise)) },
+        leadingIcon = { Icon(Icons.Rounded.Schedule, null) },
+        onClick = {
+            close()
+            declineThenOpen(promiseIntent(context, number, call.accountId))
+        },
+    )
     DropdownMenuItem(
         text = { Text(stringResource(R.string.remind_decline_message)) },
         leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
         onClick = {
             close()
-            // The ringing stops at once; the call is declined and the sheet opens once the phone is unlocked.
-            CallManager.ignore(call.id)
-            val open = {
-                CallManager.reject(call.id)
-                context.startOrSay(messageOnIntent(context, number, call.accountId))
-            }
-            val km = context.getSystemService(KeyguardManager::class.java)
-            if (activity != null && km.isKeyguardLocked) {
-                km.requestDismissKeyguard(activity, object : KeyguardManager.KeyguardDismissCallback() {
-                    override fun onDismissSucceeded() {
-                        open()
-                    }
-                })
-            } else {
-                open()
-            }
+            declineThenOpen(messageOnIntent(context, number, call.accountId))
         },
     )
 }
+
+/**
+ * The app's Promise a time sheet for [number] ([callback]: They'll call me back); by class name, as this module can't
+ * depend on the app.
+ */
+internal fun promiseIntent(context: Context, number: String, accountId: String?, callback: Boolean = false): Intent =
+    Intent().setClassName(context.packageName, PROMISE_ACTIVITY).putExtra("number", number)
+        .apply {
+            accountId?.let { putExtra("account_id", it) }
+            if (callback) putExtra("mode", "callback")
+        }
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+private const val PROMISE_ACTIVITY = "app.parley.calls.CallPromiseActivity"
 
 /** The app's "Message or call on…" sheet (this module can't depend on the app, so by class name). */
 private fun messageOnIntent(context: Context, number: String, accountId: String?): Intent =
@@ -133,9 +161,12 @@ private fun messageOnIntent(context: Context, number: String, accountId: String?
 private const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
 private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivity"
 
-/** "Remind me" on the post-call card: the three fixed times, then [onDone]. */
+/**
+ * "Remind me" on the post-call card: the three fixed times, then [onDone]; or Promise a time and They'll call me back,
+ * which open Parley's sheet once the phone is unlocked ([onOpen], with the intent).
+ */
 @Composable
-internal fun RemindMeAction(number: String, accountId: String?, onDone: () -> Unit) {
+internal fun RemindMeAction(number: String, accountId: String?, onOpen: (Intent) -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     var open by remember { mutableStateOf(false) }
@@ -157,6 +188,22 @@ internal fun RemindMeAction(number: String, accountId: String?, onDone: () -> Un
                     },
                 )
             }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.remind_promise)) },
+                leadingIcon = { Icon(Icons.Rounded.Schedule, null) },
+                onClick = {
+                    open = false
+                    onOpen(promiseIntent(context, number, accountId))
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.remind_callback)) },
+                leadingIcon = { Icon(Icons.Rounded.PhoneCallback, null) },
+                onClick = {
+                    open = false
+                    onOpen(promiseIntent(context, number, accountId, callback = true))
+                },
+            )
         }
     }
 }

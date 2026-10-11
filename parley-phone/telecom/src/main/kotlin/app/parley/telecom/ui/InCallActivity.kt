@@ -382,6 +382,7 @@ class InCallActivity : ComponentActivity() {
             is PostCallChoice.AddToContact -> openApp { deps.postCallIntent(this, PostCallAction.ADD_TO_CONTACT, choice.number) }
             is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
             is PostCallChoice.NumberMemory -> openApp { deps.postCallIntent(this, PostCallAction.NUMBER_MEMORY, choice.number) }
+            is PostCallChoice.OpenSheet -> openApp { choice.intent }
             // The messaging app, with the text ready for the user to send (Parley sends nothing itself).
             is PostCallChoice.NameReply -> openApp {
                 Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", choice.number, null)).putExtra("sms_body", choice.text)

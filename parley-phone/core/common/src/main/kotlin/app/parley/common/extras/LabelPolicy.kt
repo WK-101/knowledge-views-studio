@@ -186,6 +186,26 @@ object DndStars {
         return (ledger - from) + (to to (ledger[to].orEmpty() + v))
     }
 
+    /** Starred contacts split into the favourites you chose and those Parley starred only for labels' Do Not Disturb. */
+    data class Split<T>(
+        val chosen: List<T>,
+        val forDnd: List<T>,
+        /** The labels [forDnd] are starred for, in title order. */
+        val labels: List<String>,
+    )
+
+    /**
+     * [starred] (in their order) split by the [ledger]: a contact Parley starred for a label that lets people through
+     * Do Not Disturb isn't a favourite you chose, though Android sees a star like any other. [key] reads the lookup
+     * key (null: never one of Parley's stars, as for a private contact).
+     */
+    fun <T> split(starred: List<T>, ledger: Map<String, Set<String>>, key: (T) -> String?): Split<T> {
+        if (ledger.isEmpty()) return Split(starred, emptyList(), emptyList())
+        val (dnd, chosen) = starred.partition { s -> key(s)?.let { ledger[it] }.orEmpty().isNotEmpty() }
+        val labels = dnd.flatMap { s -> ledger[key(s)].orEmpty() }.toSortedSet(String.CASE_INSENSITIVE_ORDER).toList()
+        return Split(chosen, dnd, labels)
+    }
+
     /** A restored ledger joins the one here. */
     fun merge(a: Map<String, Set<String>>, b: Map<String, Set<String>>): Map<String, Set<String>> =
         (a.keys + b.keys).associateWith { a[it].orEmpty() + b[it].orEmpty() }.filterValues { it.isNotEmpty() }
