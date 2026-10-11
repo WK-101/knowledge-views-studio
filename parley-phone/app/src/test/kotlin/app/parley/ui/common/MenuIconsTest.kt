@@ -32,8 +32,8 @@ class MenuIconsTest {
     }
 
     @Test fun the_contact_menu_repeats_no_icon() {
-        combos(11).forEach { b ->
-            val f = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10])
+        combos(12).forEach { b ->
+            val f = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])
             assertNoRepeats(f.toString(), ContactMenu.build(f), ::contactMenuIcon)
         }
         // And across all its actions: every one has an icon of its own.

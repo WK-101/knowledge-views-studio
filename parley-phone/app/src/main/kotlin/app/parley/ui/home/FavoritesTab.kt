@@ -70,27 +70,48 @@ import app.parley.common.people.FavoriteSort
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
-import app.parley.ui.circle.CircleFavoritesSection
+import app.parley.ui.circle.CircleTab
+import app.parley.ui.circle.DueDot
+import app.parley.ui.circle.FavouritesCircleSwitch
+import app.parley.ui.circle.rememberCircleDue
+import app.parley.ui.circle.rememberFavouritesView
+import app.parley.common.circle.FavouritesView
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyMotion
 import androidx.compose.ui.unit.IntOffset
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * The Favourites tab. While the Circle tab is hidden, a Favourites · Circle switch at the top is the Circle's one
+ * home: the Circle side is the Circle tab itself, the Favourites side the tiles (with their reorder).
+ */
 @Composable
 fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = "", onClearQuery: (() -> Unit)? = null) {
+    val layout = vm.settings.collectAsStateWithLifecycle().value.homeLayout
+    val (switchShown, view) = rememberFavouritesView(vm, layout.hasCircleSwitch(StartTab.FAVORITES))
+    Column(Modifier.fillMaxSize()) {
+        if (switchShown) FavouritesCircleSwitch(vm, view, Modifier.padding(top = Spacing.s))
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (view == FavouritesView.CIRCLE) CircleTab(vm, open, query) else FavouriteTiles(vm, open, query, onClearQuery)
+        }
+    }
+}
+
+// The tiles' grid with its drag-to-reorder, pinch for columns, search and Frequent: one gesture state, kept together.
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query: String, onClearQuery: (() -> Unit)?) {
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
-    // While the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
-    // Unless the favourites moved into Contacts (then the Circle follows them there).
-    val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == StartTab.FAVORITES
     val dndOnly = vm.people.dndStarred.collectAsStateWithLifecycle().value.forDnd.isNotEmpty()
+    // Circle members due a catch-up get a small dot on their tile.
+    val due = rememberCircleDue(vm)
     if (favorites.isEmpty() && frequents.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
-            if (circleHere) Column(Modifier.padding(top = 12.dp)) { CircleFavoritesSection(vm, open, query) }
             // People starred only for a label's Do Not Disturb are no chosen favourites, but are said apart.
             if (dndOnly) DndStarredRow(vm, open, Modifier.padding(top = 12.dp))
             // Nothing starred yet: the way on is the contact list.
@@ -139,9 +160,6 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
             }
         },
     ) {
-        if (circleHere && !reordering) item(span = { GridItemSpan(maxLineSpan) }, key = "circle") {
-            CircleFavoritesSection(vm, open, q)
-        }
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp),
@@ -219,7 +237,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                         },
                 )
             } else {
-                Tile(c.displayName, c.photoUri, modifier = base, isPrivate = c.id < 0, onClick = {
+                Tile(c.displayName, c.photoUri, modifier = base, isPrivate = c.id < 0, due = c.lookupKey in due, onClick = {
                     c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
@@ -265,6 +283,8 @@ internal fun Tile(
     reorder: Boolean = false,
     /** A private contact: the lock on its photo, as in Contacts. */
     isPrivate: Boolean = false,
+    /** In the Circle and due a catch-up: a small dot on the photo (the Circle side of the switch says more). */
+    due: Boolean = false,
 ) {
     Column(
         modifier.fillMaxWidth().clip(ParleyShapes.card)
@@ -282,6 +302,7 @@ internal fun Tile(
         Box {
             Avatar(name, photo, 72.dp)
             if (isPrivate) PrivateBadge(Modifier.align(Alignment.BottomEnd))
+            if (due) DueDot(Modifier.align(Alignment.TopEnd))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
             if (reorder) Icon(Icons.Rounded.DragIndicator, null)

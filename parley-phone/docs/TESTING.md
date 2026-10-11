@@ -3404,3 +3404,53 @@ Automated: `NavigationRoutesTest.an_insert_from_parley_itself_is_yours_and_from_
 4. After a call with an unsaved number, Remind me › They'll call me back… › Within a week with **From any number** on. The switch's text says block lists and scam warnings still apply and where to end it early. Open Settings › Blocking & spam › Expecting a call from your notes (with no kind turned on): the window is listed as "They'll call me back · <number> · any number may ring" with its dates; × ends it, and an unsaved number is silenced again.
 5. With that callback still open, use Remind me to call on the same number (Recents long-press, or a missed call's Remind me): the window keeps "They'll call me back" in Settings and the line still rings without the To call hint's yes.
 6. On Favourites, open "Also starred for Do Not Disturb" with TalkBack on: each button reads "Make Ben a favourite", "Make Cy a favourite".
+
+## 51. Now and next (6.7)
+
+### 51.1 Making a contact private
+Automated: `MenusTest` (Make private at the top of a visible contact's ⋮, never for a private one, the menu still at most seven items with every fact combination), `MenuIconsTest` (its padlock repeats no other icon) (core:common, app); `KeptAsReachTest` (Kept as leads "Settings for this contact", the ⋮ shortcut asks the same question) (app).
+1. **Two taps.** Open a device contact (Ana): ⋮ shows **Make private** with a padlock, second from the top. Tap it: "Make Ana private?" asks, as Kept as › Private does. Make private: the page reopens as Ana's private page and the ⋮ no longer offers it.
+2. **Kept as, not buried.** Scroll to "Settings for this contact": its folded summary starts "Kept as". Unfold it: **Kept as · Visible** is the first row, above Add to your Circle and the ringtone. Tap it, pick Private: the same question.
+3. **Section hidden.** Settings › Contacts › Contact page sections › hide "Settings for this contact": on Ana's page, ⋮ › Make private still works.
+4. **Private contact.** On a private contact's ⋮ there is no Make private; the header's Private chip still offers Make visible, and Kept as offers Visible and Archived.
+5. **A company.** A company contact with a case file to keep: the ⋮ has Remind me to call, Make private, Share…, Block, Keep a case file, More…, Delete (seven) and nothing is lost.
+6. **Looks.** TalkBack reads "Make private"; dark theme, large fonts and right to left.
+
+### 51.2 Contacts ⋮ with favourites in Contacts
+Automated: `ContactsMenuTest` (no Reorder in Contacts ⋮, Hide private contacts there, the tick shows the switch as left during a duress unlock) (app).
+1. **No second Reorder.** Settings › Layout › Favourites in Contacts: Section at top. Contacts ⋮ has no "Reorder favourites"; the section's header still has **Reorder**, which opens the reorder sheet. Same with Avatar strip.
+2. **Hide private contacts.** Contacts ⋮ shows **Hide private contacts** with an empty checkbox. Tap it: private contacts leave the list and search, the checkbox is ticked next time, and Settings › Privacy › Hide private contacts is on. Open a private contact later from a call: its details are locked again.
+3. **Showing them again.** With the app lock off, untick it: they're back at once. With the app lock on, untick it: Parley asks for the unlock first; cancel, and they stay hidden.
+4. **Duress.** Unlock with the duress PIN: the item shows the tick as you had left it before; changing it shows nothing private.
+5. **Favourites tab.** With separate tabs, the Favourites ⋮ has only Tools and Settings; Reorder is in the tab, beside the sort chips. The Contacts ⋮ has at most seven items in every layout.
+6. **Looks.** TalkBack reads "Hide private contacts, checkbox, checked/not checked".
+
+### 51.3 One floating button
+Automated: `FloatingButtonsTest` (no raw Material FAB in the app, every FAB slot holds a ParleyFab, the screens that have one, placed by hand at the same margin and never moved for the number actions) (app); `ParleyRulesTest` (the detekt rule reports raw FABs) (tools).
+1. **Same shape, same place.** Calls layout: Combined, favourites in Contacts. On Recents, fold the keypad: the keypad button appears bottom end. Switch to Contacts: the add button is in exactly the same spot, same size and corner. Switch back and forth: nothing jumps.
+2. **Number actions.** Docked and folded, type a number with matching contacts so the number actions show: the keypad button stays where it was, and the chips end before it.
+3. **Add menu.** Tap the add button: the menu opens upward with New contact, Scan QR code, Add several numbers, and the button turns round with a close icon; Back closes it.
+4. **Contact page.** A Circle contact's page shows "Log a chat or visit" bottom end, the same corner; scrolling the header away folds it to the icon in the same place.
+5. **Tablet / landscape.** With the list beside a contact page, the add button is at the bottom end of the list pane, at the same margin.
+6. **Looks.** Light, dark and AMOLED; right to left (bottom left then); TalkBack reads "Add a contact, menu closed" and "Show keypad"; animations off: the buttons appear without moving.
+
+### 51.4 Call with which SIM
+Automated: `SimChoiceTest` (the phone's order kept, only the suggested SIM marked, the network said once, number and roaming) (core:common); `CallGateTest` (app).
+A dual-SIM phone with no default SIM for calls (Settings › SIMs › Calls: Ask every time) and Parley as the phone app.
+1. **The sheet.** Call an unsaved number: a sheet "Call +44 … with" shows one card per SIM, in slot order: the SIM's colour chip with its slot number, its name (Work, Personal), the network and the SIM's own number when Android gives them, and the call plan line when one is set. Tap a card: the call goes out on that SIM.
+2. **Roaming.** Abroad (or with national roaming), the roaming SIM's card shows **Roaming**.
+3. **Suggested.** Repeat §40.4 3 (calls to Ana dropping on SIM 1, going well on SIM 2) without answering the suggestion, then call Ana: SIM 2's card is outlined, tagged **Suggested** and says "Calls to this number drop less on this SIM". Nothing is chosen for you.
+4. **Remember.** Tick "Remember for Ana at this number" and pick SIM 2: the next call goes straight out on SIM 2, and Ana's page reads "Always SIM 2" on that number. Without a name, the box reads "Remember for this number".
+5. **Cancel.** Cancel, Back or a swipe down: no call.
+6. **Unchanged.** A remembered, label or Situation SIM, a default SIM, a SIM picked on the keypad, an emergency number and service codes never show the sheet, as before; dial-guard warnings and "abroad" questions still come first.
+7. **Looks.** Cards are at least 72 dp; TalkBack reads each card as one stop ("SIM 1, Work, EE · +44 …, Suggested, Roaming …, double-tap to call"); light, dark, AMOLED, large fonts (tags wrap), landscape and right to left (numbers read left to right).
+
+### 51.5 One home for the Circle
+Automated: `HomeSurfacesTest` (where the switch shows: the Favourites tab, Contacts with favourites in it, never with the Circle tab shown), `FavouritesViewTest` (only with people in the Circle, the last choice kept, stored under the old fold's key) (core:common); `FloatingButtonsTest` (app).
+1. **Favourites tab.** Circle tab hidden, someone in your Circle: Favourites starts with **Favourites · Your Circle**. Your Circle shows the Circle as its tab does (status chips, Call and Message, suggestions); Favourites shows the tiles with the sort chips and Reorder. The Circle side has no Reorder.
+2. **Remembered.** Leave it on Your Circle, close Parley and reopen: still Your Circle. Remove everyone from the Circle: the switch goes and the favourites show.
+3. **Contacts.** Favourites in Contacts (section or strip): the switch sits under the section's header; Your Circle shows the Circle rows there, the header reads "Your Circle" and has no Reorder. There is no separate Circle section under the favourites any more.
+4. **Circle tab shown.** Turn the Circle tab on: no switch anywhere; the tab is the Circle's home. Turn it off again: the switch is back with your last choice.
+5. **Stars and dots.** A favourite who is in your Circle and due shows a small dot on their tile (TalkBack: "Due to catch up"); a Circle row for a favourite shows a star.
+6. **Updates.** After updating from 6.6 with the Circle section folded, the switch opens on Your Circle once; your next choice is kept.
+7. **Looks.** The switch's two buttons are at least 48 dp, read "Favourites, selected" / "Your Circle"; dark theme, large fonts, landscape, right to left.

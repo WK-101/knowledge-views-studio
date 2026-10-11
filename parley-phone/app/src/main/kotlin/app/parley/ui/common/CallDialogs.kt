@@ -1,39 +1,23 @@
 package app.parley.ui.common
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.PendingCall
 import app.parley.R
 import app.parley.common.SimAccount
+import app.parley.common.calls.SimChoice
 import app.parley.ui.Bidi
-import app.parley.ui.ParleyListItem
 import app.parley.ui.history.simPlanSummary
-import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 
-/** Confirm-before-call and SIM chooser. Shown from the root so every screen can place calls. */
+/** Confirm-before-call and the SIM chooser sheet. Shown from the root so every screen can place calls. */
 @Composable
 fun CallDialogs(vm: AppViewModel) {
     val pending by vm.pendingCall.collectAsStateWithLifecycle()
@@ -82,29 +66,17 @@ fun CallQuestions(
     }
 
     if (p.chooseSim) {
-        ParleyDialog(
-            onDismissRequest = { onUpdate(null) },
-            title = { Text(stringResource(R.string.call_who_with, who)) },
-            text = {
-                Column {
-                    sims.forEach { sim ->
-                        val plan = planSummary(sim.id)
-                        ParleyListItem(
-                            headlineContent = { Text(sim.label) },
-                            supportingContent = listOfNotNull(sim.subtitle, plan).joinToString("\n").ifEmpty { null }?.let { { Text(it) } },
-                            leadingContent = { Icon(Icons.Rounded.SimCard, null, tint = if (sim.color != 0) Color(sim.color) else Color.Unspecified) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.clickable { onPlace(p.number, sim.id, remember, false) },
-                        )
-                    }
-                    Row(Modifier.fillMaxWidth().clickable { remember = !remember }.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(remember, { remember = it })
-                        Text(stringResource(R.string.call_remember_sim))
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton({ onUpdate(null) }) { Text(stringResource(R.string.dc_cancel)) } },
+        // The gate's cards (network, number, roaming, suggested); the plain SIM list if it had none to give.
+        val cards = p.simCards.ifEmpty { SimChoice.cards(sims, emptyMap(), emptySet(), null) }
+        SimChooserSheet(
+            title = stringResource(R.string.call_who_with, who),
+            cards = cards,
+            rememberLabel = p.name?.let { stringResource(R.string.call_remember_sim_for, it) } ?: stringResource(R.string.call_remember_sim),
+            remember = remember, onRemember = { remember = it },
+            countryIso = countryIso,
+            planSummary = planSummary,
+            onPick = { simId -> onPlace(p.number, simId, remember, false) },
+            onCancel = { onUpdate(null) },
         )
     } else {
         ConfirmDialog(

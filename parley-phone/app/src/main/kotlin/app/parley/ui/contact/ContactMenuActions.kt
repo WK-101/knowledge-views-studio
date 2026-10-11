@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RemoveModerator
@@ -45,7 +46,7 @@ import kotlinx.coroutines.launch
 /**
  * The top bar's actions on a contact's page: star, edit and ⋮. The ⋮ menu has at most seven items, the rarer ones
  * under Share… and More… (ContactMenu); a group opens as its own sheet. How the contact is kept is the page's "Kept
- * as" row.
+ * as" row, with Make private here as its shortcut.
  */
 @Composable
 internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, blocked: Boolean, onlyEmergency: Boolean) {
@@ -72,6 +73,8 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
             onlyEmergency = onlyEmergency,
             caseShown = ctx.case.shown,
             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
+            // A device contact's page is always a visible one (archived device contacts open a read-only page).
+            canMakePrivate = !ctx.isPrivate,
         ),
     )
     val run: (ContactMenu.Action) -> Unit = { a -> runContactMenu(ctx, a) }
@@ -94,6 +97,8 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
     when (a) {
         // To call by hand (the same fixed times as Remind me after a call).
         ContactMenu.Action.REMIND_TO_CALL -> ctx.show(ContactDialog.RemindToCall)
+        // The same question as "Kept as" › Private.
+        ContactMenu.Action.MAKE_PRIVATE -> ctx.show(ContactDialog.ConfirmMakePrivate)
         ContactMenu.Action.SHARE_FILE -> ctx.shareFile()
         // A private contact's plain code is shown after saying what the scanner gets.
         ContactMenu.Action.SHOW_QR -> ctx.show(if (ctx.isPrivate) ContactDialog.PrivateQrWarning else ContactDialog.Qr)
@@ -125,6 +130,7 @@ private fun contactMenuText(a: ContactMenu.Action): Int = when (a) {
     ContactMenu.Action.SHARE_ENCRYPTED_QR -> R.string.detail_share_private
     ContactMenu.Action.VERSION_HISTORY -> R.string.label_version_history
     ContactMenu.Action.REMIND_TO_CALL -> R.string.to_call_remind_me_to_call
+    ContactMenu.Action.MAKE_PRIVATE -> R.string.action_make_private
     ContactMenu.Action.BLOCK_NUMBERS -> R.string.detail_block_numbers
     ContactMenu.Action.UNBLOCK_NUMBERS -> R.string.detail_unblock_numbers
     ContactMenu.Action.LOG_CHAT_OR_VISIT -> R.string.circle_log_interaction
@@ -147,6 +153,7 @@ internal fun contactMenuIcon(a: ContactMenu.Action): ImageVector = when (a) {
     ContactMenu.Action.SHARE_ENCRYPTED_QR -> Icons.Rounded.Key
     ContactMenu.Action.VERSION_HISTORY -> Icons.Rounded.History
     ContactMenu.Action.REMIND_TO_CALL -> Icons.Rounded.AlarmAdd
+    ContactMenu.Action.MAKE_PRIVATE -> Icons.Rounded.Lock
     ContactMenu.Action.BLOCK_NUMBERS -> Icons.Rounded.Block
     ContactMenu.Action.UNBLOCK_NUMBERS -> Icons.Rounded.RemoveModerator
     ContactMenu.Action.LOG_CHAT_OR_VISIT -> Icons.Rounded.Handshake

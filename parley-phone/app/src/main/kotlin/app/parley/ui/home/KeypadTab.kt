@@ -2,6 +2,7 @@ package app.parley.ui.home
 
 import app.parley.ui.people.rememberWorkResults
 import app.parley.ui.people.workResultsSection
+import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.Destination
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -450,7 +451,10 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                     CoachMark(Tips.CALL_REASON, stringResource(R.string.reason_tip), enabled = showKeypad)
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp)) {
+                // Room under the last row for the number actions, and for the keypad button while the keypad is folded.
+                val chipsRoom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp
+                val fabRoom = if (dock != null && !panelOpen) ParleyFabDefaults.Reserve else 0.dp
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = maxOf(chipsRoom, fabRoom))) {
                     items(
                         results, key = { (it.contact?.id?.toString() ?: "n") + it.number },
                         contentType = { if (it.secondary) "secondary" else "result" },
@@ -481,7 +485,8 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                 Surface(
                     color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    // Docked and folded, the keypad button sits at the end of this row: the chips keep clear of it.
+                    Box(Modifier.padding(end = if (dock != null && !panelOpen) ParleyFabDefaults.Reserve else 0.dp), contentAlignment = Alignment.Center) {
                         NumberActionChips(numberActions.chips, ::runNumberAction)
                     }
                 }
@@ -592,7 +597,8 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                 fold = fold,
                 number = fabNumber?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
                 badge = fabNumber?.let { CallPill.badge(it) },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp),
+                // The one place of every floating button; the number actions make room for it, it never moves for them.
+                modifier = Modifier.align(Alignment.BottomEnd).padding(ParleyFabDefaults.Margin),
             ) { dock.onExpandedChange(true) }
         }
     }

@@ -5,8 +5,10 @@
     <string name="circle_search">Search your Circle</string>
     <string name="circle_settings">Circle settings</string>
     <string name="circle_section">Your Circle</string>
-    <string name="circle_expand">Show your Circle</string>
-    <string name="circle_collapse">Fold your Circle away</string>
+    <!-- The star on a Circle row for someone who is a favourite too (TalkBack). -->
+    <string name="circle_also_favourite">Favourite</string>
+    <!-- The small dot on a favourite tile for someone in your Circle who is due a catch-up (TalkBack). -->
+    <string name="circle_due_dot">Due to catch up</string>
     <string name="circle_empty_title">Your Circle is empty</string>
     <string name="circle_empty_body">Add the people you want to stay close to. Parley reminds you gently, once a week at most.</string>
     <string name="circle_how_to_add">To add someone, open their contact and choose Add to your Circle.</string>
