@@ -148,7 +148,8 @@ class ArchiveStoreTest {
         val first = c.archive.all().single().id
         assertTrue(c.archive.unarchive(first) is ArchiveStore.Unarchived.Done)
         // Bo is archived under the id Ada had; then the index is as it was with Ada (its writes never landed).
-        val bo = c.contacts.save(null, ContactDetails(given = "Bo", phones = listOf(DataItem(null, "+44 20 7946 0999", Phone.TYPE_MOBILE))), null, null, false)!!
+        val boDetails = ContactDetails(given = "Bo", phones = listOf(DataItem(null, "+44 20 7946 0999", Phone.TYPE_MOBILE)))
+        val bo = c.contacts.save(null, boDetails, null, null, false)!!
         c.archive.archive(bo.contactId!!)
         assertEquals(first, c.archive.all().single().id)
         File(dir, "index.sealed").apply {

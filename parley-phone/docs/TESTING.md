@@ -3315,6 +3315,7 @@ Automated: `UiSmokeTest` now runs `A11yChecks` on every tab, the contact page an
 2. Archived contacts after an id is used again: archive Ada, unarchive her, archive Bo (he gets the id Ada had). Force-stop Parley and have Bo's number call: the incoming screen and Recents show Bo, never Ada.
 3. Renamed string keys: open Recents, a contact page, the editor (Add field, Remove a citizenship, Delete), Settings › Blocking and the Discover list. Every label reads as before 6.5's review (Remove, Open, Call, Share, Name, Today…); no screen shows a resource name or an empty label.
 4. Dependency verification: on a machine with an empty Gradle cache, `GRADLE_USER_HOME=$(mktemp -d) ./gradlew --no-daemon assembleDebug` downloads, verifies and builds without a verification failure.
+5. Relationship insights under a duress unlock: with someone in the Circle on a natural rhythm and plenty of calls with them, check Insights › People (who reaches out first, the year in review), their Circle page ("Natural rhythm · about every N days"), the pre-call peek ("Usually free…") and the Circle's suggestions. Lock Parley, unlock with the duress PIN: the People card and the suggestions are gone, the rhythm reads only "Natural rhythm" and the peek has no good time to call. Unlock with the real PIN: all of them are back.
 
 ## 49. Owner corrections (6.5)
 

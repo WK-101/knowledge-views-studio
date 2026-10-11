@@ -1,5 +1,7 @@
 package app.parley.ui.circle
 
+import app.parley.common.security.PrivacyView
+import app.parley.data.security.Privacy
 import android.content.res.Resources
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
@@ -80,8 +82,12 @@ object CircleText {
         return if (days == 0) res.getString(R.string.circle_last_today, kind) else res.getQuantityString(R.plurals.circle_last_days, days, days, kind)
     }
 
-    /** "Every 14 days" or "Natural rhythm · about every 20 days". */
-    fun rhythm(res: Resources, everyDays: Int, r: KeepRhythm): String = when {
+    /**
+     * "Every 14 days" or "Natural rhythm · about every 20 days". What the rhythm learned from the calls is a
+     * relationship insight: while a duress unlock hides them, a natural rhythm reads only "Natural rhythm".
+     */
+    fun rhythm(res: Resources, everyDays: Int, r: KeepRhythm, privacy: PrivacyView = Privacy.duressOnly()): String = when {
+        r.mode == RhythmMode.NATURAL && !privacy.insightsShown -> res.getString(R.string.circle_rhythm_natural)
         r.mode == RhythmMode.NATURAL && r.learnedDays != null -> res.getQuantityString(R.plurals.circle_natural_days, r.learnedDays!!, r.learnedDays!!)
         r.mode == RhythmMode.NATURAL -> res.getQuantityString(R.plurals.circle_natural_learning, everyDays, everyDays)
         else -> res.getQuantityString(R.plurals.circle_every_days, everyDays, everyDays)

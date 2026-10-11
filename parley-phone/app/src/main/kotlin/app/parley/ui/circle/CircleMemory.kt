@@ -1,5 +1,7 @@
 package app.parley.ui.circle
 
+import app.parley.common.security.PrivacyView
+import app.parley.data.security.Privacy
 import app.parley.calls.AgendaTicks
 import app.parley.calls.ExpectedCallHints
 import app.parley.data.circle.AgendaTarget
@@ -162,7 +164,12 @@ private fun sourceText(res: Resources, note: PersonNote, date: (Long) -> String)
  * time zone comes from [number] (offline, by country and area code); the time there is only added when it differs
  * from yours. Null with fewer than eight answered calls or no clear pattern.
  */
-fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countryIso: String, now: Long = System.currentTimeMillis()): String? {
+fun goodTimeText(
+    res: Resources, calls: List<CallEntry>, number: String?, countryIso: String, now: Long = System.currentTimeMillis(),
+    privacy: PrivacyView = Privacy.duressOnly(),
+): String? {
+    // A relationship insight: hidden while a duress unlock hides them.
+    if (!privacy.insightsShown) return null
     val mine = ZoneId.systemDefault()
     val theirs = NumberInfo.timeZone(number, countryIso, now)
     val w = GoodTime.window(calls, theirs ?: mine, now) ?: return null

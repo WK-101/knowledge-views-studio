@@ -43,6 +43,9 @@ data class PrivacyView(
     /** Circle notes and promises may show. */
     val circleNotesShown: Boolean get() = !hides(Concealed.CIRCLE_NOTES)
 
+    /** Relationship insights may show ([Concealed.RELATIONSHIP_INSIGHTS]; a duress unlock hides them). */
+    val insightsShown: Boolean get() = !hides(Concealed.RELATIONSHIP_INSIGHTS)
+
     /** Family safe words may show. */
     val safeWordsShown: Boolean get() = !hides(Concealed.SAFE_WORDS)
 

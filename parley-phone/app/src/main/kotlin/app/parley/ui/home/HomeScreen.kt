@@ -234,7 +234,11 @@ fun HomeScreen(
                     searchHint = when (tab) {
                         StartTab.FAVORITES -> stringResource(R.string.home_search_favorites)
                         StartTab.RECENTS -> stringResource(
-                            if (vm.recentsRecall.everything.collectAsStateWithLifecycle().value) R.string.action_search_everything else R.string.home_search_recents,
+                            if (vm.recentsRecall.everything.collectAsStateWithLifecycle().value) {
+                                R.string.action_search_everything
+                            } else {
+                                R.string.home_search_recents
+                            },
                         )
                         StartTab.CONTACTS -> stringResource(R.string.action_search_contacts)
                         StartTab.KEYPAD -> stringResource(R.string.home_search_keypad)

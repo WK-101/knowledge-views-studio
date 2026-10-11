@@ -199,7 +199,9 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
         ParleyListItem(
             headlineContent = { Text(bidiLtr(Format.number(x, vm.countryIso))) },
             trailingContent = {
-                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.action_remove_button)) }
+                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) {
+                    Icon(Icons.Rounded.Delete, stringResource(R.string.action_remove_button))
+                }
             },
         )
     }

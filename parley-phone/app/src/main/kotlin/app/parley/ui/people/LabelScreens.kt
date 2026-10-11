@@ -570,7 +570,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                             modifier = Modifier.clickable(onClick = ::pickTone),
                             leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
                             headlineContent = {
-                                Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.label_default_ringtone))
+                                Text(
+                                    name ?: stringResource(if (tone != null) R.string.lbl_custom_ringtone else R.string.label_default_ringtone),
+                                )
                             },
                             supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
                             trailingContent = {

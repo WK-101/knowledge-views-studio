@@ -212,6 +212,9 @@ fun StatusChip(s: CircleStatus) {
 
 @Composable
 private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestion>, canDismiss: Boolean) {
+    // Each suggestion says how often you two called: a relationship insight, none while a duress unlock hides them.
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    if (!privacy.insightsShown) return
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     Column {

@@ -290,6 +290,9 @@ on the call screen. And, beyond discreet mode (`Concealed`):
 
 - **Circle notes and promises**, for everyone (promises are lines of a note). Logged moments stay, without notes.
 - **Notes for calls and call notes**, for everyone: they read as none on the contact page and on the call screen.
+- **Relationship insights**, for everyone: Insights' People card (reach, open loops, who usually reaches out first,
+  the year in review), a natural rhythm's learned gap (it reads "Natural rhythm"), a good time to call, and the Circle's
+  suggestions with their call counts. A rhythm you set yourself still shows.
 - **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
   call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
   read (`NumberMemory.concealNotes`), not only where the notes are.

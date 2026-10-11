@@ -181,7 +181,9 @@ private fun WatchCard(vm: AppViewModel, e: WatchEvent, open: (Destination) -> Un
                     vm.c.syncWatch.dismiss(e)
                     vm.toast(res.getString(R.string.watch_it_was_me_done))
                 }) { Text(stringResource(R.string.watch_it_was_me)) }
-                if (e.restorable) FilledTonalButton({ open(WatchRoutes.Restore(e.fingerprint)) }) { Text(stringResource(R.string.action_restore_from_snapshot)) }
+                if (e.restorable) {
+                    FilledTonalButton({ open(WatchRoutes.Restore(e.fingerprint)) }) { Text(stringResource(R.string.action_restore_from_snapshot)) }
+                }
             }
         }
     }

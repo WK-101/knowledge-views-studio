@@ -66,7 +66,9 @@ private data class PeopleData(
 @Composable
 fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit) {
     val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
-    if (!cfg.peopleCard) return
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    // Every line here is a relationship insight: none while a duress unlock hides them.
+    if (!cfg.peopleCard || !privacy.insightsShown) return
     val all by vm.contacts.collectAsStateWithLifecycle()
     val contacts = remember(all) { all.orEmpty().associateBy { it.lookupKey } }
     val data by produceState<PeopleData?>(null, idx, contacts) {
