@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import app.parley.ui.PersonRow
 import app.parley.ui.PrivateBadge
 import app.parley.ui.Destination
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,12 +11,22 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import app.parley.common.circle.FavouritesView
+import app.parley.ui.Spacing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SearchOff
@@ -63,8 +72,6 @@ import app.parley.ui.contact.QuickMessenger
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyShapes
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
 
@@ -142,12 +149,11 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
 }
 
 /**
- * The Circle as a folding section at the top of Favourites, used while the Circle tab is hidden. The Circle is
- * opt-in: until someone is in it the section shows nothing at all, suggestions included (they'd repeat Frequent,
- * just below), so Favourites stays as it was for people who don't use it.
+ * The Circle under the Favourites · Circle switch at the top of Contacts: its rows (most urgent first), then the
+ * suggestions while they're offered. The Favourites tab shows the whole [CircleTab] instead.
  */
 @Composable
-fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
+fun CircleRows(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     val rows by vm.circle.rows.collectAsStateWithLifecycle()
     val suggestions by vm.circle.suggestions.collectAsStateWithLifecycle()
     val config by vm.c.circle.config.collectAsStateWithLifecycle()
@@ -155,35 +161,61 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query:
     val q = query.trim()
     val shown = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
     val offerSuggestions = CircleSuggestions.offerInSection(all.size, suggestions.size, config.suggestionsDismissed, searching = q.isNotEmpty())
-    if (shown.isEmpty() && !offerSuggestions) return
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
-    val collapsed = config.favoritesSectionCollapsed && q.isEmpty()
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().clickable { vm.c.circle.updateConfig { it.copy(favoritesSectionCollapsed = !it.favoritesSectionCollapsed) } }.padding(
-                start = 16.dp, end = 4.dp,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(R.string.circle_section), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f).semantics { heading() },
-            )
-            Icon(
-                if (collapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
-                stringResource(if (collapsed) R.string.circle_expand else R.string.circle_collapse),
-                modifier = Modifier.padding(12.dp),
-            )
-        }
-        AnimatedVisibility(!collapsed) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (shown.isNotEmpty()) SegmentedGroup(
-                    modifier = Modifier.padding(horizontal = 0.dp),
-                ) { shown.forEach { r -> item(r.contact.lookupKey) { CircleRowItem(vm, r, quick, open) } } }
-                if (offerSuggestions) SuggestionsGroup(vm, suggestions, canDismiss = true)
-            }
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (shown.isNotEmpty()) SegmentedGroup { shown.forEach { r -> item(r.contact.lookupKey) { CircleRowItem(vm, r, quick, open) } } }
+        if (offerSuggestions) SuggestionsGroup(vm, suggestions, canDismiss = true)
+    }
+}
+
+/**
+ * Whether the Favourites · Circle switch shows here ([hasSwitch]: the layout puts it on this surface) and which
+ * side is shown: the last choice, kept in the Circle's settings, once the Circle has people.
+ */
+@Composable
+fun rememberFavouritesView(vm: AppViewModel, hasSwitch: Boolean): Pair<Boolean, FavouritesView> {
+    val members = vm.circle.rows.collectAsStateWithLifecycle().value?.size ?: 0
+    val chosen = vm.c.circle.config.collectAsStateWithLifecycle().value.circleChosen
+    return FavouritesView.switchShown(hasSwitch, members) to FavouritesView.of(hasSwitch, members, chosen)
+}
+
+/** The lookup keys of the Circle's people due a catch-up now (their favourite tiles show a small dot). */
+@Composable
+fun rememberCircleDue(vm: AppViewModel): Set<String> {
+    val rows by vm.circle.rows.collectAsStateWithLifecycle()
+    return remember(rows) { rows.orEmpty().filter { it.status == CircleStatus.DUE }.mapTo(HashSet()) { it.contact.lookupKey } }
+}
+
+/** The Due dot on a favourite's photo: the Due chip's colour, ringed by the surface so it reads on any photo. */
+@Composable
+fun DueDot(modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.circle_due_dot)
+    Box(
+        modifier.size(14.dp).clip(ParleyShapes.pill).background(MaterialTheme.colorScheme.surface).padding(2.dp)
+            .clip(ParleyShapes.pill).background(MaterialTheme.colorScheme.tertiary)
+            .semantics { contentDescription = label },
+    )
+}
+
+/**
+ * The Favourites · Circle switch: two connected buttons, the one shown selected. The Circle's one home while its tab
+ * is hidden (the reorder is the favourites' own, so it never shows on the Circle side).
+ */
+@Composable
+fun FavouritesCircleSwitch(vm: AppViewModel, view: FavouritesView, modifier: Modifier = Modifier) {
+    fun choose(circle: Boolean) {
+        if ((view == FavouritesView.CIRCLE) != circle) vm.c.circle.updateConfig { it.copy(circleChosen = circle) }
+    }
+    SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs)) {
+        SegmentedButton(
+            view == FavouritesView.FAVOURITES, { choose(false) }, SegmentedButtonDefaults.itemShape(0, 2),
+            icon = { Icon(Icons.Rounded.Star, null, Modifier.size(18.dp)) },
+        ) { Text(stringResource(R.string.label_favourites), maxLines = 1) }
+        SegmentedButton(
+            view == FavouritesView.CIRCLE, { choose(true) }, SegmentedButtonDefaults.itemShape(1, 2),
+            icon = { Icon(Icons.Rounded.Groups, null, Modifier.size(18.dp)) },
+        ) { Text(stringResource(R.string.circle_section), maxLines = 1) }
     }
 }
 
@@ -204,6 +236,10 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(r.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                // A favourite too: the star, as on their tile.
+                if (r.contact.starred) {
+                    Icon(Icons.Rounded.Star, stringResource(R.string.circle_also_favourite), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                }
                 StatusChip(r.status)
             }
         },

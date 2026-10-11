@@ -16,10 +16,10 @@ class MenusTest {
     private fun combos(n: Int): List<List<Boolean>> = (0 until (1 shl n)).map { m -> (0 until n).map { m and (1 shl it) != 0 } }
 
     /** Every combination of facts: the top of each menu stays at seven items or fewer, whatever applies. */
-    private fun contactFacts(b: List<Boolean>) = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10])
+    private fun contactFacts(b: List<Boolean>) = ContactMenu.Facts(b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11])
 
     @Test fun the_contact_page_menu_has_at_most_seven_items() {
-        combos(11).forEach { b ->
+        combos(12).forEach { b ->
             val f = contactFacts(b)
             val top = ContactMenu.build(f)
             assertTrue("$f: ${top.size} items", top.size <= MENU_LIMIT)
@@ -32,6 +32,8 @@ class MenusTest {
             assertEquals(f.linked, ContactMenu.Action.SEPARATE in all)
             assertEquals(f.canSeeVersions, ContactMenu.Action.VERSION_HISTORY in all)
             assertEquals(f.hasNumbers && !f.caseShown, ContactMenu.Action.CASE_FILE in all)
+            // Make private is one tap from ⋮ (the second opens its question), never hidden under a group.
+            assertEquals(f.canMakePrivate, MenuEntry.Action(ContactMenu.Action.MAKE_PRIVATE) in top)
             // Every sheet a group opens keeps to seven too.
             top.filterIsInstance<MenuEntry.Group<ContactMenu.Action>>().forEach { g -> assertTrue("$f: ${g.group}", g.actions.size <= MENU_LIMIT) }
             assertEquals(all.size, all.toSet().size)
@@ -40,7 +42,7 @@ class MenusTest {
 
     /** Every action of every menu is reachable with some facts: none was lost when the menus were regrouped. */
     @Test fun no_action_is_lost() {
-        val contact = combos(11).flatMap { b -> actions(ContactMenu.build(contactFacts(b))) }
+        val contact = combos(12).flatMap { b -> actions(ContactMenu.build(contactFacts(b))) }
         assertEquals(ContactMenu.Action.entries.toSet(), contact.toSet())
         val selection = combos(3).flatMap { b -> actions(SelectionMenu.build(SelectionMenu.Facts(b[0], b[1], b[2]))) }
         assertEquals(SelectionMenu.Action.entries.toSet(), selection.toSet())
@@ -72,6 +74,13 @@ class MenusTest {
         assertTrue(ContactMenu.Action.CASE_FILE !in actions(ContactMenu.build(ContactMenu.Facts(caseShown = true, isCompany = true))))
         // A blocked number: Unblock in Block's place.
         assertEquals(MenuEntry.Action(ContactMenu.Action.UNBLOCK_NUMBERS), ContactMenu.build(ContactMenu.Facts(blocked = true))[2])
+    }
+
+    @Test fun a_visible_contact_can_be_made_private_from_the_top_of_the_menu() {
+        val top = ContactMenu.build(ContactMenu.Facts(linked = true, isCompany = true, canMakePrivate = true))
+        assertEquals(MenuEntry.Action(ContactMenu.Action.MAKE_PRIVATE), top[1])
+        assertEquals(MENU_LIMIT, top.size)
+        assertTrue(ContactMenu.Action.MAKE_PRIVATE !in actions(ContactMenu.build(ContactMenu.Facts(canMakePrivate = false))))
     }
 
     @Test fun the_selection_menu_has_at_most_seven_items() {

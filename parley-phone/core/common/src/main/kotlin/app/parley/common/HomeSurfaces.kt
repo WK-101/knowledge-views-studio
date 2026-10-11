@@ -158,15 +158,30 @@ data class HomeLayout(val tabs: NavTabs = NavTabs(), val surfaces: SurfaceLayout
     fun showBar(current: StartTab): Boolean = barTabs(current).size > 1
 
     /**
-     * Where the Circle section lives while the Circle tab is hidden: at the top of Favourites as before, or,
-     * when Favourites is folded into Contacts (and its tab not kept), in Contacts under the favourites.
+     * The Circle's one home while its tab is hidden: a Favourites · Circle switch wherever the favourites are shown
+     * (their tab, and the section or strip at the top of Contacts). With the Circle tab shown, no switch anywhere.
+     * Nothing new is stored: older layouts read the same, the switch's last choice is the Circle's old fold.
      */
-    val circleHost: StartTab?
-        get() = when {
-            tabs.isVisible(StartTab.CIRCLE) -> null
-            StartTab.FAVORITES in absorbed -> StartTab.CONTACTS
-            else -> StartTab.FAVORITES
-        }
+    val circleSwitch: Boolean get() = !tabs.isVisible(StartTab.CIRCLE)
+
+    /**
+     * Where a request for the Circle (Tools, a reminder, a shortcut) opens: its tab when shown; else, once it has
+     * [members], the favourites' surface with the switch turned to the Circle; else (empty, or no favourites shown
+     * anywhere) the Circle tab on its own, as before.
+     */
+    fun circleOpensOn(members: Int): StartTab = when {
+        !circleSwitch || members == 0 -> StartTab.CIRCLE
+        isVisible(StartTab.FAVORITES) -> StartTab.FAVORITES
+        favoritesInContacts -> StartTab.CONTACTS
+        else -> StartTab.CIRCLE
+    }
+
+    /** [tab] shows the favourites with the Favourites · Circle switch above them. */
+    fun hasCircleSwitch(tab: StartTab): Boolean = circleSwitch && when (tab) {
+        StartTab.FAVORITES -> true
+        StartTab.CONTACTS -> favoritesInContacts
+        else -> false
+    }
 }
 
 /** The home layout these settings describe. */

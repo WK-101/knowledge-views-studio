@@ -299,6 +299,12 @@ while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackof
   the history that warning reads: a spoofed call outside the window is still warned about. The window goes when its To
   call line is done or settled.
 
+**Switching discreet mode from Parley.** Besides Settings › Privacy and the Quick Settings tile, Contacts ⋮ has
+**Hide private contacts** as a ticked item (`DiscreetSwitch`, the tile's rules): ticking it hides them and locks their
+details at once; unticking it while the app lock is on asks for Parley's unlock first (`DiscreetRevealActivity`). The
+tick shows the switch as the user left it, and during a duress unlock a change touches only what is shown, never the
+stored switch, so nothing shows that the hiding hides.
+
 ### What a duress unlock hides
 
 Everything discreet mode ("Hide private contacts") hides, with discreet mode forced on whatever its switch says:

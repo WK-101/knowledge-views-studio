@@ -40,7 +40,10 @@ import app.parley.ui.people.CallBackgroundInfoRow
 import app.parley.ui.people.CallPhotoRow
 import app.parley.ui.people.ProvenanceRow
 
-/** Everything that changes how Parley and the phone treat this person rather than describing them, folded at the bottom. */
+/**
+ * Everything that changes how Parley and the phone treat this person rather than describing them, folded at the
+ * bottom. "Kept as" leads it; the ⋮ has Make private as a shortcut, so hiding or folding this section never hides it.
+ */
 @Composable
 internal fun ContactSettingsSection(sections: PageSections, ctx: ContactPageContext) {
     val resources = LocalResources.current
@@ -49,9 +52,24 @@ internal fun ContactSettingsSection(sections: PageSections, ctx: ContactPageCont
         // A private contact's ringtone and "Send to voicemail" need Parley's own ringer: said here when it isn't.
         after = if (ctx.isPrivate) ({ DefaultAppNote(ctx.vm, DefaultAppFeature.PRIVATE_CALLER) }) else null,
     ) {
+        // First, so it is never under the calling rows: how the contact is kept is what people come here for most.
+        keptAsRow(ctx)
         callingRows(ctx)
         savedInRows(ctx)
         variantRows(ctx)
+    }
+}
+
+/** "Kept as: Visible · Private · Archived", one row for the three (its dialog asks before each change). */
+private fun SegmentedGroupScope.keptAsRow(ctx: ContactPageContext) {
+    item {
+        val resources = LocalResources.current
+        val kept = keptAs(ctx)
+        GroupDataRow(
+            keptAsIcon(kept), true, resources.getString(R.string.kept_as_title),
+            resources.getString(R.string.kept_as_row_sub, keptAsName(resources, kept)),
+            onClick = { ctx.show(ContactDialog.KeptAs) },
+        )
     }
 }
 
@@ -157,19 +175,10 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
 }
 
 /**
- * The variants, converted from here: "Kept as" (Visible · Private · Archived, one row for the three), temporary ⇄
- * permanent; then the page's own settings.
+ * The variants, converted from here ("Kept as" leads the section): temporary ⇄ permanent; then the page's own
+ * settings.
  */
 private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
-    item {
-        val resources = LocalResources.current
-        val kept = keptAs(ctx)
-        GroupDataRow(
-            keptAsIcon(kept), true, resources.getString(R.string.kept_as_title),
-            resources.getString(R.string.kept_as_row_sub, keptAsName(resources, kept)),
-            onClick = { ctx.show(ContactDialog.KeptAs) },
-        )
-    }
     val temp = ctx.ui.temporary
     // An archived contact is kept until Unarchive: it never deletes itself, so "Delete automatically" waits for that
     // (as it did under the old Privacy… menu).
