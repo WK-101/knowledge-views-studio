@@ -80,4 +80,17 @@
         <item quantity="one">%1$d private contact</item>
         <item quantity="other">%1$d private contacts</item>
     </plurals>
+    <!-- Favourites: people Parley starred only so a label's "Allow through Do Not Disturb" lets them ring, shown apart
+         from the favourites you chose. %1$d: how many; %2$s: the labels, "Family, Carers" -->
+    <plurals name="fav_dnd_row">
+        <item quantity="one">Also starred for Do Not Disturb: %1$d (%2$s)</item>
+        <item quantity="other">Also starred for Do Not Disturb: %1$d (%2$s)</item>
+    </plurals>
+    <string name="fav_dnd_title">Starred for Do Not Disturb</string>
+    <string name="fav_dnd_body">Parley starred these people so their label can ring through Do Not Disturb. Android sees them starred like your favourites; here they stay apart until you make them one.</string>
+    <string name="fav_dnd_make">Make a favourite</string>
+    <!-- %1$s: a name -->
+    <string name="fav_dnd_made">%1$s is a favourite now</string>
+    <!-- %1$s: a label's title -->
+    <string name="fav_dnd_open_label">Open %1$s</string>
 </resources>

@@ -15,6 +15,4 @@
     <!-- On the case list: the wait range alone. -->
     <string name="queue_waits">Waits %1$s</string>
     <string name="queue_remind">Remind me at %1$s</string>
-    <string name="queue_reminded">On your To call list for %1$s</string>
-    <string name="queue_remind_failed">Couldn\'t add it to To call for %1$s. Try again in a moment.</string>
 </resources>

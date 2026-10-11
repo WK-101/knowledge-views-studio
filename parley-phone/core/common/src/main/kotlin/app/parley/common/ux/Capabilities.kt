@@ -165,6 +165,11 @@ object CapabilityCatalog {
             "birthday", "anniversary", "dates").top(),
         screen("to_call", TOUCH, "To call", "Calls you said you'd make, and missed calls you haven't returned", AppScreen.TO_CALL,
             "remind me", "call back", "missed").top(),
+        // Choices on a call (declined, missed, ended) and on Remind me to call: their pages say where, and open To call.
+        help("promise_time", TOUCH, "Promise a time", "Text someone when you'll call back; Parley reminds you then", HelpTopic.PROMISE_TIME,
+            "call you back", "promise", "later", "decline", "busy", since = "6.6"),
+        help("callback_watch", TOUCH, "They'll call me back", "Let an expected callback ring through, and see if it never came", HelpTopic.CALLBACK_WATCH,
+            "callback", "call back", "expecting", "hospital", "waiting", since = "6.6"),
         setting("remember", TOUCH, "Anything to remember?", "A note and a follow-up after calls with your contacts", "memory_prompt",
             "note", "promise", "follow up"),
         // Also a chip on Contacts; this row keeps it reachable when the Contacts tab is hidden.

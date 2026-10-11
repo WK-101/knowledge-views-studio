@@ -171,6 +171,20 @@ class ExtrasTest {
         assertEquals(mapOf("a" to setOf("Work", "Family")), DndStars.merge(l, mapOf("a" to setOf("Family"))))
     }
 
+    @Test fun starred_for_do_not_disturb_is_kept_apart_from_chosen_favourites() {
+        // Starred in this order: Ana (chosen), Ben and Cy (starred by Parley for labels), a private contact (no key).
+        val starred = listOf("ana", "ben", "cy", "private")
+        val ledger = mapOf("ben" to setOf("family"), "cy" to setOf("Carers", "family"))
+        val split = DndStars.split(starred, ledger) { it.takeUnless { k -> k == "private" } }
+        assertEquals(listOf("ana", "private"), split.chosen)
+        assertEquals(listOf("ben", "cy"), split.forDnd)
+        assertEquals(listOf("Carers", "family"), split.labels)
+        // Nothing recorded: every star is a chosen favourite.
+        assertEquals(DndStars.Split(starred, emptyList(), emptyList()), DndStars.split(starred, emptyMap()) { it })
+        // "Make a favourite" drops the record: the star becomes a chosen one.
+        assertEquals(listOf("ana", "ben", "private"), DndStars.split(starred, ledger - "ben") { it.takeUnless { k -> k == "private" } }.chosen)
+    }
+
     // Handshake
 
     @Test fun pending_slot_is_bound_to_its_editor_and_expires() {

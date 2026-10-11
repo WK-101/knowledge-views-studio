@@ -105,6 +105,8 @@ data class CallUi(
     val reputation: Reputation? = null,
     /** What Parley remembers about this number (not a contact), or null. */
     val numberMemory: NumberMemoryLine? = null,
+    /** The time you told this caller you'd call back ("Promise a time"), or null. */
+    val promisedAt: Long? = null,
     /** A car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
     val driving: Boolean = false,
     /** The caller is one of your contacts or private contacts (not just a name the network sent with the call). */
@@ -196,6 +198,9 @@ data class CallUi(
     val freshNumberNotice: Boolean
         get() = freshNumber != null && !neverCallsYouNotice && isLive && !isEmergency && !isConference && !hidden && !simulated
 
+    /** A safety card shows under the caller ("never calls you" or the fresh-number line); other hints follow it. */
+    val hasSafetyCard: Boolean get() = neverCallsYouNotice || freshNumberNotice
+
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean
         get() = noContact && !hidden && !isEmergency && !simulated && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
@@ -231,6 +236,7 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         nativeName = null,
         subject = null,
         numberMemory = null,
+        promisedAt = null,
         // The post-call card's "Save privately" starts from it, without unlocking.
         networkName = null,
         // A name, so masked with the name.

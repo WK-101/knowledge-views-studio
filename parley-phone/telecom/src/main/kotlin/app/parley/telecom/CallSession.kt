@@ -38,6 +38,9 @@ internal class CallSession(val id: String) {
     /** A saved contact's number added or changed recently, not by you ([CallerInfoSource.freshNumber]). */
     var freshNumber: FreshNumber? = null
 
+    /** The time you told this caller you'd call back ([CallerInfoSource.promisedCall]), once looked up. */
+    var promisedAt: Long? = null
+
     // ---- Screening ----
 
     /**

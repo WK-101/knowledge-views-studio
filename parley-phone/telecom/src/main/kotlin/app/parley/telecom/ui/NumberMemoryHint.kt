@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +40,33 @@ internal fun NumberMemoryHint(call: CallUi) {
         Text(
             text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The quiet lines under a caller: what Parley remembers about the number, and a time you promised them. */
+@Composable
+internal fun CallerHints(call: CallUi) {
+    NumberMemoryHint(call)
+    // Under a safety card the promise follows it (InCallScreen's SafetyLine): the safety line comes first.
+    if (!call.hasSafetyCard) PromisedHint(call)
+}
+
+/**
+ * "You said you'd call at 15:30": a caller you promised a time to rings first. Only while the phone is unlocked, like
+ * any note about them; nothing on the lock screen.
+ */
+@Composable
+internal fun PromisedHint(call: CallUi) {
+    val at = call.promisedAt ?: return
+    if (rememberKeyguardLocked()) return
+    val context = LocalContext.current
+    Row(Modifier.padding(top = Spacing.s).widthIn(max = 480.dp), verticalAlignment = Alignment.Top) {
+        Icon(Icons.Rounded.Schedule, null, Modifier.padding(top = Spacing.xxs).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(Spacing.xs))
+        Text(
+            stringResource(R.string.promised_line, RemindTimes.whenText(context, at)), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
 }

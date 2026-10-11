@@ -307,6 +307,8 @@ object CallManager {
                 var looked = false
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
                 if (looked) lookedUp(s, found, number, accountId)
+                // "You said you'd call at 15:30": a promise to a caller who rings first, saved or not.
+                if (incoming && looked) rememberPromise(call, s, number, accountId)
                 if (found != null) {
                     s.info = found
                     if (incoming) savedCallerRings(call, s, found, number, accountId)
@@ -443,6 +445,18 @@ object CallManager {
             } ?: return@launch
             if (!calls.contains(call)) return@launch
             s.freshNumber = fresh
+            publish()
+        }
+    }
+
+    /** Looks up a promised time off the main thread, within the caller lookup's time; fails open (no line). */
+    private fun rememberPromise(call: Call, s: CallSession, number: String, accountId: String?) {
+        scope.launch {
+            val at = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
+                withContext(Dispatchers.IO) { catching { deps.promisedCall(number, accountId) }.getOrNull() }
+            } ?: return@launch
+            if (!calls.contains(call)) return@launch
+            s.promisedAt = at
             publish()
         }
     }

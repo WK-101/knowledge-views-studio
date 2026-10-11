@@ -266,6 +266,20 @@ class ExtrasStore(private val c: DataContainer) {
     /** The contact moved into the vault: nothing of it stays outside. */
     fun dndForget(key: String) = updateDndStars { it - key }
 
+    /**
+     * "Make a favourite" on a contact Parley starred for a label's Do Not Disturb: the star stays and becomes the
+     * user's own (no longer recorded, so switching the label off won't take it away). Returns the labels it was
+     * recorded for, for Undo ([dndRecord]).
+     */
+    fun makeFavourite(key: String): Set<String> {
+        val was = _dndStars.value[key].orEmpty()
+        updateDndStars { it - key }
+        return was
+    }
+
+    /** Undo of [makeFavourite]: [key] is recorded as starred for [labels] again. */
+    fun dndRecord(key: String, labels: Set<String>) = updateDndStars { DndStars.merge(it, mapOf(key to labels)) }
+
     fun dndKeys(): Set<String> = _dndStars.value.keys
 
     /** Who was in a label when its chapter began, by key: followed by the key sweep ([chapterRekey]). */

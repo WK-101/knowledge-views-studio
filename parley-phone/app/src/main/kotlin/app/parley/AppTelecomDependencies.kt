@@ -7,6 +7,7 @@ import android.text.format.DateUtils
 import android.util.Log
 import app.parley.blocking.BlockFlow
 import app.parley.calls.AgendaBridge
+import app.parley.calls.CallPromises
 import app.parley.calls.CaseFileBridge
 import app.parley.calls.ExpectedCallHints
 import app.parley.calls.MenuMemoryBridge
@@ -283,6 +284,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun callerZone(number: String, accountId: String?): String? = NumberInfo.timeZone(number, PhoneEnv.countryIso(app, accountId))?.id
 
     override fun unknownRingtone(): String? = c.settings.settings.value.unknownRingtone
+
+    override suspend fun promisedCall(number: String, accountId: String?): Long? = CallPromises.promisedAt(c, number, accountId)
 
     override fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {
         c.scope.launch {

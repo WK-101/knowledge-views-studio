@@ -108,6 +108,16 @@ object NeverCallsYou {
     }
 
     /**
+     * [past] without the calls from the line during a "They'll call me back" window ([expected], each a span of time):
+     * a callback you asked for doesn't count as the organisation calling you, so the notice stays armed for calls
+     * outside the window.
+     */
+    fun withoutExpected(past: List<PastCall>, expected: List<LongRange>): List<PastCall> {
+        if (expected.isEmpty()) return past
+        return past.filterNot { c -> CallReputation.kindOf(c.type) != RepKind.OUTGOING && expected.any { c.date in it } }
+    }
+
+    /**
      * You called the line at least once and it never called you: no answered, missed, declined, blocked or voicemail
      * call from it, and no call the log can't place (which might have been one). Said only when the history reaches
      * back past your first call to it ([keptSince] earlier than it): Android's log trims itself, so without Parley's

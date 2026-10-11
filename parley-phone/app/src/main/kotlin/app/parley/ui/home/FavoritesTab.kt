@@ -87,9 +87,12 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
     // While the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
     // Unless the favourites moved into Contacts (then the Circle follows them there).
     val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == StartTab.FAVORITES
+    val dndOnly = vm.people.dndStarred.collectAsStateWithLifecycle().value.forDnd.isNotEmpty()
     if (favorites.isEmpty() && frequents.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
             if (circleHere) Column(Modifier.padding(top = 12.dp)) { CircleFavoritesSection(vm, open, query) }
+            // People starred only for a label's Do Not Disturb are no chosen favourites, but are said apart.
+            if (dndOnly) DndStarredRow(vm, open, Modifier.padding(top = 12.dp))
             // Nothing starred yet: the way on is the contact list.
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body),
@@ -220,6 +223,10 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                     c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
+        }
+        // Starred only so a label rings through Do Not Disturb: one folded row, apart from the favourites you chose.
+        if (q.isEmpty() && !reordering && dndOnly) item(span = { GridItemSpan(maxLineSpan) }, key = "dnd") {
+            DndStarredRow(vm, open)
         }
         if (shownFrequents.isNotEmpty() && !reordering) {
             item(span = { GridItemSpan(maxLineSpan) }) {

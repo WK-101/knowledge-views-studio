@@ -3,7 +3,6 @@ package app.parley.ui.cases
 import android.content.Context
 import android.content.res.Resources
 import android.text.format.DateFormat
-import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,17 +22,14 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.R
-import app.parley.calls.ToCallReminders
-import app.parley.common.catching
 import app.parley.common.cases.CaseTimeline
 import app.parley.common.cases.QueueMemories
 import app.parley.common.cases.QueueMemory
 import app.parley.common.cases.QueueTime
 import app.parley.ui.Spacing
-import kotlinx.coroutines.launch
+import app.parley.ui.calls.remindWithUndo
 import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Calendar
@@ -81,7 +77,7 @@ internal fun QueueMemorySection(vm: AppViewModel, number: String?, q: QueueMemor
         val best = q.best
         if (best != null && number != null) {
             val at = clock(context, QueueMemories.reminderMinute(best))
-            FilledTonalButton(onClick = { remind(vm, context, number, best) }, modifier = Modifier.padding(top = Spacing.s)) {
+            FilledTonalButton(onClick = { remind(vm, number, best) }, modifier = Modifier.padding(top = Spacing.s)) {
                 Icon(Icons.Rounded.Alarm, null, Modifier.size(18.dp))
                 Spacer(Modifier.size(6.dp))
                 Text(res.getString(R.string.queue_remind, at))
@@ -90,15 +86,9 @@ internal fun QueueMemorySection(vm: AppViewModel, number: String?, q: QueueMemor
     }
 }
 
-private fun remind(vm: AppViewModel, context: Context, number: String, best: QueueTime) {
-    val app = context.applicationContext
-    vm.viewModelScope.launch {
-        val at = QueueMemories.remindAt(best, System.currentTimeMillis(), ZoneId.systemDefault())
-        val ok = catching { ToCallReminders.remind(app, number, accountId = null, at = at) }.getOrDefault(false)
-        val shown = DateUtils.formatDateTime(app, at, DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_WEEKDAY)
-        vm.toast(app.getString(if (ok) R.string.queue_reminded else R.string.queue_remind_failed, shown))
-    }
-}
+/** The same To call reminder as Remind me to call, with its Undo. */
+private fun remind(vm: AppViewModel, number: String, best: QueueTime) =
+    remindWithUndo(vm, number, accountId = null, at = QueueMemories.remindAt(best, System.currentTimeMillis(), ZoneId.systemDefault()))
 
 private fun minutes(sec: Long): Int = ((sec + 30) / 60).toInt().coerceAtLeast(1)
 

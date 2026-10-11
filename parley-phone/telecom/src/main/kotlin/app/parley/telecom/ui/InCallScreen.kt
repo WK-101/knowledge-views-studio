@@ -463,6 +463,7 @@ private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
     val verify = if (primary.canVerify) ({ a.onUnlock { sheets.verifyFor = primary } }) else null
     if (primary.neverCallsYouNotice) {
         NeverCallsYouCard(onVerify = verify, onScamCheck = { sheets.scamFor = primary }, modifier = Modifier.padding(top = Spacing.m))
+        PromisedHint(primary)
         return
     }
     val fresh = primary.freshNumber?.takeIf { primary.freshNumberNotice } ?: return
@@ -475,6 +476,8 @@ private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions) {
         }
     }
     FreshNumberCard(fresh, onCallOlder = older, onVerify = verify, modifier = Modifier.padding(top = Spacing.m))
+    // "You said you'd call at 15:30" follows the safety line rather than sitting above it.
+    PromisedHint(primary)
 }
 
 /** The bottom half: what can be done now. */

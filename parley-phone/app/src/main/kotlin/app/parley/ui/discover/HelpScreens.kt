@@ -23,6 +23,7 @@ import app.parley.ui.Spacing
 data class HelpTexts(@StringRes val title: Int, @StringRes val body: Int, @StringRes val action: Int?)
 
 object HelpText {
+    @Suppress("CyclomaticComplexMethod") // One branch per help page.
     fun of(t: HelpTopic): HelpTexts = when (t) {
         HelpTopic.CALL_SCREEN -> HelpTexts(R.string.help_call_screen_title, R.string.help_call_screen_body, R.string.label_default_phone_app)
         HelpTopic.DID_NOT_RING -> HelpTexts(R.string.help_did_not_ring_title, R.string.help_did_not_ring_body, R.string.action_test_a_call)
@@ -39,6 +40,8 @@ object HelpText {
         HelpTopic.CHAPTERS -> HelpTexts(R.string.label_chapters, R.string.help_chapters_body, R.string.label_labels)
         HelpTopic.TALK_ABOUT -> HelpTexts(R.string.label_to_talk_about, R.string.help_talk_about_body, null)
         HelpTopic.FAMILY_SHIELD -> HelpTexts(R.string.label_family_spam_shield, R.string.help_family_shield_body, R.string.label_shared_labels)
+        HelpTopic.PROMISE_TIME -> HelpTexts(R.string.label_promise_time, R.string.help_promise_time_body, R.string.label_to_call)
+        HelpTopic.CALLBACK_WATCH -> HelpTexts(R.string.callback_title, R.string.help_callback_watch_body, R.string.label_to_call)
     }
 }
 

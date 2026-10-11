@@ -573,6 +573,16 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Parley.Sheet" />
 
+        <!-- Promise a time and "They'll call me back" for one number: from a declined call, the sheet above, the
+             post-call card and Remind me to call. -->
+        <activity
+            android:name=".calls.CallPromiseActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|fontScale|uiMode|keyboard|keyboardHidden|navigation|locale|layoutDirection"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Parley.Sheet" />
+
         <!-- "Don't allow" on a Directory request notification (see PrivateNameRequests). -->
         <receiver
             android:name=".privatenames.PrivateNameDecisionReceiver"

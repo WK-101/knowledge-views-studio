@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AlarmAdd
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -38,7 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Remind me" on a missed-call notification: a small sheet with the fixed times. It names no one (the
+ * "Remind me" on a missed-call notification: a small sheet with the fixed times, and Promise a time. It names no one (the
  * notification already said who), so it needs no app unlock; the system asks to unlock the phone before any
  * activity starts from the lock screen. The caller's notification goes, as if seen, once the reminder is set.
  */
@@ -70,6 +71,16 @@ class RemindMeActivity : LockedActivity() {
                                     modifier = Modifier.clickable(role = Role.Button) { pick(number, accountId, at, notificationId) },
                                 )
                             }
+                            // Or tell them when: the promise sheet, for this number.
+                            ParleyListItem(
+                                headlineContent = { Text(stringResource(R.string.promise_row)) },
+                                supportingContent = { Text(stringResource(R.string.promise_row_body)) },
+                                leadingContent = { Icon(Icons.Rounded.Schedule, null) },
+                                modifier = Modifier.clickable(role = Role.Button) {
+                                    startActivity(CallPromiseActivity.intent(this@RemindMeActivity, number, accountId))
+                                    finish()
+                                },
+                            )
                             Spacer(Modifier.navigationBarsPadding().padding(bottom = Spacing.l))
                         }
                     }

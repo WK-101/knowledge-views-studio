@@ -18,7 +18,30 @@ enum class ToCallSource {
 
     /** "Follow up in a week / a month" from "Anything to remember?" after a call. */
     FOLLOW_UP,
+
+    /**
+     * "They'll call me back" by a date: due on that date, when it becomes "hasn't called back". A call with them
+     * before then settles it like any other item. Older versions read it as [REMINDER].
+     */
+    CALLBACK,
 }
+
+/**
+ * A time you gave someone ("I'll call you at 15:30"), kept on their To call item. One record for every promised time:
+ * "Promise a time" on a declined call, a missed call or after a call sets it with [told] (you texted it to them), and a
+ * catch-up date you only keep for yourself can set it without. [zone] is their time zone when the time was said in
+ * their time (their clock differed from yours), so it can be said back the same way.
+ */
+@Serializable
+data class PromisedTime(
+    /** The moment promised. */
+    val at: Long,
+    /** When it was promised. */
+    val made: Long,
+    /** You told them (the messaging app opened with the time); false for a date kept only for yourself. */
+    val told: Boolean = true,
+    val zone: String? = null,
+)
 
 /**
  * A call you said you'd make. Kept by number ([key] is the line key, see PhoneIdentity.key), never by contact, so it
@@ -42,6 +65,8 @@ data class ToCallItem(
     val accountId: String? = null,
     /** The reminder was shown; it isn't shown again unless the item is moved to a new time. */
     val notified: Boolean = false,
+    /** The time you promised them, if you did; it stays while the item does, even when the reminder is moved. */
+    val promised: PromisedTime? = null,
 ) {
     /** When the item is due (and its notification shows). */
     @Transient
@@ -57,7 +82,7 @@ data class ToCallState(
 )
 
 /** What a row of the list is. */
-enum class ToCallKind { REMINDER, FOLLOW_UP, MISSED }
+enum class ToCallKind { REMINDER, FOLLOW_UP, MISSED, CALLBACK }
 
 /** An unreturned missed call (as Recents works it out: each number's latest, within a week, not blocked). */
 data class OwedMissedCall(val key: String, val number: String, val date: Long, val accountId: String?)
@@ -79,6 +104,8 @@ data class ToCallEntry(
     val accountId: String? = null,
     /** A missed call from them came after the item was set. */
     val missedAt: Long? = null,
+    /** The time you told them you'd call ([PromisedTime.told]), or null. */
+    val promisedAt: Long? = null,
 ) {
     fun isDue(now: Long): Boolean = dueAt == null || dueAt <= now
 }
@@ -200,19 +227,21 @@ object ToCall {
     fun remind(
         state: ToCallState, key: String, number: String, at: Long, now: Long,
         source: ToCallSource = ToCallSource.REMINDER, since: Long = now, theirEvening: Boolean? = null,
-        zone: String? = null, accountId: String? = null,
+        zone: String? = null, accountId: String? = null, promised: PromisedTime? = null,
     ): ToCallState {
         if (key.isEmpty() || number.isBlank()) return state
         val old = state.items.firstOrNull { it.key == key }
         val item = ToCallItem(
             key = key, number = number,
             // A follow-up never turns an explicit reminder into a follow-up.
-            source = if (old?.source == ToCallSource.REMINDER) ToCallSource.REMINDER else source,
+            source = if (source == ToCallSource.FOLLOW_UP && old?.source == ToCallSource.REMINDER) ToCallSource.REMINDER else source,
             since = minOf(since, old?.since ?: since),
             at = at,
             theirEvening = theirEvening ?: old?.theirEvening ?: false,
             zone = zone ?: old?.zone,
             accountId = accountId ?: old?.accountId,
+            // What you told them stands until the call is made, whatever time the reminder moves to.
+            promised = promised ?: old?.promised,
         )
         val items = (state.items.filter { it.key != key } + item).sortedBy { it.since }.takeLast(MAX_ITEMS)
         return state.copy(items = items, handledMissed = state.handledMissed + (key to now))
@@ -290,8 +319,8 @@ object ToCall {
         val stored = state.items.map { i ->
             val m = byKey[i.key]?.takeIf { it.date > i.since }
             ToCallEntry(
-                i.key, i.number, if (i.source == ToCallSource.FOLLOW_UP) ToCallKind.FOLLOW_UP else ToCallKind.REMINDER,
-                i.since, i.dueAt, i.theirEvening, i.zone, i.accountId, missedAt = m?.date,
+                i.key, i.number, kindOf(i.source), i.since, i.dueAt, i.theirEvening, i.zone, i.accountId, missedAt = m?.date,
+                promisedAt = i.promised?.takeIf { it.told }?.at,
             )
         }
         val have = state.items.map { it.key }.toSet()
@@ -301,6 +330,16 @@ object ToCall {
         val (due, later) = all.partition { it.isDue(now) }
         return due.sortedByDescending { it.dueAt ?: it.since } + later.sortedBy { it.dueAt }
     }
+
+    private fun kindOf(source: ToCallSource): ToCallKind = when (source) {
+        ToCallSource.REMINDER -> ToCallKind.REMINDER
+        ToCallSource.FOLLOW_UP -> ToCallKind.FOLLOW_UP
+        ToCallSource.CALLBACK -> ToCallKind.CALLBACK
+    }
+
+    /** The time you told [key]'s number you'd call, while that call is still owed; null when you told them none. */
+    fun promisedTo(state: ToCallState, key: String): PromisedTime? =
+        state.items.firstOrNull { it.key == key }?.promised?.takeIf { it.told }
 
     fun count(entries: List<ToCallEntry>, now: Long): ToCallCount = ToCallCount(entries.count { it.isDue(now) }, entries.count { !it.isDue(now) })
 

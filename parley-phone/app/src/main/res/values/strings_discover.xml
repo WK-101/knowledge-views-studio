@@ -180,4 +180,6 @@
     <string name="discover_help_summary">A call that didn\'t ring, the call screen, a contact gone after Archive</string>
     <!-- The What's new card names the release's headline rows. %1$s: up to three titles, joined by commas. -->
     <string name="discover_whats_new_named">New: %1$s.</string>
+    <string name="discover_promise_time_summary">Text someone when you\'ll call back; Parley reminds you then</string>
+    <string name="discover_callback_watch_summary">Let an expected callback ring through, and see if it never came</string>
 </resources>

@@ -97,6 +97,7 @@ internal class CallUiMapper(
             reputation = reputationTag(s, call, number, hidden),
             // Only ever set for a number the lookup found no contact for.
             numberMemory = s.numberMemory,
+            promisedAt = s.promisedAt,
             driving = drivingNow(state),
             handOff = handOffFacts(call),
             neverCallsYou = neverCalls(s, call, number, hidden),
