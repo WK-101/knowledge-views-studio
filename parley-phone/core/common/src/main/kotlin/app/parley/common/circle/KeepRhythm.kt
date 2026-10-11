@@ -79,13 +79,22 @@ object NaturalRhythm {
      * The median gap between distinct days in touch ×1.5, rounded up, at least [MIN_DAYS] (never nag weekly-plus),
      * at most [MAX_DAYS]. Null with fewer than [MIN_GAPS] gaps.
      */
-    fun learn(times: Collection<Long>, now: Long, zone: ZoneId): Int? {
+    fun learn(times: Collection<Long>, now: Long, zone: ZoneId): Int? =
+        medianGap(times, now, zone)?.let { ceil(it * 1.5).toInt().coerceIn(MIN_DAYS, MAX_DAYS) }
+
+    /**
+     * How often you two usually talk: the median gap in days between distinct days in touch, rounded, at least one.
+     * Null with fewer than [MIN_GAPS] gaps. Unlike [learn] there's no margin: this is said, not used as a reminder.
+     */
+    fun usualGap(times: Collection<Long>, now: Long, zone: ZoneId): Int? =
+        medianGap(times, now, zone)?.let { Math.round(it).toInt().coerceIn(1, MAX_DAYS) }
+
+    private fun medianGap(times: Collection<Long>, now: Long, zone: ZoneId): Double? {
         val since = now - WINDOW_DAYS * DAY
         val days = times.filter { it in since..now }.map { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }.distinct().sorted()
         if (days.size < MIN_GAPS + 1) return null
         val gaps = days.zipWithNext { a, b -> ChronoUnit.DAYS.between(a, b).toInt() }.sorted()
-        val median = if (gaps.size % 2 == 1) gaps[gaps.size / 2].toDouble() else (gaps[gaps.size / 2 - 1] + gaps[gaps.size / 2]) / 2.0
-        return ceil(median * 1.5).toInt().coerceIn(MIN_DAYS, MAX_DAYS)
+        return if (gaps.size % 2 == 1) gaps[gaps.size / 2].toDouble() else (gaps[gaps.size / 2 - 1] + gaps[gaps.size / 2]) / 2.0
     }
 
     /** [r] with a freshly learned gap when it's due for re-learning (the old one stays when there's too little history). */

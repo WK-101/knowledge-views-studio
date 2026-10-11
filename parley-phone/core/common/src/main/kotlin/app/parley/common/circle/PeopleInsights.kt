@@ -49,10 +49,13 @@ object PeopleInsights {
 
         /** "Mark as wished". */
         WISHED,
+
+        /** A chat or video call you started from Parley and logged: you reaching out, never them. */
+        CHAT_OUT,
         ;
 
         /** You were in touch (a conversation happened). */
-        val inTouch: Boolean get() = this == CALL_IN || this == CALL_OUT || this == LOGGED || this == WISHED
+        val inTouch: Boolean get() = this == CALL_IN || this == CALL_OUT || this == LOGGED || this == WISHED || this == CHAT_OUT
     }
 
     data class Touch(val key: String, val time: Long, val kind: TouchKind)
@@ -66,6 +69,13 @@ object PeopleInsights {
             else -> null
         } ?: return null
         return Touch(key, c.date, kind)
+    }
+
+    /** The kind of a logged interaction by its unique key ([Interactions.promptKey], [Interactions.wishedKey]…). */
+    fun loggedKind(dedupeKey: String): TouchKind = when {
+        dedupeKey.startsWith(Interactions.WISHED_PREFIX) -> TouchKind.WISHED
+        dedupeKey.startsWith(Interactions.PROMPT_PREFIX) -> TouchKind.CHAT_OUT
+        else -> TouchKind.LOGGED
     }
 
     enum class Trend { UP, DOWN, SAME }
@@ -114,30 +124,38 @@ object PeopleInsights {
     enum class FirstMover { THEM, YOU, BOTH }
 
     /**
-     * Who usually starts a conversation with one person: the first call of each conversation (calls less than
-     * [CONVERSATION_GAP_MS] apart are one), answered or not. Logged interactions have no direction and don't count.
-     * Null with fewer than [FIRST_MOVER_MIN] conversations.
+     * Who started each conversation with one person, oldest first (true: they did). A conversation's first call or
+     * chat counts (calls less than [CONVERSATION_GAP_MS] apart are one), answered or not; a chat you started from
+     * Parley is you reaching out. Other logged interactions have no direction and don't count.
      */
-    fun firstMover(touches: List<Touch>): FirstMover? {
-        val calls = touches.filter { it.kind != TouchKind.LOGGED && it.kind != TouchKind.WISHED }.sortedBy { it.time }
-        var theirs = 0
-        var yours = 0
+    private fun starts(touches: List<Touch>): List<Boolean> {
+        val directed = touches.filter { it.kind != TouchKind.LOGGED && it.kind != TouchKind.WISHED }.sortedBy { it.time }
+        val out = ArrayList<Boolean>()
         var lastTime: Long? = null
-        for (t in calls) {
-            if (lastTime == null || t.time - lastTime >= CONVERSATION_GAP_MS) {
-                if (t.kind == TouchKind.CALL_IN || t.kind == TouchKind.MISSED_IN) theirs++ else yours++
-            }
+        for (t in directed) {
+            if (lastTime == null || t.time - lastTime >= CONVERSATION_GAP_MS) out += t.kind == TouchKind.CALL_IN || t.kind == TouchKind.MISSED_IN
             lastTime = t.time
         }
-        val total = theirs + yours
-        if (total < FIRST_MOVER_MIN) return null
-        val share = theirs.toDouble() / total
+        return out
+    }
+
+    /**
+     * Who usually starts a conversation with one person (see [starts]). Null with fewer than [FIRST_MOVER_MIN]
+     * conversations.
+     */
+    fun firstMover(touches: List<Touch>): FirstMover? {
+        val all = starts(touches)
+        if (all.size < FIRST_MOVER_MIN) return null
+        val share = all.count { it }.toDouble() / all.size
         return when {
             share >= 0.65 -> FirstMover.THEM
             share <= 0.35 -> FirstMover.YOU
             else -> FirstMover.BOTH
         }
     }
+
+    /** How many of the latest conversations with one person they started, in a row (0 when you started the latest). */
+    fun theirTurnsInARow(touches: List<Touch>): Int = starts(touches).asReversed().takeWhile { it }.size
 
     /**
      * Year in review over the last 365 days: who you were most in touch with (up to three, with how often), the

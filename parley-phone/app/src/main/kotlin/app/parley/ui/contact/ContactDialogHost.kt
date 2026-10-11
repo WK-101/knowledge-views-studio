@@ -98,6 +98,7 @@ internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, o
             onDismiss = close,
             // The case card opens the case file; Call stays right below, so nothing stands in the call's way.
             extra = { if (ctx.case.shown) CaseCard(ctx.vm, ctx.caseOwner, { r -> close(); ctx.open(r) }) },
+            keepInTouch = ctx.keepInTouch?.sentence,
         )
         ContactDialog.RemindToCall -> d.phones.primary()?.let { p ->
             // Several numbers: the sheet asks which one, the default chosen first.

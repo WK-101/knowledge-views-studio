@@ -1,5 +1,6 @@
 package app.parley.work
 
+import app.parley.common.catching
 import app.parley.common.AltCalendar
 import app.parley.common.AltCalendars
 import app.parley.data.people.IcuCalendars
@@ -27,6 +28,7 @@ import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.DateReminders
+import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.ReminderDelivery
 import app.parley.common.circle.YearlyEvents
@@ -35,6 +37,8 @@ import app.parley.container
 import app.parley.data.ContactEvent
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.security.Privacy
+import app.parley.common.history.CallLogIndex
 import app.parley.data.circle.CircleRepository
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.Shortcuts
@@ -159,7 +163,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET), quiet, yearly)
                 c.circle.setStateString(S_LAST_DIGEST, today.toString())
                 c.circle.setStateString(S_LAST_QUIET, picks.firstOrNull { it.reason == CircleDigest.Reason.QUIET }?.lookupKey)
-                if (picks.isNotEmpty()) notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } })
+                if (picks.isNotEmpty()) {
+                    val turns = yourTurns(c, cfg, picks, idx, now)
+                    notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }, turns)
+                }
             }
             ReminderDelivery.AS_DUE -> {
                 val week = CircleDigest.weekOf(today).toString()
@@ -217,11 +224,27 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         post(tag, b)
     }
 
-    private fun notifyDigest(people: List<Pair<ContactSummary, CircleDigest.Pick>>) {
+    /**
+     * The due picks it's your turn with (they started the last few conversations), by lookup key with how many. None
+     * when "who reaches out first" is off or a duress unlock hides relationship insights.
+     */
+    private suspend fun yourTurns(c: DataContainer, cfg: CircleConfig, picks: List<CircleDigest.Pick>, idx: CallLogIndex?, now: Long): Map<String, Int> {
+        val due = picks.filter { it.reason == CircleDigest.Reason.DUE }.map { it.lookupKey }.toSet()
+        if (due.isEmpty() || !cfg.firstMoverShown || !c.privacy.now().insightsShown) return emptyMap()
+        val touches = catching { c.circle.touches(now - TURN_WINDOW_DAYS * CallLogIndex.DAY, idx) }.getOrDefault(emptyList())
+            .filter { it.key in due }.groupBy { it.key }
+        return due.mapNotNull { k -> KeepInTouch.yourTurn(touches[k].orEmpty(), due = true, firstMoverShown = true)?.let { k to it } }.toMap()
+    }
+
+    private fun notifyDigest(people: List<Pair<ContactSummary, CircleDigest.Pick>>, turns: Map<String, Int>) {
         val ctx = applicationContext
+        // Read again as the lines are written, so a duress unlock in between still hides "your turn".
+        val privacy = Privacy.duressOnly()
         val lines = people.map { (ct, pick) ->
             when (pick.reason) {
-                CircleDigest.Reason.DUE -> ctx.getString(R.string.circle_might_enjoy, ct.displayName)
+                // "Ana has called you the last 3 times. Your turn to call?"
+                CircleDigest.Reason.DUE -> CircleText.yourTurn(ctx.resources, ct.displayName, turns[ct.lookupKey], privacy)
+                    ?: ctx.getString(R.string.circle_might_enjoy, ct.displayName)
                 CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
                 // Over a year since you were in touch.
                 CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_long_quiet, ct.displayName)
@@ -248,6 +271,9 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         private const val S_LAST_QUIET = "lastQuiet"
         private const val S_WEEK = "week"
         private const val S_SENT = "sentThisWeek"
+
+        /** "Your turn" looks back this far for the last few conversations. */
+        private const val TURN_WINDOW_DAYS = 400L
 
         fun schedule(context: Context, hour: Int) {
             val now = LocalDateTime.now()

@@ -78,7 +78,10 @@ internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext)
     sections.add(ContactSection.STAY, sectionTitle(LocalResources.current, ContactSection.STAY), ctx.lastTalked) {
         Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             if (ctx.inCircle || ctx.goodTime != null) {
-                StayInTouchCard(ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false) {
+                StayInTouchCard(
+                    ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false,
+                    keep = ctx.keepInTouch,
+                ) {
                     ctx.show(ContactDialog.Rhythm)
                 }
             }
