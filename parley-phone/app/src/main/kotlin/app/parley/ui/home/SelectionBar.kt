@@ -7,15 +7,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Archive
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import app.parley.ui.circle.CircleSnack
@@ -30,6 +24,7 @@ import app.parley.common.people.BulkActions
 import app.parley.data.AccountRef
 import app.parley.security.launchVault
 import app.parley.ui.ParleyListItem
+import app.parley.ui.SelectionTopBar
 import app.parley.ui.startOrSay
 import app.parley.ui.vault.ExpiryDialog
 import androidx.compose.material.icons.rounded.FileDownload
@@ -39,14 +34,10 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.getValue
@@ -54,13 +45,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -182,31 +171,17 @@ fun SelectionBar(vm: AppViewModel) {
         }
     }
 
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-        // Same room for the status bar and cutout as the header it replaces.
-        @OptIn(ExperimentalMaterial3Api::class)
-        val insets = TopAppBarDefaults.windowInsets
-        Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(insets).heightIn(min = 64.dp).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
-            Text(
-                pluralStringResource(R.plurals.sel_count, selection.size, selection.size),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll,
-                stringResource(R.string.watch_select_all)) }
-            val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
-            IconButton({
-                scope.launch { bulk.star(ids, !allStarred) }
-            }) { Icon(if (allStarred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (allStarred) R.string.sel_unstar else R.string.sel_star)) }
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
-                DropdownMenu(menu, { menu = false }) {
-                    MenuItems(menuEntries, { selectionMenuLabel(it) }, close = { menu = false }, onGroup = { menuGroup = it }, onAction = ::runMenu)
-                }
+    SelectionTopBar(selection.size, onClear = { vm.selection.value = emptySet() }) {
+        IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll,
+            stringResource(R.string.watch_select_all)) }
+        val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
+        IconButton({
+            scope.launch { bulk.star(ids, !allStarred) }
+        }) { Icon(if (allStarred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (allStarred) R.string.sel_unstar else R.string.sel_star)) }
+        Box {
+            IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
+            DropdownMenu(menu, { menu = false }) {
+                MenuItems(menuEntries, { selectionMenuLabel(it) }, close = { menu = false }, onGroup = { menuGroup = it }, onAction = ::runMenu)
             }
         }
     }

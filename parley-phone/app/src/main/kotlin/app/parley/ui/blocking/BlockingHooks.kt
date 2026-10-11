@@ -6,6 +6,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalResources
 import app.parley.common.LabelRefs
 import app.parley.ui.ParleyListItem
+import app.parley.ui.SelectionTopBar
 import app.parley.ui.Section
 import app.parley.ui.activityViewModel
 import app.parley.common.PhoneIdentity
@@ -14,7 +15,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.HourglassTop
@@ -35,14 +34,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -158,7 +154,7 @@ private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.re
 }
 
 /**
- * Bar shown while Recents rows are selected: block the unknown numbers in one go, after a confirmation that
+ * Recents' selection bar (the shared [SelectionTopBar], in the top bar's place as in Contacts): block the unknown numbers in one go, after a confirmation that
  * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
  * be blocked from their own page if that's really meant. Delete takes the chosen rows' calls out of the history at
  * once, with Undo on the snackbar (as a single row's Delete does). With one call selected, ⋮ opens its actions
@@ -178,29 +174,19 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
         PhoneIdentity.key(it.number, vm.countryIso)
     }
     val numbers = unknown.map { it.number }
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ recents.clearSelection() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
-            Text(
-                pluralStringResource(R.plurals.blk_selected, selected.size, selected.size),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
-                Icon(Icons.Rounded.Block, null)
-                Text(" " + stringResource(R.string.blk_block_n, numbers.size))
-            }
-            val deleteCd = stringResource(R.string.recents_delete_selected_cd)
-            IconButton(
-                {
-                    recents.deleteMany(chosen) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) }
-                    recents.clearSelection()
-                },
-                enabled = chosen.isNotEmpty(),
-            ) { Icon(Icons.Rounded.Delete, deleteCd) }
-            chosen.singleOrNull()?.let { g ->
-                IconButton({ onActions(g) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
-            }
+    SelectionTopBar(selected.size, onClear = { recents.clearSelection() }) {
+        IconButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
+            Icon(Icons.Rounded.Block, stringResource(R.string.blk_block_n, numbers.size))
+        }
+        IconButton(
+            {
+                recents.deleteMany(chosen) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) }
+                recents.clearSelection()
+            },
+            enabled = chosen.isNotEmpty(),
+        ) { Icon(Icons.Rounded.Delete, stringResource(R.string.recents_delete_selected_cd)) }
+        chosen.singleOrNull()?.let { g ->
+            IconButton({ onActions(g) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
         }
     }
     if (confirming) {
