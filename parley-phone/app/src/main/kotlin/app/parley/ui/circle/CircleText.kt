@@ -11,11 +11,14 @@ import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.R
 import app.parley.common.Messenger
+import app.parley.ui.common.Format
 import app.parley.common.circle.CircleStatus
 import app.parley.common.circle.ContactKind
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
+import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.KeepRhythm
+import app.parley.common.circle.PeopleInsights
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.RhythmMode
@@ -91,5 +94,72 @@ object CircleText {
         r.mode == RhythmMode.NATURAL && r.learnedDays != null -> res.getQuantityString(R.plurals.circle_natural_days, r.learnedDays!!, r.learnedDays!!)
         r.mode == RhythmMode.NATURAL -> res.getQuantityString(R.plurals.circle_natural_learning, everyDays, everyDays)
         else -> res.getQuantityString(R.plurals.circle_every_days, everyDays, everyDays)
+    }
+
+    /**
+     * How you two keep in touch, as one short paragraph of [facts] about [name] (their short name); [date] says when a
+     * call was ("Tue", "yesterday"). Null with no facts, and while a duress unlock hides relationship insights.
+     */
+    fun keepInTouch(res: Resources, name: String, facts: List<KeepInTouch.Fact>, date: (Long) -> String, privacy: PrivacyView = Privacy.duressOnly()): String? {
+        if (!privacy.insightsShown || facts.isEmpty()) return null
+        return facts.joinToString(" ") { f ->
+            when (f) {
+                is KeepInTouch.Fact.YourTurn -> yourTurn(res, name, f.times, privacy).orEmpty()
+                is KeepInTouch.Fact.Rhythm -> rhythmFact(res, f)
+                is KeepInTouch.Fact.Balance -> when (f.who) {
+                    PeopleInsights.FirstMover.THEM -> res.getString(R.string.circle_keep_first_them, name)
+                    PeopleInsights.FirstMover.YOU -> res.getString(R.string.circle_keep_first_you)
+                    PeopleInsights.FirstMover.BOTH -> res.getString(R.string.circle_keep_first_both)
+                }
+                is KeepInTouch.Fact.LooseEnd -> when (f.loop.kind) {
+                    PeopleInsights.LoopKind.THEIR_CALL -> res.getString(R.string.circle_keep_their_call, name, date(f.loop.time))
+                    PeopleInsights.LoopKind.YOUR_TRY -> res.getString(R.string.circle_keep_your_try, date(f.loop.time))
+                }
+            }
+        }.trim().ifEmpty { null }
+    }
+
+    /** "You usually talk about every 3 weeks; it's been 5 weeks." Weeks once the usual gap is two weeks or more. */
+    private fun rhythmFact(res: Resources, f: KeepInTouch.Fact.Rhythm): String {
+        val weeks = f.usualDays >= WEEKS_FROM_DAYS
+        val every = if (weeks) {
+            val w = Math.round(f.usualDays / 7.0).toInt()
+            res.getQuantityString(R.plurals.circle_keep_every_weeks, w, w)
+        } else {
+            res.getQuantityString(R.plurals.circle_keep_every_days, f.usualDays, f.usualDays)
+        }
+        if (f.sinceDays <= 0) return res.getString(R.string.circle_keep_rhythm_today, every)
+        val since = if (weeks && f.sinceDays >= 7) {
+            val w = Math.round(f.sinceDays / 7.0).toInt()
+            res.getQuantityString(R.plurals.circle_keep_since_weeks, w, w)
+        } else {
+            res.getQuantityString(R.plurals.circle_keep_since_days, f.sinceDays, f.sinceDays)
+        }
+        return res.getString(R.string.circle_keep_rhythm, every, since)
+    }
+
+    private const val WEEKS_FROM_DAYS = 14
+
+    /**
+     * "Ana has called you the last 3 times. Your turn to call?" (the digest's line for a due member, and the start of
+     * the keep-in-touch paragraph). Null without a turn, and while a duress unlock hides relationship insights.
+     */
+    fun yourTurn(res: Resources, name: String, times: Int?, privacy: PrivacyView = Privacy.duressOnly()): String? {
+        if (times == null || !privacy.insightsShown) return null
+        return res.getQuantityString(R.plurals.circle_keep_turn, times, name, times)
+    }
+
+    /** "14 calls, 3 h 10 min in the last year · 6 chats started from Parley". Null when hidden or empty. */
+    fun keepSummary(res: Resources, s: KeepInTouch.Summary?, privacy: PrivacyView = Privacy.duressOnly()): String? {
+        if (s == null || !privacy.insightsShown) return null
+        val parts = listOfNotNull(
+            when {
+                s.calls == 0 -> null
+                s.talkSec > 0 -> res.getQuantityString(R.plurals.circle_keep_calls_talk, s.calls, s.calls, Format.duration(s.talkSec))
+                else -> res.getQuantityString(R.plurals.circle_keep_calls, s.calls, s.calls)
+            },
+            s.chats.takeIf { it > 0 }?.let { res.getQuantityString(R.plurals.circle_keep_chats, it, it) },
+        )
+        return parts.joinToString(res.getString(R.string.main_separator)).ifEmpty { null }
     }
 }

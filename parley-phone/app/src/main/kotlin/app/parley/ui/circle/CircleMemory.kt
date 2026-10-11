@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -183,8 +184,14 @@ fun goodTimeText(
     return free + res.getString(R.string.main_separator) + res.getString(R.string.circle_time_there, Instant.ofEpochMilli(now).atZone(theirs).format(time))
 }
 
-/** Whether the pre-call peek has anything to say. */
-fun hasPeek(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote != null || memory.promises.isNotEmpty() || goodTime != null
+/**
+ * Whether the pre-call peek has anything to say. Their turn to hear from you ([yourTurn]) is reason enough; the peek
+ * then leads with it.
+ */
+fun hasPeek(memory: PersonMemory, goodTime: String?, yourTurn: Boolean = false): Boolean =
+    yourTurn || hasMemory(memory, goodTime)
+
+private fun hasMemory(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote != null || memory.promises.isNotEmpty() || goodTime != null
 
 /**
  * The pre-call peek before dialling from a contact's page: a good time to call, the last note, the things to talk about
@@ -203,6 +210,8 @@ fun PreCallPeekSheet(
     onDismiss: () -> Unit,
     /** More to see before calling (an organisation's case file), under the title. */
     extra: @Composable () -> Unit = {},
+    /** How you two keep in touch, the first line (your turn leads it); none while insights are hidden. */
+    keepInTouch: String? = null,
 ) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -215,6 +224,9 @@ fun PreCallPeekSheet(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
             )
+            keepInTouch?.let {
+                ParleyListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Insights, null) }, headlineContent = { Text(it) })
+            }
             extra()
             goodTime?.let {
                 ParleyListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })

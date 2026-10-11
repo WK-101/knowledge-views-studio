@@ -1,13 +1,17 @@
 package app.parley.ui.circle
 
+import app.parley.common.catching
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
+import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.CircleStatus
 import app.parley.common.circle.CircleSuggestions
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.KeepRhythm
 import app.parley.common.circle.LastContact
+import app.parley.common.circle.NaturalRhythm
+import app.parley.common.circle.PeopleInsights
 import app.parley.common.history.Period
 import app.parley.data.DataContainer
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 /** One person in the Circle, as the list shows them. */
@@ -70,4 +76,22 @@ class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List
             candidates, inCircle,
         ).mapNotNull { cand -> byKey[cand.lookupKey]?.let { CircleSuggestion(it, cand.calls, CircleSuggestions.daysFor(cand)) } }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * The quiet header over the Circle: the status counts, reach this month and the Circle's share of this month's
+     * talk time. Null below [CircleGlance.MIN_MEMBERS]; only the counts while a duress unlock hides insights.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val glance: StateFlow<CircleGlance.Glance?> = combine(rows, c.history.index, c.privacy.flow) { r, idx, p -> Triple(r, idx, p) }.mapLatest { (r, idx, p) ->
+        if (r == null || r.size < CircleGlance.MIN_MEMBERS) return@mapLatest null
+        val statuses = r.map { it.status }
+        if (!p.insightsShown) return@mapLatest CircleGlance.of(statuses, null, 0, 0, insightsShown = false)
+        val now = System.currentTimeMillis()
+        val keys = r.map { it.contact.lookupKey }.toSet()
+        val touches = catching { c.circle.touches(now - 2 * PeopleInsights.REACH_DAYS * NaturalRhythm.DAY, idx) }.getOrDefault(emptyList())
+        val month = Period.lastDays(PeopleInsights.REACH_DAYS, now)
+        val all = idx?.totals(month)?.talkSec ?: 0L
+        val circle = keys.sumOf { idx?.totals(month, personKey = "c:$it")?.talkSec ?: 0L }
+        CircleGlance.of(statuses, PeopleInsights.reach(keys, touches, now), circle, all, insightsShown = true)
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 }

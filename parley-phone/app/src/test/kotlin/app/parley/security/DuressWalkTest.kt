@@ -26,7 +26,11 @@ import app.parley.common.security.DuressMachine
 import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.circle.CircleGlance
+import app.parley.common.circle.CircleStatus
+import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.KeepRhythm
+import app.parley.common.circle.PeopleInsights
 import app.parley.common.circle.RhythmMode
 import app.parley.data.security.Privacy
 import app.parley.ui.circle.CircleText
@@ -170,9 +174,20 @@ class DuressWalkTest {
             CallEntry(i.toLong(), bank, null, if (i % 2 == 0) CallType.INCOMING else CallType.OUTGOING,
                 today.minusDays(i.toLong()).toInstant().toEpochMilli(), 120, null, false, false)
         }
+        // How you two keep in touch, your turn, the year's summary and the Circle's header.
+        val facts = listOf(KeepInTouch.Fact.YourTurn(3), KeepInTouch.Fact.Balance(PeopleInsights.FirstMover.THEM))
+        val summary = KeepInTouch.Summary(14, 11_400, 6)
+        val statuses = listOf(CircleStatus.DUE, CircleStatus.SOON, CircleStatus.FINE, CircleStatus.FINE)
+        val reach = PeopleInsights.Reach(3, 1, 4)
+        suspend fun glance() = CircleGlance.of(statuses, reach, 38, 100, c.privacy.now().insightsShown)!!
         assertTrue(c.privacy.now().insightsShown)
         assertTrue(CircleText.rhythm(res, 14, natural, c.privacy.now()).contains("20"))
         assertTrue(goodTimeText(res, evenings, bank, "US", privacy = c.privacy.now()) != null)
+        assertTrue(CircleText.keepInTouch(res, "Ana", facts, { "Tue" }, c.privacy.now())!!.contains("Ana"))
+        assertTrue(CircleText.yourTurn(res, "Ana", 3, c.privacy.now()) != null)
+        assertTrue(CircleText.keepSummary(res, summary, c.privacy.now()) != null)
+        assertEquals(reach, glance().reach)
+        assertEquals(38, glance().talkShare)
 
         duress()
         // The one privacy view says so, with or without the settings at hand, and every insight reads it.
@@ -180,6 +195,13 @@ class DuressWalkTest {
         assertFalse(Privacy.duressOnly().insightsShown)
         assertEquals(res.getString(R.string.circle_rhythm_natural), CircleText.rhythm(res, 14, natural))
         assertEquals(null, goodTimeText(res, evenings, bank, "US"))
+        for (privacy in listOf(c.privacy.now(), Privacy.duressOnly())) {
+            assertEquals(null, CircleText.keepInTouch(res, "Ana", facts, { "Tue" }, privacy))
+            assertEquals(null, CircleText.yourTurn(res, "Ana", 3, privacy))
+            assertEquals(null, CircleText.keepSummary(res, summary, privacy))
+        }
+        // The Circle's header keeps only the status counts, which every row's chip shows anyway.
+        assertEquals(CircleGlance.Glance(1, 1, 2, null, null), glance())
         // A rhythm you set yourself is a choice, not an insight: it still shows.
         assertTrue(CircleText.rhythm(res, 14, KeepRhythm()).contains("14"))
     }
