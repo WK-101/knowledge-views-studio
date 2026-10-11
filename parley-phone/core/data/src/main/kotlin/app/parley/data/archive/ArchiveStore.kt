@@ -79,10 +79,48 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
         loaded = true
     }
 
-    private fun readCards(): List<ArchivedCard> = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) }.mapNotNull { f ->
-        runCatching { Archive.decode(String(crypto.openBytes(f.readBytes()), Charsets.UTF_8)) }
-            .onFailure { Log.w(TAG, "An archived card couldn't be read now") }.getOrNull()
-    }.sortedBy { it.name.lowercase() }
+    /**
+     * The cards: from [INDEX] (one file for all of them) for every card file it lists, and only the card files it
+     * doesn't (a write cut short before the index followed) opened one by one. The index is written again then.
+     */
+    private fun readCards(): List<ArchivedCard> {
+        val ids = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) }.mapNotNull { it.name.removeSuffix(CARD).toLongOrNull() }.toSet()
+        val indexed = readIndex()
+        val known = indexed.orEmpty().filter { it.id in ids }
+        val missing = ids - known.mapTo(HashSet()) { it.id }
+        val opened = missing.mapNotNull { id ->
+            runCatching { Archive.decode(String(crypto.openBytes(File(dir, "$id$CARD").readBytes()), Charsets.UTF_8)) }
+                .onFailure { Log.w(TAG, "An archived card couldn't be read now") }.getOrNull()
+        }
+        val cards = (known + opened).sortedBy { it.name.lowercase() }
+        if (indexed == null || opened.isNotEmpty() || known.size != indexed.size) writeIndex(cards)
+        return cards
+    }
+
+    private fun readIndex(): List<ArchivedCard>? {
+        val f = File(dir, INDEX)
+        if (!f.isFile) return null
+        return catching {
+            val a = JSONArray(String(crypto.openBytes(f.readBytes()), Charsets.UTF_8))
+            (0 until a.length()).mapNotNull { Archive.decode(a.optString(it)) }
+        }.getOrNull()
+    }
+
+    /** Every card in one sealed file, so caller ID and lists read one file, not one per archived contact. */
+    private fun writeIndex(cards: List<ArchivedCard>) {
+        // None left: no index either, so nothing of the archive stays behind.
+        if (cards.isEmpty()) {
+            File(dir, INDEX).delete()
+            return
+        }
+        catching { DurableFiles.write(File(dir, INDEX), crypto.sealBytesOrThrow(JSONArray(cards.map(Archive::encode)).toString().toByteArray(Charsets.UTF_8))) }
+    }
+
+    /** The cards now [next]: in memory and in the index. */
+    private fun setCards(next: List<ArchivedCard>) {
+        _cards.value = next.sortedBy { it.name.lowercase() }
+        writeIndex(_cards.value)
+    }
 
     suspend fun all(): List<ArchivedCard> {
         load()
@@ -116,7 +154,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
             val card = cardOf(id, record, key, now)
             // The address book's copy goes only once the archive holds everything it had.
             if (!write(id, card, record)) return@withContext null
-            _cards.value = (_cards.value + card).sortedBy { it.name.lowercase() }
+            setCards(_cards.value + card)
             id
         }
         val purged = catching { c.contacts.purgeForVault(contactId) }.getOrElse { e ->
@@ -199,7 +237,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     private suspend fun forgetFiles(id: Long) = mutex.withLock {
         File(dir, "$id$CARD").delete()
         File(dir, "$id$REC").delete()
-        _cards.value = _cards.value.filterNot { it.id == id }
+        setCards(_cards.value.filterNot { it.id == id })
     }
 
     /** The whole record of archived contact [id] (photos included), for Unarchive, backups and exports. */
@@ -329,7 +367,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
             val id = nextId()
             val kept = card.copy(id = id)
             if (!write(id, kept, record)) return@withLock false
-            _cards.value = (_cards.value + kept).sortedBy { it.name.lowercase() }
+            setCards(_cards.value + kept)
             true
         }
     }
@@ -337,6 +375,9 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     companion object {
         private const val TAG = "ArchiveStore"
         private const val CARD = ".card"
+
+        /** Every card, sealed as one file ([readCards]); the card files stay the source. */
+        private const val INDEX = "index.sealed"
         private const val REC = ".rec"
         private const val KEY_TRIES = 5
         private const val KEY_RETRY_MS = 200L

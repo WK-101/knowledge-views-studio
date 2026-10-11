@@ -322,24 +322,49 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     }
 
     /** Number memory: changes with every snapshot written, dropped or purged. */
-    suspend fun memoryStamp(): String = withLog { log -> log.timestamps.joinToString(",") + "|" + log.entryCount }
+    suspend fun memoryStamp(): String = withLog(block = ::stampOf)
+
+    private fun stampOf(log: SnapshotLog): String = log.timestamps.joinToString(",") + "|" + log.entryCount
 
     /**
      * Number memory: each version of a contact the snapshots hold, with its numbers and the last snapshot that had it.
      * Each version is read once, without its photo.
      */
     suspend fun peopleForMemory(): NumberMemory.SnapshotSpans = withContext(Dispatchers.IO) {
-        val (spans, newest) = withLog { it.spans() to it.timestamps.lastOrNull() }
-        val versions = HashMap<String, NumberMemory.Person?>()
-        val people = spans.mapNotNull { s ->
-            versions.getOrPut(s.hash) {
-                catching { store.get(s.hash)?.let { RecordJson.decode(it.decodeToString()) { null } } }.getOrNull()?.let { r ->
-                    val numbers = r.raws.flatMap { raw -> raw.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }
-                    NumberMemory.Person(r.displayName, numbers)
-                }
-            }?.let { NumberMemory.PersonSpan(s.key, s.lastSeen, it) }
+        val (spans, newest, stamp) = withLog { Triple(it.spans(), it.timestamps.lastOrNull(), stampOf(it)) }
+        memoryLast?.takeIf { it.first == stamp }?.let { return@withContext it.second }
+        val people = synchronized(memoryPeople) {
+            // Versions decoded before are kept by hash: a new snapshot decodes only the versions it added.
+            val out = spans.mapNotNull { s -> memoryPeople.getOrPut(s.hash) { person(s.hash) }?.let { NumberMemory.PersonSpan(s.key, s.lastSeen, it) } }
+            val live = spans.mapTo(HashSet(spans.size)) { it.hash }
+            memoryPeople.keys.retainAll(live)
+            out
         }
-        NumberMemory.SnapshotSpans(people, newest ?: 0L)
+        NumberMemory.SnapshotSpans(people, newest ?: 0L).also { memoryLast = stamp to it }
+    }
+
+    /** One stored version's name and numbers, without its photo; null when it can't be read. */
+    private fun person(hash: String): NumberMemory.Person? =
+        catching { store.get(hash)?.let { RecordJson.decode(it.decodeToString()) { null } } }.getOrNull()?.let { r ->
+            val numbers = r.raws.flatMap { raw -> raw.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }
+            NumberMemory.Person(r.displayName, numbers)
+        }
+
+    /** Number memory's versions by hash (about 100 bytes each), and the last answer with the index it came from. */
+    private val memoryPeople = HashMap<String, NumberMemory.Person?>()
+
+    @Volatile private var memoryLast: Pair<String, NumberMemory.SnapshotSpans>? = null
+
+    /**
+     * Lets go of what is held between questions: the index (read again when next asked), and, when [all] (the phone is
+     * short of memory), the decoded versions too. The daily upkeep calls it when it is done.
+     */
+    suspend fun dropCaches(all: Boolean) {
+        mutex.withLock { cached = null }
+        if (all) {
+            synchronized(memoryPeople) { memoryPeople.clear() }
+            memoryLast = null
+        }
     }
 
     companion object {

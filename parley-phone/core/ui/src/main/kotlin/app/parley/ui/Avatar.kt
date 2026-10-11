@@ -43,9 +43,19 @@ import kotlinx.coroutines.withContext
 
 /** Tiny in-process photo loader for content:// contact photos. No network, no extra libraries. */
 object PhotoCache {
-    private val cache = object : LruCache<String, Bitmap>(16 * 1024 * 1024) {
+    private const val MAX_BYTES = 16 * 1024 * 1024
+
+    private val cache = object : LruCache<String, Bitmap>(MAX_BYTES) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
+
+    /** Sized to the heap Android gives the app ([heapBytes]): a twelfth of it, at most 16 MB (a low-RAM phone's is small). */
+    fun fit(heapBytes: Long) = cache.resize((heapBytes / HEAP_SHARE).coerceIn(1L, MAX_BYTES.toLong()).toInt())
+
+    /** Lets go of every photo (Parley went out of sight, or the phone is short of memory); they load again when shown. */
+    fun trim() = cache.evictAll()
+
+    private const val HEAP_SHARE = 12
 
     fun peek(key: String): Bitmap? = cache.get(key)
 

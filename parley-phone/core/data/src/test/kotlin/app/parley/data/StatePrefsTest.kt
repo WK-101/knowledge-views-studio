@@ -78,7 +78,7 @@ class StatePrefsTest {
 
     @Test fun every_store_of_a_shared_file_opens() {
         val grouped = PersistentStores.of(StoreKind.PREFS).filter { it.location != null }
-        assertEquals(22, grouped.size)
+        assertEquals(23, grouped.size)
         grouped.forEach { StatePrefs.open(context, it.name).edit().putBoolean("x", true).commit() }
         assertEquals(grouped.count { it.location == StatePrefs.LOCAL }, local.all.keys.count { it.endsWith(".x") })
     }

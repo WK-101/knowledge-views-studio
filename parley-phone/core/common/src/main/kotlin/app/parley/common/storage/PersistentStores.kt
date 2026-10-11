@@ -215,6 +215,10 @@ object PersistentStores {
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone"), location = LOCAL_STATE),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
+        PersistentStore(
+            "history_upkeep", StoreKind.PREFS, local("Whether calls were deleted by hand since number memory last read the whole archive"),
+            location = LOCAL_STATE,
+        ),
         PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here"), location = LOCAL_STATE),
         PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state"), location = LOCAL_STATE),
         PersistentStore("backup", StoreKind.PREFS, StorePolicy.Secret("The backup keys and the backup folder of this phone")),

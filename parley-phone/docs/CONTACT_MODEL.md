@@ -42,7 +42,10 @@ ContactVariants(storage, expiresAt) (what it is)
 An archived contact is out of Android's address book, so out of every list, search, picker and widget and out of
 other apps, and kept whole by Parley (`ArchiveStore`, core/data; rules in `Archive`, core/common). Unlike a private
 contact nothing is locked: its files in `files/archive` are sealed with the small-records key, which needs no unlock,
-so the call path names it while the phone is locked.
+so the call path names it while the phone is locked. Every card is also kept in one sealed `index.sealed`, rewritten on
+each archive, unarchive and restore: a process started for a ringing call reads that one file instead of opening every
+card, and only a card file the index doesn't list yet (a write cut short) is opened on its own and added. The card
+files stay the source.
 
 - **Archive** (the contact page's **Kept as** row, the Delete question's **Archive instead**, the Health check's stale
   group, a selection, and a chapter's end) reads the lossless record (`ContactRecordStore.read`

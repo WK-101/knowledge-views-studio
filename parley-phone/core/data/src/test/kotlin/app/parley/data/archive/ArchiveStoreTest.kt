@@ -323,4 +323,29 @@ class ArchiveStoreTest {
         val back = ArchiveStore.decodeRecord(ArchiveStore.encodeRecord(r))
         assertTrue(photo.contentEquals(back.raws.single().rows.single().blob))
     }
+
+    /** Caller ID reads one index file, not every card; a card the index missed (a write cut short) is read and added. */
+    @Test fun the_cards_are_read_from_one_index_and_a_missed_card_is_added() = runBlocking {
+        val (id, _) = ada()
+        val archived = c.archive.archive(id)!!
+        val dir = File(app.filesDir, "archive")
+        val index = File(dir, "index.sealed")
+        assertTrue(index.isFile)
+        assertFalse("sealed", String(index.readBytes()).contains("Lovelace"))
+
+        // No index yet for this card (as if the process died between the card and the index).
+        c.scope.cancel()
+        c.db.close()
+        index.delete()
+        c = DataContainer(app)
+        assertEquals(listOf(archived.id), c.archive.all().map { it.id })
+        assertTrue("written again with the card", index.isFile)
+
+        // A card file gone (unarchived elsewhere): the index entry for it is not used.
+        File(dir, "${archived.id}.card").delete()
+        c.scope.cancel()
+        c.db.close()
+        c = DataContainer(app)
+        assertTrue(c.archive.all().isEmpty())
+    }
 }

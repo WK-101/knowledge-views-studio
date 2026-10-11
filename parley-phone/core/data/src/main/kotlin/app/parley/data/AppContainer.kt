@@ -313,6 +313,9 @@ class DataContainer(context: Context) {
     /** "Who is this?" for numbers that aren't contacts, from what Parley keeps (keyed-hash index, sealed hints). */
     val numberMemory by lazy { NumberMemoryStore(this) }
 
+    /** What number memory and Recall both read, with stamps (each feature filters it for privacy itself). */
+    val kept by lazy { app.parley.data.memory.KeptSources(this) }
+
     /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
     val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }
 

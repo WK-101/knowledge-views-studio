@@ -16,6 +16,12 @@ object OriginalPhoto {
     /** Largest original kept as it is at all: a private contact's is opened whole in memory to show it. */
     const val MAX_BYTES = 100L shl 20
 
+    /**
+     * All originals kept together (phone and private contacts'). Past it a new picture is kept as a high-quality JPEG,
+     * however large it was, so a few huge files can't fill the phone; nothing kept already is touched.
+     */
+    const val TOTAL_BYTES = 1L shl 30
+
     /** Pixels of an original that has to be re-encoded: about 16 MP, ~64 MB decoded. */
     const val MAX_REENCODE_PIXELS = 16_000_000L
 
@@ -72,11 +78,12 @@ object OriginalPhoto {
      * How [p] is kept with answers [a]: as it is whenever Parley can (every format it names, up to [MAX_BYTES]), with
      * its location tags removed where that leaves the picture untouched. A JPEG instead when the file is over
      * [ASK_ABOVE_BYTES] and wasn't wanted whole, when a HEIC/HEIF/AVIF's location wasn't wanted kept, or when the format
-     * isn't one Parley knows.
+     * isn't one Parley knows, or when [kept] (every original kept now) and this one would pass [TOTAL_BYTES].
      */
-    fun plan(p: Probe, a: Answers): Plan {
+    fun plan(p: Probe, a: Answers, kept: Long = 0): Plan {
         val f = p.format ?: return Plan(Keep.REENCODE, false)
         if (p.bytes <= 0 || p.bytes > MAX_BYTES) return Plan(Keep.REENCODE, false)
+        if (kept + p.bytes > TOTAL_BYTES) return Plan(Keep.REENCODE, false)
         if (large(p) && a.keepWhole != true) return Plan(Keep.REENCODE, false)
         if (f in locationFixed && p.hasLocation != false && a.keepLocation != true) return Plan(Keep.REENCODE, false)
         return Plan(Keep.COPY, f in locationStrippable)

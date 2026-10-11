@@ -18,4 +18,12 @@ class HexTest {
         assertEquals("000f7f80ff", Hex.encode(bytes, 99))
         assertEquals("", Hex.encode(bytes, 0))
     }
+
+    @Test fun decodesWhatItEncodes() {
+        val bytes = ByteArray(256) { it.toByte() }
+        org.junit.Assert.assertArrayEquals(bytes, Hex.decode(Hex.encode(bytes)))
+        org.junit.Assert.assertArrayEquals(byteArrayOf(0xab.toByte()), Hex.decode("AB"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { Hex.decode("abc") }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { Hex.decode("zz") }
+    }
 }

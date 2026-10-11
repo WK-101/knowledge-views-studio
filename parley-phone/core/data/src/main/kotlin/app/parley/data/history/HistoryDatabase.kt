@@ -58,6 +58,9 @@ data class TrashedCallEntity(
 
 data class TrashBatch(val batchId: Long, val deletedAt: Long, val count: Int)
 
+/** How many archived calls a line's fingerprint has, and the first and last of them (dates are in the clear). */
+data class PersonCount(val personKey: String, val calls: Int, val firstAt: Long, val lastAt: Long)
+
 @Dao
 interface HistoryDao {
     @Query("SELECT * FROM archived_calls ORDER BY date DESC")
@@ -102,6 +105,10 @@ interface HistoryDao {
 
     @Query("SELECT MAX(id) FROM archived_calls")
     suspend fun maxId(): Long?
+
+    /** Every line's calls up to row [upTo], from the person and date indexes alone (nothing is opened). */
+    @Query("SELECT personKey, COUNT(*) AS calls, MIN(date) AS firstAt, MAX(date) AS lastAt FROM archived_calls WHERE id <= :upTo GROUP BY personKey")
+    suspend fun countsUpTo(upTo: Long): List<PersonCount>
 
     @Query("SELECT COUNT(*) FROM archived_calls WHERE id > :after")
     suspend fun countAfter(after: Long): Int

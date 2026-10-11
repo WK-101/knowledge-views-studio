@@ -54,6 +54,39 @@ class RecallSources(private val c: DataContainer) {
      * with a number is taken from those sources.
      */
     suspend fun load(access: Access): Stored = withContext(Dispatchers.IO) {
+        // Kept while nothing it was read from has changed: Recall turning on again (a new search) reads nothing.
+        val stamp = safely { stampFor(access) }
+        kept?.takeIf { stamp != null && it.first == stamp }?.let { return@withContext it.second }
+        fresh(access).also { stored -> kept = stamp?.let { it to stored } }
+    }
+
+    /** The last [load], with what it was read from. Dropped with this object (the screen's), never written anywhere. */
+    @Volatile private var kept: Pair<List<Any?>, Stored>? = null
+
+    /** Lets go of what [load] kept (a lock, the screen going away). */
+    fun drop() {
+        kept = null
+    }
+
+    /**
+     * What [load] depends on: the stores' stamps ([app.parley.data.memory.KeptSources]), the lists held in memory (by
+     * identity, so any change counts), and every privacy rule it applies.
+     */
+    private suspend fun stampFor(access: Access): List<Any?> {
+        val p = c.privacy.now()
+        return listOf(
+            access, c.kept.stamp(), p, VaultCrypto.lockedByPerson, region,
+            Identity(c.messaging.lastMessaged.value), Identity(c.cases.state.value), Identity(c.archive.cards.value), Identity(c.vault.listing.value),
+        )
+    }
+
+    /** Equal only to itself: a list replaced by a new one is a change. */
+    private class Identity(private val of: Any?) {
+        override fun equals(other: Any?) = other is Identity && other.of === of
+        override fun hashCode() = System.identityHashCode(of)
+    }
+
+    private suspend fun fresh(access: Access): Stored {
         val privateNumbers = if (access.privateShown) null else safely { PhoneIdentity.LineSet(c.vault.allNumbers(), region) }
         val hidden: (String) -> Boolean = when {
             access.privateShown -> { _ -> false }
@@ -71,7 +104,7 @@ class RecallSources(private val c: DataContainer) {
             archived = safely { c.archive.all().map { a -> RecallCorpus.Gone(a.name, a.numbers, a.archivedAt, a.id.toString()) } }.orEmpty() +
                 safely { privateArchived(access) }.orEmpty(),
         )
-        withoutPrivate(stored, hidden)
+        return withoutPrivate(stored, hidden)
     }
 
     /**
@@ -118,7 +151,7 @@ class RecallSources(private val c: DataContainer) {
     }
 
     private suspend fun notes(access: Access, hidden: (String) -> Boolean): List<RecallCorpus.Note> {
-        val names = c.numberMemory.ownerNames()
+        val names = c.kept.ownerNames()
         fun mayShow(key: String) = access.privateShown || !ContactRef.isPrivateKey(key)
         fun note(kind: RecallCorpus.Note.Kind, text: String?, key: String, at: Long): RecallCorpus.Note? =
             text?.takeIf { it.isNotBlank() && mayShow(key) }?.let { RecallCorpus.Note(kind, it, key, names[key], null, at, ContactRef.isPrivateKey(key)) }
@@ -165,14 +198,14 @@ class RecallSources(private val c: DataContainer) {
     }
 
     private suspend fun deleted(access: Access): List<RecallCorpus.Gone> {
-        val device = c.journal.deletedForMemory().map { d -> RecallCorpus.Gone(d.name, d.numbers, d.at, d.id.toString()) }
+        val device = c.kept.deleted().map { d -> RecallCorpus.Gone(d.name, d.numbers, d.at, d.id.toString()) }
         if (!access.privateShown || c.privacy.now().hides(Concealed.DELETED_PRIVATE_CONTACTS)) return device
-        return device + c.privateTrash.list().map { k -> RecallCorpus.Gone(k.name, k.numbers, k.deletedAt, k.file, private = true) }
+        return device + c.kept.deletedPrivate().map { k -> RecallCorpus.Gone(k.name, k.numbers, k.deletedAt, k.file, private = true) }
     }
 
     /** Contacts and numbers the snapshots had that the newest no longer has, one entry per name then. */
     private suspend fun snapshots(): List<RecallCorpus.Gone> {
-        val hints = NumberMemory.snapshotHints(c.timeMachine.peopleForMemory(), region).filter { it.hint.source == MemorySource.SNAPSHOT }
+        val hints = c.kept.snapshotHints(region).filter { it.hint.source == MemorySource.SNAPSHOT }
         return hints.groupBy { it.hint.name.orEmpty() to it.hint.at }.map { (key, entries) ->
             RecallCorpus.Gone(key.first, entries.map { it.number }.distinct(), key.second, entries.first().hint.ref ?: key.second.toString())
         }

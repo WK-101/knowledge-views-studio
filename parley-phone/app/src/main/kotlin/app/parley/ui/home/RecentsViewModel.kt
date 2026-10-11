@@ -276,11 +276,16 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         else -> true
     }
 
-    /** Each call's line for the network's names ([NetworkNames.line]), read once: lists regroup on every keystroke. */
-    private val lines = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /**
+     * Each call's line for the network's names ([NetworkNames.line]), read once: lists regroup on every keystroke.
+     * Bounded to about the calls a list holds, so years of distinct numbers don't pile up.
+     */
+    private val lines = app.parley.common.RecentCache<String, String>(LINES)
 
-    private fun lineOf(e: CallEntry): String =
-        lines.getOrPut(e.accountId.orEmpty() + "\n" + e.number) { NetworkNames.line(c.appContext, e.number, e.accountId) }
+    private fun lineOf(e: CallEntry): String {
+        val key = e.accountId.orEmpty() + "\n" + e.number
+        return lines[key] ?: NetworkNames.line(c.appContext, e.number, e.accountId).also { lines[key] = it }
+    }
 
     private fun group(
         calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
@@ -329,6 +334,9 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L
+
+        /** Lines kept: the calls in memory (Android's log and the archive's window) with room to spare. */
+        const val LINES = 8_192
 
         /** Chips for a look now and then: Recents never opens on them (it would look as if the calls had gone). */
         val TRANSIENT_CHIPS = setOf(RecentFilter.BLOCKED.name, RecentFilter.VOICEMAIL.name)

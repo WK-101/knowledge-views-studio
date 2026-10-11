@@ -5,6 +5,7 @@ import app.parley.common.storage.DurableFiles
 import app.parley.common.suspendRunCatching
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
+import app.parley.data.StatePrefs
 import app.parley.data.compactDatabase
 import app.parley.data.tidyDatabase
 import app.parley.common.security.LimitExceededException
@@ -383,6 +384,7 @@ class CallHistory(
             _archive.value.orEmpty().filter { private(it.record) }.mapTo(ids) { it.rowId }
         }
         if (ids.isEmpty()) return false
+        markRescan()
         ids.chunked(500).forEach { dao.deleteIds(it) }
         return true
     }
@@ -467,12 +469,48 @@ class CallHistory(
         val added = ArrayList<NumberMemory.PastCall>()
         val take = { a: ArchivedCall -> a.record.number?.takeIf { it.isNotBlank() }?.let { added += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
         val after = previous?.let { appendsAfter(it, region, count, maxId) }
+        val trimmed = if (previous != null && after == null) recounted(previous, region) else null
         when {
-            previous == null || after == null -> if (scanArchive { take(it) }) CallTally.empty(region).plus(added, mark) else null
+            trimmed != null -> if (guardKey { scanAfter(trimmed.second) { take(it) } }) trimmed.first.plus(added, mark) else null
+            previous == null || after == null -> if (scanArchive { take(it) }) {
+                rescanDone()
+                CallTally.empty(region).plus(added, mark)
+            } else {
+                null
+            }
             after == maxId -> previous.copy(mark = mark)
             guardKey { scanAfter(after) { take(it) } } -> previous.plus(added, mark)
             else -> null
         }
+    }
+
+    /**
+     * [previous] after calls only left the archive by date (retention), with the row it was read up to: each line
+     * counted again from the archive's own index of keyed fingerprints and dates, without opening a call. Null when the
+     * archive must be read again: a call was deleted by hand since (whose name, if the tally kept it, must go too), the
+     * region changed, or a fingerprint would count for two lines.
+     */
+    private suspend fun recounted(previous: CallTally, region: String?): Pair<CallTally, Long>? {
+        if (previous.region != region || rescanNeeded()) return null
+        // Row ids are never reused, so the rows after [seenMax] are the new ones even when the newest it read is gone.
+        val seenMax = previous.mark.split(':').mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 }?.get(1) ?: return null
+        val counts = dao.countsUpTo(seenMax).associate { it.personKey to CallTally.Count(it.calls, it.firstAt, it.lastAt) }
+        val iso = region ?: countryIso
+        return previous.recounted({ line -> personMacs(line.number, iso) }, counts)?.let { it to seenMax }
+    }
+
+    /**
+     * Calls deleted by hand: number memory reads the whole archive again at its next rebuild, so nothing it kept
+     * comes from them (a name, a count). Written before the delete, so a crash between them errs on reading again.
+     */
+    private fun markRescan() {
+        runCatching { StatePrefs.open(context, "history_upkeep").edit().putBoolean(K_RESCAN, true).commit() }
+    }
+
+    private fun rescanNeeded(): Boolean = runCatching { StatePrefs.open(context, "history_upkeep").getBoolean(K_RESCAN, false) }.getOrDefault(true)
+
+    private fun rescanDone() {
+        runCatching { StatePrefs.open(context, "history_upkeep").edit().remove(K_RESCAN).commit() }
     }
 
     /**
@@ -666,6 +704,7 @@ class CallHistory(
                 runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }
             }
             val keys = list.map { crypto.mac(HistoryMerge.key(it)) }
+            markRescan()
             keys.chunked(500).forEach { dao.deleteKeys(it) }
             reload()
             // Ring facts of deleted calls go with them.
@@ -732,6 +771,7 @@ class CallHistory(
                 // Rows filed under every form of the number, found through the person index (no whole-archive pass).
                 val rows = ArrayList<Long>()
                 personRowsEverywhere(number, iso, Long.MIN_VALUE).mapTo(rows) { it.rowId }
+                markRescan()
                 rows.chunked(500).forEach { dao.deleteIds(it) }
                 n += rows.size + dao.deleteByPerson(person)
                 dao.removeKeepForever(listOf(person))
@@ -750,6 +790,7 @@ class CallHistory(
         // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
         if (since == Long.MIN_VALUE && prefs.current().archiveEnabled) mutex.withLock {
             catching {
+                markRescan()
                 if (dao.deleteByPerson(personMac(number)) > 0) reload()
             }
         }
@@ -982,6 +1023,7 @@ class CallHistory(
     }
 
     companion object {
+        private const val K_RESCAN = "rescan"
         private const val TAG = "CallHistory"
 
         /** Ids of archived-only calls in [calls] start here (provider ids are far smaller; vault ids are negative). */

@@ -26,7 +26,8 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     override suspend fun doWork(): Result {
         val c = applicationContext.container
         val full = inputData.getBoolean(KEY_FULL, true)
-        runCatching { c.history.sync(full) }
+        // After a call, with the full app running its own archive sync follows the call log already: not twice.
+        if (full || !c.fullStart.isOpen) runCatching { c.history.sync(full) }
         if (full) {
             runCatching { c.history.applyRetention(c.settings.current().callLogRetentionDays) }
             ExportFiles.cleanup(applicationContext, olderThanMillis = TimeUnit.HOURS.toMillis(1))

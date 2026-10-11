@@ -3203,3 +3203,50 @@ Automated: `SituationsTest` (the notice only while a Situation lets some people 
 4. Travelling by roaming: make Travelling switch on abroad, travel (or use a SIM roaming abroad) so it turns on, then come back home within the same time zone and don't call or open Parley: within about an hour Travelling is off (home line, tile and notice).
 5. Situation notice wording: let Night switch on by its window: the notice says "until 07:00" (its window's end), not "until you turn it off". A Situation on because the car connected says it turns off by itself. Meeting switched on "For 1 hour" says the time; "Until I turn it off" says so.
 6. An archived private contact's page: "Kept as" reads Archived and there is no "Delete automatically" row; unarchive it and the row is back.
+
+## 48. Proven, fast and lighter (6.5)
+
+### 48.1 Per-call facts move into the history database
+Automated: `SealedLineStoreMoveTest` (every 6.4 row, unreadable ones too, moves byte for byte and the preferences value goes; a move cut short before the value went is not made twice; rows forgotten after the move never come back; a new call writes its own row and leaves the others untouched; pruning keeps the newest 400 of 60 days), `CallQualityStoreTest`, `NetworkNameStoreTest`, `NetworkNameSettingTest`, `HistoryDatabaseSchemaTest` (version 2 adds `call_facts`, archived calls untouched) (core:data, Robolectric).
+1. **The update.** On 6.4, make and take a few calls (one with a contact, one with an unknown number that sends a name, one missed), turn on Settings › Calls › Answering › "Remember names from the network". Update to this build: each call's "Why did it ring?" facts, call quality (Health › Call quality) and the network name under the number are still there.
+2. **After a call.** Take a call and hang up: the call screen closes at once (no pause), and the new call's facts show. "It wasn't them" on a saved organisation's call still keeps "never calls you" on.
+3. **Forgetting.** Delete a number's calls: its facts and network names go; Undo brings the names back. Turn "Remember names from the network" off and choose Delete: none is left (Settings shows nothing to ask about when turned off again).
+
+### 48.2 To call, menu memory and case files in their own files
+Automated: `ToCallStoreTest`, `MenuMemoryStoreTest`, `CaseFileStoreTest` (the 6.4 value moves once, and a crash after the files but before the value went leaves the files in charge; a move cut short before the index is made again; an unreadable value is never overwritten or moved; nothing plain on disk when sealing fails; a call rewrites only its own case's file and a removed case leaves no file) (core:data, Robolectric).
+1. **The update.** On 6.4 add two To call items, keep a menu shortcut for a bank and let a case file collect two calls with a reference number. Update: all three are as they were; the case's reference number still opens.
+2. **Locked phone.** With the phone locked, decline a call with "Remind me": the To call item is there after unlocking. A call to the bank while locked adds to its case file.
+3. **Backups.** Make an encrypted backup, clear Parley's data and restore: To call (without private contacts' items), menu shortcuts and case files come back.
+
+### 48.3 Bookkeeping flags in two files
+Automated: `StatePrefsTest` (every type copied once with its keys, the old file then deleted; a copy already made is not made again after a crash; two stores with the same keys never meet and `clear()` clears only its own; the ring path's file is filled before a call reads it), `PersistentStoresTest` (every store in a shared file is registered with it and never opened as a file of its own) (core:data, core:common).
+1. **The update.** On 6.4: dismiss a few tips, let the folder sync run once, place the Dial widget, and leave a missed-call reminder running. Update: the tips stay dismissed, the widget still dials its number, the reminder still repeats, and the folder sync doesn't run again at once.
+2. **The ring path.** After the update, before opening Parley, have someone call: the call rings and screens as before (the ring volume boost, if set, goes back after the call).
+3. `adb shell run-as app.parley.phone ls shared_prefs` (debug build): `local_state.xml` and `call_path_state.xml` instead of the twenty-odd small files.
+
+### 48.4 Recall and number memory read less
+Automated: `MemoryTallyTest` (after retention the tally is counted again from the index without opening a call; calls deleted by hand read the archive again, so nothing is kept from them), `CallTallyRecountTest` (core:common), `TimeMachineIndexTest` (asked again with nothing new, the same answer), `RecallKeptTest` (a new search reuses the corpus until a note changes; another privacy rule is another corpus) (core:data).
+1. **Recall again.** Recents › search, type words only a note matches: Recall answers. Close the search and search again: it answers at once. Edit that note, search again: the new text is found.
+2. **Privacy.** With private contacts unlocked, search a private contact's note; lock them with "Lock private contacts" and search again: it is gone. Discreet mode and a duress unlock hide the same as before.
+3. **Retention.** Set "Keep call history" to 1 year on a phone with older calls; after the next daily upkeep, the keypad's "Parley knows this number" counts for an old number go down to the calls kept, and a number with none left shows none.
+
+### 48.5 Ring-path reads: the shield index and the archive index
+Automated: `FamilyShieldExchangeTest` (a ring opens only the shield's index; a state changed without the index following is read instead), `ArchiveStoreTest` (the cards are read from one index; a card the index missed is read and added; a card file gone is not used) (core:data).
+1. **Shield.** With a shared label whose family shield is on and a member's scam verdict, restart the phone and have that number call before opening Parley: it is warned, silenced or blocked as the label says.
+2. **Archived.** Archive a contact, force-stop Parley and have them call: the call screen names them "Archived contact". Unarchive: a call names them from the address book again.
+
+### 48.6 Memory and storage housekeeping
+Automated: `SharedMetaTest` (one opened copy of the contacts' notes for every screen, following changes), `OriginalPhotoTest` (past 1 GiB of kept originals a new picture is kept as a high-quality JPEG) (core:data, core:common).
+1. **Out of sight.** Scroll Contacts with photos, press Home, open `adb shell dumpsys meminfo app.parley.phone`: the graphics memory goes down shortly after; back in Parley the photos load again.
+2. **Low-RAM phone.** On a phone with a small heap (Android Go, or an emulator with 512 MB), scroll a long Contacts list with photos: no stutter from repeated decoding, no crash.
+3. **After a call with Parley open.** Take a call with Parley in the foreground: Recents shows it within two seconds (the app's own sync), and no second archive pass runs 30 seconds later (`adb logcat -s WM-WorkerWrapper` shows the history worker finishing at once).
+4. **Backup with a huge original.** Keep a 60 MB photo as a contact's original and back up: the backup completes; the restored contact shows Android's copy of that photo.
+
+### 48.7 Start-up profile rules for 6.x
+Automated: `BaselineProfileRulesTest` (every rule names code that exists; the 6.x stores, the call path's helpers and Recall are covered) (core:common).
+1. Install the release build by `adb install` (no Play): `adb shell dumpsys package dexopt | grep -A3 app.parley.phone` shows a `speed-profile` status after the profile installer ran (or after `adb shell cmd package compile -m speed-profile -f app.parley.phone`).
+2. Generating the measured profile on an emulator stays as in docs/PERFORMANCE_BENCHMARKS.md; the hand-written rules are the fallback.
+
+### 48.8 The scale benchmark (JVM)
+Automated: `ScaleBenchmarkTest` (off by default; `PARLEY_BENCH=1 ./gradlew :core:data:testDebugUnitTest --tests '*ScaleBenchmarkTest'`): 10,000 contacts, 500 private, 1,000 archived, 50,000 calls; prints `BENCH` lines.
+1. Run it on this build and on the build before, on the same machine; the figures in docs/PERFORMANCE_BENCHMARKS.md ("6.5: the gate on the JVM") come from it. They are JVM figures; the device gate (cold screening, Contacts list, Recents keystroke, Recall's first result) is measured on the owner's phones with the macrobenchmarks.

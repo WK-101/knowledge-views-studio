@@ -70,4 +70,32 @@ class MemoryTallyTest {
         // Another region: read again too.
         assertFalse("+999" in c.history.tallyForMemory(marked, "FR")!!.lines)
     }
+
+    /** Retention takes the oldest calls every day: the tally is counted again from the index, no call opened. */
+    @Test fun callsLeftByDateAreCountedAgainWithoutReadingTheArchive() = runBlocking {
+        val day = 86_400_000L
+        val now = System.currentTimeMillis()
+        val mum = "+44 20 7946 0002"
+        c.history.restoreLines(listOf(line(mum, now - 400 * day), line(mum, now - 2 * day), line(mum, now - day), line("+44 20 7946 0009", now - 500 * day)))
+        val first = c.history.tallyForMemory(null, gb)!!
+        val key = first.lines.keys.first { first.lines.getValue(it).number == mum }
+        assertEquals(3, first.lines.getValue(key).count)
+        // A name only this tally has (as if a call had shown it): kept only if the tally is counted again, not read again.
+        val marked = first.copy(lines = first.lines + (key to first.lines.getValue(key).copy(name = "Marker", namedAt = now - day)))
+
+        c.history.applyRetention(365)
+        val trimmed = c.history.tallyForMemory(marked, gb)!!
+        assertEquals(1, trimmed.lines.size)
+        val l = trimmed.lines.getValue(key)
+        assertEquals(2, l.count)
+        assertEquals(now - 2 * day, l.since)
+        assertEquals(now - day, l.at)
+        assertEquals("counted again, not read again", "Marker", l.name)
+
+        // Calls deleted by hand: read again whole, so nothing is kept from them.
+        c.history.delete(c.history.callsFor(mum).take(1))
+        val read = c.history.tallyForMemory(trimmed, gb)!!
+        assertEquals(1, read.lines.getValue(key).count)
+        assertFalse(read.lines.getValue(key).name == "Marker")
+    }
 }

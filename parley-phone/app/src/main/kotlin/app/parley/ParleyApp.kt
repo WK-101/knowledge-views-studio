@@ -2,6 +2,7 @@ package app.parley
 
 import android.app.Application
 import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -12,6 +13,7 @@ import app.parley.calls.PrivateCallLogSweep
 import app.parley.common.catching
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
+import app.parley.data.NumberInfo
 import app.parley.data.StatePrefs
 import app.parley.data.people.CrashStore
 import app.parley.data.security.LockTransitions
@@ -26,9 +28,11 @@ import app.parley.shortcuts.WidgetLockRefresh
 import app.parley.situations.SituationTriggers
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
+import app.parley.ui.PhotoCache
 import app.parley.ui.common.ImageExport
 import app.parley.ui.contact.CallerTunes
 import app.parley.ui.contact.ContactCamera
+import app.parley.ui.contact.OriginalBitmaps
 import app.parley.ui.history.ExportFiles
 import app.parley.work.FolderSyncWorker
 import app.parley.work.MaintenanceWorker
@@ -56,6 +60,24 @@ class ParleyApp : Application() {
         UserJobs(container.scope, UserJobWorker.AppHost(this)) { JobNotices.post(this, it) }.also { JobNotices.observe(this, it, container.scope) }
     }
 
+    /**
+     * Out of sight, the decoded photos go (they load again when shown); short of memory, so do the place names and
+     * the snapshot versions number memory keeps between rebuilds.
+     */
+    @Suppress("DEPRECATION") // The levels still arrive; the newer API has no replacement for telling them apart.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            PhotoCache.trim()
+            OriginalBitmaps.trim()
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && ::container.isInitialized) {
+            NumberInfo.trim()
+            container.kept.drop()
+            container.scope.launch { suspendRunCatching { container.timeMachine.dropCaches(all = true) } }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         DebugStrictMode.install(this)
@@ -71,6 +93,11 @@ class ParleyApp : Application() {
         // before anything can ring (once; afterwards a marker in a file the ring path loads anyway).
         runCatching { StatePrefs.moveAll(this, StatePrefs.CALL_PATH) }
         TelecomGraph.install(AppTelecomDependencies(this, container))
+        // Image caches sized to this phone's heap (a low-RAM phone's is a fraction of a flagship's).
+        Runtime.getRuntime().maxMemory().let { heap ->
+            PhotoCache.fit(heap)
+            OriginalBitmaps.fit(heap)
+        }
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)

@@ -168,6 +168,9 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         var total = 0L
         for (ct in contacts) {
             if (ct.lookupKey !in keys) continue
+            // Sized before it is read: an original can be 100 MB, far past what the budget lets in.
+            val size = p.originals.size(ct.lookupKey)
+            if (size <= 0 || total + size > MAX_ORIGINAL_BYTES) continue
             val bytes = p.originals.read(ct.lookupKey) ?: continue
             if (total + bytes.size > MAX_ORIGINAL_BYTES) continue
             total += bytes.size

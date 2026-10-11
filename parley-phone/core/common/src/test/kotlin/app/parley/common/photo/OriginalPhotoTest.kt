@@ -129,4 +129,13 @@ class OriginalPhotoTest {
         assertEquals(Match.Stale, OriginalPhoto.match("content://p/1", "content://p/2", "content://p/3"))
         assertEquals(Match.Stale, OriginalPhoto.match(null, "content://p/2", null))
     }
+
+    @Test fun past_the_total_a_new_picture_is_kept_as_a_jpeg() {
+        val p = probe(ImageFiles.Format.PNG)
+        assertEquals(OriginalPhoto.Keep.COPY, OriginalPhoto.plan(p, OriginalPhoto.Answers(), kept = OriginalPhoto.TOTAL_BYTES - p.bytes).keep)
+        assertEquals(OriginalPhoto.Keep.REENCODE, OriginalPhoto.plan(p, OriginalPhoto.Answers(), kept = OriginalPhoto.TOTAL_BYTES - p.bytes + 1).keep)
+        // Asked to keep a large one whole: still a JPEG once the total is reached.
+        val large = probe(ImageFiles.Format.JPEG, bytes = OriginalPhoto.ASK_ABOVE_BYTES + 1)
+        assertEquals(OriginalPhoto.Keep.REENCODE, OriginalPhoto.plan(large, OriginalPhoto.Answers(keepWhole = true), kept = OriginalPhoto.TOTAL_BYTES).keep)
+    }
 }
