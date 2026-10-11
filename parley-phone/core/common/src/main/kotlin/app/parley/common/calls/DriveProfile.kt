@@ -1,6 +1,8 @@
 package app.parley.common.calls
 
 import app.parley.common.Codecs
+import app.parley.common.who.Who
+import app.parley.common.who.WhoRules
 import java.util.Locale
 import kotlinx.serialization.Serializable
 
@@ -19,8 +21,13 @@ data class DriveProfileConfig(
     val cars: List<CarDevice> = emptyList(),
     /** Say "Ana is calling" once, for contacts and private contacts (never a private one in discreet mode). */
     val announce: Boolean = true,
-    /** Answer favourites automatically after [answerSeconds]. */
+    /**
+     * Answer automatically after [answerSeconds]: on for [answerWho]. Kept under its old name, so an older version
+     * reading a backup still answers (its favourites).
+     */
     val answerFavourites: Boolean = false,
+    /** Who [answerFavourites] answers; null: Favourites, as it always was. Set from the one "who" picker. */
+    val answerWho: Who? = null,
     /** Answer the people and labels chosen for auto-answer on their pages. */
     val answerChosen: Boolean = false,
     val answerSeconds: Int = AutoAnswer.DEFAULT_SECONDS,
@@ -30,7 +37,8 @@ data class DriveProfileConfig(
     val enabled: Boolean get() = cars.isNotEmpty()
 
     companion object {
-        private val json = Codecs.full
+        // A "who" this version doesn't know (written by a newer one) reads as its default, not as a broken document.
+        private val json = Codecs.fullTolerant
 
         fun decode(text: String?): DriveProfileConfig = if (text.isNullOrBlank()) {
             DriveProfileConfig()
@@ -166,7 +174,8 @@ object DriveProfile {
     /** The auto-answer scope while [driving], or null when the drive profile answers nobody. */
     fun answerScope(cfg: DriveProfileConfig, driving: Boolean): AutoAnswer.DriveScope? {
         if (!driving || !(cfg.answerFavourites || cfg.answerChosen)) return null
-        return AutoAnswer.DriveScope(AutoAnswer.normalise(cfg.answerSeconds), cfg.answerFavourites, cfg.answerChosen)
+        val who = if (cfg.answerFavourites) WhoRules.answering(cfg.answerWho, Who.FAVOURITES) else null
+        return AutoAnswer.DriveScope(AutoAnswer.normalise(cfg.answerSeconds), who, cfg.answerChosen)
     }
 
     /** What the call path knows about a ringing call when deciding to announce or silence it. */

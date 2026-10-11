@@ -125,6 +125,11 @@ data class OffHours(
     /** Title of the label that may ring (all accounts). */
     val labelTitle: String? = null,
     val action: BlockAction = BlockAction.SILENCE,
+    /**
+     * With [allow] Favourites: Your Circle rings instead ([app.parley.common.who.WhoChoice.CIRCLE]). A field of its own,
+     * not a new [OffHoursAllow] value, so an older version restoring a backup reads Favourites rather than failing.
+     */
+    val circle: Boolean = false,
 )
 
 @Serializable
@@ -233,6 +238,10 @@ data class IncomingCallFacts(
     /** Contacts (or the vault) couldn't be checked; [isContact] is true because screening fails open. */
     val contactLookupFailed: Boolean = false,
     val contactStarred: Boolean = false,
+    /** The contact is in Your Circle; looked up only when off hours lets the Circle ring. */
+    val contactInCircle: Boolean = false,
+    /** Circle membership couldn't be read: off hours lets them ring (fails open). */
+    val circleLookupFailed: Boolean = false,
     /** Titles of the contact's labels, in every account (compared with [LabelRefs.key]). */
     val contactLabels: Set<String> = emptySet(),
     /** Label lookup failed: label block rules are skipped (fail open). */
@@ -545,7 +554,7 @@ object CallPolicy {
                 if (oh.enabled && active(oh.schedule) && allowLabel == null) {
                     val ok = when (oh.allow) {
                         OffHoursAllow.CONTACTS -> true
-                        OffHoursAllow.FAVOURITES -> f.contactStarred
+                        OffHoursAllow.FAVOURITES -> if (oh.circle) f.contactInCircle || f.circleLookupFailed else f.contactStarred
                         // Fail open when labels couldn't be read.
                         OffHoursAllow.LABEL -> f.labelLookupFailed || (oh.labelTitle != null && LabelRefs.key(oh.labelTitle) in titles)
                     }
@@ -783,7 +792,7 @@ object CallPolicy {
 
     private fun offHoursWho(o: OffHours) = when (o.allow) {
         OffHoursAllow.CONTACTS -> "contacts"
-        OffHoursAllow.FAVOURITES -> "favourites"
+        OffHoursAllow.FAVOURITES -> if (o.circle) "Your Circle" else "favourites"
         OffHoursAllow.LABEL -> "'${o.labelTitle?.trim() ?: "label"}'"
     }
 

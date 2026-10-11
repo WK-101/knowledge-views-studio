@@ -34,6 +34,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.parley.common.cases.CaseFiles
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.font.FontFamily
+import app.parley.common.cases.BookingCodes
+import app.parley.telecom.CaseCode
+import app.parley.ui.Clipboard
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ForceLtr
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
@@ -134,4 +147,82 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
             },
         )
     }
+}
+
+/** A call with an organisation's number, placed or answered (not ringing), that isn't an emergency call or a conference. */
+private fun codesApply(call: CallUi): Boolean =
+    !call.hidden && !call.isEmergency && !call.isConference && !call.number.isNullOrBlank() &&
+        call.state in setOf(CallState.DIALING, CallState.CONNECTING, CallState.ACTIVE, CallState.HOLDING)
+
+/**
+ * The booking pocket on the call screen: the codes kept in the organisation's case file ("Booking reference ·
+ * •••• R2B"), when you call them or once you answer them, under the caller and over the keypad. Each stays hidden
+ * until Show, which opens it in a large grouped view to read out ("QX7 R2B") with Copy. Never while the phone or
+ * Parley is locked, during a duress unlock, or for a private contact's case while private contacts are hidden.
+ */
+@Composable
+internal fun CaseCodesCard(call: CallUi, modifier: Modifier = Modifier) {
+    val applies = codesApply(call)
+    val locked = rememberKeyguardLocked()
+    var codes by remember(call.id) { mutableStateOf(emptyList<CaseCode>()) }
+    LaunchedEffect(call.id, applies, locked) {
+        if (!applies || locked) return@LaunchedEffect
+        val number = call.number.orEmpty()
+        codes = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.caseCodes(number, call.accountId) } }.getOrDefault(emptyList())
+    }
+    var shown by remember(call.id) { mutableStateOf<Pair<CaseCode, String?>?>(null) }
+    if (!applies || locked || codes.isEmpty()) return
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface, shape = ParleyShapes.card,
+        modifier = modifier.widthIn(max = CallButtonSize.panelMaxWidth).fillMaxWidth().padding(horizontal = Spacing.l),
+    ) {
+        Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
+            Text(
+                stringResource(R.string.incall_case_codes_title), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.semantics { heading() },
+            )
+            codes.forEach { code ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.incall_case_code_hidden, code.label, code.masked), style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = {
+                        caseScope.launch {
+                            val number = call.number.orEmpty()
+                            val value = catching { TelecomGraph.dependencies.openCaseCode(number, call.accountId, code.id) }.getOrNull()
+                            shown = code to value
+                        }
+                    }) { Text(stringResource(R.string.incall_case_code_show)) }
+                }
+            }
+        }
+    }
+    shown?.let { (code, value) -> CaseCodeDialog(code, value) { shown = null } }
+}
+
+/** One code, large and grouped to read out on the phone, with Copy (kept out of the clipboard's preview and history). */
+@Composable
+private fun CaseCodeDialog(code: CaseCode, value: String?, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    ParleyDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(code.label.ifBlank { stringResource(R.string.incall_case_code_read_out) }) },
+        text = {
+            if (value == null) {
+                Text(stringResource(R.string.incall_case_code_unopened))
+            } else {
+                ForceLtr {
+                    Text(
+                        BookingCodes.grouped(value), style = MaterialTheme.typography.displaySmall, fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.fillMaxWidth().semantics { contentDescription = value.toList().joinToString(" ") },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.incall_case_code_close)) } },
+        dismissButton = value?.let {
+            { TextButton({ Clipboard.copy(context, it, confirm = context.getString(R.string.incall_case_code_copied)) }) { Text(stringResource(R.string.incall_case_code_copy)) } }
+        },
+    )
 }

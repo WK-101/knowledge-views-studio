@@ -193,6 +193,9 @@ private contact is in a label, or exists.
   remove from label), the Contacts filters (any, all, Unlabelled) and counts, the editor's Labels chips, the selection
   bar's "Add to label", label ringtones, label rules and off hours (`CallScreener`), the label's SIM and Circle rhythm
   (`ExtrasStore`) and label call-time limits (`CallTimePlanner`).
+- The one "who" picker (6.7) reads them the same way: Your Circle in off hours and Situations (`CallScreener`, by the
+  contact's key, `parley-private:<id>` for a private one), and Your Circle and labels for auto-answer and Your car
+  (`AppTelecomDependencies`). A private contact in your Circle rings, and is answered, as a listed one would be.
 - Make private turns the contact's group rows into memberships; Make visible turns the memberships back into group
   rows (in a group of that label its account can hold) and removes the rows of labels it left while private.
 

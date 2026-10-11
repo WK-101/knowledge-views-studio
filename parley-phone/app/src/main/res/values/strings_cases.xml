@@ -122,4 +122,38 @@
     <string name="case_list_stopped_all">Case files stopped</string>
     <string name="case_list_off">Case files don\'t start on their own any more.</string>
     <string name="case_list_turn_on">Start again</string>
+    <!-- Booking pocket: a booking email or SMS shared to Parley; its codes go, sealed, into an organisation's case file. -->
+    <string name="booking_row">Keep the codes in a case file</string>
+    <plurals name="booking_row_sub">
+        <item quantity="one">%d code found · shown when you call them</item>
+        <item quantity="other">%d codes found · shown when you call them</item>
+    </plurals>
+    <string name="booking_title">Keep in a case file</string>
+    <string name="booking_codes">Codes in the text</string>
+    <string name="booking_codes_help">Tick the ones to keep. Nothing leaves your phone, and a card number is never offered.</string>
+    <string name="booking_which">Which organisation?</string>
+    <string name="booking_suggested">Has a number in the text</string>
+    <string name="booking_has_case">Case file</string>
+    <string name="booking_search">Find a contact</string>
+    <string name="booking_none">No one by that name</string>
+    <!-- The confirm button. %1$s the organisation's name. -->
+    <string name="booking_keep_in">Keep in %1$s\'s case file</string>
+    <string name="booking_pick_first">Choose the organisation first</string>
+    <plurals name="booking_kept">
+        <item quantity="one">%1$d code kept in %2$s\'s case file</item>
+        <item quantity="other">%1$d codes kept in %2$s\'s case file</item>
+    </plurals>
+    <string name="booking_failed">Couldn\'t keep the codes. Try again in a moment.</string>
+    <string name="booking_kind_booking">Booking reference</string>
+    <string name="booking_kind_confirmation">Confirmation</string>
+    <string name="booking_kind_reservation">Reservation</string>
+    <string name="booking_kind_order">Order number</string>
+    <string name="booking_kind_ticket">Ticket number</string>
+    <string name="booking_kind_policy">Policy number</string>
+    <string name="booking_kind_claim">Claim number</string>
+    <string name="booking_kind_customer">Customer number</string>
+    <string name="booking_kind_membership">Membership number</string>
+    <string name="booking_kind_case">Case number</string>
+    <string name="booking_kind_tracking">Tracking number</string>
+    <string name="booking_kind_code">Code</string>
 </resources>

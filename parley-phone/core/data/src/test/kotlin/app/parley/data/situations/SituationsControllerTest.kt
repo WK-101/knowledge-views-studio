@@ -351,4 +351,27 @@ class SituationsControllerTest {
         val sit = c.situations
         assertEquals(sit, c.situationsIfReady())
     }
+
+    @Test fun quiet_nights_move_into_night_once() = runBlocking {
+        val quiet = OffHours(enabled = true, schedule = Situations.NIGHT_WINDOW, allow = OffHoursAllow.CONTACTS)
+        c.settings.update { it.copy(screening = it.screening.copy(offHours = quiet)) }
+        assertTrue(c.situations.moveQuietNights())
+        assertFalse(c.settings.current().screening.offHours.enabled)
+        val night = c.situations.list.value.first { it.id == Situations.NIGHT }
+        assertEquals(Situations.NIGHT_WINDOW, night.schedule)
+        assertEquals(SituationRing.CONTACTS, night.ring)
+        // Once: off hours set the same way by hand later stay off hours, also after a restart.
+        c.situations.save(c.situations.defaults.first { it.id == Situations.NIGHT })
+        c.settings.update { it.copy(screening = it.screening.copy(offHours = quiet)) }
+        assertFalse(c.situations.moveQuietNights())
+        assertFalse(restarted().moveQuietNights())
+        assertTrue(c.settings.current().screening.offHours.enabled)
+    }
+
+    @Test fun own_off_hours_stay_where_they_are() = runBlocking {
+        // The set-up's own off hours (weekdays 23–06, declined) aren't the Quiet nights preset.
+        assertFalse(c.situations.moveQuietNights())
+        assertEquals(mine, c.settings.current().screening.offHours)
+        assertEquals(null, c.situations.list.value.first { it.id == Situations.NIGHT }.schedule)
+    }
 }

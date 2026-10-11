@@ -8,6 +8,9 @@ import app.parley.common.OffHoursAllow
 import app.parley.common.PolicyClock
 import app.parley.common.Schedule
 import app.parley.common.calls.SpeakerDefault
+import app.parley.common.who.Who
+import app.parley.common.who.WhoChoice
+import app.parley.common.who.WhoRules
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.LocalTime
@@ -42,6 +45,24 @@ enum class DeviceTrigger {
     ROAMING,
 }
 
+/** A settings page whose values a Situation may set while it is on ([Situations.overrides]). */
+enum class SituationArea {
+    /** Blocking & screening: off hours (who may ring) and the reply offered to people silenced. */
+    SCREENING,
+
+    /** Calls › Answering: auto-answer and the quick replies. */
+    ANSWERING,
+
+    /** Calls › During calls: the speaker. */
+    DURING,
+
+    /** Driving › Your car: the drive profile's switches. */
+    DRIVE,
+
+    /** SIMs: the SIM for calls, assisted dialling and the local-SIM hint. */
+    SIMS,
+}
+
 /** How the Situation on now was switched on. */
 enum class SituationCause { MANUAL, SCHEDULE, DEVICE }
 
@@ -69,6 +90,11 @@ data class Situation(
     val ringLabelId: Long? = null,
     /** The label it names was deleted: Favourites ring instead until a label is chosen again (the summary says so). */
     val ringLabelGone: Boolean = false,
+    /**
+     * With [ring] Favourites: Your Circle rings instead. A field of its own, not a new [SituationRing] value, so an older
+     * version restoring a backup reads Favourites (the nearest it knows) rather than failing to read the Situation.
+     */
+    val ringCircle: Boolean = false,
     /** The drive profile's switches (they act only while the car is connected, as always). */
     val driveAnnounce: Boolean? = null,
     val driveAnswerFavourites: Boolean? = null,
@@ -97,6 +123,29 @@ data class Situation(
 
     /** Whether it can switch itself on. */
     val automatic: Boolean get() = schedule != null || device != null
+
+    /** Who may ring while it is on, or null: as it is. */
+    val who: Who?
+        get() = when (ring) {
+            null -> null
+            SituationRing.EVERYONE -> Who.EVERYONE
+            SituationRing.CONTACTS -> Who.CONTACTS
+            SituationRing.FAVOURITES -> if (ringCircle) Who.CIRCLE else Who.FAVOURITES
+            SituationRing.LABEL -> Who(WhoChoice.LABEL, ringLabel)
+        }
+
+    /** This Situation letting [who] ring (null: as it is). [labelId]: the label's row on this phone, when known. */
+    fun withWho(who: Who?, labelId: Long? = null): Situation {
+        val plain = copy(ringLabel = null, ringLabelId = null, ringLabelGone = false, ringCircle = false)
+        return when (who?.choice) {
+            null -> plain.copy(ring = null)
+            WhoChoice.EVERYONE -> plain.copy(ring = SituationRing.EVERYONE)
+            WhoChoice.CONTACTS -> plain.copy(ring = SituationRing.CONTACTS)
+            WhoChoice.FAVOURITES -> plain.copy(ring = SituationRing.FAVOURITES)
+            WhoChoice.CIRCLE -> plain.copy(ring = SituationRing.FAVOURITES, ringCircle = true)
+            WhoChoice.LABEL -> plain.copy(ring = SituationRing.LABEL, ringLabel = who.label, ringLabelId = labelId)
+        }
+    }
 
     /** Whether it changes anything at all. */
     val changesSomething: Boolean
@@ -241,7 +290,7 @@ object Situations {
     /** [b] with [s]'s values in it. */
     fun apply(b: Behaviour, s: Situation): Behaviour {
         var out = b
-        s.ring?.let { out = out.copy(offHours = ringOffHours(b.offHours, it, s.ringLabel.takeUnless { s.ringLabelGone })) }
+        s.ring?.let { out = out.copy(offHours = ringOffHours(b.offHours, it, s.ringLabel.takeUnless { s.ringLabelGone }, s.ringCircle)) }
         s.driveAnnounce?.let { out = out.copy(driveAnnounce = it) }
         s.driveAnswerFavourites?.let { out = out.copy(driveAnswerFavourites = it) }
         s.driveSilenceUnknown?.let { out = out.copy(driveSilenceUnknown = it) }
@@ -269,15 +318,14 @@ object Situations {
      * Off hours for all day with [ring]; silenced, never rejected, so the calls still show as missed. A label that's
      * gone (or none chosen) lets Favourites ring rather than nobody.
      */
-    private fun ringOffHours(o: OffHours, ring: SituationRing, label: String?): OffHours {
-        val allDay = Schedule(Schedule.ALL_DAYS, 0, 0)
+    private fun ringOffHours(o: OffHours, ring: SituationRing, label: String?, circle: Boolean): OffHours {
+        val allDay = o.copy(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 0, 0), action = BlockAction.SILENCE)
         return when (ring) {
             SituationRing.EVERYONE -> o.copy(enabled = false)
-            SituationRing.CONTACTS -> o.copy(enabled = true, schedule = allDay, allow = OffHoursAllow.CONTACTS, action = BlockAction.SILENCE)
-            SituationRing.FAVOURITES -> o.copy(enabled = true, schedule = allDay, allow = OffHoursAllow.FAVOURITES, action = BlockAction.SILENCE)
-            SituationRing.LABEL -> label?.trim()?.takeIf { it.isNotEmpty() }
-                ?.let { o.copy(enabled = true, schedule = allDay, allow = OffHoursAllow.LABEL, labelTitle = it, labelId = null, action = BlockAction.SILENCE) }
-                ?: o.copy(enabled = true, schedule = allDay, allow = OffHoursAllow.FAVOURITES, action = BlockAction.SILENCE)
+            SituationRing.CONTACTS -> WhoRules.intoOffHours(allDay, Who.CONTACTS)
+            SituationRing.FAVOURITES -> WhoRules.intoOffHours(allDay, if (circle) Who.CIRCLE else Who.FAVOURITES)
+            // A label that's gone (or none chosen) lets Favourites ring rather than nobody.
+            SituationRing.LABEL -> WhoRules.intoOffHours(allDay, label?.trim()?.takeIf { it.isNotEmpty() }?.let(Who::label) ?: Who.FAVOURITES)
         }
     }
 
@@ -314,6 +362,7 @@ object Situations {
             labelId = back(current.labelId, applied.labelId, before.labelId),
             labelTitle = back(current.labelTitle, applied.labelTitle, before.labelTitle),
             action = back(current.action, applied.action, before.action),
+            circle = back(current.circle, applied.circle, before.circle),
         )
         // "Only this label" with no label would silence everyone: off hours switches itself off, as when a label goes.
         return if (out.allow == OffHoursAllow.LABEL && out.labelTitle.isNullOrBlank()) LabelRefs.labelGone(out) else out
@@ -587,6 +636,50 @@ object Situations {
         val kept = here.map { h -> if (fresh[h.id] == h) theirs[h.id] ?: h else h }
         val added = theirs.values.filter { b -> here.none { it.id == b.id } }
         return normalise(kept + added, defaults)
+    }
+
+    // ------------------------------------------------------------------ pages a Situation is in control of
+
+    /**
+     * Whether [s], while it is on, sets something [area] shows, so that page says "Set by Night · Turn off". A change
+     * made there while it is on is kept when it goes off (the rules of [restore]); the banner says who is in control.
+     */
+    fun overrides(s: Situation?, area: SituationArea): Boolean {
+        s ?: return false
+        return when (area) {
+            SituationArea.SCREENING -> s.ring != null || s.replyToSilenced != null
+            SituationArea.ANSWERING -> s.autoAnswerHeadset != null || s.autoAnswerChosen != null || !s.reply.isNullOrBlank()
+            SituationArea.DURING -> s.speaker != null
+            SituationArea.DRIVE -> s.driveAnnounce != null || s.driveAnswerFavourites != null || s.driveSilenceUnknown != null
+            SituationArea.SIMS -> !s.simId.isNullOrBlank() || s.assistedDialling != null || s.localSimHint != null
+        }
+    }
+
+    // ------------------------------------------------------------------ the one night
+
+    /**
+     * Quiet nights as Blocking & screening's preset set it before it became the Night Situation: off hours from 22:00 to
+     * 07:00 every day, letting contacts ring and silencing everyone else.
+     */
+    fun isQuietNightsOffHours(o: OffHours): Boolean =
+        o.enabled && o.schedule == NIGHT_WINDOW && o.allow == OffHoursAllow.CONTACTS && !o.circle && o.action == BlockAction.SILENCE
+
+    /** [night] as the Quiet nights preset sets it: on by itself from 22:00 to 07:00, letting contacts ring. */
+    fun quietNights(night: Situation): Situation = night.withWho(Who.CONTACTS).copy(schedule = NIGHT_WINDOW)
+
+    /** Whether the Night Situation switches on by itself (the Quiet nights preset is in use). */
+    fun nightScheduled(list: List<Situation>): Boolean = list.firstOrNull { it.id == NIGHT }?.schedule != null
+
+    /**
+     * The one move from the Quiet nights preset to the Night Situation, or null when there is nothing to move: off hours
+     * exactly as the preset set them, Night still as it came ([fresh]) and no Situation on now ([state]). Then Night
+     * takes the window and who rings, and off hours goes off: the same calls ring and the same are silenced, at the same
+     * times. Anything else (off hours of one's own, a Night already changed) is left exactly as it is.
+     */
+    fun moveQuietNights(offHours: OffHours, list: List<Situation>, fresh: Situation, state: SituationState): Pair<OffHours, Situation>? {
+        val night = list.firstOrNull { it.id == NIGHT } ?: return null
+        if (state.activeId != null || !isQuietNightsOffHours(offHours) || night != fresh) return null
+        return offHours.copy(enabled = false) to quietNights(night)
     }
 
     // ------------------------------------------------------------------ labels

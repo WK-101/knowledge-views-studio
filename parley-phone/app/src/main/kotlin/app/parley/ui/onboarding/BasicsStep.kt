@@ -37,6 +37,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.blocking.ScreeningPreset
+import app.parley.common.situations.Situations
+import app.parley.ui.situations.NightSituation
 import app.parley.common.ux.BasicLayout
 import app.parley.common.ux.Basics
 import app.parley.common.ux.BasicsChoice
@@ -54,7 +56,8 @@ import kotlinx.coroutines.launch
 internal fun ColumnScope.BasicsStep(vm: AppViewModel, done: (BasicsChoice) -> Unit) {
     val scope = rememberCoroutineScope()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val start = Basics.current(settings)
+    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
+    val start = Basics.current(settings, Situations.nightScheduled(situations))
     var preset by rememberSaveable { mutableStateOf(start.screening?.name) }
     var someoneElse by rememberSaveable { mutableStateOf(false) }
     var layout by rememberSaveable { mutableStateOf(start.layout?.name ?: BasicLayout.TABS.name) }
@@ -92,6 +95,8 @@ internal fun ColumnScope.BasicsStep(vm: AppViewModel, done: (BasicsChoice) -> Un
             )
             scope.launch {
                 vm.c.settings.update { Basics.apply(it, choice) }
+                // Quiet nights is the Night Situation; asked only when it isn't already the one in use.
+                choice.screening?.takeIf { it != start.screening }?.let { NightSituation.applyPreset(vm.c, it) }
                 done(choice)
             }
         },

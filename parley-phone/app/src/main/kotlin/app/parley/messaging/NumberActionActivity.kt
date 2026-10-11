@@ -131,6 +131,9 @@ class NumberActionActivity : LockedActivity() {
 
         /** Shared text to talk about with someone: pick who. */
         data object AgendaPick : Stage
+
+        /** The booking pocket: the codes in the text, ticked, and the organisation's case file they go into. */
+        data object Booking : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
         /** [raw] is the number as written in the text, re-read when the user picks another country. */
         data class Actions(val number: String, val raw: String? = null) : Stage
@@ -167,6 +170,10 @@ class NumberActionActivity : LockedActivity() {
 
     /** Shared text that is more than a number or a map link (a signature, a profile): offered as a new contact. */
     private var contactText by mutableStateOf<String?>(null)
+
+    /** Shared text holding booking codes (the booking pocket), and how many; kept only while the sheet is open. */
+    private var bookingText by mutableStateOf<String?>(null)
+    private var bookingCount by mutableStateOf(0)
 
     /** The selected or shared text, offered as something to talk about (kept only if the user adds it). */
     private var agendaText by mutableStateOf<String?>(null)
@@ -298,6 +305,7 @@ class NumberActionActivity : LockedActivity() {
         sourceText = null
         contactText = null
         agendaText = null
+        bookingText = null
         contactCheck?.cancel()
         val text = when (intent.action) {
             MessageNumber.ACTION -> return Stage.Enter
@@ -316,6 +324,7 @@ class NumberActionActivity : LockedActivity() {
         val found = NumberText.find(text, region)
         if (found.size > 1) sourceText = text
         offerContactLater(text, region)
+        bookingCodes(container, text, region).size.takeIf { it > 0 }?.let { n -> bookingText = text; bookingCount = n }
         // What the text says besides its number: something to talk about.
         agendaText = if (found.size > 1) null else Agenda.clean(found.singleOrNull()?.let { text.replace(it.raw, " ") } ?: text)
         return when (found.size) {
@@ -375,12 +384,14 @@ class NumberActionActivity : LockedActivity() {
                                 modifier = Modifier.clickable { stage = Stage.AgendaPick },
                             )
                         }
+                        BookingOffer()
                         MakeContactRow()
                         TextButton({ finish() }) { Text(stringResource(R.string.action_close)) }
                     }
                     is Stage.Place -> PlaceActions(s.place)
                     Stage.Enter -> EnterNumber()
                     Stage.AgendaPick -> AgendaPick(container, agendaText.orEmpty(), ::finish)
+                    Stage.Booking -> BookingPocket(container, bookingText.orEmpty(), ::finish)
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
                     is Stage.Message -> ReachSheetContent(ReachTarget.Number(s.number, s.accountId), onCall = callAction()) { app -> afterLaunch(app != null) }
@@ -414,6 +425,7 @@ class NumberActionActivity : LockedActivity() {
                     modifier = Modifier.clickable { saveAll() },
                 )
             }
+            BookingOffer()
             MakeContactRow()
             found.forEach { f ->
                 ParleyListItem(
@@ -468,6 +480,13 @@ class NumberActionActivity : LockedActivity() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         finish()
+    }
+
+    /** "Keep the codes in a case file", when the shared text holds booking codes. */
+    @Composable
+    private fun BookingOffer() {
+        if (bookingText == null) return
+        BookingRow(bookingCount) { stage = Stage.Booking }
     }
 
     /** "Make a contact from this text": the details read from the shared text, ticked in a new contact's editor. */
@@ -658,6 +677,7 @@ class NumberActionActivity : LockedActivity() {
                 )
             }
             agendaText?.let { AgendaNumberRow(container, it, number, contactName, ::finish) }
+            BookingOffer()
             MakeContactRow()
         }
         if (askTemporary) {

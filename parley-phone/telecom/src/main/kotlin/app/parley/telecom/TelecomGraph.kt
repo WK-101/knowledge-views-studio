@@ -60,6 +60,10 @@ data class CallerDisplay(
     val ownRingtone: String? = null,
     /** A favourite (starred contact, or a private contact with Parley's star): the drive profile may answer it. */
     val favourite: Boolean = false,
+    /** In Your Circle, for the "who" auto-answer and the drive profile answer ([app.parley.common.who.Who]). */
+    val inCircle: Boolean = false,
+    /** Their labels' titles, read only while auto-answer or the drive profile answers a label. */
+    val labels: Set<String> = emptySet(),
     /**
      * "Remember names from the network" is on and this caller's name may show (the app leaves it off for a private
      * contact that discreet mode or a duress session hides): the name the network sends may show under [name].
@@ -414,7 +418,19 @@ interface CaseFileHooks {
 
     /** "Keep as a reference": adds [reference] to [number]'s case file, sealed; false when it couldn't be kept. */
     suspend fun keepCaseReference(number: String, accountId: String?, reference: String): Boolean = false
+
+    /**
+     * The codes kept in [number]'s case file (the booking pocket, and reference numbers), hidden; empty when there are
+     * none, or they may not show now (Parley's app lock, a duress unlock, a private contact's while those are hidden).
+     */
+    suspend fun caseCodes(number: String, accountId: String?): List<CaseCode> = emptyList()
+
+    /** One of [caseCodes] opened, for Show; null when it can't be opened right now. */
+    suspend fun openCaseCode(number: String, accountId: String?, id: String): String? = null
 }
+
+/** A code kept in a case file, as the call screen lists it before Show: what it is ([label]) and its last characters ([masked]). */
+data class CaseCode(val id: String, val label: String, val masked: String)
 
 /**
  * The agenda on the call screen: things to talk about with the person on the line ([app.parley.common.circle.Agenda]).

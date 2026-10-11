@@ -102,7 +102,8 @@ import app.parley.ui.contact.ContactPageRoutes
 import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.family.FamilyRoutes
-import app.parley.ui.drive.DriveRoutes
+import app.parley.ui.situations.SituationRoutes
+import app.parley.common.situations.Situations
 import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.hasSeveralAccounts
@@ -497,7 +498,8 @@ private val placeRoutes: Map<SettingPlace, Destination> by lazy {
         SettingPlace.SYNC to Routes.Sync,
         SettingPlace.TEMPORARY to Routes.Temporary,
         SettingPlace.HELPERS to FamilyRoutes.Helpers,
-        SettingPlace.DRIVE_PROFILE to DriveRoutes.Profile,
+        // The drive profile lives inside Driving (Your car).
+        SettingPlace.DRIVE_PROFILE to SituationRoutes.Edit(Situations.DRIVING),
         SettingPlace.PHONE_MENUS to CallsRoutes.PhoneMenus,
         SettingPlace.APP_LOCK to AppLockRoutes.UnlockWith,
         SettingPlace.SHARED_LABELS to SharedLabelRoutes.All,

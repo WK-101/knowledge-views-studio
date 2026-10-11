@@ -47,6 +47,10 @@ import androidx.compose.material3.Checkbox
 import app.parley.common.BlockAction
 import app.parley.common.TraceCodec
 import app.parley.common.blocking.ScreeningPreset
+import app.parley.common.situations.SituationArea
+import app.parley.common.situations.Situations
+import app.parley.ui.situations.NightSituation
+import app.parley.ui.situations.SituationOverrideBanner
 import app.parley.common.blocking.ScreeningWeek
 import app.parley.common.blocking.ScreeningWeekly
 import app.parley.common.blocking.StoppedCall
@@ -101,6 +105,8 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             // The setups first, with the one you're on named and what the last week looked like.
+            // A Situation on now that sets who may ring says so first, with Turn off.
+            item(key = "situation") { SituationOverrideBanner(vm, SituationArea.SCREENING) }
             item(key = "presets") { PresetsItem(st, log) { presetToApply = it } }
             item(key = "status") { ScreeningStatusCard(vm) }
             // "Expecting a call" chip in the header.
@@ -116,6 +122,8 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item(key = "decides") { WhatDecidesSection(st, open) }
             item(key = "allow") { AllowSection(st, open) }
             item(key = "block") { BlockRulesSection(st, open) }
+            // The one night: the Night Situation (Quiet nights), then off hours, the engine it sets.
+            item(key = "night") { NightSituationRow(st, open) }
             item(key = "offhours") { OffHoursSection(st) }
             item(key = "more") { MoreChecksSection(st) }
             // Sales lines learnt from your calls, and "Expecting a call" from notes (they were on Settings' page).
@@ -152,7 +160,8 @@ private fun PresetsItem(st: BlockingState, log: List<BlockedCallEntity>, pick: (
             weekOf(all, now) { vm.contactFor(it)?.lookupKey }
         }
     }
-    PresetHeader(ScreeningPreset.current(st.screening), week, pick)
+    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
+    PresetHeader(ScreeningPreset.current(st.screening, Situations.nightScheduled(situations)), week, pick)
 }
 
 /** "Use this setup?": what the setup would replace is said here, and can be kept. */
@@ -165,7 +174,12 @@ private fun PresetDialog(st: BlockingState, pr: ScreeningPreset, close: () -> Un
         title = stringResource(pr.title),
         text = stringResource(pr.help),
         confirmLabel = stringResource(R.string.blk_use_this),
-        onConfirm = { st.setSettings { pr.apply(it, keepSchedule = keep) }; close() },
+        onConfirm = {
+            st.setSettings { pr.apply(it, keepSchedule = keep) }
+            // Quiet nights is the Night Situation; "Everyone can ring" stops it switching on by itself.
+            st.vm.c.scope.launch { NightSituation.applyPreset(st.vm.c, pr) }
+            close()
+        },
         onDismiss = close,
         dismissLabel = stringResource(R.string.dc_cancel),
         content = removed?.let { sch ->

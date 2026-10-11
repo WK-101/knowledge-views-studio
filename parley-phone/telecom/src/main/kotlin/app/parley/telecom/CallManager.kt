@@ -226,6 +226,8 @@ object CallManager {
                 simpleMode = runCatching { deps.appearance.value.simpleMode }.getOrDefault(false),
                 chosen = session.info?.autoAnswerChosen == true,
                 favourite = session.info?.favourite == true,
+                inCircle = session.info?.inCircle == true,
+                labels = session.info?.labels.orEmpty(),
                 drive = drive.answerScope(appContext),
             )
         }

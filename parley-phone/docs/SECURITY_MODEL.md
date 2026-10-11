@@ -325,6 +325,8 @@ in History & undo, private names in notifications and on the call screen. And, b
 - **Case files**: none shows, and a backup made during the hiding carries none (their notes, promises and reference
   numbers). Tools › Case files is empty and offers no "Stop keeping case files for all", and a case's status can't be
   set (its page shows nothing).
+  The booking pocket isn't offered either: text shared to Parley shows no "Keep the codes in a case file", and the call
+  screen shows no codes.
 - **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as
   their number, without the rule that caught them or the quiet-hours reply. Every such notification also has a
   lock-screen version with no name and no number, and follows "Caller on the lock screen" while the phone is locked.
@@ -548,3 +550,18 @@ asked during a build), and by SHA-256 for the rest, including artifacts whose si
 under `ignored-keys`). Releases are signed outside
 the repository: see [RELEASING.md](RELEASING.md). Spam-list packs from the companion app are pinned to the key that
 first signed them; the companion's own packs must carry its pinned key.
+
+## Booking pocket (6.7)
+
+A booking email or SMS shared to Parley (Android's share sheet, `text/plain`, the existing "Call or message a number"
+entry: no new component, filter or permission) is read on the phone only (`BookingCodes`): reference-like codes are
+offered for the person to tick, never a payment card number (13–19 digits passing the Luhn check), a phone number in
+the text, a date or a time. Nothing is kept until the person chooses the organisation and taps Keep; the shared text
+itself is never stored. Each code becomes a reference number of that organisation's case file, sealed on its own with
+the small-records key like every reference (`CaseFileStore.addReference`); a contact without a case file gets one,
+private when the contact is private. On the call screen the codes show only while the phone and Parley are unlocked,
+never during a duress unlock and, for a private contact's case, only while private contacts show (`CaseFileBridge`, the
+same rules as "Keep as a reference"); each is listed masked ("•••• R2B") and opened only with Show, and Copy marks the
+clip sensitive. Backups carry them as they carry every reference number (in the encrypted backup only, private
+contacts' cases left out).
+

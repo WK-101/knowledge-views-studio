@@ -48,7 +48,10 @@ import app.parley.common.catching
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.situations.DeviceTrigger
 import app.parley.common.situations.Situation
-import app.parley.common.situations.SituationRing
+import app.parley.common.situations.SituationArea
+import app.parley.common.situations.SituationKind
+import app.parley.common.situations.Situations
+import app.parley.common.who.WhoPlace
 import app.parley.telecom.CarAudio
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.Destination
@@ -97,7 +100,8 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
             item("sit_name") { LinkRow(stringResource(R.string.label_name), name, Icons.Rounded.Edit) { renaming = true } }
         }
         WhileOn(vm, s, ::edit)
-        InTheCar(vm, s, open, ::edit)
+        // The drive profile lives inside Driving only (and a Situation that already sets its switches keeps them shown).
+        if (s.kind == SituationKind.DRIVING || Situations.overrides(s, SituationArea.DRIVE)) InTheCar(vm, s, open, ::edit)
         AbroadAndSims(vm, s, ::edit)
         TurnsOn(s, ::edit)
         SegmentedGroup {
@@ -152,32 +156,11 @@ private fun TriRow(title: String, value: Boolean?, icon: ImageVector, sub: Strin
     MenuRow(title, triOptions(), triIndex(value), icon, sub) { onPick(triValue(it)) }
 }
 
-/** Where [s]'s "Who may ring" is in its menu: As it is, Everyone, Contacts, Favourites, then [labels]. */
-private fun ringIndex(s: Situation, labels: List<String>): Int = when (s.ring) {
-    null -> 0
-    SituationRing.EVERYONE -> 1
-    SituationRing.CONTACTS -> 2
-    SituationRing.FAVOURITES -> 3
-    SituationRing.LABEL -> 4 + labels.indexOfFirst { LabelRefs.key(it) == s.ringLabel?.let(LabelRefs::key) }.coerceAtLeast(0)
-}
-
 /** Who may ring, the reply, the speaker and auto-answer. */
 @Composable
 private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situation) -> Unit) {
     // Title → a group row with it, so the Situation follows the label if it's renamed in any app.
-    val labelRows by produceState(emptyMap<String, Long>()) {
-        value = withContext(Dispatchers.IO) {
-            catching { vm.c.contacts.groups().groupBy { LabelRefs.key(it.title) }.mapValues { (_, g) -> g.minOf { it.id } } }.getOrDefault(emptyMap())
-        }
-    }
-    val labels = labelRows.keys.toList()
-    // A label chosen earlier is offered even while the labels are read (or if it went).
-    val labelChoices = (listOfNotNull(s.ringLabel?.takeIf { s.ring == SituationRing.LABEL }) + labels).distinctBy { LabelRefs.key(it) }
-    val ringOptions = listOf(
-        stringResource(R.string.sit_as_is), stringResource(R.string.label_everyone), stringResource(R.string.label_contacts),
-        stringResource(R.string.label_favourites),
-    ) + labelChoices
-    val ringIndex = ringIndex(s, labelChoices)
+    val labelRows = rememberLabelRows(vm)
     val speakerOptions = listOf(
         stringResource(R.string.sit_as_is), stringResource(R.string.label_never), stringResource(R.string.label_always),
         stringResource(R.string.set_speaker_unknown),
@@ -187,18 +170,11 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
     SegmentedGroup(stringResource(R.string.sit_group_sets)) {
         item("sit_ring") {
             val ringSub = labelGone(LocalContext.current, s) ?: stringResource(R.string.sit_ring_sub)
-            MenuRow(stringResource(R.string.sit_ring), ringOptions, ringIndex, Icons.Rounded.People, ringSub) { i ->
-                edit {
-                    when (i) {
-                        0 -> it.copy(ring = null, ringLabel = null, ringLabelId = null, ringLabelGone = false)
-                        1 -> it.copy(ring = SituationRing.EVERYONE, ringLabel = null, ringLabelId = null, ringLabelGone = false)
-                        2 -> it.copy(ring = SituationRing.CONTACTS, ringLabel = null, ringLabelId = null, ringLabelGone = false)
-                        3 -> it.copy(ring = SituationRing.FAVOURITES, ringLabel = null, ringLabelId = null, ringLabelGone = false)
-                        else -> labelChoices.getOrNull(i - 4).let { t ->
-                            it.copy(ring = SituationRing.LABEL, ringLabel = t, ringLabelId = t?.let { k -> labelRows[LabelRefs.key(k)] }, ringLabelGone = false)
-                        }
-                    }
-                }
+            WhoRow(
+                stringResource(R.string.sit_ring), ringSub, Icons.Rounded.People, s.who, WhoPlace.SITUATION, labelRows.keys,
+                none = stringResource(R.string.sit_as_is),
+            ) { who ->
+                edit { it.withWho(who, who?.label?.let { t -> labelRows[LabelRefs.key(t)] }) }
             }
         }
         item("sit_reply") {
@@ -263,7 +239,7 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
             }
         }
         item("sit_drive_favourites") {
-            TriRow(stringResource(R.string.action_answer_favourites_automatically), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
+            TriRow(stringResource(R.string.action_answer_automatically), s.driveAnswerFavourites, Icons.Rounded.Star, stringResource(R.string.sit_drive_answer_sub)) { v ->
                 edit { it.copy(driveAnswerFavourites = v) }
             }
         }

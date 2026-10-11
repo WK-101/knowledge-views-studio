@@ -255,7 +255,7 @@ object TemplateText {
                 out += if (o.enabled) {
                     val who = when (o.allow) {
                         OffHoursAllow.CONTACTS -> context.getString(R.string.blk_who_contacts)
-                        OffHoursAllow.FAVOURITES -> context.getString(R.string.blk_who_favourites)
+                        OffHoursAllow.FAVOURITES -> context.getString(if (o.circle) R.string.who_circle else R.string.blk_who_favourites)
                         OffHoursAllow.LABEL -> o.labelTitle ?: context.getString(R.string.label_label_lower)
                     }
                     context.getString(

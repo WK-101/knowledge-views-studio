@@ -208,6 +208,33 @@ class SituationsController(
         true
     }
 
+    /**
+     * Once: Blocking & screening's Quiet nights preset becomes the Night Situation ([Situations.moveQuietNights]). Off
+     * hours exactly as the preset set them, with Night untouched, move into Night (on by itself 22:00–07:00, contacts
+     * ring) and off hours goes off, so the same calls ring at the same times. Anything else is left as it is. Not
+     * marked done while a Situation is on (the stores hold its values then), so it is tried again at the next start.
+     * True when it moved.
+     */
+    suspend fun moveQuietNights(): Boolean {
+        if (listPrefs.getBoolean(K_NIGHT_MOVED, false)) return false
+        var moved = false
+        changed {
+            val st = _state.value
+            if (st.activeId != null) return@changed false
+            val fresh = defaults.first { it.id == Situations.NIGHT }
+            val move = Situations.moveQuietNights(settings.current().screening.offHours, _list.value, fresh, st)
+            if (move != null) {
+                // Night first: a death in between leaves both on, which rings and silences the same calls.
+                saveList(_list.value.map { if (it.id == Situations.NIGHT) move.second else it })
+                settings.update { it.copy(screening = it.screening.copy(offHours = move.first)) }
+                moved = true
+            }
+            listPrefs.edit().putBoolean(K_NIGHT_MOVED, true).commit()
+            moved
+        }
+        return moved
+    }
+
     /** A new Situation's id. */
     fun newId(): String = Situations.newId(System.currentTimeMillis(), _list.value.map { it.id })
 
@@ -384,5 +411,6 @@ class SituationsController(
         const val TAG = "Situations"
         const val K_LIST = "list"
         const val K_STATE = "state"
+        const val K_NIGHT_MOVED = "quiet_nights_moved"
     }
 }

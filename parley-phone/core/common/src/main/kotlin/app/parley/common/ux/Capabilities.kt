@@ -242,7 +242,8 @@ object CapabilityCatalog {
         // Situations took the drive profile's featured place: since 6.0 the car is part of the Driving Situation.
         setting("situations", CALLS, "Situations", "Driving, a meeting or night: one tap sets who may ring, and puts it back", "situations",
             "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top().listedIn(LISTED_6_4),
-        screen("drive_profile", CALLS, "Drive profile", "Your car for the Driving Situation: announce callers, answer chosen people", AppScreen.DRIVE_PROFILE,
+        // The drive profile lives inside Driving only: this row opens the Driving Situation, where Your car is.
+        screen("drive_profile", CALLS, "Your car", "Inside the Driving situation: announce callers, answer the people you choose", AppScreen.DRIVE_PROFILE,
             "car", "driving", "bluetooth", "android auto", "announce", since = "4.7"),
         screen("helpers", CALLS, "Add a helper to a call", "Someone you trust, joined in with one tap", AppScreen.HELPERS,
             "helper", "family", "conference", since = "4.5"),

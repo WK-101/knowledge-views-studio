@@ -1,6 +1,7 @@
 package app.parley.common.calls
 
 import app.parley.common.Codecs
+import app.parley.common.who.Who
 import kotlinx.serialization.Serializable
 
 /**
@@ -27,6 +28,11 @@ data class CallExtrasConfig(
     val autoAnswerHeadset: Boolean = false,
     /** …in simple mode… */
     val autoAnswerSimple: Boolean = false,
+    /**
+     * Who is answered with a headset ([app.parley.common.who.WhoRules.answering]): null is what it always was, every
+     * contact and private contact. Set from the one "who" picker.
+     */
+    val autoAnswerWho: Who? = null,
     /** …or for the people and labels chosen on their pages… */
     val autoAnswerChosen: Boolean = false,
     /** …after this many seconds of ringing, with Cancel on the call screen. */

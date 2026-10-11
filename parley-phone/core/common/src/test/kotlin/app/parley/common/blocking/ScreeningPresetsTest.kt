@@ -22,13 +22,14 @@ class ScreeningPresetsTest {
     }
 
     @Test fun each_setup_is_named_after_it_is_applied() {
+        // Quiet nights is the Night Situation switching on by itself ([ScreeningPreset.situation]).
         ScreeningPreset.entries.forEach { p ->
             val s = p.apply(AppSettings()).screening
-            assertTrue("$p is named after applying it", p in ScreeningPreset.current(s))
+            assertTrue("$p is named after applying it", p in ScreeningPreset.current(s, nightScheduled = p == ScreeningPreset.NIGHTS))
         }
         // From any starting point, not only the defaults.
         val busy = ScreeningPreset.NIGHTS.apply(ScreeningPreset.KNOWN.apply(AppSettings()))
-        assertEquals(listOf(ScreeningPreset.KNOWN, ScreeningPreset.NIGHTS), ScreeningPreset.current(busy.screening))
+        assertEquals(listOf(ScreeningPreset.KNOWN, ScreeningPreset.NIGHTS), ScreeningPreset.current(busy.screening, nightScheduled = true))
         assertEquals(listOf(ScreeningPreset.EVERYONE), ScreeningPreset.current(ScreeningPreset.EVERYONE.apply(busy).screening))
     }
 
