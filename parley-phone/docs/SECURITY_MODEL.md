@@ -587,3 +587,5 @@ same rules as "Keep as a reference"); each is listed masked ("•••• R2B")
 clip sensitive. Backups carry them as they carry every reference number (in the encrypted backup only, private
 contacts' cases left out).
 
+
+**Restoring on an older version (6.7).** Headset auto-answer limited to Favourites, Your Circle or a label is stored in a field older versions don't know. Restoring a 6.7 backup on 6.6 or earlier drops that limit, so auto-answer goes back to every contact. Check Calls › Answering after restoring on an older version. The drive profile falls back to Favourites and is not affected.
