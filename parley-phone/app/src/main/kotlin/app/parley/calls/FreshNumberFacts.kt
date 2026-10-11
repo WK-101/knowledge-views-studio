@@ -34,7 +34,16 @@ object FreshNumberFacts {
             null
         } else {
             val verdict = catching { c.people.provenance.verdict(owner.contactId) }.getOrNull()
-            NumberPassport.unseen(NumberPassportSweep.attribution(verdict), entry.looked, now)
+            val attribution = NumberPassportSweep.attribution(verdict)?.takeIf { it.origin.warns }
+            // Many contacts changed since the last look (an account added): the sweep would say "unknown", so say nothing.
+            // Unreadable counts as many: no line rather than a wrong one.
+            val changed = if (attribution == null) {
+                0
+            } else {
+                entry.looked?.let { l -> catching { c.contacts.changedSince(l, NumberPassport.MASS_CHANGE + 1) }.getOrNull() }
+                    ?: (NumberPassport.MASS_CHANGE + 1)
+            }
+            NumberPassport.unseen(attribution, entry.looked, now, changed)
         }
         if (stamp == null || !stamp.origin.warns) return null
         val callsSince = catching { c.history.callsFor(number, since = stamp.since, region = iso) }.getOrDefault(emptyList()).size

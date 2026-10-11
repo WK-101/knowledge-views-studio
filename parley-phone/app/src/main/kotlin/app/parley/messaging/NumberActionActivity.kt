@@ -640,8 +640,9 @@ class NumberActionActivity : LockedActivity() {
                     headlineContent = { Text(stringResource(R.string.action_add_to_contacts)) },
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                     modifier = Modifier.clickable {
+                        // Through Parley's own entry: the number is one you chose to save, not another app's.
                         startActivity(
-                            Intent(this@NumberActionActivity, MainActivity::class.java)
+                            IntentRoutes.own(this@NumberActionActivity)
                                 .setAction(Intent.ACTION_INSERT_OR_EDIT)
                                 .setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE)
                                 .putExtra(ContactsContract.Intents.Insert.PHONE, e164 ?: number),

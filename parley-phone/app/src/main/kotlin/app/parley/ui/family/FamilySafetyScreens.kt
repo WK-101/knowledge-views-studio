@@ -62,6 +62,7 @@ import app.parley.R
 import app.parley.calls.ExpectedCallHints
 import app.parley.common.ContactSummary
 import app.parley.common.TextSearch
+import app.parley.common.calls.ExpectedCalls
 import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.calls.Helper
@@ -383,7 +384,9 @@ internal fun windowText(context: Context, w: ExpectedWindow): String = DateUtils
 @Composable
 private fun sourceText(w: ExpectedWindow, discreet: Boolean): String = when (w.source) {
     ExpectedSource.NOTE -> w.shownLabel(discreet)?.let { stringResource(R.string.expected_from_note_on, it) } ?: stringResource(R.string.expected_from_note)
-    ExpectedSource.TO_CALL -> stringResource(R.string.expected_from_to_call) + (w.number?.let { stringResource(R.string.main_separator) + Bidi.ltr(it) } ?: "")
+    ExpectedSource.TO_CALL -> stringResource(if (w.callback) R.string.expected_from_callback else R.string.expected_from_to_call) +
+        (w.number?.let { stringResource(R.string.main_separator) + Bidi.ltr(it) } ?: "") +
+        (if (w.anyCaller) stringResource(R.string.main_separator) + stringResource(R.string.expected_any_number) else "")
     ExpectedSource.DELIVERY_QR -> stringResource(R.string.expected_from_delivery)
 }
 
@@ -399,7 +402,8 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val summary by store.summary.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { store.load() }
     val now = remember { System.currentTimeMillis() }
-    val upcoming = summary.windows.filter { it.end > now && summary.consents[it.source] == true }.sortedBy { it.start }
+    // Every window in force, "They'll call me back" ones too (they need no yes), so each can be seen and ended early.
+    val upcoming = ExpectedCalls.inForce(summary.windows, summary.consents, now).sortedBy { it.start }
     val discreet = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     ParleyDialog(
         onDismissRequest = onDismiss,

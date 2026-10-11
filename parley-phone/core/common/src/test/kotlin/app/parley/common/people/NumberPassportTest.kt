@@ -111,4 +111,27 @@ class NumberPassportTest {
         assertNull(NumberPassport.unseen(Attribution(NumberOrigin.UNKNOWN, looked + 1_000), looked, looked + 2_000))
         assertNull(NumberPassport.unseen(Attribution(NumberOrigin.OTHER_APP, looked + 1_000), null, looked + 2_000))
     }
+
+    @Test fun a_save_landing_while_a_sweep_reads_the_address_book_keeps_its_stamp() {
+        val base = NumberPassport.sweep(PassportState(), mapOf("mum" to listOf(mumOld)), emptyMap(), t0)
+        // You add a number in Parley; the sweep's copy of the address book was read just before the save landed.
+        val typed = NumberPassport.saved(base, "mum", listOf(mumOld), listOf(mumOld, mumNew), t0 + day) { NumberOrigin.YOU }
+        val raced = NumberPassport.sweep(typed, mapOf("mum" to listOf(mumOld)), emptyMap(), t0 + day + 1)
+        assertEquals(NumberOrigin.YOU, raced.stamps.getValue(mumNew.key).origin)
+        assertTrue(NumberPassport.unattributed(raced, mapOf("mum" to listOf(mumOld, mumNew))).isEmpty())
+        // A sync touching the contact afterwards is never asked about: the number is still yours, and never warns.
+        val synced = mapOf("mum" to Attribution(NumberOrigin.SYNC, t0 + 2 * day))
+        val next = NumberPassport.sweep(raced, mapOf("mum" to listOf(mumOld, mumNew)), synced, t0 + 2 * day)
+        assertEquals(NumberOrigin.YOU, next.stamps.getValue(mumNew.key).origin)
+        // A number written and then really removed is forgotten one look later.
+        val gone = NumberPassport.sweep(raced, mapOf("mum" to listOf(mumOld)), emptyMap(), t0 + 2 * day)
+        assertFalse(mumNew.key in gone.stamps)
+        assertFalse(mumNew.key in gone.known)
+    }
+
+    @Test fun a_change_seen_first_while_it_rings_is_quiet_when_an_account_arrived_at_once() {
+        val sync = Attribution(NumberOrigin.SYNC, t0 + day)
+        assertEquals(NumberOrigin.SYNC, NumberPassport.unseen(sync, looked = t0, now = t0 + day, changedSince = 1)?.origin)
+        assertNull(NumberPassport.unseen(sync, looked = t0, now = t0 + day, changedSince = NumberPassport.MASS_CHANGE + 1))
+    }
 }

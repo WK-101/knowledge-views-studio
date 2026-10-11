@@ -89,6 +89,8 @@
     <string name="fav_dnd_title">Starred for Do Not Disturb</string>
     <string name="fav_dnd_body">Parley starred these people so their label can ring through Do Not Disturb. Android sees them starred like your favourites; here they stay apart until you make them one.</string>
     <string name="fav_dnd_make">Make a favourite</string>
+    <!-- TalkBack, on Make a favourite. %1$s: the person's name -->
+    <string name="fav_dnd_make_a11y">Make %1$s a favourite</string>
     <!-- %1$s: a name -->
     <string name="fav_dnd_made">%1$s is a favourite now</string>
     <!-- %1$s: a label's title -->

@@ -280,9 +280,17 @@ object ExpectedCalls {
     /** The "They'll call me back" windows open at [now]. */
     fun callbacksAt(windows: List<ExpectedWindow>, now: Long): List<ExpectedWindow> = windows.filter { it.callback && it.covers(now) }
 
-    /** [windows] with [w] in place of any window from the same source, without ended ones, at most [MAX_WINDOWS]. */
-    fun put(windows: List<ExpectedWindow>, w: ExpectedWindow, now: Long): List<ExpectedWindow> =
-        (prune(windows, now).filterNot { it.source == w.source && it.key == w.key } + w).sortedBy { it.start }.takeLast(MAX_WINDOWS)
+    /**
+     * [windows] with [w] in place of any window from the same source, without ended ones, at most [MAX_WINDOWS]. A
+     * "They'll call me back" window the user opened stays when a hint's window for the same line comes ("Remind me" on
+     * that line): the hint's would need a yes and drop the callback's quieting of "never calls you".
+     */
+    fun put(windows: List<ExpectedWindow>, w: ExpectedWindow, now: Long): List<ExpectedWindow> {
+        val live = prune(windows, now)
+        val same = live.filter { it.source == w.source && it.key == w.key }
+        if (!w.callback && same.any { it.callback }) return live
+        return (live - same.toSet() + w).sortedBy { it.start }.takeLast(MAX_WINDOWS)
+    }
 
     /** Without the windows that have ended. */
     fun prune(windows: List<ExpectedWindow>, now: Long): List<ExpectedWindow> = windows.filter { it.end > now }

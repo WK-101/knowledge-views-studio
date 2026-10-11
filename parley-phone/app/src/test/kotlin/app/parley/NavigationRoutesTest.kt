@@ -16,6 +16,7 @@ import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
+import app.parley.common.people.NumberOrigin
 import app.parley.data.ContactDetails
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
@@ -208,6 +209,16 @@ class NavigationRoutesTest {
         assertTrue(resolve(Intent.ACTION_INSERT)?.event is NavEvent.NewContact)
         assertTrue(resolve(Intent.ACTION_INSERT_OR_EDIT)?.event is NavEvent.InsertOrEdit)
         opens(Routes.forEvent(NavEvent.NewContact(ContactDetails()))!!)
+    }
+
+    @Test fun an_insert_from_parley_itself_is_yours_and_from_another_app_handed_over() {
+        val insert = Intent(Intent.ACTION_INSERT_OR_EDIT).putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, "+447700900123")
+        val mine = IntentRoutes.resolve(insert, fromParley = true) { null }?.event as NavEvent.InsertOrEdit
+        val theirs = IntentRoutes.resolve(insert, fromParley = false) { null }?.event as NavEvent.InsertOrEdit
+        assertEquals(NumberOrigin.YOU, mine.origin)
+        assertEquals(NumberOrigin.HANDED_OVER, theirs.origin)
+        val other = IntentRoutes.resolve(Intent(Intent.ACTION_INSERT), fromParley = false) { null }?.event as NavEvent.NewContact
+        assertEquals(NumberOrigin.HANDED_OVER, other.origin)
     }
 
     @Test fun otherAppsEditContactOpensTheEditor() {

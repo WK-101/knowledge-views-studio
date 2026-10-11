@@ -1127,6 +1127,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
 
     /**
+     * How many contacts Android dates after [since], counted no further than [cap] (one small query, for the call path:
+     * many at once is an account arriving, not one number changed). Null when it can't be read.
+     */
+    fun changedSince(since: Long, cap: Int): Int? =
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts._ID), "${Contacts.CONTACT_LAST_UPDATED_TIMESTAMP} > ?", arrayOf(since.toString()))
+            ?.use { c -> minOf(c.count, cap) }
+
+    /**
      * Called after Parley changed how raw contacts are grouped into contacts (join, separate, move), with the
      * (contact id, lookup key) pairs from before, so per-contact metadata and temporary flags can follow.
      * Set by the container.
