@@ -314,7 +314,7 @@ class DataContainer(context: Context) {
     val numberMemory by lazy { NumberMemoryStore(this) }
 
     /** What number memory and Recall both read, with stamps (each feature filters it for privacy itself). */
-    val kept by lazy { app.parley.data.memory.KeptSources(this) }
+    val kept by lazy { app.parley.data.memory.KeptSources({ db }, { journal }, { privateTrash }, { timeMachine }, contacts, { vault }, { meta }) }
 
     /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
     val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }
