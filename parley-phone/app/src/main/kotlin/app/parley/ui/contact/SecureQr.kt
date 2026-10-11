@@ -151,7 +151,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
         ConfirmDialog(
             title = stringResource(R.string.sqr_encrypted_contact),
             text = null,
-            confirmLabel = stringResource(R.string.blk_open),
+            confirmLabel = stringResource(R.string.action_open),
             onConfirm = {
                 scope.launch {
                     result = try {
@@ -190,7 +190,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
         }
         ParleyDialog(
             onDismissRequest = onDone,
-            title = { Text(r.displayName.ifBlank { stringResource(R.string.rel_contact) }) },
+            title = { Text(r.displayName.ifBlank { stringResource(R.string.label_contact) }) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator)))
@@ -205,7 +205,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                     scope.launchVault(activity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
                         val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(NavEvent.Vault(id))
                     }
-                }) { Text(stringResource(R.string.temp_save_privately)) }
+                }) { Text(stringResource(R.string.action_save_privately)) }
             },
             dismissButton = {
                 TextButton({

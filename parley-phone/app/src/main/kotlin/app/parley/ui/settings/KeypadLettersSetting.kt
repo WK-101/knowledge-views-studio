@@ -67,7 +67,7 @@ fun KeypadLettersRow(vm: AppViewModel, icon: ImageVector? = null) {
                     }
                     if (suggested.isNotEmpty()) item { ListSectionHeader(stringResource(R.string.set_kl_suggested), inset = 0.dp) }
                     items(suggested) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
-                    if (suggested.isNotEmpty()) item { ListSectionHeader(stringResource(R.string.ppl_chip_all), inset = 0.dp) }
+                    if (suggested.isNotEmpty()) item { ListSectionHeader(stringResource(R.string.label_all), inset = 0.dp) }
                     items(others) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
                 }
             },

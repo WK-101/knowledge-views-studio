@@ -67,7 +67,7 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null,
         when {
             done == null -> vm.toast(res.getString(R.string.vm_couldnt_block))
             done.numbers.isEmpty() && done.emergency.isNotEmpty() -> vm.toast(res.getString(R.string.blockflow_emergency_text))
-            done.numbers.isEmpty() -> vm.toast(res.getString(R.string.blockflow_already_title))
+            done.numbers.isEmpty() -> vm.toast(res.getString(R.string.label_already_blocked))
             done.numbers.size == 1 -> vm.offerUndo(said(res.getString(R.string.vm_blocked, name ?: Bidi.ltr(done.numbers[0]))), done.undo)
             else -> vm.offerUndo(said(res.getQuantityString(R.plurals.blk_blocked_numbers, done.numbers.size, done.numbers.size)), done.undo)
         }
@@ -153,7 +153,7 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
             pluralStringResource(R.plurals.blockflow_title_many, count, count)
         },
         text = null,
-        confirmLabel = stringResource(R.string.blk_block),
+        confirmLabel = stringResource(R.string.action_block),
         onConfirm = { dismiss(); blockWithUndo(vm, p.map { it.number }, x.name, x.note, share = share || sharedWith.isEmpty()) },
         onDismiss = dismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -207,9 +207,9 @@ private fun NothingToBlockDialog(vm: AppViewModel, x: BlockingDialog.Block, who:
         return
     }
     ConfirmDialog(
-        title = stringResource(R.string.blockflow_already_title),
+        title = stringResource(R.string.label_already_blocked),
         text = who?.let { stringResource(R.string.blockflow_already_text, it) },
-        confirmLabel = stringResource(R.string.blk_unblock),
+        confirmLabel = stringResource(R.string.action_unblock),
         onConfirm = { dismiss(); unblockWithUndo(vm, x.numbers, x.name) },
         onDismiss = dismiss,
         dismissLabel = stringResource(R.string.dc_cancel),

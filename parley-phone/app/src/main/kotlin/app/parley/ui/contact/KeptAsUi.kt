@@ -49,8 +49,8 @@ internal fun keptAsIcon(k: KeptAs): ImageVector = when (k) {
 internal fun keptAsName(res: Resources, k: KeptAs): String = res.getString(
     when (k) {
         KeptAs.VISIBLE -> R.string.kept_as_visible
-        KeptAs.PRIVATE -> R.string.archive_private_section
-        KeptAs.ARCHIVED -> R.string.archive_title_screen
+        KeptAs.PRIVATE -> R.string.label_private
+        KeptAs.ARCHIVED -> R.string.label_archived
     },
 )
 

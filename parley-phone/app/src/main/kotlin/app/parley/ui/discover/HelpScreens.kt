@@ -24,21 +24,21 @@ data class HelpTexts(@StringRes val title: Int, @StringRes val body: Int, @Strin
 
 object HelpText {
     fun of(t: HelpTopic): HelpTexts = when (t) {
-        HelpTopic.CALL_SCREEN -> HelpTexts(R.string.help_call_screen_title, R.string.help_call_screen_body, R.string.help_call_screen_action)
-        HelpTopic.DID_NOT_RING -> HelpTexts(R.string.help_did_not_ring_title, R.string.help_did_not_ring_body, R.string.discover_test_call_title)
+        HelpTopic.CALL_SCREEN -> HelpTexts(R.string.help_call_screen_title, R.string.help_call_screen_body, R.string.label_default_phone_app)
+        HelpTopic.DID_NOT_RING -> HelpTexts(R.string.help_did_not_ring_title, R.string.help_did_not_ring_body, R.string.action_test_a_call)
         HelpTopic.SITUATION_QUIET ->
-            HelpTexts(R.string.help_situation_quiet_title, R.string.help_situation_quiet_body, R.string.discover_situations_title)
-        HelpTopic.EXPECTING -> HelpTexts(R.string.help_expecting_title, R.string.help_expecting_body, R.string.blk_check_expecting)
-        HelpTopic.NOTIFICATIONS -> HelpTexts(R.string.help_notifications_title, R.string.help_notifications_body, R.string.help_notifications_action)
-        HelpTopic.LATE -> HelpTexts(R.string.help_late_title, R.string.help_late_body, R.string.help_late_action)
-        HelpTopic.ARCHIVED -> HelpTexts(R.string.help_archived_title, R.string.help_archived_body, R.string.recall_group_archived)
-        HelpTopic.UNDO -> HelpTexts(R.string.help_undo_title, R.string.help_undo_body, R.string.jr_title)
-        HelpTopic.NEW_PHONE -> HelpTexts(R.string.help_new_phone_title, R.string.help_new_phone_body, R.string.discover_backup_title)
+            HelpTexts(R.string.help_situation_quiet_title, R.string.help_situation_quiet_body, R.string.label_situations)
+        HelpTopic.EXPECTING -> HelpTexts(R.string.help_expecting_title, R.string.help_expecting_body, R.string.label_expecting_a_call)
+        HelpTopic.NOTIFICATIONS -> HelpTexts(R.string.help_notifications_title, R.string.help_notifications_body, R.string.label_notification_settings)
+        HelpTopic.LATE -> HelpTexts(R.string.help_late_title, R.string.help_late_body, R.string.label_battery_optimisation)
+        HelpTopic.ARCHIVED -> HelpTexts(R.string.help_archived_title, R.string.help_archived_body, R.string.label_archived_contacts)
+        HelpTopic.UNDO -> HelpTexts(R.string.help_undo_title, R.string.help_undo_body, R.string.label_history_undo)
+        HelpTopic.NEW_PHONE -> HelpTexts(R.string.help_new_phone_title, R.string.help_new_phone_body, R.string.label_encrypted_backups)
         HelpTopic.SOMETHING_ELSE ->
-            HelpTexts(R.string.help_something_else_title, R.string.help_something_else_body, R.string.diag_title)
-        HelpTopic.CHAPTERS -> HelpTexts(R.string.discover_chapters_title, R.string.help_chapters_body, R.string.blk_check_labels)
-        HelpTopic.TALK_ABOUT -> HelpTexts(R.string.agenda_title, R.string.help_talk_about_body, null)
-        HelpTopic.FAMILY_SHIELD -> HelpTexts(R.string.blk_decides_shield, R.string.help_family_shield_body, R.string.discover_shared_labels_title)
+            HelpTexts(R.string.help_something_else_title, R.string.help_something_else_body, R.string.action_export_diagnostics)
+        HelpTopic.CHAPTERS -> HelpTexts(R.string.label_chapters, R.string.help_chapters_body, R.string.label_labels)
+        HelpTopic.TALK_ABOUT -> HelpTexts(R.string.label_to_talk_about, R.string.help_talk_about_body, null)
+        HelpTopic.FAMILY_SHIELD -> HelpTexts(R.string.label_family_spam_shield, R.string.help_family_shield_body, R.string.label_shared_labels)
     }
 }
 
@@ -81,7 +81,7 @@ fun HelpPageScreen(vm: AppViewModel, topic: HelpTopic?, back: () -> Unit, openTo
             val place = stringResource(action)
             FilledTonalButton({ vm.navigate(capabilityEvent(target)) }, Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.m)) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowForward, null)
-                Text(stringResource(R.string.fav_widget_open_name, place), Modifier.padding(start = Spacing.s))
+                Text(stringResource(R.string.action_open_named, place), Modifier.padding(start = Spacing.s))
             }
         }
     }

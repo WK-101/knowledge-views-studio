@@ -173,7 +173,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             val groups = listOf(
                 R.string.blk_tpl_group_country to entries.filter { it.builtIn && it.template.country.equals(iso, true) },
                 R.string.blk_tpl_group_anywhere to entries.filter { it.builtIn && it.template.country == null },
-                R.string.blk_type_not_my_region to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
+                R.string.label_other_countries to entries.filter { it.builtIn && it.template.country != null && !it.template.country.equals(iso, true) },
                 R.string.blk_tpl_group_received to entries.filter { !it.builtIn },
             )
             groups.forEach { (title, list) ->
@@ -309,7 +309,7 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                 IconButton(onShare) { Icon(Icons.Rounded.Share, stringResource(R.string.blk_tpl_share_file)) }
                 IconButton(onQr) { Icon(Icons.Rounded.QrCode, stringResource(R.string.blk_tpl_share_qr)) }
                 if (!e.builtIn) TextButton({ scope.launch { vm.offerUndo(removed, gallery.removeImportedWithUndo(vm.c, t.id)) } }) {
-                    Text(stringResource(R.string.blk_delete), color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -374,7 +374,7 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
         },
         confirmButton = {
             Row {
-                TextButton({ onQr(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.blk_qr_code)) }
+                TextButton({ onQr(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.label_qr_code)) }
                 TextButton({ onFile(template) }, enabled = template.rules.isNotEmpty()) { Text(stringResource(R.string.blk_file)) }
             }
         },

@@ -60,9 +60,9 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
     // Bumped after a clear, so the tabs that load once (calls, snapshots) read their store again.
     var cleared by remember { mutableIntStateOf(0) }
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.jr_title), onBack = back, actions = {
+        ParleyTopBar(stringResource(R.string.label_history_undo), onBack = back, actions = {
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
                         { Text(stringResource(R.string.jr_storage_menu)) },
@@ -93,7 +93,7 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
 
 private val HistoryTab.label: Int
     get() = when (this) {
-        HistoryTab.CONTACTS -> R.string.rst_contacts
-        HistoryTab.CALLS -> R.string.quality_subject_all
+        HistoryTab.CONTACTS -> R.string.label_contacts
+        HistoryTab.CALLS -> R.string.label_calls
         HistoryTab.SNAPSHOTS -> R.string.jr_tab_snapshots
     }

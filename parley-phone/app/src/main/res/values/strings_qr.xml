@@ -2,9 +2,9 @@
 <!-- Scan QR. -->
 <resources>
     <!-- Entry points -->
-    <string name="qs_menu">Scan QR code</string>
+    <string name="action_scan_qr_code">Scan QR code</string>
     <string name="qs_scan_theirs">Scan theirs</string>
-    <string name="qs_shortcut_short">Scan QR</string>
+    <string name="action_scan_qr">Scan QR</string>
     <string name="qs_shortcut_long">Scan a QR code from a photo</string>
     <string name="qs_tip_contacts">Add someone here: a new contact, a QR code such as their contact card, or several numbers at once</string>
     <string name="qs_set_summary">Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access</string>
@@ -96,7 +96,7 @@
     <string name="qs_parley_contact_body">A contact shared from Parley, locked with a passcode. The person who showed it to you can read the passcode out.</string>
     <string name="qs_parley_simple_body">A simple mode setup made in Parley, locked with a passcode.</string>
     <string name="qs_parley_template_body">A pack of blocking rules shared from Parley. You can look at every rule before adding it.</string>
-    <string name="qs_open_in_parley">Open in Parley</string>
+    <string name="action_open_in_parley">Open in Parley</string>
 
     <!-- Numbers, messages, email -->
     <string name="qs_put_on_keypad">Put on the keypad</string>

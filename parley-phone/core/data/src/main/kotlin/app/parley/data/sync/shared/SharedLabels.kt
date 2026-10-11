@@ -63,8 +63,7 @@ class SharedLabels(
 
     suspend fun load() = withContext(Dispatchers.IO) {
         if (!loaded) {
-            _states.value = store.all()
-            shield?.update(_states.value)
+            refreshStates()
             loaded = true
         }
     }
@@ -110,8 +109,10 @@ class SharedLabels(
 
     /** The states as stored, and the shield's index with them. */
     private fun refreshStates() {
-        _states.value = store.all()
-        shield?.update(_states.value)
+        val read = store.read()
+        _states.value = read.states
+        // A state that couldn't be opened now isn't in the shield's index, which says so (it is read again for a call).
+        shield?.update(read.states, read.complete)
     }
 
     private fun hasContacts() =

@@ -110,7 +110,7 @@ internal fun VibrationRow(spec: String?, name: String, onClick: () -> Unit) {
 /** "Answer automatically" for a person or a label (only shown while that option is on in Settings › Calls). */
 @Composable
 internal fun AutoAnswerRow(on: Boolean, summary: String, onChange: (Boolean) -> Unit) {
-    SwitchRow(stringResource(R.string.caller_auto_answer), summary, on, icon = Icons.Rounded.PhoneInTalk, onChange = onChange)
+    SwitchRow(stringResource(R.string.action_answer_automatically), summary, on, icon = Icons.Rounded.PhoneInTalk, onChange = onChange)
 }
 
 @Composable

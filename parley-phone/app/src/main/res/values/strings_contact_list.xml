@@ -6,9 +6,9 @@
     <string name="cs_sort_name_help">First or last name, as chosen in Settings › Appearance</string>
     <string name="cs_sort_recent">Recently added</string>
     <string name="cs_sort_recent_help">Newest first</string>
-    <string name="cs_sort_most_called">Most called</string>
+    <string name="label_most_called">Most called</string>
     <string name="cs_sort_most_called_help">From your call history on this phone</string>
-    <string name="cs_sort_company">Company</string>
+    <string name="label_company">Company</string>
     <string name="cs_sort_company_help">Grouped by company, then by name</string>
     <!-- Headers in the sorted list. -->
     <string name="cs_sort_no_company">No company</string>
@@ -26,7 +26,7 @@
     </plurals>
     <string name="be_ringtone">Set ringtone</string>
     <string name="be_ringtone_sub">For calls from all of them</string>
-    <string name="be_sim">SIM for calls</string>
+    <string name="label_sim_for_calls">SIM for calls</string>
     <string name="be_sim_sub">For every number they have</string>
     <string name="be_sim_ask">Ask every time</string>
     <string name="be_move">Move to another account</string>
@@ -53,7 +53,7 @@
         <item quantity="other">Move %1$d contacts to %2$s?</item>
     </plurals>
     <string name="be_move_confirm_body">Each one is copied into %1$s, then removed from the account it was in. A sync account removes it from its server too.\n\nCopies on the SIM or in accounts Parley can\'t change stay where they are. Contacts already in %1$s stay as they are. History &amp; undo keeps each one as it was.</string>
-    <string name="be_move_confirm">Move</string>
+    <string name="action_move">Move</string>
     <plurals name="be_move_already">
         <item quantity="one">%1$d was in %2$s already</item>
         <item quantity="other">%1$d were in %2$s already</item>

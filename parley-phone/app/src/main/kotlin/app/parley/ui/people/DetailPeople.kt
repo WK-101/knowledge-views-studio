@@ -91,7 +91,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -> Uni
                 )
                 DropdownMenu(menu, { menu = false }) {
                     if (raw.id in writable) {
-                        DropdownMenuItem({ Text(stringResource(R.string.ppl_edit_copy)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = {
+                        DropdownMenuItem({ Text(stringResource(R.string.action_edit_this_copy)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = {
                             menu = false; open(PeopleRoutes.editRaw(d.id, raw.id))
                         })
                         DropdownMenuItem(
@@ -172,7 +172,7 @@ fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (De
     }
     val v = verdict ?: return
     ParleyListItem(
-        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.tm_history_title)) { open(Routes.versions(contactId)) },
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.label_version_history)) { open(Routes.versions(contactId)) },
         leadingContent = { Icon(Icons.Rounded.History, null) },
         headlineContent = { Text(provenanceText(res, v) { Format.fullDate(context, it) }) },
         supportingContent = { Text(stringResource(R.string.ppl_why_changed)) },
@@ -203,19 +203,19 @@ private fun provenanceText(res: Resources, v: ProvenanceVerdict, formatTime: (Lo
 
 /** Field names Parley records for its own saves (stored in English) → localised names. */
 private fun fieldLabel(res: Resources, field: String): String = when (field) {
-    "Name" -> res.getString(R.string.agenda_share_search)
-    "Nickname" -> res.getString(R.string.csv_field_nickname)
-    "Company" -> res.getString(R.string.cs_sort_company)
-    "Note" -> res.getString(R.string.blk_col_note)
-    "Phone" -> res.getString(R.string.contact_page_sec_phones)
-    "Email" -> res.getString(R.string.contact_page_sec_emails)
-    "Website" -> res.getString(R.string.csv_field_website)
-    "Relation" -> res.getString(R.string.cs_group_relation)
-    "Messenger handles" -> res.getString(R.string.prov_field_handles)
-    "Dates" -> res.getString(R.string.contact_page_sec_dates)
-    "Address" -> res.getString(R.string.contact_page_sec_addresses)
-    "Labels" -> res.getString(R.string.blk_check_labels)
-    "Other" -> res.getString(R.string.circle_type_other)
+    "Name" -> res.getString(R.string.label_name)
+    "Nickname" -> res.getString(R.string.label_nickname)
+    "Company" -> res.getString(R.string.label_company)
+    "Note" -> res.getString(R.string.label_note)
+    "Phone" -> res.getString(R.string.label_phone)
+    "Email" -> res.getString(R.string.label_email)
+    "Website" -> res.getString(R.string.label_website)
+    "Relation" -> res.getString(R.string.label_relation)
+    "Messenger handles" -> res.getString(R.string.label_messenger_handles)
+    "Dates" -> res.getString(R.string.label_dates)
+    "Address" -> res.getString(R.string.label_address)
+    "Labels" -> res.getString(R.string.label_labels)
+    "Other" -> res.getString(R.string.label_other)
     else -> field
 }
 
@@ -241,7 +241,7 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
             // A birthday kept by another calendar: its next day and the age, both in that calendar.
             val due = AltCalendars.due(parsed, AltCalendar.byKey(ev.calendar), today, IcuCalendars)
             listOfNotNull(
-                shown(parsed), due?.turning?.let { res.getString(R.string.bday_would_have_turned, it) }, dayText(res, due?.date ?: parsed, today),
+                shown(parsed), due?.turning?.let { res.getString(R.string.label_would_have_turned, it) }, dayText(res, due?.date ?: parsed, today),
             ).joinToString(" · ")
         }
         else -> describeEvent(ev.date, false, today, res)
@@ -249,8 +249,8 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
 }
 
 private fun dayText(res: Resources, e: EventDate, today: LocalDate): String = when (val days = e.daysUntil(today)) {
-    0L -> res.getString(R.string.life_today)
-    1L -> res.getString(R.string.life_tomorrow)
+    0L -> res.getString(R.string.label_today_lower)
+    1L -> res.getString(R.string.label_tomorrow)
     else -> days.toInt().let { res.getQuantityString(R.plurals.life_in_days, it, it) }
 }
 

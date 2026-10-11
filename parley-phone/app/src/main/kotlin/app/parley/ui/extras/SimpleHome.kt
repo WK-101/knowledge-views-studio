@@ -146,7 +146,7 @@ fun SimpleHome(vm: AppViewModel) {
                         Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = ParleyShapes.panel) {
                             Icon(Icons.Rounded.Dialpad, null, Modifier.size(32.dp))
                             Spacer(Modifier.size(12.dp))
-                            Text(stringResource(R.string.tab_keypad), fontSize = 24.sp)
+                            Text(stringResource(R.string.label_keypad), fontSize = 24.sp)
                         }
                     }
                 }
@@ -158,7 +158,7 @@ fun SimpleHome(vm: AppViewModel) {
     calling?.let { (name, number) ->
         ParleyDialog(
             onDismissRequest = { calling = null },
-            title = { Text(stringResource(R.string.shortcut_call_confirm, name), style = MaterialTheme.typography.headlineMedium) },
+            title = { Text(stringResource(R.string.action_call_named_q, name), style = MaterialTheme.typography.headlineMedium) },
             confirmButton = {
                 Button(
                     { calling = null; vm.requestCall(number, name.takeIf { it != number }, skipConfirm = true, source = CallSource.CONTACT) },
@@ -167,7 +167,7 @@ fun SimpleHome(vm: AppViewModel) {
                 ) {
                     Icon(Icons.Rounded.Call, null, Modifier.size(28.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.circle_widget_call), fontSize = 22.sp)
+                    Text(stringResource(R.string.action_call), fontSize = 22.sp)
                 }
             },
             dismissButton = { TextButton({ calling = null }, Modifier.height(64.dp)) { Text(stringResource(R.string.dc_cancel), fontSize = 20.sp) } },
@@ -215,7 +215,7 @@ private fun TileGrid(tiles: List<SimpleSetup.Resolved>, modifier: Modifier, onCa
 
 @Composable
 private fun Tile(t: SimpleSetup.Resolved, onCall: (String, String) -> Unit) {
-    val label = stringResource(R.string.circle_call_who, t.person.name)
+    val label = stringResource(R.string.action_call_named, t.person.name)
     Surface(
         onClick = { onCall(t.person.name, t.person.number) },
         shape = ParleyShapes.panel,
@@ -270,7 +270,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(36.dp))
         Spacer(Modifier.size(12.dp))
-        Text(stringResource(R.string.circle_widget_call), fontSize = 26.sp)
+        Text(stringResource(R.string.action_call), fontSize = 26.sp)
     }
 }
 

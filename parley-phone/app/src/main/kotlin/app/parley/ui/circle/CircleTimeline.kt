@@ -103,7 +103,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
     ConfirmDialog(
         title = if (initial == null) stringResource(R.string.circle_log_with, name) else stringResource(R.string.circle_edit_entry),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { onSave(type, note.text.trim().ifEmpty { null }, time) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -121,7 +121,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                     colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.Event, null) },
                     headlineContent = { Text(Format.fullDate(context, time)) },
-                    supportingContent = { Text(stringResource(R.string.blk_editor_when)) },
+                    supportingContent = { Text(stringResource(R.string.label_when)) },
                 )
             }
         },
@@ -220,7 +220,7 @@ fun ContactTimeline(
     val monthFormat = rememberMonthFormat()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (grouped.isEmpty()) {
-            SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
+            SegmentedGroup(if (showTitle) stringResource(R.string.label_timeline) else null) {
                 item {
                     ParleyListItem(
                         colors = clearRow,
@@ -233,7 +233,7 @@ fun ContactTimeline(
             TimelinePreview(vm, grouped.flatMap { it.entries }, interactions, showTitle, onEdit)
         } else grouped.take(months).forEachIndexed { i, m ->
             val title = m.month.atDay(1).format(monthFormat)
-            SegmentedGroup(if (i == 0 && showTitle) stringResource(R.string.circle_timeline) + stringResource(R.string.main_separator) + title else title) {
+            SegmentedGroup(if (i == 0 && showTitle) stringResource(R.string.label_timeline) + stringResource(R.string.main_separator) + title else title) {
                 m.entries.forEach { e ->
                     item { TimelineEntryRow(vm, e, interactions, onEdit) }
                 }
@@ -244,7 +244,7 @@ fun ContactTimeline(
             if (limit != null && all.size > limit && onShowAll != null) {
                 TextButton(onShowAll) { Text(pluralStringResource(R.plurals.contact_page_show_all, all.size, all.size)) }
             }
-            onAllCalls?.let { TextButton(it) { Text(stringResource(R.string.circle_all_calls)) } }
+            onAllCalls?.let { TextButton(it) { Text(stringResource(R.string.label_all_calls)) } }
         }
     }
 }
@@ -253,7 +253,7 @@ fun ContactTimeline(
 @Composable
 private fun TimelinePreview(vm: AppViewModel, latest: List<TimelineEntry>, interactions: List<Interaction>, showTitle: Boolean, onEdit: (Interaction) -> Unit) {
     if (latest.isEmpty()) return
-    SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
+    SegmentedGroup(if (showTitle) stringResource(R.string.label_timeline) else null) {
         latest.forEach { e -> item { TimelineEntryRow(vm, e, interactions, onEdit) } }
     }
 }
@@ -334,15 +334,15 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
         },
         trailingContent = if (item == null) null else ({
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.me_edit_short)) },
+                        { Text(stringResource(R.string.action_edit)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                         onClick = { menu = false; onEdit(item) },
                     )
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.blk_delete)) },
+                        { Text(stringResource(R.string.action_delete)) },
                         leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                         onClick = { menu = false; onDelete(item) },
                     )

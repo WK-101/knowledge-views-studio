@@ -58,6 +58,12 @@ enum class Concealed {
 
     /** Notes for calls (pinned notes) and call notes, about anyone. */
     NOTES,
+
+    /**
+     * What Parley works out about a relationship from the calls: who usually reaches out first, the reach and the year
+     * in review, a learned rhythm, a good time to call, suggested rhythms with their call counts.
+     */
+    RELATIONSHIP_INSIGHTS,
     SAFE_WORDS,
 
     /** My card › Shared with: every entry, not only private contacts'. */

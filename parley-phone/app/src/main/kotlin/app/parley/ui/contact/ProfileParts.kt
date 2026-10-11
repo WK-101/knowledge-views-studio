@@ -109,12 +109,12 @@ fun SegmentedGroupScope.profileRows(profiles: List<Profile>) {
                 )
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
+                        { Text(stringResource(R.string.action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; Clipboard.copy(context, p.display, sensitive = false) },
                     )
                     if (url.isNotEmpty()) {
                         DropdownMenuItem(
-                            { Text(stringResource(R.string.detail_copy_link)) }, leadingIcon = { Icon(Icons.Rounded.Link, null) },
+                            { Text(stringResource(R.string.action_copy_link)) }, leadingIcon = { Icon(Icons.Rounded.Link, null) },
                             onClick = { menu = false; Clipboard.copy(context, url, sensitive = false) },
                         )
                     }

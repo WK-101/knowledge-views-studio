@@ -230,7 +230,7 @@ private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (Loo
         },
         trailingContent = {
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem({ Text(stringResource(R.string.blk_allow)) }, onClick = { menu = false; set(LookupApproval.ALLOWED) })
+                DropdownMenuItem({ Text(stringResource(R.string.action_allow)) }, onClick = { menu = false; set(LookupApproval.ALLOWED) })
                 DropdownMenuItem({ Text(stringResource(R.string.privnames_deny)) }, onClick = { menu = false; set(LookupApproval.DENIED) })
                 DropdownMenuItem({ Text(stringResource(R.string.pn_forget)) }, onClick = { menu = false; set(null) })
             }
@@ -292,7 +292,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 )
             }
             if (st.log.isNotEmpty()) item {
-                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.blk_clear_log)) }
+                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.action_clear_log)) }
             }
         }
     }

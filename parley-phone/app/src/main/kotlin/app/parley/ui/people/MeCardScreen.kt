@@ -135,8 +135,8 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     val name = MeCardDetails.nameOf(card)
     val empty = MeCardDetails.isEmpty(card)
     val number = MeCardDetails.toCard(card).firstNumber
-    val me = stringResource(R.string.basics_for_me)
-    val myCard = stringResource(R.string.me_title)
+    val me = stringResource(R.string.label_me)
+    val myCard = stringResource(R.string.label_my_card)
     var showQr by rememberSaveable { mutableStateOf(false) }
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_open)) { open(PeopleRoutes.Me) },
@@ -184,7 +184,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     var showQr by rememberSaveable { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.MeEdit) }
     val scope = rememberCoroutineScope()
-    val subject = MeCardDetails.nameOf(card).ifBlank { stringResource(R.string.me_title) }
+    val subject = MeCardDetails.nameOf(card).ifBlank { stringResource(R.string.label_my_card) }
     val share = {
         scope.launch { CardSharing.shareFile(vm.c, context, CardSharing.vcard(vm.c, parts), subject) }
         Unit
@@ -192,7 +192,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
 
     ParleyScaffold(
         topBar = {
-            ParleyTopBar(stringResource(R.string.me_title), onBack = back, actions = {
+            ParleyTopBar(stringResource(R.string.label_my_card), onBack = back, actions = {
                 IconButton(edit) { Icon(Icons.Rounded.Edit, stringResource(R.string.me_edit)) }
             })
         },
@@ -264,9 +264,9 @@ private fun MeHeader(
     val empty = MeCardDetails.isEmpty(card)
     val name = MeCardDetails.nameOf(card)
     Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.l), horizontalAlignment = Alignment.CenterHorizontally) {
-        Avatar(name.ifBlank { stringResource(R.string.basics_for_me) }, card.photoUri, 96.dp, modifier = Modifier.padding(top = Spacing.xs))
+        Avatar(name.ifBlank { stringResource(R.string.label_me) }, card.photoUri, 96.dp, modifier = Modifier.padding(top = Spacing.xs))
         Text(
-            name.ifBlank { stringResource(R.string.me_your_name) }, style = MaterialTheme.typography.headlineSmall,
+            name.ifBlank { stringResource(R.string.label_your_name) }, style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center, modifier = Modifier.padding(top = Spacing.m),
         )
         if (!card.nativeName.isBlank) NativeNameLine(card.nativeName)
@@ -286,9 +286,9 @@ private fun MeHeader(
             HeaderFacts(listOf(card.pronouns.trim(), card.nickname.trim(), work), stringResource(R.string.main_separator), status)
         }
         Row(Modifier.fillMaxWidth().padding(top = Spacing.m), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-            ActionTile(Icons.Rounded.QrCode2, stringResource(R.string.blk_qr_code), enabled = !empty, onClick = onQr)
-            ActionTile(Icons.Rounded.Share, stringResource(R.string.diag_share), enabled = !empty, onClick = onShare)
-            ActionTile(Icons.Rounded.Edit, stringResource(R.string.me_edit_short), enabled = true, onClick = onEdit)
+            ActionTile(Icons.Rounded.QrCode2, stringResource(R.string.label_qr_code), enabled = !empty, onClick = onQr)
+            ActionTile(Icons.Rounded.Share, stringResource(R.string.action_share), enabled = !empty, onClick = onShare)
+            ActionTile(Icons.Rounded.Edit, stringResource(R.string.action_edit), enabled = true, onClick = onEdit)
         }
     }
 }
@@ -324,7 +324,7 @@ internal fun MeQrDialog(
     val scope = rememberCoroutineScope()
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.me_title)) },
+        title = { Text(stringResource(R.string.label_my_card)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
@@ -355,11 +355,11 @@ internal fun MeQrDialog(
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
         dismissButton = {
             Row {
-                if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.me_edit_short)) }
-                val subject = MeCardDetails.nameOf(card).ifBlank { stringResource(R.string.me_title) }
+                if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.action_edit)) }
+                val subject = MeCardDetails.nameOf(card).ifBlank { stringResource(R.string.label_my_card) }
                 // The file takes every part ticked, the photo too.
                 TextButton({ scope.launch { CardSharing.shareFile(vm.c, context, CardSharing.vcard(vm.c, parts.toSet()), subject) } }, enabled = text != null) {
-                    Text(stringResource(R.string.me_share_file))
+                    Text(stringResource(R.string.action_share_as_file))
                 }
             }
         },
@@ -405,7 +405,7 @@ private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
         headline = { Text(stringResource(R.string.card_shared_title)) },
         supporting = {
             Text(
-                if (people == 0) stringResource(R.string.card_shared_none)
+                if (people == 0) stringResource(R.string.label_nobody_yet)
                 else pluralStringResource(R.plurals.card_shared_people, people, people),
             )
         },
@@ -429,6 +429,6 @@ private fun NewNumberBanner(vm: AppViewModel, own: MeCard, open: (Destination) -
         pluralStringResource(R.plurals.card_new_number_banner, outdated, outdated),
         icon = Icons.Rounded.PhoneForwarded,
         action = stringResource(R.string.card_new_number_tell), onAction = { open(PeopleRoutes.NewNumber) },
-        onDismiss = { store.dismissNumbers(key) }, dismissLabel = stringResource(R.string.circle_not_now),
+        onDismiss = { store.dismissNumbers(key) }, dismissLabel = stringResource(R.string.label_not_now),
     )
 }

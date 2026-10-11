@@ -24,7 +24,7 @@
     <string name="hist_archive_off_title">Stop keeping Parley\'s copy of calls?</string>
     <string name="hist_archive_off_text">Parley deletes its encrypted copy of your calls. Your phone\'s own call history is not changed, but calls Android already dropped are gone for good.</string>
     <string name="hist_archive_off_confirm">Turn off and delete</string>
-    <string name="hist_settings_title">Call history</string>
+    <string name="label_call_history">Call history</string>
     <plurals name="hist_archive_count">
         <item quantity="one">%1$d call in Parley\'s archive</item>
         <item quantity="other">%1$d calls in Parley\'s archive</item>
@@ -60,12 +60,12 @@
     <string name="hist_period_any">Any time</string>
     <string name="hist_period_7_days">Last 7 days</string>
     <string name="hist_period_30_days">Last 30 days</string>
-    <string name="hist_period_this_month">This month</string>
+    <string name="label_this_month">This month</string>
     <string name="hist_period_90_days">Last 90 days</string>
-    <string name="hist_period_this_year">This year</string>
-    <string name="hist_type_incoming">Incoming</string>
-    <string name="hist_type_outgoing">Outgoing</string>
-    <string name="hist_type_rejected">Rejected</string>
+    <string name="label_this_year">This year</string>
+    <string name="label_incoming">Incoming</string>
+    <string name="label_outgoing">Outgoing</string>
+    <string name="label_rejected">Rejected</string>
     <string name="hist_range_year">The last year</string>
     <string name="hist_range_month">The last month</string>
     <string name="hist_range_week">The last week</string>
@@ -96,8 +96,8 @@
         <item quantity="one">%1$d day left</item>
         <item quantity="other">%1$d days left</item>
     </plurals>
-    <string name="hist_minutes_short">%1$d min</string>
-    <string name="hist_seconds_short">%1$d s</string>
+    <string name="label_minutes_short">%1$d min</string>
+    <string name="label_seconds_short">%1$d s</string>
     <string name="hist_duration_between">%1$s–%2$s</string>
     <string name="hist_duration_at_least">≥ %1$s</string>
     <string name="hist_duration_at_most">≤ %1$s</string>
@@ -110,7 +110,7 @@
     <string name="never_calls_watch_chosen">If a call seems to come from this number, Parley says \"This number never calls you\", as you chose on their page.</string>
     <string name="never_calls_watch_from">Parley can warn from %1$s, when it began keeping your calls. Your calls with them go back further, so it can\'t say yet that they never call you. If they don\'t, choose \"They never call me\" on their page.</string>
     <string name="never_calls_watch_off">Parley can warn about calls faking this number only while “Keep Parley\'s copy of calls” is on, in Settings › Recents &amp; history.</string>
-    <string name="hist_last_call">Last call %1$s</string>
+    <string name="label_last_call">Last call %1$s</string>
     <plurals name="hist_insight_totals">
         <item quantity="one">%1$d call · talk %2$s (%3$s out, %4$s in) · about %5$s a month</item>
         <item quantity="other">%1$d calls · talk %2$s (%3$s out, %4$s in) · about %5$s a month</item>
@@ -169,10 +169,10 @@
         <item quantity="one">%1$d call · made with Parley on %2$s</item>
         <item quantity="other">%1$d calls · made with Parley on %2$s</item>
     </plurals>
-    <string name="hist_pdf_col_date">Date</string>
-    <string name="hist_pdf_col_type">Type</string>
+    <string name="label_date">Date</string>
+    <string name="label_type">Type</string>
     <string name="hist_pdf_col_who">Name / number</string>
-    <string name="hist_pdf_col_duration">Duration</string>
+    <string name="label_duration">Duration</string>
     <string name="hist_export_failed">Export failed: %1$s</string>
     <string name="hist_export_preparing">Preparing the file…</string>
     <plurals name="hist_export_count">
@@ -188,13 +188,13 @@
     <string name="hist_export_ics_summary">One event per call</string>
     <string name="hist_export_pdf">PDF</string>
     <string name="hist_export_pdf_summary">A printable table to share</string>
-    <string name="hist_export_print">Print</string>
+    <string name="action_print">Print</string>
     <string name="hist_export_print_summary">Or save as PDF with the system print dialog</string>
     <string name="hist_export_menu">Export…</string>
 
     <!-- Import call history -->
     <string name="hist_import_reading">Reading the file…</string>
-    <string name="hist_import_title">Import call history</string>
+    <string name="action_import_call_history">Import call history</string>
     <string name="hist_import_explain">Adds calls from a CSV file to your call history: Parley\'s own export, Logger\'s export or any spreadsheet with a number, a type and a date. You see what would happen before anything is written. Calls already in your history are skipped, and imported calls never show up as new missed calls.</string>
     <string name="hist_import_need_default">Make Parley your default phone app first: Android only lets the phone app write call history.</string>
     <string name="hist_import_choose">Choose a CSV file</string>
@@ -216,12 +216,12 @@
         <item quantity="one">%1$d row skipped</item>
         <item quantity="other">%1$d rows skipped</item>
     </plurals>
-    <string name="hist_import_columns">Columns</string>
+    <string name="label_columns">Columns</string>
     <string name="hist_import_day_first">Dates are day first</string>
     <string name="hist_import_day_first_on">03/04/2025 is 3 April</string>
     <string name="hist_import_day_first_off">03/04/2025 is 4 March</string>
     <string name="hist_import_first_calls">First calls to import</string>
-    <string name="hist_importing">Importing…</string>
+    <string name="label_importing">Importing…</string>
     <string name="hist_import_nothing">Nothing was imported. Android didn\'t accept the calls: check that Parley is your default phone app.</string>
     <plurals name="hist_import_done">
         <item quantity="one">Imported %1$d call</item>
@@ -241,8 +241,8 @@
     </plurals>
     <string name="hist_import_problems">Rows that can\'t be imported</string>
     <string name="hist_import_line">Line %1$d: %2$s</string>
-    <string name="hist_import_more">…and %1$d more</string>
-    <string name="hist_import_finished">Import finished</string>
+    <string name="label_and_more">…and %1$d more</string>
+    <string name="label_import_finished">Import finished</string>
     <string name="hist_col_type">Call type</string>
     <string name="hist_col_date">Date (or date and time)</string>
     <string name="hist_col_time">Time</string>
@@ -251,10 +251,10 @@
 
     <!-- Insights -->
     <string name="hist_insight_week">7 days</string>
-    <string name="hist_insight_month">30 days</string>
+    <string name="label_30_days">30 days</string>
     <string name="hist_insight_quarter">90 days</string>
     <string name="hist_insight_all">All time</string>
-    <string name="hist_talk_time_label">Talk time</string>
+    <string name="label_talk_time">Talk time</string>
     <string name="hist_calls_you_made">Calls you made</string>
     <string name="hist_calls_you_received">Calls you received</string>
     <string name="hist_answered_rates">%1$d of %2$d calls you made were answered · %3$d of %4$d incoming calls answered</string>
@@ -282,7 +282,7 @@
         <item quantity="one">Missed %2$s</item>
         <item quantity="other">%1$d missed calls · last %2$s</item>
     </plurals>
-    <string name="hist_call_back">Call back</string>
+    <string name="action_call_back">Call back</string>
     <string name="hist_insights_footer">Worked out on this phone from your call history.</string>
     <string name="hist_insights_footer_no_contacts">Worked out on this phone from your call history. Contacts couldn\'t be read, so people are shown by number.</string>
     <string name="hist_weekly_desc">Weekly talk time, busiest week %1$s with %2$s</string>
@@ -295,18 +295,18 @@
     </plurals>
     <string name="dc_undo">Undo</string>
     <string name="hist_delete_calls_menu">Delete calls…</string>
-    <string name="hist_action_copy">Copy</string>
+    <string name="action_copy">Copy</string>
     <!-- Short tile label for "Message or call on…" (TalkBack reads the full name). -->
     <string name="hist_action_other_apps">Other apps</string>
-    <string name="hist_action_new_contact">New contact</string>
-    <string name="hist_action_add_to_contact">Add to contact</string>
+    <string name="label_new_contact">New contact</string>
+    <string name="action_add_to_contact">Add to contact</string>
     <string name="hist_action_view_contact">View contact</string>
     <string name="hist_call_notes">Call notes</string>
     <string name="hist_delete_note">Delete note</string>
 
     <!-- Range delete -->
     <string name="hist_range_title">Delete calls with this number</string>
-    <string name="hist_range_since">Since %1$s</string>
+    <string name="label_since">Since %1$s</string>
     <plurals name="hist_n_calls">
         <item quantity="one">%1$d call</item>
         <item quantity="other">%1$d calls</item>
@@ -319,12 +319,12 @@
     <string name="hist_filter_title">Filter calls</string>
     <string name="hist_filter_any">Any</string>
     <string name="hist_filter_name">Name (to save as a chip)</string>
-    <string name="hist_filter_clear">Clear</string>
+    <string name="action_clear">Clear</string>
     <string name="hist_filter_save">Save chip</string>
-    <string name="hist_filter_apply">Apply</string>
+    <string name="action_apply">Apply</string>
     <string name="hist_filter_saved">Saved chips</string>
     <string name="hist_filter_deleted">Filter “%1$s” deleted</string>
-    <string name="hist_dur_not_answered">Not answered</string>
+    <string name="label_not_answered">Not answered</string>
     <string name="hist_dur_under_1">Under 1 min</string>
     <string name="hist_dur_1_plus">1 min or more</string>
     <string name="hist_dur_5_plus">5 min or more</string>
@@ -334,7 +334,7 @@
     <string name="hist_sims_title">SIMs</string>
     <string name="hist_sims_empty">No SIM found. Parley needs to be the default phone app to list SIMs.</string>
     <string name="hist_no_plan">No plan set</string>
-    <string name="hist_plan_section">Plan minutes</string>
+    <string name="label_plan_minutes">Plan minutes</string>
     <string name="hist_plan_track">Track plan minutes</string>
     <string name="hist_plan_track_summary">Counted from your call history on this phone. Your carrier\'s bill is what counts.</string>
     <plurals name="hist_plan_detail">
@@ -361,7 +361,7 @@
     <string name="hist_percent">%1$d%%</string>
 
     <!-- Background work notifications -->
-    <string name="work_channel_backups">Backups</string>
+    <string name="label_backups">Backups</string>
     <string name="work_channel_backup_reminder">Backup reminders</string>
     <string name="work_backup_title">Parley backup</string>
     <string name="work_plan_used_up">%1$s: plan minutes used up</string>
@@ -373,7 +373,7 @@
     <string name="work_temp_expired_merged">%1$s expired, but it was merged with another contact, so nothing was deleted</string>
     <!-- In the "Reminders" channel group: birthdays and dates, keep-in-touch nudges and the digest, follow-ups. -->
     <string name="work_channel_reminders">Birthdays, keep in touch &amp; follow-ups</string>
-    <string name="notif_group_reminders">Reminders</string>
+    <string name="label_reminders">Reminders</string>
     <string name="work_turns_today">%1$s turns %2$d today</string>
     <string name="work_birthday_today">%1$s has a birthday today</string>
     <string name="work_anniversary_years">%1$s anniversary: %2$d years</string>
@@ -393,7 +393,7 @@
         <item quantity="other">%1$d hours left</item>
     </plurals>
     <string name="temp_within_hour">Deletes within the hour</string>
-    <string name="temp_title">Temporary contacts</string>
+    <string name="label_temporary_contacts">Temporary contacts</string>
     <string name="temp_empty_title">No temporary contacts</string>
     <string name="temp_empty_text">Save a number for a while: the plumber, a delivery, a seller. Type it on the keypad and choose “Save temporary contact”, or pick “Delete automatically” on a contact\'s page.</string>
     <string name="temp_intro">These contacts delete themselves when their time is up, with their call history if you chose so.</string>
@@ -416,16 +416,16 @@
         <item quantity="other">%1$d days</item>
     </plurals>
     <string name="temp_days">Days</string>
-    <string name="temp_save_title">Save temporary contact</string>
+    <string name="action_save_temporary_contact">Save temporary contact</string>
     <string name="temp_save_visible_text">%1$s is saved in your contacts on this phone only, where apps that can read contacts (WhatsApp included) see it, and deletes itself when the time is up.</string>
     <string name="temp_save_private_text">%1$s is saved privately in Parley, where other apps can\'t see it, and deletes itself when the time is up.</string>
     <string name="temp_delete_after">Delete after</string>
     <string name="temp_also_history">Also delete its call history</string>
     <string name="temp_visible">Save visible to other apps</string>
-    <string name="temp_save_privately">Save privately</string>
+    <string name="action_save_privately">Save privately</string>
 
     <!-- Private contact (vault) page -->
-    <string name="vault_move_failed">Couldn\'t move: %1$s</string>
+    <string name="label_couldnt_move">Couldn\'t move: %1$s</string>
     <string name="vault_unlock_all">Unlock to see all details</string>
     <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
     <string name="vault_details_lost">Some details can\'t be opened any more</string>
@@ -452,30 +452,30 @@
     <string name="vault_expiry_never">Never (keep)</string>
 
     <!-- Backup -->
-    <string name="bkp_backing_up">Backing up…</string>
+    <string name="label_backing_up">Backing up…</string>
     <string name="bkp_vault_skipped">%1$s (private contacts skipped: unlock them first)</string>
     <string name="bkp_preparing">Preparing encrypted file…</string>
     <string name="bkp_send_chooser">Send to your new phone</string>
-    <string name="bkp_title">Backup &amp; restore</string>
+    <string name="label_backup_restore">Backup &amp; restore</string>
     <string name="bkp_last_backup">Last backup %1$s</string>
-    <string name="bkp_no_backup">No backup yet</string>
+    <string name="label_no_backup_yet">No backup yet</string>
     <string name="bkp_verified">Verified %1$s · encrypted</string>
     <string name="bkp_verified_key">Verified %1$s · encrypted · key %2$s</string>
     <string name="bkp_rotation_paused">Many contacts disappeared since the last backup, so old backups are being kept.</string>
     <string name="bkp_resume_rotation">That\'s expected, resume rotation</string>
     <string name="bkp_explain">Contacts with full photos, call history, blocking rules, speed dial, settings and private contacts, in one encrypted file in a folder you choose (sync it with Syncthing, Nextcloud or a USB drive).</string>
-    <string name="bkp_back_up_now">Back up now</string>
-    <string name="bkp_set_up">Set up</string>
+    <string name="action_back_up_now">Back up now</string>
+    <string name="action_set_up">Set up</string>
     <string name="bkp_change_pass">Change backup passphrase</string>
     <string name="bkp_set_pass">Set a backup passphrase</string>
     <string name="bkp_change_pass_summary">Scheduled backups never need it; only restoring does</string>
     <string name="bkp_set_pass_summary">Required: backups are always encrypted</string>
     <string name="bkp_folder">Backup folder</string>
     <string name="bkp_folder_none">Not chosen</string>
-    <string name="bkp_automatic">Automatic backups</string>
+    <string name="label_automatic_backups">Automatic backups</string>
     <string name="bkp_schedule_daily">Daily</string>
     <string name="bkp_schedule_weekly">Weekly</string>
-    <string name="bkp_keep">Keep</string>
+    <string name="action_keep">Keep</string>
     <string name="bkp_keep_smart">Smart</string>
     <string name="bkp_keep_smart_summary">Smart keeps 7 daily, 5 weekly, 12 monthly and 3 yearly backups.</string>
     <string name="bkp_restore_file">Restore from a file…</string>
@@ -535,11 +535,11 @@
     <string name="rst_mode_add_all">Add everything as new contacts</string>
     <string name="rst_mode_replace">Replace: delete current contacts first (a safety backup is made automatically)</string>
     <string name="rst_what">What to restore</string>
-    <string name="rst_with_count">%1$s (%2$d)</string>
-    <string name="rst_contacts">Contacts</string>
+    <string name="format_text_count">%1$s (%2$d)</string>
+    <string name="label_contacts">Contacts</string>
     <string name="rst_blocking">Blocking rules &amp; blocked numbers</string>
     <string name="rst_speed_dial">Speed dial &amp; SIM choices</string>
-    <string name="rst_private">Private contacts</string>
+    <string name="label_private_contacts">Private contacts</string>
     <string name="rst_settings">Settings (theme, blocking options…)</string>
     <string name="rst_comparing">Comparing with your current contacts…</string>
     <string name="rst_ready">Ready to restore</string>
@@ -593,15 +593,15 @@
     <string name="sync_plain_check">I understand these files are readable by anyone with the folder</string>
     <string name="sync_plain_use">Use plain files</string>
     <string name="sync_folder">Sync folder</string>
-    <string name="sync_auto">Sync automatically</string>
+    <string name="label_sync_automatically">Sync automatically</string>
     <string name="sync_auto_summary">When you open Parley, after changes, and every few hours</string>
     <string name="sync_last">Last sync %1$s</string>
-    <string name="sync_never">Not synced yet</string>
+    <string name="label_not_synced_yet">Not synced yet</string>
     <plurals name="sync_apply_deletions">
         <item quantity="one">Apply %1$d deletion</item>
         <item quantity="other">Apply %1$d deletions</item>
     </plurals>
-    <string name="sync_now">Sync now</string>
+    <string name="action_sync_now">Sync now</string>
     <string name="sync_plain_left_toast">Encryption is on, but some plain files couldn\'t be removed from the folder</string>
     <plurals name="sync_plain_left">
         <item quantity="one">%1$d plain .vcf file from before encryption couldn\'t be removed and is still readable in the folder. Delete it there; Parley also tries again on each sync.</item>
@@ -625,14 +625,14 @@
     <string name="tm_row_website">Website: %1$s</string>
     <string name="tm_row_nickname">Nickname: %1$s</string>
     <string name="tm_row_relation">Relation: %1$s</string>
-    <string name="tm_row_photo">Photo</string>
-    <string name="tm_history_title">Version history</string>
+    <string name="label_photo">Photo</string>
+    <string name="label_version_history">Version history</string>
     <string name="tm_no_versions">No earlier versions yet</string>
     <plurals name="tm_no_versions_text">
         <item quantity="one">Parley keeps a daily snapshot of your contacts for %1$d day. Earlier versions of this contact will show up here.</item>
         <item quantity="other">Parley keeps a daily snapshot of your contacts for %1$d days. Earlier versions of this contact will show up here.</item>
     </plurals>
-    <string name="tm_now">Now</string>
+    <string name="label_now">Now</string>
     <string name="tm_didnt_exist">Didn\'t exist</string>
     <string name="tm_later">Later: +%1$d / −%2$d details</string>
     <string name="tm_later_removed">Later: +%1$d / −%2$d details (removed %3$s)</string>
@@ -640,19 +640,19 @@
     <string name="tm_restore_version">Restore this version</string>
     <string name="tm_saved_copy">Saved as a separate contact</string>
     <string name="tm_save_copy">Save as copy</string>
-    <string name="tm_since_yesterday">Since yesterday</string>
+    <string name="label_since_yesterday">Since yesterday</string>
     <string name="tm_last_week">Last week</string>
     <string name="tm_last_month">Last month</string>
     <string name="tm_6_months">6 months</string>
     <string name="tm_no_changes">No changes</string>
     <string name="tm_no_changes_text">Nothing was added, removed or edited in this period (or no snapshot is old enough yet).</string>
     <string name="tm_removed">Removed (%1$d)</string>
-    <string name="tm_restored_name">Restored %1$s</string>
+    <string name="label_restored">Restored %1$s</string>
     <string name="tm_changed">Changed (%1$d)</string>
     <string name="tm_field_changed">%1$s changed</string>
     <string name="tm_field_starred">Favourite</string>
     <string name="tm_field_voicemail">Send to voicemail</string>
-    <string name="tm_field_accounts">Accounts</string>
+    <string name="label_accounts">Accounts</string>
     <string name="tm_added">Added (%1$d)</string>
 
     <!-- Recently deleted & changed (journal) -->
@@ -661,9 +661,9 @@
     <string name="jr_merged">Merged (version before merging)</string>
     <string name="jr_separated">Separated</string>
     <string name="jr_moved">Moved to another account (version before the move)</string>
-    <string name="jr_title">History &amp; undo</string>
+    <string name="label_history_undo">History &amp; undo</string>
     <string name="jr_tab_snapshots">Snapshots</string>
-    <string name="jr_empty_title">Nothing here</string>
+    <string name="label_nothing_here">Nothing here</string>
     <string name="jr_empty_text">Contacts you delete, edit or merge in Parley are kept here for 30 days, so you can undo.</string>
     <string name="jr_restored_suffix">%1$s · restored</string>
     <string name="jr_restored_copy">Restored the earlier version as a separate contact</string>
@@ -678,17 +678,17 @@
         <item quantity="one">%1$d change · %2$s</item>
         <item quantity="other">%1$d changes · %2$s</item>
     </plurals>
-    <string name="jr_storage_private">Deleted private contacts</string>
+    <string name="label_deleted_private_contacts">Deleted private contacts</string>
     <plurals name="jr_storage_private_sub">
         <item quantity="one">%1$d contact, sealed</item>
         <item quantity="other">%1$d contacts, sealed</item>
     </plurals>
-    <string name="jr_storage_calls">Deleted calls</string>
+    <string name="label_deleted_calls">Deleted calls</string>
     <plurals name="jr_storage_calls_sub">
         <item quantity="one">%1$d call · %2$s</item>
         <item quantity="other">%1$d calls · %2$s</item>
     </plurals>
-    <string name="jr_storage_snapshots">Daily snapshots</string>
+    <string name="label_daily_snapshots">Daily snapshots</string>
     <plurals name="jr_storage_snapshots_sub">
         <item quantity="one">%1$d snapshot since %2$s · %3$s</item>
         <item quantity="other">%1$d snapshots since %2$s · %3$s</item>
@@ -751,7 +751,7 @@
         <item quantity="one">You won\'t be able to restore this call.</item>
         <item quantity="other">You won\'t be able to restore these %1$d calls.</item>
     </plurals>
-    <string name="jr_remove">Remove</string>
+    <string name="action_remove_button">Remove</string>
     <string name="jr_removed">Removed from history</string>
     <string name="tm_no_snapshots">No snapshots yet</string>
     <string name="tm_no_snapshots_text">Parley takes a snapshot of your contacts once a day. Check back tomorrow to see what changed.</string>
@@ -773,7 +773,7 @@
         <item quantity="other">%1$d contacts will delete themselves in 30 days unless you change it</item>
     </plurals>
     <string name="health_delete_in_30">Delete in 30 days</string>
-    <string name="health_title">Contact health check</string>
+    <string name="label_contact_health_check">Contact health check</string>
     <string name="health_all_tidy">All tidy</string>
     <string name="health_all_tidy_text">No problems found in your contacts.</string>
     <plurals name="health_fixed">
@@ -786,12 +786,12 @@
     <string name="health_delete_all">Delete all %1$d</string>
 
     <!-- Birthdays & dates -->
-    <string name="bday_title">Birthdays &amp; dates</string>
+    <string name="label_birthdays_dates">Birthdays &amp; dates</string>
     <string name="bday_empty_title">No dates yet</string>
     <string name="bday_empty_text">Add birthdays and anniversaries to contacts to see them here and get a reminder on the day.</string>
-    <string name="bday_this_week">This week</string>
-    <string name="bday_later">Later</string>
-    <string name="bday_would_have_turned">would have turned %1$d</string>
+    <string name="label_this_week">This week</string>
+    <string name="label_later">Later</string>
+    <string name="label_would_have_turned">would have turned %1$d</string>
 
     <!-- Onboarding -->
     <string name="onb_set_later">You can set this later in Settings</string>
@@ -810,12 +810,12 @@
     <string name="picker_link_name_with">Link %1$s with…</string>
     <string name="picker_join_title">Link these contacts?</string>
     <string name="picker_join_text">%1$s asked to link %2$s with %3$s. They will show as one contact.</string>
-    <string name="picker_join_confirm">Link</string>
+    <string name="action_link">Link</string>
     <string name="picker_join_another_app">Another app</string>
     <string name="picker_share_one">Share only one number instead of the whole contact? Some apps may not accept a single number.</string>
     <string name="picker_whole">Whole contact</string>
     <string name="picker_choose_contacts">Choose contacts</string>
-    <string name="picker_choose_contact">Choose a contact</string>
+    <string name="action_choose_a_contact">Choose a contact</string>
     <string name="picker_choose_phone">Choose a phone number</string>
     <string name="picker_choose_email">Choose an email</string>
     <string name="picker_choose_address">Choose an address</string>
@@ -834,11 +834,11 @@
     <string name="tile_private_shown">Private shown</string>
 
     <!-- Shortcuts and widget -->
-    <string name="shortcut_call_confirm">Call %1$s?</string>
+    <string name="action_call_named_q">Call %1$s?</string>
     <string name="widget_pick_title">Direct-dial widget</string>
     <string name="fav_widget_description">Your favourites in a grid: tap to call, or to open their page. With the app lock on, only a count shows while the phone is locked.</string>
     <string name="fav_widget_empty">No favourites yet. Star people in Parley to see them here.</string>
-    <string name="fav_widget_open_name">Open %1$s</string>
+    <string name="action_open_named">Open %1$s</string>
     <string name="fav_widget_tap">When you tap someone</string>
     <string name="fav_widget_tap_open">Open their page</string>
     <string name="fav_widget_private_note">Private contacts never appear in widgets. With the app lock on, a locked phone shows only how many favourites you have.</string>
@@ -881,7 +881,7 @@
     <string name="ppl_no_contacts_text">The account is signed in and can hold contacts, but none are stored there. If you expected some, check that its contacts sync finished.</string>
     <string name="ppl_local_missing">Phone-only storage isn\'t set up</string>
     <string name="ppl_local_missing_text">Some apps only offer “Phone” as a place to save contacts once Android has created it. Parley can create it by adding and removing an empty entry.</string>
-    <string name="ppl_fix">Fix</string>
+    <string name="action_fix">Fix</string>
     <string name="ppl_local_ready">Phone-only storage is ready</string>
     <string name="ppl_local_failed">Couldn\'t set it up</string>
     <string name="ppl_accounts_fine">Accounts look fine</string>
@@ -896,7 +896,7 @@
     <string name="ppl_bg_title">Call screen</string>
     <string name="ppl_bg_text">A picture behind this person\'s calls. It\'s copied into Parley, so it stays even if you delete the original.</string>
     <string name="ppl_bg_choose">Choose picture</string>
-    <string name="ppl_bg_desc">Call screen background</string>
+    <string name="label_call_screen_background">Call screen background</string>
     <string name="ppl_bg_custom">Custom call screen picture</string>
     <string name="ppl_bg_default">Default call screen</string>
     <string name="ppl_bg_info_none">Choose a picture to show when they call</string>
@@ -908,10 +908,10 @@
     <string name="ppl_bg_not_picture">That file isn\'t a picture Parley can use. Try another one.</string>
 
     <!-- People: contacts filter chips -->
-    <string name="ppl_chip_all">All</string>
-    <string name="ppl_chip_account">Account</string>
+    <string name="label_all">All</string>
+    <string name="label_account">Account</string>
     <string name="ppl_chip_all_accounts">All accounts</string>
-    <string name="ppl_chip_unlabelled">Unlabelled</string>
+    <string name="label_unlabelled">Unlabelled</string>
     <string name="ppl_chip_match_all">In all of them</string>
     <string name="ppl_chip_match_any">In any of them</string>
     <string name="ppl_chip_temporary">Temporary (%1$d)</string>
@@ -935,7 +935,7 @@
     <string name="csv_sep_semicolons">semicolons</string>
     <string name="csv_sep_tabs">tabs</string>
     <string name="csv_sep_commas">commas</string>
-    <string name="csv_layout_google">Google Contacts</string>
+    <string name="label_google_contacts">Google Contacts</string>
     <string name="csv_layout_outlook">Outlook</string>
     <string name="csv_intro">This file isn\'t in Parley\'s own format. Its columns are separated by %1$s. Check what each column holds; the first contacts below show how they\'ll be saved.</string>
     <string name="csv_intro_layout">This file isn\'t in Parley\'s own format, it looks like a %1$s export. Its columns are separated by %2$s. Check what each column holds; the first contacts below show how they\'ll be saved.</string>
@@ -946,7 +946,7 @@
     <string name="csv_nothing_with_columns">Nothing would be imported with these columns.</string>
     <string name="csv_into">Into %1$s</string>
     <string name="csv_into_skip">Into %1$s · contacts you already have are skipped</string>
-    <string name="csv_import_failed">Import failed: %1$s</string>
+    <string name="label_import_failed">Import failed: %1$s</string>
     <string name="csv_need_column">Choose at least a name, phone, email or company column.</string>
     <string name="csv_change_column">Change what “%1$s” holds</string>
     <string name="csv_no_name">(no name)</string>
@@ -954,18 +954,18 @@
     <string name="csv_field_ignore">Don\'t import</string>
     <string name="csv_field_full_name">Full name</string>
     <string name="csv_field_prefix">Name prefix</string>
-    <string name="csv_field_given">First name</string>
-    <string name="csv_field_middle">Middle name</string>
-    <string name="csv_field_family">Last name</string>
+    <string name="label_first_name">First name</string>
+    <string name="label_middle_name">Middle name</string>
+    <string name="label_last_name">Last name</string>
     <string name="csv_field_suffix">Name suffix</string>
-    <string name="csv_field_nickname">Nickname</string>
+    <string name="label_nickname">Nickname</string>
     <string name="csv_field_phone_label">Phone type (for the phone next to it)</string>
     <string name="csv_field_email_label">Email type (for the email next to it)</string>
-    <string name="csv_field_title">Job title</string>
-    <string name="csv_field_website">Website</string>
+    <string name="label_job_title">Job title</string>
+    <string name="label_website">Website</string>
 
     <!-- People: account chips, provenance, life events -->
-    <string name="ppl_edit_copy">Edit this copy</string>
+    <string name="action_edit_this_copy">Edit this copy</string>
     <string name="ppl_move_to">Move to…</string>
     <string name="ppl_read_only">Managed by its app (read-only)</string>
     <string name="ppl_unlink">Unlink</string>
@@ -991,10 +991,10 @@
     <string name="prov_last_sync">Last changed · in step with %1$s sync</string>
     <string name="prov_last_sync_at">Last changed on %1$s · in step with %2$s sync</string>
     <string name="prov_last_unknown">Last changed on %1$s, not by Parley</string>
-    <string name="prov_field_handles">Messenger handles</string>
+    <string name="label_messenger_handles">Messenger handles</string>
     <string name="life_aged">aged %1$d</string>
-    <string name="life_today">today</string>
-    <string name="life_tomorrow">tomorrow</string>
+    <string name="label_today_lower">today</string>
+    <string name="label_tomorrow">tomorrow</string>
     <plurals name="life_in_days">
         <item quantity="one">in %1$d day</item>
         <item quantity="other">in %1$d days</item>
@@ -1003,14 +1003,14 @@
     <!-- People: diagnostics export -->
     <string name="diag_saved">Diagnostics saved</string>
     <string name="diag_save_failed">Couldn\'t save the file</string>
-    <string name="diag_title">Export diagnostics</string>
+    <string name="action_export_diagnostics">Export diagnostics</string>
     <string name="diag_intro">This report helps find a problem. It has no contacts and no call history. Parley has no internet access, so nothing is sent: you save it or share it with whoever you choose.</string>
     <string name="diag_mask">Mask numbers and email addresses</string>
     <string name="diag_mask_summary">Keeps only the last two digits of numbers in error messages</string>
     <string name="diag_tables">Include the contacts tables (masked)</string>
     <string name="diag_tables_summary">How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)</string>
     <string name="diag_save_file">Save as file</string>
-    <string name="diag_share">Share</string>
+    <string name="action_share">Share</string>
 
     <!-- People: duplicate warning in the editor -->
     <string name="dup_private_name">%1$s is already a private contact</string>
@@ -1022,7 +1022,7 @@
 
     <!-- People: labels -->
     <string name="lbl_stop_merging">Stop merging</string>
-    <string name="lbl_merge">Merge</string>
+    <string name="action_merge">Merge</string>
     <string name="lbl_new">New label</string>
     <string name="lbl_merge_labels">Merge labels</string>
     <string name="lbl_merge_intro">Choose the labels to combine. Everyone in them ends up in one label; no contact is removed.</string>
@@ -1053,26 +1053,26 @@
     <string name="lbl_delete_title">Delete “%1$s”?</string>
     <string name="lbl_delete_text">The label is removed from every account. The contacts in it are kept.</string>
     <string name="lbl_deleted">Deleted “%1$s”</string>
-    <string name="lbl_saved_in">Saved in</string>
+    <string name="label_saved_in">Saved in</string>
     <string name="lbl_created">Label “%1$s” created</string>
     <string name="lbl_create_failed">Couldn\'t create the label</string>
-    <string name="lbl_create">Create</string>
+    <string name="action_create">Create</string>
     <string name="lbl_rename_title">Rename label</string>
     <string name="lbl_rename_note">If another label already has this name, the two are merged.</string>
     <string name="lbl_rename_failed">Couldn\'t rename: %1$s</string>
     <string name="lbl_no_numbers">No phone numbers in this label</string>
     <string name="lbl_no_sms_app">No messaging app available</string>
-    <string name="lbl_message_all">Message all</string>
+    <string name="action_message_all">Message all</string>
     <string name="lbl_no_emails">No email addresses in this label</string>
     <string name="lbl_no_email_app">No email app available</string>
     <string name="lbl_email_all">Email all</string>
     <string name="lbl_ringtone">Ringtone for this label</string>
     <string name="lbl_custom_ringtone">Custom ringtone</string>
-    <string name="lbl_default_ringtone">Default ringtone</string>
+    <string name="label_default_ringtone">Default ringtone</string>
     <string name="lbl_ringtone_summary">Plays for people in this label, unless they have their own ringtone</string>
     <string name="lbl_nobody">Nobody has this label yet. Add the people it\'s for.</string>
     <string name="lbl_add_people">Add people</string>
-    <string name="lbl_add_people_title">Add to %1$s</string>
+    <string name="action_add_to">Add to %1$s</string>
     <plurals name="lbl_add_n">
         <item quantity="one">Add %1$d person</item>
         <item quantity="other">Add %1$d people</item>
@@ -1090,7 +1090,7 @@
     </plurals>
 
     <!-- People: swipe actions and avatars -->
-    <string name="swipe_none">Nothing</string>
+    <string name="label_nothing">Nothing</string>
     <string name="swipe_delete">Delete (with undo)</string>
     <string name="swipe_right">Swipe right</string>
     <string name="swipe_left">Swipe left</string>
@@ -1104,13 +1104,13 @@
     <string name="avatar_emoji_hint">Names starting with an emoji show it</string>
 
     <!-- People: my card -->
-    <string name="me_title">My card</string>
+    <string name="label_my_card">My card</string>
     <string name="me_empty">Add your details to share them as a QR code</string>
     <string name="me_saved">Card saved</string>
-    <string name="me_your_name">Your name</string>
+    <string name="label_your_name">Your name</string>
     <string name="me_profile_title">Also shows your phone\'s profile</string>
     <string name="me_profile_text">Details from Android\'s “Me” contact fill in what\'s empty here. Parley doesn\'t change that profile: anything in it can be read by every app with contacts access, so your card stays in Parley.</string>
-    <string name="me_websites">Websites</string>
+    <string name="label_websites">Websites</string>
     <string name="me_footer">Your card is stored on this phone only, inside Parley. “Send my details” uses its name and first number.</string>
     <string name="me_share_chooser">Share my card</string>
     <string name="me_share_failed">Couldn\'t share the card</string>
@@ -1119,13 +1119,13 @@
     <string name="me_part_work">Company and job</string>
     <string name="me_part_name_details">Nickname and name details</string>
     <string name="me_part_handles">Messaging apps</string>
-    <string name="me_part_relations">Relations</string>
+    <string name="label_relations">Relations</string>
     <string name="me_part_languages">Languages and citizenship</string>
     <string name="me_share_unsigned">With these details your card goes out without its signature, so other Parley users can\'t tell a later card from you.</string>
     <string name="me_qr_too_big">That\'s too much for one QR code. Leave something out, or share it as a file.</string>
     <string name="me_qr_no_photo">The photo goes only into a shared file, not into the QR code.</string>
     <string name="me_note_hint">Shared only when you tick Note in what your card includes</string>
-    <string name="me_share_file">Share as file</string>
+    <string name="action_share_as_file">Share as file</string>
 
     <!-- People: settings rows -->
     <string name="second_company">Company · title</string>
@@ -1214,18 +1214,18 @@
 
     <!-- People: contacts search hints -->
     <string name="search_matched">Matched: %1$s</string>
-    <string name="search_field_email">email</string>
-    <string name="search_field_nickname">nickname</string>
+    <string name="label_email_lower">email</string>
+    <string name="label_nickname_lower">nickname</string>
     <string name="search_field_company">company</string>
-    <string name="search_field_address">address</string>
+    <string name="label_address_lower">address</string>
     <string name="search_field_note">note</string>
-    <string name="search_field_website">website</string>
+    <string name="label_website_lower">website</string>
     <string name="search_field_handle">messenger handle</string>
     <string name="search_field_profile">profile</string>
 
     <!-- People: SIM -->
     <string name="sim_warning">A SIM card stores only a name (about 14 letters) and one number per entry.</string>
-    <string name="sim_copy_title">Copy to SIM</string>
+    <string name="action_copy_to_sim">Copy to SIM</string>
     <string name="sim_none_see">No SIM card found, or Android didn\'t let Parley see it.</string>
     <plurals name="sim_free">
         <item quantity="one">%1$d free entry</item>
@@ -1260,7 +1260,7 @@
 
     <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">Spouse</string>
-    <string name="rel_partner">Partner</string>
+    <string name="label_partner">Partner</string>
     <string name="rel_domestic_partner">Domestic partner</string>
     <string name="rel_child">Child</string>
     <string name="rel_parent">Parent</string>
@@ -1273,7 +1273,7 @@
     <string name="rel_manager">Manager</string>
     <string name="rel_assistant">Assistant</string>
     <string name="rel_referred_by">Referred by</string>
-    <string name="rel_contact">Contact</string>
+    <string name="label_contact">Contact</string>
     <string name="rel_acquaintance">Acquaintance</string>
     <string name="rel_co_worker">Co-worker</string>
     <string name="rel_colleague">Colleague</string>
@@ -1361,7 +1361,7 @@
     <string name="rel_related">Related</string>
     <string name="rel_group_family">Family</string>
     <string name="rel_group_social">Friends and others</string>
-    <string name="rel_group_work">Work</string>
+    <string name="label_work">Work</string>
 
     <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">Signal username</string>
@@ -1467,7 +1467,7 @@
 
     <!-- Bulk "Move to private": progress and outcome. -->
     <string name="move_private_moving">Moving to private…</string>
-    <string name="move_private_progress">%1$d of %2$d</string>
+    <string name="format_progress_of">%1$d of %2$d</string>
     <string name="move_private_unnamed">A contact without a name</string>
     <plurals name="move_private_result_title">
         <item quantity="one">Moved %1$d contact to private</item>
@@ -1511,7 +1511,7 @@
         <item quantity="one">Its contact won\'t sync with your other devices until it\'s back on.</item>
         <item quantity="other">Its %1$d contacts won\'t sync with your other devices until it\'s back on.</item>
     </plurals>
-    <string name="watch_restore">Restore from snapshot</string>
+    <string name="action_restore_from_snapshot">Restore from snapshot</string>
     <string name="watch_it_was_me">It was me</string>
     <string name="watch_it_was_me_done">Got it. Parley won\'t mention these again.</string>
     <string name="watch_tip">Parley compares the daily snapshots and speaks up once when many contacts vanish without you deleting them.</string>
@@ -1520,7 +1520,7 @@
         <item quantity="other">As they were before they vanished. They go back to their accounts, or to the phone if an account is gone.</item>
     </plurals>
     <string name="watch_numbers_intro">The numbers each contact had before. They\'re added back; nothing else on the contact changes.</string>
-    <string name="watch_select_all">Select all</string>
+    <string name="action_select_all">Select all</string>
     <plurals name="watch_restore_button">
         <item quantity="one">Restore %1$d contact</item>
         <item quantity="other">Restore %1$d contacts</item>
@@ -1573,6 +1573,6 @@
     <string name="bkp_fix_pass">Set passphrase</string>
     <string name="bkp_fix_folder">Choose folder</string>
     <string name="bkp_fix_other_folder">Choose another folder</string>
-    <string name="csv_field_department">Department</string>
+    <string name="label_department">Department</string>
     <string name="search_field_custom">custom field</string>
 </resources>

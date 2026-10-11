@@ -82,7 +82,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                 )
                 PreviewChoices(
                     listOf(
-                        Triple(stringResource(R.string.home_calls_separate), Thumb.CALLS_SEPARATE, surfaces.calls == CallsLayout.SEPARATE),
+                        Triple(stringResource(R.string.label_separate), Thumb.CALLS_SEPARATE, surfaces.calls == CallsLayout.SEPARATE),
                         Triple(stringResource(R.string.home_calls_combined), Thumb.CALLS_COMBINED, surfaces.calls == CallsLayout.COMBINED),
                     ),
                 ) { i ->
@@ -149,7 +149,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                     headlineContent = { Text(stringResource(R.string.home_back_to_separate)) },
                     supportingContent = { Text(stringResource(R.string.home_back_to_separate_sub)) },
                     leadingContent = { Icon(Icons.Rounded.ViewAgenda, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_calls_separate)) } },
+                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.label_separate)) } },
                     colors = rowColors(),
                 )
             }

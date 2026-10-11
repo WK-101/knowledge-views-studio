@@ -12,7 +12,7 @@
     <string name="set_home_recent_tap_title">Tapping a call in Recents</string>
     <string name="set_home_recent_tap_summary">Open its details, or call back straight away</string>
     <string name="set_home_recent_tap_kw">tap, call back, details, accidental, row, recents, tap recents to call, one tap</string>
-    <string name="home_calls_separate">Separate</string>
+    <string name="label_separate">Separate</string>
     <string name="home_calls_combined">Combined</string>
     <string name="home_keep_keypad_tab">Also keep a separate Keypad tab</string>
     <string name="home_keep_keypad_tab_sub">The keypad is in Recents either way; dialling a number opens it there unless this tab is shown</string>

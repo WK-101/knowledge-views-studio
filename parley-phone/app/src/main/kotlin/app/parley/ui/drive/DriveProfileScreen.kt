@@ -79,12 +79,12 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
     fun set(f: (DriveProfileConfig) -> DriveProfileConfig) = store.update(transform = f)
 
-    SettingsScaffold(stringResource(R.string.discover_drive_profile_title), back) {
+    SettingsScaffold(stringResource(R.string.label_drive_profile), back) {
         Text(
             stringResource(R.string.drive_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
-        SegmentedGroup(stringResource(R.string.drive_group_car)) {
+        SegmentedGroup(stringResource(R.string.label_your_car)) {
             rows.forEach { row -> item("car_${row.device.address}") { DeviceRow(row) { on -> set { DriveProfile.mark(it, row.device, on) } } } }
             if (needsPermission) {
                 // Matched by name alone, a common name ("Car Multimedia") could be any car or headphones.
@@ -147,7 +147,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
             ) { v -> set { it.copy(announce = v) } }
         }
         item("answer_favourites") {
-            SwitchRow(stringResource(R.string.drive_answer_favourites), answerSub, cfg.answerFavourites, Icons.Rounded.Star, on) { v ->
+            SwitchRow(stringResource(R.string.action_answer_favourites_automatically), answerSub, cfg.answerFavourites, Icons.Rounded.Star, on) { v ->
                 set { it.copy(answerFavourites = v) }
             }
         }
@@ -160,7 +160,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
             item("answer_after") {
                 ParleyListItem(
                     colors = rowColors(),
-                    headlineContent = { Text(stringResource(R.string.drive_answer_after), modifier = Modifier.semantics { heading() }) },
+                    headlineContent = { Text(stringResource(R.string.action_answer_after), modifier = Modifier.semantics { heading() }) },
                     supportingContent = {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                             AutoAnswer.SECONDS_CHOICES.forEach { s ->
@@ -178,7 +178,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, set: ((DriveProfileConfig) -
         }
         item("silence_unknown") {
             SwitchRow(
-                stringResource(R.string.drive_silence_unknown), stringResource(R.string.drive_silence_unknown_sub), cfg.silenceUnknown,
+                stringResource(R.string.action_silence_unknown_callers), stringResource(R.string.drive_silence_unknown_sub), cfg.silenceUnknown,
                 Icons.Rounded.NotificationsOff, on,
             ) { v -> set { it.copy(silenceUnknown = v) } }
         }

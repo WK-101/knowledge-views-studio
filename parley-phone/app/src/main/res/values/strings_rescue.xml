@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Rescue call: a believable call on Parley's call screen, to leave a situation. Not a real call. -->
 <resources>
-    <string name="rescue_title">Rescue call</string>
+    <string name="label_rescue_call">Rescue call</string>
     <string name="rescue_intro">A call that looks real, on Parley\'s call screen, to help you leave somewhere. Answer it and talk; nobody is on the line.</string>
 
     <string name="rescue_who">Who calls</string>

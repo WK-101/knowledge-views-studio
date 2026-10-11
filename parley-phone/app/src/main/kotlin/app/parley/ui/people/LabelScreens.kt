@@ -141,16 +141,16 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 picked.size, onClear = { merging = false; picked = emptySet() },
                 clearLabel = stringResource(R.string.lbl_stop_merging),
             ) {
-                TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text(stringResource(R.string.lbl_merge)) }
+                TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text(stringResource(R.string.action_merge)) }
             }
         } else ParleyTopBar(
             scrollBehavior = barTint,
-            title = { Text(stringResource(R.string.blk_check_labels)) },
+            title = { Text(stringResource(R.string.label_labels)) },
             navigationIcon = { BackButton(back) },
             actions = {
                 IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
                 Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         DropdownMenuItem(
                             { Text(stringResource(R.string.lbl_merge_labels)) },
@@ -184,7 +184,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
                     },
                     leadingContent = { Icon(Icons.AutoMirrored.Rounded.LabelOff, null) },
-                    headlineContent = { Text(stringResource(R.string.ppl_chip_unlabelled)) },
+                    headlineContent = { Text(stringResource(R.string.label_unlabelled)) },
                     supportingContent = { Text(pluralStringResource(R.plurals.lbl_unlabelled_count, unlabelled, unlabelled)) },
                 )
             }
@@ -213,12 +213,12 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                             val count = pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })
                             // A chapter says what is left of it beside the count.
                             val left = chapters[l.title]?.let { chapterLeft(res, it, now) }
-                            Text(if (left == null) count else stringResource(R.string.archive_page_work, count, left))
+                            Text(if (left == null) count else stringResource(R.string.format_dot_pair, count, left))
                         }
                     },
                     trailingContent = if (merging) null else ({
                         Box {
-                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.recall_more_for, l.title)) }
+                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_for, l.title)) }
                             DropdownMenu(rowMenu, { rowMenu = false }) {
                                 DropdownMenuItem(
                                     { Text(stringResource(R.string.lbl_rename)) },
@@ -243,7 +243,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
         ConfirmDialog(
             title = stringResource(R.string.lbl_merge_into),
             text = null,
-            confirmLabel = stringResource(R.string.lbl_merge),
+            confirmLabel = stringResource(R.string.action_merge),
             onConfirm = {
                 mergeTarget = false
                 scope.launch {
@@ -281,7 +281,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
         ConfirmDialog(
             title = stringResource(R.string.lbl_delete_title, t),
             text = stringResource(R.string.lbl_delete_text),
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 deleting = null
                 scope.launch {
@@ -313,7 +313,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
     ConfirmDialog(
         title = stringResource(R.string.lbl_new),
         text = null,
-        confirmLabel = stringResource(R.string.lbl_create),
+        confirmLabel = stringResource(R.string.action_create),
         onConfirm = {
             val a = account ?: return@ConfirmDialog
             onDismiss()
@@ -328,8 +328,8 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
         confirmEnabled = name.isNotBlank() && account != null,
         content = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.agenda_share_search)) }, singleLine = true)
-                Text(stringResource(R.string.lbl_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.label_name)) }, singleLine = true)
+                Text(stringResource(R.string.label_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
                 accounts.forEach { a ->
                     ParleyListItem(
                         modifier = Modifier.clickable { account = a },
@@ -460,7 +460,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
             .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, res.getString(R.string.caller_tune_title, current))
+            .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, res.getString(R.string.label_ringtone_for, current))
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
@@ -479,10 +479,10 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     else if (!context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) })))) {
                         vm.toast(res.getString(R.string.lbl_no_sms_app))
                     }
-                }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
+                }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
                         LabelBlockingMenuItem(current) { menu = false }
@@ -570,12 +570,14 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                             modifier = Modifier.clickable(onClick = ::pickTone),
                             leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
                             headlineContent = {
-                                Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
+                                Text(
+                                    name ?: stringResource(if (tone != null) R.string.lbl_custom_ringtone else R.string.label_default_ringtone),
+                                )
                             },
                             supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
                             trailingContent = {
                                 if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
-                                    Text(stringResource(R.string.contact_page_reset))
+                                    Text(stringResource(R.string.action_reset))
                                 }
                             },
                         )
@@ -604,7 +606,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         ConfirmDialog(
             title = stringResource(R.string.lbl_delete_title, current),
             text = pluralStringResource(R.plurals.lbl_delete_text_n, members.size, members.size),
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 confirmDelete = false
                 scope.launch {

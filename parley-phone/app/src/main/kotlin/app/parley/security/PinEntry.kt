@@ -67,7 +67,7 @@ internal fun PinUnlock(autoFocus: Boolean) {
         Modifier.focusRequester(focus).widthIn(max = 280.dp),
         enabled = state.editable,
         singleLine = true,
-        label = { Text(stringResource(R.string.pin_field_label)) },
+        label = { Text(stringResource(R.string.label_parley_pin)) },
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { submit() }),
@@ -77,7 +77,7 @@ internal fun PinUnlock(autoFocus: Boolean) {
     )
     Spacer(Modifier.height(8.dp))
     Button(submit, enabled = state.canSubmit) {
-        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.cs_private_unlock))
+        if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.action_unlock))
     }
 }
 
@@ -211,7 +211,7 @@ internal fun NewPinDialog(
         },
         confirmButton = {
             Button(::next, enabled = !busy && PinRules.valid(pin)) {
-                Text(stringResource(if (first == null) R.string.pin_next else R.string.pin_save))
+                Text(stringResource(if (first == null) R.string.action_next else R.string.action_save))
             }
         },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },

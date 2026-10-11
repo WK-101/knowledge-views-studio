@@ -112,7 +112,7 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
         row(stringResource(R.string.hist_export_pdf), stringResource(R.string.hist_export_pdf_summary), Icons.Rounded.PictureAsPdf) {
             run { ExportFiles.opener(file(ExportFormat.PDF), ExportFormat.PDF) }
         }
-        row(stringResource(R.string.hist_export_print), stringResource(R.string.hist_export_print_summary), Icons.Rounded.Print) {
+        row(stringResource(R.string.action_print), stringResource(R.string.hist_export_print_summary), Icons.Rounded.Print) {
             run(print = true) { ExportFiles.opener(file(ExportFormat.PDF), ExportFormat.PDF, print = true) }
         }
         Spacer(Modifier.height(24.dp))

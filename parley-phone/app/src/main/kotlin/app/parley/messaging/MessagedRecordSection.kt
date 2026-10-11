@@ -76,7 +76,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
         onChange = { v -> scope.launch { store.setRecordEnabled(v) } },
     )
     ParleyListItem(
-        headlineContent = { Text(stringResource(R.string.discover_messaged_title)) },
+        headlineContent = { Text(stringResource(R.string.label_messaged_numbers)) },
         supportingContent = { Text(stringResource(R.string.rec_see_delete)) },
         modifier = Modifier.clickable(onClick = openList),
     )
@@ -104,7 +104,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
 
     ParleyScaffold(topBar = {
         ParleyTopBar(
-            stringResource(R.string.discover_messaged_title),
+            stringResource(R.string.label_messaged_numbers),
             onBack = back,
             actions = {
                 if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.rec_clear_all)) }
@@ -191,9 +191,9 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
             Row {
                 // Call the number straight from the list.
                 if (onCall != null) {
-                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, Bidi.ltr(shown)), tint = CallColors.Accept) }
+                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, Bidi.ltr(shown)), tint = CallColors.Accept) }
                 }
-                IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.case_reference_delete, shown)) }
+                IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.action_delete_named, shown)) }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),

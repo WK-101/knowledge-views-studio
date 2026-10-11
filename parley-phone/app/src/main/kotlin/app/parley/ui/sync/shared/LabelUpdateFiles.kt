@@ -183,7 +183,7 @@ internal fun UpdateRows(vm: AppViewModel, s: SharedLabelState, open: (Destinatio
             ParleyListItem(
                 modifier = Modifier.clickable { picker.launch(arrayOf("*/*")) },
                 leadingContent = { Icon(Icons.Rounded.FileOpen, null) },
-                headlineContent = { Text(stringResource(R.string.shl_open_update)) },
+                headlineContent = { Text(stringResource(R.string.action_open_an_update)) },
                 supportingContent = { Text(stringResource(R.string.shl_open_update_sub)) },
                 colors = rowColors(),
             )
@@ -291,7 +291,7 @@ fun OpenLabelFileScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) 
     }
     val tone = if (opened != null && problem == null) BannerTone.INFO else BannerTone.WARNING
     val label = opened?.state
-    SettingsScaffold(stringResource(R.string.shl_open_update), ::done) {
+    SettingsScaffold(stringResource(R.string.action_open_an_update), ::done) {
         val m = message
         if (m == null) {
             Text(stringResource(R.string.shl_open_reading), modifier = Modifier.padding(horizontal = Spacing.xl))

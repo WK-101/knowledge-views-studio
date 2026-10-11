@@ -100,9 +100,9 @@ class ShortcutActivity : Activity() {
                 return@launch
             }
             AlertDialog.Builder(this@ShortcutActivity, R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(getString(app.parley.R.string.shortcut_call_confirm, DataL10n.ltr(number)))
+                .setTitle(getString(app.parley.R.string.action_call_named_q, DataL10n.ltr(number)))
                 .setMessage(getString(app.parley.R.string.pocket_body))
-                .setPositiveButton(getString(app.parley.R.string.circle_widget_call)) { _, _ -> c.scope.launch { c.placer.call(number) } }
+                .setPositiveButton(getString(app.parley.R.string.action_call)) { _, _ -> c.scope.launch { c.placer.call(number) } }
                 .setNegativeButton(getString(app.parley.R.string.dc_cancel), null)
                 .setOnDismissListener { finish() }
                 .show()

@@ -58,7 +58,7 @@
     <!-- My card › Shared with. -->
     <string name="card_shared_title">Shared with</string>
     <string name="card_shared_open">See who has your card</string>
-    <string name="card_shared_none">Nobody yet</string>
+    <string name="label_nobody_yet">Nobody yet</string>
     <plurals name="card_shared_people">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>

@@ -98,9 +98,9 @@ private fun PhoneSection(sections: PageSections, ctx: ContactPageContext, reachG
                 val apps = remember(reachGroups, p.value) { ReachGroups.appNamesFor(reachGroups, p.value, sameLine) }
                 val label = listOfNotNull(
                     Format.phoneType(resources, p.type, p.label).ifBlank { null },
-                    resources.getString(R.string.blk_check_default).takeIf { p.isPrimary && d.phones.size > 1 },
+                    resources.getString(R.string.label_default).takeIf { p.isPrimary && d.phones.size > 1 },
                     pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } },
-                    apps.takeIf { it.isNotEmpty() }?.joinToString(resources.getString(R.string.contact_page_list_separator)),
+                    apps.takeIf { it.isNotEmpty() }?.joinToString(resources.getString(R.string.format_list_separator)),
                     // A quiet word only: what to do about it is in the Contact health check.
                     resources.getString(R.string.number_seems_out_of_service).takeIf { p.value in advice.dead },
                 ).joinToString(sep)
@@ -137,7 +137,7 @@ private fun EmailSection(sections: PageSections, ctx: ContactPageContext) {
             item {
                 val label = listOfNotNull(
                     Format.emailType(resources, e.type, e.label).ifBlank { null },
-                    resources.getString(R.string.blk_check_default).takeIf { e.isPrimary && d.emails.size > 1 },
+                    resources.getString(R.string.label_default).takeIf { e.isPrimary && d.emails.size > 1 },
                 ).joinToString(sep)
                 GroupDataRow(
                     Icons.Rounded.Email, i == 0, e.value, label, onClick = { Intents.email(context, e.value) },
@@ -211,7 +211,7 @@ private fun MessengerSection(
 @Composable
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     DropdownMenuItem(
-        { Text(stringResource(if (isDefault) R.string.detail_remove_default else R.string.detail_default_set)) },
+        { Text(stringResource(if (isDefault) R.string.detail_remove_default else R.string.action_set_as_default)) },
         // The icon shows the current state, like the star on the number itself.
         leadingIcon = { Icon(if (isDefault) Icons.Rounded.Star else Icons.Rounded.StarOutline, null) },
         onClick = { onSet(!isDefault) },

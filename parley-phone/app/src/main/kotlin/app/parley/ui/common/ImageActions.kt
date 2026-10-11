@@ -108,7 +108,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
     var pending by remember { mutableStateOf<ByteArray?>(null) }
     // The document "Save to" created, until the picture is written into it.
     var target by rememberSaveable { mutableStateOf<Uri?>(null) }
-    val fallback = stringResource(R.string.tm_row_photo)
+    val fallback = stringResource(R.string.label_photo)
 
     val saver = rememberLauncherForActivityResult(CreateImageDocument()) { created ->
         if (created == null) pending = null else target = created
@@ -127,7 +127,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
         val ok = bytes != null && ImageExport.save(app, doc, bytes)
         if (!ok) ImageExport.discard(app, doc)
         target = null
-        message = res.getString(if (ok) R.string.blk_saved else R.string.img_save_failed)
+        message = res.getString(if (ok) R.string.label_saved else R.string.img_save_failed)
     }
     // Leaving with a document still empty (the viewer closed before the picture loaded): it isn't left behind. A
     // rotation keeps it: the viewer comes back and writes it.
@@ -242,11 +242,11 @@ fun ImageViewerBar(actions: ImageActions?, image: ExportableImage?, modifier: Mo
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             FilledTonalButton(actions.save) {
                 Icon(Icons.Rounded.Download, null, Modifier.size(ButtonDefaults.IconSize))
-                Text(stringResource(R.string.pin_save), Modifier.padding(start = ButtonDefaults.IconSpacing))
+                Text(stringResource(R.string.action_save), Modifier.padding(start = ButtonDefaults.IconSpacing))
             }
             FilledTonalButton(actions.share) {
                 Icon(Icons.Rounded.Share, null, Modifier.size(ButtonDefaults.IconSize))
-                Text(stringResource(R.string.diag_share), Modifier.padding(start = ButtonDefaults.IconSpacing))
+                Text(stringResource(R.string.action_share), Modifier.padding(start = ButtonDefaults.IconSpacing))
             }
         }
     }
@@ -259,11 +259,11 @@ fun ImageActionButtons(actions: ImageActions, modifier: Modifier = Modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(actions.save) {
                 Icon(Icons.Rounded.Download, null, Modifier.size(ButtonDefaults.IconSize))
-                Text(stringResource(R.string.pin_save), Modifier.padding(start = ButtonDefaults.IconSpacing))
+                Text(stringResource(R.string.action_save), Modifier.padding(start = ButtonDefaults.IconSpacing))
             }
             OutlinedButton(actions.share) {
                 Icon(Icons.Rounded.Share, null, Modifier.size(ButtonDefaults.IconSize))
-                Text(stringResource(R.string.diag_share), Modifier.padding(start = ButtonDefaults.IconSpacing))
+                Text(stringResource(R.string.action_share), Modifier.padding(start = ButtonDefaults.IconSpacing))
             }
         }
         actions.message?.let {

@@ -71,14 +71,14 @@ import app.parley.common.ux.DefaultAppFeature
 @Composable
 internal fun typeLabel(t: RuleType) = stringResource(
     when (t) {
-        RuleType.EXACT -> R.string.blk_check_number
+        RuleType.EXACT -> R.string.label_number
         RuleType.PREFIX -> R.string.blk_type_prefix
         RuleType.WILDCARD -> R.string.blk_type_wildcard
         RuleType.CALLER_NAME -> R.string.blk_type_caller_name
-        RuleType.REGION -> R.string.blk_type_region
-        RuleType.NOT_MY_REGION -> R.string.blk_type_not_my_region
+        RuleType.REGION -> R.string.label_country
+        RuleType.NOT_MY_REGION -> R.string.label_other_countries
         RuleType.LINE_TYPE -> R.string.blk_type_line_type
-        RuleType.LABEL -> R.string.blk_type_label
+        RuleType.LABEL -> R.string.label_label
     },
 )
 
@@ -142,7 +142,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             onBack = back,
             actions = {
                 if (ruleId != 0L) IconButton({ confirmDelete = true }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_delete_rule)) }
-                TextButton(::save, enabled = checked.error == null) { Text(stringResource(R.string.pin_save)) }
+                TextButton(::save, enabled = checked.error == null) { Text(stringResource(R.string.action_save)) }
             },
         )
     }) { p ->
@@ -152,7 +152,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
         ) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf(
-                    RuleKind.BLOCK to stringResource(R.string.blk_block), RuleKind.ALLOW to stringResource(R.string.blk_always_allow),
+                    RuleKind.BLOCK to stringResource(R.string.action_block), RuleKind.ALLOW to stringResource(R.string.blk_always_allow),
                 ).forEachIndexed { i, (k, label) ->
                     val possible = k == RuleKind.BLOCK || r.type != RuleType.CALLER_NAME || keptNameAllow
                     SegmentedButton(r.kind == k, { r = r.copy(kind = k) }, SegmentedButtonDefaults.itemShape(i, 2), enabled = possible) { Text(label) }
@@ -182,7 +182,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                         Text(
                             stringResource(
                                 when (r.type) {
-                                    RuleType.EXACT -> R.string.blk_phone_number
+                                    RuleType.EXACT -> R.string.label_phone_number
                                     RuleType.PREFIX -> R.string.blk_type_prefix
                                     RuleType.WILDCARD -> R.string.blk_type_wildcard
                                     RuleType.CALLER_NAME -> R.string.blk_field_name_contains
@@ -243,7 +243,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             }
             if (checked.error == null && r.type.isNumberRule && r.pattern.isNotBlank()) {
                 if (checked.pattern != r.pattern.trim()) Text(
-                    stringResource(R.string.blk_editor_saved_as, bidiLtr(checked.pattern)), style = MaterialTheme.typography.bodySmall,
+                    stringResource(R.string.label_saved_as, bidiLtr(checked.pattern)), style = MaterialTheme.typography.bodySmall,
                 )
                 if (preview.isNotEmpty()) Text(
                     stringResource(R.string.blk_editor_will_match, preview.joinToString(", ") { bidiLtr(it) }),
@@ -269,7 +269,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             }
 
             if (sims.size >= 2) {
-                Text(stringResource(R.string.blk_editor_sim), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.label_sim), style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(r.simId == null, { r = r.copy(simId = null) }, label = { Text(stringResource(R.string.blk_editor_any_sim)) })
                     sims.forEach { s -> FilterChip(r.simId == s.id, { r = r.copy(simId = s.id) }, label = { Text(s.label) }) }
@@ -278,14 +278,14 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 if (r.simId != null) DefaultAppNote(vm, DefaultAppFeature.SIM_RULES, inset = false)
             }
 
-            Text(stringResource(R.string.blk_editor_when), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.label_when), style = MaterialTheme.typography.titleSmall)
             ScheduleField(r.schedule, { r = r.copy(schedule = it) })
 
             if (allow) {
                 Text(stringResource(R.string.blk_editor_how_long), style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val now = remember { System.currentTimeMillis() }
-                    FilterChip(r.expiresAt == null, { r = r.copy(expiresAt = null) }, label = { Text(stringResource(R.string.blk_always)) })
+                    FilterChip(r.expiresAt == null, { r = r.copy(expiresAt = null) }, label = { Text(stringResource(R.string.label_always)) })
                     FilterChip(
                         r.expiresAt != null && r.expiresAt!! - now <= 25 * 3_600_000L,
                         { r = r.copy(expiresAt = now + 24 * 3_600_000L) },
@@ -297,13 +297,13 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                         label = { Text(pluralStringResource(R.plurals.set_days, 7, 7)) },
                     )
                 }
-                r.expiresAt?.let { Text(stringResource(R.string.blk_editor_until, Format.fullDate(context, it)), style = MaterialTheme.typography.bodySmall) }
+                r.expiresAt?.let { Text(stringResource(R.string.label_until, Format.fullDate(context, it)), style = MaterialTheme.typography.bodySmall) }
                 // A label's ringtone has one home: the label's page in Contacts.
                 if (r.type != RuleType.LABEL) {
-                    Text(stringResource(R.string.blk_editor_ringtone), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.label_ringtone), style = MaterialTheme.typography.titleSmall)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton({ pickTone(r.ringtone) }) { Text(ringtoneTitle(context, r.ringtone) ?: stringResource(R.string.set_same_as_usual)) }
-                        if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text(stringResource(R.string.contact_page_reset)) }
+                        if (r.ringtone != null) TextButton({ r = r.copy(ringtone = null) }) { Text(stringResource(R.string.action_reset)) }
                     }
                 }
             } else {
@@ -358,7 +358,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
         ConfirmDialog(
             title = stringResource(R.string.blk_delete_rule_q),
             text = null,
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 scope.launch {
                     // Undo saves it back as it was (same id, so its hits and history stay with it).

@@ -70,7 +70,7 @@ internal fun ColumnScope.BasicsStep(vm: AppViewModel, done: (BasicsChoice) -> Un
         }
     }
     Question(stringResource(R.string.basics_for_title), stringResource(R.string.basics_for_line)) {
-        Choice(stringResource(R.string.basics_for_me), null, !someoneElse) { someoneElse = false }
+        Choice(stringResource(R.string.label_me), null, !someoneElse) { someoneElse = false }
         Choice(stringResource(R.string.basics_for_someone), stringResource(R.string.basics_for_someone_sub), someoneElse) { someoneElse = true }
     }
     Question(stringResource(R.string.basics_layout_title), stringResource(R.string.basics_layout_line)) {

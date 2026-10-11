@@ -188,10 +188,10 @@ internal fun ExpectingCallRow(st: BlockingState) {
                     selected = true, onClick = { st.launch { BlockingActions.snooze(st.vm.c, 0); ExpectingCallTileService.refresh(context) } },
                     label = { Text(stringResource(R.string.blk_snooze_active, leftText(context, left))) },
                     leadingIcon = { Icon(Icons.Rounded.HourglassTop, null) },
-                    trailingIcon = { Text(stringResource(R.string.blk_stop), fontWeight = FontWeight.Bold) },
+                    trailingIcon = { Text(stringResource(R.string.action_stop), fontWeight = FontWeight.Bold) },
                 )
             } else {
-                Text(stringResource(R.string.blk_expecting_question), style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.label_expecting_a_call_q), style = MaterialTheme.typography.labelLarge)
                 snoozeChoices().forEach { (m, label) ->
                     AssistChip(
                         { st.launch { BlockingActions.snooze(st.vm.c, m); ExpectingCallTileService.refresh(context) } },
@@ -224,7 +224,7 @@ internal fun EmergencyWindowCard(st: BlockingState) {
             Icon(Icons.Rounded.Emergency, null)
             Text("  " + stringResource(R.string.blk_emergency_window, leftText(context, ends - st.now)), Modifier.weight(1f))
             TextButton({ ScreeningGuard.clearEmergencyWindow(context); st.now = System.currentTimeMillis() }) {
-                Text(stringResource(R.string.contact_page_reset))
+                Text(stringResource(R.string.action_reset))
             }
         }
     }
@@ -301,9 +301,9 @@ internal fun SpamListsCard(st: BlockingState, open: (Destination) -> Unit) {
                 )
                 Row {
                     TextButton({ st.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) {
-                        Text(stringResource(R.string.agenda_add_save))
+                        Text(stringResource(R.string.action_add))
                     }
-                    TextButton({ st.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.blk_no_thanks)) }
+                    TextButton({ st.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.label_no_thanks)) }
                 }
             }
         }
@@ -354,9 +354,9 @@ internal fun WhatDecidesSection(st: BlockingState, open: (Destination) -> Unit) 
 private fun decidesName(res: android.content.res.Resources, s: WhatDecides.Source): String = res.getString(
     when (s) {
         WhatDecides.Source.YOUR_RULES -> R.string.blk_decides_rules
-        WhatDecides.Source.SPAM_LISTS -> R.string.blk_check_spam_lists
+        WhatDecides.Source.SPAM_LISTS -> R.string.label_spam_lists
         WhatDecides.Source.SALES_LINES -> R.string.blk_decides_sales
-        WhatDecides.Source.FAMILY_SHIELD -> R.string.blk_decides_shield
+        WhatDecides.Source.FAMILY_SHIELD -> R.string.label_family_spam_shield
     },
 )
 
@@ -470,12 +470,12 @@ internal fun OffHoursSection(st: BlockingState) {
     val s = st.screening
     val oh = s.offHours
     CollapsibleSection(
-        stringResource(R.string.blk_check_off_hours), stringResource(Help.OFF_HOURS),
+        stringResource(R.string.label_off_hours), stringResource(Help.OFF_HOURS),
         if (oh.enabled) {
             listOf(
                 BlockingText.schedule(context, oh.schedule),
-                stringResource(R.string.blk_only_who, offHoursWho(oh)),
-                stringResource(if (oh.action == BlockAction.SILENCE) R.string.blk_action_silence else R.string.blk_action_reject),
+                stringResource(R.string.label_only, offHoursWho(oh)),
+                stringResource(if (oh.action == BlockAction.SILENCE) R.string.action_silence else R.string.blk_action_reject),
             )
         } else {
             listOf(stringResource(R.string.dc_off))
@@ -512,7 +512,7 @@ private fun BusyReplyField(st: BlockingState) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         trailingIcon = {
             if (text != saved && text.isNotBlank()) {
-                TextButton({ st.setScreening { it.copy(busyReplyText = text.trim()) } }) { Text(stringResource(R.string.pin_save)) }
+                TextButton({ st.setScreening { it.copy(busyReplyText = text.trim()) } }) { Text(stringResource(R.string.action_save)) }
             }
         },
     )
@@ -528,15 +528,15 @@ internal fun MoreChecksSection(st: BlockingState) {
         if (ok) st.setScreening { it.copy(blockNeighbourSpoofing = true) } else st.vm.toast(res.getString(R.string.blk_need_own_number))
     }
     CollapsibleSection(
-        stringResource(R.string.blk_more_checks), stringResource(Help.MORE),
+        stringResource(R.string.label_more_checks), stringResource(Help.MORE),
         listOfNotNull(
-            stringResource(R.string.blk_check_neighbour).takeIf { s.blockNeighbourSpoofing },
-            stringResource(R.string.blk_check_verification).takeIf { s.blockFailedVerification },
+            stringResource(R.string.label_neighbour_spoofing).takeIf { s.blockNeighbourSpoofing },
+            stringResource(R.string.label_caller_verification).takeIf { s.blockFailedVerification },
             stringResource(R.string.blk_invalid_numbers).takeIf { s.blockInvalid },
         ),
         st.isOpen("more"), { st.toggle("more") }, Icons.Rounded.Security,
     ) {
-        SwitchRow(stringResource(R.string.blk_check_neighbour), stringResource(R.string.blk_neighbour_help), s.blockNeighbourSpoofing) { v ->
+        SwitchRow(stringResource(R.string.label_neighbour_spoofing), stringResource(R.string.blk_neighbour_help), s.blockNeighbourSpoofing) { v ->
             if (v && !Permissions.has(context, Manifest.permission.READ_PHONE_NUMBERS)) numbersPermission.launch(Manifest.permission.READ_PHONE_NUMBERS)
             else st.setScreening { it.copy(blockNeighbourSpoofing = v) }
         }
@@ -553,8 +553,8 @@ internal fun MoreChecksSection(st: BlockingState) {
         Text(stringResource(R.string.blk_active), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
         ToggleScheduleRow(stringResource(R.string.blk_hidden_numbers), s.hiddenSchedule) { sc -> st.setScreening { it.copy(hiddenSchedule = sc) } }
         ToggleScheduleRow(stringResource(R.string.blk_preset_known), s.nonContactsSchedule) { sc -> st.setScreening { it.copy(nonContactsSchedule = sc) } }
-        ToggleScheduleRow(stringResource(R.string.blk_check_neighbour), s.neighbourSchedule) { sc -> st.setScreening { it.copy(neighbourSchedule = sc) } }
-        ToggleScheduleRow(stringResource(R.string.blk_check_verification),
+        ToggleScheduleRow(stringResource(R.string.label_neighbour_spoofing), s.neighbourSchedule) { sc -> st.setScreening { it.copy(neighbourSchedule = sc) } }
+        ToggleScheduleRow(stringResource(R.string.label_caller_verification),
             s.verificationSchedule) { sc -> st.setScreening { it.copy(verificationSchedule = sc) } }
         ToggleScheduleRow(stringResource(R.string.blk_invalid_numbers), s.invalidSchedule) { sc -> st.setScreening { it.copy(invalidSchedule = sc) } }
     }
@@ -592,7 +592,7 @@ internal fun SoundsItem(st: BlockingState) {
         listOfNotNull(
             stringResource(R.string.blk_sum_loud_favourites).takeIf { s.ringLoudFavourites },
             stringResource(R.string.blk_sum_loud_repeat).takeIf { s.ringLoudRepeat },
-            stringResource(R.string.blk_verdict_blocked_reason, notifyLabelInline(s.notifyBlocked)),
+            stringResource(R.string.label_blocked_reason, notifyLabelInline(s.notifyBlocked)),
         ),
         st.isOpen("sounds"), { st.toggle("sounds") }, Icons.Rounded.MusicNote,
     ) { SoundsSection(s) { f -> st.setScreening(f) } }
@@ -602,7 +602,7 @@ internal fun SoundsItem(st: BlockingState) {
 internal fun EmergencyItem(st: BlockingState) {
     val s = st.screening
     CollapsibleSection(
-        stringResource(R.string.blk_check_emergency), stringResource(Help.EMERGENCY),
+        stringResource(R.string.label_emergency), stringResource(Help.EMERGENCY),
         listOfNotNull(
             pluralStringResource(R.plurals.blk_sum_extra_numbers, s.emergencyExtras.size, s.emergencyExtras.size).takeIf { s.emergencyExtras.isNotEmpty() },
         ),
@@ -664,7 +664,7 @@ internal fun SystemListSection(st: BlockingState, onAdd: () -> Unit) {
             ParleyListItem(
                 leadingContent = { Icon(Icons.Rounded.Block, null) },
                 headlineContent = { Text(bidiLtr(Format.number(b.number, vm.countryIso))) },
-                trailingContent = { IconButton({ vm.unblockNumber(b.number) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_unblock)) } },
+                trailingContent = { IconButton({ vm.unblockNumber(b.number) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.action_unblock)) } },
             )
         }
     }
@@ -703,9 +703,9 @@ internal fun BlockedLogHead(st: BlockingState, logEmpty: Boolean) {
                 supportingContent = { Text(stringResource(R.string.blk_sugg_line, BlockingText.suggestionReason(context, sg), ago(sg.lastAt, st.now))) },
                 trailingContent = {
                     Row {
-                        TextButton({ dismissed.value = dismissed.value + sg.number }) { Text(stringResource(R.string.blk_dismiss)) }
+                        TextButton({ dismissed.value = dismissed.value + sg.number }) { Text(stringResource(R.string.action_dismiss)) }
                         TextButton({ askToBlock(listOf(sg.number), note = res.getString(R.string.blk_likely_spam_for_you)) }) {
-                            Text(stringResource(R.string.blk_block))
+                            Text(stringResource(R.string.action_block))
                         }
                     }
                 },
@@ -713,5 +713,5 @@ internal fun BlockedLogHead(st: BlockingState, logEmpty: Boolean) {
         }
     }
     if (logEmpty) Text(stringResource(R.string.blk_nothing_yet), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    else TextButton({ st.launch { vm.c.blocks.clearBlockedLog() } }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.blk_clear_log)) }
+    else TextButton({ st.launch { vm.c.blocks.clearBlockedLog() } }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.action_clear_log)) }
 }

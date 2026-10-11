@@ -204,8 +204,9 @@ configurations.matching { it.name == "detekt" || it.name == "detektPlugins" }.co
 
 /*
  * Dependency verification: every artifact Gradle downloads is checked against gradle/verification-metadata.xml
- * (SHA-256). After adding or updating a dependency, regenerate the file and review the diff:
- *   ./gradlew --write-verification-metadata sha256 resolveAllDependencies <the tasks CI runs>
+ * (PGP keys where the publisher signs, SHA-256 otherwise). After adding or updating a dependency, regenerate it and the
+ * keyring, and review the diff (docs/RELEASING.md, "Dependency verification"):
+ *   ./gradlew --write-verification-metadata pgp,sha256 --export-keys resolveAllDependencies <the tasks CI runs>
  * This task resolves every configuration of every module (release ones included) so nothing is missed.
  */
 tasks.register("resolveAllDependencies") {

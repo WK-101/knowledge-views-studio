@@ -9,7 +9,7 @@
 
     <string name="help_call_screen_title">Parley\'s call screen doesn\'t show</string>
     <string name="help_call_screen_body">Calls show on Parley\'s own screen only while Parley is your default phone app. Without it, Parley still lists your calls and contacts, and your old phone app answers calls.\n\nIf Android says \"Restricted setting\", Parley was installed from a file: open App info, tap ⋮ › Allow restricted settings, then try again.</string>
-    <string name="help_call_screen_action">Default phone app</string>
+    <string name="label_default_phone_app">Default phone app</string>
 
     <string name="help_did_not_ring_title">A call didn\'t ring</string>
     <string name="help_did_not_ring_body">Your blocking rules, the spam lists or a Situation may have kept it quiet. Test a call shows what your rules would do with any number, and replays last week\'s calls so you can see which rule stopped one. On a number\'s page in Recents, \"Why it rang, or didn\'t\" says the same for one call.</string>
@@ -22,11 +22,11 @@
 
     <string name="help_notifications_title">Missed calls and reminders don\'t show</string>
     <string name="help_notifications_body">Android may have turned off Parley\'s notifications, or one of their kinds. Check that Parley\'s notifications are allowed, Missed calls among them. On the lock screen, Parley shows only \"Missed call\" or \"Reminder\" until you unlock, as you chose.</string>
-    <string name="help_notifications_action">Notification settings</string>
+    <string name="label_notification_settings">Notification settings</string>
 
     <string name="help_late_title">Reminders, backups or Situations come late</string>
     <string name="help_late_body">To save battery, some phones stop apps that work in the background. Parley does little in the background, but scheduled backups, reminders and a Situation\'s end time need it. Let Parley run without battery limits, and on some phones also allow it to start on its own.</string>
-    <string name="help_late_action">Battery optimisation</string>
+    <string name="label_battery_optimisation">Battery optimisation</string>
 
     <string name="help_archived_title">A contact disappeared after Archive</string>
     <string name="help_archived_body">Archive takes a contact out of your address book and other apps, while Parley keeps them sealed and still names their calls. Nothing is lost. Archived contacts are listed together, and Unarchive puts one back in your address book.</string>

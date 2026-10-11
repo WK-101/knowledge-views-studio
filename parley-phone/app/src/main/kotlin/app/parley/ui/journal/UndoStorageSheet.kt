@@ -128,16 +128,16 @@ private fun StoreRows(u: UndoStorage.Usage?, privateKept: Int?, onClear: (UndoSt
     // Its own row, so clearing contact changes never takes the only copies of deleted private contacts with it.
     if (privateKept != null) {
         StoreRow(
-            Icons.Rounded.Lock, stringResource(R.string.jr_storage_private),
+            Icons.Rounded.Lock, stringResource(R.string.label_deleted_private_contacts),
             privateKept.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.jr_storage_private_sub, it, it) },
         ) { onClear(UndoStore.PRIVATE) }
     }
     StoreRow(
-        Icons.Rounded.Call, stringResource(R.string.jr_storage_calls),
+        Icons.Rounded.Call, stringResource(R.string.label_deleted_calls),
         u?.takeIf { calls > 0 }?.let { pluralStringResource(R.plurals.jr_storage_calls_sub, calls, calls, size(context, it.callBytes)) },
     ) { onClear(UndoStore.CALLS) }
     StoreRow(
-        Icons.Rounded.History, stringResource(R.string.jr_storage_snapshots),
+        Icons.Rounded.History, stringResource(R.string.label_daily_snapshots),
         u?.takeIf { first != null }?.let {
             pluralStringResource(R.plurals.jr_storage_snapshots_sub, it.snapshots, it.snapshots, day(context, first ?: 0), size(context, it.snapshotBytes))
         },
@@ -153,19 +153,19 @@ private fun ClearDialog(store: UndoStore, u: UndoStorage.Usage?, privateKept: In
         UndoStore.CONTACTS -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_contacts_title),
             text = pluralStringResource(R.plurals.jr_clear_contacts_text, contacts, contacts),
-            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
+            confirmLabel = stringResource(R.string.action_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.PRIVATE -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_private_title),
             text = pluralStringResource(R.plurals.jr_clear_private_text, privateKept, privateKept),
-            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
+            confirmLabel = stringResource(R.string.action_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.CALLS -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_calls_title),
             text = pluralStringResource(R.plurals.jr_clear_calls_text, calls, calls),
-            confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
+            confirmLabel = stringResource(R.string.action_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )
         UndoStore.SNAPSHOTS -> SnapshotClearDialog(u?.snapshotTimes.orEmpty(), onConfirm, onDismiss)
@@ -178,7 +178,7 @@ private fun StoreRow(icon: ImageVector, title: String, sub: String?, onClear: ()
     val enabled = sub != null
     InfoRow(title, sub ?: stringResource(R.string.jr_storage_empty), icon) {
         TextButton(onClear, enabled = enabled) {
-            Text(stringResource(R.string.hist_filter_clear), color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified)
+            Text(stringResource(R.string.action_clear), color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified)
         }
     }
 }
@@ -193,7 +193,7 @@ private fun SnapshotClearDialog(times: List<Long>, onConfirm: (SnapshotKeep) -> 
     ConfirmDialog(
         title = stringResource(R.string.jr_clear_snapshots_title),
         text = stringResource(R.string.jr_clear_snapshots_text),
-        confirmLabel = stringResource(R.string.hist_filter_clear), destructive = true,
+        confirmLabel = stringResource(R.string.action_clear), destructive = true,
         confirmEnabled = (counts[keep] ?: 0) > 0,
         onConfirm = { onConfirm(keep) },
         onDismiss = onDismiss,

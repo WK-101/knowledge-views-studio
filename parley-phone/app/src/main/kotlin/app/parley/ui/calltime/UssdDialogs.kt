@@ -98,10 +98,10 @@ fun UssdDialog(vm: AppViewModel) {
                     }
                 }
             },
-            confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.main_close)) } },
+            confirmButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.action_close)) } },
             dismissButton = {
                 if (s.ok) {
-                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.hist_action_copy)) }
+                    TextButton({ Clipboard.copy(context, s.text) }) { Text(stringResource(R.string.action_copy)) }
                 } else {
                     TextButton({
                         vm.ussd.dismiss()
@@ -138,7 +138,7 @@ fun UssdHistoryDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
-        dismissButton = { if (history.isNotEmpty()) TextButton({ vm.c.calling.clearUssd() }) { Text(stringResource(R.string.hist_filter_clear)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_close)) } },
+        dismissButton = { if (history.isNotEmpty()) TextButton({ vm.c.calling.clearUssd() }) { Text(stringResource(R.string.action_clear)) } },
     )
 }

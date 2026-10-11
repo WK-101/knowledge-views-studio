@@ -106,7 +106,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) restoreUri = uri }
 
     fun runBackup() {
-        busy = res.getString(R.string.bkp_backing_up)
+        busy = res.getString(R.string.label_backing_up)
         scope.launch {
             val out = repo.backupNow(scheduled = false)
             busy = null
@@ -138,7 +138,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.bkp_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_backup_restore), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             // Overdue reminder (also in Settings); "Not now" snoozes it.
@@ -168,7 +168,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                             Text(
                                 "  " + if (state.lastBackupAt > 0) stringResource(
                                     R.string.bkp_last_backup, Format.shortWhen(context, state.lastBackupAt),
-                                ) else stringResource(R.string.bkp_no_backup),
+                                ) else stringResource(R.string.label_no_backup_yet),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                         }
@@ -192,12 +192,12 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                         )
                         Button(
                             ::runBackup, enabled = ready && busy == null, modifier = Modifier.padding(top = 4.dp),
-                        ) { Text(stringResource(R.string.bkp_back_up_now)) }
+                        ) { Text(stringResource(R.string.action_back_up_now)) }
                         busy?.let { Text(it); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     }
                 }
             }
-            item { Section(stringResource(R.string.bkp_set_up)) }
+            item { Section(stringResource(R.string.action_set_up)) }
             item {
                 ParleyListItem(
                     modifier = Modifier.clickable { if (state.hasKeys) changePass = true else setPass = true },
@@ -227,7 +227,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     },
                 )
                 ParleyListItem(
-                    headlineContent = { Text(stringResource(R.string.bkp_automatic)) },
+                    headlineContent = { Text(stringResource(R.string.label_automatic_backups)) },
                     supportingContent = {
                         SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
                             BackupSchedule.entries.forEachIndexed { i, s ->
@@ -250,7 +250,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     },
                 )
                 ParleyListItem(
-                    headlineContent = { Text(stringResource(R.string.bkp_keep)) },
+                    headlineContent = { Text(stringResource(R.string.action_keep)) },
                     supportingContent = {
                         val opts = listOf(0 to stringResource(R.string.bkp_keep_smart), 5 to "%d".format(5), 10 to "%d".format(10), 30 to "%d".format(30))
                         SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
@@ -374,7 +374,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             },
             confirmButton = { TextButton({ recovery = null }) { Text(stringResource(R.string.bkp_recovery_saved)) } },
-            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.hist_action_copy)) } },
+            dismissButton = { TextButton({ Clipboard.copy(context, key) }) { Text(stringResource(R.string.action_copy)) } },
         )
     }
     restoreUri?.let { uri -> RestoreFlow(vm, uri) { restoreUri = null; refresh++ } }
@@ -392,7 +392,7 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
     ConfirmDialog(
         title = if (change) stringResource(R.string.bkp_change_pass_title) else stringResource(R.string.bkp_pass_title),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { onSave(old.takeIf { change }, new) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),

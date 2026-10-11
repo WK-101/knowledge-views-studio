@@ -68,7 +68,7 @@ object BlockingNotifier {
                 ),
                 ch(
                     CH_LIKELY_SPAM,
-                    context.getString(R.string.blk_ch_likely),
+                    context.getString(R.string.label_likely_spam),
                     context.getString(R.string.blk_ch_likely_desc),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ),
@@ -131,7 +131,7 @@ object BlockingNotifier {
         // contacts are hidden, or one whose status couldn't be read. Their notice reads like a stranger's, without the
         // rule that caught them (it can name their label) and without the quiet-hours reply only contacts get.
         val unnamed = e.isContact && !found.isContact
-        val shownNumber = number?.let { bidiLtr(Format.number(it, region)) } ?: context.getString(R.string.blk_private_number)
+        val shownNumber = number?.let { bidiLtr(Format.number(it, region)) } ?: context.getString(R.string.label_private_number)
         val who = NotificationPrivacy.screenedCallName(found.savedName, found.vaultName, privacy.privateHidden, found.network, shownNumber, lockScreen, locked)
         val decision = e.result.decision
         val quietHours = decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS

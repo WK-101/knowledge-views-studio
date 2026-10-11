@@ -6,7 +6,7 @@ import app.parley.common.vcard.ImportReport
 
 /** [ImportReport.summary] in the user's language (core/common has no Android resources). */
 fun ImportReport.localizedSummary(res: Resources): String = buildList {
-    add(res.getString(R.string.import_summary_imported, imported, cardsParsed + cardsFailed))
+    add(res.getString(R.string.label_imported_of, imported, cardsParsed + cardsFailed))
     if (skippedDuplicates > 0) add(res.getQuantityString(R.plurals.import_summary_duplicates, skippedDuplicates, skippedDuplicates))
     if (cardsFailed > 0) add(res.getQuantityString(R.plurals.import_summary_failed, cardsFailed, cardsFailed))
     val unmapped = unmappedProperties.values.sum()

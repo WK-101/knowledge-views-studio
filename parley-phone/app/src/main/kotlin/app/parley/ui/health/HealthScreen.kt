@@ -116,7 +116,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        ParleyTopBar(stringResource(R.string.health_title), onBack = back, scrollBehavior = barTint)
+        ParleyTopBar(stringResource(R.string.label_contact_health_check), onBack = back, scrollBehavior = barTint)
     }) { p ->
         val list = issues
         if (list == null) {
@@ -142,7 +142,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
-                item { Section(stringResource(R.string.rst_with_count, stringResource(title), group.size)) }
+                item { Section(stringResource(R.string.format_text_count, stringResource(title), group.size)) }
                 item {
                     when (kind) {
                         HealthKind.NO_COUNTRY_CODE, HealthKind.TITLE_IS_COMPANY -> Button(
@@ -154,7 +154,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         ) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> StaleActions(
                             onAutoDelete = {
-                                val phoneLabel = res.getString(R.string.contact_page_sec_phones)
+                                val phoneLabel = res.getString(R.string.label_phone)
                                 // Never with one tap: list who and where first.
                                 scope.launch {
                                     confirmStale = withContext(Dispatchers.IO) {

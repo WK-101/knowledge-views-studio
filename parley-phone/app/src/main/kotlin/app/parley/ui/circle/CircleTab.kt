@@ -186,10 +186,10 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
         trailingContent = {
             if (phone != null) Row {
                 IconButton({ vm.requestCall(phone.number, r.contact.displayName, source = CallSource.CONTACT) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, r.contact.displayName))
+                    Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, r.contact.displayName))
                 }
                 IconButton({ quick.message(r.contact) }) {
-                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, r.contact.displayName))
+                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_named, r.contact.displayName))
                 }
             }
         },
@@ -212,6 +212,9 @@ fun StatusChip(s: CircleStatus) {
 
 @Composable
 private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestion>, canDismiss: Boolean) {
+    // Each suggestion says how often you two called: a relationship insight, none while a duress unlock hides them.
+    val privacy by vm.privacy.collectAsStateWithLifecycle()
+    if (!privacy.insightsShown) return
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     Column {
@@ -240,7 +243,7 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
                                 }
                             }) {
                                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.padding(end = 6.dp))
-                                Text(stringResource(R.string.agenda_add_save))
+                                Text(stringResource(R.string.action_add))
                             }
                         },
                     )

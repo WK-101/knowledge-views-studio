@@ -1,5 +1,7 @@
 package app.parley.ui.circle
 
+import app.parley.common.security.PrivacyView
+import app.parley.data.security.Privacy
 import app.parley.calls.AgendaTicks
 import app.parley.calls.ExpectedCallHints
 import app.parley.data.circle.AgendaTarget
@@ -137,7 +139,7 @@ fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
     if (promises.isEmpty()) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    SegmentedGroup(stringResource(R.string.circle_promises)) {
+    SegmentedGroup(stringResource(R.string.label_promises)) {
         promises.forEach { (note, p) ->
             item {
                 ParleyListItem(
@@ -162,7 +164,12 @@ private fun sourceText(res: Resources, note: PersonNote, date: (Long) -> String)
  * time zone comes from [number] (offline, by country and area code); the time there is only added when it differs
  * from yours. Null with fewer than eight answered calls or no clear pattern.
  */
-fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countryIso: String, now: Long = System.currentTimeMillis()): String? {
+fun goodTimeText(
+    res: Resources, calls: List<CallEntry>, number: String?, countryIso: String, now: Long = System.currentTimeMillis(),
+    privacy: PrivacyView = Privacy.duressOnly(),
+): String? {
+    // A relationship insight: hidden while a duress unlock hides them.
+    if (!privacy.insightsShown) return null
     val mine = ZoneId.systemDefault()
     val theirs = NumberInfo.timeZone(number, countryIso, now)
     val w = GoodTime.window(calls, theirs ?: mine, now) ?: return null
@@ -227,7 +234,7 @@ fun PreCallPeekSheet(
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
                     supportingContent = {
-                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.agenda_title else R.string.circle_open_promise))
+                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.label_to_talk_about else R.string.circle_open_promise))
                     },
                 )
             }
@@ -245,7 +252,7 @@ fun PreCallPeekSheet(
                 TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
                 Button(onCall) {
                     Icon(Icons.Rounded.Call, null, Modifier.padding(end = 6.dp))
-                    Text(stringResource(R.string.circle_widget_call))
+                    Text(stringResource(R.string.action_call))
                 }
             }
         }

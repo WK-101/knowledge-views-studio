@@ -19,7 +19,7 @@
     <string name="set_cat_about_summary">Version, diagnostics, help and tips</string>
 
     <!-- Settings catalog: title, summary and search keywords (comma-separated) per setting key -->
-    <string name="set_theme_title">Theme</string>
+    <string name="label_theme">Theme</string>
     <string name="set_theme_summary">System, light or dark</string>
     <string name="set_theme_kw">dark mode, night mode, light mode, appearance</string>
     <string name="set_amoled_title">Pure black dark theme</string>
@@ -31,7 +31,7 @@
     <string name="set_density_title">List density</string>
     <string name="set_density_summary">Comfortable or compact rows</string>
     <string name="set_density_kw">compact, spacing, row height, size</string>
-    <string name="set_nav_tabs_title">Navigation bar</string>
+    <string name="label_navigation_bar">Navigation bar</string>
     <string name="set_nav_tabs_summary">Show, hide and reorder Favourites, Recents, Contacts and Keypad</string>
     <string name="set_nav_tabs_kw">tabs, bottom bar, bottom navigation, navigation rail, reorder, hide tab, customise, customize, menu, circle</string>
     <string name="set_start_tab_title">Open on</string>
@@ -470,7 +470,7 @@
     <!-- Settings › Calls: its own pages, so the Calls page stays a short list. -->
     <string name="set_calls_answering_title">Answering</string>
     <string name="set_calls_answering_summary">How you answer, ringtones, quick replies and RTT</string>
-    <string name="set_calls_during_title">During calls</string>
+    <string name="label_during_calls">During calls</string>
     <string name="set_calls_during_summary">Speaker, the screen at your ear, notes and call time</string>
     <string name="set_calls_keypad_title">Keypad &amp; dialling</string>
     <string name="set_calls_keypad_summary">Tones and vibration, letters, speed dial, phone menus</string>
@@ -479,7 +479,7 @@
     <string name="set_calls_situations_summary">Driving, meeting, night and travelling; rescue call and helpers</string>
     <string name="set_calls_situations_intro">One tap sets a moment: who may ring, how calls are answered, which reply comes first and which SIM calls go out on. Turning it off puts back what you had. Below: helpers, phone menus and how long calls last.</string>
     <string name="set_group_before_calling">Before you call</string>
-    <string name="set_group_incoming">Incoming calls</string>
+    <string name="label_incoming_calls">Incoming calls</string>
     <string name="set_group_call_feedback">Vibration and power button</string>
     <plurals name="set_every_minutes">
         <item quantity="one">Every minute</item>
@@ -574,7 +574,7 @@
     <string name="ct_never_limit">Never limit</string>
     <string name="ct_never_limit_body">Like emergency numbers: no limit, no allowance, never silenced</string>
     <string name="ct_label_title">Label: %1$s</string>
-    <string name="ct_section_reminders">Talk-time reminders</string>
+    <string name="label_talk_time_reminders">Talk-time reminders</string>
     <string name="ct_reminders_help">A soft beep in the earpiece and a vibration during long calls, for example every 30 minutes. It never ends a call.</string>
     <string name="ct_remind_me">Remind me</string>
     <string name="ct_beep">Beep in the earpiece</string>
@@ -585,14 +585,14 @@
         <item quantity="one">%1$d contact has their own reminder, set on their contact page.</item>
         <item quantity="other">%1$d contacts have their own reminder, set on their contact page.</item>
     </plurals>
-    <string name="ct_section_limits">Call time limits</string>
+    <string name="label_call_time_limits">Call time limits</string>
     <string name="ct_limits_help">Off unless you set one. A limit warns you %1$s before, then ends that call only. Allowances per day or week are counted from your call history and never cut a call. Emergency calls are never limited.</string>
     <string name="ct_add_label_limit">Add a limit for a label</string>
     <string name="ct_contact_limit_help">Set a limit for one person from their contact page (“Call time limit”). A person\'s own limit replaces label, SIM and all-call limits.</string>
     <string name="ct_warn_before">Warn before ending</string>
     <string name="ct_silence_over">Silence incoming calls over the allowance</string>
     <string name="ct_silence_over_body">They still ring silently and show on screen</string>
-    <string name="ct_supervised">Supervised mode</string>
+    <string name="label_supervised_mode">Supervised mode</string>
     <string name="ct_supervised_help">For a relative\'s phone or for self-control: changing limits needs your fingerprint, face or screen lock, and calls can\'t be extended with “+5 min” or “Don\'t end”.</string>
     <string name="ct_supervised_on">On: limits are protected</string>
     <string name="ct_supervised_turn_on">Turn on supervised mode</string>

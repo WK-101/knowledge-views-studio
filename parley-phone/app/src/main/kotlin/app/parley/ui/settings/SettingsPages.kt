@@ -159,13 +159,13 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
     val set = rememberSettingsSetter(vm)
     val themes = listOf(stringResource(R.string.set_theme_system), stringResource(R.string.set_theme_light), stringResource(R.string.set_theme_dark))
     val densities = listOf(stringResource(R.string.set_density_comfortable), stringResource(R.string.set_density_compact))
-    val sortOptions = listOf(stringResource(R.string.csv_field_given), stringResource(R.string.csv_field_family))
+    val sortOptions = listOf(stringResource(R.string.label_first_name), stringResource(R.string.label_last_name))
     val nameOrders = listOf(stringResource(R.string.set_name_order_first), stringResource(R.string.set_name_order_last))
-    SegmentedGroup(stringResource(R.string.set_theme_title)) {
+    SegmentedGroup(stringResource(R.string.label_theme)) {
         choiceRow("theme", themes, s.themeMode.ordinal, Icons.Rounded.DarkMode) { i -> set { it.copy(themeMode = ThemeMode.entries[i]) } }
         if (Build.VERSION.SDK_INT >= 31) switchRow("dynamic_color", s.dynamicColor, Icons.Rounded.Wallpaper) { v -> set { it.copy(dynamicColor = v) } }
     }
-    SegmentedGroup(stringResource(R.string.bulk_names)) {
+    SegmentedGroup(stringResource(R.string.label_names)) {
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
         menuRow("name_order", nameOrders, if (s.showNamesLastFirst) 1 else 0, Icons.Rounded.SwapHoriz) { i -> set { it.copy(showNamesLastFirst = i == 1) } }
     }
@@ -189,7 +189,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
     // "Open on" offers the tabs actually in the bar (a combined option can take one out).
     val layout = HomeLayout(s.navTabs, s.surfaces)
     val tabLabels = layout.visible.map { it.label }
-    SegmentedGroup(stringResource(R.string.set_nav_tabs_title)) {
+    SegmentedGroup(stringResource(R.string.label_navigation_bar)) {
         item("nav_tabs") {
             Column {
                 ParleyListItem(
@@ -275,7 +275,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) { vm.c.contacts.accounts() to vm.c.contacts.systemDefaultAccount() }.let { (a, d) -> accounts = a; systemDefault = d }
     }
-    val importing = stringResource(R.string.hist_importing)
+    val importing = stringResource(R.string.label_importing)
     // An encrypted vCard asks for its passphrase first; it travels with its file only, until the import starts.
     var sealedUri by remember { mutableStateOf<Uri?>(null) }
     fun cancelImport() {
@@ -354,7 +354,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         val pass = ask.pass
         ParleyDialog(
             onDismissRequest = ::cancelImport,
-            title = { Text(stringResource(R.string.import_into)) },
+            title = { Text(stringResource(R.string.action_import_contacts_into)) },
             text = {
                 Column {
                     ImportLeftOut(ask.scan)
@@ -373,7 +373,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
                                 val skip = skipDuplicates
                                 vm.jobs.start(
                                     UserJobs.Kind.IMPORT, importing,
-                                    { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)) },
+                                    { e -> res.getString(R.string.label_import_failed, UserErrorText.of(context, e)) },
                                 ) { p ->
                                     val report = try {
                                         vm.c.vcards.import(uri, a, { done, total -> p.update(done, total) }, skipDuplicates = skip, passphrase = pass)
@@ -423,7 +423,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         pluralStringResource(R.plurals.set_years, 5, 5),
     )
     // The former "Call history" sub-screen lives here now: the archive, what's kept forever and the CSV option.
-    SegmentedGroup(stringResource(R.string.hist_settings_title)) {
+    SegmentedGroup(stringResource(R.string.label_call_history)) {
         item("archive") { KeepFullHistoryRow(vm, Icons.Rounded.ManageHistory) }
         menuRow("retention", retentionLabels, retention.indexOf(s.callLogRetentionDays).coerceAtLeast(0), Icons.Rounded.AutoDelete) { i ->
             set { it.copy(callLogRetentionDays = retention[i], callLogRetentionChosen = true) }
@@ -432,7 +432,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         item("clear_history") { ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
     }
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
-    SegmentedGroup(stringResource(R.string.tab_recents)) {
+    SegmentedGroup(stringResource(R.string.label_recents)) {
         // Layout, style and what a tap does: one row, the same dialog as Recents ⋮ › Recents view….
         item(RECENTS_VIEW_ROW) { RecentsViewRow(vm) }
         // Recents opens on the chip used last (Blocked and Voicemail aside).
@@ -468,7 +468,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val on = stringResource(R.string.dc_on)
     val off = stringResource(R.string.dc_off)
     val unlockWith = unlockWithSummary(vm)
-    SegmentedGroup(stringResource(R.string.discover_app_lock_title)) {
+    SegmentedGroup(stringResource(R.string.label_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
             val act = context as? ComponentActivity
             val why = res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)
@@ -485,7 +485,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     // How much about a caller call notifications and the call screen show while the phone is locked (in enum order).
     val lockCallerLabels = listOf(
         stringResource(R.string.set_lock_screen_caller_name_notes),
-        stringResource(R.string.agenda_share_search),
+        stringResource(R.string.label_name),
         stringResource(R.string.set_lock_screen_caller_initials),
         stringResource(R.string.set_lock_screen_caller_none),
     )
@@ -496,7 +496,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     // The family safe word, by label.
     FamilySafetyPrivacyGroup(open)
-    SegmentedGroup(stringResource(R.string.rst_private)) {
+    SegmentedGroup(stringResource(R.string.label_private_contacts)) {
         // After a duress unlock these show the switches as they were left, not what Parley enforces.
         switchRow("hide_vault", s.duress?.hideVault ?: s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
     }
@@ -527,7 +527,7 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, Format.shortWhen(context, b.lastBackupAt)) else null
     // The overdue reminder (its threshold is on Reminders).
     BackupReminderBanner(vm)
-    SegmentedGroup(stringResource(R.string.work_channel_backups)) {
+    SegmentedGroup(stringResource(R.string.label_backups)) {
         linkRow(
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
@@ -635,7 +635,7 @@ internal const val RECENTS_VIEW_ROW = "recents_layout"
 private fun RecentsViewRow(vm: AppViewModel) {
     val s by vm.settings.collectAsStateWithLifecycle()
     var open by remember { mutableStateOf(false) }
-    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.circle_widget_call))
+    val taps = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.action_call))
     val sub = listOf(recentsLayoutLabels()[s.recentsLayout.ordinal], recentsStyleLabels()[s.recentsStyle.ordinal], taps[s.surfaces.recentTap.ordinal])
         .joinToString(stringResource(R.string.main_separator))
     LinkRow(stringResource(R.string.recents_view_title), sub, Icons.AutoMirrored.Rounded.ViewList) { open = true }

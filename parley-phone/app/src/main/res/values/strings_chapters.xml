@@ -30,7 +30,7 @@
     <string name="chapter_weeks">Weeks</string>
     <string name="chapter_months">Months</string>
     <string name="chapter_set">Set the end</string>
-    <string name="chapter_ended_title">“%1$s” has ended</string>
+    <string name="label_has_ended">“%1$s” has ended</string>
     <string name="chapter_ended_text">What would you like to do with it? Nothing changes until you choose.</string>
     <string name="chapter_keep">Keep the label as it is</string>
     <plurals name="chapter_archive_added">

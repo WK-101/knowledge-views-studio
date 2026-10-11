@@ -77,9 +77,9 @@ import app.parley.ui.avatarSize
 
 private enum class InsightPeriod(@StringRes val label: Int) {
     WEEK(R.string.hist_insight_week),
-    MONTH(R.string.hist_insight_month),
+    MONTH(R.string.label_30_days),
     QUARTER(R.string.hist_insight_quarter),
-    YEAR(R.string.hist_period_this_year),
+    YEAR(R.string.label_this_year),
     ALL(R.string.hist_insight_all);
 
     fun period(now: Long, zone: ZoneId): Period = when (this) {
@@ -101,7 +101,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.contact_page_sec_insights), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_call_insights), onBack = back)
     }) { p ->
         val idx = index
         if (idx == null) {
@@ -138,7 +138,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     StatGrid(totals)
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TalkFigure(stringResource(R.string.hist_talk_time_label), totals.talkSec)
+                        TalkFigure(stringResource(R.string.label_talk_time), totals.talkSec)
                         TalkFigure(stringResource(R.string.hist_calls_you_made), totals.talkOutSec)
                         TalkFigure(stringResource(R.string.hist_calls_you_received), totals.talkInSec)
                     }
@@ -234,7 +234,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         open,
                         trailing = {
                             IconButton({ vm.requestCall(u.person.number, u.person.name) }) {
-                                Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Rounded.Call, stringResource(R.string.action_call_back), tint = MaterialTheme.colorScheme.primary)
                             }
                         },
                     )

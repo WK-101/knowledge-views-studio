@@ -87,7 +87,7 @@ fun PickerScreen(
                         title ?: when (kind) {
                             PickKind.CONTACT -> if (multiple) stringResource(
                                 R.string.picker_choose_contacts,
-                            ) else stringResource(R.string.picker_choose_contact)
+                            ) else stringResource(R.string.action_choose_a_contact)
                             PickKind.PHONE -> stringResource(R.string.picker_choose_phone)
                             PickKind.EMAIL -> stringResource(R.string.picker_choose_email)
                             PickKind.POSTAL -> stringResource(R.string.picker_choose_address)
@@ -117,8 +117,8 @@ fun PickerScreen(
                 if (shown.isEmpty()) item {
                     if (query.isNotBlank()) {
                         EmptyState(
-                            Icons.Rounded.Search, stringResource(R.string.contacts_no_matches, query),
-                            action = stringResource(R.string.contact_page_clear_search), onAction = { query = "" },
+                            Icons.Rounded.Search, stringResource(R.string.label_no_matches_for, query),
+                            action = stringResource(R.string.action_clear_search), onAction = { query = "" },
                         )
                     } else {
                         EmptyState(Icons.Rounded.Search, stringResource(R.string.picker_nothing))
@@ -149,7 +149,7 @@ fun PickerScreen(
 @Composable
 private fun PickerSearchField(query: String, onChange: (String) -> Unit) {
     OutlinedTextField(
-        query, onChange, placeholder = { Text(stringResource(R.string.blk_search)) }, singleLine = true,
+        query, onChange, placeholder = { Text(stringResource(R.string.action_search)) }, singleLine = true,
         leadingIcon = { Icon(Icons.Rounded.Search, null) },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     )

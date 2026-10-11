@@ -63,7 +63,7 @@ fun StayInTouchCard(
     interactions: List<Interaction>,
     goodTime: String? = null,
     /** Null where a foldable section header already says "Stay in touch". */
-    title: String? = stringResource(R.string.circle_stay_in_touch),
+    title: String? = stringResource(R.string.label_stay_in_touch),
     /** False where the next date already shows (the contact page's at-a-glance line). */
     showNext: Boolean = true,
     /** False where "Add to your Circle" is offered elsewhere (the contact page's settings group). */
@@ -115,7 +115,7 @@ fun StayInTouchCard(
                 leadingContent = { Icon(if (ev.type == Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
                 headlineContent = {
                     Text(
-                        if (days == 0L) stringResource(R.string.circle_next_date_today, label) else pluralStringResource(
+                        if (days == 0L) stringResource(R.string.label_named_today, label) else pluralStringResource(
                             R.plurals.circle_next_date_days, days.toInt(), days.toInt(), label,
                         ),
                     )
@@ -147,7 +147,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
     }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
+        title = { Text(stringResource(R.string.action_keep_in_touch)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 // A label's rhythm for people joining the Circle.

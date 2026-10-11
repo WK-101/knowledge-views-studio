@@ -79,7 +79,7 @@ fun DeletedCallsList(vm: AppViewModel, modifier: Modifier = Modifier, reload: In
         ConfirmDialog(
             title = stringResource(R.string.jr_remove_title),
             text = pluralStringResource(R.plurals.jr_remove_calls_text, b.count, b.count),
-            confirmLabel = stringResource(R.string.jr_remove), destructive = true,
+            confirmLabel = stringResource(R.string.action_remove_button), destructive = true,
             onConfirm = {
                 removing = null
                 scope.launch {

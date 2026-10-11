@@ -140,6 +140,28 @@ class ArchiveStoreTest {
         assertTrue(c.screener.archivedCaller("+442079460000", "GB"))
     }
 
+    @Test fun a_card_written_after_the_index_is_read_from_its_file() = runBlocking {
+        val (ada, _) = ada()
+        c.archive.archive(ada)
+        val dir = File(app.filesDir, "archive")
+        val adaIndex = File(dir, "index.sealed").readBytes()
+        val first = c.archive.all().single().id
+        assertTrue(c.archive.unarchive(first) is ArchiveStore.Unarchived.Done)
+        // Bo is archived under the id Ada had; then the index is as it was with Ada (its writes never landed).
+        val boDetails = ContactDetails(given = "Bo", phones = listOf(DataItem(null, "+44 20 7946 0999", Phone.TYPE_MOBILE)))
+        val bo = c.contacts.save(null, boDetails, null, null, false)!!
+        c.archive.archive(bo.contactId!!)
+        assertEquals(first, c.archive.all().single().id)
+        File(dir, "index.sealed").apply {
+            writeBytes(adaIndex)
+            setLastModified(File(dir, "$first.card").lastModified() - 60_000)
+        }
+        val fresh = ArchiveStore(c)
+        assertEquals("Bo", fresh.all().single().name)
+        assertNull(fresh.lookup("020 7946 0000", "GB"))
+        assertEquals("Bo", fresh.lookup("020 7946 0999", "GB")?.name)
+    }
+
     @Test fun a_backup_brings_archived_contacts_back() = runBlocking {
         val (id, _) = ada()
         c.archive.archive(id)

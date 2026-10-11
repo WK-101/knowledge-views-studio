@@ -72,7 +72,7 @@ import androidx.compose.runtime.setValue
 internal fun offHoursWho(o: OffHours) = when (o.allow) {
     OffHoursAllow.CONTACTS -> stringResource(R.string.blk_who_contacts)
     OffHoursAllow.FAVOURITES -> stringResource(R.string.blk_who_favourites)
-    OffHoursAllow.LABEL -> "'${o.labelTitle ?: stringResource(R.string.blk_who_label)}'"
+    OffHoursAllow.LABEL -> "'${o.labelTitle ?: stringResource(R.string.label_label_lower)}'"
 }
 
 @Composable
@@ -90,7 +90,7 @@ internal fun ToggleScheduleRow(title: String, schedule: Schedule?, onChange: (Sc
     ParleyListItem(
         modifier = Modifier.clickable { open = !open },
         headlineContent = { Text(title) },
-        supportingContent = { Text(schedule?.let { BlockingText.schedule(LocalContext.current, it) } ?: stringResource(R.string.blk_always)) },
+        supportingContent = { Text(schedule?.let { BlockingText.schedule(LocalContext.current, it) } ?: stringResource(R.string.label_always)) },
     )
     if (open) ScheduleField(schedule, onChange)
 }
@@ -110,7 +110,7 @@ internal fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) ->
             FilterChip(
                 oh.allow == OffHoursAllow.FAVOURITES,
                 { onChange(oh.copy(allow = OffHoursAllow.FAVOURITES)) },
-                label = { Text(stringResource(R.string.blk_favourites)) },
+                label = { Text(stringResource(R.string.label_favourites)) },
             )
             // By title: the label in every account.
             groups.map { LabelRefs.key(it.title) }.distinct().forEach { t ->
@@ -146,7 +146,7 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
         supportingContent = { Text(ringtoneTitle(context, s.repeatRingtone) ?: stringResource(R.string.set_same_as_usual)) },
         trailingContent = {
-            if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) }
+            if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.action_reset)) }
         },
     )
     ParleyListItem(
@@ -154,7 +154,7 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         headlineContent = { Text(stringResource(R.string.blk_ringtone_spam)) },
         supportingContent = { Text(ringtoneTitle(context, s.likelySpamRingtone) ?: stringResource(R.string.set_same_as_usual)) },
         trailingContent = {
-            if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.contact_page_reset)) }
+            if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.action_reset)) }
         },
     )
     Text(
@@ -163,7 +163,7 @@ internal fun SoundsSection(s: ScreeningSettings, set: ((ScreeningSettings) -> Sc
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Text(stringResource(R.string.blk_notifications), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+    Text(stringResource(R.string.label_notifications), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
     listOf(
         Triple(stringResource(R.string.blk_notify_blocked), s.notifyBlocked) { n: NotifyLevel -> set { it.copy(notifyBlocked = n) } },
         Triple(stringResource(R.string.blk_notify_reported), s.notifyReported) { n: NotifyLevel -> set { it.copy(notifyReported = n) } },
@@ -199,7 +199,9 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
         ParleyListItem(
             headlineContent = { Text(bidiLtr(Format.number(x, vm.countryIso))) },
             trailingContent = {
-                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.jr_remove)) }
+                IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) {
+                    Icon(Icons.Rounded.Delete, stringResource(R.string.action_remove_button))
+                }
             },
         )
     }
@@ -216,7 +218,7 @@ internal fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((Scr
             val clean = RuleTools.check(n, RuleType.EXACT, vm.countryIso)
             if (clean.error == null) set { it.copy(emergencyExtras = (it.emergencyExtras + clean.pattern).distinct()) }
             n = ""
-        }, enabled = n.isNotBlank()) { Text(stringResource(R.string.agenda_add_save)) }
+        }, enabled = n.isNotBlank()) { Text(stringResource(R.string.action_add)) }
     }
 }
 
@@ -311,7 +313,7 @@ internal fun weekLine(w: ScreeningWeek): String {
         w.declined == 0 -> pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced)
         w.silenced == 0 -> pluralStringResource(R.plurals.blk_week_declined_only, w.declined, w.declined)
         else -> stringResource(
-            R.string.blk_week_both,
+            R.string.format_comma_pair,
             pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced),
             pluralStringResource(R.plurals.blk_week_declined, w.declined, w.declined),
         )

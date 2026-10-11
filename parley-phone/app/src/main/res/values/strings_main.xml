@@ -6,8 +6,8 @@
 <resources>
     <!-- Generic -->
     <string name="main_separator" translatable="false">" · "</string>
-    <string name="main_close">Close</string>
-    <string name="main_unknown">Unknown</string>
+    <string name="action_close">Close</string>
+    <string name="label_unknown">Unknown</string>
 
     <string name="ring_silenced_reason">Silenced: %1$s</string>
     <string name="ring_why_dnd_total">Didn\'t ring: Do Not Disturb (total silence)</string>
@@ -65,7 +65,7 @@
     <string name="ring_on_the_phone">On the phone</string>
 
     <!-- Dates and common dialogs -->
-    <string name="main_yesterday">Yesterday</string>
+    <string name="label_yesterday">Yesterday</string>
     <string name="main_share_contact">Share contact</string>
     <string name="call_who_with">Call %1$s with</string>
     <string name="call_remember_sim">Remember for this number</string>
@@ -74,12 +74,12 @@
     <string name="call_anyway">Call anyway</string>
     <string name="call_dont_call">Don\'t call</string>
     <string name="call_time_used_up">Call time used up</string>
-    <string name="import_into">Import contacts into</string>
+    <string name="action_import_contacts_into">Import contacts into</string>
     <!-- "Imported 12 of 14 · 1 duplicate skipped into Google (ana@example.com)." -->
     <string name="import_into_account">%1$s into %2$s.</string>
     <string name="import_into_account_instead">%1$s into %2$s. On this phone, Android puts new contacts there.</string>
     <string name="main_new_contacts_saved_instead">Saved in %1$s. On this phone, Android puts new contacts there.</string>
-    <string name="import_summary_imported">Imported %1$d of %2$d</string>
+    <string name="label_imported_of">Imported %1$d of %2$d</string>
     <plurals name="import_summary_duplicates">
         <item quantity="one">%d duplicate skipped</item>
         <item quantity="other">%d duplicates skipped</item>
@@ -137,7 +137,7 @@
     </plurals>
 
     <!-- Missed-call notifications -->
-    <string name="missed_channel">Missed calls</string>
+    <string name="label_missed_calls">Missed calls</string>
     <string name="missed_more">+%1$d more</string>
     <plurals name="missed_title_many">
         <item quantity="one">%d missed call</item>
@@ -153,7 +153,7 @@
         <item quantity="one">%1$d missed call · last %2$s</item>
         <item quantity="other">%1$d missed calls · last %2$s</item>
     </plurals>
-    <string name="missed_one_at">Missed call · %1$s</string>
+    <string name="label_missed_call_at">Missed call · %1$s</string>
 
     <!-- Voicemail player -->
     <string name="vm_error_in_call">Can\'t play during a call</string>
@@ -183,18 +183,18 @@
     <string name="vm_unblocked">Unblocked %1$s</string>
 
     <!-- Home: tabs, header and menus -->
-    <string name="tab_recents">Recents</string>
-    <string name="tab_keypad">Keypad</string>
+    <string name="label_recents">Recents</string>
+    <string name="label_keypad">Keypad</string>
     <string name="home_search_favorites">Search favourites</string>
     <string name="home_search_recents">Search call history</string>
     <string name="home_search_keypad">Search contacts by name or number</string>
-    <string name="home_create_contact">Create contact</string>
+    <string name="action_create_contact">Create contact</string>
     <string name="home_lock_now">Lock now</string>
     <string name="home_lock_menu">Lock…</string>
     <string name="home_lock_parley">Lock Parley</string>
     <string name="home_add_several">Add several numbers…</string>
-    <string name="home_settings">Settings</string>
-    <string name="home_close_search">Close search</string>
+    <string name="label_settings">Settings</string>
+    <string name="action_close_search">Close search</string>
     <string name="main_open_contact">Open contact</string>
 
     <!-- Favorites -->
@@ -227,7 +227,7 @@
 
     <!-- Contacts list -->
     <string name="contacts_no_private">No private contacts</string>
-    <string name="contacts_no_matches">No matches for “%1$s”</string>
+    <string name="label_no_matches_for">No matches for “%1$s”</string>
     <string name="contacts_no_filter_match">No contacts match this filter</string>
     <string name="contacts_none">No contacts</string>
     <string name="contacts_selected">Selected</string>
@@ -251,7 +251,7 @@
         <item quantity="other">Merged %d contacts</item>
     </plurals>
     <string name="sel_export_vcf">Export to .vcf</string>
-    <string name="sel_move_private">Make private</string>
+    <string name="action_make_private">Make private</string>
     <plurals name="sel_delete_title">
         <item quantity="one">Delete %d contact?</item>
         <item quantity="other">Delete %d contacts?</item>
@@ -289,19 +289,19 @@
     <string name="keypad_number_description">Number: %1$s</string>
     <string name="keypad_no_clip_number">No phone number on the clipboard</string>
     <string name="keypad_paste_number">Paste number</string>
-    <string name="keypad_paste">Paste</string>
+    <string name="action_paste">Paste</string>
     <string name="keypad_imei_title">IMEI and device identifiers</string>
     <string name="keypad_imei_body">Android shows the IMEI only to the system, not to apps like Parley. You can find it in About phone.</string>
     <string name="keypad_open_about">Open About phone</string>
     <string name="keypad_long_plus">Type plus</string>
-    <string name="keypad_long_voicemail">Call voicemail</string>
+    <string name="action_call_voicemail">Call voicemail</string>
     <string name="keypad_long_pause">Type pause</string>
     <string name="keypad_long_wait">Type wait</string>
     <string name="keypad_key_voicemail">1, voicemail</string>
     <string name="keypad_call_with">Call with %1$s</string>
     <string name="keypad_primary">Primary</string>
     <string name="keypad_recent">Recent</string>
-    <string name="keypad_add_to_contacts">Add to contacts</string>
+    <string name="action_add_to_contacts">Add to contacts</string>
     <string name="keypad_add_to_existing">Add to existing contact</string>
     <string name="keypad_search_body">Type a name, part of a name or a number.</string>
     <string name="keypad_no_match">No contacts match “%1$s”</string>
@@ -327,7 +327,7 @@
     <string name="vmi_carrier_app">Carrier voicemail app</string>
     <string name="vmi_collapse">Collapse</string>
     <string name="vmi_show_player">Show player</string>
-    <string name="vmi_new">New</string>
+    <string name="label_new">New</string>
     <string name="vmi_not_downloaded">not downloaded</string>
     <string name="vmi_pause">Pause</string>
     <string name="vmi_play_from">Play voicemail from %1$s</string>
@@ -350,9 +350,9 @@
     <string name="detail_gone">This contact no longer exists.</string>
     <string name="detail_view_photo">View photo</string>
     <string name="detail_deletes_on">Deletes itself on %1$s</string>
-    <string name="detail_sms">SMS</string>
+    <string name="label_sms">SMS</string>
     <string name="detail_choose_message">Choose how to message</string>
-    <string name="detail_video">Video</string>
+    <string name="label_video">Video</string>
     <string name="detail_choose_video">Choose the video app</string>
     <string name="detail_add_note">Add a note for calls</string>
     <string name="detail_note_shown">Shown when they call</string>
@@ -370,7 +370,7 @@
         <item quantity="other">Linked from %d sources</item>
     </plurals>
     <string name="detail_note_placeholder">e.g. Ask about the invoice</string>
-    <string name="detail_keep_in_touch_title">Keep in touch</string>
+    <string name="action_keep_in_touch">Keep in touch</string>
     <string name="detail_every_week">Every week</string>
     <string name="detail_every_2_weeks">Every 2 weeks</string>
     <string name="detail_every_month">Every month</string>
@@ -382,12 +382,12 @@
         <item quantity="one">Contact deletes itself in %d day</item>
         <item quantity="other">Contact deletes itself in %d days</item>
     </plurals>
-    <string name="detail_delete_title">Delete %1$s?</string>
+    <string name="action_delete_named_q">Delete %1$s?</string>
     <string name="detail_delete_body">This removes the contact from every account it is saved in. You can restore it from History &amp; undo for 30 days.</string>
     <string name="detail_sim_for">SIM for %1$s</string>
     <string name="detail_sim_ask">Ask / use default</string>
     <string name="detail_default_failed">Couldn\'t change the default</string>
-    <string name="detail_default_set">Set as default</string>
+    <string name="action_set_as_default">Set as default</string>
     <string name="detail_default_removed">Default removed</string>
     <string name="detail_remove_default">Remove default</string>
     <string name="detail_edit_before_call">Edit before calling</string>
@@ -425,10 +425,10 @@
     <string name="map_link_remove">Remove map link</string>
     <string name="map_link_saved">Exact spot saved from a map link</string>
     <string name="map_link_saved_link_only">Map link saved</string>
-    <string name="map_link_field">Map link</string>
+    <string name="label_map_link">Map link</string>
     <string name="map_link_placeholder">Paste or type a link</string>
     <string name="map_link_intro">A link from Google Maps, OpenStreetMap, Organic Maps, CoMaps, OsmAnd, Magic Earth or Apple Maps, a geo: link, a Plus Code or coordinates.</string>
-    <string name="map_link_found">Found: %1$s</string>
+    <string name="label_found">Found: %1$s</string>
     <string name="map_link_found_spot">Found the exact spot: %1$s</string>
     <string name="map_link_short">This is a short link. Only its server knows where it points, and Parley doesn\'t use the internet, so it will be saved as a link. For the exact spot, open it in your maps app and share the full link or the coordinates.</string>
     <string name="map_link_unknown">Parley can\'t read a place from this link. It will be saved as it is.</string>
@@ -445,7 +445,7 @@
     <string name="edit_po_box">PO box</string>
     <string name="edit_neighbourhood">Neighbourhood</string>
     <string name="edit_postcode">Postcode</string>
-    <string name="edit_city">City</string>
+    <string name="label_city">City</string>
     <string name="edit_region">Region</string>
     <string name="edit_important_dates">Important dates</string>
     <string name="edit_event_death">Death</string>
@@ -484,7 +484,7 @@
     <string name="edit_merge_mine">Mine</string>
     <string name="edit_merge_value_theirs">Theirs: %1$s</string>
     <string name="edit_merge_value_mine">Mine: %1$s</string>
-    <string name="edit_merge_empty">(empty)</string>
+    <string name="label_empty">(empty)</string>
     <string name="edit_field_phones">Phone numbers</string>
     <string name="edit_field_emails">Email addresses</string>
     <string name="edit_field_addresses">Addresses</string>
@@ -625,7 +625,7 @@
         <item quantity="other">%d not reached</item>
     </plurals>
     <string name="intro_copied">Your details were copied. Paste them in the chat.</string>
-    <string name="intro_title">Introduce myself</string>
+    <string name="label_introduce_myself">Introduce myself</string>
     <string name="intro_empty">Nobody to introduce yourself to</string>
     <string name="intro_empty_body">Save some contacts with numbers, or add several numbers first.</string>
     <string name="intro_choose">Choose who gets your details. Parley opens one chat at a time; you press Send.</string>
@@ -642,8 +642,8 @@
     <string name="intro_copied_for_pasting">Your details are copied for pasting</string>
     <string name="intro_set_up_first">Set up your details first.</string>
     <string name="intro_open_again">Open %1$s again</string>
-    <string name="intro_open_in_app">Open in %1$s</string>
-    <string name="intro_skip">Skip</string>
+    <string name="action_open_in">Open in %1$s</string>
+    <string name="action_skip">Skip</string>
     <string name="intro_change_app">Change app</string>
 
     <!-- Messaged numbers record -->
@@ -703,7 +703,7 @@
     <string name="bulk_find_numbers">Find numbers</string>
     <string name="bulk_recent_batches">Recent batches</string>
     <string name="bulk_delete_batch">Delete this batch</string>
-    <string name="bulk_names">Names</string>
+    <string name="label_names">Names</string>
     <string name="bulk_name_pattern">Name pattern</string>
     <!-- {prefix}, {n} and {number} are placeholders the user types: keep them as they are. -->
     <string name="bulk_pattern_hint">Use {prefix}, {n} and {number}</string>
@@ -734,7 +734,7 @@
     <string name="bulk_choose_account">Choose the account</string>
     <string name="bulk_label_optional">Label (optional)</string>
     <string name="bulk_label_hint">An existing label, or a new one</string>
-    <string name="bulk_choose_label">Choose a label</string>
+    <string name="action_choose_a_label">Choose a label</string>
     <string name="bulk_private_sub">Encrypted in Parley, invisible to other apps (WhatsApp included)</string>
     <string name="bulk_temporary_sub">They delete themselves, with their call history</string>
     <plurals name="bulk_days">
@@ -772,7 +772,7 @@
     <string name="recents_view_menu">Recents view…</string>
     <string name="recents_view_title">Recents view</string>
     <string name="clear_history_menu">Clear call history…</string>
-    <string name="clear_history_title">Clear call history</string>
+    <string name="action_clear_call_history">Clear call history</string>
     <string name="clear_history_scope_unknown">Calls from numbers not in your contacts</string>
     <string name="clear_history_scope_missed">Missed and declined calls</string>
     <string name="clear_history_scope_shown">What Recents shows now</string>

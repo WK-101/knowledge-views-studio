@@ -207,7 +207,7 @@ class ContactDetailViewModelTest {
         val vm = page(ContactRef.Private(v).navId) { it.access == PrivateAccess.OPEN && it.details != null }
         val second = vm.state.value.details!!.phones.last()
         vm.setDefault(second, Phone.CONTENT_ITEM_TYPE, on = true)
-        assertEquals(t.context.getString(R.string.detail_default_set), lastMessage())
+        assertEquals(t.context.getString(R.string.action_set_as_default), lastMessage())
         val phones = runBlocking { t.c.vault.details(v) }!!.phones
         assertEquals(listOf(false, true), phones.map { it.isPrimary })
     }

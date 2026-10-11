@@ -19,11 +19,11 @@ val StartTab.label: String
 /** The string resource of [label], for code outside composition. */
 val StartTab.labelRes: Int
     get() = when (this) {
-        StartTab.FAVORITES -> R.string.blk_favourites
-        StartTab.RECENTS -> R.string.tab_recents
-        StartTab.CONTACTS -> R.string.rst_contacts
-        StartTab.KEYPAD -> R.string.tab_keypad
-        StartTab.CIRCLE -> R.string.tab_circle
+        StartTab.FAVORITES -> R.string.label_favourites
+        StartTab.RECENTS -> R.string.label_recents
+        StartTab.CONTACTS -> R.string.label_contacts
+        StartTab.KEYPAD -> R.string.label_keypad
+        StartTab.CIRCLE -> R.string.label_circle
     }
 
 val StartTab.icon: ImageVector

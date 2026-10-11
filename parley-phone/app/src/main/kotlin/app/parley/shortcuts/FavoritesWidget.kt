@@ -294,7 +294,7 @@ class FavoritesWidget : AppWidgetProvider() {
             cell.setImageViewBitmap(R.id.fav_cell_photo, photo)
             val call = tap == FavoritesWidgetPlan.Tap.CALL && t.number != null
             cell.setOnClickPendingIntent(R.id.fav_cell, tapIntent(ctx, id, index, t, tap))
-            cell.setContentDescription(R.id.fav_cell, ctx.getString(if (call) R.string.circle_call_who else R.string.fav_widget_open_name, t.name))
+            cell.setContentDescription(R.id.fav_cell, ctx.getString(if (call) R.string.action_call_named else R.string.action_open_named, t.name))
             return cell
         }
 
@@ -390,11 +390,11 @@ class FavoritesWidgetConfigActivity : LockedActivity() {
                     return@ParleyTheme
                 }
                 var choice by remember { mutableIntStateOf(FavoritesWidget.tap(this, id).ordinal) }
-                ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.blk_favourites), onBack = { finish() }) }) { padding ->
+                ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_favourites), onBack = { finish() }) }) { padding ->
                     Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
                         ChoiceRow(
                             stringResource(R.string.fav_widget_tap),
-                            listOf(stringResource(R.string.circle_widget_call), stringResource(R.string.fav_widget_tap_open)),
+                            listOf(stringResource(R.string.action_call), stringResource(R.string.fav_widget_tap_open)),
                             choice, Icons.Rounded.TouchApp,
                         ) { choice = it }
                         Text(

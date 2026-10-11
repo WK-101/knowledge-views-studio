@@ -93,7 +93,7 @@ fun HomeHeader(
                     }
                     actions()
                     Box {
-                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
+                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
                         DropdownMenu(menuOpen, { menuOpen = false }) { menu { menuOpen = false } }
                     }
                 },
@@ -110,7 +110,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     ParleyTopBar(
-        navigationIcon = { BackButton(onClose, stringResource(R.string.home_close_search)) },
+        navigationIcon = { BackButton(onClose, stringResource(R.string.action_close_search)) },
         title = {
             TextField(
                 value = query,
@@ -122,7 +122,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                 trailingIcon = {
                     // Clearing an empty field closes the search, like the back arrow.
                     IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) {
-                        Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.contact_page_clear_search))
+                        Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.action_close_search else R.string.action_clear_search))
                     }
                 },
                 shape = ParleyShapes.pill,

@@ -79,7 +79,7 @@ private fun factsIcon(f: CallQualityFacts): ImageVector = when {
 private fun headline(f: CallQualityFacts): String {
     val subject = f.subject
     return when {
-        subject != null -> stringResource(R.string.callfacts_subject, subject)
+        subject != null -> stringResource(R.string.format_quoted, subject)
         f.drop != null -> stringResource(R.string.callfacts_dropped)
         f.incoming -> stringResource(R.string.callfacts_incoming)
         else -> stringResource(R.string.callfacts_outgoing)
@@ -95,7 +95,7 @@ private fun details(f: CallQualityFacts): String {
         if (f.durationSec > 0) add(Format.duration(f.durationSec))
         // The headline already says "Call dropped" unless a subject leads.
         f.drop?.takeIf { f.subject != null || it != DropKind.NETWORK }?.let { add(dropText(it)) }
-        if (f.wifi) add(stringResource(R.string.callfacts_wifi))
+        if (f.wifi) add(stringResource(R.string.label_wi_fi_calling))
         if (f.hd) add(stringResource(R.string.callfacts_hd))
         f.sim?.let(::add)
     }

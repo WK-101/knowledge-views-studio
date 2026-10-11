@@ -78,7 +78,7 @@ fun QualityCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
         Text(
-            stringResource(R.string.quality_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+            stringResource(R.string.label_call_quality), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = Spacing.l, top = Spacing.m, end = Spacing.l).semantics { heading() },
         )
         Text(
@@ -120,7 +120,7 @@ private fun RateRows(r: QualityReport) {
         if (rate.calls == 0) return@forEach
         ParleyListItem(
             leadingContent = { Icon(if (n == CallNetwork.WIFI) Icons.Rounded.Wifi else Icons.Rounded.NetworkCheck, null) },
-            headlineContent = { Text(stringResource(if (n == CallNetwork.WIFI) R.string.callfacts_wifi else R.string.quality_mobile)) },
+            headlineContent = { Text(stringResource(if (n == CallNetwork.WIFI) R.string.label_wi_fi_calling else R.string.quality_mobile)) },
             supportingContent = { Text(droppedOf(rate)) },
         )
     }
@@ -166,7 +166,7 @@ internal fun droppedOf(rate: DropRate): String = pluralStringResource(R.plurals.
 /** "Calls with Mum often drop on SIM 2 in the evening". */
 @Composable
 private fun patternText(p: QualityPattern, name: String?): String {
-    val subject = name?.let { stringResource(R.string.quality_subject_with, it) } ?: stringResource(R.string.quality_subject_all)
+    val subject = name?.let { stringResource(R.string.quality_subject_with, it) } ?: stringResource(R.string.label_calls)
     val parts = buildList {
         p.sim?.let { add(stringResource(R.string.quality_on_sim, it)) }
         when (p.network) {

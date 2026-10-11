@@ -23,6 +23,14 @@ import app.parley.common.cases.CaseFiles
 import app.parley.common.cases.CaseMode
 import app.parley.common.calls.SafeWord
 import app.parley.common.security.DuressMachine
+import app.parley.R
+import app.parley.common.CallEntry
+import app.parley.common.CallType
+import app.parley.common.circle.KeepRhythm
+import app.parley.common.circle.RhythmMode
+import app.parley.data.security.Privacy
+import app.parley.ui.circle.CircleText
+import app.parley.ui.circle.goodTimeText
 import app.parley.common.security.PinVerdict
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
@@ -151,6 +159,29 @@ class DuressWalkTest {
             runCatching { reader.blocking().toString() }.getOrDefault(""),
         ).joinToString(" | ")
         return text to reader.vault().size
+    }
+
+    @Test fun a_duress_unlock_hides_every_relationship_insight() = runBlocking {
+        val res = context.resources
+        val natural = KeepRhythm(mode = RhythmMode.NATURAL, learnedDays = 20)
+        // Eight answered evening calls: enough for "Usually free…".
+        val today = java.time.LocalDate.now().atTime(19, 0).atZone(java.time.ZoneId.systemDefault())
+        val evenings = (1..8).map { i ->
+            CallEntry(i.toLong(), bank, null, if (i % 2 == 0) CallType.INCOMING else CallType.OUTGOING,
+                today.minusDays(i.toLong()).toInstant().toEpochMilli(), 120, null, false, false)
+        }
+        assertTrue(c.privacy.now().insightsShown)
+        assertTrue(CircleText.rhythm(res, 14, natural, c.privacy.now()).contains("20"))
+        assertTrue(goodTimeText(res, evenings, bank, "US", privacy = c.privacy.now()) != null)
+
+        duress()
+        // The one privacy view says so, with or without the settings at hand, and every insight reads it.
+        assertFalse(c.privacy.now().insightsShown)
+        assertFalse(Privacy.duressOnly().insightsShown)
+        assertEquals(res.getString(R.string.circle_rhythm_natural), CircleText.rhythm(res, 14, natural))
+        assertEquals(null, goodTimeText(res, evenings, bank, "US"))
+        // A rhythm you set yourself is a choice, not an insight: it still shows.
+        assertTrue(CircleText.rhythm(res, 14, KeepRhythm()).contains("14"))
     }
 
     @Test fun a_duress_unlock_hides_every_private_trace_in_notifications_rescue_and_backups() = runBlocking {

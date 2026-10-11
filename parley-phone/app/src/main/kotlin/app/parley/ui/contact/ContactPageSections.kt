@@ -136,14 +136,14 @@ private fun BlockBody(members: List<PageSections.Entry>) {
 @Composable
 fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> Unit) {
     val turn by animateFloatAsState(if (folded) 0f else 180f, ParleyMotion.spatial(), label = "chevron")
-    val state = stringResource(if (folded) R.string.contact_page_folded else R.string.blk_open)
+    val state = stringResource(if (folded) R.string.label_folded else R.string.action_open)
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(ParleyShapes.tile)
             .clickable(
-                role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold),
+                role = Role.Button, onClickLabel = stringResource(if (folded) R.string.action_unfold else R.string.action_fold),
                 onClick = onToggle,
             )
             .heightIn(min = 48.dp)
@@ -200,19 +200,19 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
 @Suppress("CyclomaticComplexMethod") // One title per section.
 fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
     when (s) {
-        ContactSection.STAY -> R.string.circle_stay_in_touch
-        ContactSection.DATES -> R.string.contact_page_sec_dates
-        ContactSection.PHONES -> R.string.contact_page_sec_phones
-        ContactSection.EMAILS -> R.string.contact_page_sec_emails
-        ContactSection.ADDRESSES -> R.string.contact_page_sec_addresses
+        ContactSection.STAY -> R.string.label_stay_in_touch
+        ContactSection.DATES -> R.string.label_dates
+        ContactSection.PHONES -> R.string.label_phone
+        ContactSection.EMAILS -> R.string.label_email
+        ContactSection.ADDRESSES -> R.string.label_address
         ContactSection.MESSENGERS -> R.string.contact_page_sec_messengers
-        ContactSection.PROFILES -> R.string.contact_page_sec_profiles
-        ContactSection.ABOUT -> R.string.contact_page_sec_about
-        ContactSection.OTHER -> R.string.contact_page_sec_other
-        ContactSection.MORE -> R.string.contact_page_sec_more
-        ContactSection.TIMELINE -> R.string.circle_timeline
-        ContactSection.INSIGHTS -> R.string.contact_page_sec_insights
-        ContactSection.NOTE -> R.string.contact_page_sec_note
+        ContactSection.PROFILES -> R.string.label_profiles
+        ContactSection.ABOUT -> R.string.label_about_them
+        ContactSection.OTHER -> R.string.label_other_fields
+        ContactSection.MORE -> R.string.label_more
+        ContactSection.TIMELINE -> R.string.label_timeline
+        ContactSection.INSIGHTS -> R.string.label_call_insights
+        ContactSection.NOTE -> R.string.label_note_for_calls
         ContactSection.SETTINGS -> R.string.contact_page_sec_settings
     },
 )

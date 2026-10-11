@@ -137,7 +137,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             ) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_list_file)) }
                             OutlinedButton(
                                 { pickFolder.launch(null) }, enabled = !busy,
-                            ) { Icon(Icons.Rounded.Folder, null); Text(" " + stringResource(R.string.blk_folder)) }
+                            ) { Icon(Icons.Rounded.Folder, null); Text(" " + stringResource(R.string.label_folder)) }
                         }
                     }
                 }
@@ -170,7 +170,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                                         vm.toast(if (n == 0) res.getString(R.string.blk_no_new_lists) else res.getString(R.string.blk_updated_n, n))
                                     }
                                 }) { Icon(Icons.Rounded.Refresh, stringResource(R.string.blk_check_now)) }
-                                TextButton({ scope.launch { vm.c.lists.unsubscribe() } }) { Text(stringResource(R.string.jr_remove)) }
+                                TextButton({ scope.launch { vm.c.lists.unsubscribe() } }) { Text(stringResource(R.string.action_remove_button)) }
                             }
                         },
                     )
@@ -189,7 +189,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                         supportingContent = { Text(BlockingText.packDescription(context, b.id, b.description)) },
                         trailingContent = {
                             TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(res.getString(R.string.blk_added_toast)) } }) {
-                                Text(stringResource(R.string.agenda_add_save))
+                                Text(stringResource(R.string.action_add))
                             }
                         },
                     )
@@ -204,9 +204,9 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
         val m = pk.manifest
         val existing = state.packs.firstOrNull { it.id == m.id }
         ConfirmDialog(
-            title = stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name),
+            title = stringResource(if (existing != null) R.string.action_update_named_q else R.string.blk_add_list_q, m.name),
             text = null,
-            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.agenda_add_save),
+            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.action_add),
             onConfirm = {
                 scope.launch {
                     when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
@@ -233,7 +233,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                         ).joinToString(" · "),
                     )
                     if (m.publisher.isNotBlank()) Text(
-                        stringResource(R.string.blk_title_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                        stringResource(R.string.label_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
                     )
                     if (pk.signature == SignatureStatus.SIGNED) {
                         Row(
@@ -316,8 +316,8 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                 if (pk.publisher.isNotBlank() || pk.licence.isNotBlank()) Text(listOf(pk.publisher, pk.licence).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                 pk.fingerprint?.let { Text(stringResource(R.string.blk_publisher_key, it), style = MaterialTheme.typography.bodySmall) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(pk.mode == ListMode.WARN, { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(mode = ListMode.WARN) } } }, label = { Text(stringResource(R.string.blk_warn_only)) })
-                    FilterChip(pk.mode == ListMode.BLOCK, { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(mode = ListMode.BLOCK) } } }, label = { Text(stringResource(R.string.blk_block)) })
+                    FilterChip(pk.mode == ListMode.WARN, { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(mode = ListMode.WARN) } } }, label = { Text(stringResource(R.string.label_warn_only)) })
+                    FilterChip(pk.mode == ListMode.BLOCK, { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(mode = ListMode.BLOCK) } } }, label = { Text(stringResource(R.string.action_block)) })
                 }
                 if (pk.mode == ListMode.BLOCK) {
                     var t by remember(pk.threshold) { mutableFloatStateOf(pk.threshold.toFloat()) }
@@ -333,7 +333,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                 if (pk.suppressed.isNotEmpty()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(pluralStringResource(R.plurals.blk_marked_not_spam_count, pk.suppressed.size, pk.suppressed.size), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                        TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.hist_filter_clear)) }
+                        TextButton({ scope.launch { vm.c.lists.setPack(pk.id) { it.copy(suppressed = emptyList()) } } }) { Text(stringResource(R.string.action_clear)) }
                     }
                 }
                 if (pk.source.isNotBlank()) Text(stringResource(R.string.blk_source, pk.source), style = MaterialTheme.typography.bodySmall)
@@ -344,7 +344,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
     if (confirmRemove) {
         ParleyDialog(
             onDismissRequest = { confirmRemove = false },
-            title = { Text(stringResource(R.string.blk_remove_list_q, name)) },
+            title = { Text(stringResource(R.string.action_remove_named_q, name)) },
             confirmButton = {
                 val ctx = LocalContext.current
                 TextButton({
@@ -353,7 +353,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                         if (pk.origin == PackOrigin.UPDATER) ListsUpdaterClient.unsubscribe(ctx, vm.c.lists, pk.id) else vm.c.lists.remove(pk.id)
                     }
                     confirmRemove = false
-                }) { Text(stringResource(R.string.jr_remove)) }
+                }) { Text(stringResource(R.string.action_remove_button)) }
             },
             dismissButton = { TextButton({ confirmRemove = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )

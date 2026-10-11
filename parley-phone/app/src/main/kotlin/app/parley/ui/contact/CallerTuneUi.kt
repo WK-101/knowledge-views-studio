@@ -276,7 +276,7 @@ internal fun CallerTuneDialog(name: String, onUse: (Uri) -> Unit, onDismiss: () 
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.Audiotrack, null) },
-        title = { Text(stringResource(R.string.caller_tune_title, name)) },
+        title = { Text(stringResource(R.string.label_ringtone_for, name)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.caller_tune_body), style = MaterialTheme.typography.bodyMedium)
@@ -332,7 +332,7 @@ private fun TuneButtons(playing: Boolean, ready: Boolean, onPlay: () -> Unit, on
         FilledTonalButton(onClick = onPlay, enabled = ready, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(if (playing) Icons.Rounded.Stop else Icons.Rounded.PlayArrow, null, Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-            Text(stringResource(if (playing) R.string.blk_stop else R.string.caller_tune_play))
+            Text(stringResource(if (playing) R.string.action_stop else R.string.action_play))
         }
         OutlinedButton(onClick = onAnother, modifier = Modifier.heightIn(min = 48.dp)) {
             Icon(Icons.Rounded.Refresh, null, Modifier.size(ButtonDefaults.IconSize))

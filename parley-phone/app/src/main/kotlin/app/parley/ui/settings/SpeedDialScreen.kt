@@ -46,9 +46,9 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
                 ParleyListItem(
                     modifier = Modifier.clickable { editing = key },
                     leadingContent = { Text("$key") }, // l10n-ok: digit
-                    headlineContent = { Text(e?.label ?: e?.number?.let(::bidiLtr) ?: stringResource(R.string.label_policy_rhythm_none)) },
+                    headlineContent = { Text(e?.label ?: e?.number?.let(::bidiLtr) ?: stringResource(R.string.label_not_set)) },
                     supportingContent = { e?.let { Text(bidiLtr(it.number)) } },
-                    trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_filter_clear)) } },
+                    trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.action_clear)) } },
                 )
             }
         }

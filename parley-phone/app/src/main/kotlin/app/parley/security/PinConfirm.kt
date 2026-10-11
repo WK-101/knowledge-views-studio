@@ -165,7 +165,7 @@ private fun PinConfirmDialog(r: PinConfirm.Request) {
                     Modifier.focusRequester(focus),
                     enabled = !state.busy && !state.waiting,
                     singleLine = true,
-                    label = { Text(stringResource(R.string.pin_field_label)) },
+                    label = { Text(stringResource(R.string.label_parley_pin)) },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { submit() }),

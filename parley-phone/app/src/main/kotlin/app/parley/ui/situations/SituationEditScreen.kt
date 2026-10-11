@@ -94,7 +94,7 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
         SegmentedGroup {
-            item("sit_name") { LinkRow(stringResource(R.string.agenda_share_search), name, Icons.Rounded.Edit) { renaming = true } }
+            item("sit_name") { LinkRow(stringResource(R.string.label_name), name, Icons.Rounded.Edit) { renaming = true } }
         }
         WhileOn(vm, s, ::edit)
         InTheCar(vm, s, open, ::edit)
@@ -111,16 +111,16 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
         }
     }
     if (renaming) {
-        NameDialog(stringResource(R.string.agenda_share_search), name, onDismiss = { renaming = false }) { n ->
+        NameDialog(stringResource(R.string.label_name), name, onDismiss = { renaming = false }) { n ->
             renaming = false
             edit { it.copy(name = n) }
         }
     }
     if (removing) {
         ConfirmDialog(
-            title = stringResource(if (s.builtIn) R.string.sit_reset_title else R.string.detail_delete_title, name),
+            title = stringResource(if (s.builtIn) R.string.sit_reset_title else R.string.action_delete_named_q, name),
             text = stringResource(R.string.sit_delete_body),
-            confirmLabel = stringResource(if (s.builtIn) R.string.contact_page_reset else R.string.blk_delete),
+            confirmLabel = stringResource(if (s.builtIn) R.string.action_reset else R.string.action_delete),
             destructive = !s.builtIn,
             onConfirm = {
                 removing = false
@@ -174,12 +174,12 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
     // A label chosen earlier is offered even while the labels are read (or if it went).
     val labelChoices = (listOfNotNull(s.ringLabel?.takeIf { s.ring == SituationRing.LABEL }) + labels).distinctBy { LabelRefs.key(it) }
     val ringOptions = listOf(
-        stringResource(R.string.sit_as_is), stringResource(R.string.shl_everyone), stringResource(R.string.rst_contacts),
-        stringResource(R.string.blk_favourites),
+        stringResource(R.string.sit_as_is), stringResource(R.string.label_everyone), stringResource(R.string.label_contacts),
+        stringResource(R.string.label_favourites),
     ) + labelChoices
     val ringIndex = ringIndex(s, labelChoices)
     val speakerOptions = listOf(
-        stringResource(R.string.sit_as_is), stringResource(R.string.blk_sched_never), stringResource(R.string.blk_always),
+        stringResource(R.string.sit_as_is), stringResource(R.string.label_never), stringResource(R.string.label_always),
         stringResource(R.string.set_speaker_unknown),
     )
     var replying by rememberSaveable { mutableStateOf(false) }
@@ -203,7 +203,7 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
         }
         item("sit_reply") {
             LinkRow(
-                stringResource(R.string.sit_reply), s.reply?.takeIf { it.isNotBlank() } ?: stringResource(R.string.blk_notify_none),
+                stringResource(R.string.label_reply_offered_first), s.reply?.takeIf { it.isNotBlank() } ?: stringResource(R.string.label_none),
                 Icons.Rounded.Quickreply,
             ) { replying = true }
         }
@@ -239,9 +239,9 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
 private fun ReplyDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf(initial) }
     ConfirmDialog(
-        title = stringResource(R.string.sit_reply),
+        title = stringResource(R.string.label_reply_offered_first),
         text = stringResource(R.string.sit_reply_body),
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { onSave(text) },
         onDismiss = onDismiss,
     ) {
@@ -263,18 +263,18 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
             }
         }
         item("sit_drive_favourites") {
-            TriRow(stringResource(R.string.drive_answer_favourites), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
+            TriRow(stringResource(R.string.action_answer_favourites_automatically), s.driveAnswerFavourites, Icons.Rounded.Star, sub) { v ->
                 edit { it.copy(driveAnswerFavourites = v) }
             }
         }
         item("sit_drive_silence") {
-            TriRow(stringResource(R.string.drive_silence_unknown), s.driveSilenceUnknown, Icons.Rounded.NotificationsOff, sub) { v ->
+            TriRow(stringResource(R.string.action_silence_unknown_callers), s.driveSilenceUnknown, Icons.Rounded.NotificationsOff, sub) { v ->
                 edit { it.copy(driveSilenceUnknown = v) }
             }
         }
         item("sit_drive_cars") {
             val carSub = if (drive.enabled) driveSummary(drive) else stringResource(R.string.sit_drive_no_car)
-            LinkRow(stringResource(R.string.drive_group_car), carSub, Icons.Rounded.DirectionsCar) { open(DriveRoutes.Profile) }
+            LinkRow(stringResource(R.string.label_your_car), carSub, Icons.Rounded.DirectionsCar) { open(DriveRoutes.Profile) }
         }
     }
 }
@@ -295,7 +295,7 @@ private fun AbroadAndSims(vm: AppViewModel, s: Situation, edit: ((Situation) -> 
     }
     SegmentedGroup(stringResource(R.string.sit_group_abroad)) {
         item("sit_assisted") {
-            TriRow(stringResource(R.string.set_assisted_dialling_title), s.assistedDialling,
+            TriRow(stringResource(R.string.label_assisted_dialling_abroad), s.assistedDialling,
                 Icons.Rounded.Public) { v -> edit { it.copy(assistedDialling = v) } }
         }
         item("sit_local_sim") {
@@ -304,7 +304,7 @@ private fun AbroadAndSims(vm: AppViewModel, s: Situation, edit: ((Situation) -> 
         // Only with a choice to make: two SIMs or more, or one chosen earlier.
         if (sims.size > 1 || s.simId != null) {
             item("sit_sim") {
-                MenuRow(stringResource(R.string.be_sim), simOptions, simIndex, Icons.Rounded.SimCard, stringResource(R.string.sit_sim_sub)) { i ->
+                MenuRow(stringResource(R.string.label_sim_for_calls), simOptions, simIndex, Icons.Rounded.SimCard, stringResource(R.string.sit_sim_sub)) { i ->
                     val sim = sims.getOrNull(i - 1)
                     edit {
                         when {

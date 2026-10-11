@@ -116,7 +116,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     val installed = remember { MessengerLauncher.installed(context) }
     val app = installed.firstOrNull { it.packageName == via }
     val draft = number?.let { NewNumberText.message(res, own.name, it) }
-    val subject = own.name.ifBlank { stringResource(R.string.me_title) }
+    val subject = own.name.ifBlank { stringResource(R.string.label_my_card) }
 
     LifecycleResumeEffect(Unit) {
         if (awaitingReturn) {
@@ -181,7 +181,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
                 via == null -> PickWay(installed) { via = it }
                 queue.finished -> Finished(queue, back)
                 else -> CurrentPerson(
-                    queue, app?.label ?: stringResource(R.string.detail_sms), ::openCurrent, ::sendCard,
+                    queue, app?.label ?: stringResource(R.string.label_sms), ::openCurrent, ::sendCard,
                     onNext = ::next,
                     onStop = { set(queue.stop()) }, onChangeWay = { via = null },
                 )
@@ -233,7 +233,7 @@ private fun PickWay(installed: List<MessengerApp>, onPick: (String) -> Unit) {
         )
     }
     ParleyListItem(
-        headlineContent = { Text(stringResource(R.string.detail_sms)) },
+        headlineContent = { Text(stringResource(R.string.label_sms)) },
         supportingContent = { Text(stringResource(R.string.card_new_number_filled_in)) },
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
         modifier = Modifier.clickable { onPick(SMS) },
@@ -261,11 +261,11 @@ private fun CurrentPerson(
     Text(t.name.ifBlank { Bidi.ltr(NumberText.formatInternational(t.number)) }, style = MaterialTheme.typography.headlineSmall)
     if (t.name.isNotBlank()) Text(Bidi.ltr(NumberText.formatInternational(t.number)), color = MaterialTheme.colorScheme.onSurfaceVariant)
     val wasOpened = queue.index in queue.opened
-    Button(onOpen, Modifier.fillMaxWidth()) { Text(stringResource(if (wasOpened) R.string.intro_open_again else R.string.intro_open_in_app, way)) }
+    Button(onOpen, Modifier.fillMaxWidth()) { Text(stringResource(if (wasOpened) R.string.intro_open_again else R.string.action_open_in, way)) }
     OutlinedButton(onSendCard, Modifier.fillMaxWidth()) { Text(stringResource(R.string.card_new_number_send_card)) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-        OutlinedButton(onNext) { Text(stringResource(if (wasOpened) R.string.pin_next else R.string.intro_skip)) }
-        TextButton(onStop) { Text(stringResource(R.string.blk_stop)) }
+        OutlinedButton(onNext) { Text(stringResource(if (wasOpened) R.string.action_next else R.string.action_skip)) }
+        TextButton(onStop) { Text(stringResource(R.string.action_stop)) }
         TextButton(onChangeWay) { Text(stringResource(R.string.intro_change_app)) }
     }
 }

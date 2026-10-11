@@ -126,7 +126,7 @@ internal fun Modifier.rowMoveActions(moves: RowMoves?, labels: Pair<String, Stri
 
 /** The labels of [rowMoveActions]. */
 @Composable
-internal fun rowMoveLabels(): Pair<String, String> = stringResource(R.string.editor_move_up) to stringResource(R.string.editor_move_down)
+internal fun rowMoveLabels(): Pair<String, String> = stringResource(R.string.action_move_up) to stringResource(R.string.action_move_down)
 
 /**
  * The end column's control for one row (48 dp target): the quiet "⊖" that removes it in one tap. In a group whose
@@ -155,11 +155,11 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
         }
         DropdownMenu(open, { open = false }, shape = ParleyShapes.tile) {
             DropdownMenuItem(
-                { Text(stringResource(R.string.editor_move_up)) }, leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
+                { Text(stringResource(R.string.action_move_up)) }, leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
                 enabled = moves.up != null, onClick = { open = false; moves.up?.invoke() },
             )
             DropdownMenuItem(
-                { Text(stringResource(R.string.editor_move_down)) }, leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
+                { Text(stringResource(R.string.action_move_down)) }, leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
                 enabled = moves.down != null, onClick = { open = false; moves.down?.invoke() },
             )
         }
@@ -407,7 +407,7 @@ internal class AddChoice(val icon: ImageVector, val label: String, val onPick: (
 @Composable
 internal fun AddChips(choices: List<AddChoice>, modifier: Modifier = Modifier) {
     val chip: @Composable (AddChoice) -> Unit = { c ->
-        val desc = stringResource(R.string.editor_add_field, c.label)
+        val desc = stringResource(R.string.action_add_named, c.label)
         AssistChip(
             onClick = c.onPick,
             label = { Text(c.label, maxLines = 1) },
@@ -432,10 +432,10 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     val shown = remember(query, res) { RelationText.search(res, query) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.cs_group_relation)) },
+        title = { Text(stringResource(R.string.label_relation)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.action_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ParleyListItem(
@@ -473,10 +473,10 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.picker_choose_contact)) },
+        title = { Text(stringResource(R.string.action_choose_a_contact)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.blk_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.action_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
                         ParleyListItem(

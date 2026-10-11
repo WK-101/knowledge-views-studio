@@ -65,12 +65,12 @@ fun describe(res: Resources, row: DataRow): String? {
         Mime.EMAIL -> v?.let { res.getString(R.string.tm_row_email, it) }
         Mime.POSTAL -> v?.let { res.getString(R.string.tm_row_address, it) }
         Mime.ORG -> listOfNotNull(v, row["data4"]).joinToString(", ").takeIf { it.isNotBlank() }?.let { res.getString(R.string.tm_row_work, it) }
-        Mime.NOTE -> v?.let { res.getString(R.string.case_pdf_note, it.take(60)) }
+        Mime.NOTE -> v?.let { res.getString(R.string.label_note_named, it.take(60)) }
         Mime.EVENT -> v?.let { res.getString(R.string.tm_row_date, it) }
         Mime.WEBSITE -> v?.let { res.getString(R.string.tm_row_website, it) }
         Mime.NICKNAME -> v?.let { res.getString(R.string.tm_row_nickname, it) }
         Mime.RELATION -> v?.let { res.getString(R.string.tm_row_relation, it) }
-        Mime.PHOTO -> res.getString(R.string.tm_row_photo)
+        Mime.PHOTO -> res.getString(R.string.label_photo)
         Mime.GROUP -> null
         else -> null
     }
@@ -79,11 +79,11 @@ fun describe(res: Resources, row: DataRow): String? {
 internal fun lines(res: Resources, r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull { describe(res, it) }.distinct()
 
 private fun fieldLabel(res: Resources, field: String): String = when (field) {
-    "displayName" -> res.getString(R.string.agenda_share_search)
+    "displayName" -> res.getString(R.string.label_name)
     "starred" -> res.getString(R.string.tm_field_starred)
-    "customRingtone" -> res.getString(R.string.blk_editor_ringtone)
+    "customRingtone" -> res.getString(R.string.label_ringtone)
     "sendToVoicemail" -> res.getString(R.string.tm_field_voicemail)
-    "accounts" -> res.getString(R.string.tm_field_accounts)
+    "accounts" -> res.getString(R.string.label_accounts)
     else -> field
 }
 
@@ -103,7 +103,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     }
     var chosen by remember { mutableStateOf<ContactVersion?>(null) }
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.tm_history_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_version_history), onBack = back)
     }) { p ->
         val list = versions
         when {
@@ -121,7 +121,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                         val change = if (rec != null && newer != null) Snapshots.diffRecords(rec, newer) else null
                         ParleyListItem(
                             modifier = Modifier.clickable(enabled = rec != null && i > 0) { chosen = v },
-                            headlineContent = { Text(if (i == 0) stringResource(R.string.tm_now) else Format.fullDate(context, v.timestamp)) },
+                            headlineContent = { Text(if (i == 0) stringResource(R.string.label_now) else Format.fullDate(context, v.timestamp)) },
                             supportingContent = {
                                 Text(
                                     when {
@@ -190,7 +190,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
         LazyColumn(modifier) {
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1L to R.string.tm_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months).forEach { (d, label) ->
+                    listOf(1L to R.string.label_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months).forEach { (d, label) ->
                         FilterChip(days == d, { days = d }, label = { Text(stringResource(label)) })
                     }
                 }
@@ -214,7 +214,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
                             r.displayName, null,
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },
                             trailingContent = {
-                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
+                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.label_restored, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
                             },
                         )
                     }

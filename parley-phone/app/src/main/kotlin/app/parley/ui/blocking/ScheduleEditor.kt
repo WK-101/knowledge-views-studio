@@ -46,7 +46,7 @@ private fun dayNames(style: TextStyle): List<String> {
  * a window whose end is earlier than its start runs past midnight.
  */
 @Composable
-fun ScheduleField(value: Schedule?, onChange: (Schedule?) -> Unit, alwaysLabel: String = stringResource(R.string.blk_always)) {
+fun ScheduleField(value: Schedule?, onChange: (Schedule?) -> Unit, alwaysLabel: String = stringResource(R.string.label_always)) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             FilterChip(value == null, { onChange(null) }, label = { Text(alwaysLabel) })
@@ -59,7 +59,7 @@ fun ScheduleField(value: Schedule?, onChange: (Schedule?) -> Unit, alwaysLabel: 
             FilterChip(
                 value != null && value != nights && value != work && value != weekend,
                 { onChange(value ?: Schedule(Schedule.ALL_DAYS, 20 * 60, 8 * 60)) },
-                label = { Text(stringResource(R.string.blk_sched_custom)) },
+                label = { Text(stringResource(R.string.label_custom)) },
             )
         }
         if (value != null) ScheduleDetails(value, onChange)
@@ -84,7 +84,7 @@ private fun ScheduleDetails(value: Schedule, onChange: (Schedule) -> Unit) {
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton({ editing = 0 }) { Text(stringResource(R.string.blk_title_from, Schedule.hm(value.startMinute))) }
+        OutlinedButton({ editing = 0 }) { Text(stringResource(R.string.label_from, Schedule.hm(value.startMinute))) }
         OutlinedButton({ editing = 1 }) { Text(stringResource(R.string.blk_sched_to, Schedule.hm(value.endMinute))) }
     }
     Text(

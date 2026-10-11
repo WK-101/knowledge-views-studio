@@ -154,9 +154,9 @@ private fun EditNoteDialog(ctx: ContactPageContext) {
     // What was typed survives a rotation, with the dialog.
     var text by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(ctx.ui.meta?.pinnedNote.orEmpty())) }
     ConfirmDialog(
-        title = stringResource(R.string.contact_page_sec_note),
+        title = stringResource(R.string.label_note_for_calls),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { ctx.show(ContactDialog.None); ctx.page.setPinnedNote(text.text) },
         onDismiss = { ctx.show(ContactDialog.None) },
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -194,12 +194,12 @@ private fun AddToHomeScreenDialog(ctx: ContactPageContext) {
                 d.phones.forEach { p ->
                     val shown = Bidi.ltr(Format.number(p.value, ctx.vm.countryIso))
                     ParleyListItem(
-                        headlineContent = { Text(stringResource(R.string.circle_call_who, shown)) },
+                        headlineContent = { Text(stringResource(R.string.action_call_named, shown)) },
                         leadingContent = { Icon(Icons.Rounded.Call, null) },
                         modifier = Modifier.clickable { pin(Shortcuts.Kind.CALL, p.value) },
                     )
                     ParleyListItem(
-                        headlineContent = { Text(stringResource(R.string.circle_message_who, shown)) },
+                        headlineContent = { Text(stringResource(R.string.action_message_named, shown)) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
                         modifier = Modifier.clickable { pin(Shortcuts.Kind.MESSAGE, p.value) },
                     )
@@ -247,12 +247,12 @@ private fun DeleteDialogs(ctx: ContactPageContext, dialog: ContactDialog) {
     val close = { ctx.show(ContactDialog.None) }
     if (dialog == ContactDialog.ConfirmDelete) {
         ConfirmDialog(
-            title = if (ctx.isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.detail_delete_title, d.displayName),
+            title = if (ctx.isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.action_delete_named_q, d.displayName),
             // A private contact's copy is kept sealed ("Deleted private contacts" in History & undo), never plain.
             text = stringResource(if (ctx.isPrivate) R.string.vault_delete_text else R.string.detail_delete_body),
             // Archive keeps naming their calls, which deleting doesn't: offered here, where it's chosen against Delete.
             content = if (keptAs(ctx) == KeptAs.ARCHIVED) null else ({ ArchiveInstead { ctx.show(ContactDialog.ConfirmArchive) } }),
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 close()
                 if (ctx.isPrivate) {
@@ -292,13 +292,13 @@ private fun MakePrivateDialog(ctx: ContactPageContext) {
     ConfirmDialog(
         title = stringResource(R.string.contact_make_private_title, d.given.ifBlank { d.displayName }),
         text = stringResource(R.string.contact_make_private_body),
-        confirmLabel = stringResource(R.string.sel_move_private),
+        confirmLabel = stringResource(R.string.action_make_private),
         icon = Icons.Rounded.Lock,
         onConfirm = {
             ctx.show(ContactDialog.None)
             scope.launchVault(
                 context as? ComponentActivity,
-                { e -> ctx.vm.toast(resources.getString(R.string.vault_move_failed, UserErrorText.of(context, e))) },
+                { e -> ctx.vm.toast(resources.getString(R.string.label_couldnt_move, UserErrorText.of(context, e))) },
             ) {
                 // The note for calls and the messaging choice go with them, sealed; the rest is re-keyed.
                 val sealed = d.copy(pinnedNote = ctx.ui.meta?.pinnedNote.orEmpty(), messengerPrefs = ctx.prefs.encode().orEmpty())
@@ -329,7 +329,7 @@ private fun MakeVisibleDialog(ctx: ContactPageContext) {
             ctx.show(ContactDialog.None)
             scope.launchVault(
                 context as? ComponentActivity,
-                { e -> vm.toast(resources.getString(R.string.vault_move_failed, UserErrorText.of(context, e))) },
+                { e -> vm.toast(resources.getString(R.string.label_couldnt_move, UserErrorText.of(context, e))) },
             ) {
                 val s = vm.settings.value
                 // Restores the original contact losslessly when the vault kept its record; else the default account.

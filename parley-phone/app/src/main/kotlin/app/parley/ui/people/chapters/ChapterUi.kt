@@ -203,7 +203,7 @@ private fun ChapterEndCard(
             Row {
                 Icon(Icons.Rounded.EventAvailable, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 Spacer(Modifier.width(Spacing.s))
-                Text(stringResource(R.string.chapter_ended_title, title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.label_has_ended, title), style = MaterialTheme.typography.titleMedium)
             }
             Text(stringResource(R.string.chapter_ended_text), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(Spacing.xs))

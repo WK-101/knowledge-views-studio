@@ -121,13 +121,13 @@ private class CaseScreenState {
 @Composable
 private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState, back: () -> Unit) {
     ParleyTopBar(
-        case?.let { stringResource(R.string.case_title_who, it.name) } ?: stringResource(R.string.case_title),
+        case?.let { stringResource(R.string.label_case_file, it.name) } ?: stringResource(R.string.case_title),
         onBack = back,
         actions = {
             if (case != null) {
                 IconButton({ st.exporting = true }, enabled = exportable) { Icon(Icons.Rounded.PictureAsPdf, stringResource(R.string.case_export)) }
                 Box {
-                    IconButton({ st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
+                    IconButton({ st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
                     DropdownMenu(st.menu, { st.menu = false }) {
                         DropdownMenuItem(
                             { Text(stringResource(R.string.case_stop)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) },
@@ -247,13 +247,13 @@ private fun ReferenceRow(vm: AppViewModel, case: CaseFile, r: CaseReference) {
                         opened()?.let { Clipboard.copy(context, it, sensitive = true, confirm = res.getString(R.string.case_reference_copied), label = label) }
                     }
                 }) { Icon(Icons.Rounded.ContentCopy, stringResource(R.string.case_reference_copy, label)) }
-                IconButton({ deleting = true }) { Icon(Icons.Rounded.Delete, stringResource(R.string.case_reference_delete, label)) }
+                IconButton({ deleting = true }) { Icon(Icons.Rounded.Delete, stringResource(R.string.action_delete_named, label)) }
             }
         },
     )
     if (deleting) {
         ConfirmDialog(
-            title = stringResource(R.string.case_reference_delete, label), text = null, confirmLabel = stringResource(R.string.blk_delete), destructive = true,
+            title = stringResource(R.string.action_delete_named, label), text = null, confirmLabel = stringResource(R.string.action_delete), destructive = true,
             onConfirm = {
                 deleting = false
                 vm.viewModelScope.launch { vm.cases.update { CaseFiles.removeReference(it, case.id, r.id) } }
@@ -295,7 +295,7 @@ private fun EntryRow(e: CaseEntry) {
         )
         is CaseEntry.Note -> ParleyListItem(
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-            overlineContent = { Text(stringResource(R.string.blk_col_note)) },
+            overlineContent = { Text(stringResource(R.string.label_note)) },
             headlineContent = { Text(e.text) },
             supportingContent = { Text(date) },
         )
@@ -314,7 +314,7 @@ private fun AddReferenceDialog(vm: AppViewModel, case: CaseFile, onDone: () -> U
     var label by remember { mutableStateOf("") }
     var value by remember { mutableStateOf("") }
     ConfirmDialog(
-        title = stringResource(R.string.case_add_reference), text = null, confirmLabel = stringResource(R.string.pin_save),
+        title = stringResource(R.string.case_add_reference), text = null, confirmLabel = stringResource(R.string.action_save),
         confirmEnabled = CaseFiles.cleanReference(value) != null,
         onConfirm = {
             onDone()

@@ -41,7 +41,7 @@ fun JobResultsHost(vm: AppViewModel) {
                     vm.toast(f.message)
                 } else {
                     // The share sheet or print dialog opens only on a tap, through the main screen (never from the job).
-                    val label = app.getString(if (o.print) R.string.hist_export_print else R.string.diag_share)
+                    val label = app.getString(if (o.print) R.string.action_print else R.string.action_share)
                     vm.offer(app.getString(R.string.job_file_ready), label) { app.startActivity(JobNotices.openIntent(app, o)) }
                 }
             }

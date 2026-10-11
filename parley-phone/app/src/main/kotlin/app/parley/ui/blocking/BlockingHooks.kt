@@ -193,7 +193,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
         ConfirmDialog(
             title = pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size),
             text = null,
-            confirmLabel = stringResource(R.string.blk_block),
+            confirmLabel = stringResource(R.string.action_block),
             onConfirm = {
                 confirming = false
                 // The same block as everywhere (Android's list, or a rule without the phone-app role), with Undo.
@@ -256,7 +256,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
                 ParleyListItem(
                     modifier = Modifier.clickable { BlockingDialogs.show(BlockingDialog.Why(number)) },
                     leadingContent = { Icon(if (e.allowed) Icons.Rounded.Shield else Icons.Rounded.Block, null) },
-                    headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked))) },
+                    headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.label_blocked))) },
                     supportingContent = {
                         Text(Format.fullDate(context, e.time) + " · " + BlockingText.oneLine(context, TraceCodec.decode(e.trace)), maxLines = 2)
                     },

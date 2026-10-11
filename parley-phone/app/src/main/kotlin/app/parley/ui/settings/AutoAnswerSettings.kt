@@ -80,7 +80,7 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.PhoneInTalk, null) },
-        title = { Text(stringResource(R.string.caller_auto_answer)) },
+        title = { Text(stringResource(R.string.action_answer_automatically)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.set_auto_answer_body), style = MaterialTheme.typography.bodyMedium)
@@ -103,7 +103,7 @@ private fun AutoAnswerDialog(vm: AppViewModel, cfg: CallExtrasConfig, onDismiss:
                     cfg.autoAnswerChosen,
                 ) { v -> set { it.copy(autoAnswerChosen = v) } }
                 Text(
-                    stringResource(R.string.drive_answer_after), style = MaterialTheme.typography.titleSmall,
+                    stringResource(R.string.action_answer_after), style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs).semantics { heading() },
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {

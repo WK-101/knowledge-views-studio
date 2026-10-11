@@ -117,7 +117,7 @@ fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismis
     val parts by vm.c.people.me.shareParts.collectAsStateWithLifecycle()
     if (MeCardDetails.isEmpty(merged)) {
         ConfirmDialog(
-            title = stringResource(R.string.me_title),
+            title = stringResource(R.string.label_my_card),
             text = stringResource(R.string.handshake_no_card),
             confirmLabel = stringResource(R.string.handshake_make_card),
             onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.MeEdit)) },

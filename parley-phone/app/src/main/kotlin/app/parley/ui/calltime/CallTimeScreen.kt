@@ -78,8 +78,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
 
     val unlockReason = stringResource(R.string.ct_unlock_limits)
-    val allCalls = stringResource(R.string.circle_all_calls)
-    val contactFallback = stringResource(R.string.rel_contact)
+    val allCalls = stringResource(R.string.label_all_calls)
+    val contactFallback = stringResource(R.string.label_contact)
     fun set(f: (CallingConfig) -> CallingConfig) = vm.c.calling.update(f)
     fun limits(f: (CallingConfig) -> CallingConfig) = gate(unlockReason) { set(f) }
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
@@ -89,7 +89,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
         ParleyTopBar(stringResource(R.string.ct_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            item { Section(stringResource(R.string.ct_section_reminders)) }
+            item { Section(stringResource(R.string.label_talk_time_reminders)) }
             item {
                 Help(stringResource(R.string.ct_reminders_help))
                 val choices = CallingConfig.REMINDER_CHOICES
@@ -111,7 +111,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
 
-            item { Section(stringResource(R.string.ct_section_limits)) }
+            item { Section(stringResource(R.string.label_call_time_limits)) }
             item {
                 Help(stringResource(R.string.ct_limits_help, warnText(context, config.warnSeconds)))
                 val global = config.rule(LimitScope.GLOBAL, "") ?: LimitRule(LimitScope.GLOBAL, title = "All calls")
@@ -153,15 +153,15 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
 
-            item { Section(stringResource(R.string.ct_supervised)) }
+            item { Section(stringResource(R.string.label_supervised_mode)) }
             item {
                 Help(stringResource(R.string.ct_supervised_help))
                 ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Lock, null) },
-                    headlineContent = { Text(stringResource(R.string.ct_supervised)) },
+                    headlineContent = { Text(stringResource(R.string.label_supervised_mode)) },
                     supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.dc_off)) },
                     trailingContent = {
-                        val label = stringResource(R.string.ct_supervised)
+                        val label = stringResource(R.string.label_supervised_mode)
                         // Not a SwitchRow: turning supervised mode on or off first asks Parley's lock.
                         @Suppress("DesignSystemComponent")
                         Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v ->
@@ -250,4 +250,4 @@ private fun Help(text: String) {
 }
 
 private fun warnText(context: Context, sec: Int): String =
-    if (sec % 60 == 0) context.getString(R.string.hist_minutes_short, sec / 60) else context.getString(R.string.hist_seconds_short, sec)
+    if (sec % 60 == 0) context.getString(R.string.label_minutes_short, sec / 60) else context.getString(R.string.label_seconds_short, sec)

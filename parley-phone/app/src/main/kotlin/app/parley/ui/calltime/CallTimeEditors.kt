@@ -86,7 +86,7 @@ fun LimitRuleDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                CheckRow(stringResource(R.string.set_group_incoming), incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
+                CheckRow(stringResource(R.string.label_incoming_calls), incoming) { incoming = it; if (!it && !outgoing) outgoing = true }
                 CheckRow(stringResource(R.string.ct_outgoing_calls), outgoing) { outgoing = it; if (!it && !incoming) incoming = true }
                 extra?.invoke()
             }
@@ -103,12 +103,12 @@ fun LimitRuleDialog(
                     ),
                 )
                 onDismiss()
-            }) { Text(stringResource(R.string.pin_save)) }
+            }) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = {
             Row {
                 if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) {
-                    Text(stringResource(R.string.jr_remove))
+                    Text(stringResource(R.string.action_remove_button))
                 }
                 TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
             }

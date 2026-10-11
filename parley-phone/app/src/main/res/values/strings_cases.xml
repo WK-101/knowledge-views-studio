@@ -2,7 +2,7 @@
 <resources>
     <!-- Case files: what Parley keeps per service organisation (a bank, an insurer, a council). -->
     <string name="case_title">Case file</string>
-    <string name="case_title_who">Case file: %1$s</string>
+    <string name="label_case_file">Case file: %1$s</string>
     <string name="case_open">Open the case file</string>
     <string name="case_no_calls">No calls with them yet</string>
     <plurals name="case_calls_last">
@@ -40,7 +40,7 @@
     <string name="case_reference_show">Show %1$s</string>
     <string name="case_reference_hide">Hide %1$s</string>
     <string name="case_reference_copy">Copy %1$s</string>
-    <string name="case_reference_delete">Delete %1$s</string>
+    <string name="action_delete_named">Delete %1$s</string>
     <string name="case_reference_copied">Reference number copied</string>
     <string name="case_reference_unreadable">Can\'t open it right now. Try again in a moment.</string>
     <string name="case_promises_title">Open promises</string>
@@ -48,14 +48,14 @@
     <string name="case_timeline_empty">Calls with them will show here, with how long you waited on hold. Tap \"I\'m on hold\" in the call screen\'s options while you wait.</string>
     <string name="case_call_outgoing">You called</string>
     <string name="case_call_incoming">They called</string>
-    <string name="case_call_missed">Missed call</string>
+    <string name="label_missed_call">Missed call</string>
     <string name="case_call_declined">Declined call</string>
     <string name="case_call_blocked">Screened call</string>
-    <string name="case_call_unanswered">No answer</string>
+    <string name="label_no_answer">No answer</string>
     <string name="case_call_length">%1$s long</string>
     <string name="case_call_hold">on hold %1$s</string>
     <string name="case_reference_added_on">Reference number added: %1$s</string>
-    <string name="case_more">More options</string>
+    <string name="label_more_options">More options</string>
     <string name="case_stop">Stop keeping this case file</string>
     <string name="case_stop_title">Stop keeping this case file?</string>
     <string name="case_stop_body">Its reference numbers, hold times and menu keys are deleted, and nothing more is kept for them. Your calls and notes stay.</string>
@@ -96,19 +96,19 @@
         <item quantity="other">%d reference numbers left out of this copy.</item>
     </plurals>
     <string name="case_pdf_promise">☐ %1$s</string>
-    <string name="case_pdf_note">Note: %1$s</string>
+    <string name="label_note_named">Note: %1$s</string>
     <!-- The PDF's file name, before ".pdf". -->
     <string name="case_pdf_file">Case file %1$s</string>
-    <string name="case_pdf_page">Page %1$d of %2$d</string>
+    <string name="label_page_of">Page %1$d of %2$d</string>
 
     <!-- Recall. -->
-    <string name="recall_group_case_files">Case files</string>
+    <string name="label_case_files">Case files</string>
     <string name="recall_case_line">Case file · %1$s</string>
 
     <!-- Where a case stands: one tap on its page, printed in its PDF. -->
     <string name="case_status_title">Where it stands</string>
     <string name="case_status_waiting">Waiting for them</string>
-    <string name="case_status_resolved">Resolved</string>
+    <string name="label_resolved">Resolved</string>
     <string name="case_status_line">Status: %1$s</string>
     <string name="case_status_line_since">Status: %1$s, since %2$s</string>
 

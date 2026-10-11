@@ -3,7 +3,7 @@
 <resources>
     <!-- Tools, the one hub (it was called "What Parley can do"): the page, its search and the jobs it is grouped by.
          The rows come from CapabilityCatalog. -->
-    <string name="discover_title">Tools</string>
+    <string name="label_tools">Tools</string>
     <string name="discover_summary">Everything Parley does, by what you want done</string>
     <string name="discover_kw">what Parley can do, features, help, discover, what\'s new, tour, guide, how to, can it, everything, hub, lock now, scan qr, import, export, who\'s in, trip, travel, city</string>
     <plurals name="discover_more">
@@ -34,7 +34,7 @@
     <string name="discover_spam_lists_summary">Lists you add yourself warn or silence known spam numbers</string>
     <string name="discover_sales_lines_title">Spot sales lines from your own calls</string>
     <string name="discover_sales_lines_summary">A quiet tag, with an optional rule to silence them</string>
-    <string name="discover_test_call_title">Test a call</string>
+    <string name="action_test_a_call">Test a call</string>
     <string name="discover_test_call_summary">See what your rules would do, and replay last week</string>
     <string name="discover_rule_templates_title">Rules for your country</string>
     <string name="discover_rule_templates_summary">Ready-made ranges from regulators, installed as a group</string>
@@ -50,22 +50,22 @@
     <string name="discover_reminders_summary">Missed calls, To call, keep in touch, birthdays and backups</string>
     <string name="discover_lock_now_title">Lock Parley now</string>
     <string name="discover_lock_now_summary">Without waiting for the app lock\'s timeout</string>
-    <string name="discover_backup_title">Encrypted backups</string>
+    <string name="label_encrypted_backups">Encrypted backups</string>
     <string name="discover_backup_summary">To a folder you choose, on a schedule, checked after writing</string>
     <string name="discover_sync_summary">Through a Syncthing or Nextcloud folder, no server</string>
     <string name="discover_coming_from_title">Coming from another phone?</string>
     <string name="discover_coming_from_summary">Bring contacts, call history and block lists from your old phone</string>
     <string name="discover_health_summary">Numbers without a country code or that no longer work, stale contacts</string>
-    <string name="discover_duplicates_title">Find &amp; merge duplicates</string>
+    <string name="action_find_merge_duplicates">Find &amp; merge duplicates</string>
     <string name="discover_duplicates_summary">Contacts saved twice, merged with one undo</string>
     <string name="discover_circle_title">Keep in touch with your Circle</string>
     <string name="discover_circle_summary">Gentle reminders for the people you want to stay close to</string>
     <string name="discover_birthdays_summary">Upcoming birthdays with a reminder on the day or before</string>
-    <string name="discover_to_call_title">To call</string>
+    <string name="label_to_call">To call</string>
     <string name="discover_to_call_summary">Calls you said you\'d make, and missed calls you haven\'t returned</string>
     <string name="discover_remember_title">Anything to remember?</string>
     <string name="discover_remember_summary">A note and a follow-up after calls with your contacts</string>
-    <string name="discover_whos_in_title">Who\'s in…</string>
+    <string name="label_whos_in">Who\'s in…</string>
     <string name="discover_whos_in_summary">People linked to a city you\'re visiting, by address, notes or number</string>
     <string name="discover_insights_summary">Talk time, top people and calls you didn\'t return</string>
     <string name="discover_labels_title">Labels with their own ringtone</string>
@@ -76,21 +76,21 @@
     <string name="discover_unknown_ringtone_summary">Hear at once that it isn\'t one of your contacts</string>
     <string name="discover_scan_qr_title">Scan a contact\'s QR code</string>
     <string name="discover_scan_qr_summary">From a photo, without camera access</string>
-    <string name="discover_safe_word_title">Family safe word</string>
+    <string name="label_family_safe_word">Family safe word</string>
     <string name="discover_safe_word_summary">A question only your family can answer, for calls that say they\'re family</string>
-    <string name="discover_privacy_dashboard_title">Privacy dashboard</string>
+    <string name="label_privacy_dashboard">Privacy dashboard</string>
     <string name="discover_privacy_dashboard_summary">What Parley can see, and why</string>
     <string name="discover_private_contacts_summary">Kept only in Parley, encrypted, hidden from other apps</string>
     <string name="discover_temporary_summary">Contacts that delete themselves after a time you choose</string>
     <string name="discover_who_can_see_summary">Which apps can read your address book</string>
-    <string name="discover_app_lock_title">App lock</string>
+    <string name="label_app_lock">App lock</string>
     <string name="discover_app_lock_summary">Your fingerprint, face or screen lock to open Parley</string>
     <string name="discover_message_number_summary">Type it on the keypad, then Message or call on…</string>
-    <string name="discover_messaged_title">Messaged numbers</string>
+    <string name="label_messaged_numbers">Messaged numbers</string>
     <string name="discover_messaged_summary">The chats you opened from Parley; delete them or stop keeping them</string>
-    <string name="discover_bulk_add_title">Add several numbers</string>
+    <string name="action_add_several_numbers">Add several numbers</string>
     <string name="discover_bulk_add_summary">Paste a list and save it at once, privately or for a few days</string>
-    <string name="discover_my_card_title">Send my details</string>
+    <string name="action_send_my_details">Send my details</string>
     <string name="discover_my_card_summary">Your card as a QR code or vCard, kept current for people you shared it with</string>
     <string name="discover_paste_details_title">Make a contact from pasted text</string>
     <string name="discover_paste_details_summary">Paste a signature or profile, tick what to keep</string>
@@ -107,7 +107,7 @@
     <string name="discover_pocket_guard_summary">Favourites and widgets ask first while the phone is covered</string>
     <string name="discover_missed_realert_title">Remind me of missed calls</string>
     <string name="discover_missed_realert_summary">Alert again every few minutes until you\'ve seen them</string>
-    <string name="discover_simple_mode_title">Simple mode</string>
+    <string name="label_simple_mode">Simple mode</string>
     <string name="discover_simple_mode_summary">Big photo buttons and a larger keypad, set up for someone else</string>
 
     <!-- Coming from another phone? Each source says where to export on the old phone, then opens Parley's own importer. Nothing is fetched. -->
@@ -115,7 +115,7 @@
     <string name="coming_intro">Export from your old phone or a computer, copy the file to this phone, then import it here. Parley reads the file on this phone; nothing is downloaded or sent.</string>
     <string name="coming_onboarding_intro">Bring your contacts, calls or block list along. You can also do this later from Tools.</string>
     <string name="coming_group_parley">From another phone with Parley</string>
-    <string name="coming_open_parley">Restore a backup</string>
+    <string name="action_restore_a_backup">Restore a backup</string>
     <string name="coming_source_parley">Restore a Parley backup</string>
     <string name="coming_source_parley_how">On the old phone: Tools › Encrypted backups › Back up now, or Move to a new phone. Copy the backup to this phone, then choose Restore from a file… and enter its passphrase. It brings private contacts, notes, Situations and your settings too.</string>
     <string name="coming_source_parley_note">Restore before you set things up: a restore puts back the old phone\'s settings.</string>
@@ -145,36 +145,36 @@
     <string name="tip_concept_favourites">Favourites are your starred contacts, one tap away; other apps see the star too. Frequent, under them, is who you call most, picked from your calls.</string>
     <string name="tip_concept_history_undo">History &amp; undo is where to get things back: contacts and calls deleted or changed in Parley for 30 days, and daily snapshots.</string>
     <!-- Rows added when the hub caught up with everything since 4.7. -->
-    <string name="discover_introduce_title">Introduce myself…</string>
+    <string name="action_introduce_myself_more">Introduce myself…</string>
     <string name="discover_introduce_summary">Send your details to several people, one chat at a time</string>
     <string name="discover_scam_check_title">Is this a scam?</string>
     <string name="discover_scam_check_summary">The warning signs and safe ways to check, as during a call</string>
-    <string name="discover_shared_labels_title">Shared labels</string>
+    <string name="label_shared_labels">Shared labels</string>
     <string name="discover_shared_labels_summary">Share a label like Family with its people, through your own folder</string>
     <string name="discover_parley_pin_title">Parley PIN and duress PIN</string>
     <string name="discover_parley_pin_summary">Open Parley with its own PIN; a second one keeps private things hidden</string>
     <string name="discover_private_names_summary">A phone app you approve can show who\'s calling</string>
-    <string name="discover_drive_profile_title">Drive profile</string>
+    <string name="label_drive_profile">Drive profile</string>
     <string name="discover_drive_profile_summary">Your car for the Driving Situation: announce callers, answer chosen people</string>
     <string name="discover_calling_abroad_title">Calling abroad</string>
     <string name="discover_calling_abroad_summary">Numbers in your home format dialled right, and a local SIM suggested</string>
-    <string name="discover_phone_menus_title">Phone menus</string>
+    <string name="label_phone_menus">Phone menus</string>
     <string name="discover_phone_menus_summary">The keys you pressed in a phone menu, offered again next time</string>
     <string name="discover_call_quality_summary">Dropped calls by SIM and network, and when to call again</string>
     <string name="discover_rtt_title">RTT (real-time text)</string>
     <string name="discover_rtt_summary">Type during calls, where your carrier supports it</string>
     <string name="discover_voicemail_summary">Listen in Recents while Parley is your phone app; hold 1 to call it</string>
-    <string name="discover_speed_dial_title">Speed dial</string>
+    <string name="label_speed_dial">Speed dial</string>
     <string name="discover_speed_dial_summary">Hold 2 to 9 on the keypad to call someone</string>
 
     <!-- Tools rows for the 6.x features, and Help. -->
     <string name="discover_search_everything_summary">Calls, notes, promises and old contacts, from words like plumber march</string>
     <string name="discover_archived_summary">Out of your address book and other apps, still named when they call</string>
-    <string name="discover_situations_title">Situations</string>
+    <string name="label_situations">Situations</string>
     <string name="discover_situations_summary">Driving, a meeting or night: one tap sets who may ring, and puts it back</string>
     <string name="discover_case_files_summary">Banks and other services: calls, hold times and reference numbers</string>
     <string name="discover_family_shield_summary">Share block and scam verdicts through a family label you share</string>
-    <string name="discover_chapters_title">Chapters</string>
+    <string name="label_chapters">Chapters</string>
     <string name="discover_chapters_summary">Give a label an end, such as a move or a hospital stay, and tidy up once</string>
     <string name="discover_to_talk_about_summary">Things to bring up, shown when you next call them or they call</string>
     <string name="discover_help_summary">A call that didn\'t ring, the call screen, a contact gone after Archive</string>

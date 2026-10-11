@@ -90,16 +90,16 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     quickHost()
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.discover_whos_in_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_whos_in), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "field") {
                 OutlinedTextField(
                     city, { city = it },
-                    label = { Text(stringResource(R.string.edit_city)) },
+                    label = { Text(stringResource(R.string.label_city)) },
                     leadingIcon = { Icon(Icons.Rounded.LocationCity, null) },
                     trailingIcon = {
-                        if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.contact_page_clear_search)) }
+                        if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.action_clear_search)) }
                     },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
@@ -141,7 +141,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                 }
                 else -> {
                     item(key = "summary") {
-                        val names = hits.take(3).joinToString(stringResource(R.string.contact_page_list_separator)) { it.person.name }
+                        val names = hits.take(3).joinToString(stringResource(R.string.format_list_separator)) { it.person.name }
                         val more = hits.size - 3
                         Text(
                             if (more > 0) pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
@@ -159,10 +159,10 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                             trailingContent = {
                                 if (c != null && phone != null) Row {
                                     IconButton({ vm.requestCall(phone.number, c.displayName, source = CallSource.CONTACT) }) {
-                                        Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, c.displayName))
+                                        Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, c.displayName))
                                     }
                                     IconButton({ quick.message(c) }) {
-                                        Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, c.displayName))
+                                        Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_named, c.displayName))
                                     }
                                 }
                             },
@@ -176,7 +176,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
 
 @Composable
 private fun reasonText(h: TripMatch.Hit): String {
-    val address = stringResource(R.string.contact_page_sec_addresses)
+    val address = stringResource(R.string.label_address)
     val number = stringResource(R.string.trip_reason_number)
     val note = stringResource(R.string.trip_reason_note)
     return h.reasons.sortedBy { it.ordinal }.joinToString(stringResource(R.string.main_separator)) { r ->

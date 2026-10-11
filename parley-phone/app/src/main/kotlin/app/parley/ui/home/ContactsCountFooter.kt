@@ -21,7 +21,7 @@ fun ContactsCountFooter(line: ContactsFooter.Line, modifier: Modifier = Modifier
         is ContactsFooter.Line.All -> {
             val all = pluralStringResource(R.plurals.contacts_footer_count, n, n)
             val private = pluralStringResource(R.plurals.contacts_footer_private, line.private, line.private)
-            if (line.private > 0) stringResource(R.string.archive_page_work, all, private) else all
+            if (line.private > 0) stringResource(R.string.format_dot_pair, all, private) else all
         }
         is ContactsFooter.Line.Results -> pluralStringResource(R.plurals.contacts_footer_results, n, n)
         is ContactsFooter.Line.In -> pluralStringResource(R.plurals.contacts_footer_in, n, n, line.name)

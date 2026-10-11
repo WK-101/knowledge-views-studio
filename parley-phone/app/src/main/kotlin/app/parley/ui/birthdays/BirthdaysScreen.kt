@@ -67,7 +67,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        ParleyTopBar(stringResource(R.string.bday_title), onBack = back, scrollBehavior = barTint)
+        ParleyTopBar(stringResource(R.string.label_birthdays_dates), onBack = back, scrollBehavior = barTint)
     }) { p ->
         val items = list
         if (items != null && items.isEmpty()) {
@@ -82,13 +82,13 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
         LazyColumn(Modifier.padding(p)) {
             val groups = items.orEmpty().groupBy {
                 when {
-                    it.days == 0L -> R.string.blk_dry_today
-                    it.days <= 7 -> R.string.bday_this_week
-                    it.days <= 31 -> R.string.hist_period_this_month
-                    else -> R.string.bday_later
+                    it.days == 0L -> R.string.label_today
+                    it.days <= 7 -> R.string.label_this_week
+                    it.days <= 31 -> R.string.label_this_month
+                    else -> R.string.label_later
                 }
             }
-            listOf(R.string.blk_dry_today, R.string.bday_this_week, R.string.hist_period_this_month, R.string.bday_later).forEach { title ->
+            listOf(R.string.label_today, R.string.label_this_week, R.string.label_this_month, R.string.label_later).forEach { title ->
                 val g = groups[title].orEmpty()
                 if (g.isNotEmpty()) {
                     item { Section(stringResource(title)) }
@@ -104,7 +104,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                                     Text(
                                         "$kind · " + if (e.type == Event.TYPE_BIRTHDAY && e.contactId in deceased && birth != null) {
                                             describeEvent(e.date, false, res = resources).substringBefore(" ·") +
-                                                (u.turning?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "") +
+                                                (u.turning?.let { " · " + resources.getString(R.string.label_would_have_turned, it) } ?: "") +
                                                 " · " + describeEvent(e.date, false, res = resources).substringAfterLast(" · ")
                                         } else {
                                             describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY, res = resources)
@@ -114,8 +114,8 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                                 trailingContent = {
                                     e.phone?.let { n ->
                                         Row {
-                                            IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, e.name)) }
-                                            IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, e.name), tint = MaterialTheme.colorScheme.primary) }
+                                            IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_named, e.name)) }
+                                            IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, e.name), tint = MaterialTheme.colorScheme.primary) }
                                         }
                                     }
                                 },

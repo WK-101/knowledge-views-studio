@@ -77,7 +77,7 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
     if (entries.isEmpty() && privateCount == 0) {
         // Nothing to undo yet; the daily snapshots are the other way back.
         EmptyState(
-            Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), modifier,
+            Icons.Rounded.History, stringResource(R.string.label_nothing_here), stringResource(R.string.jr_empty_text), modifier,
             action = stringResource(R.string.ux_empty_what_changed), onAction = onShowSnapshots,
         )
         return
@@ -100,7 +100,7 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
                                 if (id != null) {
                                     vm.toast(
                                         if (e.action == "DELETE") res.getString(
-                                            R.string.tm_restored_name, e.displayName,
+                                            R.string.label_restored, e.displayName,
                                         ) else res.getString(R.string.jr_restored_copy),
                                     )
                                     open(Routes.contact(id))
@@ -119,7 +119,7 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
         ConfirmDialog(
             title = stringResource(R.string.jr_remove_title),
             text = stringResource(R.string.jr_remove_change_text, name),
-            confirmLabel = stringResource(R.string.jr_remove), destructive = true,
+            confirmLabel = stringResource(R.string.action_remove_button), destructive = true,
             onConfirm = {
                 removing = null
                 scope.launch { if (vm.c.undoStorage.forgetContactChange(id)) vm.toast(res.getString(R.string.jr_removed)) }
@@ -158,7 +158,7 @@ private class PrivateTrashUi(
         val id = runCatching { vm.c.privateTrash.restore(k.file) }.getOrNull()
         reload()
         if (id == null) return@launch vm.toast(res.getString(R.string.jr_restore_failed))
-        vm.toast(res.getString(R.string.tm_restored_name, k.name))
+        vm.toast(res.getString(R.string.label_restored, k.name))
         open(Routes.contact(ContactRef.Private(id).navId))
     }
 
@@ -169,7 +169,7 @@ private class PrivateTrashUi(
         ConfirmDialog(
             title = stringResource(R.string.jr_remove_title),
             text = stringResource(R.string.jr_private_remove_text, k.name),
-            confirmLabel = stringResource(R.string.jr_remove), destructive = true,
+            confirmLabel = stringResource(R.string.action_remove_button), destructive = true,
             onConfirm = {
                 removing = null
                 scope.launch {
@@ -199,11 +199,11 @@ private fun rememberPrivateTrash(vm: AppViewModel, open: (Destination) -> Unit):
 private fun LazyListScope.privateTrashItems(ui: PrivateTrashUi) {
     item(key = "private") {
         val kept = ui.kept
-        val unlock = if (kept == null) Modifier.clickable(onClickLabel = stringResource(R.string.cs_private_unlock)) { ui.unlock() } else Modifier
+        val unlock = if (kept == null) Modifier.clickable(onClickLabel = stringResource(R.string.action_unlock)) { ui.unlock() } else Modifier
         ParleyListItem(
             modifier = unlock,
             leadingContent = { Icon(Icons.Rounded.Lock, null) },
-            headlineContent = { Text(stringResource(R.string.jr_storage_private)) },
+            headlineContent = { Text(stringResource(R.string.label_deleted_private_contacts)) },
             supportingContent = {
                 Text(if (kept == null) pluralStringResource(R.plurals.jr_private_locked, ui.count, ui.count) else stringResource(R.string.jr_private_open))
             },

@@ -117,13 +117,13 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
                     supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
                 )
                 SwitchRow(
-                    stringResource(R.string.sync_auto),
+                    stringResource(R.string.label_sync_automatically),
                     stringResource(R.string.sync_auto_summary),
                     st.auto,
                     onChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) },
                 )
                 ParleyListItem(
-                    headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },
+                    headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.label_not_synced_yet)) },
                     supportingContent = st.resultText(LocalResources.current)?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
@@ -132,7 +132,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
             }
             // Labels shared with other people's phones, each through a folder of its own.
             item {
-                LinkRow(stringResource(R.string.discover_shared_labels_title), stringResource(R.string.set_shared_labels_summary), Icons.Rounded.Groups) {
+                LinkRow(stringResource(R.string.label_shared_labels), stringResource(R.string.set_shared_labels_summary), Icons.Rounded.Groups) {
                     open(SharedLabelRoutes.All)
                 }
             }
@@ -162,7 +162,7 @@ private fun SyncActions(st: SyncStatus, running: Boolean, onRun: (allowMassDelet
         }
     }
     val canSync = st.folderUri != null && st.mode != SyncMode.UNSET && !running
-    Button({ onRun(false) }, enabled = canSync, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.sync_now)) }
+    Button({ onRun(false) }, enabled = canSync, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.action_sync_now)) }
     if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
     if (st.folderUri != null) TextButton(onStop, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
 }

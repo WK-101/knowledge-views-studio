@@ -246,14 +246,14 @@ fun CompactFilterChip(
 /** Chip text of a Recents filter. */
 internal val RecentFilter.labelRes: Int
     get() = when (this) {
-        RecentFilter.ALL -> R.string.ppl_chip_all
-        RecentFilter.MISSED -> R.string.contact_page_kind_missed
-        RecentFilter.INCOMING -> R.string.hist_type_incoming
-        RecentFilter.OUTGOING -> R.string.hist_type_outgoing
-        RecentFilter.BLOCKED -> R.string.blk_blocked
-        RecentFilter.VOICEMAIL -> R.string.blk_line_voicemail
-        RecentFilter.UNKNOWN -> R.string.main_unknown
-        RecentFilter.CONTACTS -> R.string.rst_contacts
+        RecentFilter.ALL -> R.string.label_all
+        RecentFilter.MISSED -> R.string.label_missed
+        RecentFilter.INCOMING -> R.string.label_incoming
+        RecentFilter.OUTGOING -> R.string.label_outgoing
+        RecentFilter.BLOCKED -> R.string.label_blocked
+        RecentFilter.VOICEMAIL -> R.string.label_voicemail
+        RecentFilter.UNKNOWN -> R.string.label_unknown
+        RecentFilter.CONTACTS -> R.string.label_contacts
     }
 
 /** The call badge a filter's icon chip shows: the same one as the calls it keeps. All has none (a history icon). */

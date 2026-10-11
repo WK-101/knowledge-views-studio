@@ -565,7 +565,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                         val text = MessagingText.myDetails(res, myCard.name, myCard.firstNumber)
                         if (text == null) editDetails = true else draft = text
                     },
-                    label = { Text(stringResource(R.string.discover_my_card_title)) },
+                    label = { Text(stringResource(R.string.action_send_my_details)) },
                     leadingIcon = { Icon(Icons.Rounded.Badge, null) },
                 )
                 if (myCard.name.isNotEmpty() || myCard.firstNumber != null) {

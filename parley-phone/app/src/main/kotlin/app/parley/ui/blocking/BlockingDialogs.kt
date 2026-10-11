@@ -178,9 +178,9 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                     !loaded -> Text(stringResource(R.string.blk_checking))
                     stored != null -> {
                         val e = stored!!
-                        val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked)
+                        val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.label_blocked)
                         Text(
-                            stringResource(R.string.archive_page_work, Format.fullDate(context, e.time), v),
+                            stringResource(R.string.format_dot_pair, Format.fullDate(context, e.time), v),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 8.dp),
                         )
@@ -208,7 +208,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                 }
             }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_close)) } },
         dismissButton = if (!live && stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text(stringResource(R.string.blk_test_today)) } }) else null,
     )
 }
@@ -220,7 +220,7 @@ private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDis
     ConfirmDialog(
         title = stringResource(R.string.blk_web_title),
         text = null,
-        confirmLabel = stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search),
+        confirmLabel = stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.action_search),
         onConfirm = { onDismiss(); BlockingActions.searchWeb(context, d.number, url) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -247,7 +247,7 @@ private fun FamilyShieldMarks(vm: AppViewModel, number: String, onDone: () -> Un
     val res = LocalResources.current
     Text(stringResource(R.string.fsh_report_title), style = MaterialTheme.typography.titleSmall)
     Row {
-        listOf(ShieldKind.SCAM to R.string.fsh_report_scam, ShieldKind.SPAM_LIKELY to R.string.blk_ch_likely).forEach { (kind, label) ->
+        listOf(ShieldKind.SCAM to R.string.fsh_report_scam, ShieldKind.SPAM_LIKELY to R.string.label_likely_spam).forEach { (kind, label) ->
             TextButton({
                 // The dialog closes now; the mark and the runs that share it finish on their own.
                 vm.viewModelScope.launch {
@@ -269,7 +269,7 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
         ConfirmDialog(
             title = stringResource(R.string.blk_open_regulator, regulator.name),
             text = stringResource(R.string.blk_open_regulator_body),
-            confirmLabel = stringResource(R.string.blk_open),
+            confirmLabel = stringResource(R.string.action_open),
             onConfirm = { onDismiss(); BlockingActions.openRegulator(context, regulator, number) },
             onDismiss = onDismiss,
             dismissLabel = stringResource(R.string.dc_cancel),
@@ -294,7 +294,7 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
             Row {
                 if (regulator != null) TextButton({ confirmRegulator = true }) { Text(stringResource(R.string.blk_regulator)) }
                 TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) {
-                    Text(stringResource(R.string.blk_text_code, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE)))
+                    Text(stringResource(R.string.action_text, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE)))
                 }
             }
         },
@@ -314,7 +314,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     ConfirmDialog(
         title = stringResource(R.string.blk_prefix_title),
         text = null,
-        confirmLabel = stringResource(R.string.blk_allow),
+        confirmLabel = stringResource(R.string.action_allow),
         onConfirm = {
             scope.launch {
                 BlockingActions.allowPrefix(vm.c, chosen, drop, d.name)
@@ -367,7 +367,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     ConfirmDialog(
         title = stringResource(R.string.blk_label_title, d.title),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = {
             scope.launch {
                 when (choice) {
@@ -382,7 +382,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                     // Only the ringtone: no allow rule (which would also let the label ring through off hours).
                     2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
                 }
-                vm.toast(res.getString(R.string.blk_saved))
+                vm.toast(res.getString(R.string.label_saved))
             }
             onDismiss()
         },
@@ -415,7 +415,7 @@ private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val res = LocalResources.current
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.blk_expecting_question)) },
+        title = { Text(stringResource(R.string.label_expecting_a_call_q)) },
         text = { Text(stringResource(R.string.blk_snooze_body)) },
         confirmButton = {
             Row {
