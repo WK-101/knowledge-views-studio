@@ -698,8 +698,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     /** Whether new data can be written to raw contacts of [account]. */
     fun isWritableAccount(account: AccountRef): Boolean = isWritable(account, writableTypes(), localAccount())
 
-    /** All contact dates (birthdays, anniversaries…) with the first phone number. */
-    fun events(): List<ContactEvent> {
+    /** All contact dates (birthdays, anniversaries…) with the first phone number; only [contactId]'s when given. */
+    fun events(contactId: Long? = null): List<ContactEvent> {
         val phones = HashMap<Long, String>()
         contacts.value.orEmpty().forEach { c -> c.phones.firstOrNull()?.let { phones[c.id] = it.number } }
         val out = ArrayList<ContactEvent>()
@@ -709,7 +709,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 Data.CONTACT_ID, Data.LOOKUP_KEY, Data.DISPLAY_NAME_PRIMARY, Data.PHOTO_THUMBNAIL_URI, Event.START_DATE, Event.TYPE, Event.LABEL,
                 AltCalendar.COLUMN,
             ),
-            "${Data.MIMETYPE}=?", arrayOf(Event.CONTENT_ITEM_TYPE),
+            if (contactId == null) "${Data.MIMETYPE}=?" else "${Data.MIMETYPE}=? AND ${Data.CONTACT_ID}=?",
+            if (contactId == null) arrayOf(Event.CONTENT_ITEM_TYPE) else arrayOf(Event.CONTENT_ITEM_TYPE, contactId.toString()),
         )?.use { c ->
             while (c.moveToNext()) {
                 val date = c.getString(4) ?: continue

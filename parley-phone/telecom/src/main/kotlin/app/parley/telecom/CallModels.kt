@@ -8,6 +8,7 @@ import app.parley.common.calls.FailureKind
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.ScamCheck
 import app.parley.common.calls.LiveCallState
+import app.parley.common.circle.Occasion
 import app.parley.common.spam.Reputation
 
 enum class CallState { NEW, RINGING, DIALING, CONNECTING, ACTIVE, HOLDING, DISCONNECTING, DISCONNECTED, SELECT_ACCOUNT, OTHER }
@@ -143,6 +144,10 @@ data class CallUi(
      * reach the network is offered for it, and nothing about it is kept.
      */
     val simulated: Boolean = false,
+    /** Their birthday or anniversary is today ("Birthday today"), from the caller lookup. */
+    val occasion: Occasion? = null,
+    /** A Circle member: "Anything to remember?" offers the next catch-up. */
+    val inCircle: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -237,6 +242,7 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         subject = null,
         numberMemory = null,
         promisedAt = null,
+        occasion = null,
         // The post-call card's "Save privately" starts from it, without unlocking.
         networkName = null,
         // A name, so masked with the name.
@@ -259,12 +265,12 @@ data class SimTip(val simId: String, val simLabel: String, val name: String, val
 
 /**
  * Under [LockScreenCaller.NAME]: the name stays, the things a stranger ringing the locked phone shouldn't read go (the
- * pinned note, "Who is this?", the last call), also for each conference participant. Unchanged when there are none.
+ * pinned note, "Who is this?", the last call, a birthday today), also for each conference participant. Unchanged when there are none.
  */
 private fun CallUi.withoutNotes(): CallUi {
     val kids = children.map { it.withoutNotes() }
-    if (listOf(note, context, lastCall).all { it == null } && kids == children) return this
-    return copy(note = null, context = null, lastCall = null, children = kids)
+    if (listOf(note, context, lastCall, occasion).all { it == null } && kids == children) return this
+    return copy(note = null, context = null, lastCall = null, occasion = null, children = kids)
 }
 
 /** The call's time as the screen and notification show it: a masked call doesn't name its limit ("Limit for Ana"). */

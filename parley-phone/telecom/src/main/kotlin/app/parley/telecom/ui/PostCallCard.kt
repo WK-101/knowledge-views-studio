@@ -93,8 +93,10 @@ sealed interface PostCallChoice {
     /** "Ask their name": the messaging app opens with the "Text me your name" reply for the user to send. */
     data class NameReply(val number: String, val text: String) : PostCallChoice
 
-    /** "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
-    data class Remember(val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?) : PostCallChoice
+    /** "Anything to remember?" was saved (note and/or a follow-up in [followUpDays], or a Circle member's next catch-up at [catchUpAt]). */
+    data class Remember(
+        val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?, val catchUpAt: Long? = null,
+    ) : PostCallChoice
 }
 
 /**

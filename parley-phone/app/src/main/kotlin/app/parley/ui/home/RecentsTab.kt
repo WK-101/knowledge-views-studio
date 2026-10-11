@@ -103,7 +103,7 @@ import app.parley.ui.blocking.rememberBlocked
 import app.parley.ui.blocking.rememberEmergency
 import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.blocking.rememberRecentBadges
-import app.parley.ui.calls.ToCallStrip
+import app.parley.ui.calls.NextUpStrip
 import app.parley.ui.calls.VoicemailInbox
 import app.parley.ui.common.CoachMark
 import app.parley.ui.common.Intents
@@ -224,8 +224,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             item(key = "voicemail") { VoicemailInbox(vm, query) }
             return@LazyColumn
         }
-        // The calls you owe, as one quiet strip that opens the To call list.
-        item(key = "to-call") { ToCallStrip(open) }
+        // Next up: the calls you owe (opening the To call list) and what else is due now, as one quiet strip.
+        item(key = "to-call") { NextUpStrip(vm, open) }
         // Unknown: a quiet "3 unknown callers today" under the chips.
         if (filter == RecentFilter.UNKNOWN) item(key = "unknown-today") { UnknownCallersHeader(recents.unknownToday.collectAsStateWithLifecycle().value) }
         item(key = "archive-notes") { ArchiveNotices(vm, open) }

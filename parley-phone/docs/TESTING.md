@@ -3455,6 +3455,50 @@ Automated: `HomeSurfacesTest` (where the switch shows: the Favourites tab, Conta
 6. **Updates.** After updating from 6.6 with the Circle section folded, the switch opens on Your Circle once; your next choice is kept.
 7. **Looks.** The switch's two buttons are at least 48 dp, read "Favourites, selected" / "Your Circle"; dark theme, large fonts, landscape, right to left.
 
+### 51.6 Next up
+Automated: `NextUpTest` (core:common: ranking, three lines at most, a person on To call or with a birthday line isn't offered again, later items last, a good time needs due and the hour, Chapters within a week), `NextUpModelTest` (app: a birthday today and a Circle member in their good hours over the real stores; a duress unlock removes the Circle's line and keeps the birthday).
+1. With nothing owed, no birthday, nobody due and no Chapter ending: Recents shows no strip at all.
+2. Put two people on To call for now (Remind me › In an hour, then wait, or a missed call you haven't returned): the strip's first line reads "2 to call" with their names under it; tap it and To call opens. Promise a time to one of them: a second small line reads "You said you'd call · 15:30".
+3. Give a contact a birthday today (and another an anniversary today): "Ana's birthday is today" and "Ben's anniversary is today" follow the To call line. Tapping the line opens the contact; the call button calls them. A contact with a date of death and a birthday today: no line.
+4. Put a contact in your Circle with "every week", with at least eight answered calls with them around this hour of day and none in the last week: "Sam might enjoy hearing from you", "Usually free 6–9 pm" shows (in their time, if their number is abroad). Put Sam on To call: the line goes (To call already holds them).
+5. Give a label a Chapter ending in three days: "Exams ends on Friday" (or "today", "tomorrow"); tapping it opens the label.
+6. With all of the above, only three lines show, in that order. With nothing due now but a reminder for later: "1 to call later" is the last line.
+7. Fold the strip (the arrow on its first line): only the first line stays, without names; unfold brings the rest back. The fold is remembered.
+8. Unlock with the duress PIN: the Circle's line is gone; birthdays, To call and Chapters stay. Discreet mode: private contacts never appear on any line.
+9. Tools › search "next up" finds **Next up**, whose page explains the strip and opens To call. TalkBack reads each line with its action; check in dark, right to left, the largest font, landscape and with animations off.
+
+### 51.7 Open with them
+Automated: `CallerLinesTest.open_promises_no_longer_make_a_caller_card_on_their_own` (telecom).
+1. On a contact with an item on To call, two things to talk about and an open promise in a call note ("[ ] send the photos"), open their page: under Stay in touch, one **Open with them** card lists "You said you'd call · 15:30" (or "Reminder · 18:00", or "Next catch-up · Sat 09:00") with "On your To call list", then the things to talk about, then "You promised" with the promise, then **Add something to talk about**.
+2. Tap the To call line: To call opens. Tick a thing to talk about and the promise: each goes, as before (the note for calls and the call note change, nothing else).
+3. The Note for calls section shows the note only; with nothing open, **Add something to talk about** stays there.
+4. Call the contact: the call screen shows the things to talk about only, never "☐ send the photos" from the call note.
+5. A private contact while private contacts are unlocked: the card shows; locked or hidden: no items.
+
+### 51.8 Birthday on the call screen
+Automated: `NextUpTest.a_birthday_today_wins_over_an_anniversary_and_never_for_someone_who_died` (core:common), `CallerLinesTest.the_birthday_line_shows_on_the_lock_screen_only_where_notes_may` (telecom).
+1. Give a contact a birthday today and call them (or have them call): under the name, "Birthday today" with a cake. An anniversary today: "Anniversary today". A date kept in the Hijri calendar that falls today counts too.
+2. Lock the phone and have them ring: with Settings › Privacy & security › Caller on the lock screen on "Name and notes" the line shows; on "Name", "Initials" or "Incoming call" it doesn't.
+3. A contact with a date of death: no line. A private contact: no line (its dates stay sealed).
+
+### 51.9 Next catch-up after a call
+Automated: `NextUpTest.a_catch_up_is_a_promise_not_told_and_replaces_what_was_owed` and `a_catch_up_date_must_be_after_today_and_usual_sets_nothing` (core:common), `ToCallRemindersTest.a_catch_up_is_kept_for_yourself_on_their_to_call_item` (app).
+1. With Circle settings › "Anything to remember?" on, end a call with someone in your Circle: the card shows **Next catch-up: Usual rhythm · In a week · On a date** in place of the follow-up chips. Someone not in your Circle still gets "Follow up in 1 week / 1 month".
+2. Pick **On a date**, choose a day (today can't be picked) and Save: the chip reads "On 14 Oct". To call lists them as "Next catch-up · Tue 09:00"; their page's Open with them says the same.
+3. The catch-up is never said back: no "You said you'd call" on To call, on the call screen when they ring, or in Next up.
+4. Until that day, no keep-in-touch reminder or digest names them as due, and Next up doesn't offer them as a good time; on the day, To call reminds you at 9:00.
+5. Call them before the day: the item and the date go together.
+6. **Usual rhythm** with no note: Save stays off; nothing is set.
+
+### 51.10 Incoming caller header
+Automated: `RingingLinesTest` (core:common: three lines at most while ringing, safety then who then agenda, all once answered), `CallerLinesTest` (telecom: the lines a ringing call keeps, a safety line first, lines hidden on the lock screen make room).
+1. Set up a contact with a name in their language, a promise a time, a birthday today, a job title, pronouns, a pinned note and two things to talk about. Have them ring: under the name only three lines show: name in their language, "You said you'd call at …" and "Birthday today". The rest (job, pronouns, the caller card, To talk about) appear once you answer.
+2. Have them ring from a number added from pasted text (the fresh-number line): the fresh-number card comes first and only two other lines show.
+3. Ring with the phone locked: "You said you'd call" waits for the unlock, and the next line takes its place.
+4. A contact with only things to talk about: the To talk about card shows while it rings (first two items), as before.
+5. An unsaved number with a "Looks like a sales line" tag, number memory and "Rang through": all three show; nothing else is added.
+6. On a small phone (or the largest font), the answer slider is never covered. With TalkBack, the lines that show are read in order.
+
 ### 51.15 Circle at a glance
 Automated: `KeepInTouchTest.glance_hides_below_four_and_keeps_only_counts_while_insights_are_hidden` (core:common), `DuressWalkTest.a_duress_unlock_hides_every_relationship_insight` (app).
 1. With three people in the Circle, open the Circle: no header, the list as before. Add a fourth: above the list, three chips read "1 due", "1 soon", "2 fine" (whatever matches the rows' own chips), then "In touch with 3 of 4 this month" with "· up from 1" only when this month is higher than the month before, and, when you had calls this month, "38% of your talk time this month was with your Circle". No score, no colours beyond the chips.

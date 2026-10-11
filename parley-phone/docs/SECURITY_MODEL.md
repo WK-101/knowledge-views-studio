@@ -305,6 +305,20 @@ details at once; unticking it while the app lock is on asks for Parley's unlock 
 tick shows the switch as the user left it, and during a duress unlock a change touches only what is shown, never the
 stored switch, so nothing shows that the hiding hides.
 
+### Next up, catch-ups and the call screen's lines (6.7)
+
+- **Next up** (the strip at the top of Recents) reads what Parley already keeps: To call, device contacts' dates, the
+  Circle and Chapters. It stores nothing of its own. Its "might enjoy hearing from you" line is a relationship insight
+  (the hours someone usually answers), so a duress unlock removes it with the others; private contacts never appear on
+  it (their dates and rhythm stay in their sealed entries).
+- **Next catch-up** is a `PromisedTime` with `told = false` on the person's To call item: sealed like every To call
+  item, never said back on the call screen or as "You said you'd call", and settled by the next call with them.
+- **Birthday today** on the call screen follows the notes' rule on the lock screen: it shows there only with "Caller on
+  the lock screen" set to "Name and notes"; under "Name", "Initials" or "Incoming call" the call's lock-screen form drops
+  it. It is never shown for a private contact.
+- While a call rings, at most three lines show under the caller, safety lines first ("This number never calls you",
+  the fresh-number line, the sales-line tag, why it rang through): a safety line is never pushed out by who-lines.
+
 ### What a duress unlock hides
 
 Everything discreet mode ("Hide private contacts") hides, with discreet mode forced on whatever its switch says:

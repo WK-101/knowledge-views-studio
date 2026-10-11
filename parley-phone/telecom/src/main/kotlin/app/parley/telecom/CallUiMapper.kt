@@ -104,6 +104,7 @@ internal class CallUiMapper(
             freshNumber = freshOf(s, call, number, hidden),
             networkName = networkNameOf(s, found, d, hidden),
             networkNameUnderSaved = networkNameUnderSaved(s, found, hidden),
+            occasion = found?.occasion, inCircle = found?.inCircle == true,
         ).withRangThrough(s)
     }
 

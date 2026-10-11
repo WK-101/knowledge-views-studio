@@ -21,6 +21,8 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
 import app.parley.common.NotificationChannels
+import app.parley.common.PhoneIdentity
+import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
@@ -33,6 +35,7 @@ import app.parley.common.people.LifeEvents
 import app.parley.container
 import app.parley.data.ContactEvent
 import app.parley.data.DataContainer
+import app.parley.data.PhoneEnv
 import app.parley.data.security.Privacy
 import app.parley.common.history.CallLogIndex
 import app.parley.data.circle.CircleRepository
@@ -123,11 +126,15 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return
         val idx = c.history.awaitIndex()
         data class Known(val m: CircleRepository.Member, val contact: ContactSummary, val last: LastContact?, val planned: CirclePlanner.Member)
+        // A next catch-up set after a call (on their To call item) keeps the rhythm quiet until that day.
+        val toCall = catching { c.toCall.load() }.getOrNull()
+        val iso = PhoneEnv.countryIso(applicationContext)
         // Only people who are still system contacts: private (vault) contacts are never named here.
         val known = members.mapNotNull { m ->
             val contact = contacts[m.lookupKey] ?: return@mapNotNull null
             val last = c.circle.lastContact(m.lookupKey, idx)
-            Known(m, contact, last, CirclePlanner.Member(m.lookupKey, m.days, last?.time, m.rhythm.snoozedUntil))
+            val catchUp = toCall?.let { s -> CatchUp.of(s, contact.phones.map { PhoneIdentity.key(it.number, iso) }) }
+            Known(m, contact, last, CirclePlanner.Member(m.lookupKey, m.days, last?.time, CatchUp.quietUntil(m.rhythm.snoozedUntil, catchUp)))
         }
         if (known.isEmpty() && !digest) return
         val byKey = known.associateBy { it.m.lookupKey }
