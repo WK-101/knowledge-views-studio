@@ -133,7 +133,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 val layoutName = when (layout) {
                     CsvColumnMapping.Layout.PARLEY -> stringResource(R.string.app_name)
-                    CsvColumnMapping.Layout.GOOGLE -> stringResource(R.string.csv_layout_google)
+                    CsvColumnMapping.Layout.GOOGLE -> stringResource(R.string.label_google_contacts)
                     CsvColumnMapping.Layout.OUTLOOK -> stringResource(R.string.csv_layout_outlook)
                     CsvColumnMapping.Layout.OTHER -> null
                 }
@@ -150,9 +150,9 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                     onChange = { hasHeader = it; remap(p, it) },
                 )
             }
-            item { Section(stringResource(R.string.hist_import_columns)) }
+            item { Section(stringResource(R.string.label_columns)) }
             itemsIndexed((0 until width).toList()) { _, i ->
-                val name = header.getOrNull(i)?.trim()?.ifEmpty { null } ?: stringResource(R.string.blk_column_n, i + 1)
+                val name = header.getOrNull(i)?.trim()?.ifEmpty { null } ?: stringResource(R.string.label_column, i + 1)
                 val samples = data.mapNotNull { it.getOrNull(i)?.trim()?.takeIf { v -> v.isNotEmpty() } }.take(2).joinToString(" · ")
                 ColumnRow(name, samples, mapping.getOrNull(i) ?: ColumnTarget.IGNORED) { t ->
                     mapping = List(width) { k -> if (k == i) t else mapping.getOrNull(k) ?: ColumnTarget.IGNORED }
@@ -188,8 +188,8 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                             val chosen = mapping
                             // An app job: leaving this screen doesn't stop the import half way.
                             val job = vm.jobs.start(
-                                UserJobs.Kind.IMPORT, res.getString(R.string.hist_importing),
-                                { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)) },
+                                UserJobs.Kind.IMPORT, res.getString(R.string.label_importing),
+                                { e -> res.getString(R.string.label_import_failed, UserErrorText.of(context, e)) },
                             ) { pr ->
                                 val r = vm.c.vcards.importMapped(
                                     request.uri, request.account, p.delimiter, chosen, hasHeader,
@@ -210,7 +210,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                         },
                         enabled = usable && progress == null,
                         modifier = Modifier.padding(top = 8.dp).align(Alignment.End),
-                    ) { Text(stringResource(R.string.blk_import)) }
+                    ) { Text(stringResource(R.string.action_import)) }
                     if (!usable) Text(
                         stringResource(R.string.csv_need_column), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
                     )
@@ -264,29 +264,29 @@ private fun targetLabel(res: Resources, t: ColumnTarget): String {
             CsvField.IGNORE -> R.string.csv_field_ignore
             CsvField.FULL_NAME -> R.string.csv_field_full_name
             CsvField.PREFIX -> R.string.csv_field_prefix
-            CsvField.GIVEN -> R.string.csv_field_given
-            CsvField.MIDDLE -> R.string.csv_field_middle
-            CsvField.FAMILY -> R.string.csv_field_family
+            CsvField.GIVEN -> R.string.label_first_name
+            CsvField.MIDDLE -> R.string.label_middle_name
+            CsvField.FAMILY -> R.string.label_last_name
             CsvField.SUFFIX -> R.string.csv_field_suffix
-            CsvField.NICKNAME -> R.string.csv_field_nickname
-            CsvField.PHONE -> R.string.contact_page_sec_phones
+            CsvField.NICKNAME -> R.string.label_nickname
+            CsvField.PHONE -> R.string.label_phone
             CsvField.PHONE_LABEL -> R.string.csv_field_phone_label
-            CsvField.EMAIL -> R.string.contact_page_sec_emails
+            CsvField.EMAIL -> R.string.label_email
             CsvField.EMAIL_LABEL -> R.string.csv_field_email_label
-            CsvField.ORG -> R.string.cs_sort_company
-            CsvField.TITLE -> R.string.csv_field_title
-            CsvField.ADDRESS -> R.string.contact_page_sec_addresses
-            CsvField.WEBSITE -> R.string.csv_field_website
-            CsvField.BIRTHDAY -> R.string.cs_group_birthday
-            CsvField.NOTES -> R.string.contact_page_kind_notes
-            CsvField.DEPARTMENT -> R.string.csv_field_department
-            CsvField.LABELS -> R.string.blk_check_labels
+            CsvField.ORG -> R.string.label_company
+            CsvField.TITLE -> R.string.label_job_title
+            CsvField.ADDRESS -> R.string.label_address
+            CsvField.WEBSITE -> R.string.label_website
+            CsvField.BIRTHDAY -> R.string.label_birthday
+            CsvField.NOTES -> R.string.label_notes
+            CsvField.DEPARTMENT -> R.string.label_department
+            CsvField.LABELS -> R.string.label_labels
         },
     )
     val type = t.type ?: return field
     return when (t.field) {
-        CsvField.PHONE -> res.getString(R.string.circle_review_person_count, field, Phone.getTypeLabel(res, type, null).toString())
-        CsvField.EMAIL -> res.getString(R.string.circle_review_person_count, field, Email.getTypeLabel(res, type, null).toString())
+        CsvField.PHONE -> res.getString(R.string.format_bracket_pair, field, Phone.getTypeLabel(res, type, null).toString())
+        CsvField.EMAIL -> res.getString(R.string.format_bracket_pair, field, Email.getTypeLabel(res, type, null).toString())
         else -> field
     }
 }

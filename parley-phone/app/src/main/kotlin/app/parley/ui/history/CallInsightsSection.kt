@@ -69,7 +69,7 @@ import java.time.format.FormatStyle
 fun CallInsightsSection(
     vm: AppViewModel,
     numbers: List<String>,
-    title: String = stringResource(R.string.quality_subject_all),
+    title: String = stringResource(R.string.label_calls),
     showTitle: Boolean = true,
     index: CallLogIndex? = null,
 ) {
@@ -93,7 +93,7 @@ fun CallInsightsSection(
         ins.lastCall?.let { last ->
             ParleyListItem(
                 leadingContent = { CallTypeIcon(last.type, durationSec = last.durationSec) },
-                headlineContent = { Text(stringResource(R.string.hist_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) },
+                headlineContent = { Text(stringResource(R.string.label_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(
                         listOfNotNull(Format.fullDate(context, last.date), Format.duration(last.durationSec).ifBlank { null }).joinToString(" · ") +

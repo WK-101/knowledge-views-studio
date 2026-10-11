@@ -21,7 +21,7 @@
     <string name="blockflow_dont_share">Don\'t share</string>
     <string name="blockflow_lifts_allow">Its \"Always allow\" rule is removed.</string>
     <string name="blockflow_more_ways">More ways to block…</string>
-    <string name="blockflow_already_title">Already blocked</string>
+    <string name="label_already_blocked">Already blocked</string>
     <string name="blockflow_already_text">Calls from %1$s are already blocked.</string>
     <plurals name="blockflow_unblocked_many">
         <item quantity="one">Unblocked %1$d number</item>

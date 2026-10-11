@@ -63,7 +63,7 @@ internal fun ReputationDialog(vm: AppViewModel, number: String, onDismiss: () ->
     val reasons = remember(rep, res) { rep?.let { ReputationText.reasons(res, it) }.orEmpty() }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_close)) } },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.action_close)) } },
         icon = { Icon(Icons.Rounded.Storefront, null) },
         title = { Text(stringResource(TR.string.rep_why_title)) },
         text = {

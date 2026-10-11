@@ -29,15 +29,15 @@ object Format {
     /** "14:05", "Yesterday", "Mon", "12 Mar" */
     fun shortWhen(context: Context, millis: Long): String = when {
         DateUtils.isToday(millis) -> time(context, millis)
-        DateUtils.isToday(millis + DateUtils.DAY_IN_MILLIS) -> context.getString(R.string.main_yesterday)
+        DateUtils.isToday(millis + DateUtils.DAY_IN_MILLIS) -> context.getString(R.string.label_yesterday)
         System.currentTimeMillis() - millis < 6 * DateUtils.DAY_IN_MILLIS ->
             DateUtils.formatDateTime(context, millis, DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_WEEKDAY)
         else -> DateUtils.formatDateTime(context, millis, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH)
     }
 
     fun dayHeader(context: Context, millis: Long): String = when {
-        DateUtils.isToday(millis) -> context.getString(R.string.blk_dry_today)
-        DateUtils.isToday(millis + DateUtils.DAY_IN_MILLIS) -> context.getString(R.string.main_yesterday)
+        DateUtils.isToday(millis) -> context.getString(R.string.label_today)
+        DateUtils.isToday(millis + DateUtils.DAY_IN_MILLIS) -> context.getString(R.string.label_yesterday)
         else -> {
             val now = Calendar.getInstance()
             val then = Calendar.getInstance().apply { timeInMillis = millis }

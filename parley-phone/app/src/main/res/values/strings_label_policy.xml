@@ -7,7 +7,7 @@
     <string name="label_policy_sim_on">Calls go out on %1$s</string>
     <string name="label_policy_sim_body">Used for people in this label who don\'t have a SIM of their own.</string>
     <string name="label_policy_rhythm">Keep in touch when they join your Circle</string>
-    <string name="label_policy_rhythm_none">Not set</string>
+    <string name="label_not_set">Not set</string>
     <string name="label_policy_rhythm_body">When you add someone from “%1$s” to your Circle, Parley suggests this rhythm first.</string>
     <string name="label_policy_dnd">Allow through Do Not Disturb</string>
     <string name="label_policy_dnd_summary">Works by starring everyone here, which also puts them in Favourites: Android lets starred contacts ring</string>

@@ -451,7 +451,7 @@ private fun FramingButtons(hasFace: Boolean, onChange: (FrameChange) -> Unit) {
         add(Triple(Icons.Rounded.KeyboardArrowDown, R.string.frame_move_down, { f, w, h, _ -> FrameMath.move(f, w, h, 0.0, step) }))
         add(Triple(Icons.AutoMirrored.Rounded.KeyboardArrowRight, R.string.frame_move_right, { f, w, h, _ -> FrameMath.move(f, w, h, step, 0.0) }))
         if (hasFace) add(Triple(Icons.Rounded.Face, R.string.frame_face, { f, w, h, face -> face?.let { (x, y) -> FrameMath.centreOn(f, w, h, x, y) } ?: f }))
-        add(Triple(Icons.Rounded.RestartAlt, R.string.contact_page_reset, { _, w, h, _ -> FrameMath.centred(w, h) }))
+        add(Triple(Icons.Rounded.RestartAlt, R.string.action_reset, { _, w, h, _ -> FrameMath.centred(w, h) }))
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         FlowRow(

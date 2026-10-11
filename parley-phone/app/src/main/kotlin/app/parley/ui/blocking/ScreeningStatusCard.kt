@@ -96,7 +96,7 @@ fun ScreeningStatusCard(vm: AppViewModel) {
                 { permission.launch(Manifest.permission.READ_CONTACTS) },
             ),
         )
-        if (!notifications) add(Gap(stringResource(R.string.blk_status_no_notifications), stringResource(R.string.blk_status_turn_on), {
+        if (!notifications) add(Gap(stringResource(R.string.blk_status_no_notifications), stringResource(R.string.action_turn_on), {
             roles.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }))
         if (Build.VERSION.SDK_INT < 29) add(Gap(stringResource(R.string.blk_status_unsupported), null, null))

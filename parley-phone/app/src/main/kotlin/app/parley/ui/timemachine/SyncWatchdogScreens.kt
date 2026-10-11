@@ -100,7 +100,7 @@ fun NavGraphBuilder.watchGraph(nav: NavController) {
 /** The watchdog's words, shared by its card and its notification. Accounts are named; people never are. */
 object WatchText {
     fun account(res: Resources, type: String?, name: String?): String =
-        if (type == null || AccountKinds.isLocalType(type)) res.getString(R.string.contact_page_sec_phones) else AccountRef(type, name).displayLabel
+        if (type == null || AccountKinds.isLocalType(type)) res.getString(R.string.label_phone) else AccountRef(type, name).displayLabel
 
     fun title(res: Resources, e: WatchEvent): String {
         val where = account(res, e.accountType, e.accountName)
@@ -125,8 +125,8 @@ object WatchText {
 
     /** "Since yesterday", "Since Mon", "Since 12 Mar". */
     private fun since(context: Context, at: Long): String =
-        if (DateUtils.isToday(at + DateUtils.DAY_IN_MILLIS)) context.getString(R.string.tm_since_yesterday)
-        else context.getString(R.string.hist_range_since, Format.shortWhen(context, at))
+        if (DateUtils.isToday(at + DateUtils.DAY_IN_MILLIS)) context.getString(R.string.label_since_yesterday)
+        else context.getString(R.string.label_since, Format.shortWhen(context, at))
 }
 
 /** Android's account sync settings, on the contacts authority. */
@@ -181,7 +181,7 @@ private fun WatchCard(vm: AppViewModel, e: WatchEvent, open: (Destination) -> Un
                     vm.c.syncWatch.dismiss(e)
                     vm.toast(res.getString(R.string.watch_it_was_me_done))
                 }) { Text(stringResource(R.string.watch_it_was_me)) }
-                if (e.restorable) FilledTonalButton({ open(WatchRoutes.Restore(e.fingerprint)) }) { Text(stringResource(R.string.watch_restore)) }
+                if (e.restorable) FilledTonalButton({ open(WatchRoutes.Restore(e.fingerprint)) }) { Text(stringResource(R.string.action_restore_from_snapshot)) }
             }
         }
     }
@@ -268,7 +268,7 @@ fun WatchRestoreScreen(vm: AppViewModel, fingerprint: String, back: () -> Unit) 
         }
     }
     ParleyScaffold(
-        topBar = { ParleyTopBar(stringResource(R.string.watch_restore), onBack = back) },
+        topBar = { ParleyTopBar(stringResource(R.string.action_restore_from_snapshot), onBack = back) },
         bottomBar = { RestoreBar(st, restore) },
     ) { p ->
         val list = st.picks
@@ -328,7 +328,7 @@ private fun RestoreList(st: RestoreState, list: List<Pick>, undo: () -> Unit, mo
                 val all = st.chosen.size == list.size
                 ParleyListItem(
                     modifier = Modifier.toggleable(all, role = Role.Checkbox) { on -> st.chosen = if (on) list.map { it.key }.toSet() else emptySet() },
-                    headlineContent = { Text(stringResource(R.string.watch_select_all), style = MaterialTheme.typography.labelLarge) },
+                    headlineContent = { Text(stringResource(R.string.action_select_all), style = MaterialTheme.typography.labelLarge) },
                     trailingContent = { Checkbox(all, onCheckedChange = null) },
                 )
             }

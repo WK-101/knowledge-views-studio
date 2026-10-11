@@ -237,11 +237,11 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>) = app.parley.ui.block
 /** Localised name of a swipe action; [short] drops the "(with undo)" part for the swipe background. */
 internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false): String = res.getString(
     when (a) {
-        SwipeAction.NONE -> R.string.swipe_none
-        SwipeAction.CALL -> R.string.circle_widget_call
-        SwipeAction.MESSAGE -> R.string.circle_type_message
+        SwipeAction.NONE -> R.string.label_nothing
+        SwipeAction.CALL -> R.string.action_call
+        SwipeAction.MESSAGE -> R.string.action_message
         SwipeAction.MESSAGE_ON -> R.string.contact_page_sec_messengers
-        SwipeAction.BLOCK -> R.string.blk_block
-        SwipeAction.DELETE -> if (short) R.string.blk_delete else R.string.swipe_delete
+        SwipeAction.BLOCK -> R.string.action_block
+        SwipeAction.DELETE -> if (short) R.string.action_delete else R.string.swipe_delete
     },
 )

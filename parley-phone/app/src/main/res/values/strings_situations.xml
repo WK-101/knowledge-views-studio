@@ -51,7 +51,7 @@
     <string name="sit_as_is">As it is</string>
     <string name="sit_ring">Who may ring</string>
     <string name="sit_ring_sub">Others ring silently and show as missed calls. Emergency calls, and people you always let through, still ring.</string>
-    <string name="sit_reply">Reply offered first</string>
+    <string name="label_reply_offered_first">Reply offered first</string>
     <string name="sit_reply_body">Shown first when you decline a call with a message. Leave it empty to keep your usual order.</string>
     <string name="sit_reply_silenced">Offer the reply to people silenced</string>
     <string name="sit_reply_silenced_sub">When someone you know rings silently, a notification offers this reply in one tap, through your messages app</string>
@@ -90,7 +90,7 @@
     <string name="sit_end_off">Until I turn it off</string>
 
     <!-- The silent ongoing notice while a Situation lets only some people ring. -->
-    <string name="sit_notice_channel">Situation on</string>
+    <string name="label_situation_on">Situation on</string>
     <string name="sit_notice_channel_desc">A silent reminder while a situation lets only some people ring</string>
     <string name="sit_notice_text">Others ring silently and show as missed calls, until you turn it off</string>
     <!-- %1$s a time ("11:00"). -->

@@ -127,7 +127,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                 dd?.let { stringResource(
                     R.string.contact_page_timeline_of,
                     it.given.ifBlank { it.displayName },
-                ) } ?: stringResource(R.string.circle_timeline),
+                ) } ?: stringResource(R.string.label_timeline),
                 onBack = back,
                 scrollBehavior = bar,
             )
@@ -144,7 +144,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     placeholder = { Text(stringResource(R.string.contact_page_timeline_search)) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } }),
+                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.action_clear_search)) } }),
                     singleLine = true,
                     shape = ParleyShapes.sheet,
                 )
@@ -211,11 +211,11 @@ private fun entryKey(e: TimelineEntry): String = when (e) {
 
 private fun kindLabel(res: Resources, k: TimelineKind): String = res.getString(
     when (k) {
-        TimelineKind.CALL -> R.string.quality_subject_all
-        TimelineKind.MISSED -> R.string.contact_page_kind_missed
+        TimelineKind.CALL -> R.string.label_calls
+        TimelineKind.MISSED -> R.string.label_missed
         TimelineKind.LOGGED -> R.string.contact_page_kind_logged
-        TimelineKind.NOTE -> R.string.contact_page_kind_notes
-        TimelineKind.DATE -> R.string.contact_page_sec_dates
+        TimelineKind.NOTE -> R.string.label_notes
+        TimelineKind.DATE -> R.string.label_dates
     },
 )
 

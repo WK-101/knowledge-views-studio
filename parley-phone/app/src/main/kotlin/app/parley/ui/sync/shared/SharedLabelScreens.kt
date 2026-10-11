@@ -103,7 +103,7 @@ private fun folderName(uri: Uri): String = uri.lastPathSegment?.substringAfterLa
 @Composable
 private fun NewPassphrase(label: String, a: String, b: String, onA: (String) -> Unit, onB: (String) -> Unit) {
     PassField(label, a, onA)
-    PassField(stringResource(R.string.shl_pass_again), b, onB)
+    PassField(stringResource(R.string.label_passphrase_again), b, onB)
     if (a.isNotEmpty()) {
         val e = remember(a) { PassphraseStrength.estimate(a) }
         StrengthMeter(e.score, strengthName(e.score), modifier = Modifier.padding(top = Spacing.s))
@@ -150,7 +150,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
             error = null
         }
     }
-    SettingsScaffold(stringResource(R.string.blk_share_chooser, title), back) {
+    SettingsScaffold(stringResource(R.string.action_share_named, title), back) {
         Text(
             stringResource(R.string.shl_share_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -186,7 +186,7 @@ fun ShareLabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (D
                 },
                 enabled = !busy && (byFile || folder != null) && passReady(pass, again) && name.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.diag_share)) }
+            ) { Text(stringResource(R.string.action_share)) }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
     }
@@ -208,7 +208,7 @@ private fun HowItTravels(byFile: Boolean, folder: String?, onByFile: (Boolean) -
                 ParleyListItem(
                     modifier = Modifier.clickable(onClick = onPickFolder),
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                    headlineContent = { Text(stringResource(R.string.blk_folder)) },
+                    headlineContent = { Text(stringResource(R.string.label_folder)) },
                     supportingContent = { Text(folder?.let { folderName(Uri.parse(it)) } ?: stringResource(R.string.shl_share_folder_none)) },
                     colors = rowColors(),
                 )
@@ -391,8 +391,8 @@ private fun MemberRow(m: LabelMember, me: String?, all: List<LabelMember>, canRe
         },
         trailingContent = {
             if (canRemove) {
-                val desc = stringResource(R.string.edit_remove_citizenship, m.name)
-                TextButton(onRemove, modifier = Modifier.semanticsLabel(desc)) { Text(stringResource(R.string.jr_remove)) }
+                val desc = stringResource(R.string.action_remove, m.name)
+                TextButton(onRemove, modifier = Modifier.semanticsLabel(desc)) { Text(stringResource(R.string.action_remove_button)) }
             }
         },
         colors = rowColors(),
@@ -410,9 +410,9 @@ private fun RemoveMemberDialog(vm: AppViewModel, id: String, m: LabelMember, onD
     var b by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     ConfirmDialog(
-        title = stringResource(R.string.blk_remove_list_q, m.name),
+        title = stringResource(R.string.action_remove_named_q, m.name),
         text = stringResource(R.string.shl_remove_text, m.name),
-        confirmLabel = stringResource(R.string.jr_remove),
+        confirmLabel = stringResource(R.string.action_remove_button),
         destructive = true,
         confirmEnabled = !busy && passReady(a, b),
         onConfirm = {
@@ -444,7 +444,7 @@ private fun PassphraseDialog(title: String, text: String, onDismiss: () -> Unit,
         confirmEnabled = p.isNotEmpty(),
         onConfirm = { onDone(p.toCharArray()) },
         onDismiss = onDismiss,
-        content = { PassField(stringResource(R.string.shl_join_pass), p) { p = it } },
+        content = { PassField(stringResource(R.string.label_passphrase), p) { p = it } },
     )
 }
 
@@ -500,7 +500,7 @@ fun SharedLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             open(SharedLabelRoutes.Join)
         }
     }
-    SettingsScaffold(stringResource(R.string.discover_shared_labels_title), back) {
+    SettingsScaffold(stringResource(R.string.label_shared_labels), back) {
         Text(
             stringResource(R.string.set_shared_labels_summary), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
@@ -586,7 +586,7 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
         Text(stringResource(if (qr) R.string.shl_join_passcode else R.string.shl_join_passphrase))
         OutlinedTextField(
             code, { code = it; error = null }, singleLine = true, isError = error != null,
-            label = { Text(stringResource(if (qr) R.string.shl_invite_code else R.string.shl_join_pass)) },
+            label = { Text(stringResource(if (qr) R.string.shl_invite_code else R.string.label_passphrase)) },
             supportingText = error?.let { e -> { Text(e) } },
             visualTransformation = if (qr) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(capitalization = if (qr) KeyboardCapitalization.Characters else KeyboardCapitalization.None),
@@ -609,7 +609,7 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
                 busy = false
                 if (opened == null) error = res.getString(R.string.shl_join_wrong) else onOpened(opened)
             }
-        }, enabled = code.isNotEmpty() && !busy) { Text(stringResource(R.string.blk_open)) }
+        }, enabled = code.isNotEmpty() && !busy) { Text(stringResource(R.string.action_open)) }
     }
 }
 
@@ -746,7 +746,7 @@ private fun PickLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (St
     val titles by produceState<List<String>?>(null) { value = vm.c.sharedLabels.labelTitles() }
     ParleyDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.bulk_choose_label)) },
+        title = { Text(stringResource(R.string.action_choose_a_label)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 val list = titles

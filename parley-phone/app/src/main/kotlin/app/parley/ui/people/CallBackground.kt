@@ -81,11 +81,11 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
                 Text(stringResource(R.string.ppl_bg_text), style = MaterialTheme.typography.bodySmall)
                 Row {
                     OutlinedButton({ picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                        Text(if (shown == null) stringResource(R.string.ppl_bg_choose) else stringResource(R.string.callphoto_change))
+                        Text(if (shown == null) stringResource(R.string.ppl_bg_choose) else stringResource(R.string.action_change))
                     }
                     if (shown != null) {
                         TextButton({ onChange(if (change is BackgroundChange.Set && current == null) BackgroundChange.None else BackgroundChange.Remove) }) {
-                            Text(stringResource(R.string.jr_remove))
+                            Text(stringResource(R.string.action_remove_button))
                         }
                     }
                 }
@@ -101,7 +101,7 @@ private fun Preview(uri: String?, version: Int, size: Modifier = Modifier.size(6
     val m = size.clip(ParleyShapes.control)
     val b = img
     if (b != null) Image(
-        b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop,
+        b, stringResource(R.string.label_call_screen_background), m, contentScale = ContentScale.Crop,
     ) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
 }
 
@@ -132,10 +132,10 @@ fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails) {
             }
         }
     }
-    val choose = stringResource(if (current == null) R.string.ppl_bg_choose else R.string.callphoto_change)
+    val choose = stringResource(if (current == null) R.string.ppl_bg_choose else R.string.action_change)
     // Tapping the picture opens it full screen, with Save and Share; the rest of the row changes it.
     var viewing by rememberSaveable { mutableStateOf(false) }
-    val description = stringResource(R.string.ppl_bg_desc)
+    val description = stringResource(R.string.label_call_screen_background)
     if (viewing && current != null) {
         val name = stringResource(R.string.img_name_call_picture, d.displayName)
         val export = ExportableImage(name, ExportableImage.Kind.CALL_PICTURE, ContactRef.isPrivateKey(key)) { ctx -> ImageExport.readUri(ctx, current) }

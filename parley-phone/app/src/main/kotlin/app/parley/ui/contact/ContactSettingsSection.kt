@@ -93,7 +93,7 @@ private fun SegmentedGroupScope.callingRows(ctx: ContactPageContext) {
                 else runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull()
             }
             GroupDataRow(
-                Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.lbl_default_ringtone), resources.getString(R.string.blk_editor_ringtone),
+                Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.label_default_ringtone), resources.getString(R.string.label_ringtone),
                 onClick = {
                     val picker = Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
                     ctx.pickRingtone(picker.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
@@ -127,7 +127,7 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
         item {
             InfoRow(
                 leading = { Icon(Icons.Rounded.Lock, null) },
-                headline = { Text(stringResource(R.string.lbl_saved_in)) },
+                headline = { Text(stringResource(R.string.label_saved_in)) },
                 supporting = { Text(stringResource(R.string.contact_saved_private)) },
             )
         }
@@ -139,7 +139,7 @@ private fun SegmentedGroupScope.savedInRows(ctx: ContactPageContext) {
             leading = { Icon(Icons.Rounded.Sync, null) },
             headline = {
                 val n = d.rawContacts.size
-                Text(if (n > 1) resources.getQuantityString(R.plurals.detail_linked_from, n, n) else resources.getString(R.string.lbl_saved_in))
+                Text(if (n > 1) resources.getQuantityString(R.plurals.detail_linked_from, n, n) else resources.getString(R.string.label_saved_in))
             },
             supporting = {
                 AccountChips(ctx.vm, d, ctx.open) { newId ->
@@ -194,7 +194,7 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
         item {
             val resources = LocalResources.current
             GroupDataRow(
-                Icons.Rounded.Timer, true, resources.getString(R.string.contact_keep_permanently),
+                Icons.Rounded.Timer, true, resources.getString(R.string.action_keep_permanently),
                 resources.getString(R.string.contact_keep_permanently_summary), onClick = { ctx.page.setExpiry(null) },
             )
         }
@@ -202,7 +202,7 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
     item {
         val resources = LocalResources.current
         GroupDataRow(
-            Icons.Rounded.ViewAgenda, true, resources.getString(R.string.contact_page_settings_title),
+            Icons.Rounded.ViewAgenda, true, resources.getString(R.string.label_contact_page_sections),
             resources.getString(R.string.set_contact_page_summary), onClick = { ctx.open(ContactPageRoutes.Sections) },
         )
     }

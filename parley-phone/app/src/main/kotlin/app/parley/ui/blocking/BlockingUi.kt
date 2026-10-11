@@ -107,7 +107,7 @@ fun ActionChoice(value: BlockAction, onChange: (BlockAction) -> Unit, modifier: 
     SingleChoiceSegmentedButtonRow(modifier) {
         BlockAction.entries.forEachIndexed { i, a ->
             SegmentedButton(value == a, { onChange(a) }, SegmentedButtonDefaults.itemShape(i, BlockAction.entries.size)) {
-                Text(stringResource(if (a == BlockAction.REJECT) R.string.blk_action_reject else R.string.blk_action_silence))
+                Text(stringResource(if (a == BlockAction.REJECT) R.string.blk_action_reject else R.string.action_silence))
             }
         }
     }
@@ -116,10 +116,10 @@ fun ActionChoice(value: BlockAction, onChange: (BlockAction) -> Unit, modifier: 
 @Composable
 fun notifyLabel(n: NotifyLevel) = stringResource(
     when (n) {
-        NotifyLevel.DEFAULT -> R.string.blk_check_default
-        NotifyLevel.NONE -> R.string.blk_notify_none
+        NotifyLevel.DEFAULT -> R.string.label_default
+        NotifyLevel.NONE -> R.string.label_none
         NotifyLevel.QUIET -> R.string.blk_notify_quiet
-        NotifyLevel.NORMAL -> R.string.blk_notify_normal
+        NotifyLevel.NORMAL -> R.string.label_normal
     },
 )
 
@@ -128,7 +128,7 @@ fun notifyLabel(n: NotifyLevel) = stringResource(
 fun notifyLabelInline(n: NotifyLevel) = stringResource(
     when (n) {
         NotifyLevel.DEFAULT -> R.string.blk_notify_default_inline
-        NotifyLevel.NONE -> R.string.blk_res_none
+        NotifyLevel.NONE -> R.string.label_none_lower
         NotifyLevel.QUIET -> R.string.blk_notify_quiet_inline
         NotifyLevel.NORMAL -> R.string.blk_notify_normal_inline
     },
@@ -175,7 +175,7 @@ fun leftText(context: Context, ms: Long): String {
     return when {
         min >= 24 * 60 -> context.getString(R.string.blk_left_days_hours, min / (24 * 60), (min / 60) % 24)
         min >= 60 -> context.getString(R.string.ct_hours_minutes_short, min / 60, min % 60)
-        else -> context.getString(R.string.hist_minutes_short, min)
+        else -> context.getString(R.string.label_minutes_short, min)
     }
 }
 
@@ -190,7 +190,7 @@ fun Long.toPluralCount(): Int = coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
 /** "Expecting a call" durations: 30 min, 1 h, 2 h. */
 @Composable
 fun snoozeChoices(): List<Pair<Int, String>> = listOf(
-    30 to stringResource(R.string.hist_minutes_short, 30),
+    30 to stringResource(R.string.label_minutes_short, 30),
     60 to stringResource(R.string.ct_hours_short, 1),
     120 to stringResource(R.string.ct_hours_short, 2),
 )

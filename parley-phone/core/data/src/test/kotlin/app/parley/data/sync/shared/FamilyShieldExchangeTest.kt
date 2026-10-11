@@ -264,6 +264,31 @@ class FamilyShieldExchangeTest {
         assertTrue("state" in after.opened)
     }
 
+    @Test fun an_index_made_while_a_state_could_not_be_opened_is_not_written() = runBlocking {
+        shareByFile()
+        ana.own = listOf(OwnVerdict(scam, ShieldKind.SCAM, 10))
+        ana.shield(true)
+        sam.shield(true)
+        assertEquals(UpdateResult.MERGED, sam.open(ana.send()))
+        val dir = File(root, "partial")
+        assertTrue(SharedLabelStateStore(dir, Plain).put(sam.s))
+        // The app starts with the Keystore unavailable for a moment: the labels it read lack Family.
+        val flaky = Flaky()
+        val read = SharedLabelStateStore(dir, flaky).read()
+        assertFalse(read.complete)
+        val store = FamilyShieldStore(dir, flaky, { emptyList() })
+        store.update(read.states, read.complete)
+        assertNull(store.match(scam, "GB"))
+        // A later process for a ringing call, the Keystore back: it reads Family, not an index without it.
+        val ring = FamilyShieldStore(dir, Plain, { emptyList() })
+        ring.load()
+        assertEquals(ShieldKind.SCAM, ring.match(scam, "GB")?.kind)
+        // And this process reads again before the next call.
+        flaky.ok = true
+        store.load()
+        assertEquals(ShieldKind.SCAM, store.match(scam, "GB")?.kind)
+    }
+
     @Test fun a_blocked_number_marked_then_withdrawn_is_not_shared_again() = runBlocking {
         val store = FamilyShieldStore(File(root, "own"), Plain, { listOf(scam) })
         assertEquals(listOf(scam), store.outgoing().map { it.e164 })

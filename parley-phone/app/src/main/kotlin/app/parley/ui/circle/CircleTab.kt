@@ -186,10 +186,10 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
         trailingContent = {
             if (phone != null) Row {
                 IconButton({ vm.requestCall(phone.number, r.contact.displayName, source = CallSource.CONTACT) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, r.contact.displayName))
+                    Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, r.contact.displayName))
                 }
                 IconButton({ quick.message(r.contact) }) {
-                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, r.contact.displayName))
+                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_named, r.contact.displayName))
                 }
             }
         },
@@ -240,7 +240,7 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
                                 }
                             }) {
                                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.padding(end = 6.dp))
-                                Text(stringResource(R.string.agenda_add_save))
+                                Text(stringResource(R.string.action_add))
                             }
                         },
                     )

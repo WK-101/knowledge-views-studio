@@ -172,7 +172,7 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
     sections.addRows(ContactSection.ABOUT, title, resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
         sites.forEachIndexed { i, w ->
             item {
-                val label = resources.getString(R.string.csv_field_website)
+                val label = resources.getString(R.string.label_website)
                 GroupDataRow(Icons.Rounded.Language, i == 0, w.value, label, onClick = { Intents.web(context, w.value) })
             }
         }
@@ -220,7 +220,7 @@ private fun AboutSection(sections: PageSections, ctx: ContactPageContext) {
         if (d.note.isNotBlank()) {
             item {
                 GroupDataRow(
-                    Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.blk_col_note), onClick = {},
+                    Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.label_note), onClick = {},
                     headline = { LinkifiedText(d.note) },
                 )
             }
@@ -252,7 +252,7 @@ private fun NoteForCallsSection(sections: PageSections, ctx: ContactPageContext)
                 modifier = Modifier.combinedClickable(
                     onClick = { ctx.show(ContactDialog.EditNote) },
                     onLongClick = full?.let { n -> { Clipboard.copy(context, n) } },
-                    onLongClickLabel = full?.let { stringResource(R.string.hist_action_copy) },
+                    onLongClickLabel = full?.let { stringResource(R.string.action_copy) },
                 ),
                 leading = {
                     val cs = MaterialTheme.colorScheme
@@ -279,7 +279,7 @@ private fun SegmentedGroupScope.agendaRows(
                 modifier = Modifier.toggleable(value = false, role = Role.Checkbox) { onTick(n, p) },
                 leading = { if (i == 0) Icon(Icons.Rounded.Checklist, null) },
                 headline = { Text(p.text) },
-                supporting = if (i == 0) ({ Text(stringResource(R.string.agenda_title)) }) else null,
+                supporting = if (i == 0) ({ Text(stringResource(R.string.label_to_talk_about)) }) else null,
                 trailing = { Checkbox(checked = false, onCheckedChange = null, modifier = Modifier.padding(end = Spacing.m)) },
             )
         }

@@ -74,11 +74,11 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val changeable = privacy.notesShown
     ParleyScaffold(topBar = {
         ParleyTopBar(
-            stringResource(R.string.recall_group_case_files), onBack = back,
+            stringResource(R.string.label_case_files), onBack = back,
             actions = {
                 if (changeable && listed.isNotEmpty()) {
                     Box {
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.case_more)) }
+                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem(
                                 { Text(stringResource(R.string.case_list_stop_all)) }, leadingIcon = { Icon(Icons.Rounded.FolderOff, null) },
@@ -115,7 +115,7 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             items(active, key = { it.id }) { c -> CaseRow(vm, c) { open(HistoryRoutes.Case(c.id)) } }
             if (resolved.isNotEmpty()) {
-                item(key = "resolved") { Section(stringResource(R.string.case_status_resolved)) }
+                item(key = "resolved") { Section(stringResource(R.string.label_resolved)) }
                 items(resolved, key = { it.id }) { c -> CaseRow(vm, c) { open(HistoryRoutes.Case(c.id)) } }
             }
         }

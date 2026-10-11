@@ -13,7 +13,7 @@ object RelationText {
     private fun labelRes(t: RelationType): Int? =
         when (t.key) {
             "spouse" -> R.string.rel_spouse
-            "partner" -> R.string.rel_partner
+            "partner" -> R.string.label_partner
             "domestic-partner" -> R.string.rel_domestic_partner
             "child" -> R.string.rel_child
             "parent" -> R.string.rel_parent
@@ -26,9 +26,9 @@ object RelationText {
             "manager" -> R.string.rel_manager
             "assistant" -> R.string.rel_assistant
             "referred-by" -> R.string.rel_referred_by
-            "contact" -> R.string.rel_contact
+            "contact" -> R.string.label_contact
             "acquaintance" -> R.string.rel_acquaintance
-            "met" -> R.string.circle_type_meet
+            "met" -> R.string.label_met
             "co-worker" -> R.string.rel_co_worker
             "colleague" -> R.string.rel_colleague
             "co-resident" -> R.string.rel_co_resident
@@ -37,9 +37,9 @@ object RelationText {
             "kin" -> R.string.rel_kin
             "muse" -> R.string.rel_muse
             "crush" -> R.string.rel_crush
-            "date" -> R.string.hist_pdf_col_date
+            "date" -> R.string.label_date
             "sweetheart" -> R.string.rel_sweetheart
-            "me" -> R.string.basics_for_me
+            "me" -> R.string.label_me
             "agent" -> R.string.rel_agent
             "emergency" -> R.string.rel_emergency
             "wife" -> R.string.rel_wife
@@ -121,10 +121,10 @@ object RelationText {
     fun group(res: Resources, g: RelationType.Group): String = res.getString(
         when (g) {
             RelationType.Group.FAMILY -> R.string.rel_group_family
-            RelationType.Group.PARTNER -> R.string.rel_partner
+            RelationType.Group.PARTNER -> R.string.label_partner
             RelationType.Group.SOCIAL -> R.string.rel_group_social
-            RelationType.Group.WORK -> R.string.rel_group_work
-            RelationType.Group.OTHER -> R.string.circle_type_other
+            RelationType.Group.WORK -> R.string.label_work
+            RelationType.Group.OTHER -> R.string.label_other
         },
     )
 

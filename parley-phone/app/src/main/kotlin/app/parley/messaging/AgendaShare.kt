@@ -111,7 +111,7 @@ internal fun AgendaPick(c: DataContainer, text: String, done: () -> Unit) {
         )
         OutlinedTextField(
             typed, { typed = it.take(80) }, singleLine = true,
-            label = { Text(stringResource(R.string.agenda_share_search)) },
+            label = { Text(stringResource(R.string.label_name)) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
         )
         if (shown.isEmpty() && folded.isNotEmpty()) {

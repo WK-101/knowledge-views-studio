@@ -20,7 +20,7 @@ class QrScanTileService : TileService() {
         super.onStartListening()
         val tile = qsTile ?: return
         tile.state = Tile.STATE_INACTIVE
-        tile.label = getString(R.string.qs_shortcut_short)
+        tile.label = getString(R.string.action_scan_qr)
         tile.contentDescription = getString(R.string.qs_shortcut_long)
         tile.updateTile()
     }

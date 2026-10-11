@@ -205,11 +205,11 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                         "application/octet-stream",
                     ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     val what = res.getString(
-                        R.string.archive_page_work,
+                        R.string.format_dot_pair,
                         res.getQuantityString(R.plurals.blk_numbers_count, ex.numbers, ex.numbers.toString()),
                         res.getQuantityString(R.plurals.blk_ranges_count, ex.ranges, ex.ranges),
                     )
-                    context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_share_chooser, what)))
+                    context.startActivity(Intent.createChooser(send, res.getString(R.string.action_share_named, what)))
                     if (ex.skipped > 0) vm.toast(res.getQuantityString(R.plurals.blk_share_skipped, ex.skipped, ex.skipped))
                 }
             }) { Text(stringResource(R.string.blk_share_as_list)) }
@@ -222,7 +222,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
         ConfirmDialog(
             title = stringResource(R.string.blk_cbbk_password_title),
             text = null,
-            confirmLabel = stringResource(R.string.blk_open),
+            confirmLabel = stringResource(R.string.action_open),
             onConfirm = {
                 scope.launch {
                     try {
@@ -240,7 +240,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
             content = { OutlinedTextField(
                 pw,
                 { pw = it },
-                label = { Text(stringResource(R.string.blk_password)) },
+                label = { Text(stringResource(R.string.label_password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
             ) },
@@ -275,7 +275,7 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
     ConfirmDialog(
         title = stringResource(R.string.blk_import_from, d.source),
         text = null,
-        confirmLabel = stringResource(R.string.blk_import),
+        confirmLabel = stringResource(R.string.action_import),
         onConfirm = {
             scope.launch {
                 val n = vm.c.blocks.addRules(checked)
@@ -294,8 +294,8 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
                         Checkbox(m.hasHeader, { mapping = m.copy(hasHeader = it) })
                         Text(stringResource(R.string.blk_first_row_header))
                     }
-                    ColumnPicker(stringResource(R.string.blk_col_numbers), header, m.number, allowNone = false) { mapping = m.copy(number = it) }
-                    ColumnPicker(stringResource(R.string.blk_col_note), header, m.note, allowNone = true) { mapping = m.copy(note = it) }
+                    ColumnPicker(stringResource(R.string.label_numbers), header, m.number, allowNone = false) { mapping = m.copy(number = it) }
+                    ColumnPicker(stringResource(R.string.label_note), header, m.note, allowNone = true) { mapping = m.copy(note = it) }
                     ColumnPicker(stringResource(R.string.blk_col_kind), header, m.kind, allowNone = true) { mapping = m.copy(kind = it) }
                 }
                 val allows = checked.count { it.kind == RuleKind.ALLOW }
@@ -319,9 +319,9 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
 private fun ColumnPicker(label: String, header: List<String>, selected: Int, allowNone: Boolean, onPick: (Int) -> Unit) {
     Text(label, style = MaterialTheme.typography.labelLarge)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (allowNone) FilterChip(selected < 0, { onPick(-1) }, label = { Text(stringResource(R.string.blk_notify_none)) })
+        if (allowNone) FilterChip(selected < 0, { onPick(-1) }, label = { Text(stringResource(R.string.label_none)) })
         header.forEachIndexed { i, h ->
-            FilterChip(selected == i, { onPick(i) }, label = { Text(h.take(16).ifBlank { stringResource(R.string.blk_column_n, i + 1) }) })
+            FilterChip(selected == i, { onPick(i) }, label = { Text(h.take(16).ifBlank { stringResource(R.string.label_column, i + 1) }) })
         }
     }
 }

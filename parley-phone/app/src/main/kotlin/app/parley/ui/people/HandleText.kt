@@ -13,7 +13,7 @@ object HandleText {
         HandleService.SIGNAL -> res.getString(R.string.handle_signal)
         HandleService.THREEMA -> res.getString(R.string.handle_threema)
         HandleService.SIP -> res.getString(R.string.handle_sip)
-        HandleService.OTHER -> res.getString(R.string.circle_type_other)
+        HandleService.OTHER -> res.getString(R.string.label_other)
         else -> s.label
     }
 
@@ -41,7 +41,7 @@ object HandleText {
             HandleService.YAHOO -> R.string.handle_hint_yahoo
             HandleService.QQ -> R.string.handle_hint_qq
             HandleService.ICQ -> R.string.handle_hint_icq
-            HandleService.GOOGLE_TALK, HandleService.MSN, HandleService.NETMEETING -> R.string.contact_page_sec_addresses
+            HandleService.GOOGLE_TALK, HandleService.MSN, HandleService.NETMEETING -> R.string.label_address
             HandleService.OTHER -> R.string.handle_hint_other
         },
     )

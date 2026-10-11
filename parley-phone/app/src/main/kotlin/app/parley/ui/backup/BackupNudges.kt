@@ -94,7 +94,7 @@ fun rememberBackupFirst(vm: AppViewModel): BackupFirstGate {
                 if (busy) Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.bkp_backing_up))
+                    Text(stringResource(R.string.label_backing_up))
                 }
                 failed?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
@@ -116,7 +116,7 @@ fun rememberBackupFirst(vm: AppViewModel): BackupFirstGate {
                         }
                     },
                     enabled = !busy,
-                ) { Text(stringResource(R.string.bkp_back_up_now)) }
+                ) { Text(stringResource(R.string.action_back_up_now)) }
             } else {
                 TextButton({ gate.pending = null; vm.navigate(NavEvent.Route(Routes.Backup)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
             }
@@ -156,7 +156,7 @@ fun BackupReminderBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Spacer(Modifier.width(12.dp))
                 Text(
                     if (state.lastBackupAt > 0) stringResource(R.string.ux_backup_due_title, relative(state.lastBackupAt))
-                    else stringResource(R.string.bkp_no_backup),
+                    else stringResource(R.string.label_no_backup_yet),
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
@@ -167,7 +167,7 @@ fun BackupReminderBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                TextButton({ vm.c.ux.snoozeBackupBanner() }, enabled = !busy) { Text(stringResource(R.string.circle_not_now)) }
+                TextButton({ vm.c.ux.snoozeBackupBanner() }, enabled = !busy) { Text(stringResource(R.string.label_not_now)) }
                 if (state.ready) {
                     TextButton(
                         {
@@ -179,7 +179,7 @@ fun BackupReminderBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
                             }
                         },
                         enabled = !busy,
-                    ) { Text(stringResource(R.string.bkp_back_up_now)) }
+                    ) { Text(stringResource(R.string.action_back_up_now)) }
                 } else {
                     TextButton({ vm.navigate(NavEvent.Route(Routes.Backup)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
                 }

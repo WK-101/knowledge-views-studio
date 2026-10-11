@@ -69,7 +69,7 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                         FilterChip(
                             days == d,
                             { days = d },
-                            label = { Text(if (d == 1) stringResource(R.string.blk_dry_today) else pluralStringResource(R.plurals.set_days, d, d)) },
+                            label = { Text(if (d == 1) stringResource(R.string.label_today) else pluralStringResource(R.plurals.set_days, d, d)) },
                         )
                     }
                 }
@@ -101,7 +101,7 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                             )
                         },
                         headlineContent = {
-                            Text(if (r.call.hidden) stringResource(R.string.blk_private_number) else bidiLtr(Format.number(r.call.number, vm.countryIso)))
+                            Text(if (r.call.hidden) stringResource(R.string.label_private_number) else bidiLtr(Format.number(r.call.number, vm.countryIso)))
                         },
                         supportingContent = {
                             Text(

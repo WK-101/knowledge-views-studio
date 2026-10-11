@@ -82,11 +82,16 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     /**
      * The cards: from [INDEX] (one file for all of them) for every card file it lists, and only the card files it
      * doesn't (a write cut short before the index followed) opened one by one. The index is written again then.
+     * A card file written after the index is opened too: an id is used again once its card has gone (the newest is
+     * unarchived), so an index that missed both changes would name the new card's numbers with the old card's person.
      */
     private fun readCards(): List<ArchivedCard> {
-        val ids = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) }.mapNotNull { it.name.removeSuffix(CARD).toLongOrNull() }.toSet()
+        val files = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) }
+            .mapNotNull { f -> f.name.removeSuffix(CARD).toLongOrNull()?.let { it to f.lastModified() } }.toMap()
+        val ids = files.keys
         val indexed = readIndex()
-        val known = indexed.orEmpty().filter { it.id in ids }
+        val indexedAt = File(dir, INDEX).lastModified()
+        val known = indexed.orEmpty().filter { (files[it.id] ?: return@filter false) <= indexedAt }
         val missing = ids - known.mapTo(HashSet()) { it.id }
         val opened = missing.mapNotNull { id ->
             runCatching { Archive.decode(String(crypto.openBytes(File(dir, "$id$CARD").readBytes()), Charsets.UTF_8)) }

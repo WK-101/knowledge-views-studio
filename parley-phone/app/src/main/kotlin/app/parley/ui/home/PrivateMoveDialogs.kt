@@ -37,7 +37,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
     ConfirmDialog(
         title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
         text = stringResource(R.string.move_private_text),
-        confirmLabel = stringResource(R.string.be_move_confirm),
+        confirmLabel = stringResource(R.string.action_move),
         onConfirm = {
             onDismiss()
             // The outcome may arrive after this screen is gone (a rotation, or leaving it): only the app's resources.
@@ -53,7 +53,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
                         r.removedAfterSync -> vm.toast(res.getString(R.string.vm_removed_after_sync))
                     }
                 },
-                onError = { e -> vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(vm.getApplication(), e))) },
+                onError = { e -> vm.toast(res.getString(R.string.label_couldnt_move, UserErrorText.of(vm.getApplication(), e))) },
             )
         },
         onDismiss = onDismiss,
@@ -114,7 +114,7 @@ private fun MovingDialog(done: Int, total: Int) {
                     progress = { if (total == 0) 0f else done.toFloat() / total },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(stringResource(R.string.move_private_progress, done, total), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.format_progress_of, done, total), style = MaterialTheme.typography.bodyMedium)
             }
         },
         confirmButton = {},

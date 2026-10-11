@@ -3,7 +3,7 @@
 <resources>
     <!-- SIMs & plan minutes: the group with the settings for calling abroad -->
     <string name="set_group_abroad">Abroad</string>
-    <string name="set_assisted_dialling_title">Assisted dialling abroad</string>
+    <string name="label_assisted_dialling_abroad">Assisted dialling abroad</string>
     <string name="set_assisted_dialling_summary">While you\'re abroad, offers to add the country code to numbers in your home format</string>
     <string name="set_assisted_dialling_kw">roaming, abroad, travel, country code, international, plus, assisted dialing, holiday</string>
     <string name="set_local_sim_hint_title">Suggest a local SIM abroad</string>

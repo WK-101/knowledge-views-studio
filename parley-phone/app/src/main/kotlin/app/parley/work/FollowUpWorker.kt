@@ -59,13 +59,13 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) }
         val b = PrivateNotice.builder(
             ctx, RemindersWorker.CHANNEL, R.drawable.ic_stat_cake, ctx.getString(R.string.circle_followup_title, contact.displayName),
-            ctx.getString(R.string.circle_notif_public), text, open,
+            ctx.getString(R.string.label_reminder), text, open,
         )
             .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.circle_promise_line, it) } ?: ctx.getString(R.string.circle_followup_body))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
         contact.primaryNumber?.let { phone ->
             val call = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id, contact.displayName)
-            b.addAction(0, ctx.getString(R.string.circle_widget_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
+            b.addAction(0, ctx.getString(R.string.action_call), PendingIntent.getActivity(ctx, code + 1, call, PendingIntent.FLAG_IMMUTABLE))
         }
         PrivateNotice.post(ctx, tag, 0, b)
         return Result.success()

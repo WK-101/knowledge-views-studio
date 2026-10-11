@@ -65,7 +65,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
     ConfirmDialog(
         title = stringResource(R.string.hist_range_title),
         text = null,
-        confirmLabel = if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.blk_delete),
+        confirmLabel = if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.action_delete),
         onConfirm = {
             val r = range
             val p = picked
@@ -87,7 +87,7 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                 DeleteRange.entries.forEach { r ->
                     val n = count(r)
                     val label = if (r == DeleteRange.SINCE_DATE && picked != null) {
-                        stringResource(R.string.hist_range_since, picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
+                        stringResource(R.string.label_since, picked!!.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)))
                     } else stringResource(HistoryText.deleteRange(r))
                     ParleyListItem(
                         headlineContent = { Text(label) },

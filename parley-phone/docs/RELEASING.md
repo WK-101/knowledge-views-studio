@@ -153,9 +153,15 @@ dependency, regenerate both files, review the diff (new components only, from th
 
 ```bash
 ./gradlew --write-verification-metadata pgp,sha256 --export-keys resolveAllDependencies \
-  :app:compileDebugAndroidTestKotlin detekt lintDebug
+  :core:common:test testDebugUnitTest detekt lintDebug assembleDebug :app:compileDebugAndroidTestKotlin
 rm gradle/verification-keyring.gpg   # the reviewable .keys file is the one kept
 ```
+
+`resolveAllDependencies` resolves every configuration it can, but some artifacts are only fetched while a task runs
+(aapt2 for `assembleDebug`, lint's and detekt's own jars), so the command runs the tasks CI runs as well. aapt2 is
+recorded for the operating system that ran the command only: on another one, run the command there too and keep both
+entries. Before committing, check that a build with an empty Gradle cache passes:
+`GRADLE_USER_HOME=$(mktemp -d) ./gradlew --no-daemon assembleDebug`.
 
 ## 3. Release checklist
 

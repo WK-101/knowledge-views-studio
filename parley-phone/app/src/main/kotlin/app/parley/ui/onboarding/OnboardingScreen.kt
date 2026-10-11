@@ -230,7 +230,7 @@ private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
         { if (rm != null) requestRole() else next() },
         Modifier.fillMaxWidth().height(56.dp),
     ) { Text(stringResource(R.string.onb_set_default)) }
-    TextButton(next, Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.circle_not_now)) }
+    TextButton(next, Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.label_not_now)) }
 }
 
 /** Why the default-phone-app step may say "Restricted setting" on a sideloaded install, and the way out. */
@@ -262,14 +262,14 @@ private fun RestrictedSettingsCard(emphasise: Boolean, openAppInfo: () -> Unit) 
 private class PermissionRow(val icon: ImageVector, val title: Int, val reason: Int, val without: Int, val permissions: List<String>)
 
 private fun permissionRows(): List<PermissionRow> = buildList {
-    add(PermissionRow(Icons.Rounded.People, R.string.rst_contacts, R.string.ux_perm_contacts_why, R.string.ux_perm_contacts_without,
+    add(PermissionRow(Icons.Rounded.People, R.string.label_contacts, R.string.ux_perm_contacts_why, R.string.ux_perm_contacts_without,
         listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.GET_ACCOUNTS)))
-    add(PermissionRow(Icons.Rounded.History, R.string.hist_settings_title, R.string.ux_perm_call_log_why, R.string.ux_perm_call_log_without,
+    add(PermissionRow(Icons.Rounded.History, R.string.label_call_history, R.string.ux_perm_call_log_why, R.string.ux_perm_call_log_without,
         listOf(Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG)))
-    add(PermissionRow(Icons.Rounded.Phone, R.string.contact_page_sec_phones, R.string.ux_perm_phone_why, R.string.ux_perm_phone_without,
+    add(PermissionRow(Icons.Rounded.Phone, R.string.label_phone, R.string.ux_perm_phone_why, R.string.ux_perm_phone_without,
         listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_PHONE_NUMBERS, Manifest.permission.ANSWER_PHONE_CALLS)))
     if (Build.VERSION.SDK_INT >= 33) {
-        add(PermissionRow(Icons.Rounded.Notifications, R.string.blk_notifications, R.string.ux_perm_notifications_why, R.string.ux_perm_notifications_without,
+        add(PermissionRow(Icons.Rounded.Notifications, R.string.label_notifications, R.string.ux_perm_notifications_why, R.string.ux_perm_notifications_without,
             listOf(Manifest.permission.POST_NOTIFICATIONS)))
     }
     if (Build.VERSION.SDK_INT >= 31) {
@@ -368,7 +368,7 @@ private fun ColumnScope.ComingFromStep(onImport: (ComingFrom.Importer) -> Unit, 
         ComingFromGroups(onImport)
     }
     Spacer(Modifier.weight(1f))
-    Button(skip, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(R.string.intro_skip)) }
+    Button(skip, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(R.string.action_skip)) }
 }
 
 @Composable

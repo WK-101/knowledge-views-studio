@@ -176,7 +176,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     EmptyState(
                         Icons.Rounded.People,
                         when {
-                            query.isNotBlank() -> stringResource(R.string.contacts_no_matches, query)
+                            query.isNotBlank() -> stringResource(R.string.label_no_matches_for, query)
                             !filter.isEmpty -> stringResource(R.string.contacts_no_filter_match)
                             // The "Private" filter with no private contacts yet.
                             privateOnly -> stringResource(R.string.contacts_no_private)
@@ -186,10 +186,10 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                         // One way on for each case.
                         action = stringResource(
                             when {
-                                query.isNotBlank() -> R.string.contact_page_clear_search
+                                query.isNotBlank() -> R.string.action_clear_search
                                 !filter.isEmpty -> R.string.ux_empty_clear_filter
                                 privateOnly -> R.string.ux_empty_add_private
-                                else -> R.string.home_create_contact
+                                else -> R.string.action_create_contact
                             },
                         ),
                         onAction = {
@@ -321,10 +321,10 @@ fun ContactRow(
             val n = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.first()).number
             Row {
                 IconButton({ if (onMessage != null) onMessage(n) else Intents.sms(ctx, n) }) {
-                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, c.displayName))
+                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_named, c.displayName))
                 }
                 IconButton({ onCall(n) }) {
-                    Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, c.displayName), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Call, stringResource(R.string.action_call_named, c.displayName), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }) else menu,
@@ -338,7 +338,7 @@ private fun PrivateSearchLocked(vm: AppViewModel) {
     Banner(
         stringResource(R.string.cs_private_locked),
         icon = Icons.Rounded.Lock,
-        action = stringResource(R.string.cs_private_unlock).takeIf { activity != null },
+        action = stringResource(R.string.action_unlock).takeIf { activity != null },
         onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.people.privateSearch.retry() } } },
     )
 }
@@ -375,7 +375,7 @@ private fun AlsoArchivedLine(vm: AppViewModel, query: String, open: (Destination
                         else -> PeopleRoutes.ArchivedContact(one.id)
                     },
                 )
-            }) { Text(stringResource(R.string.archive_also_show)) }
+            }) { Text(stringResource(R.string.action_show)) }
         },
     )
 }

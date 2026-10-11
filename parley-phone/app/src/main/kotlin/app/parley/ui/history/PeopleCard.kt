@@ -103,7 +103,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                 modifier = Modifier.weight(1f).semantics { heading() },
             )
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.contact_page_sec_more)) }
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
                         { Text(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) },
@@ -168,7 +168,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
             SubHeader(stringResource(R.string.circle_year_review))
             val most = r.most.mapNotNull { (k, n) ->
                 contacts[k]?.let {
-                    stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString()))
+                    stringResource(R.string.format_bracket_pair, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString()))
                 }
             }
             if (most.isNotEmpty()) ParleyListItem(
@@ -199,7 +199,7 @@ private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open:
         supportingContent = { Text(sub) },
         trailingContent = if (call && phone != null) ({
             IconButton({ vm.requestCall(phone, ct.displayName) }) {
-                Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Rounded.Call, stringResource(R.string.action_call_back), tint = MaterialTheme.colorScheme.primary)
             }
         }) else null,
     )

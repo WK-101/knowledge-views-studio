@@ -116,7 +116,7 @@ internal fun BulkEditSheet(vm: AppViewModel, chosen: List<ContactSummary>, onAdd
             }
             // Only with a choice to make: two SIMs, two accounts and an address-book contact among them.
             if (sims.size > 1) {
-                EditRow(Icons.Rounded.SimCard, stringResource(R.string.be_sim), stringResource(R.string.be_sim_sub)) { step = EditStep.Sim(sims) }
+                EditRow(Icons.Rounded.SimCard, stringResource(R.string.label_sim_for_calls), stringResource(R.string.be_sim_sub)) { step = EditStep.Sim(sims) }
             }
             if (accounts.size > 1 && movePlan.ids.isNotEmpty()) {
                 val n = movePlan.skippedPrivate
@@ -167,7 +167,7 @@ private fun EditStepPicker(
         }
         is EditStep.Sim -> {
             val choices = listOf(stringResource(R.string.be_sim_ask) to null) + s.sims.map { it.label to it.subtitle }
-            Picker(stringResource(R.string.be_sim), choices, close) { i -> picked { edits.sim(s.sims.getOrNull(i - 1)) } }
+            Picker(stringResource(R.string.label_sim_for_calls), choices, close) { i -> picked { edits.sim(s.sims.getOrNull(i - 1)) } }
         }
         is EditStep.Account -> Picker(stringResource(R.string.be_move), s.accounts.map { vm.accountLabel(it) to null }, close) { i ->
             onPickAccount(s.accounts[i])
@@ -177,7 +177,7 @@ private fun EditStepPicker(
             ConfirmDialog(
                 title = pluralStringResource(R.plurals.be_move_confirm_title, moving, moving, into),
                 text = stringResource(R.string.be_move_confirm_body, into),
-                confirmLabel = stringResource(R.string.be_move_confirm),
+                confirmLabel = stringResource(R.string.action_move),
                 onConfirm = { onConfirmMove(s.account) },
                 onDismiss = close,
                 dismissLabel = stringResource(R.string.dc_cancel),

@@ -60,14 +60,14 @@ object BlockingText {
     /** A verdict ("Blocked by rule 'X' · 3 calls", "Likely spam · List") in the app's language. */
     fun verdict(context: Context, text: String?): String? {
         if (text == null) return null
-        fun join(a: String, b: String?) = if (b == null) a else context.getString(R.string.archive_page_work, a, b)
+        fun join(a: String, b: String?) = if (b == null) a else context.getString(R.string.format_dot_pair, a, b)
         reportedBy.matchEntire(text)?.let { m -> return join(context.getString(R.string.blk_verdict_reported_by, m.groupValues[1]), m.groups[2]?.value) }
         blockedByRule.matchEntire(text)?.let { m ->
             val base = context.getString(R.string.blk_verdict_blocked_by_rule, m.groupValues[1])
             val n = m.groups[2]?.value?.toIntOrNull() ?: return base
             return join(base, context.resources.getQuantityString(R.plurals.blk_calls, n, n))
         }
-        blockedReason.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_blocked_reason, reasonFromLabel(context, m.groupValues[1])) }
+        blockedReason.matchEntire(text)?.let { m -> return context.getString(R.string.label_blocked_reason, reasonFromLabel(context, m.groupValues[1])) }
         allowedBy.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_allowed_by, m.groupValues[1]) }
         likelySpam.matchEntire(text)?.let { m -> return join(context.getString(R.string.blk_verdict_likely_spam, m.groupValues[1]), m.groups[2]?.value) }
         family.matchEntire(text)?.let { m -> return context.getString(familyVerdicts.getValue(m.groupValues[1]), m.groupValues[2]) }
@@ -83,15 +83,15 @@ object BlockingText {
     )
 
     private val checks = mapOf(
-        "Emergency" to R.string.blk_check_emergency,
-        "Number" to R.string.blk_check_number,
-        "Expecting a call" to R.string.blk_check_expecting,
+        "Emergency" to R.string.label_emergency,
+        "Number" to R.string.label_number,
+        "Expecting a call" to R.string.label_expecting_a_call,
         "Block hidden numbers" to R.string.blk_check_block_hidden,
-        "Off hours" to R.string.blk_check_off_hours,
-        "Default" to R.string.blk_check_default,
+        "Off hours" to R.string.label_off_hours,
+        "Default" to R.string.label_default,
         "Blocked numbers list" to R.string.blk_check_system_list,
         "Contact?" to R.string.blk_check_contact,
-        "Labels" to R.string.blk_check_labels,
+        "Labels" to R.string.label_labels,
         "Label rule" to R.string.blk_check_label_rule,
         "Allow rule" to R.string.blk_check_allow_rule,
         "You called this number" to R.string.blk_check_you_called,
@@ -100,17 +100,17 @@ object BlockingText {
         "SIM rules" to R.string.blk_check_sim_rules,
         "Block rule" to R.string.blk_check_block_rule,
         "Block rules" to R.string.blk_check_block_rules,
-        "Spam lists" to R.string.blk_check_spam_lists,
+        "Spam lists" to R.string.label_spam_lists,
         "Spam list" to R.string.blk_check_spam_list,
-        "Caller verification" to R.string.blk_check_verification,
-        "Neighbour spoofing" to R.string.blk_check_neighbour,
+        "Caller verification" to R.string.label_caller_verification,
+        "Neighbour spoofing" to R.string.label_neighbour_spoofing,
         "Invalid number" to R.string.blk_check_invalid,
         "Block non-contacts" to R.string.blk_check_non_contacts,
         "Decision" to R.string.blk_check_decision,
         "SIM allow rule" to R.string.blk_check_sim_allow_rule,
         "Repeat caller" to R.string.blk_check_repeat,
         "Your calls" to R.string.blk_check_your_calls,
-        "Family shield" to R.string.blk_decides_shield,
+        "Family shield" to R.string.label_family_spam_shield,
     )
 
     private val results = mapOf(
@@ -125,7 +125,7 @@ object BlockingText {
         "yes" to R.string.blk_res_yes,
         "no" to R.string.blk_res_no,
         "couldn't check, label rules skipped" to R.string.blk_res_labels_failed,
-        "none" to R.string.blk_res_none,
+        "none" to R.string.label_none_lower,
         "SIM unknown here, skipped" to R.string.blk_res_sim_skipped,
         "couldn't be read" to R.string.blk_res_lists_failed,
         "not listed" to R.string.blk_res_not_listed,
@@ -134,7 +134,7 @@ object BlockingText {
         "can't exist" to R.string.blk_res_cant_exist,
         "not assigned" to R.string.blk_res_not_assigned,
         "Reject" to R.string.blk_action_reject,
-        "Silence" to R.string.blk_action_silence,
+        "Silence" to R.string.action_silence,
         "looks like a sales line, tag only" to R.string.blk_res_sales_tag,
     )
 
@@ -213,7 +213,7 @@ object BlockingText {
     /** "Contact?: no → Allow rules: none → …" (with "!" on failed-open steps), like [app.parley.common.TraceCodec.oneLine]. */
     fun oneLine(context: Context, steps: List<TraceStep>): String = steps.joinToString(" → ") {
         (if (it.mark == TraceMark.FAILED_OPEN) "! " else "") + context.getString(
-            R.string.blk_trace_step, check(context, it.check), result(context, it.check, it.result),
+            R.string.format_colon_pair, check(context, it.check), result(context, it.check, it.result),
         )
     }
 
@@ -228,7 +228,7 @@ object BlockingText {
         Schedule.ALL_DAYS -> context.getString(R.string.blk_sched_every_day)
         Schedule.WEEKDAYS -> context.getString(R.string.blk_sched_weekdays)
         Schedule.WEEKEND -> context.getString(R.string.blk_sched_weekends)
-        0 -> context.getString(R.string.blk_sched_never)
+        0 -> context.getString(R.string.label_never)
         else -> DayOfWeek.entries.filter { s.hasDay(it) }.joinToString(", ") { dayShort(context, it) }
     }
 
@@ -245,11 +245,11 @@ object BlockingText {
         "TOLL_FREE" -> context.getString(R.string.blk_line_toll_free)
         "PERSONAL_NUMBER" -> context.getString(R.string.blk_line_personal)
         "UAN" -> context.getString(R.string.blk_line_uan)
-        "MOBILE" -> context.getString(R.string.blk_line_mobile)
+        "MOBILE" -> context.getString(R.string.label_mobile)
         "FIXED_LINE" -> context.getString(R.string.blk_line_fixed)
         "FIXED_LINE_OR_MOBILE" -> context.getString(R.string.blk_line_fixed_or_mobile)
         "PAGER" -> context.getString(R.string.blk_line_pager)
-        "VOICEMAIL" -> context.getString(R.string.blk_line_voicemail)
+        "VOICEMAIL" -> context.getString(R.string.label_voicemail)
         else -> lineTypeLabel(name.trim())
     }
 
@@ -258,7 +258,7 @@ object BlockingText {
         RuleType.LABEL -> context.getString(R.string.blk_title_label, r.label ?: r.pattern)
         RuleType.NOT_MY_REGION -> context.getString(R.string.blk_title_not_my_country)
         RuleType.CALLER_NAME -> context.getString(R.string.blk_title_name_contains, r.pattern)
-        RuleType.REGION -> context.getString(R.string.blk_title_from, r.pattern)
+        RuleType.REGION -> context.getString(R.string.label_from, r.pattern)
         RuleType.LINE_TYPE -> r.pattern.split(',').joinToString(", ") { lineType(context, it) }
         else -> r.pattern
     }

@@ -71,7 +71,7 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
                     return@launch
                 }
                 asking = null
-                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.blk_open) })
+                val r = snackbar.showSnackbar(TemporaryContact.savedMessage(res, saved), actionLabel = saved?.let { res.getString(R.string.action_open) })
                 if (saved != null && r == SnackbarResult.ActionPerformed) if (saved.private) openPrivate(saved.id) else openContact(saved.id)
             }
         }

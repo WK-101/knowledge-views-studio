@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="agenda_title">To talk about</string>
+    <string name="label_to_talk_about">To talk about</string>
     <string name="agenda_add">Add something to talk about</string>
     <string name="agenda_add_hint">Shows when you call them or they call you</string>
     <string name="agenda_add_title">Something to talk about</string>
     <string name="agenda_add_title_with">Something to talk about with %1$s</string>
     <string name="agenda_add_placeholder">Ask about the trip</string>
-    <string name="agenda_add_save">Add</string>
+    <string name="action_add">Add</string>
     <string name="agenda_added">Added. It shows when you next talk.</string>
     <string name="agenda_already">That\'s already on the list</string>
     <string name="agenda_add_failed">Couldn\'t add that. Try again.</string>
@@ -20,7 +20,7 @@
     <string name="agenda_share_row_body">Pick who, and it shows when you next talk</string>
     <string name="agenda_share_number_row">Add to talk about with this number</string>
     <string name="agenda_share_pick_title">Talk about this with…</string>
-    <string name="agenda_share_search">Name</string>
+    <string name="label_name">Name</string>
     <string name="agenda_share_none">No contacts match</string>
-    <string name="recall_more_for">More for %1$s</string>
+    <string name="label_more_for">More for %1$s</string>
 </resources>

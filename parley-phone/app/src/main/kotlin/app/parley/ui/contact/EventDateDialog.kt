@@ -74,7 +74,7 @@ fun EventDateDialog(
     }
 
     ConfirmDialog(
-        title = stringResource(R.string.editor_pick_date),
+        title = stringResource(R.string.action_choose_date),
         text = null,
         confirmLabel = stringResource(R.string.dc_ok),
         onConfirm = {

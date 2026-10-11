@@ -100,7 +100,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                                             vm.toast(res.getQuantityString(R.plurals.sel_merged, g.size, g.size))
                                         }
                                     }
-                                }) { Text(stringResource(R.string.lbl_merge)) }
+                                }) { Text(stringResource(R.string.action_merge)) }
                             }
                         }
                     }

@@ -5,7 +5,7 @@
 -->
 <resources>
     <!-- The search's chip that widens it from contacts to everything Parley remembers. -->
-    <string name="recall_chip">Search everything</string>
+    <string name="action_search_everything">Search everything</string>
     <!-- Heading over the results when the chip is on. -->
     <string name="recall_header">Everything Parley remembers</string>
     <!-- Heading when the contacts gave nothing and Recall searched the rest by itself. -->

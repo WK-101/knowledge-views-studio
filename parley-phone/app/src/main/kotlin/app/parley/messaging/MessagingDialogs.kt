@@ -114,9 +114,9 @@ fun MyCardNameNumberDialog(card: MeCard, suggestNumber: suspend () -> String?, o
         if (number.isEmpty()) suggestNumber()?.let { if (number.isEmpty()) number = it }
     }
     ConfirmDialog(
-        title = stringResource(R.string.me_title),
+        title = stringResource(R.string.label_my_card),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { onSave(name, number) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -124,7 +124,7 @@ fun MyCardNameNumberDialog(card: MeCard, suggestNumber: suspend () -> String?, o
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.msg_my_details_body), style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.me_your_name)) }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.label_your_name)) }, singleLine = true)
                 OutlinedTextField(number, { number = it }, label = { Text(stringResource(R.string.msg_your_number)) }, singleLine = true)
             }
         },

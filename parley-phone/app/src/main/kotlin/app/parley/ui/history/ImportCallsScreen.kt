@@ -99,7 +99,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
     }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.hist_import_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.action_import_call_history), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -147,7 +147,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     }
                 }
                 if (pl.source == ImportSource.GENERIC && pl.header.isNotEmpty()) {
-                    item { Section(stringResource(R.string.hist_import_columns)) }
+                    item { Section(stringResource(R.string.label_columns)) }
                     item { MappingEditor(pl.header, pl.mapping) { replan(it) } }
                     item {
                         SwitchRow(
@@ -164,7 +164,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         item {
                             ParleyListItem(
                                 headlineContent = {
-                                    Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.blk_private_number) })
+                                    Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.label_private_number) })
                                 },
                                 supportingContent = {
                                     Text(
@@ -182,8 +182,8 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                                 onClick = {
                                     // An app job: leaving this screen doesn't stop the import half way.
                                     vm.jobs.start(
-                                        UserJobs.Kind.IMPORT, res.getString(R.string.hist_importing),
-                                        { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)) },
+                                        UserJobs.Kind.IMPORT, res.getString(R.string.label_importing),
+                                        { e -> res.getString(R.string.label_import_failed, UserErrorText.of(context, e)) },
                                     ) {
                                         val n = vm.c.history.runImport(pl)
                                         val text = if (n == 0) res.getString(R.string.hist_import_nothing)
@@ -218,7 +218,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     }
                     if (pl.problems.size > 50) item {
                         Text(
-                            stringResource(R.string.hist_import_more, pl.problems.size - 50),
+                            stringResource(R.string.label_and_more, pl.problems.size - 50),
                             Modifier.padding(16.dp),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -230,7 +230,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
     report?.let { r ->
         ParleyDialog(
             onDismissRequest = { report = null },
-            title = { Text(stringResource(R.string.hist_import_finished)) },
+            title = { Text(stringResource(R.string.label_import_finished)) },
             text = { Text(r) },
             confirmButton = { TextButton({ report = null; back() }) { Text(stringResource(R.string.dc_ok)) } },
         )
@@ -238,28 +238,28 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
 }
 
 private fun typeName(t: Int) = when (t) {
-    ProviderColumns.INCOMING -> R.string.hist_type_incoming
-    ProviderColumns.OUTGOING -> R.string.hist_type_outgoing
-    ProviderColumns.MISSED -> R.string.contact_page_kind_missed
-    ProviderColumns.VOICEMAIL -> R.string.blk_line_voicemail
-    ProviderColumns.REJECTED -> R.string.hist_type_rejected
-    ProviderColumns.BLOCKED -> R.string.blk_blocked
+    ProviderColumns.INCOMING -> R.string.label_incoming
+    ProviderColumns.OUTGOING -> R.string.label_outgoing
+    ProviderColumns.MISSED -> R.string.label_missed
+    ProviderColumns.VOICEMAIL -> R.string.label_voicemail
+    ProviderColumns.REJECTED -> R.string.label_rejected
+    ProviderColumns.BLOCKED -> R.string.label_blocked
     ProviderColumns.ANSWERED_EXTERNALLY -> R.string.hist_type_answered_elsewhere
-    else -> R.string.circle_widget_call
+    else -> R.string.action_call
 }
 
 /** Lets the user say which column holds what, for CSVs we don't recognise. */
 @Composable
 private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange: (ColumnMapping) -> Unit) {
     val fields: List<Triple<String, Int?, (Int?) -> ColumnMapping>> = listOf(
-        Triple(stringResource(R.string.blk_check_number), mapping.number) { i -> mapping.copy(number = i) },
+        Triple(stringResource(R.string.label_number), mapping.number) { i -> mapping.copy(number = i) },
         Triple(stringResource(R.string.hist_col_type), mapping.type) { i -> mapping.copy(type = i) },
         Triple(stringResource(R.string.hist_col_date), mapping.date) { i -> mapping.copy(date = i) },
         Triple(stringResource(R.string.hist_col_time), mapping.time) { i -> mapping.copy(time = i) },
         Triple(stringResource(R.string.hist_col_timestamp), mapping.timestamp) { i -> mapping.copy(timestamp = i) },
-        Triple(stringResource(R.string.hist_pdf_col_duration), mapping.duration) { i -> mapping.copy(duration = i) },
-        Triple(stringResource(R.string.agenda_share_search), mapping.name) { i -> mapping.copy(name = i) },
-        Triple(stringResource(R.string.blk_editor_sim), mapping.sim) { i -> mapping.copy(sim = i) },
+        Triple(stringResource(R.string.label_duration), mapping.duration) { i -> mapping.copy(duration = i) },
+        Triple(stringResource(R.string.label_name), mapping.name) { i -> mapping.copy(name = i) },
+        Triple(stringResource(R.string.label_sim), mapping.sim) { i -> mapping.copy(sim = i) },
     )
     Column {
         fields.forEach { (label, current, set) ->
@@ -274,7 +274,7 @@ private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange
                             DropdownMenuItem({ Text(stringResource(R.string.hist_col_missing)) }, onClick = { open = false; onChange(set(null)) })
                             header.forEachIndexed { i, h ->
                                 DropdownMenuItem(
-                                    { Text(h.ifBlank { stringResource(R.string.blk_column_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) },
+                                    { Text(h.ifBlank { stringResource(R.string.label_column, i + 1) }) }, onClick = { open = false; onChange(set(i)) },
                                 )
                             }
                         }

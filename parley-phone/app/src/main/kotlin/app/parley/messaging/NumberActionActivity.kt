@@ -376,7 +376,7 @@ class NumberActionActivity : LockedActivity() {
                             )
                         }
                         MakeContactRow()
-                        TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
+                        TextButton({ finish() }) { Text(stringResource(R.string.action_close)) }
                     }
                     is Stage.Place -> PlaceActions(s.place)
                     Stage.Enter -> EnterNumber()
@@ -439,7 +439,7 @@ class NumberActionActivity : LockedActivity() {
             }
             Text(stringResource(R.string.map_link_share_body), style = MaterialTheme.typography.bodyMedium)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
+                TextButton({ finish() }) { Text(stringResource(R.string.action_close)) }
                 TextButton({ addPlace(p) }) { Text(stringResource(R.string.map_link_add_to_contact)) }
             }
         }
@@ -535,11 +535,11 @@ class NumberActionActivity : LockedActivity() {
         }
 
         Column(Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.shortcut_message_number_short), style = MaterialTheme.typography.titleLarge,
+            Text(stringResource(R.string.action_message_a_number), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp))
             OutlinedTextField(
                 typed, { typed = it.take(40) },
-                label = { Text(stringResource(R.string.blk_phone_number)) },
+                label = { Text(stringResource(R.string.label_phone_number)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).focusRequester(focus),
@@ -547,7 +547,7 @@ class NumberActionActivity : LockedActivity() {
             Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = { paste() },
-                    label = { Text(stringResource(R.string.keypad_paste)) },
+                    label = { Text(stringResource(R.string.action_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
                 )
                 AssistChip(
@@ -637,7 +637,7 @@ class NumberActionActivity : LockedActivity() {
             )
             if (contactName == null && !known) {
                 ParleyListItem(
-                    headlineContent = { Text(stringResource(R.string.keypad_add_to_contacts)) },
+                    headlineContent = { Text(stringResource(R.string.action_add_to_contacts)) },
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
                     modifier = Modifier.clickable {
                         startActivity(
@@ -833,15 +833,15 @@ fun TemporaryNameDialog(
     ConfirmDialog(
         title = title ?: stringResource(R.string.num_save_temporary),
         text = null,
-        confirmLabel = stringResource(if (visible) R.string.pin_save else R.string.temp_save_privately),
+        confirmLabel = stringResource(if (visible) R.string.action_save else R.string.action_save_privately),
         onConfirm = { onSave(name, visible) },
         onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.circle_not_now),
+        dismissLabel = stringResource(R.string.label_not_now),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
                 Text(pluralStringResource(if (visible) R.plurals.num_temp_visible_body else R.plurals.num_temp_private_body, days, days))
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.agenda_share_search)) }, singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.label_name)) }, singleLine = true)
                 Row(
                     Modifier.fillMaxWidth().toggleable(visible, role = Role.Checkbox, onValueChange = { visible = it }),
                     verticalAlignment = Alignment.CenterVertically,

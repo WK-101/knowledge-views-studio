@@ -105,7 +105,7 @@ fun SavedFilterChips(vm: AppViewModel, compact: Boolean = false, showLabels: Boo
 private fun rememberFilterDescriber(vm: AppViewModel): (HistoryFilter) -> String {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val res = LocalResources.current
-    val simFallback = stringResource(R.string.blk_editor_sim)
+    val simFallback = stringResource(R.string.label_sim)
     return { f -> HistoryText.describe(res, f, { id -> sims.firstOrNull { it.id == id }?.label ?: simFallback }) }
 }
 
@@ -171,7 +171,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.hist_filter_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
 
-            Label(stringResource(R.string.hist_pdf_col_type))
+            Label(stringResource(R.string.label_type))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TypeGroup.entries.forEach { g ->
                     FilterChip(
@@ -182,17 +182,17 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                 }
             }
             if (sims.size > 1) {
-                Label(stringResource(R.string.blk_editor_sim))
+                Label(stringResource(R.string.label_sim))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(draft.simId == null, { draft = draft.copy(simId = null) }, { Text(stringResource(R.string.hist_filter_any)) })
                     sims.forEach { s -> FilterChip(draft.simId == s.id, { draft = draft.copy(simId = s.id) }, { Text(s.label) }) }
                 }
             }
-            Label(stringResource(R.string.blk_editor_when))
+            Label(stringResource(R.string.label_when))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterPeriod.entries.forEach { p -> FilterChip(draft.period == p, { draft = draft.copy(period = p) }, { Text(stringResource(HistoryText.period(p))) }) }
             }
-            Label(stringResource(R.string.hist_talk_time_label))
+            Label(stringResource(R.string.label_talk_time))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 durations.forEach { (label, range) ->
                     FilterChip(
@@ -207,7 +207,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
             OutlinedTextField(name, { name = it.take(30) }, label = { Text(stringResource(R.string.hist_filter_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ vm.c.history.activeFilter.value = HistoryFilter(); onDismiss() }, enabled = !active.isEmpty) { Text(stringResource(R.string.hist_filter_clear)) }
+                TextButton({ vm.c.history.activeFilter.value = HistoryFilter(); onDismiss() }, enabled = !active.isEmpty) { Text(stringResource(R.string.action_clear)) }
                 Spacer(Modifier.weight(1f))
                 OutlinedButton(
                     onClick = {
@@ -219,7 +219,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                     enabled = name.isNotBlank() && !draft.isEmpty,
                 ) { Text(stringResource(R.string.hist_filter_save)) }
                 // Apply only when the filter actually changed.
-                Button({ vm.c.history.activeFilter.value = draft.copy(name = ""); onDismiss() }, enabled = !draft.sameCriteria(active)) { Text(stringResource(R.string.hist_filter_apply)) }
+                Button({ vm.c.history.activeFilter.value = draft.copy(name = ""); onDismiss() }, enabled = !draft.sameCriteria(active)) { Text(stringResource(R.string.action_apply)) }
             }
 
             if (prefs.savedFilters.isNotEmpty()) {
@@ -233,7 +233,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                             trailingIcon = {
                                 // A full-size touch target; the filter can be brought back from the snackbar.
                                 IconButton({ delete(prefs.savedFilters, f) }) {
-                                    Icon(Icons.Rounded.Close, stringResource(R.string.case_reference_delete, f.name), Modifier.size(16.dp))
+                                    Icon(Icons.Rounded.Close, stringResource(R.string.action_delete_named, f.name), Modifier.size(16.dp))
                                 }
                             },
                         )
@@ -251,7 +251,7 @@ private fun Label(text: String) {
 
 private val durations: List<Pair<Int, Pair<Long?, Long?>>> = listOf(
     R.string.hist_filter_any to (null to null),
-    R.string.hist_dur_not_answered to (null to 0L),
+    R.string.label_not_answered to (null to 0L),
     R.string.hist_dur_under_1 to (1L to 59L),
     R.string.hist_dur_1_plus to (60L to null),
     R.string.hist_dur_5_plus to (300L to null),

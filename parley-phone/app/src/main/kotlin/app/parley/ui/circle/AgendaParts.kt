@@ -50,7 +50,7 @@ fun AgendaAddDialog(name: String?, onAdd: (String) -> Unit, onDismiss: () -> Uni
     ConfirmDialog(
         title = if (name.isNullOrBlank()) stringResource(R.string.agenda_add_title) else stringResource(R.string.agenda_add_title_with, name),
         text = stringResource(R.string.agenda_add_hint),
-        confirmLabel = stringResource(R.string.agenda_add_save),
+        confirmLabel = stringResource(R.string.action_add),
         confirmEnabled = Agenda.clean(text) != null,
         onConfirm = { onAdd(text) },
         onDismiss = onDismiss,
@@ -107,7 +107,7 @@ fun NumberAgendaBlock(vm: AppViewModel, number: String, name: String?, refresh: 
         )
     }
     Column {
-        ListSectionHeader(stringResource(R.string.agenda_title))
+        ListSectionHeader(stringResource(R.string.label_to_talk_about))
         items.forEach { item ->
             ParleyListItem(
                 headlineContent = { Text(item) },

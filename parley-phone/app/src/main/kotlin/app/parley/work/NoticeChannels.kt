@@ -22,17 +22,17 @@ object NoticeChannels {
     private val specs: Map<String, Spec> = mapOf(
         NotificationChannels.REMINDERS to Spec(R.string.work_channel_reminders, NotificationManager.IMPORTANCE_DEFAULT),
         // To call: never a badge on the app icon.
-        NotificationChannels.TO_CALL to Spec(R.string.discover_to_call_title, NotificationManager.IMPORTANCE_DEFAULT, badge = false),
+        NotificationChannels.TO_CALL to Spec(R.string.label_to_call, NotificationManager.IMPORTANCE_DEFAULT, badge = false),
         NotificationChannels.BACKUP_REMINDER to Spec(R.string.work_channel_backup_reminder, NotificationManager.IMPORTANCE_DEFAULT),
-        NotificationChannels.BACKUPS to Spec(R.string.work_channel_backups, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.BACKUPS to Spec(R.string.label_backups, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.HOUSEKEEPING to Spec(R.string.work_channel_housekeeping, NotificationManager.IMPORTANCE_LOW),
-        NotificationChannels.PLAN to Spec(R.string.hist_plan_section, NotificationManager.IMPORTANCE_DEFAULT),
+        NotificationChannels.PLAN to Spec(R.string.label_plan_minutes, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.CONTACTS_SAFETY to Spec(R.string.watch_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.PRIVATE_NAMES to Spec(R.string.privnames_channel, NotificationManager.IMPORTANCE_DEFAULT),
         NotificationChannels.JOBS to Spec(R.string.job_channel, NotificationManager.IMPORTANCE_LOW, description = R.string.job_channel_desc),
         // A reminder that something is on, never news: no sound, no badge.
         NotificationChannels.SITUATION to Spec(
-            R.string.sit_notice_channel, NotificationManager.IMPORTANCE_LOW, badge = false, description = R.string.sit_notice_channel_desc,
+            R.string.label_situation_on, NotificationManager.IMPORTANCE_LOW, badge = false, description = R.string.sit_notice_channel_desc,
         ),
     )
 
@@ -42,7 +42,7 @@ object NoticeChannels {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         val reminder = id in NotificationChannels.reminderChannels
         if (reminder) {
-            nm.createNotificationChannelGroup(NotificationChannelGroup(NotificationChannels.REMINDERS_GROUP, context.getString(R.string.notif_group_reminders)))
+            nm.createNotificationChannelGroup(NotificationChannelGroup(NotificationChannels.REMINDERS_GROUP, context.getString(R.string.label_reminders)))
         }
         nm.createNotificationChannel(
             NotificationChannel(id, context.getString(spec.name), firstImportance(nm, id, spec.importance)).apply {

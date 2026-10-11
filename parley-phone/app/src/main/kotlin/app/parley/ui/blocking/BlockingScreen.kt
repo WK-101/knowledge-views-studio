@@ -97,7 +97,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     // Scroll-linked top-bar tint.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
-        ParleyTopBar(stringResource(R.string.blk_title), onBack = back, scrollBehavior = barScroll)
+        ParleyTopBar(stringResource(R.string.label_blocking_screening), onBack = back, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             // The setups first, with the one you're on named and what the last week looked like.
@@ -111,7 +111,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item(key = "lists") { SpamListsCard(st, open) }
 
             // The rule lists and fine-tuning, under the setups and the spam lists.
-            item(key = "advanced") { ListSectionHeader(stringResource(R.string.blk_advanced), top = 16.dp, bottom = 0.dp) }
+            item(key = "advanced") { ListSectionHeader(stringResource(R.string.label_advanced), top = 16.dp, bottom = 0.dp) }
             // Where a verdict can come from, side by side: your rules, spam lists, sales lines, the family shield.
             item(key = "decides") { WhatDecidesSection(st, open) }
             item(key = "allow") { AllowSection(st, open) }
@@ -190,7 +190,7 @@ private fun AddNumberDialog(vm: AppViewModel, close: () -> Unit) {
     ConfirmDialog(
         title = stringResource(R.string.blk_block_a_number),
         text = null,
-        confirmLabel = stringResource(R.string.blk_block),
+        confirmLabel = stringResource(R.string.action_block),
         onConfirm = {
             if (n.isNotBlank()) vm.blockNumber(n.trim())
             close()
@@ -198,7 +198,7 @@ private fun AddNumberDialog(vm: AppViewModel, close: () -> Unit) {
         onDismiss = close,
         dismissLabel = stringResource(R.string.dc_cancel),
         content = {
-            OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle())
+            OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.label_phone_number)) }, singleLine = true, textStyle = ltrTextStyle())
         },
     )
 }
@@ -213,7 +213,7 @@ internal fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity, networkNames:
     Column {
         ParleyListItem(
             modifier = Modifier.clickable { open = !open },
-            headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.number?.let { bidiLtr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number))) },
+            headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.number?.let { bidiLtr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.label_private_number))) },
             supportingContent = {
                 Text(
                     listOfNotNull(
@@ -245,7 +245,7 @@ internal fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity, networkNames:
                         )
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Test(n)) }, { Text(stringResource(R.string.blk_test_again)) })
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Report(n)) }, { Text(stringResource(R.string.blk_report)) })
-                        AssistChip({ scope.launch { vm.c.blocks.deleteScreened(e.id) } }, { Text(stringResource(R.string.blk_delete)) })
+                        AssistChip({ scope.launch { vm.c.blocks.deleteScreened(e.id) } }, { Text(stringResource(R.string.action_delete)) })
                     }
                 }
             }

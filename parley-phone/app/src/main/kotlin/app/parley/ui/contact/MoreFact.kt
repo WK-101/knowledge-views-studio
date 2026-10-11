@@ -22,16 +22,16 @@ internal data class MoreFact(val value: String, val label: String)
  */
 internal fun moreFacts(res: Resources, d: ContactDetails): List<MoreFact> = buildList {
     d.customFields.filterNot { it.isBlank }.forEach { f ->
-        add(MoreFact(f.value.trim().ifEmpty { f.label.trim() }, f.label.trim().takeIf { f.value.isNotBlank() } ?: res.getString(R.string.detail_custom_field)))
+        add(MoreFact(f.value.trim().ifEmpty { f.label.trim() }, f.label.trim().takeIf { f.value.isNotBlank() } ?: res.getString(R.string.label_custom_field)))
     }
     // "Speaks Russian, English": the first is the one to use with them.
     Languages.displayList(d.languages).takeIf { it.isNotEmpty() }?.let {
-        val label = if (d.languages.size > 1) R.string.detail_languages else R.string.detail_language
-        add(MoreFact(res.getString(R.string.detail_speaks, it), res.getString(label)))
+        val label = if (d.languages.size > 1) R.string.label_languages else R.string.label_language
+        add(MoreFact(res.getString(R.string.label_speaks, it), res.getString(label)))
     }
-    Citizenship.displayList(d.citizenships).takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.detail_citizenship))) }
-    d.secondSurname.trim().takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.detail_second_surname))) }
-    d.generation.trim().takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.detail_generation))) }
+    Citizenship.displayList(d.citizenships).takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.label_citizenship))) }
+    d.secondSurname.trim().takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.label_second_surname))) }
+    d.generation.trim().takeIf { it.isNotEmpty() }?.let { add(MoreFact(it, res.getString(R.string.label_generation))) }
     d.addresses.forEach { a ->
         val street = a.formatted.lines().firstOrNull().orEmpty().trim()
         addressPartsText(res, a.parts)?.let { add(MoreFact(it, res.getString(R.string.detail_address_parts, street))) }

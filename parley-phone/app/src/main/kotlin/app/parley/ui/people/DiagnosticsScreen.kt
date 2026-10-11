@@ -79,7 +79,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        ParleyTopBar(stringResource(R.string.diag_title), onBack = back, scrollBehavior = barTint)
+        ParleyTopBar(stringResource(R.string.action_export_diagnostics), onBack = back, scrollBehavior = barTint)
     }) { p ->
         Column(Modifier.padding(p)) {
             Text(
@@ -94,7 +94,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
             ) { tables = it }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button({ saver.launch("parley-diagnostics.txt") }, enabled = report.isNotEmpty()) { Text(stringResource(R.string.diag_save_file)) }
-                OutlinedButton({ Intents.shareText(context, report) }, enabled = report.isNotEmpty()) { Text(stringResource(R.string.diag_share)) }
+                OutlinedButton({ Intents.shareText(context, report) }, enabled = report.isNotEmpty()) { Text(stringResource(R.string.action_share)) }
             }
             SelectionContainer(Modifier.padding(16.dp).verticalScroll(rememberScrollState()).horizontalScroll(rememberScrollState())) {
                 Text(report, fontFamily = FontFamily.Monospace, fontSize = 11.sp)

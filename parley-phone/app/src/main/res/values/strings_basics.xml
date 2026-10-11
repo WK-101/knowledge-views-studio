@@ -7,7 +7,7 @@
     <string name="basics_ring_line">You can change this later in Blocking &amp; screening.</string>
     <string name="basics_for_title">Who is this phone for?</string>
     <string name="basics_for_line">Simple mode shows a few big buttons for the people who matter. It\'s also in Settings › Layout &amp; gestures.</string>
-    <string name="basics_for_me">Me</string>
+    <string name="label_me">Me</string>
     <string name="basics_for_someone">Someone else</string>
     <string name="basics_for_someone_sub">Set up Simple mode next</string>
     <string name="basics_layout_title">How should home look?</string>

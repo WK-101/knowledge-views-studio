@@ -34,10 +34,10 @@ import app.parley.ui.Spacing
 @Composable
 private fun ContactSort.label(): String = stringResource(
     when (this) {
-        ContactSort.NAME -> R.string.agenda_share_search
+        ContactSort.NAME -> R.string.label_name
         ContactSort.RECENTLY_ADDED -> R.string.cs_sort_recent
-        ContactSort.MOST_CALLED -> R.string.cs_sort_most_called
-        ContactSort.COMPANY -> R.string.cs_sort_company
+        ContactSort.MOST_CALLED -> R.string.label_most_called
+        ContactSort.COMPANY -> R.string.label_company
     },
 )
 

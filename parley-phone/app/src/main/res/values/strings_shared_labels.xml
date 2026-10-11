@@ -39,7 +39,7 @@
     <string name="shl_choose">Choose</string>
     <string name="shl_changes">Changes</string>
     <string name="shl_changes_none">No changes yet</string>
-    <string name="shl_everyone">Everyone</string>
+    <string name="label_everyone">Everyone</string>
     <string name="shl_manage">Members &amp; invitations</string>
     <string name="shl_all_changes">All changes</string>
 
@@ -72,7 +72,7 @@
     <string name="shl_share_folder_none">An empty folder that your sync app shares with them</string>
     <string name="shl_share_pass">Passphrase for this label</string>
     <string name="shl_share_pass_text">Its own passphrase, not your backup\'s or your sync\'s. You need it to send invitation files and to remove someone.</string>
-    <string name="shl_pass_again">Passphrase again</string>
+    <string name="label_passphrase_again">Passphrase again</string>
     <string name="shl_your_name">Your name, as the others see it</string>
     <string name="shl_share_done">%1$s is shared. Invite people next.</string>
     <string name="shl_err_same_as_sync">That\'s the folder of Sync between your phones. Choose a folder of its own.</string>
@@ -112,7 +112,7 @@
     <!-- Joining -->
     <string name="shl_join_passcode">Type the code shown under the QR code.</string>
     <string name="shl_join_passphrase">Type the label\'s passphrase. The person who sent the file can tell you.</string>
-    <string name="shl_join_pass">Passphrase</string>
+    <string name="label_passphrase">Passphrase</string>
     <string name="shl_join_wrong">That doesn\'t open this invitation</string>
     <string name="shl_join_invited">%1$s invited you to %2$s</string>
     <string name="shl_join_key">Their key: %1$s. It\'s the same as on their My card › Shared with.</string>
@@ -166,7 +166,7 @@
     <string name="shl_updates">Updates</string>
     <string name="shl_send_update">Send an update</string>
     <string name="shl_send_update_sub">One file with this label as your phone has it. Send it by any app.</string>
-    <string name="shl_open_update">Open an update</string>
+    <string name="action_open_an_update">Open an update</string>
     <string name="shl_open_update_sub">A .parleyupdate file someone in this label sent you</string>
     <string name="shl_send_chooser">Send the update</string>
     <string name="shl_send_failed">Couldn\'t make the update. Unlock the phone and try again.</string>

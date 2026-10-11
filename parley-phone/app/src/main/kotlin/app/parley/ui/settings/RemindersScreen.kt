@@ -71,7 +71,7 @@ fun RemindersScreen(vm: AppViewModel, focus: String?, back: () -> Unit, open: (D
     LaunchedEffect(Unit) { catching { NoticeChannels.regroupExisting(context) } }
 
     CompositionLocalProvider(LocalHighlightKey provides (controller ?: focus)) {
-        SettingsScaffold(stringResource(R.string.notif_group_reminders), back) {
+        SettingsScaffold(stringResource(R.string.label_reminders), back) {
             Text(
                 stringResource(R.string.rem_intro),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -92,7 +92,7 @@ fun RemindersScreen(vm: AppViewModel, focus: String?, back: () -> Unit, open: (D
                     vm.c.circle.updateConfig { it.copy(memoryPrompt = v) }
                 }
             }
-            SegmentedGroup(stringResource(R.string.detail_keep_in_touch_title)) {
+            SegmentedGroup(stringResource(R.string.action_keep_in_touch)) {
                 switchRow("nudges", s.reachOutNudges, Icons.Rounded.Handshake) { v -> set { it.copy(reachOutNudges = v) } }
                 keepInTouchRows(vm, circle, s.reachOutNudges)
             }
@@ -108,7 +108,7 @@ fun RemindersScreen(vm: AppViewModel, focus: String?, back: () -> Unit, open: (D
                 dateLeadRow(vm, circle, s.birthdayReminders)
             }
             BackupsGroup(vm)
-            SegmentedGroup(stringResource(R.string.temp_title)) {
+            SegmentedGroup(stringResource(R.string.label_temporary_contacts)) {
                 // Also on the Temporary contacts screen, beside the contacts it's about.
                 switchRow("temp_ask_first", s.askBeforeDeletingTemporary, Icons.Rounded.QuestionAnswer) { v ->
                     set { it.copy(askBeforeDeletingTemporary = v) }
@@ -138,7 +138,7 @@ private fun MissedCallsGroup(vm: AppViewModel) {
     val choices = MissedReAlert.CHOICES
     val labels = choices.map { if (it == 0) stringResource(R.string.dc_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
     val sub = if (calls.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, calls.missedReAlertMinutes)
-    SegmentedGroup(stringResource(R.string.missed_channel)) {
+    SegmentedGroup(stringResource(R.string.label_missed_calls)) {
         menuRow("missed_realert", labels, choices.indexOf(calls.missedReAlertMinutes).coerceAtLeast(0), Icons.Rounded.NotificationsActive, sub = sub) { i ->
             vm.c.callExtras.update { it.copy(missedReAlertMinutes = choices[i]) }
         }
@@ -151,7 +151,7 @@ private fun BackupsGroup(vm: AppViewModel) {
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     val days = BackupNudge.REMINDER_DAYS
     val options = days.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
-    SegmentedGroup(stringResource(R.string.work_channel_backups)) {
+    SegmentedGroup(stringResource(R.string.label_backups)) {
         menuRow("backup_reminder", options, days.indexOf(ux.backupReminderDays).coerceAtLeast(0), Icons.Rounded.NotificationsActive) { i ->
             vm.c.ux.setBackupReminderDays(days[i])
         }
@@ -162,7 +162,7 @@ private fun BackupsGroup(vm: AppViewModel) {
 @Composable
 private fun NotificationsGroup() {
     val context = LocalContext.current
-    SegmentedGroup(stringResource(R.string.blk_notifications)) {
+    SegmentedGroup(stringResource(R.string.label_notifications)) {
         item("reminder_notifications") {
             LinkRow(
                 stringResource(R.string.rem_notifications_title), stringResource(R.string.rem_notifications_summary), Icons.Rounded.Notifications,

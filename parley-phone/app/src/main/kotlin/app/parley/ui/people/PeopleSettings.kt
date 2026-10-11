@@ -44,11 +44,11 @@ fun SecondLineRow(vm: AppViewModel, icon: ImageVector? = null) {
         SecondLineMode.entries.map { m ->
             stringResource(
                 when (m) {
-                    SecondLineMode.NUMBER -> R.string.blk_phone_number
+                    SecondLineMode.NUMBER -> R.string.label_phone_number
                     SecondLineMode.COMPANY_TITLE -> R.string.second_company
-                    SecondLineMode.NICKNAME -> R.string.csv_field_nickname
-                    SecondLineMode.ACCOUNT -> R.string.ppl_chip_account
-                    SecondLineMode.NONE -> R.string.swipe_none
+                    SecondLineMode.NICKNAME -> R.string.label_nickname
+                    SecondLineMode.ACCOUNT -> R.string.label_account
+                    SecondLineMode.NONE -> R.string.label_nothing
                 },
             )
         },
@@ -105,7 +105,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
     }
     LinkRow(
         settingTitle("export_account"),
-        idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.rst_with_count, it.key.displayLabel, it.value) },
+        idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.format_text_count, it.key.displayLabel, it.value) },
         icon,
     ) { chooseAccount = true }
     if (chooseAccount) {

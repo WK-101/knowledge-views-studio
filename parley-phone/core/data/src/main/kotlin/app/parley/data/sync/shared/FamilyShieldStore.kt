@@ -55,10 +55,13 @@ class FamilyShieldStore(
     /**
      * Rebuilt whenever the shared labels' states change, so a call only looks up hashes in memory; and written down
      * ([INDEX_FILE]), so a process started for a ringing call reads that one small file instead of every label's state.
+     * [complete] false: some label's state couldn't be opened, so [states] lack it. Then nothing is written (an index
+     * missing a label would be trusted by every later process while the files stay as they are) and the next [load]
+     * reads the states again.
      */
-    fun update(states: List<SharedLabelState>) {
-        set(states, complete = true)
-        index?.let { runCatching { writeIndex(it) } }
+    fun update(states: List<SharedLabelState>, complete: Boolean = true) {
+        set(states, complete)
+        if (complete) index?.let { runCatching { writeIndex(it) } }
     }
 
     private fun set(states: List<SharedLabelState>, complete: Boolean) {

@@ -137,7 +137,7 @@ fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
     if (promises.isEmpty()) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    SegmentedGroup(stringResource(R.string.circle_promises)) {
+    SegmentedGroup(stringResource(R.string.label_promises)) {
         promises.forEach { (note, p) ->
             item {
                 ParleyListItem(
@@ -227,7 +227,7 @@ fun PreCallPeekSheet(
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
                     supportingContent = {
-                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.agenda_title else R.string.circle_open_promise))
+                        Text(stringResource(if (note.source == NoteSource.PINNED) R.string.label_to_talk_about else R.string.circle_open_promise))
                     },
                 )
             }
@@ -245,7 +245,7 @@ fun PreCallPeekSheet(
                 TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) }
                 Button(onCall) {
                     Icon(Icons.Rounded.Call, null, Modifier.padding(end = 6.dp))
-                    Text(stringResource(R.string.circle_widget_call))
+                    Text(stringResource(R.string.action_call))
                 }
             }
         }

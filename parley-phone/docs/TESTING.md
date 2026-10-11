@@ -3309,3 +3309,9 @@ Automated: `UiSmokeTest` now runs `A11yChecks` on every tab, the contact page an
 1. With one phone or emulator connected and `androidx.test.espresso:espresso-accessibility` in the instrumented tests' dependencies, run `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.a11yChecks=true`: `AccessibilitySmokeTest` runs Android's checks over the first screen and passes, or lists each error.
 2. Without the argument the test is skipped and the other smoke tests run as before; with it but without the library it fails and names the line to add.
 
+
+### 48.19 Review fixes
+1. Family spam shield after a restart: share a label with the shield on and a number marked spam in it. Restart the phone, unlock it and have that number call before opening Parley; then open Parley, force-stop it and have it call again. It is warned or blocked as set both times. (The Keystore being unavailable for a moment can't be caused by hand; the unit test covers the index it used to leave without that label.)
+2. Archived contacts after an id is used again: archive Ada, unarchive her, archive Bo (he gets the id Ada had). Force-stop Parley and have Bo's number call: the incoming screen and Recents show Bo, never Ada.
+3. Renamed string keys: open Recents, a contact page, the editor (Add field, Remove a citizenship, Delete), Settings › Blocking and the Discover list. Every label reads as before 6.5's review (Remove, Open, Call, Share, Name, Today…); no screen shows a resource name or an empty label.
+4. Dependency verification: on a machine with an empty Gradle cache, `GRADLE_USER_HOME=$(mktemp -d) ./gradlew --no-daemon assembleDebug` downloads, verifies and builds without a verification failure.

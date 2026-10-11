@@ -103,23 +103,23 @@ private fun SourceRow(s: ComingFrom.Source, expanded: Boolean, onToggle: () -> U
 private val ComingFrom.Importer.groupTitle: Int
     get() = when (this) {
         ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_group_parley
-        ComingFrom.Importer.CONTACTS_FILE -> R.string.rst_contacts
-        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.hist_settings_title
+        ComingFrom.Importer.CONTACTS_FILE -> R.string.label_contacts
+        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.label_call_history
         ComingFrom.Importer.BLOCK_LIST -> R.string.coming_group_blocking
     }
 
 private val ComingFrom.Importer.action: Int
     get() = when (this) {
-        ComingFrom.Importer.PARLEY_BACKUP -> R.string.coming_open_parley
+        ComingFrom.Importer.PARLEY_BACKUP -> R.string.action_restore_a_backup
         ComingFrom.Importer.CONTACTS_FILE -> R.string.coming_open_contacts
-        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.hist_import_title
+        ComingFrom.Importer.CALL_HISTORY_CSV -> R.string.action_import_call_history
         ComingFrom.Importer.BLOCK_LIST -> R.string.blk_transfer_import_title
     }
 
 private val ComingFrom.Source.title: Int
     get() = when (this) {
         ComingFrom.Source.PARLEY -> R.string.coming_source_parley
-        ComingFrom.Source.GOOGLE -> R.string.csv_layout_google
+        ComingFrom.Source.GOOGLE -> R.string.label_google_contacts
         ComingFrom.Source.IPHONE -> R.string.coming_source_iphone
         ComingFrom.Source.SAMSUNG -> R.string.coming_source_samsung
         ComingFrom.Source.CALL_LOG_CSV -> R.string.coming_source_call_log

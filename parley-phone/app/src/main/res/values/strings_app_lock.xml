@@ -2,7 +2,7 @@
 <!-- The app lock's own PIN (the Parley PIN) and the duress PIN: the lock screen's PIN field and Settings › Privacy & security › App lock › Unlock with. -->
 <resources>
     <!-- Lock screen. -->
-    <string name="pin_field_label">Parley PIN</string>
+    <string name="label_parley_pin">Parley PIN</string>
     <string name="pin_wrong">That PIN didn\'t work. Try again.</string>
     <string name="pin_confirm_body">Type your Parley PIN to go on.</string>
     <string name="pin_confirm_button">Confirm</string>
@@ -19,8 +19,8 @@
     <string name="pin_not_saved">Couldn\'t save the PIN. Try again.</string>
     <string name="pin_same_as_duress">That\'s your duress PIN. Choose another.</string>
     <string name="pin_same_as_pin">That\'s your Parley PIN. Choose another.</string>
-    <string name="pin_next">Next</string>
-    <string name="pin_save">Save</string>
+    <string name="action_next">Next</string>
+    <string name="action_save">Save</string>
 
     <!-- Settings › Privacy & security › App lock › Unlock with. -->
     <string name="app_lock_method_device">Fingerprint or screen lock</string>
@@ -29,7 +29,7 @@
     <string name="pin_off_title">Turn off the Parley PIN?</string>
     <string name="pin_off_body">Parley will ask for your fingerprint or screen lock again.</string>
     <string name="pin_off_body_duress">Parley will ask for your fingerprint or screen lock again. Your duress PIN is turned off too.</string>
-    <string name="pin_off_confirm">Turn off</string>
+    <string name="action_turn_off">Turn off</string>
 
     <!-- The duress PIN. -->
     <string name="duress_group">If someone makes you unlock</string>
@@ -41,7 +41,7 @@
     <string name="duress_off_body">Your Parley PIN stays. Nothing that was hidden is lost.</string>
     <string name="duress_set_title">Choose a duress PIN</string>
     <string name="duress_set_body">Different from your Parley PIN. Pick one you\'ll remember under stress.</string>
-    <string name="duress_about_title">Duress PIN</string>
+    <string name="label_duress_pin">Duress PIN</string>
     <string name="duress_about_hides">The duress PIN opens Parley as usual, but hides private contacts and their calls, Circle notes and promises, notes for calls and call notes, family safe words and Shared with. Private contacts who call ring as unknown numbers. Nothing is deleted.</string>
     <string name="duress_about_until">They stay hidden, also after Parley locks or the phone restarts, until you unlock with your Parley PIN. Settings show the duress PIN as off, as on a phone without one.</string>
     <string name="duress_about_only_pin">Parley can\'t recover a forgotten PIN: you would have to clear Parley\'s storage in Android\'s settings, and private contacts not in a backup would be lost.</string>

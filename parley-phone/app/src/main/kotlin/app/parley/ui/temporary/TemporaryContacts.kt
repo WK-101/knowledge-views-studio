@@ -149,9 +149,9 @@ private fun DueCard(count: Int, onDecide: (TemporaryDue.Decision) -> Unit) {
             }
             Text(stringResource(R.string.temp_due_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton({ onDecide(TemporaryDue.Decision.KEEP) }) { Text(stringResource(R.string.contact_keep_permanently)) }
+                TextButton({ onDecide(TemporaryDue.Decision.KEEP) }) { Text(stringResource(R.string.action_keep_permanently)) }
                 TextButton({ onDecide(TemporaryDue.Decision.KEEP_LONGER) }) { Text(stringResource(R.string.temp_due_keep_longer)) }
-                TextButton({ onDecide(TemporaryDue.Decision.DELETE) }) { Text(stringResource(R.string.blk_delete)) }
+                TextButton({ onDecide(TemporaryDue.Decision.DELETE) }) { Text(stringResource(R.string.action_delete)) }
             }
         }
     }
@@ -285,7 +285,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
-        topBar = { ParleyTopBar(stringResource(R.string.temp_title), onBack = back, scrollBehavior = scroll) },
+        topBar = { ParleyTopBar(stringResource(R.string.label_temporary_contacts), onBack = back, scrollBehavior = scroll) },
     ) { p ->
         if (items.isEmpty()) {
             Column(Modifier.fillMaxSize().padding(p)) {
@@ -348,7 +348,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
                 t.purgeHistory -> stringResource(R.string.temp_delete_with_history)
                 else -> stringResource(R.string.temp_delete_keep_history)
             } + if (t.vaultId == null) " " + stringResource(R.string.temp_delete_restore_hint) else "",
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = { deleteFor = null; scope.launch { TemporaryContactActions.deleteNow(vm, t) } },
             onDismiss = { deleteFor = null },
             destructive = true,
@@ -368,7 +368,7 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (t.vaultId != null) Icon(
                     Icons.Rounded.Lock,
-                    stringResource(R.string.archive_private_section),
+                    stringResource(R.string.label_private),
                     Modifier.padding(end = 4.dp).padding(top = 1.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -391,7 +391,7 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
                         onClick = { menu = false; onExtend() },
                     )
                     DropdownMenuItem(
-                        { Text(stringResource(R.string.contact_keep_permanently)) },
+                        { Text(stringResource(R.string.action_keep_permanently)) },
                         leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
                         onClick = { menu = false; onKeep() },
                     )
@@ -426,7 +426,7 @@ private fun DurationPicker(days: Int?, custom: String, onPreset: (Int) -> Unit, 
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RadioButton(days == null, onClick = null)
-            Text(stringResource(R.string.blk_sched_custom), Modifier.padding(start = 12.dp))
+            Text(stringResource(R.string.label_custom), Modifier.padding(start = 12.dp))
         }
         if (days == null) {
             OutlinedTextField(
@@ -448,7 +448,7 @@ private fun DurationDialog(title: String, onDismiss: () -> Unit, onPick: (Int) -
     ConfirmDialog(
         title = title,
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { chosen?.let(onPick) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -470,9 +470,9 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
     var visible by rememberSaveable { mutableStateOf(false) }
     val chosen = days ?: custom.toIntOrNull()?.takeIf { it in 1..3650 }
     ConfirmDialog(
-        title = stringResource(R.string.temp_save_title),
+        title = stringResource(R.string.action_save_temporary_contact),
         text = null,
-        confirmLabel = if (visible) stringResource(R.string.pin_save) else stringResource(R.string.temp_save_privately),
+        confirmLabel = if (visible) stringResource(R.string.action_save) else stringResource(R.string.action_save_privately),
         onConfirm = { chosen?.let { onSave(name, it, deleteHistory, visible) } },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
@@ -486,7 +486,7 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 OutlinedTextField(
-                    name, { name = it }, label = { Text(stringResource(R.string.agenda_share_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    name, { name = it }, label = { Text(stringResource(R.string.label_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 Text(stringResource(R.string.temp_delete_after), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
                 DurationPicker(days, custom, { days = it }, { custom = it; days = null })

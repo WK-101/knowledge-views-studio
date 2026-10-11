@@ -142,7 +142,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_no_match, q), modifier = Modifier.padding(top = 32.dp),
-                action = onClearQuery?.let { stringResource(R.string.contact_page_clear_search) }, onAction = onClearQuery,
+                action = onClearQuery?.let { stringResource(R.string.action_clear_search) }, onAction = onClearQuery,
             )
         }
         if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -237,9 +237,9 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
 /** Chip text of a favourites order ([FavoriteSort.title] is the English original). */
 private val FavoriteSort.labelRes: Int
     get() = when (this) {
-        FavoriteSort.CUSTOM -> R.string.blk_sched_custom
+        FavoriteSort.CUSTOM -> R.string.label_custom
         FavoriteSort.NAME -> R.string.fav_sort_name
-        FavoriteSort.MOST_CALLED -> R.string.cs_sort_most_called
+        FavoriteSort.MOST_CALLED -> R.string.label_most_called
     }
 
 private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary> {
@@ -265,7 +265,7 @@ internal fun Tile(
                 if (reorder) Modifier else Modifier.combinedClickable(
                     onClick = onClick,
                     onLongClick = onLong,
-                    onClickLabel = stringResource(R.string.circle_widget_call),
+                    onClickLabel = stringResource(R.string.action_call),
                     onLongClickLabel = stringResource(R.string.main_open_contact),
                 ),
             )

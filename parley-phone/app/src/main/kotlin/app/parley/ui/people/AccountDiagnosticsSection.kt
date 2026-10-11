@@ -50,13 +50,13 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(round) { report = vm.c.people.accounts.report() }
     val r = report ?: return
-    fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.contact_page_sec_phones)
+    fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.label_phone)
     fun syncSettings() = runCatching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
     }.onFailure { vm.toast(res.getString(R.string.ppl_sync_settings_failed)) }
 
     Column {
-        Section(stringResource(R.string.tm_field_accounts))
+        Section(stringResource(R.string.label_accounts))
         r.findings.forEach { f ->
             val a = f.account?.let { AccountRef(it.type, it.name) }
             when (f.kind) {
@@ -85,7 +85,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
                 AccountFindingKind.LOCAL_MISSING -> Finding(
                     Icons.Rounded.Warning, stringResource(R.string.ppl_local_missing),
                     stringResource(R.string.ppl_local_missing_text),
-                    stringResource(R.string.ppl_fix),
+                    stringResource(R.string.action_fix),
                 ) {
                     scope.launch {
                         vm.toast(res.getString(if (vm.c.people.accounts.createLocalAccount()) R.string.ppl_local_ready else R.string.ppl_local_failed))
@@ -106,14 +106,14 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
         Text(
             stringResource(
                 R.string.ppl_signed_in,
-                r.signedIn.joinToString { res.getString(R.string.rst_with_count, it.first.displayLabel, it.second) }.ifEmpty {
+                r.signedIn.joinToString { res.getString(R.string.format_text_count, it.first.displayLabel, it.second) }.ifEmpty {
                     res.getString(R.string.ppl_signed_in_none)
                 },
             ) +
                 "\n" + stringResource(
                     R.string.ppl_holding,
-                    r.owning.joinToString { res.getString(R.string.rst_with_count, it.first.displayLabel, it.second) }.ifEmpty {
-                        res.getString(R.string.blk_res_none)
+                    r.owning.joinToString { res.getString(R.string.format_text_count, it.first.displayLabel, it.second) }.ifEmpty {
+                        res.getString(R.string.label_none_lower)
                     },
                 ),
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

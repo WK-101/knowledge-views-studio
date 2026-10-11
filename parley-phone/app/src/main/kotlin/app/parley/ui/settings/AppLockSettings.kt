@@ -57,7 +57,7 @@ object AppLockRoutes {
 internal fun unlockWithSummary(vm: AppViewModel): String {
     val pin by vm.c.appPin.summary.collectAsStateWithLifecycle()
     val shownOff by vm.c.appPin.sessionShownOff.collectAsStateWithLifecycle()
-    return stringResource(if (pin?.pinSet == true && !shownOff) R.string.pin_field_label else R.string.app_lock_method_device)
+    return stringResource(if (pin?.pinSet == true && !shownOff) R.string.label_parley_pin else R.string.app_lock_method_device)
 }
 
 private enum class PinDialog { SET_PIN, PIN_OFF, DURESS_ABOUT, DURESS_SET, DURESS_MENU, DURESS_OFF, DURESS_INFO }
@@ -157,7 +157,7 @@ private fun PinDialogs(
         PinDialog.PIN_OFF -> ConfirmDialog(
             title = stringResource(R.string.pin_off_title),
             text = stringResource(if (s.duressSet) R.string.pin_off_body_duress else R.string.pin_off_body),
-            confirmLabel = stringResource(R.string.pin_off_confirm),
+            confirmLabel = stringResource(R.string.action_turn_off),
             onConfirm = {
                 show(null)
                 confirmed(R.string.pin_off_title) { scope.launch { store.removePin(duressSession = inDuress) } }
@@ -197,12 +197,12 @@ private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, inDuress: Boolean
                     confirmed(R.string.duress_change) { show(PinDialog.DURESS_SET) }
                 }) { Text(stringResource(R.string.duress_change)) }
             },
-            dismissButton = { TextButton({ show(PinDialog.DURESS_OFF) }) { Text(stringResource(R.string.pin_off_confirm)) } },
+            dismissButton = { TextButton({ show(PinDialog.DURESS_OFF) }) { Text(stringResource(R.string.action_turn_off)) } },
         )
         PinDialog.DURESS_OFF -> ConfirmDialog(
             title = stringResource(R.string.duress_off_title),
             text = stringResource(R.string.duress_off_body),
-            confirmLabel = stringResource(R.string.pin_off_confirm),
+            confirmLabel = stringResource(R.string.action_turn_off),
             onConfirm = {
                 show(null)
                 confirmed(R.string.duress_off_title) { scope.launch { store.setDuress(null, duressSession = inDuress) } }
@@ -219,7 +219,7 @@ private fun DuressAboutDialog(continueLabel: String?, onDismiss: () -> Unit, onC
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.Shield, null) },
-        title = { Text(stringResource(R.string.duress_about_title)) },
+        title = { Text(stringResource(R.string.label_duress_pin)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 listOf(R.string.duress_about_hides, R.string.duress_about_until, R.string.duress_about_only_pin, R.string.duress_about_limits).forEach { id ->

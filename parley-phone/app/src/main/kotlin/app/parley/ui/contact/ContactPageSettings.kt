@@ -74,8 +74,8 @@ fun ContactPageSettingsScreen(vm: AppViewModel, back: () -> Unit) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val layout = s.contactPage
     fun set(f: (ContactPageLayout) -> ContactPageLayout) = vm.people.update { it.copy(contactPage = f(it.contactPage)) }
-    SettingsScaffold(stringResource(R.string.contact_page_settings_title), back, actions = {
-        TextButton({ set { it.reset() } }, enabled = !layout.isDefault) { Text(stringResource(R.string.contact_page_reset)) }
+    SettingsScaffold(stringResource(R.string.label_contact_page_sections), back, actions = {
+        TextButton({ set { it.reset() } }, enabled = !layout.isDefault) { Text(stringResource(R.string.action_reset)) }
     }) {
         Text(
             stringResource(R.string.contact_page_settings_body), style = MaterialTheme.typography.bodyMedium,
@@ -107,8 +107,8 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
     var rowHeight by remember { mutableIntStateOf(1) }
     val latest by rememberUpdatedState(layout)
     val latestOnChange by rememberUpdatedState(onChange)
-    val moveUp = stringResource(R.string.editor_move_up)
-    val moveDown = stringResource(R.string.editor_move_down)
+    val moveUp = stringResource(R.string.action_move_up)
+    val moveDown = stringResource(R.string.action_move_down)
     fun moved(from: Int, to: Int) = latest.copy(order = order).moved(from, to)
 
     Column(Modifier.padding(vertical = 4.dp)) {
@@ -200,9 +200,9 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
 
 private fun modeLabel(res: Resources, m: SectionMode): String = res.getString(
     when (m) {
-        SectionMode.OPEN -> R.string.blk_open
-        SectionMode.FOLDED -> R.string.contact_page_folded
-        SectionMode.HIDDEN -> R.string.contact_page_mode_hidden
+        SectionMode.OPEN -> R.string.action_open
+        SectionMode.FOLDED -> R.string.label_folded
+        SectionMode.HIDDEN -> R.string.label_hidden
     },
 )
 

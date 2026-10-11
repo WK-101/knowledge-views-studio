@@ -20,7 +20,7 @@ class MessageNumberTileService : TileService() {
         super.onStartListening()
         val tile = qsTile ?: return
         tile.state = Tile.STATE_INACTIVE
-        tile.label = getString(R.string.shortcut_message_number_short)
+        tile.label = getString(R.string.action_message_a_number)
         tile.contentDescription = getString(R.string.shortcut_message_number_long)
         tile.updateTile()
     }

@@ -87,7 +87,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             ParleyListItem(
                 modifier = Modifier.clickable { pickSim = true },
                 leadingContent = { Icon(Icons.Rounded.SimCard, null) },
-                headlineContent = { Text(stringResource(R.string.be_sim)) },
+                headlineContent = { Text(stringResource(R.string.label_sim_for_calls)) },
                 supportingContent = {
                     Text(
                         when {
@@ -104,7 +104,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             leadingContent = { Icon(Icons.Rounded.Handshake, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_rhythm)) },
             supportingContent = {
-                Text(p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none))
+                Text(p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_not_set))
             },
         )
         val days = p.rhythmDays
@@ -154,7 +154,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
 
     if (pickSim) ParleyDialog(
         onDismissRequest = { pickSim = false },
-        title = { Text(stringResource(R.string.be_sim)) },
+        title = { Text(stringResource(R.string.label_sim_for_calls)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.label_policy_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
@@ -180,7 +180,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
                 (listOf<Int?>(null) + LabelPolicies.RHYTHM_CHOICES).forEach { d ->
-                    val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none)
+                    val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_not_set)
                     ParleyListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false },
                         leadingContent = {

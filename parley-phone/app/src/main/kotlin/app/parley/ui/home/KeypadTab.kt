@@ -444,7 +444,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                     // Long-press 2-9 for speed dial, told once.
                     CoachMark(
                         Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
-                        enabled = showKeypad, action = stringResource(R.string.bkp_set_up), onAction = { open(Routes.SpeedDial) },
+                        enabled = showKeypad, action = stringResource(R.string.action_set_up), onAction = { open(Routes.SpeedDial) },
                     )
                     // Press and hold Call for a reason, told once (after the speed-dial tip).
                     CoachMark(Tips.CALL_REASON, stringResource(R.string.reason_tip), enabled = showKeypad)
@@ -601,7 +601,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         ConfirmDialog(
             title = stringResource(R.string.keypad_speed_empty_title, key),
             text = stringResource(R.string.keypad_speed_empty_body, key),
-            confirmLabel = stringResource(R.string.bkp_set_up),
+            confirmLabel = stringResource(R.string.action_set_up),
             onConfirm = { unassigned = null; open(Routes.SpeedDial) },
             onDismiss = { unassigned = null },
             dismissLabel = stringResource(R.string.dc_cancel),
@@ -757,7 +757,7 @@ private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
             if (number.isNullOrEmpty()) showMessage(context, res.getString(R.string.keypad_no_clip_number))
             else onPaste(number)
         },
-        label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.keypad_paste)) },
+        label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.action_paste)) },
         leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
     )
 }
@@ -791,7 +791,7 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
                 runCatching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
                 onDismiss()
             }) { Text(stringResource(R.string.keypad_open_about)) }
-            TextButton(onDismiss) { Text(stringResource(R.string.main_close)) }
+            TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }
         }
     }
 }
@@ -853,10 +853,10 @@ private val keyRipple = ripple(bounded = false, radius = 38.dp)
 
 private fun longPressLabel(res: Resources, digit: String): String? = when (digit) {
     "0" -> res.getString(R.string.keypad_long_plus)
-    "1" -> res.getString(R.string.keypad_long_voicemail)
+    "1" -> res.getString(R.string.action_call_voicemail)
     "*" -> res.getString(R.string.keypad_long_pause)
     "#" -> res.getString(R.string.keypad_long_wait)
-    else -> if (digit[0] in '2'..'9') res.getString(R.string.discover_speed_dial_title) else null
+    else -> if (digit[0] in '2'..'9') res.getString(R.string.label_speed_dial) else null
 }
 
 /** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound". */
@@ -864,7 +864,7 @@ private fun keyDescription(res: Resources, digit: String, letters: String): Stri
     "*" -> res.getString(app.parley.ui.R.string.ui_key_star)
     "#" -> res.getString(app.parley.ui.R.string.ui_key_pound)
     "1" -> res.getString(R.string.keypad_key_voicemail)
-    else -> if (letters.isEmpty()) digit else res.getString(R.string.blk_week_both, digit, letters.toList().joinToString(" "))
+    else -> if (letters.isEmpty()) digit else res.getString(R.string.format_comma_pair, digit, letters.toList().joinToString(" "))
 }
 
 /**
@@ -888,7 +888,7 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
             trailingContent = {
                 Icon(
                     Icons.Rounded.Call,
-                    stringResource(R.string.circle_call_who, listOfNotNull(c?.displayName, type).joinToString(" ")),
+                    stringResource(R.string.action_call_named, listOfNotNull(c?.displayName, type).joinToString(" ")),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             },
@@ -916,7 +916,7 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
                 Text(stringResource(R.string.keypad_recent))
             }
         },
-        trailingContent = { Icon(Icons.Rounded.Call, stringResource(R.string.circle_widget_call), tint = MaterialTheme.colorScheme.primary) },
+        trailingContent = { Icon(Icons.Rounded.Call, stringResource(R.string.action_call), tint = MaterialTheme.colorScheme.primary) },
     )
 }
 
@@ -925,7 +925,7 @@ private fun numberActionLabel(action: KeypadNumberActions.Action): Int = when (a
     KeypadNumberActions.Action.MESSAGE_OR_CALL -> R.string.contact_page_sec_messengers
     KeypadNumberActions.Action.CREATE_CONTACT -> R.string.keypad_create_contact
     KeypadNumberActions.Action.ADD_TO_CONTACT -> R.string.recents_add_to_contact
-    KeypadNumberActions.Action.SAVE_TEMPORARY -> R.string.temp_save_title
+    KeypadNumberActions.Action.SAVE_TEMPORARY -> R.string.action_save_temporary_contact
 }
 
 private fun numberActionIcon(action: KeypadNumberActions.Action): ImageVector = when (action) {
@@ -971,7 +971,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     // Searched in the view model over names folded once per contacts change, off the main thread.
     LaunchedEffect(query) { keypad.searchQuery.value = query }
     if (q.isEmpty()) {
-        EmptyState(Icons.Rounded.Search, stringResource(R.string.helpers_search), stringResource(R.string.keypad_search_body))
+        EmptyState(Icons.Rounded.Search, stringResource(R.string.action_search_contacts), stringResource(R.string.keypad_search_body))
         return
     }
     val result by keypad.search.collectAsStateWithLifecycle()

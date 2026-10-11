@@ -168,7 +168,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 Text(stringResource(R.string.map_link_intro), style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     text, { text = it.take(2000) }, Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.map_link_field)) },
+                    label = { Text(stringResource(R.string.label_map_link)) },
                     placeholder = { Text(stringResource(R.string.map_link_placeholder)) },
                     // Links read left to right in every language.
                     textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
@@ -178,7 +178,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 // The clipboard is read only when this is tapped.
                 AssistChip(
                     onClick = { Clipboard.readText(context, 2000)?.let { text = it } },
-                    label = { Text(stringResource(R.string.keypad_paste)) },
+                    label = { Text(stringResource(R.string.action_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp)) },
                 )
                 if (text.isNotBlank()) {
@@ -190,7 +190,7 @@ internal fun MapLinkDialog(onDismiss: () -> Unit, onAdd: (MapLinks.Place) -> Uni
                 }
             }
         },
-        confirmButton = { TextButton({ place?.let(onAdd) }, enabled = place != null) { Text(stringResource(R.string.agenda_add_save)) } },
+        confirmButton = { TextButton({ place?.let(onAdd) }, enabled = place != null) { Text(stringResource(R.string.action_add)) } },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
@@ -206,7 +206,7 @@ private fun describe(p: MapLinks.Place?): String {
         lat != null && lon != null -> stringResource(R.string.map_link_found_spot, listOfNotNull(p.name, MapLinks.formatPair(lat, lon)).joinToString(" · "))
         p.service == MapLinks.Service.PLUS_CODE -> stringResource(R.string.map_link_short_code)
         p.service == MapLinks.Service.OTHER -> stringResource(R.string.map_link_unknown)
-        name != null -> stringResource(R.string.map_link_found, name)
+        name != null -> stringResource(R.string.label_found, name)
         else -> stringResource(R.string.map_link_unknown)
     }
 }

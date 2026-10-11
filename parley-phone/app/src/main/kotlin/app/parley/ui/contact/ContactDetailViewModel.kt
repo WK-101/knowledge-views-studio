@@ -457,7 +457,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             fun mark(list: List<DataItem>) = list.map { it.copy(isPrimary = on && it.value == item.value) }
             val email = mime == android.provider.ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE
             val ok = updatePrivate { d -> if (email) d.copy(emails = mark(d.emails)) else d.copy(phones = mark(d.phones)) }
-            if (ok) say(if (on) R.string.detail_default_set else R.string.detail_default_removed)
+            if (ok) say(if (on) R.string.action_set_as_default else R.string.detail_default_removed)
             return@launch
         }
         val dataId = item.id ?: return@launch
@@ -465,7 +465,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         say(
             when {
                 !ok -> R.string.detail_default_failed
-                on -> R.string.detail_default_set
+                on -> R.string.action_set_as_default
                 else -> R.string.detail_default_removed
             },
         )

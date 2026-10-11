@@ -80,12 +80,12 @@ import kotlinx.coroutines.launch
  */
 enum class CallsSubPage(val place: SettingPlace, val title: Int, val summary: Int, val icon: ImageVector) {
     ANSWERING(SettingPlace.CALLS_ANSWERING, R.string.set_calls_answering_title, R.string.set_calls_answering_summary, Icons.Rounded.PhoneInTalk),
-    DURING(SettingPlace.CALLS_DURING, R.string.set_calls_during_title, R.string.set_calls_during_summary, Icons.Rounded.Call),
+    DURING(SettingPlace.CALLS_DURING, R.string.label_during_calls, R.string.set_calls_during_summary, Icons.Rounded.Call),
 
     /** The Keypad category and phone menus, once a root row and a Situations row of their own. */
     KEYPAD(SettingPlace.CALLS_KEYPAD, R.string.set_calls_keypad_title, R.string.set_calls_keypad_summary, Icons.Rounded.Dialpad),
     SIMS(SettingPlace.CALLS_SIMS, R.string.set_calls_sims_title, R.string.set_calls_sims_summary, Icons.Rounded.SimCard),
-    SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.discover_situations_title, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
+    SITUATIONS(SettingPlace.CALLS_SITUATIONS, R.string.label_situations, R.string.set_calls_situations_summary, Icons.Rounded.Tune),
     ;
 
     companion object {
@@ -154,7 +154,7 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
             }
         }
     }
-    SegmentedGroup(stringResource(R.string.set_group_incoming)) {
+    SegmentedGroup(stringResource(R.string.label_incoming_calls)) {
         choiceRow("answer_gesture", gestures, s.answerGesture.ordinal, Icons.Rounded.TouchApp) { i ->
             set { it.copy(answerGesture = AnswerGesture.entries[i]) }
         }
@@ -225,7 +225,7 @@ private fun NetworkNamesRow(vm: AppViewModel) {
         ConfirmDialog(
             title = stringResource(R.string.set_network_names_off_title),
             text = stringResource(R.string.set_network_names_off_text),
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             dismissLabel = stringResource(R.string.set_network_names_keep),
             destructive = true,
             onConfirm = {
@@ -321,7 +321,7 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     )
     val situations by vm.c.situations.list.collectAsStateWithLifecycle()
     val now by vm.c.situations.state.collectAsStateWithLifecycle()
-    SegmentedGroup(stringResource(R.string.discover_situations_title)) {
+    SegmentedGroup(stringResource(R.string.label_situations)) {
         // Search for Situations lands on the first one.
         situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }
         situations.drop(1).forEach { s -> item("situation_${s.id}") { SituationRow(vm, s, now, open) } }
@@ -330,7 +330,7 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     // Rescue call: a believable call to leave a moment, here beside the moments themselves.
     SegmentedGroup {
         item("rescue_call") {
-            LinkRow(stringResource(R.string.rescue_title), stringResource(R.string.rescue_row_sub), Icons.Rounded.PhoneInTalk) {
+            LinkRow(stringResource(R.string.label_rescue_call), stringResource(R.string.rescue_row_sub), Icons.Rounded.PhoneInTalk) {
                 open(SituationRoutes.RescueCall)
             }
         }

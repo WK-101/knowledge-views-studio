@@ -116,9 +116,9 @@ fun MessengerPrefs.toggleUsual(row: ReachRow): MessengerPrefs {
 private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolean, onOpen: (ReachRow) -> Unit, onToggleUsual: (ReachRow) -> Unit) {
     val sep = stringResource(R.string.main_separator)
     val can = listOfNotNull(
-        g.message?.let { stringResource(R.string.circle_type_message) },
+        g.message?.let { stringResource(R.string.action_message) },
         g.voice?.let { stringResource(R.string.reach_can_voice) },
-        g.video?.let { stringResource(R.string.detail_video) },
+        g.video?.let { stringResource(R.string.label_video) },
     ).joinToString(sep)
     val usual = listOfNotNull(
         g.message?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.reach_usual_message) },

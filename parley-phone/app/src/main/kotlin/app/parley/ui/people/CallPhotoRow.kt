@@ -42,19 +42,19 @@ fun CallPhotoRow(vm: AppViewModel, d: ContactDetails) {
     var open by remember { mutableStateOf(false) }
     val current = when (choice) {
         null -> stringResource(if (settings.showCallerPhoto) R.string.callphoto_default_shown else R.string.callphoto_default_hidden)
-        true -> stringResource(R.string.archive_also_show)
+        true -> stringResource(R.string.action_show)
         false -> stringResource(R.string.callphoto_hide)
     }
     Box {
         ParleyListItem(
-            modifier = Modifier.clickable(onClickLabel = stringResource(R.string.callphoto_change)) { open = true },
+            modifier = Modifier.clickable(onClickLabel = stringResource(R.string.action_change)) { open = true },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             leadingContent = { Icon(Icons.Rounded.AccountCircle, null) },
             headlineContent = { Text(stringResource(R.string.callphoto_title)) },
             supportingContent = { Text(current) },
         )
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            listOf(null to R.string.blk_check_default, true to R.string.archive_also_show, false to R.string.callphoto_hide).forEach { (value, label) ->
+            listOf(null to R.string.label_default, true to R.string.action_show, false to R.string.callphoto_hide).forEach { (value, label) ->
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     trailingIcon = if (value == choice) ({ Icon(Icons.Rounded.Check, null) }) else null,

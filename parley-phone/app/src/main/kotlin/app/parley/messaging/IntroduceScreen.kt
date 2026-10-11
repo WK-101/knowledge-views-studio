@@ -135,7 +135,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
     }
 
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.intro_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_introduce_myself), onBack = back)
     }) { p ->
         if (queue.targets.isEmpty()) {
             // From Tools: choose who to introduce yourself to.
@@ -156,7 +156,7 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(draft ?: stringResource(R.string.intro_no_details)) },
                     supportingContent = { Text(stringResource(R.string.intro_the_message)) },
                     leadingContent = { Icon(Icons.Rounded.Badge, null) },
-                    trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.bkp_set_up else R.string.me_edit_short)) } },
+                    trailingContent = { TextButton({ editDetails = true }) { Text(stringResource(if (draft == null) R.string.action_set_up else R.string.action_edit)) } },
                 )
             }
             when {
@@ -188,11 +188,11 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
                     if (t.name.isNotBlank()) Text(Bidi.ltr(NumberText.formatInternational(t.number)), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     val opened = queue.index in queue.opened
                     Button(::openCurrent, Modifier.fillMaxWidth()) {
-                        Text(stringResource(if (opened) R.string.intro_open_again else R.string.intro_open_in_app, app.label))
+                        Text(stringResource(if (opened) R.string.intro_open_again else R.string.action_open_in, app.label))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.pin_next else R.string.intro_skip)) }
-                        TextButton({ queue = queue.stop() }) { Text(stringResource(R.string.blk_stop)) }
+                        OutlinedButton({ queue = if (opened) queue.next() else queue.skip() }) { Text(stringResource(if (opened) R.string.action_next else R.string.action_skip)) }
+                        TextButton({ queue = queue.stop() }) { Text(stringResource(R.string.action_stop)) }
                         TextButton({ appPackage = null }) { Text(stringResource(R.string.intro_change_app)) }
                     }
                 }

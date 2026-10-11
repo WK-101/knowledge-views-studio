@@ -162,7 +162,7 @@ private fun HowLongDialog(name: String, s: Situation, onDismiss: () -> Unit, onP
                 choices.forEach { e ->
                     val label = when (e) {
                         is Situations.End.ForAnHour -> stringResource(R.string.sit_end_hour)
-                        is Situations.End.UntilTime -> stringResource(R.string.blk_editor_until, Schedule.hm(e.minute))
+                        is Situations.End.UntilTime -> stringResource(R.string.label_until, Schedule.hm(e.minute))
                         Situations.End.UntilTurnedOff -> stringResource(R.string.sit_end_off)
                     }
                     ParleyListItem(
@@ -202,14 +202,14 @@ internal fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, o
     ConfirmDialog(
         title = title,
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         confirmEnabled = text.isNotBlank(),
         onConfirm = { onSave(text.trim()) },
         onDismiss = onDismiss,
     ) {
         OutlinedTextField(
             text, { text = it.take(MAX_NAME) }, singleLine = true,
-            label = { Text(stringResource(R.string.agenda_share_search)) },
+            label = { Text(stringResource(R.string.label_name)) },
             placeholder = { Text(stringResource(R.string.sit_name_hint)) },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -265,7 +265,7 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
                 TextButton(
                     onClick = { c.scope.launch { sit.turnOff() } },
                     modifier = Modifier.padding(end = Spacing.xs).semantics { contentDescription = offCd },
-                ) { Text(stringResource(R.string.pin_off_confirm)) }
+                ) { Text(stringResource(R.string.action_turn_off)) }
             }
         }
     }

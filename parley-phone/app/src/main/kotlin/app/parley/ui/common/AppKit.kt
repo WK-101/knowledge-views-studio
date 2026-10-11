@@ -13,8 +13,8 @@ fun ProvideAppKit(content: @Composable () -> Unit) {
     val strings = KitStrings(
         back = stringResource(R.string.set_back),
         cancel = stringResource(R.string.dc_cancel),
-        change = stringResource(R.string.callphoto_change),
-        close = stringResource(R.string.main_close),
+        change = stringResource(R.string.action_change),
+        close = stringResource(R.string.action_close),
     )
     CompositionLocalProvider(LocalKitStrings provides strings, content = content)
 }

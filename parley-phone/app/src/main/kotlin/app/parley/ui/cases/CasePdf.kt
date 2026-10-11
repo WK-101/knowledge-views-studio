@@ -35,7 +35,7 @@ object CasePdf {
     class Words(private val context: Context) : CaseReport.Words {
         private val res = context.resources
 
-        override fun title(name: String) = res.getString(R.string.case_title_who, name)
+        override fun title(name: String) = res.getString(R.string.label_case_file, name)
         override fun madeOn(date: String) = res.getString(R.string.case_pdf_made, date)
         override fun numbers(numbers: List<String>) = res.getString(R.string.case_pdf_numbers, numbers.joinToString(", "))
         override val summary: String get() = res.getString(R.string.case_summary)
@@ -53,7 +53,7 @@ object CasePdf {
         override fun promise(text: String) = res.getString(R.string.case_pdf_promise, text)
         override val timeline: String get() = res.getString(R.string.case_timeline_title)
         override fun call(entry: CaseEntry.Call) = callLine(context, entry)
-        override fun note(text: String) = res.getString(R.string.case_pdf_note, text.replace('\n', ' '))
+        override fun note(text: String) = res.getString(R.string.label_note_named, text.replace('\n', ' '))
         override fun referenceAdded(label: String) =
             res.getString(R.string.case_reference_added_on, label.ifEmpty { res.getString(R.string.case_reference_unnamed) })
         override fun date(at: Long) = Format.fullDate(context, at)
@@ -85,7 +85,7 @@ object CasePdf {
                     canvas.restore()
                     y += layouts[i].height
                 }
-                canvas.drawText(context.getString(R.string.case_pdf_page, p + 1, pages.size), MARGIN, HEIGHT - MARGIN + FOOTER / 2, footer)
+                canvas.drawText(context.getString(R.string.label_page_of, p + 1, pages.size), MARGIN, HEIGHT - MARGIN + FOOTER / 2, footer)
                 doc.finishPage(page)
             }
             FileOutputStream(file).use { doc.writeTo(it) }
@@ -125,11 +125,11 @@ object CasePdf {
 internal fun callLine(context: Context, e: CaseEntry.Call): String {
     val res = context.resources
     val kind = when {
-        e.type == CallType.MISSED -> R.string.case_call_missed
+        e.type == CallType.MISSED -> R.string.label_missed_call
         e.type == CallType.REJECTED -> R.string.case_call_declined
         e.type == CallType.BLOCKED -> R.string.case_call_blocked
-        e.type == CallType.VOICEMAIL -> R.string.blk_line_voicemail
-        !e.incoming && e.durationSec <= 0 -> R.string.case_call_unanswered
+        e.type == CallType.VOICEMAIL -> R.string.label_voicemail
+        !e.incoming && e.durationSec <= 0 -> R.string.label_no_answer
         e.incoming -> R.string.case_call_incoming
         else -> R.string.case_call_outgoing
     }

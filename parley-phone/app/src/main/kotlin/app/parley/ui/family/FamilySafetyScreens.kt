@@ -128,7 +128,7 @@ fun SafeWordSection(vm: AppViewModel, title: String) {
             }
         },
         leadingContent = { Icon(Icons.Rounded.FamilyRestroom, null) },
-        headlineContent = { Text(stringResource(R.string.discover_safe_word_title)) },
+        headlineContent = { Text(stringResource(R.string.label_family_safe_word)) },
         // Says what it is for the first time and every time.
         supportingContent = { Text(stringResource(if (set) R.string.safe_word_row_set else R.string.safe_word_row_none)) },
         trailingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -167,7 +167,7 @@ private fun SafeWordDialog(label: String, initial: SafeWord?, onDismiss: () -> U
     ConfirmDialog(
         title = stringResource(R.string.safe_word_dialog_title, label),
         text = null,
-        confirmLabel = stringResource(R.string.pin_save),
+        confirmLabel = stringResource(R.string.action_save),
         onConfirm = { cleaned?.let(onSave) },
         onDismiss = onDismiss,
         confirmEnabled = cleaned != null,
@@ -200,7 +200,7 @@ private fun SafeWordDialog(label: String, initial: SafeWord?, onDismiss: () -> U
                     )
                 }
                 if (initial != null) {
-                    TextButton({ onSave(null) }) { Text(stringResource(R.string.jr_remove), color = MaterialTheme.colorScheme.error) }
+                    TextButton({ onSave(null) }) { Text(stringResource(R.string.action_remove_button), color = MaterialTheme.colorScheme.error) }
                 }
             }
         },
@@ -217,7 +217,7 @@ fun SafeWordsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
         store.load()
         value = runCatching { vm.c.people.labels.labels().map { it.title } }.getOrDefault(emptyList())
     }
-    SettingsScaffold(stringResource(R.string.discover_safe_word_title), back) {
+    SettingsScaffold(stringResource(R.string.label_family_safe_word), back) {
         Text(
             stringResource(R.string.safe_words_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
@@ -231,7 +231,7 @@ fun SafeWordsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             TextButton({ open(PeopleRoutes.Labels) }, Modifier.padding(horizontal = Spacing.l)) { Text(stringResource(R.string.safe_words_open_labels)) }
             return@SettingsScaffold
         }
-        SegmentedGroup(stringResource(R.string.blk_check_labels)) {
+        SegmentedGroup(stringResource(R.string.label_labels)) {
             list.forEach { t ->
                 item(t) {
                     val set = summary.safeWordLabels.any { it.trim() == t.trim() }
@@ -271,11 +271,11 @@ fun HelpersScreen(vm: AppViewModel, back: () -> Unit) {
                         colors = rowColors(),
                         supportingContent = {
                             val sep = stringResource(R.string.main_separator)
-                            Text(if (h.private) Bidi.ltr(h.number) + sep + stringResource(R.string.helpers_private) else Bidi.ltr(h.number))
+                            Text(if (h.private) Bidi.ltr(h.number) + sep + stringResource(R.string.label_private_contact) else Bidi.ltr(h.number))
                         },
                         trailingContent = {
                             IconButton({ scope.launch { store.setHelpers(helpers.filterIndexed { j, _ -> j != i }) } }) {
-                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.edit_remove_citizenship, h.name),
+                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.action_remove, h.name),
                                     tint = MaterialTheme.colorScheme.error)
                             }
                         },
@@ -316,7 +316,7 @@ private fun HelperPicker(contacts: List<ContactSummary>, onDismiss: () -> Unit, 
         text = {
             Column {
                 OutlinedTextField(
-                    q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.helpers_search)) }, modifier = Modifier.fillMaxWidth(),
+                    q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.action_search_contacts)) }, modifier = Modifier.fillMaxWidth(),
                 )
                 LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = Spacing.s)) {
                     items(shown, key = { it.id }) { c ->
@@ -422,7 +422,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                 )
                 if (upcoming.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.circle_widget_dates), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                        stringResource(R.string.label_coming_up), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs),
                     )
                     upcoming.forEach { w ->
@@ -433,7 +433,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                             supportingContent = { Text(sourceText(w, discreet)) },
                             trailingContent = {
                                 IconButton({ scope.launch { store.removeWindow(w.source, w.key) } }) {
-                                    Icon(Icons.Rounded.Close, stringResource(R.string.jr_remove))
+                                    Icon(Icons.Rounded.Close, stringResource(R.string.action_remove_button))
                                 }
                             },
                         )
@@ -461,12 +461,12 @@ fun ExpectedCallOfferHost(vm: AppViewModel) {
         ExpectedSource.DELIVERY_QR -> res.getString(R.string.expected_offer_delivery, until)
     }
     ConfirmDialog(
-        title = stringResource(R.string.blk_expecting_question),
+        title = stringResource(R.string.label_expecting_a_call_q),
         text = question + "\n\n" + stringResource(R.string.expected_offer_after),
-        confirmLabel = stringResource(R.string.blk_status_turn_on),
+        confirmLabel = stringResource(R.string.action_turn_on),
         onConfirm = { scope.launch { ExpectedCallHints.accept(vm.c, o) } },
         onDismiss = { scope.launch { ExpectedCallHints.decline(vm.c, o) } },
-        dismissLabel = stringResource(R.string.blk_no_thanks),
+        dismissLabel = stringResource(R.string.label_no_thanks),
         icon = Icons.Rounded.HourglassTop,
     )
 }

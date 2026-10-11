@@ -14,17 +14,17 @@
     <string name="editor_remove_phone">Remove number</string>
     <string name="editor_remove_email">Remove email</string>
     <string name="editor_remove_website">Remove website</string>
-    <string name="editor_pick_date">Choose date</string>
+    <string name="action_choose_date">Choose date</string>
     <string name="editor_phone_hint">This doesn\'t look like a phone number yet</string>
     <string name="editor_email_hint">This doesn\'t look like an email address yet</string>
     <string name="editor_discard_body">Your changes to this contact haven\'t been saved.</string>
     <string name="editor_saving">Saving</string>
     <string name="editor_loading">Loading contact</string>
     <!-- The "Add" chips: one line of the kinds of fields a contact can still take. -->
-    <string name="editor_add_field">Add %1$s</string>
+    <string name="action_add_named">Add %1$s</string>
     <string name="editor_add_title">Add a field</string>
     <string name="editor_add_group_contact">Ways to reach them</string>
-    <string name="editor_add_group_calls">When they call</string>
+    <string name="label_when_they_call">When they call</string>
     <string name="editor_temporary_sub">Deletes itself after a time you choose</string>
     <plurals name="editor_temp_after">
         <item quantity="one">After %1$d day</item>
@@ -103,7 +103,7 @@
     <string name="edit_native_name_parts">Add first and last name</string>
     <string name="edit_native_language">Its language</string>
     <!-- %1$s: the language the name's script suggests ("Russian"). -->
-    <string name="edit_native_language_use">Use %1$s</string>
+    <string name="action_use">Use %1$s</string>
     <string name="edit_remove_native_name">Remove name in their language</string>
     <!-- Offered under the name when it is in another script, or when the contact has a language. -->
     <string name="edit_native_name_offer">Add name in their language</string>
@@ -113,7 +113,7 @@
     <string name="edit_citizenship_add">Add a country</string>
     <string name="edit_citizenship_hint">Only shown on their page, never on the call screen</string>
     <!-- %1$s: a country ("Portugal"). -->
-    <string name="edit_remove_citizenship">Remove %1$s</string>
+    <string name="action_remove">Remove %1$s</string>
     <string name="edit_phone_more_types">More types…</string>
     <string name="edit_phone_types_title">Number type</string>
     <string name="edit_calendar">Calendar</string>
@@ -136,8 +136,8 @@
     <string name="addr_part_direction">Direction</string>
     <!-- Rows of a group with several entries: press and hold the remove button to move one place up or down (the order other apps show too). -->
     <string name="editor_row_options">Move up or down</string>
-    <string name="editor_move_up">Move up</string>
-    <string name="editor_move_down">Move down</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
     <!-- Picking a private contact as the relation of a contact other apps can read. -->
     <string name="edit_private_relation_title">Keep %1$s private?</string>
     <string name="edit_private_relation_synced">%1$s is a private contact. Saving the relation on this contact stores the name “%1$s” in your phone\'s contacts, where other apps can read it, and it syncs to %2$s.</string>

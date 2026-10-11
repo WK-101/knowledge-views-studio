@@ -6,7 +6,7 @@
         android:icon="@drawable/ic_shortcut_message"
         android:shortcutId="message_number"
         android:shortcutLongLabel="@string/shortcut_message_number_long"
-        android:shortcutShortLabel="@string/shortcut_message_number_short">
+        android:shortcutShortLabel="@string/action_message_a_number">
         <intent
             android:action="app.parley.action.MESSAGE_NUMBER"
             android:targetClass="app.parley.messaging.NumberActionActivity"
@@ -18,7 +18,7 @@
         android:icon="@drawable/ic_shortcut_qr"
         android:shortcutId="scan_qr"
         android:shortcutLongLabel="@string/qs_shortcut_long"
-        android:shortcutShortLabel="@string/qs_shortcut_short">
+        android:shortcutShortLabel="@string/action_scan_qr">
         <intent
             android:action="app.parley.action.SCAN_QR"
             android:targetClass="app.parley.InternalEntry"
@@ -30,7 +30,7 @@
         android:icon="@drawable/ic_shortcut_rescue"
         android:shortcutId="rescue_call"
         android:shortcutLongLabel="@string/shortcut_rescue_long"
-        android:shortcutShortLabel="@string/rescue_title">
+        android:shortcutShortLabel="@string/label_rescue_call">
         <intent
             android:action="app.parley.action.RESCUE_CALL"
             android:targetClass="app.parley.InternalEntry"
@@ -42,7 +42,7 @@
         android:icon="@drawable/ic_shortcut_search"
         android:shortcutId="search_everything"
         android:shortcutLongLabel="@string/shortcut_search_everything_long"
-        android:shortcutShortLabel="@string/recall_chip">
+        android:shortcutShortLabel="@string/action_search_everything">
         <intent
             android:action="app.parley.action.SEARCH_EVERYTHING"
             android:targetClass="app.parley.InternalEntry"

@@ -4,21 +4,21 @@
     <!-- My card opens the QR code -->
     <string name="me_show_qr">Show my QR code</string>
     <string name="me_edit">Edit my card</string>
-    <string name="me_edit_short">Edit</string>
+    <string name="action_edit">Edit</string>
 
     <!-- Foldable sections on a contact's page -->
-    <string name="contact_page_folded">Folded</string>
-    <string name="contact_page_fold">Fold</string>
-    <string name="contact_page_unfold">Unfold</string>
-    <string name="contact_page_sec_dates">Dates</string>
-    <string name="contact_page_sec_phones">Phone</string>
-    <string name="contact_page_sec_emails">Email</string>
-    <string name="contact_page_sec_addresses">Address</string>
+    <string name="label_folded">Folded</string>
+    <string name="action_fold">Fold</string>
+    <string name="action_unfold">Unfold</string>
+    <string name="label_dates">Dates</string>
+    <string name="label_phone">Phone</string>
+    <string name="label_email">Email</string>
+    <string name="label_address">Address</string>
     <string name="contact_page_sec_messengers">Message or call on…</string>
-    <string name="contact_page_sec_about">About them</string>
-    <string name="contact_page_sec_other">Other fields</string>
-    <string name="contact_page_sec_insights">Call insights</string>
-    <string name="contact_page_sec_note">Note for calls</string>
+    <string name="label_about_them">About them</string>
+    <string name="label_other_fields">Other fields</string>
+    <string name="label_call_insights">Call insights</string>
+    <string name="label_note_for_calls">Note for calls</string>
     <string name="contact_page_sec_settings">Settings for this contact</string>
     <plurals name="contact_page_show_all">
         <item quantity="one">Show all (%1$d)</item>
@@ -62,7 +62,7 @@
     <!-- The group that joins numbers, emails, addresses and apps on a contact's page -->
     <string name="contact_page_info">Contact info</string>
     <!-- Joins the apps that reach a number: "WhatsApp, Signal" -->
-    <string name="contact_page_list_separator">,\u0020</string>
+    <string name="format_list_separator">,\u0020</string>
     <!-- Part of the line under a contact's name -->
     <plurals name="contact_page_open_promises">
         <item quantity="one">%1$d open promise</item>
@@ -71,21 +71,21 @@
     <!-- The full timeline -->
     <string name="contact_page_timeline_of">Timeline with %1$s</string>
     <string name="contact_page_timeline_search">Search notes, numbers, kinds</string>
-    <string name="contact_page_clear_search">Clear search</string>
+    <string name="action_clear_search">Clear search</string>
     <string name="contact_page_timeline_no_match">Nothing matches</string>
     <string name="contact_page_timeline_clear_filters">Clear search and filters</string>
-    <string name="contact_page_kind_missed">Missed</string>
+    <string name="label_missed">Missed</string>
     <string name="contact_page_kind_logged">Logged</string>
-    <string name="contact_page_kind_notes">Notes</string>
+    <string name="label_notes">Notes</string>
     <!-- Settings › Contacts › Contact page sections -->
-    <string name="contact_page_settings_title">Contact page sections</string>
-    <string name="contact_page_reset">Reset</string>
+    <string name="label_contact_page_sections">Contact page sections</string>
+    <string name="action_reset">Reset</string>
     <string name="contact_page_settings_body">Drag a section by its handle to move it. Tap it to choose whether it starts open, folded or hidden. Hiding a section never deletes anything. Phone, Email, Address and Message or call on… share one Contact info group while they sit together, as do Dates, About them and Note for calls. Folding or unfolding a section on a contact\'s page is remembered for every contact.</string>
     <string name="contact_page_sections">Sections</string>
     <string name="contact_page_chips_title">Jump to a section</string>
     <string name="contact_page_chips_summary">Chips under the pinned buttons, on long contact pages</string>
     <string name="contact_page_choose_start">Choose how it starts</string>
-    <string name="contact_page_mode_hidden">Hidden</string>
+    <string name="label_hidden">Hidden</string>
     <string name="set_contact_page_summary">Order, fold or hide the sections of a contact\'s page</string>
     <string name="set_contact_page_kw">contact page, sections, order, reorder, fold, collapse, expand, hide, timeline, layout, jump</string>
     <!-- Block from a swipe, with Undo -->
@@ -111,7 +111,7 @@
     <string name="contact_make_visible_calls_kept">Their private calls couldn\'t go back to the call history, so they stay private for now. Nothing has changed.</string>
     <string name="contact_make_temporary">Delete automatically…</string>
     <string name="contact_make_temporary_summary">They delete themselves on a date you choose</string>
-    <string name="contact_keep_permanently">Keep permanently</string>
+    <string name="action_keep_permanently">Keep permanently</string>
     <string name="contact_keep_permanently_summary">They won\'t delete themselves</string>
     <string name="contact_private_qr_title">Show a private contact\'s details?</string>
     <string name="contact_private_qr_body">Whoever scans this code gets these details as an ordinary contact, which other apps on their phone can see.</string>
@@ -128,7 +128,7 @@
     <string name="caller_vibration_morse_letter">“%1$s” in Morse code</string>
     <string name="caller_vibration_body">Feel who\'s calling with the phone in your pocket or on vibrate. Parley rings for these calls then, as your phone app. Tap play to feel a pattern first.</string>
     <string name="caller_vibration_preview">Feel %1$s</string>
-    <string name="caller_auto_answer">Answer automatically</string>
+    <string name="action_answer_automatically">Answer automatically</string>
     <string name="caller_auto_answer_summary">Their calls are answered after a few seconds, with Cancel on the call screen</string>
     <string name="caller_never_calls">They never call me</string>
     <string name="caller_never_calls_summary">A call from their number says \"This number never calls you\", so you can check it\'s really them</string>
@@ -137,21 +137,21 @@
     <string name="detail_message_number_on">Message %1$s on %2$s</string>
     <string name="detail_text_number">Text message to %1$s</string>
     <string name="contact_variant_temporary_short">Temporary · %1$s</string>
-    <string name="contact_page_sec_profiles">Profiles</string>
+    <string name="label_profiles">Profiles</string>
     <!-- A profile's row: the button opens it in the service's app, or in the browser. %1$s: the service. -->
     <string name="detail_open_profile">Open on %1$s</string>
-    <string name="detail_copy_link">Copy link</string>
-    <string name="contact_page_sec_more">More</string>
-    <string name="detail_language">Language</string>
+    <string name="action_copy_link">Copy link</string>
+    <string name="label_more">More</string>
+    <string name="label_language">Language</string>
     <!-- The languages they speak, the first preferred. %1$s: "Russian, English". -->
-    <string name="detail_speaks">Speaks %1$s</string>
-    <string name="detail_languages">Languages</string>
-    <string name="detail_citizenship">Citizenship</string>
+    <string name="label_speaks">Speaks %1$s</string>
+    <string name="label_languages">Languages</string>
+    <string name="label_citizenship">Citizenship</string>
     <!-- Read out for the name in their own language under the main name. %1$s: the language, %2$s: the name. -->
     <string name="detail_native_name_desc">Name in %1$s: %2$s</string>
-    <string name="detail_custom_field">Custom field</string>
-    <string name="detail_second_surname">Second surname</string>
-    <string name="detail_generation">Generation</string>
+    <string name="label_custom_field">Custom field</string>
+    <string name="label_second_surname">Second surname</string>
+    <string name="label_generation">Generation</string>
     <string name="detail_address_parts">Address details · %1$s</string>
     <string name="detail_next_by_calendar">%1$s · next %2$s</string>
     <!-- A relation another contact gives this one, shown here rather than saved (one of the two is private): "Child · From their contact". -->

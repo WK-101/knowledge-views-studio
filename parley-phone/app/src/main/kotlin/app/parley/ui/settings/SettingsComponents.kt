@@ -76,7 +76,7 @@ fun AdvancedSection(keys: Set<String> = emptySet(), content: @Composable () -> U
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.blk_advanced),
+                stringResource(R.string.label_advanced),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f).semantics { heading() },

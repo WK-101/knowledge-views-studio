@@ -9,11 +9,11 @@
     <string name="archive_failed">Couldn\'t archive this contact. Nothing changed.</string>
     <string name="archive_caller">Archived contact</string>
     <string name="archive_caller_at">Archived · %1$s</string>
-    <string name="archive_title_screen">Archived</string>
+    <string name="label_archived">Archived</string>
     <string name="archive_intro">Out of your lists and other apps. Parley still names their calls.</string>
     <string name="archive_empty_title">Nothing archived</string>
     <string name="archive_empty_text">Archive someone from their page (⋮ › Privacy…) to keep them without filling your lists.</string>
-    <string name="archive_row_when">Archived %1$s</string>
+    <string name="label_archived_when">Archived %1$s</string>
     <string name="archive_unarchive">Unarchive</string>
     <string name="archive_unarchive_for">Unarchive %1$s</string>
     <string name="archive_unarchived">%1$s is back in your contacts</string>
@@ -37,8 +37,8 @@
     <string name="archive_private_unarchived">%1$s is back in your private contacts</string>
     <string name="archive_private_failed">Couldn\'t archive this private contact. Nothing changed.</string>
     <string name="archive_private_unarchive_failed">Couldn\'t put this private contact back. It stays archived.</string>
-    <string name="archive_private_section">Private</string>
-    <string name="recall_group_archived">Archived contacts</string>
+    <string name="label_private">Private</string>
+    <string name="label_archived_contacts">Archived contacts</string>
     <!-- "Kept as" on a contact's page: one row for Visible, Private and Archived. -->
     <string name="kept_as_title">Kept as</string>
     <string name="kept_as_visible">Visible</string>
@@ -52,7 +52,7 @@
     <string name="archive_instead_sub">Out of your lists, and Parley keeps naming their calls</string>
     <!-- An archived contact's own page: read-only, with Unarchive. -->
     <string name="archive_page_intro">Archived: out of your lists and other apps. Parley still names their calls. Unarchive to change anything.</string>
-    <string name="archive_page_work">%1$s · %2$s</string>
+    <string name="format_dot_pair">%1$s · %2$s</string>
     <string name="archive_page_gone">This contact isn\'t archived any more.</string>
     <!-- Contacts search: archived contacts that match, under the results. -->
     <string name="archive_also_one">Also archived: %1$s</string>
@@ -60,7 +60,7 @@
         <item quantity="one">Also archived: %1$s and %2$d more</item>
         <item quantity="other">Also archived: %1$s and %2$d more</item>
     </plurals>
-    <string name="archive_also_show">Show</string>
+    <string name="action_show">Show</string>
     <!-- Health check: archive the contacts not called in two years. -->
     <string name="health_archive_all">Archive them</string>
 </resources>

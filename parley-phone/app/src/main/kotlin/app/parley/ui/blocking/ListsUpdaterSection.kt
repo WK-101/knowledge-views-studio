@@ -79,7 +79,7 @@ fun ListsUpdaterSection(vm: AppViewModel) {
     fun report(id: String, r: SpamListStore.InstallResult) {
         when (r) {
             is SpamListStore.InstallResult.Installed -> vm.toast(
-                res.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name),
+                res.getString(if (r.replaced) R.string.label_updated else R.string.blk_list_added, r.pack.name),
             )
             is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer))
             is SpamListStore.InstallResult.Failed -> if ("different key" in r.reason) keyConflict = id to BlockingText.installFailure(context, r.reason) else vm.toast(BlockingText.installFailure(context, r.reason))
@@ -175,7 +175,7 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                 scope.launch { report(id, ListsUpdaterClient.copy(context, vm.c.lists, id, force = true)) }
             },
             onDismiss = { keyConflict = null },
-            dismissLabel = stringResource(R.string.blk_keep_mine),
+            dismissLabel = stringResource(R.string.action_keep_mine),
         )
     }
 }

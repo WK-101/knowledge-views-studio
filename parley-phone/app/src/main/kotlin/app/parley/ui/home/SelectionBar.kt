@@ -190,14 +190,14 @@ fun SelectionBar(vm: AppViewModel) {
             Modifier.fillMaxWidth().windowInsetsPadding(insets).heightIn(min = 64.dp).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
+            IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.action_clear_selection)) }
             Text(
                 pluralStringResource(R.plurals.sel_count, selection.size, selection.size),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
             IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll,
-                stringResource(R.string.watch_select_all)) }
+                stringResource(R.string.action_select_all)) }
             val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
             IconButton({
                 scope.launch { bulk.star(ids, !allStarred) }
@@ -236,7 +236,7 @@ fun SelectionBar(vm: AppViewModel) {
                 confirmVisible = false
                 val s = vm.settings.value
                 // Asks for the vault's unlock first when needed; nothing changes before it succeeds.
-                scope.launchVault(context as? ComponentActivity, { vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(context, it))) }) {
+                scope.launchVault(context as? ComponentActivity, { vm.toast(res.getString(R.string.label_couldnt_move, UserErrorText.of(context, it))) }) {
                     val made = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
                     vm.selection.value = emptySet()
                     vm.toast(madeVisibleText(res, made.made, made.redirectedTo))
@@ -263,7 +263,7 @@ fun SelectionBar(vm: AppViewModel) {
         ConfirmDialog(
             title = pluralStringResource(R.plurals.sel_delete_title, chosen.size, chosen.size),
             text = stringResource(R.string.sel_delete_body),
-            confirmLabel = stringResource(R.string.blk_delete),
+            confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 confirmDelete = false
                 val ids = chosen.map { it.id }
@@ -320,16 +320,16 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
     stringResource(
         when (a) {
             SelectionMenu.Action.EDIT -> R.string.be_menu
-            SelectionMenu.Action.MESSAGE_ALL -> R.string.lbl_message_all
-            SelectionMenu.Action.SHARE_FILE -> R.string.me_share_file
+            SelectionMenu.Action.MESSAGE_ALL -> R.string.action_message_all
+            SelectionMenu.Action.SHARE_FILE -> R.string.action_share_as_file
             SelectionMenu.Action.COPY_AS_TEXT -> R.string.ppl_copy_as_text
             SelectionMenu.Action.EXPORT_VCF -> R.string.sel_export_vcf
             SelectionMenu.Action.MERGE -> R.string.sel_merge
             SelectionMenu.Action.DELETE_AUTOMATICALLY -> R.string.contact_make_temporary
-            SelectionMenu.Action.MAKE_PRIVATE -> R.string.sel_move_private
+            SelectionMenu.Action.MAKE_PRIVATE -> R.string.action_make_private
             SelectionMenu.Action.MAKE_VISIBLE -> R.string.contact_make_visible
             SelectionMenu.Action.ARCHIVE -> R.string.archive_action
-            SelectionMenu.Action.DELETE -> R.string.blk_delete
+            SelectionMenu.Action.DELETE -> R.string.action_delete
         },
     ),
     selectionMenuIcon(a),

@@ -60,7 +60,7 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
+        FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.label_all)) })
         // Recall: the search widened to everything Parley remembers (calls, notes, deleted contacts…).
         if (query.isNotBlank()) SearchEverythingChip(vm)
         // The order, while it isn't by name.
@@ -72,7 +72,7 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         if (!vaultHidden) {
             FilterChip(
                 showVault, { vm.showVault.value = !showVault; vm.people.clearFilter() },
-                label = { Text(stringResource(R.string.archive_private_section)) },
+                label = { Text(stringResource(R.string.label_private)) },
                 leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(16.dp)) },
             )
         }
@@ -81,20 +81,20 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             Box {
                 FilterChip(
                     filter.account != null && !showVault, { menu = true },
-                    label = { Text(filter.account?.let { a -> stringResource(R.string.rst_with_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.ppl_chip_account)) },
+                    label = { Text(filter.account?.let { a -> stringResource(R.string.format_text_count, a, accounts.firstOrNull { it.first == a }?.second ?: 0) } ?: stringResource(R.string.label_account)) },
                     leadingIcon = { Icon(Icons.Rounded.AccountCircle, null, Modifier.size(16.dp)) },
                     trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(16.dp)) },
                 )
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem({ Text(stringResource(R.string.ppl_chip_all_accounts)) }, onClick = { menu = false; vm.people.setAccount(null) })
                     accounts.forEach { (label, n) ->
-                        DropdownMenuItem({ Text(stringResource(R.string.rst_with_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })
+                        DropdownMenuItem({ Text(stringResource(R.string.format_text_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })
                     }
                 }
             }
         }
         if (labels.isNotEmpty()) {
-            FilterChip(filter.unlabelled && !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.ppl_chip_unlabelled)) })
+            FilterChip(filter.unlabelled && !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.label_unlabelled)) })
         }
         if (filter.labels.size >= 2 && !showVault) {
             AssistChip(
@@ -105,7 +105,7 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         labels.forEach { title ->
             FilterChip(
                 title in filter.labels && !showVault, { vm.showVault.value = false; vm.people.toggleLabel(title) },
-                label = { Text(stringResource(R.string.rst_with_count, title, idx.labelCounts[title] ?: 0)) },
+                label = { Text(stringResource(R.string.format_text_count, title, idx.labelCounts[title] ?: 0)) },
             )
         }
         // Filters above, ways elsewhere below: a divider keeps a tap on "Labels" from reading as one more filter.
@@ -114,11 +114,11 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             val only = filter.labels.single()
             AssistChip(
                 onClick = { open(PeopleRoutes.label(only)) },
-                label = { Text(stringResource(R.string.fav_widget_open_name, only)) },
+                label = { Text(stringResource(R.string.action_open_named, only)) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(16.dp)) },
             )
         }
-        AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.blk_check_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
+        AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.label_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
         if (cityQuery == null) CityChip(vm, null, open)
         // Contacts that delete themselves: shown only when there are some.
         val temporary = rememberTemporaryItems(vm).size
@@ -138,7 +138,7 @@ private fun SearchEverythingChip(vm: AppViewModel) {
     val everything by vm.recall.everything.collectAsStateWithLifecycle()
     FilterChip(
         everything, { vm.recall.everything.value = !everything },
-        label = { Text(stringResource(R.string.recall_chip)) },
+        label = { Text(stringResource(R.string.action_search_everything)) },
         leadingIcon = { Icon(Icons.Rounded.ManageSearch, null, Modifier.size(16.dp)) },
     )
 }
@@ -154,7 +154,7 @@ private fun CityChip(vm: AppViewModel, city: String?, open: (Destination) -> Uni
             if (city != null) vm.c.extras.lastTripCity = city
             open(ExtrasRoutes.Trip)
         },
-        label = { Text(if (city != null) stringResource(R.string.trip_chip_query, city) else stringResource(R.string.discover_whos_in_title)) },
+        label = { Text(if (city != null) stringResource(R.string.trip_chip_query, city) else stringResource(R.string.label_whos_in)) },
         leadingIcon = { Icon(Icons.Rounded.LocationCity, null, Modifier.size(16.dp)) },
     )
 }

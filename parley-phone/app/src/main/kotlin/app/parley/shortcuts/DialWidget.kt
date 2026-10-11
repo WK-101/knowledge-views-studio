@@ -69,7 +69,7 @@ class DialWidget : AppWidgetProvider() {
             val icon = photo?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
                 ?: Shortcuts.monogram(name, 160)
             views.setImageViewBitmap(R.id.widget_photo, circle(icon))
-            views.setContentDescription(R.id.widget_root, context.getString(R.string.circle_call_who, name))
+            views.setContentDescription(R.id.widget_root, context.getString(R.string.action_call_named, name))
             val pi = WidgetTaps.activity(
                 context, WidgetTaps.Kind.DIAL, id, 0, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1), name),
             )

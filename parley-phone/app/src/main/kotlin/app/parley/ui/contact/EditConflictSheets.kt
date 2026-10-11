@@ -67,7 +67,7 @@ fun ChangedElsewhereSheet(
             }
         }
         Choice(
-            Icons.Rounded.Edit, stringResource(R.string.blk_keep_mine),
+            Icons.Rounded.Edit, stringResource(R.string.action_keep_mine),
             stringResource(if (gone) R.string.edit_changed_mine_new_sub else R.string.edit_changed_mine_sub), onMine,
         )
     }
@@ -88,23 +88,23 @@ private fun Choice(icon: ImageVector, title: String, sub: String, onClick: () ->
 @Composable
 private fun fieldLabel(f: Field): String = stringResource(
     when (f) {
-        Field.NAME -> R.string.agenda_share_search
-        Field.NICKNAME -> R.string.csv_field_nickname
-        Field.COMPANY -> R.string.cs_sort_company
-        Field.NOTE -> R.string.contact_page_kind_notes
+        Field.NAME -> R.string.label_name
+        Field.NICKNAME -> R.string.label_nickname
+        Field.COMPANY -> R.string.label_company
+        Field.NOTE -> R.string.label_notes
         Field.PHONES -> R.string.edit_field_phones
         Field.EMAILS -> R.string.edit_field_emails
-        Field.WEBSITES -> R.string.me_websites
-        Field.RELATIONS -> R.string.me_part_relations
+        Field.WEBSITES -> R.string.label_websites
+        Field.RELATIONS -> R.string.label_relations
         Field.ADDRESSES -> R.string.edit_field_addresses
         Field.EVENTS -> R.string.edit_important_dates
-        Field.HANDLES -> R.string.prov_field_handles
-        Field.LABELS -> R.string.blk_check_labels
+        Field.HANDLES -> R.string.label_messenger_handles
+        Field.LABELS -> R.string.label_labels
         Field.PRONOUNS -> R.string.edit_pronouns
-        Field.LANGUAGE -> R.string.detail_language
+        Field.LANGUAGE -> R.string.label_language
         Field.CUSTOM_FIELDS -> R.string.edit_custom_fields
         Field.NATIVE_NAME -> R.string.edit_native_name
-        Field.CITIZENSHIP -> R.string.detail_citizenship
+        Field.CITIZENSHIP -> R.string.label_citizenship
     },
 )
 
@@ -113,7 +113,7 @@ private fun fieldLabel(f: Field): String = stringResource(
 private fun MergeFieldsDialog(conflict: EditConflict, onMerge: (Map<Field, Side>) -> Unit, onDismiss: () -> Unit) {
     // Picks survive rotation: stored as the names of the fields that take "theirs".
     var theirs by rememberSaveable { mutableStateOf(emptyList<String>()) }
-    val empty = stringResource(R.string.edit_merge_empty)
+    val empty = stringResource(R.string.label_empty)
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_merge_title)) },
@@ -143,7 +143,7 @@ private fun MergeFieldsDialog(conflict: EditConflict, onMerge: (Map<Field, Side>
         confirmButton = {
             TextButton({
                 onMerge(conflict.conflicts.associate { c -> c.field to if (c.field.name in theirs) Side.THEIRS else Side.MINE })
-            }) { Text(stringResource(R.string.lbl_merge)) }
+            }) { Text(stringResource(R.string.action_merge)) }
         },
         dismissButton = { TextButton(onDismiss) { Text(kitStrings().cancel) } },
     )

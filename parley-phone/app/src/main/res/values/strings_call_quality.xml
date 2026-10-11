@@ -2,7 +2,7 @@
 <!-- The call quality diary: the Call insights "Quality" card and the number history's quality line. Patterns name
      the person, the SIM, Wi-Fi calling and the part of the day; Parley never knows where the phone was. -->
 <resources>
-    <string name="quality_title">Call quality</string>
+    <string name="label_call_quality">Call quality</string>
     <string name="quality_explainer">From what the network reported for your calls in the last 60 days. Patterns use who, which SIM, Wi-Fi calling and the time of day, never where you were.</string>
     <string name="quality_none_dropped">No dropped calls</string>
     <plurals name="quality_dropped_of">
@@ -15,7 +15,7 @@
     <!-- Patterns: "Calls with Mum often drop on SIM 2 in the evening" -->
     <string name="quality_patterns">Patterns</string>
     <string name="quality_subject_with">Calls with %1$s</string>
-    <string name="quality_subject_all">Calls</string>
+    <string name="label_calls">Calls</string>
     <string name="quality_pattern">%1$s often drop %2$s</string>
     <string name="quality_pattern_plain">%1$s often drop</string>
     <string name="quality_on_sim">on %1$s</string>

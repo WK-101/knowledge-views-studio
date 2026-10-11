@@ -44,9 +44,9 @@
     <string name="helpers_add">Add a helper</string>
     <string name="helpers_full">You have 3 helpers. Remove one to add another.</string>
     <string name="helpers_none">None yet</string>
-    <string name="helpers_private">Private contact</string>
+    <string name="label_private_contact">Private contact</string>
     <string name="helpers_pick_number">Which number?</string>
-    <string name="helpers_search">Search contacts</string>
+    <string name="action_search_contacts">Search contacts</string>
 
     <!-- Settings › Blocking & spam › Expecting a call from your notes -->
     <string name="expected_intro">Let unknown numbers ring for a while, even in off hours or with non-contacts blocked, when:</string>

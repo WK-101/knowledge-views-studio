@@ -258,7 +258,7 @@ fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val privates = privateArchived(vm)
     val unarchiving = rememberUnarchiving(vm)
 
-    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.archive_title_screen), onBack = back) }) { p ->
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_archived), onBack = back) }) { p ->
         if (cards.isEmpty() && privates.isEmpty()) {
             EmptyState(Icons.Rounded.Archive, stringResource(R.string.archive_empty_title), stringResource(R.string.archive_empty_text), Modifier.padding(p))
             return@ParleyScaffold
@@ -286,7 +286,7 @@ private fun ArchivedRow(vm: AppViewModel, card: ArchivedCard, open: (Destination
     val number = card.numbers.firstOrNull()
     val line = listOfNotNull(
         number?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
-        stringResource(R.string.archive_row_when, DateUtils.formatDateTime(context, card.archivedAt, DATE_FLAGS)),
+        stringResource(R.string.label_archived_when, DateUtils.formatDateTime(context, card.archivedAt, DATE_FLAGS)),
     ).joinToString(stringResource(R.string.main_separator))
     val unarchiveLabel = stringResource(R.string.archive_unarchive_for, card.name)
     ParleyListItem(
@@ -305,7 +305,7 @@ private fun ArchivedRow(vm: AppViewModel, card: ArchivedCard, open: (Destination
 /** The archived private contacts under their own header, each with Unarchive (back among the private contacts). */
 private fun LazyListScope.privateArchivedSection(vm: AppViewModel, privates: List<VaultSummary>, open: (Destination) -> Unit) {
     if (privates.isEmpty()) return
-    item(key = "private") { ListSectionHeader(stringResource(R.string.archive_private_section)) }
+    item(key = "private") { ListSectionHeader(stringResource(R.string.label_private)) }
     items(privates, key = { "p${it.id}" }) { v ->
         val res = LocalContext.current.resources
         PrivateArchivedRow(vm, v, open) {
@@ -324,7 +324,7 @@ private fun PrivateArchivedRow(vm: AppViewModel, v: VaultSummary, open: (Destina
     val number = v.numbers.firstOrNull()
     val line = listOfNotNull(
         number?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
-        v.archivedAt?.let { stringResource(R.string.archive_row_when, DateUtils.formatDateTime(context, it, DATE_FLAGS)) },
+        v.archivedAt?.let { stringResource(R.string.label_archived_when, DateUtils.formatDateTime(context, it, DATE_FLAGS)) },
     ).joinToString(stringResource(R.string.main_separator))
     val unarchiveLabel = stringResource(R.string.archive_unarchive_for, v.name)
     // The photo file is looked at off the main thread.

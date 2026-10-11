@@ -40,10 +40,10 @@ object CircleText {
 
     fun type(res: Resources, t: InteractionType): String = res.getString(
         when (t) {
-            InteractionType.MEET -> R.string.circle_type_meet
-            InteractionType.MESSAGE -> R.string.circle_type_message
-            InteractionType.VIDEO -> R.string.circle_type_video
-            InteractionType.OTHER -> R.string.circle_type_other
+            InteractionType.MEET -> R.string.label_met
+            InteractionType.MESSAGE -> R.string.action_message
+            InteractionType.VIDEO -> R.string.label_video_call
+            InteractionType.OTHER -> R.string.label_other
         },
     )
 
@@ -66,9 +66,9 @@ object CircleText {
 
     fun mode(res: Resources, m: LogMode): String = res.getString(
         when (m) {
-            LogMode.ALWAYS -> R.string.blk_always
+            LogMode.ALWAYS -> R.string.label_always
             LogMode.ASK -> R.string.circle_mode_ask
-            LogMode.NEVER -> R.string.blk_sched_never
+            LogMode.NEVER -> R.string.label_never
         },
     )
 
