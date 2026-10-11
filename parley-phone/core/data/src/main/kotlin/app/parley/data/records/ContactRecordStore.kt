@@ -22,6 +22,7 @@ import app.parley.common.Hex
 import app.parley.common.backup.RecordJson
 import app.parley.common.people.Batches
 import app.parley.common.people.CustomFields
+import app.parley.common.people.NumberOrigin
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.ContentDiff
@@ -56,6 +57,36 @@ data class InsertResult(val contactId: Long?, val error: String? = null, val raw
  */
 class ContactRecordStore(private val context: Context) {
     private val cr: ContentResolver = context.contentResolver
+
+    /** Where the numbers being written came from, set around a write by [writing] (the write blocks on this thread). */
+    private val origin = ThreadLocal<NumberOrigin?>()
+
+    /**
+     * Told the numbers each write puts on contacts, and where they came from, just before it writes them (the number
+     * passport, so its next look at the address book doesn't take Parley's own write for another app's).
+     */
+    @Volatile var numbersWritten: ((numbers: List<String>, origin: NumberOrigin) -> Unit)? = null
+
+    /** Runs the writes in [block] as coming from [from] (an import, a restore, a shared label); otherwise they count as yours. */
+    fun <T> writing(from: NumberOrigin, block: () -> T): T {
+        val before = origin.get()
+        origin.set(from)
+        try {
+            return block()
+        } finally {
+            origin.set(before)
+        }
+    }
+
+    /** Tells [numbersWritten] about rows a caller writes itself (a restore adding rows to an existing contact). */
+    fun note(rows: List<DataRow>, from: NumberOrigin) = noteNumbers(rows, from)
+
+    private fun noteNumbers(rows: List<DataRow>, from: NumberOrigin? = null) {
+        val hook = numbersWritten ?: return
+        val numbers = rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1]?.takeIf(String::isNotBlank) }
+        // The passport is a safety aid: a write never fails because it couldn't be noted.
+        if (numbers.isNotEmpty()) runCatching { hook(numbers, from ?: origin.get() ?: NumberOrigin.YOU) }
+    }
 
     data class GroupRef(val id: Long, val title: String?, val account: AccountRef, val system: Boolean)
 
@@ -330,6 +361,7 @@ class ContactRecordStore(private val context: Context) {
         /** False when the caller tells the user itself where Android 16 put them (else [DeviceAccounts.redirects]). */
         announceRedirect: Boolean = true,
     ): List<InsertResult> {
+        noteNumbers(records.flatMap { r -> r.raws.flatMap { it.rows } })
         val results = arrayOfNulls<InsertResult>(records.size)
         // Never write into a SIM, messenger or read-only account, whatever the caller picked; and on Android 16 not
         // into the phone while the user's default is a cloud account (Android refuses it), but into that account.
@@ -634,6 +666,7 @@ class ContactRecordStore(private val context: Context) {
             ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).build()
         }
         plan.deletes.forEach { id -> ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build() }
+        noteNumbers(plan.inserts)
         ops += ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId))
             .withValue(Contacts.STARRED, if (record.starred) 1 else 0)
             .withValue(Contacts.SEND_TO_VOICEMAIL, if (record.sendToVoicemail) 1 else 0)

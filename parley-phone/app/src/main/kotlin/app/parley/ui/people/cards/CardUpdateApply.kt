@@ -1,5 +1,6 @@
 package app.parley.ui.people.cards
 
+import app.parley.common.people.NumberOrigin
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
@@ -119,7 +120,10 @@ object CardUpdateApply {
         val links = c.people.cardLinks
         if (chosen.isNotEmpty()) {
             val ref = ContactRef.ofNavId(navId) ?: return Outcome.FAILED
-            if (request(c, ref, chosen, region)?.let { SaveContactUseCase(c)(it) } !is SaveContactUseCase.Outcome.Saved) return Outcome.FAILED
+            val request = request(c, ref, chosen, region) ?: return Outcome.FAILED
+            // A signed update from the person, checked: its numbers are trusted like your own.
+            c.contacts.passport.hint(request.draft.phones.map { it.value }, NumberOrigin.CARD)
+            if (SaveContactUseCase(c)(request) !is SaveContactUseCase.Outcome.Saved) return Outcome.FAILED
         }
         // The key may have changed with the save (a device contact's name is part of some lookup keys): settle by card id.
         val cardId = links.book.value.links[key]?.cardId

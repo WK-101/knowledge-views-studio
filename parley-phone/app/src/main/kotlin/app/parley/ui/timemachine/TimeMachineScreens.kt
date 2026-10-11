@@ -1,5 +1,6 @@
 package app.parley.ui.timemachine
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.suspendRunCatching
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
@@ -149,7 +150,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                     chosen = null
                     scope.launch {
                         vm.c.contacts.delete(listOf(contactId)) // journaled
-                        val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
+                        val id = restoreRecord(vm, rec)
                         vm.toast(res.getString(R.string.tm_restored_version))
                         back()
                         id?.let { open(Routes.contact(it)) }
@@ -160,7 +161,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
                 TextButton({
                     chosen = null
                     scope.launch {
-                        val id = withContext(Dispatchers.IO) { vm.c.records.insert(rec, target = null) }
+                        val id = restoreRecord(vm, rec)
                         vm.toast(res.getString(R.string.tm_saved_copy))
                         id?.let { open(Routes.contact(it)) }
                     }
@@ -214,7 +215,9 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
                             r.displayName, null,
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },
                             trailingContent = {
-                                TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.label_restored, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }
+                                TextButton({
+                                    scope.launch { restoreRecord(vm, r); vm.toast(res.getString(R.string.label_restored, r.displayName)); round++ }
+                                }) { Text(stringResource(R.string.dc_restore)) }
                             },
                         )
                     }
@@ -254,3 +257,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
 }
 
 private class Loaded(val diff: SnapshotDiff?)
+
+/** Puts a contact from a snapshot back; its numbers count as restored (the number passport). */
+private suspend fun restoreRecord(vm: AppViewModel, record: ContactRecord): Long? =
+    withContext(Dispatchers.IO) { vm.c.records.let { s -> s.writing(NumberOrigin.RESTORED) { s.insert(record, target = null) } } }

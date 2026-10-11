@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.people.NumberStamp
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -59,6 +60,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
@@ -326,6 +328,22 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 NumberAdviceUi(dead, tip)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), NumberAdviceUi())
+
+    /**
+     * Where each of their numbers came from (the number passport), by number as saved: only numbers that arrived after
+     * Parley started keeping track. Empty for a private contact (only Parley writes those) and during a duress unlock.
+     */
+    val numberOrigins: StateFlow<Map<String, NumberStamp>> =
+        combine(phones, loaded.map { it?.ref is ContactRef.Private }.distinctUntilChanged(), c.contacts.passport.state) { mine, private, s ->
+            if (private || mine.isEmpty() || c.privacy.now().hiding) {
+                emptyMap()
+            } else {
+                mine.mapNotNull { n -> s.stamps[c.contacts.passport.line(n).key]?.let { n to it } }.toMap()
+            }
+        }
+            .onStart { suspendRunCatching { c.contacts.passport.load() } }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyMap())
 
     /** "Use SIM 2 for Ana" ([accept]) or its dismissal; either way it isn't suggested again. */
     fun answerSimTip(tip: NumberSignals.SimTip, accept: Boolean) = launch {

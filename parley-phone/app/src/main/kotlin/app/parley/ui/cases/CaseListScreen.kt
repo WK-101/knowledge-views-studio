@@ -135,7 +135,9 @@ private fun CaseRow(vm: AppViewModel, case: CaseFile, onOpen: () -> Unit) {
     val last = summary?.lastCallAt?.let { Format.shortWhen(context, it) }
         ?.let { pluralStringResource(R.plurals.case_calls_last, summary.calls, summary.calls, it) }
     val promises = summary?.openPromises?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.case_open_promises, it, it) }
-    val line = listOfNotNull(status, last, promises).joinToString(sep)
+    val res = LocalResources.current
+    val waits = rememberQueueMemory(timeline)?.let { stringResource(R.string.queue_waits, waitRange(res, it)) }
+    val line = listOfNotNull(status, last, waits, promises).joinToString(sep)
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.case_open), onClick = onOpen),
         leadingContent = { Icon(Icons.Rounded.FolderOpen, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },

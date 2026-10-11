@@ -1,5 +1,6 @@
 package app.parley.data.sync
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.storage.DurableFiles
 import app.parley.data.people.IcuCalendars
 import android.Manifest
@@ -817,7 +818,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                     taken += match
                     rep = rep.copy(linked = rep.linked + 1)
                 } else {
-                    val id = records.insert(remote, target = null) ?: continue
+                    val id = records.writing(NumberOrigin.SYNC) { records.insert(remote, target = null) } ?: continue
                     val h = headOf(id) ?: continue
                     val rec = readOne(h) ?: continue
                     state[name] = entryFor(h, sha(d.vcard), localHash(rec), file.stamp, d.version, h.updatedAt)
@@ -880,9 +881,9 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         contacts.recordChange(listOf(id), "EDIT")
         val (target, writable) = contacts.writableRaws(id)
         return if (target != null) {
-            if (!records.replaceContent(id, remote, target, writable)) null else id
+            if (!records.writing(NumberOrigin.SYNC) { records.replaceContent(id, remote, target, writable) }) null else id
         } else {
-            val newId = records.insert(remote, target = null) ?: return null
+            val newId = records.writing(NumberOrigin.SYNC) { records.insert(remote, target = null) } ?: return null
             runCatching { contacts.delete(listOf(id)) }
             newId
         }

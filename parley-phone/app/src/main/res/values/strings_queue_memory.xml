@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Queue memory: what a case file's hold times say about calling them. %2$s is a wait such as "6–25 min". -->
+    <string name="case_queue_title">Hold times</string>
+    <plurals name="queue_memory_waited">
+        <item quantity="one">Your last %1$d call waited %2$s</item>
+        <item quantity="other">Your last %1$d calls waited %2$s</item>
+    </plurals>
+    <string name="queue_range">%1$d–%2$d min</string>
+    <string name="queue_about">about %1$d min</string>
+    <string name="queue_best_before">Shortest before %1$s</string>
+    <string name="queue_best_before_weekdays">Shortest before %1$s on weekdays</string>
+    <string name="queue_best_after">Shortest after %1$s</string>
+    <string name="queue_best_after_weekdays">Shortest after %1$s on weekdays</string>
+    <!-- On the case list: the wait range alone. -->
+    <string name="queue_waits">Waits %1$s</string>
+    <string name="queue_remind">Remind me at %1$s</string>
+    <string name="queue_reminded">On your To call list for %1$s</string>
+    <string name="queue_remind_failed">Couldn\'t add it to To call for %1$s. Try again in a moment.</string>
+</resources>

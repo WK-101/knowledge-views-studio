@@ -47,6 +47,7 @@ import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
 import app.parley.common.record.WorkRow
+import app.parley.data.people.NumberPassportStore
 import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -857,8 +858,26 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             w.photo(original, target.rawId, photo != null, removePhoto)
 
             val results = applySave(ops, versioned, expected, original)
-            finishSave(original, target, results, w.changed, photo)?.also { r -> if (announceRedirect) r.redirectedTo?.let(DeviceAccounts::noteRedirect) }
+            finishSave(original, target, results, w.changed, photo)?.also { r ->
+                if (announceRedirect) r.redirectedTo?.let(DeviceAccounts::noteRedirect)
+                notePassport(r.contactId, original, edited)
+            }
         }
+
+    /** The number passport: numbers this save added are stamped as yours (or where the editor's details came from). */
+    private suspend fun notePassport(contactId: Long, original: ContactDetails?, edited: ContactDetails) {
+        val before = original?.phones.orEmpty().map { it.value }
+        val after = edited.phones.map { it.value }
+        if (before == after) return
+        try {
+            val key = lookupKeyOf(contactId)?.takeIf { it.isNotEmpty() } ?: return
+            passport.saved(key, before, after)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // A safety aid: a save never fails because it couldn't be noted (the next sweep asks "Why did this change?").
+        }
+    }
 
     /**
      * Where a save writes: the raw contact being edited ([rawId]), or a new one this batch creates first (an insert
@@ -954,6 +973,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */
     val writeLog by lazy { ParleyWriteLog(context) }
+
+    /** Where each saved number came from ([NumberPassportStore]). */
+    val passport by lazy { NumberPassportStore(context) }
 
     private fun fieldName(mime: String): String = FIELD_NAMES[mime] ?: "Other"
 

@@ -100,6 +100,7 @@ internal class CallUiMapper(
             driving = drivingNow(state),
             handOff = handOffFacts(call),
             neverCallsYou = neverCalls(s, call, number, hidden),
+            freshNumber = freshOf(s, call, number, hidden),
             networkName = networkNameOf(s, found, d, hidden),
             networkNameUnderSaved = networkNameUnderSaved(s, found, hidden),
         ).withRangThrough(s)
@@ -141,6 +142,10 @@ internal class CallUiMapper(
     /** "This number never calls you": only for an organisation the lookup found; never an emergency call. */
     private fun neverCalls(s: CallSession, call: Call, number: String?, hidden: Boolean) =
         s.neverCallsYou && s.info != null && !hidden && !emergency.isCall(call, number)
+
+    /** The fresh-number line: only for a contact the lookup found; never an emergency call. */
+    private fun freshOf(s: CallSession, call: Call, number: String?, hidden: Boolean) =
+        s.freshNumber?.takeIf { s.info != null && !hidden && !emergency.isCall(call, number) }
 
     /** The personal-reputation tag, for an unknown, visible, non-emergency caller only. */
     private fun reputationTag(s: CallSession, call: Call, number: String?, hidden: Boolean) =

@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.people.NumberOrigin
 import app.parley.common.catching
 import app.parley.ui.Spacing
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -600,8 +601,12 @@ private fun EditorHeader(
             Box(Modifier.padding(start = FormTokens.gutter, top = 4.dp)) {
                 PasteDetailsEntry(
                     vm, args.pasteText,
-                    onFill = { fields -> form.update { PasteFill.into(it, fields) } },
+                    onFill = { fields ->
+                        vm.numbersFrom(PasteFill.details(fields).phones.map { it.value }, NumberOrigin.PASTED)
+                        form.update { PasteFill.into(it, fields) }
+                    },
                     onAddTo = { id, fields ->
+                        vm.numbersFrom(PasteFill.details(fields).phones.map { it.value }, NumberOrigin.PASTED)
                         // What was typed goes along with the pasted details.
                         vm.pendingPrefill = PasteFill.into(editor.draft ?: d, fields)
                         done(null)

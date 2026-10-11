@@ -1,5 +1,6 @@
 package app.parley.data.sync.shared
 
+import app.parley.common.people.NumberOrigin
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
@@ -99,12 +100,12 @@ class ProviderLabelContacts(
         contacts.recordChange(listOf(id), "EDIT")
         val (target, writable) = contacts.writableRaws(id)
         if (target == null) return@withContext null
-        if (records.replaceContent(id, merged, target, writable)) id else null
+        if (records.writing(NumberOrigin.SHARED_LABEL) { records.replaceContent(id, merged, target, writable) }) id else null
     }
 
     override suspend fun import(title: String, card: ContactRecord): Long? = withContext(Dispatchers.IO) {
         val account = labels.label(title)?.groups?.firstOrNull()?.account ?: defaultAccount()
-        records.insert(SharedCards.forImport(card, title), target = account)
+        records.writing(NumberOrigin.SHARED_LABEL) { records.insert(SharedCards.forImport(card, title), target = account) }
     }
 
     override suspend fun addToLabel(title: String, id: Long): Boolean {

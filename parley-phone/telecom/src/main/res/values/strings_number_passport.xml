@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The fresh-number warning: a saved contact calls from a number added or changed recently, not by you. -->
+    <string name="fresh_number_title_today">New number, added today</string>
+    <plurals name="fresh_number_title">
+        <item quantity="one">New number, added %1$d day ago</item>
+        <item quantity="other">New number, added %1$d days ago</item>
+    </plurals>
+    <string name="fresh_number_from_pasted">It came from pasted text</string>
+    <string name="fresh_number_from_scanned">It came from a scanned code</string>
+    <string name="fresh_number_from_imported">It came with an import</string>
+    <string name="fresh_number_from_handed_over">Another app handed it to Parley</string>
+    <string name="fresh_number_from_shared_label">A shared label member sent it</string>
+    <string name="fresh_number_from_other_app">Another app changed this contact</string>
+    <string name="fresh_number_from_sync">It came in with a sync</string>
+    <string name="fresh_number_body_older">%1$s, not from you. If anything feels off, call their older number.</string>
+    <string name="fresh_number_body_check">%1$s, not from you. If anything feels off, check it\'s really them.</string>
+    <string name="fresh_number_call_older">Call their older number</string>
+</resources>

@@ -1,5 +1,6 @@
 package app.parley.data.archive
 
+import app.parley.common.people.NumberOrigin
 import android.util.Base64
 import android.util.Log
 import app.parley.common.PhoneIdentity
@@ -213,7 +214,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     suspend fun unarchive(id: Long, into: AccountRef? = null): Unarchived = withContext(Dispatchers.IO) {
         val card = all().firstOrNull { it.id == id } ?: return@withContext Unarchived.NotWritten
         val record = readRecord(id) ?: return@withContext Unarchived.NotWritten
-        val result = c.records.insertAll(listOf(record), target = into, announceRedirect = false).single()
+        val result = c.records.writing(NumberOrigin.RESTORED) { c.records.insertAll(listOf(record), target = into, announceRedirect = false) }.single()
         val newId = result.contactId
         if (newId == null) {
             if (result.rawIds.isNotEmpty()) catching { c.contacts.discardInserted(result.rawIds) }

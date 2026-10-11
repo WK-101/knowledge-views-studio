@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.people.NumberOrigin
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Application
@@ -135,8 +136,11 @@ sealed interface UiEvent {
 sealed interface NavEvent {
     data class Contact(val id: Long) : NavEvent
     data class History(val number: String) : NavEvent
-    data class NewContact(val prefill: ContactDetails) : NavEvent
-    data class InsertOrEdit(val prefill: ContactDetails) : NavEvent
+
+    /** A new contact's editor filled with [prefill]; [origin]: where its numbers came from (another app, unless scanned). */
+    data class NewContact(val prefill: ContactDetails, val origin: NumberOrigin = NumberOrigin.HANDED_OVER) : NavEvent
+
+    data class InsertOrEdit(val prefill: ContactDetails, val origin: NumberOrigin = NumberOrigin.HANDED_OVER) : NavEvent
 
     /** A vCard to import; [keep] are the flags ticked back on for a scanned card (ScannedCard). */
     data class ImportVcf(val uri: Uri, val keep: Set<app.parley.common.qr.ScannedCard.Flag> = emptySet()) : NavEvent
@@ -185,6 +189,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Draft handed to the editor by other apps (Insert extras) or "add to contact" flows. */
     var pendingPrefill: ContactDetails? = null
+
+    /**
+     * [numbers] are about to be put in the editor from [origin] (pasted text, a scanned code, another app): if saved,
+     * the number passport says so, and a call from one soon after says where it came from.
+     */
+    fun numbersFrom(numbers: List<String>, origin: NumberOrigin) {
+        if (numbers.isNotEmpty()) runCatching { c.contacts.passport.hint(numbers, origin) }
+    }
 
     private var hasCallLogPermission = false
 

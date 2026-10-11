@@ -23,6 +23,7 @@ import app.parley.data.calls.ReputationLearner
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.blocking.SpamListWorker
 import app.parley.common.people.TemporaryDue
+import app.parley.data.people.NumberPassportSweep
 import app.parley.data.people.TemporaryContactStore
 import app.parley.ui.common.ImageExport
 import app.parley.ui.contact.ContactCamera
@@ -157,6 +158,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
             step("lookup keys") { c.contactKeys.sweep() }
+            // Where each saved number came from, for the fresh-number warning (also kept up to date while the app runs).
+            step("number passport") { NumberPassportSweep.run(c); true }
             // Values stored plain while the records key couldn't be used are sealed once it can.
             step("record sealing") { if (!c.recordSealing.done) c.recordSealing.runIfNeeded() }
             // 1-2. Temporary contacts whose time is up: with "Ask before deleting temporary contacts" (the default)

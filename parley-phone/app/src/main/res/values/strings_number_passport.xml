@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The number passport: beside each number on a contact's page, where it came from (then when, after a separator). -->
+    <string name="number_origin_you">Added by you</string>
+    <string name="number_origin_card">From their card</string>
+    <string name="number_origin_restored">Restored</string>
+    <string name="number_origin_pasted">From pasted text</string>
+    <string name="number_origin_scanned">From a scanned code</string>
+    <string name="number_origin_imported">Imported</string>
+    <string name="number_origin_handed_over">From another app</string>
+    <string name="number_origin_shared_label">From a shared label</string>
+    <string name="number_origin_other_app">Changed by another app</string>
+    <string name="number_origin_sync">Came with a sync</string>
+    <string name="number_origin_unknown">Changed outside Parley</string>
+</resources>

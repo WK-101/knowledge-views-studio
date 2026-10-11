@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.people.NumberOrigin
 import android.util.Base64
 import app.parley.common.catching
 import app.parley.common.backup.PhotoRefs
@@ -101,7 +102,7 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
             val bytes = blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { catching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() } ?: kept[hash]
             bytes?.takeIf { RecordJson.sha256Hex(it) == hash }
         }
-        val id = records.insert(record, target = null)
+        val id = records.writing(NumberOrigin.RESTORED) { records.insert(record, target = null) }
         if (id != null) dao.markRestored(entryId)
         return id
     }

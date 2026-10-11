@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.common.people.NumberOrigin
 import app.parley.ui.Clipboard
 import app.parley.ui.sync.shared.SharedLabelInbox
 import app.parley.jobs.UserErrorText
@@ -281,11 +282,16 @@ fun forgetScannedCard(context: Context, uri: Uri) {
  * Writes [vcard] to the share folder so the importer can read it (all cards, every field). [keep] are the flags the
  * user ticked on: the importer leaves the rest out of a plain card ([app.parley.common.vcard.ImportGuard]).
  */
+/** A vCard's telephone line ("TEL;TYPE=CELL:+44 …"): its number. */
+private val TEL_LINE = Regex("^TEL[^:\\r\\n]*:(.+)$", setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE))
+
 private fun importVcard(context: Context, vm: AppViewModel, vcard: String, keep: Set<ScannedCard.Flag>) {
     runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val f = File(dir, SCANNED_CARD)
         f.writeText(vcard)
+        // The card's numbers came from the code, whichever way the import saves them.
+        vm.numbersFrom(TEL_LINE.findAll(vcard).map { it.groupValues[1].trim() }.filter { it.isNotEmpty() }.toList(), NumberOrigin.SCANNED)
         vm.navigate(NavEvent.ImportVcf(FileProvider.getUriForFile(context, context.packageName + ".files", f), keep))
     }.onFailure { vm.toast(context.getString(R.string.qs_import_failed)) }
 }
@@ -416,7 +422,7 @@ private fun ColumnScope.ContactCard(
     Action(stringResource(R.string.action_add_to_contacts), Icons.Rounded.PersonAdd, primary = true) {
         // The editor shows the duplicate warning when the number or name is already saved.
         onDismiss()
-        vm.navigate(NavEvent.NewContact(details))
+        vm.navigate(NavEvent.NewContact(details, NumberOrigin.SCANNED))
     }
     Action(stringResource(R.string.qs_add_private), Icons.Rounded.Lock) {
         scope.launchVault(context as? ComponentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
@@ -451,6 +457,7 @@ private fun ColumnScope.ContactCard(
     }
     Action(stringResource(R.string.qs_update_existing), Icons.Rounded.Edit) {
         onDismiss()
+        vm.numbersFrom(details.phones.map { it.value }, NumberOrigin.SCANNED)
         vm.pendingPrefill = details
         open(Routes.pick(Routes.PREFILL_MARK))
     }
@@ -517,7 +524,8 @@ private fun ColumnScope.NumberActions(vm: AppViewModel, number: String, onDismis
     Action(stringResource(R.string.contact_page_sec_messengers), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
     Action(stringResource(R.string.action_add_to_contacts), Icons.Rounded.PersonAdd) {
         onDismiss()
-        vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
+        val prefill = ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))
+        vm.navigate(NavEvent.NewContact(prefill, NumberOrigin.SCANNED))
     }
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false })
 }
@@ -681,7 +689,10 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
         Action(stringResource(R.string.qs_save_contact), Icons.Rounded.PersonAdd) {
             onDismiss()
             vm.navigate(
-                NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))),
+                NavEvent.NewContact(
+                    ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE))),
+                    NumberOrigin.SCANNED,
+                ),
             )
         }
         if (app in setOf(QrApp.WHATSAPP, QrApp.SIGNAL, QrApp.TELEGRAM, QrApp.VIBER, QrApp.ZALO)) {

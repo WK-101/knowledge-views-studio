@@ -98,6 +98,11 @@ journal and the six-month time-machine snapshots) are sealed with AES-GCM under 
 a Keystore key, like the call-history archive. Rows written by older versions are re-sealed once, in the background;
 until then they stay readable. Backups contain the decrypted text inside the already encrypted backup.
 
+The number passport (where each saved number came from, for the fresh-number warning; docs/CONTACT_MODEL.md) is a
+sealed document of its own under the same key, so the ring path can read it while the phone is locked. It holds the
+contacts' numbers and lookup keys, stays on this phone (not in backups or transfers) and never holds private contacts'
+numbers. A document that can't be opened is never overwritten and warns about nothing.
+
 ## Backups
 
 - **Envelope.** STREAM construction over AES-256-GCM, 64 KiB segments, the header as associated data of every segment
@@ -296,6 +301,7 @@ on the call screen. And, beyond discreet mode (`Concealed`):
 - **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
   call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
   read (`NumberMemory.concealNotes`), not only where the notes are.
+- **Where a number came from**, beside each number on a contact's page (the number passport).
 - **Family safe words**: none shows, not even which labels have one. One set during the hiding shows as set; one set
   for a label that already has one shows instead of it, in memory, and never replaces it (see below).
 - **My card › Shared with**: every entry, not only private contacts' (who you gave your number to can matter as much).
@@ -497,6 +503,9 @@ see your contacts" says so on Android 17 and later.
 - **Call screen.** "Caller on the lock screen" is *Name* by default: the name shows while the phone is locked, but the
   pinned note for calls, "Who is this?" and the last call wait until it is unlocked (anyone can ring a locked phone).
   *Name and notes* shows them as before; *Initials* and *Just "Incoming call"* show less.
+- **Fresh-number line.** "New number, added 3 days ago" names nobody and says only where the number came from, so,
+  like "This number never calls you", it stays on the lock screen. **Call their older number** asks for the unlock,
+  and the older number is never shown on the call screen, only dialled.
 - **Widgets.** With the app lock on, the Circle and Favourites widgets show counts instead of names while the phone
   **or Parley** is locked, not only while the phone is locked. They redraw when Parley locks, when the phone is
   unlocked, and when Parley's lock delay runs out after you leave it: a one-time background job set for that moment

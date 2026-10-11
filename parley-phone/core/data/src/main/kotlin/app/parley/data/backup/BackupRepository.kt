@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.common.people.NumberOrigin
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
@@ -658,7 +659,7 @@ class BackupRepository(
             // Photos come back a chunk at a time, only for the contacts written.
             news.chunked(200).forEach { light ->
                 val chunk = light.map { PhotoRefs.filled(it, opened.reader::photo) }
-                records.insertAll(chunk, target = null).forEach { res ->
+                records.writing(NumberOrigin.RESTORED) { records.insertAll(chunk, target = null) }.forEach { res ->
                     insertedRaws += res.rawIds
                     if (res.contactId != null) added++ else r = r.copy(failed = r.failed + 1)
                 }
@@ -791,7 +792,7 @@ class BackupRepository(
             row.values.forEach { (k, v) -> if (k.startsWith("data") && k.removePrefix("data").toIntOrNull() in 1..14) b.withValue(k, v) }
             ops += b.build()
         }
-        if (ops.isEmpty()) return 0
+        if (ops.isEmpty()) return 0 else records.note(rows, NumberOrigin.RESTORED)
         return try {
             cr.applyBatch(ContactsContract.AUTHORITY, ops)
             ops.size

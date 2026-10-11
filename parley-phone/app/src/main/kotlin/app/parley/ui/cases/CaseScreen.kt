@@ -83,6 +83,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val ownerKey by produceState<String?>(null, case?.numbers) { value = case?.let { CaseData.ownerKey(vm, it.numbers) } }
     val owner = case?.let { CaseOwner(it.name, it.numbers, it.private, ownerKey) }
     val timeline = owner?.let { rememberCaseTimeline(vm, case, it) }
+    val queue = rememberQueueMemory(timeline)
     val st = remember { CaseScreenState() }
     ParleyScaffold(
         snackbarHost = { ScreenSnackbarHost() },
@@ -101,6 +102,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
             }
             item(key = "status") { CaseStatusRow(vm, case) }
             if (timeline != null) summary(timeline)
+            if (queue != null) item(key = "queue") { QueueMemorySection(vm, case.numbers.firstOrNull(), queue) }
             references(vm, case) { st.adding = true }
             if (timeline != null) timeline(timeline)
         }

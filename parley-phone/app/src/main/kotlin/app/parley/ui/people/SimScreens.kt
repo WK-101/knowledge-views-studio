@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.common.people.NumberOrigin
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -229,7 +230,9 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                             val chosen = entries.orEmpty().filterIndexed { i, _ -> i in picked }
                             busy = true
                             scope.launch {
-                                val results = withContext(Dispatchers.IO) { vm.c.records.insertAll(chosen.map(::recordOf), a) }
+                                val results = withContext(Dispatchers.IO) {
+                                    vm.c.records.let { s -> s.writing(NumberOrigin.IMPORTED) { s.insertAll(chosen.map(::recordOf), a) } }
+                                }
                                 val ok = results.count { it.contactId != null }
                                 vm.c.contacts.refresh()
                                 busy = false
