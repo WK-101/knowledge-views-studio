@@ -113,6 +113,9 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         selection.value = emptySet()
     }
 
+    /** The call whose actions sheet is open: set from the selection bar's ⋮, which lives in the home top bar. */
+    val actionsFor = MutableStateFlow<RecentGroup?>(null)
+
     /**
      * "Delete from call history" on a row: its calls in the log (and archive) and its private calls. [done] gets the
      * number of calls and the way back, for the snackbar's Undo.

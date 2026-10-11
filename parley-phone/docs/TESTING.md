@@ -3315,3 +3315,16 @@ Automated: `UiSmokeTest` now runs `A11yChecks` on every tab, the contact page an
 2. Archived contacts after an id is used again: archive Ada, unarchive her, archive Bo (he gets the id Ada had). Force-stop Parley and have Bo's number call: the incoming screen and Recents show Bo, never Ada.
 3. Renamed string keys: open Recents, a contact page, the editor (Add field, Remove a citizenship, Delete), Settings › Blocking and the Discover list. Every label reads as before 6.5's review (Remove, Open, Call, Share, Name, Today…); no screen shows a resource name or an empty label.
 4. Dependency verification: on a machine with an empty Gradle cache, `GRADLE_USER_HOME=$(mktemp -d) ./gradlew --no-daemon assembleDebug` downloads, verifies and builds without a verification failure.
+
+## 49. Owner corrections (6.5)
+
+### 49.1 One selection bar
+Automated: `SelectionBarTest` (Contacts, Recents and merging labels use core/ui's `SelectionTopBar`; no list draws a selection panel of its own or says "N selected" itself) (app).
+1. Contacts: long-press a contact. The top bar turns into the selection bar: Close, "1 selected", Select all, Star and ⋮. Back (gesture or button) ends the selection; so does Close.
+2. Recents: long-press a call. The same bar takes the top bar's place, in the same colour and height; nothing appears under it above the chips. Its actions are Block, Delete and, with one call selected, ⋮ (that call's actions).
+3. In Recents select an unknown number and a saved contact, tap Block: the confirmation lists only the unknown number and names the contact as not blocked. Block, then Undo on the snackbar.
+4. Select two calls and tap Delete: both leave the list, and Undo on the snackbar brings them back.
+5. With a Recents selection open, press Back: the selection ends and Recents stays open. Switch to another tab and back: nothing is selected.
+6. Settings › Labels › ⋮ › Merge labels: the same selection bar shows "0 selected", Close (TalkBack says "Stop merging") and Merge, which turns on once two labels are ticked. Back stops merging.
+7. With TalkBack on, each bar reads Close's name, the count and every action's name. Repeat steps 1, 2 and 6 in dark, AMOLED, right to left, the largest font and landscape: the bar fits, with no clipped words.
+8. Favourites, a label's members, Archived, Case files, the blocking log, Messaged numbers and a number's history have no multi-select: a long-press never starts a selection there, so no selection bar appears.

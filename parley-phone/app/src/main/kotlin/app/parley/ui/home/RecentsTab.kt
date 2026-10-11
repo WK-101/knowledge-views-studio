@@ -5,7 +5,6 @@ import app.parley.ui.calls.NetworkNameTag
 import app.parley.ui.calls.networkNameSpoken
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -98,7 +97,6 @@ import app.parley.ui.common.MenuRows
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.ui.text.style.TextAlign
-import app.parley.ui.blocking.RecentsSelectionBar
 import app.parley.ui.blocking.askToBlock
 import app.parley.ui.calls.RemindToCallSheet
 import app.parley.ui.blocking.rememberBlocked
@@ -156,7 +154,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
-    var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
+    val menuFor by recents.actionsFor.collectAsStateWithLifecycle()
     // The number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
     // Call back for a call that came through an app over the internet: in the app, or by phone when the user picks it.
@@ -174,7 +172,9 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
         if (g.latest.appPackage != null) appCallFor = g else vm.requestCall(g.number, g.contact?.displayName)
     }
     menuFor?.let { g ->
-        RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }, onCall = { callBack(g) }) { menuFor = null }
+        RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }, onCall = { callBack(g) }) {
+            recents.actionsFor.value = null
+        }
     }
     messageFor?.let { (n, account) -> ReachSheet(ReachTarget.Number(n, account), onDismiss = { messageFor = null }, onCall = { num -> vm.requestCall(num) }) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
@@ -188,7 +188,6 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val swipe = vm.people.settings.collectAsStateWithLifecycle().value.swipe
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
-    BackHandler(enabled = selected.isNotEmpty()) { recents.clearSelection() }
     fun toggleSelected(g: RecentGroup) = recents.toggleSelected(g)
     // Opening Recents (or coming back to it) clears Telecom's missed-call count and stops the re-alert.
     LifecycleResumeEffect(Unit) {
@@ -215,9 +214,6 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     // Swipes don't start while this list is still flinging.
     val listState = rememberLazyListState()
     LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = bottomPadding)) {
-        if (selected.isNotEmpty()) stickyHeader(key = "selection") {
-            RecentsSelectionBar(vm, groups.orEmpty(), onActions = { g -> recents.clearSelection(); menuFor = g })
-        }
         item(key = "filters") {
             RecentsFilterRow(
                 vm, filter, onFilter = { recents.setFilter(it) }, voicemailChip = isDefault,

@@ -36,7 +36,6 @@ import androidx.compose.material.icons.automirrored.rounded.LabelOff
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.MergeType
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -107,6 +106,7 @@ import app.parley.ui.common.CoachMark
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
+import app.parley.ui.SelectionTopBar
 import app.parley.ui.ConfirmDialog
 
 /** Settings-like screen listing every label: open, create, rename, delete and merge. */
@@ -135,28 +135,28 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        ParleyTopBar(
+        // Picking labels to merge is a selection: the shared selection bar, as in every list.
+        if (merging) {
+            SelectionTopBar(
+                picked.size, onClear = { merging = false; picked = emptySet() },
+                clearLabel = stringResource(R.string.lbl_stop_merging),
+            ) {
+                TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text(stringResource(R.string.action_merge)) }
+            }
+        } else ParleyTopBar(
             scrollBehavior = barTint,
-            title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size,
-                picked.size) else stringResource(R.string.label_labels)) },
-            navigationIcon = {
-                if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.lbl_stop_merging)) }
-                else BackButton(back)
-            },
+            title = { Text(stringResource(R.string.label_labels)) },
+            navigationIcon = { BackButton(back) },
             actions = {
-                if (merging) {
-                    TextButton({ mergeTarget = true }, enabled = picked.size >= 2) { Text(stringResource(R.string.action_merge)) }
-                } else {
-                    IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
-                    Box {
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(
-                                { Text(stringResource(R.string.lbl_merge_labels)) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) },
-                                onClick = { menu = false; merging = true },
-                            )
-                        }
+                IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
+                Box {
+                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.lbl_merge_labels)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) },
+                            onClick = { menu = false; merging = true },
+                        )
                     }
                 }
             },

@@ -237,10 +237,6 @@
         <item quantity="one">Exported %d contact</item>
         <item quantity="other">Exported %d contacts</item>
     </plurals>
-    <plurals name="sel_count">
-        <item quantity="one">%d selected</item>
-        <item quantity="other">%d selected</item>
-    </plurals>
     <string name="sel_star">Add to favourites</string>
     <string name="sel_unstar">Remove from favourites</string>
     <plurals name="sel_share_title">
