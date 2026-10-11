@@ -17,6 +17,13 @@ import org.robolectric.RobolectricTestRunner
 class NetworkNameStoreTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val prefs by lazy { context.getSharedPreferences("parley_network_names", Context.MODE_PRIVATE) }
+    private val table by lazy { memoryFactTable(context) }
+
+    /** Everything stored, as text: the table's keys and sealed bytes, and the preferences file. */
+    private fun raw(): String = table.kinds("").flatMap { table.rows(it) }.joinToString { it.lineKey + String(it.blob) } +
+        prefs.all.values.joinToString { it.toString() }
+
+    private fun asides(): List<String> = table.kinds("network_names:aside_").filter { '#' !in it }
 
     /** A stand-in for the archive key: "sealed" is the bytes behind a marker, so a test can see nothing is plain. */
     private class Keys : SealedLineStore.Keys {
@@ -37,7 +44,7 @@ class NetworkNameStoreTest {
     }
 
     @Test fun records_and_updates_with_history() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now - 3_000, "sim1", "IN", now)
         store.record("+91 98123 00002", "RAVI KUMAR", now - 2_000, "sim2", "IN", now)
         assertEquals(1, store.forNumber("+919812300002").size)
@@ -48,7 +55,7 @@ class NetworkNameStoreTest {
         assertEquals(listOf("Kumar Electricals", "RAVI KUMAR"), store.forNumber("+919812300002").map { it.name })
         // Another number is apart; a new process reads the same.
         store.record("+919812300009", "Sita Devi", now, null, "IN", now)
-        val again = NetworkNameStore(context, keys)
+        val again = NetworkNameStore(context, keys, table)
         assertEquals("Kumar Electricals", again.latest("+919812300002")!!.name)
         assertEquals("Sita Devi", again.latest("+919812300009")!!.name)
         assertNull(again.latest("+919812300005"))
@@ -56,14 +63,14 @@ class NetworkNameStoreTest {
     }
 
     @Test fun nothing_is_kept_in_plain_text() {
-        NetworkNameStore(context, keys).record("+919812300002", "Ravi Kumar", now, "sim1", "IN", now)
-        val raw = prefs.all.values.joinToString { it.toString() }
+        NetworkNameStore(context, keys, table).record("+919812300002", "Ravi Kumar", now, "sim1", "IN", now)
+        val raw = raw()
         assertTrue(raw.isNotEmpty())
         assertFalse(raw.contains("Ravi"))
     }
 
     @Test fun forgetting_a_number_drops_its_names_only() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now, null, "IN", now)
         store.record("+919812300009", "Sita Devi", now, null, "IN", now)
         store.forget("+919812300002")
@@ -72,7 +79,7 @@ class NetworkNameStoreTest {
     }
 
     @Test fun a_reader_names_a_list_but_never_a_private_number() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now, null, "IN", now)
         store.record("+919812300007", "Hidden Friend", now, null, "IN", now)
         val read = store.reader { it.endsWith("7") }
@@ -82,29 +89,29 @@ class NetworkNameStoreTest {
     }
 
     @Test fun names_written_while_others_cant_be_read_keep_both() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now - 1_000, null, "IN", now)
         keys.broken = true
-        val locked = NetworkNameStore(context, keys)
+        val locked = NetworkNameStore(context, keys, table)
         assertNull(locked.latest("+919812300002"))
         keys.broken = false
-        assertEquals("Ravi Kumar", NetworkNameStore(context, keys).latest("+919812300002")!!.name)
+        assertEquals("Ravi Kumar", NetworkNameStore(context, keys, table).latest("+919812300002")!!.name)
     }
 
     @Test fun a_name_past_its_days_is_gone_when_read() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         val day = 86_400_000L
         // Sent 420 days ago and written 300 days ago (it was 120 days old then); nothing written since, yet it has gone.
         store.record("+919812300009", "Sita Devi", now - 10 * day, null, "IN", now - 10 * day)
         store.record("+919812300002", "Ravi Kumar", now - 420 * day, null, "IN", now - 300 * day)
-        assertEquals(2, prefs.getString("rows", "")!!.lines().count { it.isNotBlank() })
+        assertEquals(2, table.count("network_names"))
         assertNull(store.latest("+919812300002"))
         assertTrue(store.reader()("+919812300002").isEmpty())
         assertEquals("Sita Devi", store.latest("+919812300009")!!.name)
         // And it is off the disk, not only out of sight.
-        val again = NetworkNameStore(context, keys)
+        val again = NetworkNameStore(context, keys, table)
         assertNull(again.latest("+919812300002"))
-        assertEquals(1, prefs.getString("rows", "")!!.lines().count { it.isNotBlank() })
+        assertEquals(1, table.count("network_names"))
     }
 
     /** Keys that read a number the way the archive does (national numbers with the phone's country, India). */
@@ -115,7 +122,7 @@ class NetworkNameStoreTest {
     }
 
     @Test fun a_national_number_is_kept_as_its_sims_country_reads_it() {
-        val store = NetworkNameStore(context, PhoneKeys())
+        val store = NetworkNameStore(context, PhoneKeys(), table)
         // A call on a French SIM, the number written nationally.
         store.record("06 12 34 56 78", "Claire Martin", now, "sim-fr", "FR", now)
         // Found as the same SIM reads it, and in full (a contact, a notification, Recall).
@@ -130,34 +137,34 @@ class NetworkNameStoreTest {
     }
 
     @Test fun set_aside_with_a_delete_and_put_back_by_its_undo() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now - 2_000, "sim1", "IN", now)
         store.record("+919812300002", "Kumar Electricals", now - 1_000, "sim1", "IN", now)
         store.setAside("+919812300002", emptyList(), batch = now, now = now)
         assertNull(store.latest("+919812300002"))
         // Nothing of it in plain text while set aside.
-        assertFalse(prefs.all.values.joinToString { it.toString() }.contains("Kumar"))
+        assertFalse(raw().contains("Kumar"))
         // A name sent meanwhile stays, and is newest.
         store.record("+919812300002", "K Electricals", now - 500, "sim2", "IN", now)
         assertTrue(store.putBack(now, now))
         assertEquals(listOf("K Electricals", "Kumar Electricals", "Ravi Kumar"), store.forNumber("+919812300002").map { it.name })
         // Put back once: the copy is gone.
         assertFalse(store.putBack(now, now))
-        assertTrue(prefs.all.keys.none { it.startsWith("aside_") })
+        assertTrue(asides().isEmpty())
     }
 
     @Test fun copies_set_aside_long_ago_are_dropped() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         store.record("+919812300002", "Ravi Kumar", now, null, "IN", now)
         val old = now - 40 * 86_400_000L
         store.setAside("+919812300002", emptyList(), batch = old, now = old)
         store.record("+919812300009", "Sita Devi", now, null, "IN", now)
         store.setAside("+919812300009", emptyList(), batch = now, now = now)
-        assertEquals(listOf("aside_$now"), prefs.all.keys.filter { it.startsWith("aside_") })
+        assertEquals(listOf("network_names:aside_$now"), asides())
     }
 
     @Test fun names_count_as_kept_when_only_set_aside_or_unreadable() {
-        val store = NetworkNameStore(context, keys)
+        val store = NetworkNameStore(context, keys, table)
         assertFalse(store.hasAny())
         store.record("+919812300002", "Ravi Kumar", now, null, "IN", now)
         // Only the copy kept for an undo is left: Delete would still remove it, so it counts.
@@ -169,7 +176,7 @@ class NetworkNameStoreTest {
         // Rows that can't be opened right now are still kept names.
         store.record("+919812300009", "Sita Devi", now, null, "IN", now)
         keys.broken = true
-        assertTrue(NetworkNameStore(context, keys).hasAny())
+        assertTrue(NetworkNameStore(context, keys, table).hasAny())
         keys.broken = false
         store.clear()
         assertFalse(store.hasAny())

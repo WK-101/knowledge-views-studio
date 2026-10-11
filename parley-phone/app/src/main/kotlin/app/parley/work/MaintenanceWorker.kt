@@ -75,6 +75,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         step("spam lists") { ListsUpdaterClient.refresh(ctx, c.lists) }
         // Learn again what your own calls say about numbers and ranges (after the archive caught up above).
         step("personal reputation") { ReputationLearner.learn(c) }
+        // The snapshot index the day's run read stays on disk; held in memory it would outlive the run for nothing.
+        step("time machine cache") { c.timeMachine.dropCaches(all = false) }
         return Result.success()
     }
 

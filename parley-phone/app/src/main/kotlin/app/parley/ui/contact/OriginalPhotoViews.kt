@@ -1,7 +1,5 @@
 package app.parley.ui.contact
 
-import android.graphics.Bitmap
-import android.util.LruCache
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -59,18 +57,6 @@ import app.parley.ui.common.rememberImageActions
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlin.math.roundToInt
-
-/** Decoded originals at the sizes shown, so returning to a contact page shows its photo at once. */
-private object OriginalBitmaps {
-    private val cache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
-        override fun sizeOf(key: String, value: Bitmap) = value.byteCount
-    }
-
-    fun peek(o: OriginalPhotos.Original, px: Int): Bitmap? = cache.get("${o.id}@$px")
-
-    suspend fun load(originals: OriginalPhotos, o: OriginalPhotos.Original, px: Int): Bitmap? =
-        peek(o, px) ?: originals.decode(o, px)?.also { cache.put("${o.id}@$px", it) }
-}
 
 /**
  * The photo as picked for a phone contact, while it still matches Android's photo ([photoUri]); null when Parley

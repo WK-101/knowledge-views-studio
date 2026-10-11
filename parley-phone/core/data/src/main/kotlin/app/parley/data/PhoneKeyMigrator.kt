@@ -34,7 +34,7 @@ class PhoneKeyMigrator(
     private val history: () -> CallHistory,
     private val messaging: () -> MessagingStore,
 ) {
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context, PREFS)
 
     val done: Boolean get() = prefs.getInt(K_VERSION, 0) >= VERSION
 

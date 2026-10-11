@@ -52,6 +52,7 @@ import app.parley.common.people.FavoritesWidgetPlan
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.StatePrefs
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.security.LockedActivity
@@ -137,7 +138,7 @@ class FavoritesWidget : AppWidgetProvider() {
         @Volatile
         private var shownLocked: Boolean? = null
 
-        private fun prefs(context: Context) = context.getSharedPreferences("favorites_widgets", Context.MODE_PRIVATE)
+        private fun prefs(context: Context) = StatePrefs.open(context, "favorites_widgets")
 
         private fun tapKey(id: Int) = "$id.tap"
 

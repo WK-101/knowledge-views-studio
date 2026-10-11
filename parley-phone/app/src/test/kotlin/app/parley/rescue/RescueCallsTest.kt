@@ -2,10 +2,10 @@ package app.parley.rescue
 
 import android.app.AlarmManager
 import android.app.Application
-import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueWhen
+import app.parley.data.StatePrefs
 import app.parley.data.security.RecordCrypto
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.telecom.CallState
@@ -47,7 +47,7 @@ class RescueCallsTest {
     private val realHiding = RescueCalls.hiding
     private val realSeal = RescueCalls.seal
     private val realIo = RescueCalls.io
-    private val prefs get() = context.getSharedPreferences("rescue_call", Context.MODE_PRIVATE)
+    private val prefs get() = StatePrefs.open(context, "rescue_call")
 
     @Before fun keys() {
         FakeAndroidKeyStore.install()

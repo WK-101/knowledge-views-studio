@@ -14,6 +14,7 @@ import androidx.work.workDataOf
 import app.parley.common.sync.FolderSyncSchedule
 import app.parley.common.sync.FolderSyncSchedule.Trigger
 import app.parley.container
+import app.parley.data.StatePrefs
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
@@ -33,7 +34,7 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             inputData.getBoolean(KEY_START_UP, false) -> Trigger.START_UP
             else -> Trigger.PERIODIC
         }
-        val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(applicationContext, PREFS)
         val last = prefs.getLong(K_LAST_RUN, 0L).takeIf { it > 0 }
         if (!FolderSyncSchedule.shouldRun(trigger, last, System.currentTimeMillis())) return Result.success()
         val sync = applicationContext.container.folderSync

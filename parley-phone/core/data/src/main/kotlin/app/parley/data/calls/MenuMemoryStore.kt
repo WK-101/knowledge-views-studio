@@ -5,20 +5,16 @@ import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuState
 import app.parley.common.storage.PersistentStores
 import app.parley.data.backup.BackupExtras
-import app.parley.data.security.RecordCrypto
 import app.parley.data.security.RecordSealing
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
+import app.parley.data.security.SealedDocument
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Menu memory ([MenuMemory]): the keys sent in the last call to each number, the saved menu shortcuts and the
- * numbers it must not remember, in one small document in its own preferences file. Sealed with the small-records key
- * (it holds numbers, a private contact's among them), so the call path can write it while the phone is locked.
+ * numbers it must not remember, in one small [SealedDocument] (`docs/menu_memory` in no-backup storage). Sealed with
+ * the small-records key (it holds numbers, a private contact's among them), so the call path can write it while the
+ * phone is locked.
  *
  * Like the To call list: a stored document that can't be opened right now is never taken for an empty one (changes are
  * refused until it can be read), and it is never stored as plain text (a change waits in memory until it can be sealed).
@@ -34,79 +30,29 @@ class MenuMemoryStore internal constructor(
     constructor(context: Context, isPrivate: suspend (String) -> Boolean) : this(context, isPrivate, null)
 
     private val appContext = context.applicationContext
-    private val prefs by lazy { appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }
-    private val crypto by lazy { RecordCrypto.get(appContext) }
-    private val seal: (String) -> String? = sealOverride ?: { text -> crypto.sealText(text)?.takeIf { crypto.isSealed(it) } }
-    private val mutex = Mutex()
 
-    @Volatile private var loaded = false
-
-    @Volatile private var unsaved = false
-    private val _state = MutableStateFlow(MenuState())
+    private val doc = SealedDocument(
+        appContext, File(appContext.noBackupFilesDir, "docs/menu_memory"), SealedDocument.Whole(MenuMemory::encode, MenuMemory::decode),
+        // Where earlier versions kept it: copied into the document once.
+        legacy = SealedDocument.Legacy({ appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }, KEY, MenuMemory::decode),
+        clean = MenuMemory::sanitize, sealOverride = sealOverride,
+    )
 
     /** The state as stored; empty until [load] ran. */
-    val state: StateFlow<MenuState> = _state.asStateFlow()
+    val state: StateFlow<MenuState> = doc.state
 
     /** Whether the stored state could be read. */
-    val available: Boolean get() = loaded
+    val available: Boolean get() = doc.available
 
-    suspend fun load(): MenuState = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            loadLocked()
-            flushLocked()
-        }
-        _state.value
-    }
-
-    private fun loadLocked(): Boolean {
-        if (loaded) return true
-        val stored = prefs.getString(KEY, null)
-        val text = try {
-            crypto.openTextOrThrow(stored)
-        } catch (_: RecordCrypto.UnreadableException) {
-            return false
-        }
-        val decoded = MenuMemory.decode(text)
-        val clean = MenuMemory.sanitize(decoded)
-        _state.value = clean
-        loaded = true
-        if (clean != decoded || (!stored.isNullOrEmpty() && !crypto.isSealed(stored))) unsaved = true
-        return true
-    }
-
-    private fun flushLocked(): Boolean {
-        if (!loaded || !unsaved) return true
-        val sealed = seal(MenuMemory.encode(_state.value))
-        if (sealed == null) {
-            RecordSealing.markPending(appContext)
-            return false
-        }
-        prefs.edit().putString(KEY, sealed).apply()
-        unsaved = false
-        return true
-    }
+    suspend fun load(): MenuState = doc.load()
 
     /**
      * Applies [f] and writes the result; returns the state, or null when the stored state can't be read right now
      * (nothing is applied then, so nothing stored is overwritten).
      */
-    suspend fun update(f: (MenuState) -> MenuState): MenuState? = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            if (!loadLocked()) return@withLock null
-            val now = _state.value
-            val next = f(now)
-            if (next != now) {
-                _state.value = next
-                unsaved = true
-            }
-            flushLocked()
-            next
-        }
-    }
+    suspend fun update(f: (MenuState) -> MenuState): MenuState? = doc.write(f).takeIf { doc.available }?.state
 
-    override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
-        mutex.withLock { if (!loadLocked()) true else flushLocked() }
-    }
+    override suspend fun resealPlain(): Boolean = doc.resealPlain()
 
     /** Inside the encrypted backup's settings section: shortcuts and opt-outs, never paths; private contacts' numbers stay out. */
     val backupExtras: BackupExtras = object : BackupExtras {

@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallState
+import app.parley.data.StatePrefs
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
 import app.parley.data.records.ContactRecordStore
@@ -20,6 +21,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 /**
  * The To call list is never lost to a sealed value that can't be opened for a moment, and never stored as plain
@@ -35,9 +37,16 @@ class ToCallStoreTest {
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
         prefs.edit().clear().commit()
+        folder.deleteRecursively()
     }
 
-    private fun stored(): String? = prefs.getString("state_v1", null)
+    private val folder by lazy { File(context.noBackupFilesDir, "docs/to_call") }
+
+    /** What is on the disk now: the list's file. */
+    private fun stored(): String? = File(folder, "index.sealed").takeIf { it.isFile }?.readText()
+
+    /** The list where earlier versions kept it. */
+    private fun legacy(): String? = prefs.getString("state_v1", null)
 
     private fun add(number: String) = { s: ToCallState -> ToCall.remind(s, "k$number", number, now + 3_600_000, now) }
 
@@ -53,13 +62,17 @@ class ToCallStoreTest {
         val w = store.write(add("+12025550100"))
         assertFalse(w.changed)
         assertFalse(w.saved)
-        assertEquals(unreadable, stored())
+        assertEquals(unreadable, legacy())
+        assertNull(stored())
         // The store wasn't marked loaded: once the value is readable again, the list is read, not taken as empty.
         val readable = crypto.sealText(ToCall.encode(add("+12025550199")(ToCallState())))!!
         prefs.edit().putString("state_v1", readable).commit()
         store.load()
         assertTrue(store.available)
         assertEquals(listOf("+12025550199"), store.state.value.items.map { it.number })
+        // Read, it moved to its own file; the preferences value went after it.
+        assertTrue(crypto.isSealed(stored()))
+        assertNull(legacy())
     }
 
     @Test fun when_sealing_fails_nothing_plain_is_stored_and_the_change_is_written_later() = runBlocking {
@@ -70,6 +83,7 @@ class ToCallStoreTest {
         assertTrue(w.changed)
         assertFalse(w.saved)
         assertNull("Never plain on disk", stored())
+        assertNull(legacy())
         assertTrue(store.pendingWrite)
         // Still on the list in memory, so the reminder works meanwhile.
         assertEquals(1, store.state.value.items.size)
@@ -87,9 +101,10 @@ class ToCallStoreTest {
         val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
         try {
             val store = ToCallStore(context) { false }
-            context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
+            StatePrefs.open(context, "record_sealing").edit().clear().commit()
             RecordSealing(context, db, { TimeMachine(context, ContactRecordStore(context)) }) { listOf(store) }.runIfNeeded()
             assertTrue(crypto.isSealed(stored()))
+            assertNull(legacy())
             assertEquals(listOf("+12025550100"), store.state.value.items.map { it.number })
         } finally {
             db.close()

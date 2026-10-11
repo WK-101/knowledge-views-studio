@@ -8,8 +8,16 @@ import app.parley.data.db.JournalEntity
 import app.parley.data.db.JournalPhotoEntity
 import app.parley.data.db.MetaDao
 import app.parley.common.security.Concealed
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -112,7 +120,19 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     override suspend fun setPinnedNote(key: String, contactId: Long, note: String?) =
         dao.setPinnedNote(key, contactId, kept(key, note) ?: crypto.sealText(note))
 
-    override fun allMeta(): Flow<List<ContactMetaEntity>> = combine(dao.allMeta(), hiding) { l, _ -> l.map { it.opened() } }
+    /**
+     * Every row, opened once per change however many screens follow it (a contact page and Circle's two lists each
+     * opened every row on every change); let go of five seconds after the last one stops.
+     */
+    private val sharedMeta: Flow<List<ContactMetaEntity>> by lazy {
+        combine(dao.allMeta(), hiding) { l, _ -> l.map { it.opened() } }
+            .flowOn(Dispatchers.Default)
+            // A closed database (Delete all Parley data, a test) ends the sharing; the next screen starts it again.
+            .catch { e -> if (e is CancellationException) throw e }
+            .shareIn(CoroutineScope(SupervisorJob() + Dispatchers.Default), SharingStarted.WhileSubscribed(SHARE_STOP_MS), replay = 1)
+    }
+
+    override fun allMeta(): Flow<List<ContactMetaEntity>> = sharedMeta
 
     override suspend fun allMetaNow(): List<ContactMetaEntity> = dao.allMetaNow().map { it.opened() }
 
@@ -166,3 +186,6 @@ class SealedBlockDao(private val dao: BlockDao, private val crypto: RecordCrypto
 
     override suspend fun blockedCallsNow(): List<BlockedCallEntity> = dao.blockedCallsNow().map { it.opened() }
 }
+
+/** How long the opened rows stay shared after the last screen stops following them (a rotation, a quick back-and-forth). */
+private const val SHARE_STOP_MS = 5_000L

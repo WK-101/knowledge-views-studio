@@ -10,6 +10,7 @@ import app.parley.common.people.RelationTypes
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.people.RelationMirrors
 import app.parley.data.testing.FakeContactsProvider
@@ -129,7 +130,7 @@ class RelationMirrorsTest {
         // The user rewrote Ben's row in their own words: it is theirs now.
         val benNow = repo.editable(ben)!!
         repo.save(benNow, benNow.copy(relations = listOf(benNow.relations.single().copy(value = "Sammy"))), null, null, false)
-        val prefs = app.getSharedPreferences("relation_mirrors", android.content.Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(app, "relation_mirrors")
         assertTrue(prefs.getString("created", null).orEmpty().contains("Sam Lee"))
 
         assertEquals(1, mirrors.takeBack(sam, repo.lookupKeyOf(sam)!!))

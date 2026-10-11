@@ -38,6 +38,7 @@ import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.StatePrefs
 import app.parley.data.db.BlockedCallEntity
 import app.parley.data.people.CallerCards
 import app.parley.messaging.MessageOn
@@ -336,7 +337,7 @@ object MissedCallNotifier {
      */
     private fun scheduleReAlert(context: Context, c: DataContainer, latestMissed: Long, afterReAlert: Boolean) {
         val minutes = c.callExtras.config.value.missedReAlertMinutes
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(context, PREFS)
         if (minutes <= 0) {
             stopReAlert(context)
             return
@@ -379,7 +380,7 @@ object MissedCallNotifier {
     /** Stops re-alerting (the calls were seen, the notification dismissed, or the setting turned off). */
     fun stopReAlert(context: Context) {
         cancelAlarm(context)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        StatePrefs.open(context, PREFS).edit().clear().apply()
     }
 
     private fun cancelAlarm(context: Context) {

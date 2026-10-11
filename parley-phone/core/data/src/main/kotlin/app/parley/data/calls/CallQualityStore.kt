@@ -11,15 +11,19 @@ import kotlinx.coroutines.flow.StateFlow
  * history now and a call quality diary later. Kept in a [SealedLineStore] like [RingFactsStore];
  * deleting or purging calls forgets theirs.
  */
-class CallQualityStore private constructor(context: Context, keys: SealedLineStore.KeySource) {
-    constructor(context: Context, history: () -> CallHistory) : this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) })
+class CallQualityStore private constructor(context: Context, keys: SealedLineStore.KeySource, table: () -> SealedLineStore.Table) {
+    constructor(context: Context, history: () -> CallHistory) :
+        this(context, SealedLineStore.KeySource { SealedLineStore.HistoryKeys(history()) }, { history().factTable })
 
-    /** With [keys] in place of the archive's (tests). */
-    internal constructor(context: Context, keys: SealedLineStore.Keys) : this(context, SealedLineStore.KeySource { keys })
+    /** With [keys] and [table] in place of the archive's (tests). */
+    internal constructor(context: Context, keys: SealedLineStore.Keys, table: SealedLineStore.Table) :
+        this(context, SealedLineStore.KeySource { keys }, { table })
 
     private val store = SealedLineStore(
-        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, keys,
+        table, KIND, keys,
         encode = { CallQualityCodec.encode(listOf(it)) }, decode = { CallQualityCodec.decode(it).firstOrNull() }, startedAt = { it.startedAt },
+        // Where the rows were kept before the history database's table; read to copy them once.
+        legacy = SealedLineStore.Legacy(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS),
     )
 
     /** Bumped on every write, so screens re-read. */
@@ -47,5 +51,6 @@ class CallQualityStore private constructor(context: Context, keys: SealedLineSto
     private companion object {
         const val FILE = "parley_call_quality"
         const val KEY_ROWS = "rows_v1"
+        const val KIND = "call_quality"
     }
 }

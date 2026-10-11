@@ -1,7 +1,7 @@
 # Parley's hand-written baseline profile: the code people wait on, compiled ahead of time at install (Play, or the
 # profile installer for sideloaded and F-Droid installs) instead of running interpreted until background dexopt.
-# Covers start-up to Recents, the keypad, Contacts, a contact's page, and the incoming-call path (call screening, the call screen and its
-# notification). `./gradlew :app:generateBaselineProfile` on a device writes a measured profile next to this one
+# Covers start-up to Recents, the keypad, Contacts, a contact's page, the incoming-call path (call screening, the call screen and its
+# notification), the 6.x stores every start and ring reads, and Recall. `./gradlew :app:generateBaselineProfile` on a device writes a measured profile next to this one
 # (src/release/generated/baselineProfiles); both are merged. See docs/PERFORMANCE_BENCHMARKS.md.
 #
 # Format: H hot, S startup, P post-startup; `**` matches any classes or members. Names are pre-R8 (AGP maps them).
@@ -96,3 +96,41 @@ HSPLapp/parley/data/BlockRepository**->**(**)**
 HSPLapp/parley/data/SpamListStore**->**(**)**
 HSPLapp/parley/common/CallPolicy**->**(**)**
 HSPLapp/parley/common/calls/**->**(**)**
+
+# 6.x on every start and every ring: the stores the call path names a caller and records a call with (per-call facts
+# in the history database, the sealed documents, the shared state files), number memory, archived contacts, the
+# family shield's index, Situations, case files and the agenda, and the call-path helpers in the app
+HSPLapp/parley/data/StatePrefs;->**(**)**
+HSPLapp/parley/data/KeyedPrefs**->**(**)**
+HSPLapp/parley/data/calls/**->**(**)**
+HSPLapp/parley/data/history/CallFactsDao**->**(**)**
+HSPLapp/parley/data/history/CallFactEntity;->**(**)**
+HSPLapp/parley/data/history/HistoryDatabase**->**(**)**
+HSPLapp/parley/data/memory/**->**(**)**
+HSPLapp/parley/data/archive/**->**(**)**
+HSPLapp/parley/data/situations/**->**(**)**
+HSPLapp/parley/data/cases/**->**(**)**
+HSPLapp/parley/data/circle/AgendaStore**->**(**)**
+HSPLapp/parley/data/sync/shared/FamilyShieldStore**->**(**)**
+HSPLapp/parley/data/people/NumberOwners**->**(**)**
+HSPLapp/parley/common/security/**->**(**)**
+HSPLapp/parley/common/memory/**->**(**)**
+HSPLapp/parley/common/situations/**->**(**)**
+HSPLapp/parley/common/cases/**->**(**)**
+HSPLapp/parley/common/sync/shared/FamilyShield**->**(**)**
+HSPLapp/parley/common/storage/**->**(**)**
+HSPLapp/parley/calls/**->**(**)**
+HSPLapp/parley/situations/SituationTriggers**->**(**)**
+HSPLapp/parley/telecom/ScreeningCoordinator**->**(**)**
+HSPLapp/parley/telecom/ScreenOutcome**->**(**)**
+HSPLapp/parley/telecom/RingBoost;->**(**)**
+HSPLapp/parley/telecom/RingVolumeRamp;->**(**)**
+HSPLapp/parley/telecom/CallRinger**->**(**)**
+HSPLapp/parley/telecom/EmergencyCalls**->**(**)**
+HSPLapp/parley/telecom/CallEndRecorder**->**(**)**
+HSPLapp/parley/telecom/FlipSilencer**->**(**)**
+
+# Recall: the first search that reaches past the contact list
+PLapp/parley/ui/recall/**->**(**)**
+PLapp/parley/common/recall/**->**(**)**
+PLapp/parley/data/recall/**->**(**)**

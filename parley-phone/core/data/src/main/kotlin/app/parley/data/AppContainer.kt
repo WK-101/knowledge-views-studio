@@ -313,6 +313,9 @@ class DataContainer(context: Context) {
     /** "Who is this?" for numbers that aren't contacts, from what Parley keeps (keyed-hash index, sealed hints). */
     val numberMemory by lazy { NumberMemoryStore(this) }
 
+    /** What number memory and Recall both read, with stamps (each feature filters it for privacy itself). */
+    val kept by lazy { app.parley.data.memory.KeptSources({ db }, { journal }, { privateTrash }, { timeMachine }, contacts, { vault }, { meta }) }
+
     /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
     val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }
 
@@ -398,7 +401,7 @@ class DataContainer(context: Context) {
     val contactKeys by lazy {
         ContactKeys(
             contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }, calling = { calling },
-            waiting = { appContext.getSharedPreferences("contact_key_moves", Context.MODE_PRIVATE) },
+            waiting = { StatePrefs.open(appContext, "contact_key_moves") },
             cardLinks = { people.cardLinks }, shareLedger = { people.shareLedger },
             myCard = { people.me }, relationMirrors = { people.relationMirrors },
         )

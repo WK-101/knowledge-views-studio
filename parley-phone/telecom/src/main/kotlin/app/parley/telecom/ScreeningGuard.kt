@@ -16,10 +16,12 @@ import app.parley.common.calls.EmergencyPolicy
  *   screening (and logging) the same call twice.
  */
 object ScreeningGuard {
-    private const val PREFS = "parley_screening_guard"
-    private const val KEY_EMERGENCY = "last_emergency_wall_ms"
-    private const val KEY_EMERGENCY_ELAPSED = "last_emergency_elapsed_ms"
-    private const val KEY_EMERGENCY_BOOT = "last_emergency_boot"
+    // The ring path's shared state file, keys under this store's name (the app's StatePrefs copies the older
+    // "parley_screening_guard" file into it as it starts, before anything can ring).
+    private const val PREFS = "call_path_state"
+    private const val KEY_EMERGENCY = "parley_screening_guard.last_emergency_wall_ms"
+    private const val KEY_EMERGENCY_ELAPSED = "parley_screening_guard.last_emergency_elapsed_ms"
+    private const val KEY_EMERGENCY_BOOT = "parley_screening_guard.last_emergency_boot"
     private const val DECISION_TTL_MS = 30_000L
 
     private data class Recent(val number: String?, val at: Long, val outcome: ScreenOutcome)

@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import android.util.Log
 import app.parley.common.suspendRunCatching
+import app.parley.data.StatePrefs
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
 
@@ -26,7 +27,7 @@ class RecordSealing(
     }
 
     private val crypto = RecordCrypto.get(context)
-    private val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context, FILE)
 
     val done: Boolean get() = prefs.getBoolean(DONE, false)
 
@@ -106,7 +107,7 @@ class RecordSealing(
          * the process died before an asynchronous write, the plain value would never be sealed.
          */
         fun markPending(context: Context) {
-            val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            val prefs = StatePrefs.open(context, FILE)
             if (prefs.getBoolean(DONE, false)) prefs.edit().putBoolean(DONE, false).commit()
         }
     }

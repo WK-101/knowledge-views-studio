@@ -10,6 +10,7 @@ import app.parley.data.ContactChangedElsewhereException
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
+import app.parley.data.StatePrefs
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
 import kotlinx.coroutines.CancellationException
@@ -29,7 +30,7 @@ import kotlinx.coroutines.withContext
  * `relation_mirrors`, so a row the user wrote or changed on the other contact is never touched.
  */
 class RelationMirrors(context: Context, private val contacts: ContactsRepository, private val meta: MetaDao) {
-    private val prefs = context.applicationContext.getSharedPreferences("relation_mirrors", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(context.applicationContext, "relation_mirrors")
     private val lock = Mutex()
     private val _version = MutableStateFlow(0)
 

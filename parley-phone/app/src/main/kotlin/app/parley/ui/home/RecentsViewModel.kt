@@ -276,11 +276,16 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         else -> true
     }
 
-    /** Each call's line for the network's names ([NetworkNames.line]), read once: lists regroup on every keystroke. */
-    private val lines = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /**
+     * Each call's line for the network's names ([NetworkNames.line]), read once: lists regroup on every keystroke.
+     * Bounded to about the calls a list holds, so years of distinct numbers don't pile up.
+     */
+    private val lines = app.parley.common.RecentCache<String, String>(LINES)
 
-    private fun lineOf(e: CallEntry): String =
-        lines.getOrPut(e.accountId.orEmpty() + "\n" + e.number) { NetworkNames.line(c.appContext, e.number, e.accountId) }
+    private fun lineOf(e: CallEntry): String {
+        val key = e.accountId.orEmpty() + "\n" + e.number
+        return lines[key] ?: NetworkNames.line(c.appContext, e.number, e.accountId).also { lines[key] = it }
+    }
 
     /** A call's line key, or "hidden" for a withheld number. */
     private fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
@@ -333,6 +338,9 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L
+
+        /** Lines kept: the calls in memory (Android's log and the archive's window) with room to spare. */
+        const val LINES = 8_192
 
         /** A call in an app over the internet is never grouped with phone calls: its row calls back through the app. */
         fun rowKey(key: String, e: CallEntry): String = if (e.appPackage == null) key else key + "@" + e.appPackage

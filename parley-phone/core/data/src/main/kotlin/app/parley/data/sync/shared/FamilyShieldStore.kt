@@ -1,5 +1,6 @@
 package app.parley.data.sync.shared
 
+import app.parley.common.Hex
 import app.parley.common.PhoneIdentity
 import app.parley.common.catching
 import app.parley.common.storage.DurableFiles
@@ -51,8 +52,14 @@ class FamilyShieldStore(
      */
     @Volatile private var complete = false
 
-    /** Rebuilt whenever the shared labels' states change, so a call only looks up hashes in memory. */
-    fun update(states: List<SharedLabelState>) = set(states, complete = true)
+    /**
+     * Rebuilt whenever the shared labels' states change, so a call only looks up hashes in memory; and written down
+     * ([INDEX_FILE]), so a process started for a ringing call reads that one small file instead of every label's state.
+     */
+    fun update(states: List<SharedLabelState>) {
+        set(states, complete = true)
+        index?.let { runCatching { writeIndex(it) } }
+    }
 
     private fun set(states: List<SharedLabelState>, complete: Boolean) {
         index = states.filter { it.shieldOn && it.shieldIn.isNotEmpty() && SharedLabelMembership.syncs(it.membership) }.map { s ->
@@ -60,6 +67,39 @@ class FamilyShieldStore(
         }
         this.complete = complete
     }
+
+    /** The labels' state files as they are on disk now (names, sizes, times): an index made from others is not used. */
+    private fun statesStamp(): String =
+        dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }.joinToString(",") { "${it.name}:${it.length()}:${it.lastModified()}" }
+
+    private fun writeIndex(labels: List<LabelIndex>) {
+        val a = JSONArray()
+        labels.forEach { l ->
+            val m = JSONArray()
+            l.matches.forEach { (hash, x) -> m.put(JSONObject().put("h", hash).put("k", x.kind.code).put("n", x.members).put("a", x.at).put("o", x.anchor)) }
+            a.put(JSONObject().put("t", l.title).put("m", l.mode.name).put("k", Hex.encode(l.key)).put("x", m))
+        }
+        val sealed = sealer.seal(JSONObject().put("s", statesStamp()).put("l", a).toString()) ?: return
+        DurableFiles.writeText(File(dir, INDEX_FILE), sealed)
+    }
+
+    /** The written index, when it was made from the states on disk now; null otherwise (they are read then). */
+    private fun readIndex(): List<LabelIndex>? = runCatching {
+        val f = File(dir, INDEX_FILE)
+        if (!f.isFile) return null
+        val o = JSONObject(sealer.open(f.readText()) ?: return null)
+        if (o.getString("s") != statesStamp()) return null
+        val a = o.getJSONArray("l")
+        (0 until a.length()).map { i ->
+            val l = a.getJSONObject(i)
+            val m = l.getJSONArray("x")
+            val matches = (0 until m.length()).associate { j ->
+                val x = m.getJSONObject(j)
+                x.getString("h") to ShieldMatch(ShieldKind.of(x.getString("k")) ?: error("kind"), x.getInt("n"), x.getLong("a"), x.optBoolean("o"))
+            }
+            LabelIndex(l.getString("t"), ShieldMode.valueOf(l.getString("m")), Hex.decode(l.getString("k")), matches)
+        }
+    }.getOrNull()
 
     /**
      * Reads the labels' states (off the call path's main thread: it unseals them): at app start, and before a call is
@@ -69,9 +109,17 @@ class FamilyShieldStore(
         if (index != null && complete) return
         withContext(Dispatchers.IO) {
             if (index != null && complete) return@withContext
+            readIndex()?.let { written ->
+                index = written
+                complete = true
+                return@withContext
+            }
             val read = SharedLabelStateStore(dir, sealer).read()
             // A label read meanwhile through [update] is newer than this read: only a still incomplete index is replaced.
-            if (!complete) set(read.states, read.complete)
+            if (!complete) {
+                set(read.states, read.complete)
+                if (read.complete) index?.let { catching { writeIndex(it) } }
+            }
         }
     }
 
@@ -187,6 +235,9 @@ class FamilyShieldStore(
 
     companion object {
         private const val OWN_FILE = "shield-own.sealed"
+
+        /** What calls are matched against, written whenever a state changes: never read by [SharedLabelStateStore]. */
+        private const val INDEX_FILE = "shield-index.sealed"
 
         /** The one form a number is hashed in on every phone: E.164, with legacy spellings of a line made one. */
         fun canonical(number: String, region: String?): String? =

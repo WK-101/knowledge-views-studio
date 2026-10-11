@@ -40,12 +40,16 @@ class CallExtrasRepository(context: Context) {
  * the last 60 days are kept. Nothing leaves the phone, and nothing is readable at rest: rows are keyed by
  * the call-history archive's keyed fingerprint of the line (never the number) and the facts (Bluetooth device names
  * among them) are sealed with the archive key. Deleting or purging calls forgets their facts
- * ([app.parley.data.history.CallHistory.onForget]). Kept in a [SealedLineStore].
+ * ([app.parley.data.history.CallHistory.onForget]). Kept in a [SealedLineStore] (the history database's call facts).
  */
 class RingFactsStore(context: Context, private val history: () -> CallHistory) {
+    /** Where the rows were kept before the history database's table; read to copy them once. */
+    private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+
     private val store = SealedLineStore(
-        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS, { SealedLineStore.HistoryKeys(history()) },
+        { history().factTable }, KIND, { SealedLineStore.HistoryKeys(history()) },
         encode = { RingFactsCodec.encode(listOf(it)) }, decode = { RingFactsCodec.decode(it).firstOrNull() }, startedAt = { it.startedAt },
+        legacy = SealedLineStore.Legacy(prefs, KEY_ROWS),
     )
 
     @Volatile private var migrated = false
@@ -61,7 +65,7 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
     private fun migrate() {
         if (migrated) return
         migrated = true
-        val old = store.prefs.getString(KEY_ROWS_V1, null) ?: return
+        val old = prefs.getString(KEY_ROWS_V1, null) ?: return
         val mac = runCatching { history() }.getOrNull() ?: return
         val moved = old.lineSequence().mapNotNull { line ->
             val tab = line.indexOf('\t')
@@ -75,7 +79,7 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
             } ?: return@mapNotNull null
             key to facts
         }.toList()
-        if (store.merge(moved)) store.prefs.edit().remove(KEY_ROWS_V1).apply()
+        if (store.merge(moved)) prefs.edit().remove(KEY_ROWS_V1).apply()
     }
 
     fun add(number: String?, facts: RingFacts, now: Long = System.currentTimeMillis()) {
@@ -101,11 +105,15 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
         store.forget(number, dates, RingExplainer::matchFor)
     }
 
-    fun clear() = store.clear(KEY_ROWS_V1)
+    fun clear() {
+        store.clear()
+        prefs.edit().remove(KEY_ROWS_V1).apply()
+    }
 
     private companion object {
         const val FILE = "parley_ring_facts"
         const val KEY_ROWS_V1 = "rows_v1"
         const val KEY_ROWS = "rows_v2"
+        const val KIND = "ring_facts"
     }
 }

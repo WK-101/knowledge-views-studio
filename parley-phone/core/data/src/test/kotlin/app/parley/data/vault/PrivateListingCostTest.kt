@@ -11,6 +11,7 @@ import app.parley.common.ux.ListSections
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.StartGate
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.CoroutineScope
@@ -45,9 +46,9 @@ class PrivateListingCostTest {
         FakeAndroidKeyStore.install()
         org.robolectric.Shadows.shadowOf(context.getSystemService(android.app.KeyguardManager::class.java)).setIsDeviceSecure(false)
         VaultCrypto.appContext = context
-        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().clear().commit()
+        StatePrefs.open(context, "vault_keys").edit().clear().commit()
         // Numbers fingerprinted as this version does: no one-time re-keying runs in these processes.
-        context.getSharedPreferences("vault", Context.MODE_PRIVATE).edit().clear().putInt("number_keys_version", 4).commit()
+        StatePrefs.open(context, "vault").edit().clear().putInt("number_keys_version", 4).commit()
         File(context.noBackupFilesDir, "vault_summaries").delete()
         File(context.noBackupFilesDir, "vault_summaries.keys").delete()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()

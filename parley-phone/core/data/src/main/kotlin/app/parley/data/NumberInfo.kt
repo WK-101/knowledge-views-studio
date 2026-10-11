@@ -1,6 +1,7 @@
 package app.parley.data
 
 import app.parley.common.GeoLanguages
+import app.parley.common.RecentCache
 import app.parley.common.circle.GoodTime
 import app.parley.common.phone.AreaNames
 import app.parley.common.phone.PhoneData
@@ -8,7 +9,6 @@ import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.time.ZoneId
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Offline phone-number facts via libphonenumber's bundled data (packed: [PhoneData]): where a number is from
@@ -16,7 +16,12 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object NumberInfo {
     private val util by lazy { PhoneData.util }
-    private val cache = ConcurrentHashMap<String, String>()
+
+    /** Place names by number: bounded, as a phone sees more distinct numbers over the years than a list shows. */
+    private val cache = RecentCache<String, String>(PLACES)
+
+    /** Lets go of the place names worked out (the phone is short of memory). */
+    fun trim() = cache.clear()
 
     fun location(number: String?, countryIso: String, locale: Locale = Locale.getDefault()): String? {
         if (number.isNullOrBlank()) return null
@@ -98,4 +103,7 @@ object NumberInfo {
     } catch (_: Exception) {
         false
     }
+
+    /** Place names kept: a few screens' worth of distinct numbers (Recents, a search, Recall), a few hundred KB at most. */
+    private const val PLACES = 4_096
 }

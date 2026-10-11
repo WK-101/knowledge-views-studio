@@ -283,6 +283,12 @@ class OriginalPhotos(context: Context) {
 
     internal fun read(lookupKey: String): ByteArray? = imageFor(lookupKey).takeIf { it.isFile }?.readBytes()
 
+    /** The size of [lookupKey]'s original on disk (0 for none), known before reading it whole. */
+    internal fun size(lookupKey: String): Long = imageFor(lookupKey).takeIf { it.isFile }?.length() ?: 0L
+
+    /** Every original kept now, phone and private contacts' ([OriginalPhoto.TOTAL_BYTES]). */
+    private fun keptBytes(): Long = listOf(dir, privateDir).sumOf { d -> d.listFiles().orEmpty().filter { it.isFile }.sumOf { it.length() } }
+
     /** Restores an original from a backup (bytes as [read] gave them), matched to the contact whose photo is [current]. */
     internal suspend fun restore(lookupKey: String, bytes: ByteArray, current: String?) = withContext(Dispatchers.IO) {
         // Kept under the same limit as a picture picked here.
@@ -519,7 +525,7 @@ class OriginalPhotos(context: Context) {
         val cr = app.contentResolver
         try {
             val probe = probeNow(source)
-            val plan = OriginalPhoto.plan(probe, answers)
+            val plan = OriginalPhoto.plan(probe, answers, keptBytes())
             if (plan.keep == OriginalPhoto.Keep.COPY) copy(source, tmp, probe, plan)?.let { return it }
             // Too large and not wanted whole, a location not wanted kept, another format, or unreadable as it is: one
             // high-quality, upright JPEG (without the file's metadata, location included).

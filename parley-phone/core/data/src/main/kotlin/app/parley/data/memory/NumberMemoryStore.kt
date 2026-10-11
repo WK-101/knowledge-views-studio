@@ -7,7 +7,6 @@ import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
 import app.parley.common.people.ContactRef
-import app.parley.common.people.RelationLinks
 import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
@@ -105,18 +104,18 @@ class NumberMemoryStore(private val c: DataContainer) {
     /** Contacts deleted in Parley (History & undo), with a contact whose relations still name them. */
     private val deleted = object : NumberMemoryIndex.Source {
         override val id = "deleted"
-        override suspend fun fingerprint() = c.journal.memoryStamp() + "|" + relationsStamp()
+        override suspend fun fingerprint() = c.kept.deletedStamp()
         override suspend fun read(): List<NumberMemory.Entry> {
-            val links = relationOwners()
-            return NumberMemory.deleted(c.journal.deletedForMemory()) { key -> links[key] }
+            val links = c.kept.relationOwners()
+            return NumberMemory.deleted(c.kept.deleted()) { key -> links[key] }
         }
     }
 
     /** "Deleted private contacts": sealed copies, read with the caller-ID key; shown only after the vault's unlock. */
     private val deletedPrivate = object : NumberMemoryIndex.Source {
         override val id = "deleted_private"
-        override suspend fun fingerprint() = c.privateTrash.memoryStamp()
-        override suspend fun read(): List<NumberMemory.Entry> = c.privateTrash.list().flatMap { k ->
+        override suspend fun fingerprint() = c.kept.deletedPrivateStamp()
+        override suspend fun read(): List<NumberMemory.Entry> = c.kept.deletedPrivate().flatMap { k ->
             k.numbers.filter { it.isNotBlank() }.distinct().map { n ->
                 NumberMemory.Entry(n, MemoryHint(MemorySource.DELETED_PRIVATE, name = k.name, at = k.deletedAt, ref = k.file, private = true))
             }
@@ -125,8 +124,8 @@ class NumberMemoryStore(private val c: DataContainer) {
 
     private val snapshots = object : NumberMemoryIndex.Source {
         override val id = "snapshots"
-        override suspend fun fingerprint() = c.timeMachine.memoryStamp()
-        override suspend fun read() = NumberMemory.snapshotHints(c.timeMachine.peopleForMemory(), region)
+        override suspend fun fingerprint() = c.kept.snapshotsStamp()
+        override suspend fun read() = c.kept.snapshotHints(region)
     }
 
     private val archive = object : NumberMemoryIndex.Source {
@@ -143,13 +142,15 @@ class NumberMemoryStore(private val c: DataContainer) {
 
     /**
      * Pinned notes, moments and promises that mention a number (on device and private contacts' pages), and notes
-     * written after calls. Small enough to read every time.
+     * written after calls; read again only when one of their tables changed (and once after each start).
      */
     private val notes = object : NumberMemoryIndex.Source {
         override val id = "notes"
-        override suspend fun fingerprint(): String? = null
+
+        // Owners' names come with the notes: a renamed contact reads them again too.
+        override suspend fun fingerprint(): String = c.kept.notesStamp() + "|" + System.identityHashCode(c.contacts.contacts.value)
         override suspend fun read(): List<NumberMemory.Entry> {
-            val names = ownerNames()
+            val names = c.kept.ownerNames()
             fun note(text: String?, key: String, at: Long) = text?.takeIf { it.isNotBlank() }?.let {
                 NumberMemory.Note(it, key, names[key], at, private = ContactRef.isPrivateKey(key))
             }
@@ -168,27 +169,8 @@ class NumberMemoryStore(private val c: DataContainer) {
         else -> null
     }
 
-    /** Parley key → name: device contacts by lookup key, private contacts by their key (names only, from caller ID). */
-    internal suspend fun ownerNames(): Map<String, String> {
-        val out = HashMap<String, String>()
-        (c.contacts.contacts.value ?: c.contacts.loadNow()).forEach { out[it.lookupKey] = it.displayName }
-        runCatching { c.vault.summariesNow() }.getOrNull()?.forEach { out[ContactRef.privateKey(it.id)] = it.name }
-        return out
-    }
-
-    /** Deleted contact's key → the device contact whose relations still link to it (private owners never named). */
-    private suspend fun relationOwners(): Map<String, String> {
-        val names = ownerNames()
-        val out = HashMap<String, String>()
-        c.meta.allMetaNow().forEach { m ->
-            if (ContactRef.isPrivateKey(m.lookupKey)) return@forEach
-            val owner = names[m.lookupKey] ?: return@forEach
-            RelationLinks.decode(m.relationLinks).values.forEach { link -> out.putIfAbsent(link.lookupKey, owner) }
-        }
-        return out
-    }
-
-    private suspend fun relationsStamp(): Int = c.meta.allMetaNow().sumOf { (it.lookupKey + it.relationLinks.orEmpty()).hashCode() }
+    /** Parley key → name (see [KeptSources.ownerNames]). */
+    internal suspend fun ownerNames(): Map<String, String> = c.kept.ownerNames()
 
     private companion object {
         const val TAG = "NumberMemory"

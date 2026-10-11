@@ -26,6 +26,7 @@ import app.parley.data.TelephonyPackages
 import app.parley.common.calls.InternetCalls
 import app.parley.data.R
 import app.parley.data.StartGate
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
@@ -411,7 +412,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * every entry is split. Returns how many were split now.
      */
     suspend fun splitDetails(): Int = withContext(Dispatchers.IO) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(context, PREFS)
         if (prefs.getBoolean(K_SPLIT, false)) return@withContext 0
         var done = 0
         var pending = false
@@ -798,7 +799,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * marked done when every entry is seeded. Idempotent. Returns how many entries were seeded now.
      */
     suspend fun migrateCallerChoices(): Int = withContext(Dispatchers.IO) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(context, PREFS)
         if (prefs.getBoolean(K_CHOICES_SEEDED, false)) return@withContext 0
         var seeded = 0
         var pending = false
@@ -828,7 +829,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     private fun rememberCallChoices(any: Boolean) {
         if (hasCallChoices == any) return
         hasCallChoices = any
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(K_CALL_CHOICES, any).apply()
+        StatePrefs.open(context, PREFS).edit().putBoolean(K_CALL_CHOICES, any).apply()
     }
 
     private fun region(): String = PhoneEnv.countryIso(context)
@@ -854,7 +855,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * the form an older version read, see [VaultNumberKeys.storedWithPrevious]).
      */
     private suspend fun migrateNumberKeys() = withContext(Dispatchers.IO) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = StatePrefs.open(context, PREFS)
         if (prefs.getInt(K_KEYS_VERSION, 1) >= KEYS_VERSION) return@withContext
         val fallbackRegion = region()
         var failed = false
@@ -886,7 +887,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     init {
         scope.launch(Dispatchers.IO) {
-            runCatching { if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
+            catching { if (StatePrefs.open(context, PREFS).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
             VaultCallChoices.loaded = true
             // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any). It
             // opens every caller-ID copy, so it waits for the full app; a call's process goes by the stored answer.

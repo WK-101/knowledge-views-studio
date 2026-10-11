@@ -16,6 +16,7 @@ import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -88,6 +89,8 @@ class TimeMachineIndexTest {
         val spans = tm.peopleForMemory()
         assertEquals(old[2].timestamp, spans.newest)
         assertEquals(old[1].timestamp, spans.spans.single { it.key == "bo" }.lastSeen)
+        // Asked again with nothing new: the same answer, nothing decoded again.
+        assertSame(spans, tm.peopleForMemory())
 
         // A new instance (a restart) reads the new index; nothing moves twice.
         val again = TimeMachine(app, ContactRecordStore(app))

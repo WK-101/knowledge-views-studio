@@ -18,6 +18,7 @@ import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.DeviceAccounts
+import app.parley.data.StatePrefs
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeCallLogProvider
 import app.parley.data.testing.FakeContactsProvider
@@ -365,7 +366,7 @@ class ContactConversionsTest {
 
         ContactConversions(c).makePrivate(sam, c.contacts.details(sam)!!)
         assertTrue("Ana's contact no longer names Sam", c.contacts.details(ana)!!.relations.isEmpty())
-        val record = context.getSharedPreferences("relation_mirrors", android.content.Context.MODE_PRIVATE).getString("created", null)
+        val record = StatePrefs.open(context, "relation_mirrors").getString("created", null)
         assertTrue("Parley's record keeps no trace of Sam", record.isNullOrEmpty())
     }
 }

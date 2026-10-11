@@ -231,6 +231,39 @@ class FamilyShieldExchangeTest {
         assertFalse(none.mayMatch())
     }
 
+    /** Counts what it opens: a ring that opens only the shield's index, not each label's state. */
+    private class Counting : StateSealer {
+        val opened = ArrayList<String>()
+
+        override fun seal(text: String) = text
+
+        override fun open(text: String): String = text.also { opened += if (text.startsWith("{\"s\":")) "index" else "state" }
+    }
+
+    @Test fun a_ring_reads_the_shield_index_and_the_states_only_when_they_changed() = runBlocking {
+        shareByFile()
+        ana.own = listOf(OwnVerdict(scam, ShieldKind.SCAM, 10))
+        ana.shield(true)
+        sam.shield(true)
+        assertEquals(UpdateResult.MERGED, sam.open(ana.send()))
+        val dir = File(root, "indexed")
+        assertTrue(SharedLabelStateStore(dir, Plain).put(sam.s))
+        FamilyShieldStore(dir, Plain, { emptyList() }).update(listOf(sam.s))
+
+        // A new process for a ringing call: one file opened, the index.
+        val sealer = Counting()
+        val ring = FamilyShieldStore(dir, sealer, { emptyList() })
+        ring.load()
+        assertEquals(listOf("index"), sealer.opened)
+        assertEquals(ShieldKind.SCAM, ring.match(scam, "GB")?.kind)
+
+        // A state written without the index following (a crash between them): the states are read, not the old index.
+        File(dir, "${sam.s.labelId}.json").setLastModified(System.currentTimeMillis() - 60_000)
+        val after = Counting()
+        FamilyShieldStore(dir, after, { emptyList() }).load()
+        assertTrue("state" in after.opened)
+    }
+
     @Test fun a_blocked_number_marked_then_withdrawn_is_not_shared_again() = runBlocking {
         val store = FamilyShieldStore(File(root, "own"), Plain, { listOf(scam) })
         assertEquals(listOf(scam), store.outgoing().map { it.e164 })

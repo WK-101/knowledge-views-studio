@@ -9,6 +9,7 @@ import androidx.annotation.VisibleForTesting
 import app.parley.common.calls.PrivateCallSweepPlan
 import app.parley.common.catching
 import app.parley.data.DataContainer
+import app.parley.data.StatePrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -32,7 +33,7 @@ object PrivateCallLogSweep {
     private const val K_ENDED_ONE = "ended_at"
     private val mutex = Mutex()
 
-    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = StatePrefs.open(context.applicationContext, PREFS)
 
     /**
      * When each call that may still be in the system call log ended. One entry per call, so a call's sweep ending

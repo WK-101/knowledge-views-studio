@@ -53,6 +53,31 @@ data class CallTally(
         return copy(mark = mark, lines = out)
     }
 
+    /** A line's calls as the archive counts them now, by one of its keyed fingerprints. */
+    data class Count(val count: Int, val first: Long, val last: Long)
+
+    /**
+     * This tally after calls left the archive: each line's count, first and last call from [counts] by its keyed
+     * fingerprints ([keysOf]). A line with no call left goes; a name older than every call left goes with the call it
+     * came from. Null when one fingerprint would count for two lines (then everything is read again).
+     */
+    fun recounted(keysOf: (Line) -> Collection<String>, counts: Map<String, Count>): CallTally? {
+        val used = HashSet<String>()
+        val out = HashMap<String, Line>()
+        for ((key, l) in lines) {
+            val mine = keysOf(l).filter { it in counts }.distinct()
+            if (mine.any { !used.add(it) }) return null
+            val cs = mine.map { counts.getValue(it) }.takeIf { it.isNotEmpty() } ?: continue
+            val since = cs.minOf { it.first }
+            val named = l.name != null && l.namedAt >= since
+            out[key] = l.copy(
+                count = cs.sumOf { it.count }, since = since, at = cs.maxOf { it.last },
+                name = l.name.takeIf { named }, namedAt = if (named) l.namedAt else 0,
+            )
+        }
+        return copy(lines = out)
+    }
+
     /** The hints, as [NumberMemory.pastCalls] gives them for the same calls. */
     fun entries(): List<NumberMemory.Entry> = lines.values.flatMap { l ->
         listOfNotNull(

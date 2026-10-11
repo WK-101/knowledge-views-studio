@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import app.parley.data.StatePrefs
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
@@ -36,7 +37,7 @@ class RecordKeySafetyTest {
         FakeAndroidKeyStore.install()
         File(context.noBackupFilesDir, "records.keys").delete()
         context.getSharedPreferences("record_crypto", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
+        StatePrefs.open(context, "record_sealing").edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     }
 
@@ -84,7 +85,7 @@ class RecordKeySafetyTest {
         // AndroidKeyStore wraps some passing keystore2 errors in UnrecoverableKeyException.
         FakeAndroidKeyStore.failure = { UnrecoverableKeyException("keystore2 system error") }
         val crypto = RecordCrypto.fresh(context)
-        val context2 = context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE)
+        val context2 = StatePrefs.open(context, "record_sealing")
         context2.edit().putBoolean("done_v2", true).commit()
         assertEquals("kept plain rather than lost", "New note", crypto.sealText("New note"))
         assertFalse("the next sealing run picks it up", context2.getBoolean("done_v2", true))

@@ -1,6 +1,7 @@
 package app.parley.data.backup
 
 import app.parley.common.catching
+import app.parley.data.StatePrefs
 import app.parley.data.applyInBatches
 import android.Manifest
 import android.content.ContentProviderOperation
@@ -44,7 +45,7 @@ data class LostNumbers(val key: String, val contactId: Long, val name: String, v
  */
 class SyncWatch(private val c: DataContainer) {
     private val context: Context get() = c.appContext
-    private val prefs = c.appContext.getSharedPreferences("sync_watch", Context.MODE_PRIVATE)
+    private val prefs = StatePrefs.open(c.appContext, "sync_watch")
     private val _memory = MutableStateFlow(SyncWatchMemory.decode(prefs.getString(KEY, null)))
 
     /** Its memory; [SyncWatchMemory.pending] are the cards shown in the Contact health check. */

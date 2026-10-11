@@ -9,7 +9,7 @@ is compiled ahead of time at install, rather than interpreted until the phone's 
 
 | Path | What |
 |---|---|
-| `app/src/main/baseline-prof.txt` | A hand-written profile covering start-up (`ParleyApp`, the data container, `MainActivity`, `AppViewModel`, the home screen with Recents, the keypad and Contacts), a contact's page (its view model, sections and the photo as picked) and the call path (`CallManager`, `CallNotifier`, the screening service, the in-call screen). It works without a device, so profile installation works now. |
+| `app/src/main/baseline-prof.txt` | A hand-written profile covering start-up (`ParleyApp`, the data container, `MainActivity`, `AppViewModel`, the home screen with Recents, the keypad and Contacts), a contact's page (its view model, sections and the photo as picked), the call path (`CallManager`, `CallNotifier`, the screening service, the in-call screen), the 6.x stores every start and ring reads (per-call facts, sealed documents, number memory, archived contacts, the family shield, Situations, case files) and Recall. `BaselineProfileRulesTest` checks every rule still names code. It works without a device, so profile installation works now. |
 | `app/src/release/generated/baselineProfiles/` | The measured profile and startup profile, once generated on a device (below). Merged with the hand-written one. |
 | `baselineprofile/` | A `com.android.test` module with the `androidx.baselineprofile` plugin: the generator (`BaselineProfileGenerator`) and the macrobenchmarks. CI compiles and packages it (`:baselineprofile:assembleBenchmarkRelease`), so it can't rot between device runs. |
 
@@ -156,6 +156,32 @@ The release APK has a download-size budget of 8 MiB, measured on the APK file it
 download): `./gradlew :app:checkReleaseApkSize` fails above it, and CI runs it. Until 5.4 the budget was 12 MiB with
 the code stored uncompressed; 5.5 compresses the code (below), so the budget follows the download and not the
 installed size.
+
+### 6.5: the gate on the JVM
+
+**These are JVM figures, not a phone's.** `ScaleBenchmarkTest` (core:data, Robolectric) seeds the measurement gate's
+sizes: 10,000 contacts, 500 private, 1,000 archived and 50,000 archived calls over two years. It runs with software
+crypto (no Keystore), an in-memory contacts provider and a desktop CPU and disk, so the absolute numbers say little
+about a phone. They compare 6.4.0 (`c4ba2249`) with this build, the same test file on the same machine, one run each
+(10 Oct 2026). The device gate (cold screening < 400 ms, the full Contacts list < 1 s, a Recents keystroke < 50 ms,
+Recall's first result < 300 ms, backup with 3k photos under a 256 MB heap, daily maintenance < 15 s CPU) is measured
+with the macrobenchmarks on the owner's phones; the macrobenchmark seed (`BenchmarkData`) is still 3,000.
+
+Run it: `PARLEY_BENCH=1 ./gradlew :core:data:testDebugUnitTest --tests '*ScaleBenchmarkTest' -i | grep BENCH`.
+
+| Measure | 6.4.0 | 6.5 | What changed |
+|---|---|---|---|
+| Ring facts, call quality and network names filled to their caps (400 / 400 / 1,000 calls) | 5,785 ms | 2,296 ms | One table row per fact instead of re-sealing the whole store on every call (PF-3) |
+| One call's facts written, median | 11.0 ms (+ the deferred whole-file write) | 16.2 ms (on the disk) | 6.4's figure leaves out the preferences write, which `apply()` defers to the moment the call screen closes (where Android waits for it on the main thread); 6.5's includes its synced row writes. On the JVM the test thread is the main thread, so each table call also hops to the disk thread |
+| Snapshot versions for number memory, asked again | 284 ms | 11 ms | Decoded versions kept by hash; an unchanged index returns the last answer (PF-1) |
+| Recall's corpus, a second search | 383 ms | 2 ms | Kept while no store it was read from changed (PF-1) |
+| Recall's corpus, first search | 378 ms | 130 ms | The snapshots' versions come from the memo above |
+| Number memory's tally after retention took a year | 369 ms | 255 ms | Counted again from the archive's index, no call opened; software crypto makes 6.4's full re-read cheap here, a phone's Keystore-wrapped key does not (PF-1) |
+| An archived caller looked up in a fresh process | 35 ms | 18 ms | One sealed index file instead of 1,000 card files (PF-6) |
+| Daily snapshot of 10,000 contacts | 14.9 s | 19.6 s | Unchanged code; varies run to run with the machine's load |
+
+Not measured on the JVM: the family shield's index (needs shared labels), the cold start's preferences files (PF-7:
+`local_state` and `call_path_state` instead of 23 files, each a loader thread and an XML parse), and memory trimming.
 
 ### 6.5: a lighter download, again
 
