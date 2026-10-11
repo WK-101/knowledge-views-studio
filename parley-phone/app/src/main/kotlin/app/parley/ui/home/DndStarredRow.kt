@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,14 +82,19 @@ private fun DndStarredSheet(vm: AppViewModel, open: (Destination) -> Unit, onDis
             people.forEach { c ->
                 val makeLabel = stringResource(R.string.fav_dnd_make)
                 val made = stringResource(R.string.fav_dnd_made, c.displayName)
+                // TalkBack says whose star it is: the button's own text is the same on every row.
+                val makeSpoken = stringResource(R.string.fav_dnd_make_a11y, c.displayName)
                 ParleyListItem(
                     headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingContent = { Avatar(c.displayName, c.photoUri, 40.dp) },
                     trailingContent = {
-                        TextButton({
-                            val undo = vm.people.makeFavourite(c)
-                            vm.offerUndo(made) { undo() }
-                        }) { Text(makeLabel) }
+                        TextButton(
+                            {
+                                val undo = vm.people.makeFavourite(c)
+                                vm.offerUndo(made) { undo() }
+                            },
+                            Modifier.semantics { contentDescription = makeSpoken },
+                        ) { Text(makeLabel) }
                     },
                     modifier = Modifier.clickable(role = Role.Button) { onDismiss(); open(Routes.contact(c.id)) },
                 )

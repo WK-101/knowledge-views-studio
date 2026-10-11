@@ -3368,7 +3368,7 @@ Automated: `NumberPassportTest` (core:common: the first look only takes stock, a
 2. Edit that contact in Parley and add a number by typing it. Its row reads "Added by you · <time>".
 3. Copy a signature with a phone number, open a new contact's editor, use Paste details and save. The number's row reads "From pasted text · <time>".
 4. Scan a QR code with a phone number (Scan QR › Add to contacts) and save: "From a scanned code". Import a .vcf file with a new contact: "Imported". From another app's "Add to contacts" (select a number in a message › Parley › Save): "From another app".
-5. In Google Contacts (or another contacts app) change a number of a contact, return to Parley and wait about 20 seconds: the new number reads "Changed by another app" (or "Came with a sync" when the change came from the web).
+5. In Google Contacts (or another contacts app) change a number of a contact, return to Parley and wait about 20 seconds: the new number reads "Changed by another app" (or "Added through sync" when the change came from the web).
 6. Restore a contact from History & undo or a backup: its numbers read "Restored". Accept a signed card update: "From their card".
 7. Open a private contact: no origin text. Unlock with the duress PIN and open the contact from step 3: no origin text; unlock with the real PIN: it is back.
 8. With TalkBack on, the number row reads the origin with the rest of its line. Repeat step 3 in dark, AMOLED, right to left and the largest font: the line wraps without clipping.
@@ -3395,3 +3395,12 @@ Automated: `QueueMemoryTest` (core:common: nothing under three timed calls, the 
 6. Unlock with the duress PIN: case files, and their hold times, are hidden. A private contact's case: hold times show only while private contacts show.
 7. TalkBack reads "Hold times" as a heading. Check in dark, right to left, the largest font and a 12-hour clock (the times read "9:30 AM").
 
+
+### 50.7 Review fixes
+Automated: `NavigationRoutesTest.an_insert_from_parley_itself_is_yours_and_from_another_app_handed_over` (app), `NumberPassportTest.a_save_landing_while_a_sweep_reads_the_address_book_keeps_its_stamp` and `a_change_seen_first_while_it_rings_is_quiet_when_an_account_arrived_at_once` (core:common), `CallbackWatchTest.a_reminder_on_the_same_line_keeps_the_callback_window` (core:common), `NumberOriginTextTest`, `DndStarredSpeechTest` (app).
+1. Have an unsaved number call, decline it with ⋮ › Decline & message or call on…, and on that sheet tap **Add to contacts** and save. The number's row reads "Added by you", and a call from it soon after shows no fresh-number line. From another app's "Add to contacts" (select a number in a message › Parley › Save) it still reads "From another app".
+2. Add a second Google account with more than 20 contacts (or import them on the web for an existing account) and, before 20 seconds pass, have one of those numbers ring: no fresh-number line. Change one number of one contact on the web, wait for the sync and ring from it: "New number, added today" with "It came in with a sync", and the contact's page reads "Added through sync".
+3. Add a number to a contact in Parley's editor, wait a minute, then have a contacts sync run (Settings › Accounts › Sync now) and ring from it: no fresh-number line; the page still reads "Added by you".
+4. After a call with an unsaved number, Remind me › They'll call me back… › Within a week with **From any number** on. The switch's text says block lists and scam warnings still apply and where to end it early. Open Settings › Blocking & spam › Expecting a call from your notes (with no kind turned on): the window is listed as "They'll call me back · <number> · any number may ring" with its dates; × ends it, and an unsaved number is silenced again.
+5. With that callback still open, use Remind me to call on the same number (Recents long-press, or a missed call's Remind me): the window keeps "They'll call me back" in Settings and the line still rings without the To call hint's yes.
+6. On Favourites, open "Also starred for Do Not Disturb" with TalkBack on: each button reads "Make Ben a favourite", "Make Cy a favourite".

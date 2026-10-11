@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
 import app.parley.common.StartTab
+import app.parley.common.people.NumberOrigin
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelUpdates
 import app.parley.common.vcard.SealedVCard
@@ -71,6 +72,9 @@ object IntentRoutes {
 
     /** Whether [intent] came in through [OWN_ENTRY], so only Parley itself (or a PendingIntent it made) sent it. */
     fun fromParley(intent: Intent): Boolean = intent.component?.className == OWN_ENTRY
+
+    /** Where the numbers of an insert came from, for the number passport: Parley's own entry is you, else another app. */
+    fun insertOrigin(fromParley: Boolean): NumberOrigin = if (fromParley) NumberOrigin.YOU else NumberOrigin.HANDED_OVER
 
     /** The actions only Parley may send; from any other app they open nothing ([resolve]). */
     val INTERNAL_ACTIONS: Set<String> by lazy {
@@ -347,8 +351,9 @@ object IntentRoutes {
             ACTION_APPROVE_PRIVATE_NAME -> intent.getStringExtra(EXTRA_PACKAGE)?.takeIf { it.isNotBlank() && !isLegacyLookupRequest(intent) }?.let {
                 IntentTarget(approvePrivateName = it)
             }
-            Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent)))
-            Intent.ACTION_INSERT_OR_EDIT -> go(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))
+            // Another app's "Add to contacts" hands its numbers over; Parley's own (through its entry) are yours.
+            Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent), insertOrigin(fromParley)))
+            Intent.ACTION_INSERT_OR_EDIT -> go(NavEvent.InsertOrEdit(InsertPrefill.from(intent), insertOrigin(fromParley)))
             else -> null
         }
     }

@@ -166,12 +166,14 @@ object NumberPassport {
      * Takes stock of the address book ([current]: lookup key → numbers). The first time, every number is simply known
      * (no stamp). Afterwards a number not seen before is stamped: with what Parley wrote, else [origins] for its contact
      * (from [Attribution]; [NumberOrigin.UNKNOWN] when there is none or [MASS_CHANGE] contacts changed at once), and a
-     * number the same contact lost meanwhile is its older one. Numbers no longer on any contact are forgotten.
+     * number the same contact lost meanwhile is its older one. Numbers no longer on any contact are forgotten, except
+     * those Parley wrote since the last look: [current] may have been read before that write landed, and dropping its
+     * stamp would leave the next sweep asking Android, which can't tell your own save from a sync.
      */
     fun sweep(state: PassportState, current: Map<String, List<PassportLine>>, origins: Map<String, Attribution>, now: Long): PassportState {
         val present = current.values.flatten().filter { it.key.isNotEmpty() }.map { it.key }.toSet()
-        val known = current.flatMap { (contact, lines) -> lines.filter { it.key.isNotEmpty() }.map { it.key to SeenNumber(contact, it.number) } }.toMap()
-        if (state.since == null) return PassportState(since = now, known = known, stamps = state.stamps.filterKeys { it in present }, looked = now)
+        val listed = current.flatMap { (contact, lines) -> lines.filter { it.key.isNotEmpty() }.map { it.key to SeenNumber(contact, it.number) } }.toMap()
+        if (state.since == null) return PassportState(since = now, known = listed, stamps = state.stamps.filterKeys { it in present }, looked = now)
         val massChange = origins.size > MASS_CHANGE
         val stamps = state.stamps.toMutableMap()
         for ((contact, lines) in current) {
@@ -189,16 +191,29 @@ object NumberPassport {
                 }
             }
         }
-        return state.copy(known = known, stamps = capped(stamps.filterKeys { it in present }), looked = now)
+        return keepingNewer(state, listed, stamps, present).copy(looked = now)
+    }
+
+    /**
+     * The sweep's [listed] numbers and [stamps] on those [present], plus the numbers stamped since the last look that
+     * [present] doesn't show: a write the sweep's copy of the address book may predate.
+     */
+    private fun keepingNewer(state: PassportState, listed: Map<String, SeenNumber>, stamps: Map<String, NumberStamp>, present: Set<String>): PassportState {
+        val lastLook = state.looked ?: Long.MIN_VALUE
+        val newer = state.stamps.filter { (k, st) -> k !in present && st.since > lastLook }.keys
+        val known = listed + newer.mapNotNull { k -> state.known[k]?.let { k to it } }
+        return state.copy(known = known, stamps = capped(stamps.filterKeys { it in present || it in newer }))
     }
 
     /**
      * A number on a contact that the last look at the address book ([looked]) didn't see, attributed while it rings:
      * only a change Android dates after that look counts (an older one is the passport catching up, say after a new
-     * SIM changed how national numbers read), and only an origin that warns.
+     * SIM changed how national numbers read), and only an origin that warns. [changedSince] is how many contacts Android
+     * dates after that look: more than [MASS_CHANGE] is an account arriving, which the sweep would mark unknown too.
      */
-    fun unseen(attribution: Attribution?, looked: Long?, now: Long): NumberStamp? {
+    fun unseen(attribution: Attribution?, looked: Long?, now: Long, changedSince: Int = 0): NumberStamp? {
         val at = attribution?.at ?: return null
+        if (changedSince > MASS_CHANGE) return null
         if (looked == null || at <= looked || !attribution.origin.warns) return null
         return NumberStamp(minOf(at, now), attribution.origin)
     }

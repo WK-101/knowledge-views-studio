@@ -62,6 +62,9 @@
     <string name="expected_from_note_on">Note on %1$s</string>
     <string name="expected_from_note">A note</string>
     <string name="expected_from_to_call">To call list</string>
+    <string name="expected_from_callback">They\'ll call me back</string>
+    <!-- After "They'll call me back · number": the window lets numbers nobody saved ring too -->
+    <string name="expected_any_number">any number may ring</string>
     <string name="expected_from_delivery">Delivery QR code</string>
 
     <!-- The one-time question -->

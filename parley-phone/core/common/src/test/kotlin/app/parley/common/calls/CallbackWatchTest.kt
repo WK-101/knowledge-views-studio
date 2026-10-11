@@ -93,4 +93,19 @@ class CallbackWatchTest {
         assertTrue(NeverCallsYou.onlyYouCalled(NeverCallsYou.withoutExpected(listOf(out, back), listOf(400L..1_000L)), keptSince = 0))
         assertEquals(listOf(out, back), NeverCallsYou.withoutExpected(listOf(out, back), emptyList()))
     }
+
+    @Test fun a_reminder_on_the_same_line_keeps_the_callback_window() {
+        val now = t(28, 10)
+        val callback = CallbackWatch.window(hospital, "k", now, t(2, 20, month = 10), anyCaller = true, label = null, privateName = false)
+        // "Remind me" on that line offers the To call hint's own window: it doesn't replace the callback.
+        val hint = ExpectedWindow(now, t(29, 20), ExpectedSource.TO_CALL, "k", number = hospital)
+        assertEquals(listOf(callback), ExpectedCalls.put(listOf(callback), hint, now))
+        // A new callback for the line does replace it, and once the callback has ended the hint goes in.
+        val again = callback.copy(end = t(29, 20), anyCaller = false)
+        assertEquals(listOf(again), ExpectedCalls.put(listOf(callback), again, now))
+        val later = hint.copy(start = t(3, 9, month = 10), end = t(3, 20, month = 10))
+        assertEquals(listOf(later), ExpectedCalls.put(listOf(callback), later, t(3, 8, month = 10)))
+        // Listed in Settings with nothing said yes to, so a window letting any number ring can be seen and ended.
+        assertEquals(listOf(callback), ExpectedCalls.inForce(listOf(callback), emptyMap(), now))
+    }
 }

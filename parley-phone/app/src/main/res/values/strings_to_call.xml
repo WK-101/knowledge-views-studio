@@ -80,7 +80,7 @@
     <string name="callback_title">They\'ll call me back</string>
     <string name="callback_body">Until then their call rings through, and Parley won\'t say this number never calls you. If they haven\'t called by then, it goes on To call.</string>
     <string name="callback_any_number">From any number</string>
-    <string name="callback_any_number_body">Numbers nobody saved ring too: organisations often call back from another line</string>
+    <string name="callback_any_number_body">Until then numbers nobody saved ring too, as organisations often call back from another line. Block lists and scam warnings still apply. You can end it early in Settings › Blocking &amp; spam › Expecting a call from your notes.</string>
     <string name="callback_by_today">By this evening</string>
     <string name="callback_by_tomorrow">By tomorrow</string>
     <string name="callback_by_friday">By Friday</string>
