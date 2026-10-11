@@ -200,6 +200,8 @@ fun ContactsFavorites(vm: AppViewModel, open: (Destination) -> Unit, onReorder: 
         } else {
             FavoriteGrid(favorites, ps.favoriteColumns, onCall = ::call, onOpen = { open(Routes.contact(it.id)) })
         }
+        // Starred only for a label's Do Not Disturb: one folded row, as on the Favourites tab.
+        DndStarredRow(vm, open)
         if (shownFrequents.isNotEmpty()) {
             ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.xl)
             AvatarStrip(shownFrequents.map { g -> g.stripItem(vm, open) })

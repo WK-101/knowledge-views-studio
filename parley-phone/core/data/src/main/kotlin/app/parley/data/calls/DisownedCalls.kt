@@ -8,6 +8,10 @@ import app.parley.data.history.CallHistory
  * "This number never calls you" leaves those calls out of the history it reads, so the scam call it was there to catch
  * doesn't switch it off for the next one ([app.parley.common.calls.NeverCallsYou.withoutDisowned]). Kept per line in a
  * [SealedLineStore] like the call facts: when you said it, nothing else. They go with the line's calls.
+ *
+ * Beside them, the "They'll call me back" windows a call from the line rang in ([expect]): those calls are left out
+ * too ([app.parley.common.calls.NeverCallsYou.withoutExpected]), since a callback you asked for isn't the organisation
+ * starting a call, so the notice stays armed outside the window.
  */
 class DisownedCalls private constructor(context: Context, keys: SealedLineStore.KeySource, table: () -> SealedLineStore.Table) {
     constructor(context: Context, history: () -> CallHistory) :
@@ -26,6 +30,23 @@ class DisownedCalls private constructor(context: Context, keys: SealedLineStore.
         legacy = SealedLineStore.Legacy(context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE), KEY_ROWS),
     )
 
+    private val expected = SealedLineStore(
+        table, KIND_EXPECTED, keys,
+        encode = { "${it.first}-${it.last}" },
+        decode = { v -> v.split('-').takeIf { it.size == 2 }?.let { (a, b) -> a.toLongOrNull()?.let { s -> b.toLongOrNull()?.let { e -> s..e } } } },
+        startedAt = { it.first },
+        maxRows = 400, keepDays = KEEP_DAYS,
+    )
+
+    /** A call from [number] rang during a "They'll call me back" window from [start] to [end]. Kept once per window. */
+    fun expect(number: String, start: Long, end: Long, now: Long = System.currentTimeMillis()) {
+        if (end <= start) return
+        expected.add(number, start..end, now)
+    }
+
+    /** The callback windows calls from [number] rang in. */
+    fun expectedFor(number: String): List<LongRange> = expected.forNumber(number)
+
     /** [number]'s latest call wasn't them; said at [at]. */
     fun disown(number: String, at: Long = System.currentTimeMillis()) = store.add(number, at, at)
 
@@ -33,14 +54,21 @@ class DisownedCalls private constructor(context: Context, keys: SealedLineStore.
     fun forNumber(number: String): List<Long> = store.forNumber(number)
 
     /** Every call with [number] went: so do its marks. */
-    fun forget(number: String) = store.forget(number, null) { _, _ -> null }
+    fun forget(number: String) {
+        store.forget(number, null) { _, _ -> null }
+        expected.forget(number, null) { _, _ -> null }
+    }
 
-    fun clear() = store.clear()
+    fun clear() {
+        store.clear()
+        expected.clear()
+    }
 
     private companion object {
         const val FILE = "parley_disowned_calls"
         const val KEY_ROWS = "rows_v1"
         const val KIND = "disowned_calls"
+        const val KIND_EXPECTED = "expected_callbacks"
         const val KEEP_DAYS = 3_650L
     }
 }

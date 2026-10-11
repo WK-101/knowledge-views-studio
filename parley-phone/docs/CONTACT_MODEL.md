@@ -282,7 +282,8 @@ in discreet mode. **Save on this contact** writes the name into the Relation row
 | Signed card updates ("Ana sent an updated card", 4.6) | Yes | No | Yes (the link by its Parley key; Apply edits the sealed details; never named in discreet mode) |
 | Date chips on the page ("Add birthday") | Yes | No | Yes (into the sealed details) |
 | Multi-select in Contacts | Yes | No (long-press didn't select) | Yes: star, Add to label, Message all, Introduce, Delete automatically…, Make visible, Delete. Share, Export, Copy as text and Merge act on the device contacts and say how many private ones they left out |
-| Favourites (star) | Address-book star | No | Parley's own star (other apps never see it); in the Favourites tab with the lock badge |
+| Favourites (star) | Address-book star; a star Parley set only for a label's "Allow through Do Not Disturb" (`DndStars`) shows in the folded "Also starred for Do Not Disturb" row, not among the favourites, until **Make a favourite** (6.6) | No | Parley's own star (other apps never see it); in the Favourites tab with the lock badge. Never starred for Do Not Disturb, so always a chosen favourite |
+| Promise a time, They'll call me back (6.6) | Yes (on the To call item, by number) | Yes (by number) | Yes, by number like every To call item: no name kept. "You said you'd call at…" on the call screen only while private contacts show; a callback window keeps the name hidden in discreet mode, as a note's window does |
 | Default number/email | Yes | No | Yes (kept in the sealed details) |
 | QR code | Yes | Secure QR only | Yes: plain QR after a privacy confirmation, secure QR as before |
 | Block numbers, "allow by name" | Yes | No | Yes |

@@ -227,13 +227,22 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
     )
 }
 
-/** "Missed call · 14:05", "Reminder · 18:00", "Follow-up · Mon 09:00", or a missed call after the reminder. */
+/**
+ * "Missed call · 14:05", "Reminder · 18:00", "Follow-up · Mon 09:00", "You said you'd call · 15:30", "Hasn't called
+ * back", or a missed call after the reminder.
+ */
 private fun kindLine(context: Context, e: ToCallEntry): String {
     e.missedAt?.let { return context.getString(R.string.to_call_missed_again, Format.shortWhen(context, it)) }
+    e.promisedAt?.let { return context.getString(R.string.to_call_promised_at, RemindTimes.whenText(context, it)) }
     return when (e.kind) {
         ToCallKind.MISSED -> context.getString(R.string.label_missed_call_at, Format.shortWhen(context, e.since))
         ToCallKind.REMINDER -> context.getString(R.string.to_call_remind_at, RemindTimes.whenText(context, e.dueAt ?: e.since))
         ToCallKind.FOLLOW_UP -> context.getString(R.string.to_call_follow_up_at, RemindTimes.whenText(context, e.dueAt ?: e.since))
+        ToCallKind.CALLBACK -> if (e.isDue(System.currentTimeMillis())) {
+            context.getString(R.string.to_call_callback_due)
+        } else {
+            context.getString(R.string.to_call_callback_by, RemindTimes.whenText(context, e.dueAt ?: e.since))
+        }
     }
 }
 

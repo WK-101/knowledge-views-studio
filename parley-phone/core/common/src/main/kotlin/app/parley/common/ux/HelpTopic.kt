@@ -45,6 +45,12 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** The family spam shield: on each shared label's page. */
     FAMILY_SHIELD(CapabilityTarget.Screen(AppScreen.SHARED_LABELS), explainsFeature = true),
+
+    /** Promise a time: on a declined or missed call, after a call, and Remind me to call; kept in To call. */
+    PROMISE_TIME(CapabilityTarget.Screen(AppScreen.TO_CALL), explainsFeature = true),
+
+    /** They'll call me back: after a call and Remind me to call; a line that hasn't called back shows in To call. */
+    CALLBACK_WATCH(CapabilityTarget.Screen(AppScreen.TO_CALL), explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */

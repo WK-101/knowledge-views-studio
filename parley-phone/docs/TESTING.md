@@ -3329,3 +3329,35 @@ Automated: `SelectionBarTest` (Contacts, Recents and merging labels use core/ui'
 6. Settings › Labels › ⋮ › Merge labels: the same selection bar shows "0 selected", Close (TalkBack says "Stop merging") and Merge, which turns on once two labels are ticked. Back stops merging.
 7. With TalkBack on, each bar reads Close's name, the count and every action's name. Repeat steps 1, 2 and 6 in dark, AMOLED, right to left, the largest font and landscape: the bar fits, with no clipped words.
 8. Favourites, a label's members, Archived, Case files, the blocking log, Messaged numbers and a number's history have no multi-select: a long-press never starts a selection there, so no selection bar appears.
+
+## 50. Daily signature, wave 1 (6.6)
+
+### 50.1 Promise a time
+Automated: `PromiseTimesTest` (the choices, quarter hours, their evening, when a Situation ends, the record on To call), `CallPromisesTest` (the message in their time, the promise read back for the call screen) (core:common, app).
+1. Have the second phone call. On the ringing screen open ⋮ › **Decline & promise a time**: the call is declined (on the lock screen, after unlocking) and the sheet **I'll call you at…** lists up to four times, the earliest first, on the quarter hour, each written as it will be sent ("I'll call you back at 15:30.") with why it is offered underneath.
+2. Pick one: "Parley will remind you at …" shows and the messaging app opens to that number with the sentence filled in. Nothing is sent until you send it. Recents › To call lists them as "You said you'd call · 15:30".
+3. Have the second phone call again before that time: under the name the call screen says "You said you'd call at 15:30". Lock the phone and have it call once more: on the lock screen the line isn't there.
+4. At the time, the To call reminder says "You said you'd call at 15:30". Call them back: the item leaves To call and the line no longer shows when they call.
+5. A missed call: on its notification tap Remind me, then **Promise a time…** at the bottom of the sheet; after a call with an unsaved number: on the post-call card Remind me › **Promise a time…**; and from Recents (long-press › ⋮ › Remind me to call) › **Promise a time…**. Each opens the same sheet for that number.
+6. Their time: promise a time to a number in another time zone (a +92 number from the UK). The sheet says "It's 22:10 for them. Times are said in their time.", offers "Early evening for them", shows your own time beside each choice, and the message says "… at 18:00 your time." (or "tomorrow at …" / "on Wednesday at …" when it is another day for them).
+7. Turn on a Situation "until" a time (or wait for one on a schedule): the first choice is that end, "When your Situation ends".
+8. A private contact: promise a time, then turn on discreet mode (or unlock with the duress PIN) and have them call: no "You said you'd call" line. Turn discreet mode off: it is back.
+9. TalkBack, dark, AMOLED, right to left, the largest font and landscape: the sheet's rows read their sentence and reason, nothing is clipped.
+
+### 50.2 They'll call me back
+Automated: `CallbackWatchTest` (by-days, the window for the line or any number, in force without the To call hint's yes, older backups, calls in the window leave "never calls you" armed), `CallPromisesTest` (the To call item and window, gone when the line is done), `DisownedCallsTest` (core:common, app, core:data).
+1. Call an unsaved number (a stand-in for a hospital). On the post-call card open Remind me › **They'll call me back…**: the sheet says what happens, has **From any number** (off) and By this evening (until 18:00) / By tomorrow / By Friday (Monday to Wednesday) / Within a week, each with its date.
+2. Choose By tomorrow. "Expecting their call until … 20:00" shows. With Settings › Blocking & spam silencing unknown callers (and "Expecting a call from your notes" never answered), have that number call: it rings, and Test a call shows "Expecting a call". Recents › To call shows it as "Expecting their call · by Tue 20:00".
+3. Repeat with From any number on and call from a third, unsaved number: it rings too. Blocked numbers, block lists and scam warnings still stop it.
+4. A saved organisation (a contact named "Riverside Clinic" with two numbers that you have only ever called): from its page or Recents, Remind me to call › **They'll call me back…** › By tomorrow. Have its second number call: no "This number never calls you" card. After the date, have the first number call: the card shows again (the callback in the window didn't switch it off).
+5. Don't answer and wait past the date: the To call reminder says "They haven't called back", and To call shows "Hasn't called back" with Call. Call them, or mark it Done: it leaves To call, and their calls no longer ring past silencing.
+6. Answer No thanks when Parley asks about expecting calls from To call (or turn that off in Settings › Blocking & spam): a callback you set yourself still lets their call ring until its date.
+
+### 50.3 Favourites and stars for Do Not Disturb apart
+Automated: `ExtrasTest.starred_for_do_not_disturb_is_kept_apart_from_chosen_favourites` (core:common).
+1. Star Ana yourself. On a label Family with Ben and Cy, turn on Allow through Do Not Disturb and confirm the starring.
+2. Favourites shows Ana only, then one row "Also starred for Do Not Disturb: 2 (Family)". In Contacts with Favourites in Contacts, the same row follows the favourites. Android's own contacts app shows all three starred.
+3. Tap the row: the sheet lists Ben and Cy, each with **Make a favourite**, and **Open Family**. Make Ben a favourite: he moves into Favourites, Undo on the snackbar puts him back under the row. Make him a favourite again, then turn Family's Do Not Disturb off: Ben stays starred and a favourite; Cy is unstarred.
+4. **Open Family** opens the label's page. When everyone is a favourite the sheet closes and the row is gone.
+5. Nobody starred for Do Not Disturb: no row. Only people starred for it and no favourites: the row shows above "No favourites yet".
+6. TalkBack reads the row as one button; dark, AMOLED, right to left, the largest font and landscape fit.

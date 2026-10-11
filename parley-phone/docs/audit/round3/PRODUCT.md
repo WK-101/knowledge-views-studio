@@ -324,6 +324,7 @@ Each feature below reuses pieces Parley already has. It works offline, needs no 
   - If they ring again before then, the caller card says "You said you'd call at 15:30".
 - **Reuses:** quick replies and the SMS intent, Remind me / `ToCall`, the To call "their time" logic (`to_call_their_time`), GoodTime, the Situation window.
 - **Risks:** time-zone wording; the SMS composer still needs a tap, which is correct.
+- **Built (6.6):** ⋮ › Decline & promise a time on the ringing screen; Promise a time… under Remind me on the missed-call notification and the post-call card, and on Remind me to call (Recents, the contact page, number history). The sheet offers when your Situation ends, in an hour, this evening, early evening their time and tomorrow morning, on the quarter hour, at most four, each written as it will be sent. GoodTime isn't used: it needs eight answered calls and says when they pick up, not when you're free. The record is `PromisedTime` on the To call item; the caller line shows only while the phone is unlocked.
 
 **2. Callback watch: "They'll call me" (S–M).**
 - **Problem:** "The hospital will call you back by Friday", from a number you don't know. Screening silences it (the top complaint about iOS and Samsung screening), or it never comes and you don't notice.
@@ -334,6 +335,7 @@ Each feature below reuses pieces Parley already has. It works offline, needs no 
   - An expected callback also quietens "never calls you" for that window, and flags any call outside it.
 - **Reuses:** `ExpectedCalls`/`ExpectedWindow` (already has `TO_CALL` and `NOTE` sources), promises, `ToCall`, Case files, `NeverCallsYou`.
 - **Risks:** windows that let unknown numbers ring must stay below rules and lists, as `ExpectedWindow` already guarantees.
+- **Built (6.6):** They'll call me back… under Remind me on the post-call card and on Remind me to call, by this evening, tomorrow, Friday or within a week, with "From any number". It is a To call item due on that date ("Hasn't called back") plus a window for the line that needs no yes to the To call hint. "Never calls you" is quiet for calls from any of that contact's numbers inside the window, and those calls are left out of the history it reads, so a spoofed call later is still warned about. The case file entry is left for after Queue memory (SG-4) lands in the same files.
 
 **3. Fresh-number warning ("number passport") (S–M).**
 - **Problem:** a common scam step is to get you to change a saved number ("our bank has a new number", "Mum's new phone"), or for another app or a sync to change it. After that, the scammer's calls show a trusted name.

@@ -143,6 +143,12 @@ interface CallerInfoSource {
     suspend fun neverCallsYou(number: String, accountId: String?): Boolean = false
 
     /**
+     * The time you told [number] you'd call back ("Promise a time"), while that call is still owed; null when none, or
+     * when the caller is a private contact that is hidden now. The call screen says it only while the phone is unlocked.
+     */
+    suspend fun promisedCall(number: String, accountId: String?): Long? = null
+
+    /**
      * "It wasn't them", said on the "Is this a scam?" sheet of a call that showed "This number never calls you": that
      * call is left out of the history the notice reads, so it stays on for the next call from the line.
      */
