@@ -133,25 +133,21 @@ internal fun BookingPocket(c: DataContainer, text: String, done: () -> Unit) {
             stringResource(R.string.booking_codes_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl),
         )
-        codes.forEach { f ->
-            val on = f.value in ticked
-            ParleyListItem(
-                headlineContent = { Text(Bidi.ltr(f.value)) },
-                supportingContent = { Text(kindLabel(f.kind)) },
-                leadingContent = { Checkbox(on, null) },
-                modifier = Modifier.toggleable(on, role = Role.Checkbox) { v -> ticked = if (v) ticked + f.value else ticked - f.value },
-            )
-        }
+        CodeRows(codes, ticked) { ticked = it }
         ListSectionHeader(stringResource(R.string.booking_which))
         (choices.suggested + choices.cases.filterNot { it in choices.suggested }).forEach { t ->
-            TargetRow(t, picked == t, if (t in choices.suggested) stringResource(R.string.booking_suggested) else stringResource(R.string.booking_has_case)) { picked = t }
+            val why = stringResource(if (t in choices.suggested) R.string.booking_suggested else R.string.booking_has_case)
+            TargetRow(t, picked == t, why) { picked = t }
         }
         OutlinedTextField(
             typed, { typed = it.take(MAX_NAME) }, singleLine = true, label = { Text(stringResource(R.string.booking_search)) },
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
         if (people.isEmpty() && folded.isNotEmpty()) {
-            Text(stringResource(R.string.booking_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl))
+            Text(
+                stringResource(R.string.booking_none), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.xl),
+            )
         }
         people.forEach { t -> TargetRow(t, picked == t, null) { picked = t } }
         val target = picked
@@ -174,6 +170,20 @@ internal fun BookingPocket(c: DataContainer, text: String, done: () -> Unit) {
         ) {
             Text(target?.let { stringResource(R.string.booking_keep_in, it.name) } ?: stringResource(R.string.booking_pick_first))
         }
+    }
+}
+
+/** The codes found, each with a tick box. */
+@Composable
+private fun CodeRows(codes: List<BookingCodes.Found>, ticked: Set<String>, onTicked: (Set<String>) -> Unit) {
+    codes.forEach { f ->
+        val on = f.value in ticked
+        ParleyListItem(
+            headlineContent = { Text(Bidi.ltr(f.value)) },
+            supportingContent = { Text(kindLabel(f.kind)) },
+            leadingContent = { Checkbox(on, null) },
+            modifier = Modifier.toggleable(on, role = Role.Checkbox) { v -> onTicked(if (v) ticked + f.value else ticked - f.value) },
+        )
     }
 }
 
@@ -212,12 +222,17 @@ private suspend fun choicesFor(c: DataContainer, text: String, region: String?):
     val cases = listed.take(CASE_ROWS).map { Target.Case(it.id, it.name) }
     val device = catching { c.contacts.contacts.value ?: c.contacts.loadNow() }.getOrDefault(emptyList())
         .map { Target.Person(it.displayName, it.id, null) }
-    val private = if (c.privacy.now().privateHidden) emptyList() else c.vault.contacts.value.filterNot { it.archived }.map { Target.Person(it.name, null, it.id) }
+    val private = if (c.privacy.now().privateHidden) {
+        emptyList()
+    } else {
+        c.vault.contacts.value.filterNot { it.archived }.map { Target.Person(it.name, null, it.id) }
+    }
     // A saved contact with a number in the text, when no case file has it yet.
     val owners = if (suggestedCases.isNotEmpty()) {
         emptyList()
     } else {
-        numbers.mapNotNull { n -> catching { c.contacts.lookup(n) }.getOrNull()?.let { info -> device.firstOrNull { it.contactId == info.contactId } } }.distinct()
+        numbers.mapNotNull { n -> catching { c.contacts.lookup(n) }.getOrNull()?.contactId }
+            .mapNotNull { id -> device.firstOrNull { it.contactId == id } }.distinct()
     }
     return Choices(suggestedCases + owners, cases, (device + private).sortedBy { it.name.lowercase() })
 }

@@ -60,10 +60,12 @@ enum class ScreeningPreset {
          * know" covers "Stop telemarketers" (strangers are silenced anyway), and "Quiet nights" adds to either: it is
          * the Night Situation switching on by itself ([nightScheduled]), or off hours of one's own.
          */
+        private fun nothingOn(s: ScreeningSettings): Boolean = !s.blockNonContacts && !s.blockHidden && !s.blockInvalid &&
+            !s.blockFailedVerification && !s.blockNeighbourSpoofing && !s.offHours.enabled
+
         fun current(s: ScreeningSettings, nightScheduled: Boolean = false): List<ScreeningPreset> {
             val known = s.blockNonContacts && s.nonContactsSchedule == null
-            val nothingOn = !s.blockNonContacts && !s.blockHidden && !s.blockInvalid && !s.blockFailedVerification &&
-                !s.blockNeighbourSpoofing && !s.offHours.enabled && !nightScheduled
+            val nothingOn = nothingOn(s) && !nightScheduled
             return buildList {
                 if (known) add(KNOWN)
                 if (!known && s.blockFailedVerification && s.blockInvalid) add(TELEMARKETERS)

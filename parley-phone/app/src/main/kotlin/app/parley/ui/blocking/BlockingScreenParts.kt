@@ -26,7 +26,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,7 +42,6 @@ import app.parley.blocking.BlockingNotifier
 import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
-import app.parley.common.LabelRefs
 import app.parley.common.NotifyLevel
 import app.parley.common.OffHours
 import app.parley.common.OffHoursAllow
@@ -59,13 +57,10 @@ import app.parley.common.who.WhoRules
 import app.parley.ui.situations.WhoRow
 import app.parley.ui.situations.rememberLabelRows
 import androidx.compose.material.icons.rounded.People
-import app.parley.data.GroupInfo
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading

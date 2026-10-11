@@ -84,8 +84,10 @@ object BookingCodes {
     /** Whether [v] may be offered at all: not a card number, a phone number in the text, a date or a time. */
     internal fun offered(v: String, phones: Set<String>): Boolean {
         val d = digits(v)
-        if (d.length in CARD_DIGITS && v.all { it.isDigit() || it == '-' } && CaseFiles.looksLikeCard(d)) return false
-        if (d.isNotEmpty() && phones.any { it.endsWith(d) || d.endsWith(it) } && d.length >= MIN_PHONE_DIGITS) return false
+        val digitsOnly = v.all { it.isDigit() || it == '-' }
+        if (digitsOnly && d.length in CARD_DIGITS && CaseFiles.looksLikeCard(d)) return false
+        val phoneLike = d.length >= MIN_PHONE_DIGITS
+        if (phoneLike && phones.any { it.endsWith(d) || d.endsWith(it) }) return false
         if (DATE.matches(v) || TIME.matches(v)) return false
         return CaseFiles.cleanReference(v) != null
     }

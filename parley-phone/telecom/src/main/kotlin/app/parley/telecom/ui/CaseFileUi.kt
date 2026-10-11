@@ -205,6 +205,7 @@ internal fun CaseCodesCard(call: CallUi, modifier: Modifier = Modifier) {
 @Composable
 private fun CaseCodeDialog(code: CaseCode, value: String?, onDismiss: () -> Unit) {
     val context = LocalContext.current
+    val copied = stringResource(R.string.incall_case_code_copied)
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(code.label.ifBlank { stringResource(R.string.incall_case_code_read_out) }) },
@@ -222,7 +223,7 @@ private fun CaseCodeDialog(code: CaseCode, value: String?, onDismiss: () -> Unit
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.incall_case_code_close)) } },
         dismissButton = value?.let {
-            { TextButton({ Clipboard.copy(context, it, confirm = context.getString(R.string.incall_case_code_copied)) }) { Text(stringResource(R.string.incall_case_code_copy)) } }
+            { TextButton({ Clipboard.copy(context, it, confirm = copied) }) { Text(stringResource(R.string.incall_case_code_copy)) } }
         },
     )
 }

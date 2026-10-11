@@ -163,7 +163,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 val who = async { whoFacts(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
                 val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
-                Triple(CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await()), choices.await(), who.await())
+                val parts = CallerParts(note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await())
+                Triple(parts, choices.await(), who.await())
             }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
             val photo = showsPhoto(it.lookupKey)

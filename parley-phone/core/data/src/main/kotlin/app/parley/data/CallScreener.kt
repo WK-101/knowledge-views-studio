@@ -424,19 +424,23 @@ class CallScreener(
             // Titles in every account: label rules, off hours and ringtones name labels by title.
             val labels = if (needLabels) labelsOf(personal.id) else emptySet()
             val circle = if (needCircle) circleOf(personal.lookupKey) else null
-            Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone, inCircle = circle == true, circleFailed = needCircle && circle == null)
+            val circleFailed = needCircle && circle == null
+            Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone, inCircle = circle == true, circleFailed = circleFailed)
         } else {
-            val hit = (private ?: vaultLookup(primary, iso))?.hit
-            privateCaller(hit, needLabels)?.let { p ->
-                val circle = if (needCircle && hit != null) circleOf(ContactRef.privateKey(hit.first)) else null
-                Caller(
-                    p.name, p.starred, p.labels, privateTone = p.ringtone, privateVoicemail = p.sendToVoicemail,
-                    inCircle = circle == true, circleFailed = needCircle && hit != null && circle == null,
-                )
-            } ?: Caller()
+            privateCallerOf((private ?: vaultLookup(primary, iso))?.hit, needLabels, needCircle)
         }
     } catch (_: Exception) {
         Caller(labelFailed = true, circleFailed = needCircle)
+    }
+
+    /** A private contact's [Caller] (or none: [Caller] of nobody), its Circle membership read only when [needCircle]. */
+    private suspend fun privateCallerOf(hit: Pair<Long, CallerInfo>?, needLabels: Boolean, needCircle: Boolean): Caller {
+        val p = privateCaller(hit, needLabels) ?: return Caller()
+        val circle = if (needCircle && hit != null) circleOf(ContactRef.privateKey(hit.first)) else null
+        return Caller(
+            p.name, p.starred, p.labels, privateTone = p.ringtone, privateVoicemail = p.sendToVoicemail,
+            inCircle = circle == true, circleFailed = needCircle && hit != null && circle == null,
+        )
     }
 
     /** Whether [key] is in Your Circle; null when it can't be read (or the contact has no key). */

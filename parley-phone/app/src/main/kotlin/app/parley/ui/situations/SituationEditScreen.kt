@@ -239,7 +239,8 @@ private fun InTheCar(vm: AppViewModel, s: Situation, open: (Destination) -> Unit
             }
         }
         item("sit_drive_favourites") {
-            TriRow(stringResource(R.string.action_answer_automatically), s.driveAnswerFavourites, Icons.Rounded.Star, stringResource(R.string.sit_drive_answer_sub)) { v ->
+            val answerSub = stringResource(R.string.sit_drive_answer_sub)
+            TriRow(stringResource(R.string.action_answer_automatically), s.driveAnswerFavourites, Icons.Rounded.Star, answerSub) { v ->
                 edit { it.copy(driveAnswerFavourites = v) }
             }
         }

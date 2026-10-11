@@ -30,7 +30,8 @@ class WhoTest {
     private val stranger = WhoFacts(known = false)
 
     @Test fun the_same_choices_in_the_same_order_everywhere() {
-        assertEquals(listOf(WhoChoice.EVERYONE, WhoChoice.CONTACTS, WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL), WhoRules.choicesFor(WhoPlace.SITUATION))
+        val all = listOf(WhoChoice.EVERYONE, WhoChoice.CONTACTS, WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL)
+        assertEquals(all, WhoRules.choicesFor(WhoPlace.SITUATION))
         // Off hours and answering have no Everyone (off hours off; an unknown caller is never answered), the rest in order.
         assertEquals(listOf(WhoChoice.CONTACTS, WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL), WhoRules.choicesFor(WhoPlace.OFF_HOURS))
         assertEquals(WhoRules.choicesFor(WhoPlace.OFF_HOURS), WhoRules.choicesFor(WhoPlace.ANSWER))

@@ -85,7 +85,12 @@ object WhoRules {
         WhoChoice.CONTACTS -> f.known
         WhoChoice.FAVOURITES -> f.known && f.favourite
         WhoChoice.CIRCLE -> f.known && (f.inCircle || f.circleUnknown)
-        WhoChoice.LABEL -> f.known && (f.labelsUnknown || who.label?.let(LabelRefs::key)?.let { k -> k.isNotEmpty() && f.labels.any { LabelRefs.key(it) == k } } == true)
+        WhoChoice.LABEL -> f.known && (f.labelsUnknown || hasLabel(f, who.label))
+    }
+
+    private fun hasLabel(f: WhoFacts, label: String?): Boolean {
+        val k = label?.let(LabelRefs::key)?.takeIf { it.isNotEmpty() } ?: return false
+        return f.labels.any { LabelRefs.key(it) == k }
     }
 
     // ------------------------------------------------------------------ off hours
