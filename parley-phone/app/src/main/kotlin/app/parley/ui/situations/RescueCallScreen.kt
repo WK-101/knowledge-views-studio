@@ -121,9 +121,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
     }
 
     SettingsScaffold(stringResource(R.string.label_rescue_call), back) {
-        ModeChooser(choices.checkIn) { checkIn ->
-            update(choices.copy(checkIn = checkIn, whenChoice = if (checkIn) CheckIns.whenFor(choices.whenChoice) else choices.whenChoice))
-        }
+        ModeChooser(choices.checkIn) { update(withMode(choices, it)) }
         ModeNote(if (choices.checkIn) R.string.checkin_intro else R.string.rescue_intro, intro = true)
         pending?.let { p ->
             Banner(
@@ -142,9 +140,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
         }
         WhenGroup(context, choices, onTime = { timeOpen = true }) { update(choices.copy(whenChoice = it)) }
         val helper = offeredHelper(choices, helpers)
-        if (choices.checkIn) {
-            HelperGroup(helpers, helper, onAdd = { open(FamilyRoutes.Helpers) }) { update(choices.copy(helper = it)) }
-        }
+        if (choices.checkIn) HelperGroup(helpers, helper, onAdd = { open(FamilyRoutes.Helpers) }) { update(choices.copy(helper = it)) }
         SoundGroup(choices, onPick = { pickSound.launch(arrayOf("audio/*")) }) {
             releaseSound(context, choices.clip)
             update(choices.copy(clip = null, clipName = null))
@@ -274,6 +270,10 @@ private fun pendingText(context: Context, p: RescueRequest, helpers: List<CheckI
     val name = p.name.ifBlank { p.number?.let(Bidi::ltr) ?: context.getString(R.string.rescue_pending_nobody) }
     return context.getString(if (late) R.string.rescue_pending_late else R.string.rescue_pending, name, at)
 }
+
+/** [c] switched to Check-in (which never rings now) or back to Rescue call. */
+private fun withMode(c: RescueCalls.Choices, checkIn: Boolean): RescueCalls.Choices =
+    c.copy(checkIn = checkIn, whenChoice = if (checkIn) CheckIns.whenFor(c.whenChoice) else c.whenChoice)
 
 /** A check-in offers the helper shown as chosen (the first, until another is picked); a rescue call none. */
 private fun offeredHelper(choices: RescueCalls.Choices, helpers: List<CheckInHelper>): String? =
