@@ -316,6 +316,10 @@ hiding) stays on an unlocked private contact's page.
   while `PrivateDates.mayShow`: private contacts shown, not locked with "Lock private contacts", no duress unlock. Hiding
   or locking them, or a duress unlock, removes their lines at once (the strip filters them before its sources are read
   again). Next up is in Recents only: no widget or notification carries it.
+  6.9: a case file whose "Follow up by" day has come shows as its line through `CaseFileStore.shown` (none during a
+  duress unlock; a private contact's only while private contacts may show, checked live as the case list does), and an
+  unfinished call round shows one line with the counts and the next name, never the message; a duress unlock removes
+  it (`notesShown`), and its private contacts leave the counts while they may not show.
 - **Next catch-up** is a `PromisedTime` with `told = false` on the person's To call item: sealed like every To call
   item, never said back on the call screen or as "You said you'd call", and settled by the next call with them.
 - **Birthday today** on the call screen follows the notes' rule on the lock screen: it shows there only with "Caller on
@@ -365,7 +369,7 @@ in History & undo, private names in notifications and on the call screen. And, b
   screen shows no codes.
 - **Call round's message**: the one thing to say hides like a note. The round's page shows who and the score but not
   the message, and the call screen shows no note (`CallRoundBridge` asks the privacy view's `notesShown`). The round
-  itself stays as it is: nothing is cleared or changed.
+  itself stays as it is: nothing is cleared or changed. Next up's round line goes too (6.9).
 - **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as
   their number, without the rule that caught them or the quiet-hours reply. Every such notification also has a
   lock-screen version with no name and no number, and follows "Caller on the lock screen" while the phone is locked.
@@ -602,6 +606,13 @@ tap, through the usual call path (dial guard, confirm, SIM). On the call screen 
 while the phone is unlocked (not on the lock screen in any form, not even a count, whatever "Caller on the lock screen"
 says), only once the call is under way, never for an emergency number, never during a duress unlock, and for a private
 contact only while private contacts show.
+
+6.9: after **No answer**, **Add to To call** (a snackbar action or the row's ⋮; never automatic) puts the number on
+To call through the usual reminder (`ToCallReminders.remind`): kept by number, so a private contact's item holds no
+name. A case file's "Follow up by" day is a field of the sealed case (`CaseFile.followUpBy`), in the encrypted backup
+with the case and left out with it for private contacts and during a duress unlock. "They're fine" marks for people
+outside the Circle now travel in the encrypted backup's Circle section (`circle.fine`: their key, name and portable
+number keys and the end of the mark); private contacts' don't, as for the rest of the Circle.
 
 ## Booking pocket (6.7)
 

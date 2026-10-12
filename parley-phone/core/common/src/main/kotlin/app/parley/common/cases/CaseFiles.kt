@@ -61,6 +61,8 @@ data class CaseFile(
     val status: CaseStatus = CaseStatus.OPEN,
     /** When [status] was last set (0: never, the case is open as it started). */
     val statusAt: Long = 0,
+    /** "Follow up by": the day (an epoch day) you mean to chase it by, or null. Older versions ignore it. */
+    val followUpBy: Long? = null,
 ) {
     val kept: Boolean get() = mode != CaseMode.OFF
 }
@@ -135,8 +137,9 @@ object CaseFiles {
      * Stops the case file [id]: what it kept (calls, hold times, references) goes, and it stays off so an organisation's
      * calls don't start a new one. Your calls and notes themselves stay where they are.
      */
-    fun stop(state: CaseState, id: String): CaseState =
-        state.copy(cases = state.cases.map { if (it.id == id) it.copy(mode = CaseMode.OFF, references = emptyList(), calls = emptyList()) else it })
+    fun stop(state: CaseState, id: String): CaseState = state.copy(
+        cases = state.cases.map { if (it.id == id) it.copy(mode = CaseMode.OFF, references = emptyList(), calls = emptyList(), followUpBy = null) else it },
+    )
 
     /**
      * A call with [number] ended: kept in its case file. A number without one starts an [CaseMode.AUTO] case when it is
@@ -170,6 +173,19 @@ object CaseFiles {
     fun setStatus(state: CaseState, id: String, status: CaseStatus, now: Long): CaseState = state.copy(
         cases = state.cases.map { if (it.id == id && it.kept && it.status != status) it.copy(status = status, statusAt = now) else it },
     )
+
+    /** Sets (or with null clears) the day case [id] is to be followed up by; a stopped case has none. */
+    fun setFollowUp(state: CaseState, id: String, day: Long?): CaseState = state.copy(
+        cases = state.cases.map { if (it.id == id && it.kept) it.copy(followUpBy = day) else it },
+    )
+
+    /**
+     * The cases whose "Follow up by" day has come by [today] (an epoch day): kept and not resolved, the longest
+     * overdue first. Next up says "due today" or "past its date" for each.
+     */
+    fun followUpsDue(state: CaseState, today: Long): List<CaseFile> = state.cases
+        .filter { c -> c.kept && c.status != CaseStatus.RESOLVED && c.followUpBy != null && c.followUpBy <= today }
+        .sortedBy { it.followUpBy }
 
     /**
      * The Case files list: the kept cases, the newest activity first; resolved ones after the rest, as they need
@@ -271,7 +287,7 @@ object CaseFiles {
     fun forBackup(state: CaseState, leaveOut: (CaseFile) -> Boolean, open: (String) -> String?): CaseState = state.copy(
         cases = state.cases.filterNot(leaveOut).map { c ->
             // A stopped case travels as what it is: only "stay off", nothing it once kept.
-            if (!c.kept) c.copy(references = emptyList(), calls = emptyList())
+            if (!c.kept) c.copy(references = emptyList(), calls = emptyList(), followUpBy = null)
             else c.copy(references = c.references.mapNotNull { r -> open(r.value)?.let { r.copy(value = it) } })
         },
     )
@@ -286,14 +302,14 @@ object CaseFiles {
      * gains the other's numbers, references (by id) and calls (by time); one only in the backup is added. A case
      * stopped here stays as it is: what "Stop keeping" deleted never comes back from an older backup. Case files stay
      * off for organisations when either side turned them off. Where a case stands is this phone's, unless only the
-     * backup's was ever set.
+     * backup's was ever set; so is its "Follow up by" day, unless only the backup has one.
      */
     fun merge(mine: CaseState, restored: CaseState, region: String?): CaseState {
         var out = mine.copy(autoStart = mine.autoStart && restored.autoStart)
         restored.cases.forEach { r ->
             val here = find(out, r.numbers, region)
             out = if (here == null) {
-                put(out, if (r.kept) r else r.copy(references = emptyList(), calls = emptyList()))
+                put(out, if (r.kept) r else r.copy(references = emptyList(), calls = emptyList(), followUpBy = null))
             } else if (!here.kept) {
                 out
             } else {
@@ -304,6 +320,7 @@ object CaseFiles {
                     withNumbers(here, r.numbers, region).copy(
                         status = if (here.statusAt == 0L && r.kept) r.status else here.status,
                         statusAt = if (here.statusAt == 0L && r.kept) r.statusAt else here.statusAt,
+                        followUpBy = here.followUpBy ?: r.followUpBy.takeIf { r.kept },
                         references = (here.references + r.references.filter { it.id !in refIds }).take(MAX_REFERENCES),
                         calls = (here.calls + r.calls.filter { it.at !in callTimes }).sortedByDescending { it.at }.take(MAX_CALLS),
                     ),

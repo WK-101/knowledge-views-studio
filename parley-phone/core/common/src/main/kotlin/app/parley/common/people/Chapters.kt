@@ -2,6 +2,7 @@ package app.parley.common.people
 
 import app.parley.common.Codecs
 import app.parley.common.catching
+import app.parley.common.extras.LabelPolicy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -100,6 +101,19 @@ object Chapters {
     fun withEnd(chapter: Chapter, endsAt: Long, now: Long): Chapter = chapter.copy(endsAt = endsAt, askedAt = if (endsAt > now) 0 else chapter.askedAt)
 
     fun isOver(chapter: Chapter, now: Long): Boolean = now >= chapter.endsAt
+
+    /**
+     * Whether "No end" for [title] asks about the Circle first: its label keeps everyone in it in the Circle, which with
+     * the end gone would run for good.
+     */
+    fun noEndAsksAboutCircle(policies: Map<String, LabelPolicy>, title: String): Boolean = policies[title]?.feedsCircle == true
+
+    /**
+     * [title]'s label no longer keeps its people in the Circle; its rhythm stays offered, everything else as it was.
+     * "Keep" at a Chapter's end does this, and "No end" when you choose not to keep them in the Circle.
+     */
+    fun stopFeedingCircle(policies: Map<String, LabelPolicy>, title: String): Map<String, LabelPolicy> =
+        policies[title]?.let { p -> policies + (title to p.copy(circleFromLabel = false)) } ?: policies
 
     /** The last day of [chapter] (the day before [Chapter.endsAt]). */
     fun lastDay(chapter: Chapter, zone: ZoneId): LocalDate = Instant.ofEpochMilli(chapter.endsAt).atZone(zone).toLocalDate().minusDays(1)

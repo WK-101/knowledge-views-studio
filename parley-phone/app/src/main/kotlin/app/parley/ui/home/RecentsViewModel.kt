@@ -243,9 +243,12 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     /** The To call list: its strip tops Recents; fed by these calls and the missed calls still to return. */
     val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed).also { it.start() } }
 
-    /** Next up: the To call strip with today's dates, a Circle member in their good hours and Chapters ending. */
+    /** Next up: the To call strip with a call round, today's dates, cases to follow up, a Circle member in their good hours and Chapters ending. */
     val nextUp: NextUpModel by lazy {
-        NextUpModel(viewModelScope, toCall, c.toCall.state, allCalls, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, countryIso, c.vault)
+        NextUpModel(
+            viewModelScope, toCall, c.toCall.state, allCalls, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, countryIso, c.vault,
+            c.cases, c.callRound,
+        )
     }
 
     /**

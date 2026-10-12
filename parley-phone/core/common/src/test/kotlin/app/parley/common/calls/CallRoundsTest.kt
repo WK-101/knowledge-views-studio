@@ -101,4 +101,21 @@ class CallRoundsTest {
         assertTrue(privatePerson.private)
         assertNull(CallRounds.personOf(list[3]))
     }
+
+    @Test fun no_answer_offers_to_call_and_the_round_says_how_many_are_left() {
+        var r = round()
+        assertEquals(3, CallRounds.left(r))
+        assertNull(CallRounds.toCallNumber(r, "ana"))
+        r = CallRounds.mark(r, "ana", RoundMark.NO_ANSWER)
+        assertEquals(ana.number, CallRounds.toCallNumber(r, "ana"))
+        r = CallRounds.mark(r, "ben", RoundMark.REACHED)
+        assertNull(CallRounds.toCallNumber(r, "ben"))
+        assertNull(CallRounds.toCallNumber(r, "nobody"))
+        assertEquals(2, CallRounds.left(r))
+        // Told at last: nothing to offer, one fewer left.
+        r = CallRounds.mark(r, "ana", RoundMark.REACHED)
+        assertNull(CallRounds.toCallNumber(r, "ana"))
+        assertEquals(1, CallRounds.left(r))
+        assertEquals(0, CallRounds.left(CallRound()))
+    }
 }

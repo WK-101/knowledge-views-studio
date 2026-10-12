@@ -3758,3 +3758,38 @@ Automated: `PeopleWidgetPlanTest` (widgets placed before keep their mode; a stor
 3. **Place a People widget.** Its settings open: **Shows** Favourites · Your Circle; with Favourites, **When you tap someone**. Choose Your Circle, Done: the widget shows who's due and dates coming up, each with Call. Back instead of Done keeps it, showing Favourites.
 4. **Change it later.** Long-press › settings (reconfigure) on the People widget: switch to Favourites; the grid appears.
 5. **Private and locked.** With private contacts shown and starred or in the Circle, they never appear in either mode. With the app lock on, lock the phone: both modes show only counts; unlock: names return (tap to show also works).
+
+### 53.10 Case files: Follow up by
+Automated: `CaseFilesTest.follow_up_by_is_due_on_its_day_and_after_for_open_cases_only`, `follow_up_by_reads_leniently_and_merges_this_phones_first` (core/common), `CaseFilesBackupRoundTripTest` (core/data: the day comes back from an encrypted backup), `NextUpModelTest.a_case_to_follow_up_and_an_unfinished_round_show_and_duress_hides_both` (app).
+1. Open a case file (Tools › Case files › a case). Under "Where it stands", **Follow up by** says "No date…". Tap it: the date picker opens; pick today. The row shows today's date with a clear (×) button; TalkBack reads "Pick a date" for the row and "Clear the date" for ×.
+2. Recents: Next up shows "Follow up with <organisation> today"; tapping it opens the case.
+3. Pick an earlier date: Next up says "Follow up with <organisation>: it was due <date>". Set the case to **Resolved**, or clear the date: the line goes. A date in the future shows nothing until that day.
+4. A private contact's case file with a date due: the line shows while private contacts show; hide them (discreet mode) or lock them: the line goes at once. Unlock with the duress PIN: no case line at all.
+5. Back up, restore on another phone (or after Delete all Parley data): the case keeps its date. An older version restoring the same backup simply ignores it.
+
+### 53.11 Call round on Next up
+Automated: `NextUpTest.a_call_round_and_a_case_to_follow_up_rank_between_calls_owed_and_good_times` (core/common), `CallRoundsTest.no_answer_offers_to_call_and_the_round_says_how_many_are_left` (core/common), `NextUpModelTest.a_case_to_follow_up_and_an_unfinished_round_show_and_duress_hides_both` (app).
+1. Start a call round with 8 people and mark 5 Told them. Recents: Next up shows one line, "Call round: 3 of 8 left · Next: Sam", right after the calls you owe. Tapping it opens the round.
+2. Mark the rest Told them, or End round: the line goes.
+3. With a private contact next in the round, turn on discreet mode: the line names the next person who shows, and the counts leave the private contact out. Turn it off: back as before.
+4. Unlock with the duress PIN: no round line (the round's message is never shown there). After the real PIN it is back.
+
+### 53.12 Call round: No answer → Add to To call
+Automated: `CallRoundsTest.no_answer_offers_to_call_and_the_round_says_how_many_are_left` (core/common).
+1. In a round, tap **No answer** for the next person: a snackbar says "No answer from Sam" with **Add to To call**. Let it go: nothing is added to To call.
+2. Tap No answer again for someone and tap **Add to To call**: "Reminder set for <time in an hour>" with Undo; To call lists them. Undo takes them off again.
+3. A row marked No answer has ⋮ › **Add to To call** (five items: Told them · No answer · Later · Add to To call · Take out of the round); other rows have four. A private contact added this way shows in To call only while private contacts show, with no name in its stored item.
+
+### 53.13 "They're fine" survives a backup
+Automated: `CircleFeedsRepositoryTest.theyReFineOutsideTheCircleSurvivesABackup` (core/data).
+1. From the weekly digest's "Quieter than usual", tap **They're fine** for someone outside your Circle.
+2. Make an encrypted backup and restore it on another phone (or after Delete all Parley data): the person is still not offered as "Quieter than usual" for the rest of the year.
+3. Restore the backup with Parley 6.8: the restore succeeds; the mark simply isn't brought back there.
+
+### 53.14 Chapter "No end" and the Circle
+Automated: `ChaptersTest.no_end_asks_about_the_circle_only_for_a_label_that_feeds_it_and_a_no_keeps_the_rest` (core/common).
+1. A label with **Keep in touch with everyone here** on (every 14 days) and an end. On its page, Change the end › **No end**: a question "No end for “Exams”?" says its people stay in your Circle every 14 days for good, with **Keep them in your Circle** switched on. Confirm: the end goes and they stay in the Circle "via Exams".
+2. Do it again on another such label, turn **Keep them in your Circle** off and confirm: the end goes and the label's people leave the Circle (those with their own rhythm stay). The label still offers its rhythm when someone joins.
+3. A label without "Keep in touch with everyone here": **No end** takes the end away at once, with no question, as before.
+4. Cancel the question: nothing changes. **Keep the label as it is** at a Chapter's end still stops the label filling the Circle, as before.
+

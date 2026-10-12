@@ -291,14 +291,14 @@ private fun NextCard(vm: AppViewModel, next: RoundPerson) {
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.s)) {
                 OutlinedButton({ ui.mark(next.key, RoundMark.REACHED) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.round_told)) }
-                OutlinedButton({ ui.mark(next.key, RoundMark.NO_ANSWER) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.round_no_answer)) }
+                OutlinedButton({ markNoAnswer(vm, next) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.round_no_answer)) }
                 OutlinedButton({ ui.mark(next.key, RoundMark.LATER) }, Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.round_later)) }
             }
         }
     }
 }
 
-/** One person: their mark, Call, and ⋮ (Told them · No answer · Later · Take out of the round). */
+/** One person: their mark, Call, and ⋮ (Told them · No answer · Later · Add to To call after no answer · Take out of the round). */
 @Composable
 private fun PersonRow(vm: AppViewModel, person: RoundPerson) {
     val ui = vm.callRound
@@ -316,7 +316,13 @@ private fun PersonRow(vm: AppViewModel, person: RoundPerson) {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.round_more_for, person.name)) }
                     DropdownMenu(menu, { menu = false }) {
                         listOf(RoundMark.REACHED, RoundMark.NO_ANSWER, RoundMark.LATER).forEach { m ->
-                            DropdownMenuItem({ Text(markText(m)) }, onClick = { menu = false; ui.mark(person.key, m) })
+                            DropdownMenuItem({ Text(markText(m)) }, onClick = {
+                                menu = false
+                                if (m == RoundMark.NO_ANSWER) markNoAnswer(vm, person) else ui.mark(person.key, m)
+                            })
+                        }
+                        if (person.mark == RoundMark.NO_ANSWER) {
+                            DropdownMenuItem({ Text(stringResource(R.string.round_add_to_call)) }, onClick = { menu = false; addToCall(vm, person.number) })
                         }
                         DropdownMenuItem(
                             { Text(stringResource(R.string.round_take_out)) },

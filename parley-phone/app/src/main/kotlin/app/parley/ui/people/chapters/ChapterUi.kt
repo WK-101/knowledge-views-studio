@@ -52,6 +52,7 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import app.parley.ui.people.archive.ArchiveActions
 import java.time.Instant
 import java.time.LocalDate
@@ -81,6 +82,8 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
     val now = remember(chapter) { System.currentTimeMillis() }
     val zone = ZoneId.systemDefault()
     var setting by rememberSaveable { mutableStateOf(false) }
+    // "No end" for a label that keeps its people in the Circle: the rhythm, while the question is open.
+    var noEndDays by rememberSaveable { mutableStateOf<Int?>(null) }
     val people = remember(members, temporaries, vault) {
         val privateTemps = vault.filter { it.expiresAt != null }.map { it.id }.toSet()
         memberFacts(members, temporaries.keys, temporaries.ids, privateTemps)
@@ -123,12 +126,40 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
             confirm = stringResource(R.string.chapter_set),
             initial = chapter?.let { Chapters.lastDay(it, zone) },
             onDismiss = { setting = false },
-            onRemove = if (chapter == null) null else ({ setting = false; ui.remove(title) }),
+            onRemove = if (chapter == null) {
+                null
+            } else {
+                {
+                    setting = false
+                    val days = ui.noEndCircleDays(title)
+                    if (days == null) ui.remove(title) else noEndDays = days
+                }
+            },
         ) { length ->
             setting = false
             ui.setEnd(title, Chapters.endsAt(length, System.currentTimeMillis(), zone), people)
         }
     }
+    noEndDays?.let { days -> NoEndDialog(title, days, onDismiss = { noEndDays = null }) { keep -> noEndDays = null; ui.remove(title, keep) } }
+}
+
+/**
+ * "No end" for a label that keeps its people in the Circle: without an end that would go on for good, so it asks, and
+ * keeps them in by default.
+ */
+@Composable
+private fun NoEndDialog(title: String, days: Int, onDismiss: () -> Unit, onConfirm: (keepCircle: Boolean) -> Unit) {
+    var keep by rememberSaveable { mutableStateOf(true) }
+    ConfirmDialog(
+        title = stringResource(R.string.chapter_no_end_title, title),
+        text = pluralStringResource(R.plurals.chapter_no_end_circle, days, title, days),
+        confirmLabel = stringResource(R.string.chapter_remove_end),
+        onConfirm = { onConfirm(keep) },
+        onDismiss = onDismiss,
+        content = {
+            SwitchRow(stringResource(R.string.chapter_no_end_keep_circle), null, keep) { keep = it }
+        },
+    )
 }
 
 /** What a choice on the ended chapter's card does. */

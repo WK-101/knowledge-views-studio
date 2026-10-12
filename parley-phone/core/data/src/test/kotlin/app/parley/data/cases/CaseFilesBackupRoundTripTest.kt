@@ -61,6 +61,7 @@ class CaseFilesBackupRoundTripTest {
             CaseFiles.recordCall(kept, bank, call, false, "", false, "GB", "x")
         }
         assertTrue(c.cases.addReference("n", "Complaint", "CMP-77812345", typed = false))
+        c.cases.update { CaseFiles.setFollowUp(it, "n", FOLLOW_UP_DAY) }
         c.cases.update { CaseFiles.setMode(it, "Council", listOf(council), false, CaseMode.ON, 1, "GB", "k") }
 
         c.backup.setupKeys(passphrase.toCharArray())
@@ -83,5 +84,11 @@ class CaseFilesBackupRoundTripTest {
         assertEquals("31", northwind.calls.single().menu)
         assertEquals("CMP-77812345", c.cases.openReference(northwind.references.single()))
         assertFalse(CaseFiles.find(state, listOf(council), "GB")!!.kept)
+        // "Follow up by" comes back with it.
+        assertEquals(FOLLOW_UP_DAY, northwind.followUpBy)
+    }
+
+    private companion object {
+        const val FOLLOW_UP_DAY = 20_740L
     }
 }

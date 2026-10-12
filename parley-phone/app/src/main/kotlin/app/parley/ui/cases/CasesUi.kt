@@ -39,6 +39,9 @@ class CasesUi(
     suspend fun setStatus(caseId: String, status: CaseStatus): Boolean =
         store().update { CaseFiles.setStatus(it, caseId, status, System.currentTimeMillis()) } != null
 
+    /** "Follow up by" [day] (an epoch day), or none. */
+    suspend fun setFollowUp(caseId: String, day: Long?): Boolean = store().update { CaseFiles.setFollowUp(it, caseId, day) } != null
+
     /** "Stop keeping this case file"; false when the store can't be written now. */
     suspend fun stop(caseId: String): Boolean = store().update { CaseFiles.stop(it, caseId) } != null
 
