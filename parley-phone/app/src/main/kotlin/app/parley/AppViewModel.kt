@@ -1,5 +1,7 @@
 package app.parley
 
+import app.parley.data.ContactEvent
+import app.parley.ui.birthdays.PrivateEvents
 import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import android.Manifest
@@ -317,6 +319,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Not before the private contacts are listed too (vault null while they load): the list appears whole.
         PrivateListing.whole(list, if (vault == null) null else rows.orEmpty(), hidden, compare)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * Private contacts' dates for Birthdays & dates, while private contacts may show ([PrivateEvents]):
+     * hiding or locking them, or a duress unlock, empties it at once.
+     */
+    val privateEvents: StateFlow<List<ContactEvent>> =
+        combine(privacy, c.vault.lock.lockedByPerson, c.vault.contacts) { p, locked, list ->
+            PrivateEvents.of(list, p, locked) { c.vault.photoUri(it) }
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */
     val selection = MutableStateFlow<Set<Long>>(emptySet())

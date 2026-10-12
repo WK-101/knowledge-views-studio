@@ -65,7 +65,7 @@ class ContainerReachTest {
     private fun line(text: String, at: Int) = text.substring(0, at).count { it == '\n' } + 1
 
     private companion object {
-        const val VM_C_CEILING = 596
+        const val VM_C_CEILING = 595
         const val CONSTRUCTOR_CEILING = 35
         val MODULES = listOf("app", "core/data", "core/common", "core/ui", "telecom")
         val INIT = Regex("""(?m)^\s*init\s*\{""")
