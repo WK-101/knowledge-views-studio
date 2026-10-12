@@ -93,6 +93,12 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
         return store.forNumber(number)
     }
 
+    /** Every call's facts (no numbers: rows are keyed by a fingerprint), for patterns worked out on this phone. */
+    fun all(): List<RingFacts> {
+        migrate()
+        return store.all().map { it.second }
+    }
+
     /** The facts of the call from [number] that rang at about [time] (a call-log date), or null. */
     fun near(number: String?, time: Long): RingFacts? = RingExplainer.matchFor(forNumber(number), time)
 

@@ -80,6 +80,7 @@ import app.parley.ui.Routes
 import app.parley.ui.activityViewModel
 import app.parley.ui.calltime.NotificationHealthBanner
 import app.parley.ui.situations.SituationChip
+import app.parley.ui.situations.SituationSuggestionCard
 import app.parley.ui.calltime.ReturnToCallChip
 import app.parley.ui.circle.CircleTab
 import app.parley.ui.common.CoachMarkAnchor
@@ -299,7 +300,11 @@ fun HomeScreen(
             }
             Column(Modifier.weight(1f).fillMaxSize()) {
                 // "What's new" once after an update, as a card above the tab (the layout itself never changes).
-                if (!searching && selection.isEmpty() && recentsSelection.isEmpty()) WhatsNewCard(vm, open)
+                if (!searching && selection.isEmpty() && recentsSelection.isEmpty()) {
+                    WhatsNewCard(vm, open)
+                    // At most one a week, worked out from your own calls.
+                    SituationSuggestionCard(vm, open)
+                }
                 Box(Modifier.weight(1f).fillMaxSize()) {
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {

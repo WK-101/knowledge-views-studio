@@ -180,6 +180,8 @@ Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v
 
 Channel **Situation on** (`situation_on_v1`, low, no sound, no badge): a silent ongoing notice while the Situation on now lets only some people ring ("Meeting is on", "Others ring silently and show as missed calls, until 11:00", with Turn off, which puts back what was set). The lock screen shows only "Situation on". It goes when the Situation does.
 
+Channel **Check-ins** (`check_in_v1`, high, no badge): a check-in (Rescue call's second mode) that wasn't answered, or couldn't ring, with Text and Call for the helper. Nothing is sent or dialled by itself. The lock screen shows only "Check-in", with "Text helper" and "Call helper". No setting: a check-in is set on Rescue call's screen each time.
+
 Channel **Exports and imports** (`jobs_v1`, quiet): the end of an export, import or file preparation you started, only when you left Parley before it finished. While a Parley screen shows, the same message is a snackbar instead.
 
 ## About
