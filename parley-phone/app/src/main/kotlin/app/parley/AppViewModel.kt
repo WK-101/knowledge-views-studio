@@ -42,6 +42,7 @@ import app.parley.ui.calls.CallRoundUi
 import app.parley.ui.cases.CasesUi
 import app.parley.ui.circle.CircleUi
 import app.parley.ui.people.chapters.ChaptersUi
+import app.parley.ui.people.chapters.Temporaries
 import app.parley.ui.situations.SituationControls
 import app.parley.ui.home.PrivateMoves
 import app.parley.ui.people.PeopleUi
@@ -183,7 +184,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A label's chapter, for its section on the label page: intents, not the stores. */
     val chapters = ChaptersUi(
-        { c.extras }, { c.sharedLabels }, { c.temporaries.all }, { c.vault.contacts }, c.appContext, c.scope,
+        { c.extras }, { c.sharedLabels },
+        { c.temporaries.all.map { t -> Temporaries(t.map { it.lookupKey }.toSet(), t.map { it.contactId }.toSet()) } },
+        { c.vault.contacts }, c.appContext, c.scope,
     )
 
     /** The call round under way: tell several people one thing, with who's next and the score. */

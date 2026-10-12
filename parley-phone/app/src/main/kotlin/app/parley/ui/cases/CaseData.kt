@@ -67,7 +67,6 @@ object CaseData {
                     ?.let(ContactRef::privateKey)
             }
     }
-
 }
 
 /** The case file [owner] shows now, re-read as the store changes; nothing during a duress unlock (as notes). */

@@ -3,7 +3,6 @@ package app.parley.ui.people.chapters
 import android.content.Context
 import app.parley.common.people.Chapter
 import app.parley.common.people.Chapters
-import app.parley.data.db.TemporaryContactEntity
 import app.parley.data.extras.ExtrasStore
 import app.parley.data.sync.shared.SharedLabelState
 import app.parley.data.sync.shared.SharedLabels
@@ -14,6 +13,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/** The temporary contacts, as the chapter rules see them: by lookup key and by contact id. */
+data class Temporaries(val keys: Set<String> = emptySet(), val ids: Set<Long> = emptySet())
+
 /**
  * What a label's chapter section may read and do, as intents: the screens call these instead of reaching into the
  * data container. The stores are passed as getters so nothing is built before the section shows.
@@ -21,7 +23,8 @@ import kotlinx.coroutines.launch
 class ChaptersUi(
     private val extras: () -> ExtrasStore,
     private val sharedLabels: () -> SharedLabels,
-    private val temporaryContacts: () -> Flow<List<TemporaryContactEntity>>,
+    /** The temporary contacts: their lookup keys and contact ids. */
+    private val temporaryContacts: () -> Flow<Temporaries>,
     private val privateContacts: () -> StateFlow<List<VaultSummary>>,
     private val appContext: Context,
     /** The app's scope: what a choice starts outlives the screen. */
@@ -29,7 +32,7 @@ class ChaptersUi(
 ) {
     val chapters: StateFlow<Map<String, Chapter>> get() = extras().chapters
     val shared: StateFlow<List<SharedLabelState>> get() = sharedLabels().states
-    val temporaries: Flow<List<TemporaryContactEntity>> get() = temporaryContacts()
+    val temporaries: Flow<Temporaries> get() = temporaryContacts()
     val vault: StateFlow<List<VaultSummary>> get() = privateContacts()
 
     /** Whether this phone owns the shared label [title] (null: not shared, or not known). */

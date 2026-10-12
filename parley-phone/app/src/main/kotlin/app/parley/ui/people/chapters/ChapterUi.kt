@@ -75,7 +75,7 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
     val shared by ui.shared.collectAsStateWithLifecycle()
     val isShared = shared.any { it.title == title }
     val owner = remember(shared, title) { ui.isOwner(title) }
-    val temporaries by ui.temporaries.collectAsStateWithLifecycle(emptyList())
+    val temporaries by ui.temporaries.collectAsStateWithLifecycle(Temporaries())
     val vault by ui.vault.collectAsStateWithLifecycle()
     val chapter = chapters[title]
     val now = remember(chapter) { System.currentTimeMillis() }
@@ -83,7 +83,7 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
     var setting by rememberSaveable { mutableStateOf(false) }
     val people = remember(members, temporaries, vault) {
         val privateTemps = vault.filter { it.expiresAt != null }.map { it.id }.toSet()
-        memberFacts(members, temporaries.map { it.lookupKey }.toSet(), temporaries.map { it.contactId }.toSet(), privateTemps)
+        memberFacts(members, temporaries.keys, temporaries.ids, privateTemps)
     }
 
     if (!Chapters.decidesHere(isShared, owner)) {

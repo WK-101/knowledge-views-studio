@@ -101,7 +101,9 @@ object ContactMenu {
  * way to share them, so there is one Share, not a bar button and a menu item.
  */
 object SelectionMenu {
-    enum class Action { EDIT, MESSAGE_ALL, CALL_ROUND, SHARE_FILE, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
+    enum class Action {
+        EDIT, MESSAGE_ALL, CALL_ROUND, SHARE_FILE, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE,
+    }
 
     data class Facts(
         /** Some chosen contacts are device contacts (sharing, the clipboard, files and "Make private" are for those only). */
