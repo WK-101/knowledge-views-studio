@@ -20,6 +20,7 @@ import app.parley.common.storage.DurableFiles
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
+import app.parley.data.EventItem
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.PhoneEnv
 import app.parley.data.TelephonyPackages
@@ -102,6 +103,11 @@ data class VaultSummary(
      * still private, still named on calls. Null while it is listed.
      */
     val archivedAt: Long? = null,
+    /**
+     * Its dates (birthday, anniversary…), from the caller-ID copy, for Next up and the call screen's "Birthday today".
+     * Shown only while private contacts may show; empty for an entry not seeded yet ([VaultDates.migrate]).
+     */
+    val dates: List<EventItem> = emptyList(),
 ) {
     /** Archived: kept in the vault, out of the lists. */
     val archived: Boolean get() = archivedAt != null
@@ -309,6 +315,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         } catch (_: VaultCrypto.KeyLostException) {
             CallerIdCopy.rebuilt(id, caller) to true
         }
+        // An entry from before the copy kept the dates gets them now, from the details just opened.
+        if (!lost && !CallerIdCopy.hasDates(caller)) catching { dates.seed(id, d.events) }
         Opened(withCallerChoices(d.copy(photoUri = photoUri(id)), caller), lost)
     }
 
@@ -639,6 +647,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 .put(C_REGION, region)
                 // The four choices above are this copy's own from now on (see seedCallerChoices).
                 .put(C_SEEDED, 1)
+                // The dates, for a birthday today while private contacts show (see CallerIdCopy.C_DATES).
+                .also { CallerIdCopy.putDates(it, shown.events) }
             val detailsJson = ContactDetailsJson.encode(shown.copy(photoUri = null))
             val detailBlob = sealDetails(existing, detailsJson, record, recordOf, interactions)
             val entity = VaultContactEntity(
@@ -816,6 +826,12 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         if (!pending) prefs.edit().putBoolean(K_CHOICES_SEEDED, true).apply()
         seeded
     }
+
+    /** Dates in the caller-ID copies ([CallerIdCopy.C_DATES]): seeded for entries saved before they were kept there. */
+    private val dates by lazy { VaultDates(context, dao, keysLock, PREFS) }
+
+    /** See [VaultDates.migrate]. */
+    suspend fun migrateDates(): Int = dates.migrate()
 
     /** Entry [id]'s summary (caller-ID copy), read straight from the database; null when gone or unreadable. */
     suspend fun summary(id: Long): VaultSummary? = withContext(Dispatchers.IO) { dao.callerRow(id)?.let { summarize(it) } }

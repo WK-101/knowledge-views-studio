@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Archive
+import androidx.compose.material.icons.rounded.RestoreFromTrash
+import app.parley.ui.journal.HistoryTab
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Speed
@@ -36,16 +38,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenuItem
 import app.parley.ui.ParleyFabDefaults
+import app.parley.ui.ScreenSnackbarHost
+import app.parley.ui.clearOfFab
 import app.parley.ui.ParleyFabMenu
-import androidx.compose.material3.Checkbox
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.toggleableState
-import androidx.compose.ui.state.ToggleableState
-import app.parley.security.DiscreetSwitch
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -208,8 +203,13 @@ fun HomeScreen(
 
     // The bulk Move to private's progress, unlock and outcome: on whichever tab, even once the selection is gone.
     PrivateMoveProgress(vm)
+    // A floating button placed by hand (the add button in the list pane, the folded keypad's button): the Scaffold
+    // doesn't lift the snackbar above it, so it is lifted here, by the same reserve.
+    val fabByHand = (window.listDetail && tab == StartTab.CONTACTS && paneBack) ||
+        (tab == StartTab.RECENTS && layout.keypadDocked && !dockOpen && !searching)
     ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
+        snackbarHost = { ScreenSnackbarHost(Modifier.clearOfFab(fabByHand)) },
         topBar = {
             // A selection takes the top bar's place (SelectionTopBar, whose Close and Back end it) on every list.
             if (tab == StartTab.CONTACTS && selection.isNotEmpty()) {
@@ -340,9 +340,9 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
             IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.label_speed_dial)) }
         }
         StartTab.CONTACTS -> {
-            // Scan QR is in the add button's menu; Labels is the chip row's. One lock: private contacts, Parley, or a
-            // small menu with both.
-            ContactsLockButton(vm, appLock)
+            // Scan QR is in the add button's menu; Labels is the chip row's. One lock: lock and hide private contacts,
+            // Parley, or a small menu with both.
+            ContactsLockButton(vm, appLock, open)
         }
         StartTab.KEYPAD -> IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.label_speed_dial)) }
         StartTab.FAVORITES, StartTab.CIRCLE -> Unit
@@ -352,23 +352,6 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
 @Composable
 private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
     DropdownMenuItem({ Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
-}
-
-/**
- * "Hide private contacts" as a checkable item, ticked while the switch is on (as the Privacy page shows it). A tap
- * flips it with the same rules as the Quick Settings tile ([DiscreetSwitch]).
- */
-@Composable
-private fun HidePrivateMenuItem(vm: AppViewModel, close: () -> Unit) {
-    val context = LocalContext.current
-    val on = DiscreetSwitch.shown(vm.settings.collectAsStateWithLifecycle().value)
-    DropdownMenuItem(
-        { Text(stringResource(R.string.set_hide_vault_title)) },
-        leadingIcon = { Icon(Icons.Rounded.VisibilityOff, null) },
-        trailingIcon = { Checkbox(on, onCheckedChange = null) },
-        onClick = { close(); DiscreetSwitch.flip(context, vm.c) },
-        modifier = Modifier.semantics { role = Role.Checkbox; toggleableState = ToggleableState(on) },
-    )
 }
 
 /**
@@ -398,8 +381,10 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             // Name, recently added, most called or company: kept in the list, remembered. ("Add several" is on the add button.)
             MenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
             MenuItem(stringResource(R.string.action_find_merge_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
-            // Favourites shown in Contacts are reordered from their own header (Reorder), not from here.
-            HidePrivateMenuItem(vm, close)
+            // Favourites shown in Contacts are reordered from their own header (Reorder), not from here. Hiding
+            // private contacts is the top bar's lock (Lock and hide); Settings shows them again.
+            // A contact deleted, edited or merged by mistake: History & undo's Contacts tab, kept for 30 days.
+            MenuItem(stringResource(R.string.cs_menu_recently_deleted), Icons.Rounded.RestoreFromTrash) { go(Routes.Journal(HistoryTab.CONTACTS.key)) }
             // Archived contacts are out of the list: this is where they are, once there are some.
             val archived = vm.c.archive.cards.collectAsStateWithLifecycle().value
             // Archived private contacts count only while private contacts may show.

@@ -91,6 +91,12 @@ object AlphabetIndexDefaults {
 
     /** The smallest row a letter gets; below it the index draws dots between fewer letters. */
     val MinSlot = 14.dp
+
+    /**
+     * Left free at the bottom of the list: the floating button's area ([ParleyFabDefaults.Reserve]), on every list with
+     * an index, so the index ends above the button wherever a screen has one and looks the same where it hasn't.
+     */
+    val BottomReserve = ParleyFabDefaults.Reserve
 }
 
 /**
@@ -138,6 +144,7 @@ fun BoxScope.AlphabetIndexRail(
         }
     }
     val railSize = remember(drag) { Modifier.onSizeChanged { drag.railHeight = it.height } }
+    val reservePx = with(LocalDensity.current) { AlphabetIndexDefaults.BottomReserve.toPx() }
 
     AnimatedVisibility(
         shown,
@@ -149,9 +156,10 @@ fun BoxScope.AlphabetIndexRail(
             Modifier
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                 .width(AlphabetIndexDefaults.Lane)
-                // From its top to the bottom of the list, measured in the layout phase.
+                // From its top down to the floating button's area, measured in the layout phase.
                 .layout { measurable, constraints ->
-                    val h = constraints.constrainHeight((state.layoutInfo.viewportSize.height - top()).roundToInt().coerceAtLeast(0))
+                    val usable = AlphabetIndex.usable(state.layoutInfo.viewportSize.height.toFloat(), reservePx)
+                    val h = constraints.constrainHeight(AlphabetIndex.railHeight(usable, top()).roundToInt())
                     val p = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
                     layout(p.width, p.height) { p.place(0, 0) }
                 }
@@ -188,6 +196,7 @@ private class IndexWords(val name: String, val next: String, val previous: Strin
 private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Boolean, drag: IndexDrag): State<AlphabetIndex.Placement> {
     val density = LocalDensity.current
     val minPx = with(density) { AlphabetIndexDefaults.MinHeight.toPx() }
+    val reservePx = with(density) { AlphabetIndexDefaults.BottomReserve.toPx() }
     var headerPx by remember { mutableFloatStateOf(with(density) { 40.dp.toPx() }) }
     LaunchedEffect(state, start, headers) {
         if (!headers) {
@@ -204,7 +213,8 @@ private fun rememberIndexPlacement(state: LazyListState, start: Int, headers: Bo
             AlphabetIndex.placement(
                 firstVisible = state.firstVisibleItemIndex, start = start,
                 startTop = first?.let { (it.offset - info.viewportStartOffset).toFloat() },
-                viewport = info.viewportSize.height.toFloat(), header = headerPx, minHeight = minPx,
+                // Only the part above the floating button's area counts: too little room there and the index waits.
+                viewport = AlphabetIndex.usable(info.viewportSize.height.toFloat(), reservePx), header = headerPx, minHeight = minPx,
                 dragging = drag.dragging, held = drag.held,
             )
         }

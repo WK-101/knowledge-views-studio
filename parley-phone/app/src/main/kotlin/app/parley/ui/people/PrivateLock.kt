@@ -12,6 +12,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.parley.common.ux.LockButton
 import app.parley.security.AppLock
+import app.parley.security.DiscreetSwitch
+import android.content.res.Resources
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.ui.platform.LocalResources
+import app.parley.common.SettingsCategory
+import app.parley.ui.Destination
+import app.parley.ui.LocalSnackbar
+import app.parley.ui.ParleySnackbar
+import app.parley.ui.Routes
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -48,22 +57,45 @@ fun lockPrivateContacts(vm: AppViewModel) {
 }
 
 /**
- * The Contacts top bar's one lock button ([LockButton]): Lock private contacts while they're unlocked, Lock now while
- * the app lock is on, and a small menu with both when both apply, instead of two padlocks side by side.
+ * Contacts' top bar: locks private contacts' details and hides them from every list at once ("Hide private contacts",
+ * [DiscreetSwitch.lockAndHide]), the one gesture for handing the phone over. The snackbar says where they come back:
+ * Settings › Privacy & security, whose switch it opens. Parley stays open.
+ */
+fun lockAndHidePrivateContacts(vm: AppViewModel, snackbar: ParleySnackbar?, res: Resources, open: (Destination) -> Unit) {
+    val app = vm.getApplication<android.app.Application>()
+    DiscreetSwitch.lockAndHide(app, vm.c)
+    val text = res.getString(R.string.pl_locked_hidden)
+    if (snackbar == null) {
+        vm.toast(text)
+    } else {
+        snackbar.show(text, res.getString(R.string.label_settings)) { open(Routes.settingsPage(SettingsCategory.PRIVACY, HIDE_PRIVATE_ROW)) }
+    }
+}
+
+/** Settings › Privacy & security's "Hide private contacts" row: where private contacts are shown again. */
+private const val HIDE_PRIVATE_ROW = "hide_vault"
+
+/**
+ * The Contacts top bar's one lock button ([LockButton]): Lock and hide private contacts while they're unlocked, Lock now
+ * while the app lock is on, and a small menu with both when both apply, instead of two padlocks side by side. Locking
+ * them without hiding stays on a private contact's page ([LockPrivateRow]) and the tile.
  */
 @Composable
-fun ContactsLockButton(vm: AppViewModel, appLock: Boolean) {
+fun ContactsLockButton(vm: AppViewModel, appLock: Boolean, open: (Destination) -> Unit) {
     var menu by remember { mutableStateOf(false) }
+    val snackbar = LocalSnackbar.current
+    val res = LocalResources.current
+    val lockAndHide = { lockAndHidePrivateContacts(vm, snackbar, res, open) }
     when (LockButton.of(privateContactsUnlocked(vm), appLock)) {
         LockButton.NONE -> Unit
-        LockButton.PRIVATE_CONTACTS -> IconButton({ lockPrivateContacts(vm) }) { Icon(Icons.Rounded.Lock, stringResource(R.string.pl_lock)) }
+        LockButton.PRIVATE_CONTACTS -> IconButton(lockAndHide) { Icon(Icons.Rounded.Lock, stringResource(R.string.pl_lock_hide)) }
         LockButton.PARLEY -> IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         LockButton.BOTH -> Box {
             IconButton({ menu = true }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_menu)) }
             DropdownMenu(menu, { menu = false }) {
                 DropdownMenuItem(
-                    { Text(stringResource(R.string.pl_lock)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) },
-                    onClick = { menu = false; lockPrivateContacts(vm) },
+                    { Text(stringResource(R.string.pl_lock_hide)) }, leadingIcon = { Icon(Icons.Rounded.VisibilityOff, null) },
+                    onClick = { menu = false; lockAndHide() },
                 )
                 DropdownMenuItem(
                     { Text(stringResource(R.string.home_lock_parley)) }, leadingIcon = { Icon(Icons.Rounded.PhonelinkLock, null) },

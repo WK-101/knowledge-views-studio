@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.ui.ParleyFab
+import app.parley.ui.ParleyFabDefaults
 import app.parley.common.EventDate
 import app.parley.common.people.ContactGlance
 import app.parley.common.people.ContactRef
@@ -326,7 +327,8 @@ private fun ContactPageBody(
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Spacing.xxl),
+            // "Log a chat or visit" floats over the page's bottom end: its last row scrolls clear of it.
+            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + ParleyFabDefaults.Reserve),
             verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             item(key = "header") {

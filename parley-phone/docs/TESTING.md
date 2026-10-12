@@ -3573,6 +3573,53 @@ Automated: `CatchUpQuietTest` (app).
 
 ## 52. Occasional and safety (6.8)
 
+### 52.1 Lock and hide private contacts
+
+Automated: `ContactsMenuTest` (the label, the action, the snackbar's way to Settings, lock only kept on the page), `LockAndHideTest` (one call locks their details and turns "Hide private contacts" on).
+1. With a private contact saved, unlock private contacts (open its page and unlock). Contacts' top bar shows a padlock; TalkBack reads it "Lock and hide private contacts".
+2. Tap it: private contacts leave the Contacts list, search, Favourites and Recents at once, and a snackbar says "Private contacts locked and hidden. Show them again from Settings."
+3. Tap the snackbar's **Settings**: Settings › Privacy & security opens at "Hide private contacts", switched on. Turn it off: private contacts are listed again, with their details locked (their page asks for the unlock).
+4. Settings search for "show private contacts" and for "unhide": both find "Hide private contacts".
+5. With the app lock on as well, the padlock opens a small menu: "Lock and hide private contacts" does the same as above; "Lock Parley" locks Parley only.
+6. On an unlocked private contact's page, "Lock private contacts" still locks without hiding (names stay listed). The Quick Settings tile still hides and shows them as before.
+7. During a duress unlock the padlock doesn't show (private contacts are hidden already); Settings shows the switch as you left it.
+
+### 52.2 Contacts ⋮: Recently deleted
+
+Automated: `ContactsMenuTest` (no "Hide private contacts" tick, "Recently deleted" there, seven items at most).
+1. Contacts ⋮ lists Select all, Sort by…, Find & merge duplicates, Recently deleted, Archived (only once something is archived), Tools and Settings: no "Hide private contacts".
+2. Delete a contact, then Contacts ⋮ › Recently deleted: History & undo opens on its Contacts tab with the contact at the top; Restore brings it back.
+3. During a duress unlock, deleted private contacts aren't listed there.
+
+### 52.3 One place for the floating button
+
+Automated: `FloatingButtonsTest` (the reserve is the button and its margins, the A–Z index, every list under a button and Home's snackbar use it, no hand-made clearance), `AlphabetIndexTest` (the index ends above the reserve and waits when too little room is left).
+1. Contacts sorted by name, with more than 30 contacts: scroll into the letters. The A–Z index ends above the add button with a clear gap; dragging the index to its last letter never touches the button, and tapping the button never moves the index.
+2. Scroll Contacts to the end: the count line under the last contact scrolls fully above the add button.
+3. Switch between Contacts, Recents with the docked keypad folded (Settings › Layout › Calls layout: Combined) and a Circle contact's page: the button is the same size, 16 dp from the end edge and from the bar below, on each. The last call and the contact page's last row scroll clear of it.
+4. Turn on favourites in Contacts and the Situation chip (start a Situation): the button sits 16 dp above the chip, the index still ends above the button.
+5. Delete a contact from Contacts (snackbar with Undo): the snackbar sits above the add button, which doesn't move. On a tablet or in landscape (list beside a contact), and in Recents with the docked keypad folded, the snackbar also sits above the button.
+6. Long-press a contact to select: the button hides; end the selection: it comes back in the same place. During a call, the return-to-call chip lifts the button with it.
+7. Large font and display size, landscape, right-to-left: the index still ends above the button (on the left in right-to-left), and a short screen shows no index rather than one under the button.
+
+### 52.4 Private contacts on Next up
+
+Automated: `NextUpModelTest` (a private birthday today shows while private contacts show, and goes when hidden, locked with "Lock private contacts" or under duress; the dates are read from the caller-ID copy without unlocking), `PrivateDatesTest`.
+1. Give a private contact a birthday today and save. Open Recents: Next up shows "…'s birthday is today" for them; tapping it opens their private page, Call calls them.
+2. Put the private contact on To call (Remind me), and say "They'll call me back" on another call with them: Next up's first line counts and names them.
+3. Add a private contact to the Circle with a weekly rhythm and calls at this hour on earlier days, nothing in the last week: Next up offers "… might enjoy hearing from you" for them.
+4. Tap the Contacts padlock (Lock and hide): back on Recents, every line about the private contacts is gone at once. Show them again from Settings: the lines come back.
+5. Lock private contacts from a private contact's page (lock only): their lines go; unlock: they come back.
+6. Enter the duress PIN: none of their lines show. Widgets and notifications never show any of it.
+7. A private contact saved before 6.8 with a birthday today: after the next unlock of private contacts (or opening their page), the birthday line shows.
+
+### 52.5 A private contact's birthday on the call screen
+
+Automated: `CallerLinesTest` (a private contact's birthday shows unlocked, never on the lock screen under any "Caller on the lock screen" setting, also for a conference participant).
+1. With the phone unlocked and private contacts shown, have the private contact with a birthday today call: "Birthday today" shows under their name.
+2. Lock the phone and have them call again, with "Caller on the lock screen" set to "Name and notes": no birthday line; unlock while it rings: the line appears.
+3. Hide private contacts (or lock them with "Lock private contacts", or enter the duress PIN) and have them call: no birthday line (with hiding, the call shows as their number only).
+
 ### 52.11 Seasons: a rhythm with an end
 Automated: `SeasonsTest` (a season counts while it runs and the usual rhythm comes back by itself, a Chapter's closer rhythm while it runs, an own season wins, an older Parley reading a newer `KeepRhythm` or `LabelPolicy` keeps the usual rhythm and the suggestion) (core:common); `CircleFeedsRepositoryTest` (set, end, clear once; changing the usual rhythm keeps the season; none for someone outside the Circle) (core:data).
 1. **For a while.** Grandma is in your Circle every 2 weeks. Her page › Stay in touch › tap the rhythm: the dialog has **For a while…**. Choose Every 3 days, After 4 weeks, Set. The Circle row says "Every 3 days · until 9 Nov" under when you were last in touch; her page says the same; her chip follows the 3-day gap.
@@ -3613,3 +3660,4 @@ Automated: `SeasonsTest`, `CircleFeedsRepositoryTest` cover the Circle side; thi
 Automated: `HelpTopicTest`, `CapabilityRoutesTest` (core:common, app).
 1. Tools › Stay in touch has **For a while**, **Quieter than usual** and **Keep in touch with everyone in a label**, tagged as new in 6.8. Each opens its help page; the label one's button opens Labels.
 2. Searching Tools for "season", "drifting" or "bulk" finds them.
+
