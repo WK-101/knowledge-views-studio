@@ -3570,3 +3570,34 @@ No new behaviour: the keypad and Backup & restore are split into parts. Check th
 Automated: `CatchUpQuietTest` (app).
 1. **A catch-up keeps the Circle quiet everywhere.** A next catch-up set after a call (51.9) already kept the reminders and Next up quiet, but the Circle list, its glance counts and the favourites' Due dot, the contact page's Stay in touch chip and "your turn" line, and the Circle widget still showed them as due. Now each place reads the catch-up date (`CatchUp.quietUntil`). Check: someone in your Circle who is due, set **On a date** next week after a call with them: the Circle shows them as Fine (not Due), the glance counts one fewer due, their favourite tile loses its Due dot, their page's Stay in touch chip says Fine and the "Ana has called you the last 3 times" line doesn't show, and the widget no longer lists them. Call them, or let the day come: Due again where the rhythm says so.
 2. **Same for a private contact in the Circle** (private contacts shown): set a catch-up after a call with them: their row in the Circle and their page follow the date as above. (The widget and reminders never name private contacts.)
+
+## 52. Occasional and safety (6.8)
+
+### 52.16 Call round: starting one
+Automated: `CallRoundsTest` (core:common: something to say and someone to call, each person once, at most 50; Favourites, Your Circle or a label, never Everyone; a private contact by its private key), `WhoTest` (a round offers Favourites, Your Circle and a label only), `MenusTest` (the Contacts selection ⋮ stays at seven entries with Start a call round).
+1. Tools › Stay in touch › **Call round** opens the round's page: one line saying what it does, **What to tell them**, **Who to call** (Nobody to call yet · Favourites · Your Circle · A label…) and **Start the round**, which stays off until both are filled. Choose a label: the row says how many people it holds.
+2. In Contacts, select four people (one with no number) and choose ⋮ › **Start a call round**: the round's page opens with "3 people · Chosen in Contacts" and Clear; the selection is gone. With nobody who has a number, the selection says so instead.
+3. Private contacts shown: select two device contacts and a private one; all three join. Turn on discreet mode, open Tools › Call round › Favourites: private favourites aren't counted.
+4. Type the message and start: the page now shows the message, "0 of 3 told" and "Next: …" with **Call …**. Leave Parley, force-stop it and open the round again from Tools: it is where you left it.
+5. TalkBack reads the score, "Next: Ana" as a heading, and each button. Check dark mode, right to left and the largest font (the three buttons wrap; nothing is cut).
+
+### 52.17 Call round: who's next, the score, never dialling
+Automated: `CallRoundsTest.next_is_the_first_not_called_then_those_to_try_again`, `the_score_counts_each_mark`, `CallRoundStoreTest` (core:data: sealed at rest, read back after a restart, ended without a trace; nothing plain when sealing fails).
+1. With a round under way, nothing is ever called by itself: opening the page, coming back from a call and marking someone never start a call. Each call starts with **Call …** (or the row's call button), through the usual confirm and SIM questions.
+2. Call the first person, hang up, tap **Told them**: "1 of 3 told" and the next person shows. **No answer** and **Later** move them after everyone not called yet; once everyone was tried, Next shows the one put off first ("Trying again"), then the one who didn't answer.
+3. Each row's ⋮ has Told them · No answer · Later · Take out of the round (four items). Taking someone out updates the score.
+4. When everyone is told: "Everyone has been told" with **End round**. End round (also in the top bar, with its question) clears the round: the page shows the start again, and Tools › Call round starts fresh.
+
+### 52.18 Call round: the note on the call screen, the lock screen and duress
+Automated: `CallRoundBridgeTest` (app: the note for someone not told yet only; nothing under a duress unlock, nothing for a private contact while private contacts are hidden, nothing for an emergency number).
+1. Unlocked, call someone in the round (from the round or from anywhere else): under the caller, "Call round: tell them" with the message. It also shows when they ring you, once answered, never while it rings. After **Told them**, calling them again shows nothing.
+2. Lock the phone and have someone in the round ring: nothing of the round shows on the lock screen, before or after answering. Unlock during the call: the note appears.
+3. Unlock Parley with the duress PIN: the round's page shows who and the score but not the message, and calls show no note. After the real PIN, both are back.
+4. Turn on discreet mode with a private contact in the round: their row is gone from the page (the score counts only who shows) and calling their number shows no note. Turn it off: they're back with their mark.
+5. Delete all Parley data: the round is gone.
+
+### 52.19 Container discipline: start-up unchanged
+Automated: `ContainerReachTest` (app: `vm.c.` at most 607 times, at most 35 classes take the whole container, nothing launches from an `init` block), the existing suites for settings, the vault, call history, archive, messaging, To call, the Contacts list head and private search, all now started by an explicit `start()`.
+1. Cold start Parley from the launcher (after a reboot): the Contacts list shows its kept first screenful at once, then the whole list; Recents opens on the chip used last; favourites shortcuts update.
+2. Cold start for an incoming call (Parley closed): the call rings and screens as before; the contact list and call archive aren't read until the call settles or the UI opens.
+3. Case files (list, a case: status, references, Stop keeping), a label's chapter (give it an end, End now, Keep, Archive who joined) and Situations (turn on with How long?, turn off from the home line and from a "Set by" banner, add, rename, delete) all behave as in 6.7.

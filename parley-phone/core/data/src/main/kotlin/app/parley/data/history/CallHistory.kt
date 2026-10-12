@@ -996,9 +996,8 @@ class CallHistory(
 
     private fun decode(s: String): CallLogRecord = ArchivedCalls.decode(s)
 
-    // Last in the class: the upkeep below runs on another thread at once when the full app has started, and must find
-    // every property initialized.
-    init {
+    /** Starts the upkeep below, once, right after construction (its owner calls it), so it finds every property set. */
+    fun start() {
         // Not in a process started for a call, a worker or a widget: decrypting the archive and a full catch-up would
         // compete with call screening. Workers sync explicitly; the rest waits for the UI or a settled call.
         scope.launch(Dispatchers.IO) {

@@ -66,9 +66,7 @@ import app.parley.ui.rowColors
 import app.parley.ui.Spacing
 import app.parley.ui.settings.CallsRoutes
 import app.parley.ui.settings.CallsSubPage
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 
@@ -130,9 +128,8 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
     if (asking) {
         HowLongDialog(name, s, onDismiss = { asking = false }) { until ->
             asking = false
-            val c = vm.c
-            c.scope.launch { c.situations.turnOn(s.id, until) }
-            app.parley.situations.SituationTileOffer.onTurnedOn(context, c.ux)
+            vm.situations.turnOn(s.id, until)
+            app.parley.situations.SituationTileOffer.onTurnedOn(context, vm.c.ux)
         }
     }
     SplitSwitchRow(
@@ -144,8 +141,7 @@ internal fun SituationRow(vm: AppViewModel, s: Situation, state: SituationState,
         icon = situationIcon(s.kind),
         onOpen = { open(SituationRoutes.Edit(s.id)) },
     ) { v ->
-        val c = vm.c
-        if (v) asking = true else c.scope.launch { c.situations.turnOff() }
+        if (v) asking = true else vm.situations.turnOff()
     }
 }
 
@@ -186,10 +182,9 @@ internal fun AddSituationRow(vm: AppViewModel, open: (Destination) -> Unit) {
     if (naming) {
         NameDialog(stringResource(R.string.sit_add_title), "", onDismiss = { naming = false }) { name ->
             naming = false
-            val c = vm.c
-            val id = c.situations.newId()
+            val id = vm.situations.newId()
             scope.launch {
-                if (c.situations.save(Situation(id, SituationKind.CUSTOM, name = name))) open(SituationRoutes.Edit(id))
+                if (vm.situations.save(Situation(id, SituationKind.CUSTOM, name = name))) open(SituationRoutes.Edit(id))
             }
         }
     }
@@ -224,9 +219,15 @@ private const val MAX_NAME = 40
  */
 @Composable
 fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
-    val c = vm.c
+    val sit = vm.situations
     // Situations are read from disk when first used: off the main thread, and nothing is shown until then.
-    val sit = produceState(c.situationsIfReady()) { if (value == null) value = withContext(Dispatchers.IO) { c.situations } }.value ?: return
+    val ready = produceState(sit.ready) {
+        if (!value) {
+            sit.prepare()
+            value = true
+        }
+    }.value
+    if (!ready) return
     val state by sit.state.collectAsStateWithLifecycle()
     val list by sit.list.collectAsStateWithLifecycle()
     val active = state.activeId?.let { id -> list.firstOrNull { it.id == id } }
@@ -263,7 +264,7 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
                     )
                 }
                 TextButton(
-                    onClick = { c.scope.launch { sit.turnOff() } },
+                    onClick = { sit.turnOff() },
                     modifier = Modifier.padding(end = Spacing.xs).semantics { contentDescription = offCd },
                 ) { Text(stringResource(R.string.action_turn_off)) }
             }

@@ -72,7 +72,8 @@ fun WhoRow(
     val options = listOfNotNull(none) + choices.map { c -> whoName(Who(c, labelName.takeIf { c == WhoChoice.LABEL })) }
     val offset = if (none != null) 1 else 0
     val selected = who?.let { w -> choices.indexOf(w.choice).takeIf { it >= 0 }?.plus(offset) } ?: 0
-    val note = stringResource(R.string.who_dnd_note).takeIf { place != WhoPlace.ANSWER }
+    // Only where it decides who rings.
+    val note = stringResource(R.string.who_dnd_note).takeIf { place == WhoPlace.SITUATION || place == WhoPlace.OFF_HOURS }
     val text = listOfNotNull(sub, note).joinToString("\n").ifEmpty { null }
     var picking by rememberSaveable { mutableStateOf(false) }
     MenuRow(title, options, selected, icon, text) { i ->

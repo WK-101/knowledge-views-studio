@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Call round: tell several people one thing. Parley shows who's next and keeps the score; it never calls by itself. -->
+    <string name="round_title">Call round</string>
+    <string name="round_intro">Tell several people one thing. Parley shows who\'s next and how far you\'ve got. Each call starts when you tap Call.</string>
+    <string name="round_message_label">What to tell them</string>
+    <string name="round_message_hint">The funeral is on Friday at 11</string>
+    <string name="round_who">Who to call</string>
+    <string name="round_who_chosen_sub">Chosen in Contacts</string>
+    <string name="round_choose_in_contacts">Or select people in Contacts and choose Start a call round.</string>
+    <plurals name="round_people_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+    <string name="round_nobody">Nobody to call yet</string>
+    <string name="round_start">Start the round</string>
+    <string name="round_couldnt_start">Couldn\'t start the round. Try again.</string>
+    <string name="round_next">Next: %1$s</string>
+    <string name="round_call_named">Call %1$s</string>
+    <string name="round_told">Told them</string>
+    <string name="round_no_answer">No answer</string>
+    <string name="round_later">Later</string>
+    <string name="round_waiting">Not called yet</string>
+    <string name="round_take_out">Take out of the round</string>
+    <string name="round_everyone">Everyone in the round</string>
+    <string name="round_score">%1$d of %2$d told</string>
+    <plurals name="round_score_no_answer">
+        <item quantity="one">%1$d didn\'t answer</item>
+        <item quantity="other">%1$d didn\'t answer</item>
+    </plurals>
+    <plurals name="round_score_later">
+        <item quantity="one">%1$d for later</item>
+        <item quantity="other">%1$d for later</item>
+    </plurals>
+    <string name="round_all_told">Everyone has been told</string>
+    <string name="round_all_told_body">That\'s the round done. End it when you\'re ready; nothing of it is kept.</string>
+    <string name="round_end">End round</string>
+    <string name="round_end_title">End the call round?</string>
+    <string name="round_end_body">Who was told and the message are forgotten. Your calls stay in Recents.</string>
+    <string name="round_try_again">Trying again</string>
+    <string name="round_more_for">More for %1$s</string>
+    <string name="sel_call_round">Start a call round</string>
+    <string name="discover_call_round_summary">Tell several people one thing, with who\'s next and who you\'ve told</string>
+</resources>

@@ -12,6 +12,10 @@ import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Groups
+import app.parley.NavEvent
+import app.parley.common.calls.CallRounds
+import app.parley.ui.calls.CallRoundRoutes
 import app.parley.ui.circle.CircleSnack
 import app.parley.ui.circle.CircleSnacks
 import androidx.compose.material.icons.rounded.Lock
@@ -133,6 +137,17 @@ fun SelectionBar(vm: AppViewModel) {
                 val numbers = chosen.mapNotNull { c -> (c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
                 if (numbers.isEmpty()) vm.toast(res.getString(R.string.sel_no_numbers))
                 else context.startOrSay(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";"))))
+            }
+            // The round's screen asks for the one thing to say; the people wait there (private ones only while shown).
+            SelectionMenu.Action.CALL_ROUND -> {
+                val people = chosen.mapNotNull(CallRounds::personOf)
+                if (people.isEmpty()) {
+                    vm.toast(res.getString(R.string.sel_no_numbers))
+                } else {
+                    vm.callRound.chosen.value = people
+                    vm.selection.value = emptySet()
+                    vm.navigate(NavEvent.Route(CallRoundRoutes.Round))
+                }
             }
             // A vCard file handed to another app, the clipboard and a .vcf file are readable by other apps: device
             // contacts only.
@@ -296,6 +311,7 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
         when (a) {
             SelectionMenu.Action.EDIT -> R.string.be_menu
             SelectionMenu.Action.MESSAGE_ALL -> R.string.action_message_all
+            SelectionMenu.Action.CALL_ROUND -> R.string.sel_call_round
             SelectionMenu.Action.SHARE_FILE -> R.string.action_share_as_file
             SelectionMenu.Action.COPY_AS_TEXT -> R.string.ppl_copy_as_text
             SelectionMenu.Action.EXPORT_VCF -> R.string.sel_export_vcf
@@ -314,6 +330,7 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
 internal fun selectionMenuIcon(a: SelectionMenu.Action): ImageVector = when (a) {
     SelectionMenu.Action.EDIT -> Icons.Rounded.Edit
     SelectionMenu.Action.MESSAGE_ALL -> Icons.AutoMirrored.Rounded.Message
+    SelectionMenu.Action.CALL_ROUND -> Icons.Rounded.Groups
     SelectionMenu.Action.SHARE_FILE -> Icons.Rounded.Share
     SelectionMenu.Action.COPY_AS_TEXT -> Icons.Rounded.ContentCopy
     SelectionMenu.Action.EXPORT_VCF -> Icons.Rounded.FileDownload

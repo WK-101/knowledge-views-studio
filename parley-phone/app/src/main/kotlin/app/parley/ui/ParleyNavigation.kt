@@ -5,6 +5,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import app.parley.messaging.messagingGraph
 import app.parley.ui.blocking.blockingGraph
+import app.parley.ui.calls.callRoundGraph
 import app.parley.ui.calls.toCallGraph
 import app.parley.ui.contact.contactGraph
 import app.parley.ui.discover.discoverGraph
@@ -32,6 +33,7 @@ fun NavGraphBuilder.parleyGraph(nav: NavController) {
     extrasGraph(nav)
     qrGraph(nav)
     toCallGraph(nav)
+    callRoundGraph(nav)
     watchGraph(nav)
     familyGraph(nav)
     discoverGraph(nav)

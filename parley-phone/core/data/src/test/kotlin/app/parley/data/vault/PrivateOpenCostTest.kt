@@ -51,7 +51,7 @@ class PrivateOpenCostTest {
         StatePrefs.open(context, "vault_keys").edit().clear().commit()
         StatePrefs.open(context, "vault").edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
-        vault = VaultRepository(context, db, scope)
+        vault = VaultRepository(context, db, scope).also { it.start() }
     }
 
     @After fun tearDown() {

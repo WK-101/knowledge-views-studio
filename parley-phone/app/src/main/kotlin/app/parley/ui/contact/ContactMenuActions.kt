@@ -27,8 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import app.parley.R
-import app.parley.common.cases.CaseFiles
-import app.parley.common.cases.CaseMode
 import app.parley.common.people.ContactCapability
 import app.parley.common.ux.ContactMenu
 import app.parley.common.ux.MenuEntry
@@ -40,7 +38,6 @@ import app.parley.ui.blocking.unblockWithUndo
 import app.parley.ui.common.MenuGroupSheet
 import app.parley.ui.common.MenuItems
 import app.parley.ui.common.MenuLabel
-import java.util.UUID
 import kotlinx.coroutines.launch
 
 /**
@@ -170,10 +167,6 @@ private fun keepCaseFile(ctx: ContactPageContext) {
     val owner = ctx.caseOwner
     val vm = ctx.vm
     ctx.scope.launch {
-        val done = vm.c.cases.update {
-            val now = System.currentTimeMillis()
-            CaseFiles.setMode(it, owner.name, owner.numbers, owner.private, CaseMode.ON, now, vm.countryIso, UUID.randomUUID().toString())
-        }
-        if (done != null) vm.toast(vm.c.appContext.getString(R.string.case_kept))
+        if (vm.cases.keep(owner, vm.countryIso)) vm.toast(vm.c.appContext.getString(R.string.case_kept))
     }
 }

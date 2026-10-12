@@ -101,7 +101,7 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 item(key = "off") {
                     Banner(
                         stringResource(R.string.case_list_off), action = stringResource(R.string.case_list_turn_on),
-                        onAction = { vm.viewModelScope.launch { store.update(CaseFiles::startAgain) } },
+                        onAction = { vm.viewModelScope.launch { store.startAgain() } },
                     )
                 }
             }
@@ -154,7 +154,7 @@ private fun StopAllDialog(vm: AppViewModel, onDone: () -> Unit) {
         confirmLabel = stringResource(R.string.case_stop_confirm), destructive = true,
         onConfirm = {
             onDone()
-            vm.viewModelScope.launch { if (vm.cases.update(CaseFiles::stopAll) != null) vm.toast(res.getString(R.string.case_list_stopped_all)) }
+            vm.viewModelScope.launch { if (vm.cases.stopAll()) vm.toast(res.getString(R.string.case_list_stopped_all)) }
         },
         onDismiss = onDone,
     )

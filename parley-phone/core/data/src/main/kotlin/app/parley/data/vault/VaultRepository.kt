@@ -885,7 +885,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
     }
 
-    init {
+    /** Starts the vault's upkeep, once, right after construction (its owner calls it): nothing launches from the constructor. */
+    fun start() {
+        lock.start()
         scope.launch(Dispatchers.IO) {
             catching { if (StatePrefs.open(context, PREFS).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
             VaultCallChoices.loaded = true

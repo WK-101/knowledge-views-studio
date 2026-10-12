@@ -82,7 +82,8 @@ class MessagingStore(
      */
     val recordUnreadable: StateFlow<Boolean> = _recordUnreadable.asStateFlow()
 
-    init {
+    /** Loads the record, once, right after construction (its owner calls it): nothing launches from the constructor. */
+    fun start() {
         scope.launch(Dispatchers.IO) {
             try {
                 recordLock.withLock { publish(loadRecord()) }

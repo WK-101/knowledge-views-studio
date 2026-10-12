@@ -68,13 +68,6 @@ object CaseData {
             }
     }
 
-    /** Makes the case file of [owner] when there is none yet (an organisation's card was opened); its id, or null. */
-    suspend fun ensure(c: DataContainer, owner: CaseOwner, iso: String): String? {
-        val after = c.cases.update {
-            CaseFiles.ensure(it, owner.name, owner.numbers, owner.private, System.currentTimeMillis(), iso, java.util.UUID.randomUUID().toString())
-        } ?: return null
-        return CaseFiles.find(after, owner.numbers, iso)?.id
-    }
 }
 
 /** The case file [owner] shows now, re-read as the store changes; nothing during a duress unlock (as notes). */
@@ -98,7 +91,7 @@ fun rememberCaseShown(vm: AppViewModel, owner: CaseOwner): CaseShown {
 /** The timeline of [case] for [owner], re-read as calls come in and the case changes; null while it is read. */
 @Composable
 fun rememberCaseTimeline(vm: AppViewModel, case: CaseFile?, owner: CaseOwner): CaseTimeline? {
-    val calls by (if (owner.private || case?.private == true) vm.c.history.callsWithPrivate else vm.c.history.calls).collectAsStateWithLifecycle()
+    val calls by vm.cases.calls(owner.private || case?.private == true).collectAsStateWithLifecycle()
     val timeline by produceState<CaseTimeline?>(null, case, owner, calls?.size) {
         value = catching { CaseData.timeline(vm.c, case, owner.numbers, owner.ownerKey, calls.orEmpty(), vm.countryIso) }.getOrNull()
     }

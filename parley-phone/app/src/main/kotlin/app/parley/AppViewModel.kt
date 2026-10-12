@@ -38,7 +38,11 @@ import app.parley.jobs.UserErrorText
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
 import app.parley.ui.Destination
+import app.parley.ui.calls.CallRoundUi
+import app.parley.ui.cases.CasesUi
 import app.parley.ui.circle.CircleUi
+import app.parley.ui.people.chapters.ChaptersUi
+import app.parley.ui.situations.SituationControls
 import app.parley.ui.home.PrivateMoves
 import app.parley.ui.people.PeopleUi
 import app.parley.ui.recall.RecallUi
@@ -174,8 +178,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Who owns a number ([app.parley.data.people.NumberOwners]), for screens. */
     val numberOwners: app.parley.data.people.NumberOwners get() = c.numberOwners
 
-    /** Case files, for their screens (the list, one case, its card and PDF). */
-    val cases: app.parley.data.cases.CaseFileStore get() = c.cases
+    /** Case files, for their screens (the list, one case, its card and PDF): intents, not the store. */
+    val cases = CasesUi({ c.cases }, { c.history.calls }, { c.history.callsWithPrivate })
+
+    /** A label's chapter, for its section on the label page: intents, not the stores. */
+    val chapters = ChaptersUi(
+        { c.extras }, { c.sharedLabels }, { c.temporaries.all }, { c.vault.contacts }, c.appContext, c.scope,
+    )
+
+    /** The call round under way: tell several people one thing, with who's next and the score. */
+    val callRound = CallRoundUi({ c.callRound }, privacy, c.scope)
+
+    /** Situations, for their screens, the home line and the "Set by …" banners: intents, not the controller. */
+    val situations = SituationControls({ c.situations }, c::situationsIfReady, c.scope)
     val countryIso: String = c.directory.countryIso
 
     val isDefaultDialer = MutableStateFlow(Permissions.isDefaultDialer(app))
@@ -541,8 +556,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // Declared last: needs [favorites] initialised.
-    init {
+    private var started = false
+
+    /**
+     * Starts the app-wide upkeep (the Contacts list's, folder sync, shortcuts, the account notice), once, after the view
+     * model is built: the activity calls it, so nothing launches from a constructor and every property is set by then.
+     */
+    fun start() {
+        if (started) return
+        started = true
+        people.start()
         // Folder sync shortly after local contact changes (no-op when nothing changed).
         viewModelScope.launch(Dispatchers.IO) {
             c.contacts.contacts.debounce(20_000).collect {

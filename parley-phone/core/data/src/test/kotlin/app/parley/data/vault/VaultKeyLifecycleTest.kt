@@ -81,7 +81,7 @@ class VaultKeyLifecycleTest {
     }
 
     @Test fun a_lost_key_keeps_the_sealed_details_until_the_user_decides() = runBlocking {
-        val vault = VaultRepository(context, db, scope)
+        val vault = VaultRepository(context, db, scope).also { it.start() }
         val grace = ContactDetails(
             given = "Grace", family = "Hopper", phones = listOf(DataItem(null, "+1 202 555 0100", 2)), note = "Admiral", pinnedNote = "Call after 6",
         )
@@ -118,7 +118,7 @@ class VaultKeyLifecycleTest {
 
     @Test fun an_interrupted_upgrade_is_cleaned_up_and_run_again() = runBlocking {
         setDeviceSecure(false)
-        val vault = VaultRepository(context, db, scope)
+        val vault = VaultRepository(context, db, scope).also { it.start() }
         val id = vault.save(null, ada)
         assertEquals(1, VaultCrypto.generationOf(db.vaultDao().get(id)!!.detailBlob))
         leaveInterruptedUpgrade(2)
@@ -136,7 +136,7 @@ class VaultKeyLifecycleTest {
 
     @Test fun an_interrupted_upgrade_from_before_the_commit_record_is_settled_from_the_blobs() = runBlocking {
         setDeviceSecure(false)
-        val vault = VaultRepository(context, db, scope)
+        val vault = VaultRepository(context, db, scope).also { it.start() }
         val id = vault.save(null, ada)
         leaveInterruptedUpgrade(2)
         // Installs from before the commit record only had the aliases to go by.
@@ -151,7 +151,7 @@ class VaultKeyLifecycleTest {
 
     @Test fun an_expiry_change_and_a_key_upgrade_never_undo_each_other() = runBlocking {
         setDeviceSecure(false)
-        val vault = VaultRepository(context, db, scope)
+        val vault = VaultRepository(context, db, scope).also { it.start() }
         val id = vault.save(null, ada, expiresAt = 5_000L)
         val caller = db.vaultDao().get(id)!!.callerIdBlob
         vault.setExpiry(id, null)

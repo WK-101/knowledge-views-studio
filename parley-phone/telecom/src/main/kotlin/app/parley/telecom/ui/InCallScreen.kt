@@ -456,6 +456,8 @@ private fun AgendaUnderCaller(s: ScreenState, lines: Set<CallerLine>) {
     if (!s.keypadOpen) AgendaCard(primary, Modifier.padding(top = Spacing.m), visible = CallerLine.AGENDA in lines)
     // The booking pocket: the organisation's codes, hidden until Show (over the keypad while it is open).
     if (!s.keypadOpen) CaseCodesCard(primary, Modifier.padding(top = Spacing.m))
+    // A call round's one thing to say, once the call is under way (never while it rings, never while locked).
+    if (!s.keypadOpen) CallRoundNote(primary, Modifier.padding(top = Spacing.m))
 }
 
 /**

@@ -101,7 +101,7 @@ object ContactMenu {
  * way to share them, so there is one Share, not a bar button and a menu item.
  */
 object SelectionMenu {
-    enum class Action { EDIT, MESSAGE_ALL, SHARE_FILE, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
+    enum class Action { EDIT, MESSAGE_ALL, CALL_ROUND, SHARE_FILE, COPY_AS_TEXT, EXPORT_VCF, MERGE, DELETE_AUTOMATICALLY, MAKE_PRIVATE, MAKE_VISIBLE, ARCHIVE, DELETE }
 
     data class Facts(
         /** Some chosen contacts are device contacts (sharing, the clipboard, files and "Make private" are for those only). */
@@ -115,6 +115,8 @@ object SelectionMenu {
     fun build(f: Facts): List<MenuEntry<Action>> = buildList {
         add(Action.EDIT)
         add(Action.MESSAGE_ALL)
+        // "Start a call round": tell them all one thing by phone, one call at a time.
+        add(Action.CALL_ROUND)
         group(
             MenuGroup.SHARE,
             listOfNotNull(Action.SHARE_FILE.takeIf { f.hasDevice }, Action.COPY_AS_TEXT.takeIf { f.hasDevice }, Action.EXPORT_VCF.takeIf { f.hasDevice }),

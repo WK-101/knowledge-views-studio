@@ -66,7 +66,7 @@ class NextUpModelTest {
 
     private fun model(calls: List<CallEntry>): NextUpModel {
         val flow = MutableStateFlow<List<CallEntry>?>(calls)
-        val toCall = ToCallModel(c, scope, flow, MutableStateFlow(emptySet()))
+        val toCall = ToCallModel(c, scope, flow, MutableStateFlow(emptySet())).also { it.start() }
         return NextUpModel(scope, toCall, c.toCall.state, flow, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, "US")
     }
 

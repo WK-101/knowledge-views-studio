@@ -53,8 +53,6 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
 import app.parley.ui.people.archive.ArchiveActions
-import app.parley.work.ChapterNotices
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -72,12 +70,13 @@ import java.util.Locale
 @Composable
 fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary>, removeLabel: () -> Unit) {
     val res = LocalResources.current
-    val chapters by vm.c.extras.chapters.collectAsStateWithLifecycle()
-    val shared by vm.c.sharedLabels.states.collectAsStateWithLifecycle()
+    val ui = vm.chapters
+    val chapters by ui.chapters.collectAsStateWithLifecycle()
+    val shared by ui.shared.collectAsStateWithLifecycle()
     val isShared = shared.any { it.title == title }
-    val owner = remember(shared, title) { vm.c.sharedLabels.isOwner(title) }
-    val temporaries by vm.c.temporaries.all.collectAsStateWithLifecycle(emptyList())
-    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    val owner = remember(shared, title) { ui.isOwner(title) }
+    val temporaries by ui.temporaries.collectAsStateWithLifecycle(emptyList())
+    val vault by ui.vault.collectAsStateWithLifecycle()
     val chapter = chapters[title]
     val now = remember(chapter) { System.currentTimeMillis() }
     val zone = ZoneId.systemDefault()
@@ -112,10 +111,7 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
             supportingContent = { Text(chapterLeft(res, chapter, now, zone)) },
             trailingContent = {
                 // Ended here and now: the card below asks at once, so no notification follows.
-                TextButton({
-                    val t = System.currentTimeMillis()
-                    vm.c.extras.updateChapters { m -> m[title]?.let { m + (title to it.copy(endsAt = t, askedAt = t)) } ?: m }
-                }) {
+                TextButton({ ui.endNow(title) }) {
                     Text(stringResource(R.string.chapter_end_now))
                 }
             },
@@ -125,15 +121,10 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
         ChapterEndDialog(
             initial = chapter?.let { Chapters.lastDay(it, zone) },
             onDismiss = { setting = false },
-            onRemove = if (chapter == null) null else ({ setting = false; vm.c.extras.updateChapters { it - title } }),
+            onRemove = if (chapter == null) null else ({ setting = false; ui.remove(title) }),
         ) { length ->
             setting = false
-            val at = System.currentTimeMillis()
-            val ends = Chapters.endsAt(length, at, zone)
-            vm.c.extras.updateChapters { m ->
-                val old = m[title]
-                m + (title to (if (old != null) Chapters.withEnd(old, ends, at) else Chapters.begin(people, ends, at)))
-            }
+            ui.setEnd(title, Chapters.endsAt(length, System.currentTimeMillis(), zone), people)
         }
     }
 }
@@ -144,17 +135,16 @@ private fun decide(
 ) {
     when (outcome) {
         Chapters.Outcome.KEEP -> {
-            vm.c.extras.updateChapters { it - title }
-            ChapterNotices.cancel(vm.c.appContext)
+            vm.chapters.keep(title)
             vm.toast(res.getString(R.string.chapter_kept, title))
         }
         // The card stays for the other choices; those archived leave the label, so this one goes.
-        Chapters.Outcome.ARCHIVE_ADDED -> vm.c.scope.launch {
+        Chapters.Outcome.ARCHIVE_ADDED -> vm.chapters.inBackground {
             val done = ArchiveActions.archive(vm, Chapters.toArchive(chapter, people).map { it.id })
             vm.toast(res.getQuantityString(R.plurals.archive_n_done, done.size, done.size))
         }
         Chapters.Outcome.REMOVE_LABEL -> {
-            ChapterNotices.cancel(vm.c.appContext)
+            vm.chapters.cancelNotice()
             removeLabel()
         }
         // The usual delete: History & undo (or Recently deleted for a private one) keeps them, with Undo.
