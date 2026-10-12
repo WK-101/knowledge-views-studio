@@ -67,7 +67,6 @@ import app.parley.ui.drive.driveSummary
 import app.parley.ui.rowColors
 import app.parley.situations.SituationTriggers
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -77,14 +76,13 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
-    val c = vm.c
-    val list by c.situations.list.collectAsStateWithLifecycle()
+    val list by vm.situations.list.collectAsStateWithLifecycle()
     val s = list.firstOrNull { it.id == id }
     // Deleted (or never there): nothing to show.
     LaunchedEffect(s == null) { if (s == null) back() }
     if (s == null) return
     fun edit(f: (Situation) -> Situation) {
-        c.scope.launch { c.situations.edit(id) { f(it) } }
+        vm.situations.edit(id) { f(it) }
     }
     val name = SituationTriggers.name(context, s)
     var renaming by rememberSaveable { mutableStateOf(false) }
@@ -128,7 +126,7 @@ fun SituationEditScreen(vm: AppViewModel, id: String, back: () -> Unit, open: (D
             destructive = !s.builtIn,
             onConfirm = {
                 removing = false
-                c.scope.launch { c.situations.delete(id) }
+                vm.situations.delete(id)
             },
             onDismiss = { removing = false },
         )

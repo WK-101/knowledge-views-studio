@@ -357,6 +357,9 @@ in History & undo, private names in notifications and on the call screen. And, b
   set (its page shows nothing).
   The booking pocket isn't offered either: text shared to Parley shows no "Keep the codes in a case file", and the call
   screen shows no codes.
+- **Call round's message**: the one thing to say hides like a note. The round's page shows who and the score but not
+  the message, and the call screen shows no note (`CallRoundBridge` asks the privacy view's `notesShown`). The round
+  itself stays as it is: nothing is cleared or changed.
 - **Blocked, silenced and quiet-hours notifications** follow the missed-call notification: a private contact shows as
   their number, without the rule that caught them or the quiet-hours reply. Every such notification also has a
   lock-screen version with no name and no number, and follows "Caller on the lock screen" while the phone is locked.
@@ -580,6 +583,17 @@ asked during a build), and by SHA-256 for the rest, including artifacts whose si
 under `ignored-keys`). Releases are signed outside
 the repository: see [RELEASING.md](RELEASING.md). Spam-list packs from the companion app are pinned to the key that
 first signed them; the companion's own packs must carry its pinned key.
+
+## Call round (6.8)
+
+A call round (Tools › Call round, or Contacts' selection › Start a call round) keeps one message and the people to tell,
+each with their mark, in one sealed document (`docs/call_round` in no-backup storage, the small-records key, the same
+`SealedDocument` rules as To call: unreadable is never taken for none, never written plain). It stays on this phone:
+it isn't in backups, and Delete all Parley data removes it. Parley never calls anyone for it: every call starts with a
+tap, through the usual call path (dial guard, confirm, SIM). On the call screen the message shows under the caller only
+while the phone is unlocked (not on the lock screen in any form, not even a count, whatever "Caller on the lock screen"
+says), only once the call is under way, never for an emergency number, never during a duress unlock, and for a private
+contact only while private contacts show.
 
 ## Booking pocket (6.7)
 

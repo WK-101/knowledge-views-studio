@@ -23,6 +23,7 @@ import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
+import app.parley.data.calls.CallRoundStore
 import app.parley.data.calls.DisownedCalls
 import app.parley.data.calls.DriveProfileRepository
 import app.parley.data.calls.FamilySafetyStore
@@ -103,7 +104,7 @@ class DataContainer(context: Context) {
     val warmDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2)
 
     val db: AppDatabase by lazy { AppDatabase.create(appContext) }
-    val settings = SettingsRepository(appContext, scope)
+    val settings = SettingsRepository(appContext, scope).also { it.start() }
 
     /** The one answer to "may private data show now?" ([app.parley.common.security.PrivacyView]). */
     val privacy = app.parley.data.security.Privacy(settings, scope)
@@ -208,6 +209,9 @@ class DataContainer(context: Context) {
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
     val toCall by lazy { ToCallStore(appContext) { n -> vault.lookup(n) != null } }
 
+    /** The call round under way: one thing to tell several people, who's next and the score (sealed, this phone only). */
+    val callRound by lazy { CallRoundStore(appContext) }
+
     /** Menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
     val menus by lazy { MenuMemoryStore(appContext) { n -> vault.lookup(n) != null } }
 
@@ -259,7 +263,7 @@ class DataContainer(context: Context) {
     val contactExport by lazy { app.parley.data.export.ContactExport(appContext, this) }
 
     /** Archived contacts: out of the address book, kept by Parley, still named when they call. */
-    val archive by lazy { app.parley.data.archive.ArchiveStore(this) }
+    val archive by lazy { app.parley.data.archive.ArchiveStore(this).also { it.start() } }
 
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
@@ -271,7 +275,7 @@ class DataContainer(context: Context) {
             v.keptGenerations = { privateTrash.generations() }
             // "Lock private contacts": the Contacts list's first screenful kept for a cold start loses their rows now.
             v.onConcealed = { scope.launch(Dispatchers.IO) { catching { people.listHead.dropPrivate() } } }
-        }
+        }.also { it.start() }
     }
 
     /** Which private contacts are in which label (sealed in their vault entries, never in the address book). */
@@ -310,7 +314,7 @@ class DataContainer(context: Context) {
             },
         )
     }
-    val messaging by lazy { MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
+    val messaging by lazy { MessagingStore(appContext, scope) { n -> vault.lookup(n) != null }.also { it.start() } }
     /** "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { BulkAddStore(this) }
     val timeMachine by lazy { TimeMachine(appContext, records) }
@@ -383,7 +387,7 @@ class DataContainer(context: Context) {
                     numbers.forEach { n -> if (catching { vault.lookup(n) != null }.getOrDefault(true)) networkNames.forget(n, regions) }
                 }
             }
-        }
+        }.also { it.start() }
     }
 
     /** The countries of the SIMs in the phone (a national number may have come in on any of them). */
@@ -399,7 +403,7 @@ class DataContainer(context: Context) {
         RecordSealing(appContext, db, { timeMachine }) {
             listOf(
                 toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead, archive, people.backgrounds,
-                contacts.passport,
+                contacts.passport, callRound,
             )
         }
     }
@@ -436,14 +440,17 @@ class DataContainer(context: Context) {
     /** Extras: trip mode city, label policies, simple mode. */
     val extras by lazy { ExtrasStore(this) }
 
-    @OptIn(FlowPreview::class)
-    private fun followKeyChanges() {
+    private fun followRelinks() {
         // Parley's own links, unlinks and moves: temporary flags first (they need the old keys), then metadata.
         contacts.afterRelink = { before, kind ->
             if (kind == "MERGE") temporaries.onJoined(before)
             val movedTo = kind.removePrefix("MOVE:").takeIf { kind.startsWith("MOVE:") }?.toLongOrNull()
             if (movedTo != null) before.forEach { (_, key) -> contactKeys.moveTo(key, movedTo) } else contactKeys.carry(before)
         }
+    }
+
+    @OptIn(FlowPreview::class)
+    private fun followKeyChanges() {
         // Changes made by other apps and sync adapters: re-resolve stored keys once contacts settle. Not in a process
         // started for a call or a worker (the daily maintenance run sweeps too).
         scope.launch(warmDispatcher) {
@@ -495,6 +502,17 @@ class DataContainer(context: Context) {
     init {
         // Every delete/edit/merge made through Parley is journaled first (30-day undo).
         contacts.beforeChange = { ids, action -> journal.snapshot(ids, action) }
+        followRelinks()
+    }
+
+    private val started = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Starts the container's own upkeep, once, after it is fully built: the process calls it right after construction.
+     * Nothing launches from a constructor, so no job can find a property declared after it still unset. Idempotent.
+     */
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
         followKeyChanges()
         // Number memory follows deletes and restores made in Parley, once the full app starts (never on the call path).
         scope.launch(warmDispatcher) {

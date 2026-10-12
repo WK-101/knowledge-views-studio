@@ -63,7 +63,7 @@ class PrivateListingCostTest {
     private fun process(): VaultRepository {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         scopes += scope
-        return VaultRepository(context, db, scope, StartGate())
+        return VaultRepository(context, db, scope, StartGate()).also { it.start() }
     }
 
     private fun fill(vault: VaultRepository, n: Int): List<Long> = runBlocking {

@@ -8,8 +8,7 @@ import kotlinx.serialization.Serializable
 /**
  * The one answer to "who" that Situations, off hours, auto-answer and the drive profile all ask, with the same
  * choices in the same order: Everyone · Contacts · Favourites · Your Circle · A label…. A place offers only the
- * choices that make sense there ([WhoRules.choicesFor]); none offers fewer than Contacts, Favourites, Your Circle and
- * a label.
+ * choices that make sense there ([WhoRules.choicesFor]); every place offers Favourites, Your Circle and a label.
  */
 @Serializable
 enum class WhoChoice {
@@ -65,6 +64,9 @@ enum class WhoPlace {
 
     /** Auto-answer and the drive profile: an unknown caller is never answered on its own, so Everyone isn't offered. */
     ANSWER,
+
+    /** Who a call round calls: a handful of people, so neither Everyone nor the whole of Contacts. */
+    ROUND,
 }
 
 /**
@@ -77,6 +79,7 @@ object WhoRules {
     fun choicesFor(place: WhoPlace): List<WhoChoice> = when (place) {
         WhoPlace.SITUATION -> WhoChoice.entries
         WhoPlace.OFF_HOURS, WhoPlace.ANSWER -> WhoChoice.entries - WhoChoice.EVERYONE
+        WhoPlace.ROUND -> listOf(WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL)
     }
 
     /** Whether a caller with [f] is one of [who]. */

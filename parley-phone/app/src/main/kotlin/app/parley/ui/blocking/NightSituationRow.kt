@@ -23,7 +23,7 @@ import app.parley.ui.situations.whoName
 @Composable
 internal fun NightSituationRow(st: BlockingState, open: (Destination) -> Unit) {
     val context = LocalContext.current
-    val list by st.vm.c.situations.list.collectAsStateWithLifecycle()
+    val list by st.vm.situations.list.collectAsStateWithLifecycle()
     val night = list.firstOrNull { it.id == Situations.NIGHT } ?: return
     val sub = night.schedule?.let { sch ->
         stringResource(R.string.sit_night_row_sub, BlockingText.schedule(context, sch), night.who?.let { whoName(it) } ?: stringResource(R.string.sit_as_is))

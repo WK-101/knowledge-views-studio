@@ -470,6 +470,15 @@ data class CallerAgenda(val items: List<String>, val textOnLockScreen: Boolean =
 /** What adding an item did, for the line the call screen says back. */
 enum class AgendaAdded { ADDED, ALREADY, LOCKED, FAILED }
 
+/**
+ * A call round's note on the call screen ([app.parley.common.calls.CallRounds]): the one thing you set out to tell the
+ * person on the line. Read off the main thread; null when there is none, or when it may not show (a duress unlock hides
+ * it, as it hides notes). The call screen never shows it while the phone is locked.
+ */
+interface CallRoundHooks {
+    suspend fun roundNoteFor(number: String, accountId: String?): String? = null
+}
+
 /** A label's safe-word question, for the in-call card. */
 data class SafeWordPrompt(val label: String, val question: String)
 
@@ -481,7 +490,7 @@ data class HelperUi(val name: String, val number: String)
  * for its part). Implemented by the app module so that this module never depends on data or feature code.
  */
 interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks,
-    MenuMemoryHooks, CaseFileHooks, AgendaHooks
+    MenuMemoryHooks, CaseFileHooks, AgendaHooks, CallRoundHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, UNBLOCK, REPORT, NUMBER_MEMORY, SAVE, ADD_TO_CONTACT }

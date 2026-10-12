@@ -134,7 +134,7 @@ class ArchiveStoreTest {
         assertEquals("Ada Lovelace", c.archive.lookup("020 7946 0000", "GB")?.name)
         assertNull(c.archive.lookup("020 7946 0001", "GB"))
         // A new store (the app started for a call) reads the cards from their files.
-        val fresh = ArchiveStore(c)
+        val fresh = ArchiveStore(c).also { it.start() }
         assertEquals("Ada Lovelace", fresh.lookup("020 7946 0000", "GB")?.name)
         // Screening counts it as a saved contact: never an "unknown caller".
         assertTrue(c.screener.archivedCaller("+442079460000", "GB"))
@@ -156,7 +156,7 @@ class ArchiveStoreTest {
             writeBytes(adaIndex)
             setLastModified(File(dir, "$first.card").lastModified() - 60_000)
         }
-        val fresh = ArchiveStore(c)
+        val fresh = ArchiveStore(c).also { it.start() }
         assertEquals("Bo", fresh.all().single().name)
         assertNull(fresh.lookup("020 7946 0000", "GB"))
         assertEquals("Bo", fresh.lookup("020 7946 0999", "GB")?.name)

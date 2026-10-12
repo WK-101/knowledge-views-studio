@@ -113,6 +113,7 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.PRIVATE_NAMES -> PeopleRoutes.PrivateNames
     AppScreen.RESCUE_CALL -> SituationRoutes.RescueCall
     AppScreen.CASE_FILES -> HistoryRoutes.Cases
+    AppScreen.CALL_ROUND -> app.parley.ui.calls.CallRoundRoutes.Round
     AppScreen.ARCHIVED -> PeopleRoutes.Archived
     AppScreen.HELP -> DiscoverRoutes.Help
     // Tabs, handled by capabilityEvent; Home is where they live.

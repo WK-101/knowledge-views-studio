@@ -288,6 +288,11 @@ object PersistentStores {
             "docs/number_passport", StoreKind.FILES, local("Where each saved number came from on this phone (the fresh-number warning)"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
+        // The call round under way: the one thing to say, who to tell and each one's mark (sealed). A few days' errand.
+        PersistentStore(
+            "docs/call_round", StoreKind.FILES, local("The call round under way: what to tell them and who was reached"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         PersistentStore(
             "contact_list_head", StoreKind.FILES, local("The first screenful of the Contacts list, sealed, shown at a cold start"),
             location = PersistentStore.NO_BACKUP_FILES,

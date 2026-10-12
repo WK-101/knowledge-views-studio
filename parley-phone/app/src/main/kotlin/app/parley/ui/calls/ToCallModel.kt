@@ -102,7 +102,8 @@ class ToCallModel(
     val count: StateFlow<ToCallCount> = rows.map { ToCall.count(it.map { r -> r.entry }, System.currentTimeMillis()) }
         .stateIn(scope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), ToCallCount(0, 0))
 
-    init {
+    /** Reads the stored list, once, right after construction (its owner calls it). */
+    fun start() {
         scope.launch { store.load() }
     }
 
