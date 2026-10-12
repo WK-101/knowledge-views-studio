@@ -168,7 +168,11 @@ object PeopleWidget {
         val c = ctx.container
         val shown = placed.map { it.second }.toSet()
         // Each mode's people are read once per refresh, and only when a widget shows them.
-        val favourites = if (Mode.FAVOURITES in shown) catching { withContext(Dispatchers.IO) { FavouritesDrawing.load(ctx, c) } }.getOrNull().orEmpty() else emptyList()
+        val favourites = if (Mode.FAVOURITES in shown) {
+            catching { withContext(Dispatchers.IO) { FavouritesDrawing.load(ctx, c) } }.getOrNull().orEmpty()
+        } else {
+            emptyList()
+        }
         val circle = if (Mode.CIRCLE in shown) catching { withContext(Dispatchers.IO) { CircleDrawing.load(ctx, c) } }.getOrNull() else null
         // With the app lock on, names show only while both the phone and Parley are unlocked.
         val s = c.settings.current()

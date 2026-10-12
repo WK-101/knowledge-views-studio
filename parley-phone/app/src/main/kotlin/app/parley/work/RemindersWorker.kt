@@ -314,7 +314,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         shown.firstOrNull { it.second.reason == CircleDigest.Reason.DRIFT }?.let { (ct, pick) -> addDriftActions(b, ct, pick, ct.lookupKey in circle) }
         yearShown?.let { y ->
             val intent = IntentRoutes.own(ctx).setAction(IntentRoutes.ACTION_SHOW_YOUR_YEAR).putExtra(IntentRoutes.EXTRA_YEAR, y)
-            b.addAction(0, ctx.getString(R.string.circle_year_review), PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode() + YEAR_CODE, intent, update = true))
+            val openYear = PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode() + YEAR_CODE, intent, update = true)
+            b.addAction(0, ctx.getString(R.string.circle_year_review), openYear)
         }
         post(DateReminders.DIGEST_TAG, b)
         return true

@@ -47,7 +47,8 @@ internal object CircleDrawing {
     private const val INDEX_WAIT_MS = 8_000L
 
     suspend fun load(ctx: Context, c: DataContainer): Content {
-        val contacts = withTimeoutOrNull(20_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return Content(emptyList(), emptyList())
+        val contacts = withTimeoutOrNull(20_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey }
+            ?: return Content(emptyList(), emptyList())
         val today = LocalDate.now()
         val now = System.currentTimeMillis()
         val res = ctx.resources
@@ -141,7 +142,11 @@ internal object CircleDrawing {
         content.people.take(personIds.size).forEachIndexed { i, p ->
             if (room < 40) return@forEachIndexed
             room -= 44
-            val (row, name, line, call) = personIds[i].let { listOf(it[0], it[1], it[2], it[3]) }
+            val ids = personIds[i]
+            val row = ids[0]
+            val name = ids[1]
+            val line = ids[2]
+            val call = ids[3]
             v.setViewVisibility(row, View.VISIBLE)
             v.setTextViewText(name, p.name)
             v.setTextViewText(line, p.line)

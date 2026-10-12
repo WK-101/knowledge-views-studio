@@ -139,7 +139,7 @@ class CapabilityRoutesTest {
             "$UI.history.HistoryRoutes.Sim" to "one SIM's plan minutes",
             "$UI.drive.DriveRoutes.Profile" to "Your car, inside the Driving situation (Tools › Your car opens Driving)",
             "$UI.history.HistoryRoutes.Case" to "an organisation's case file, from its card on the contact or number page",
-            "$UI.history.HistoryRoutes.YourYear" to "Your year, from the People card in Call insights (its Tools row opens its help page) and the January digest",
+            "$UI.history.HistoryRoutes.YourYear" to "Your year, from the People card in Call insights and the January digest",
             "$UI.history.HistoryRoutes.Import" to "Coming from another phone? › call history",
             "app.parley.messaging.MessagingRoutes.CsvMapping" to "a contacts import's columns",
             "$UI.people.PeopleRoutes.ArchivedContact" to "One archived contact's read-only page, from Archived or Contacts search",

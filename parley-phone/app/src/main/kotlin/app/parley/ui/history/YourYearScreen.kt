@@ -38,7 +38,6 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.catching
-import app.parley.common.circle.YourYear
 import app.parley.ui.Destination
 import app.parley.ui.EmptyState
 import app.parley.ui.ListSectionHeader
@@ -148,7 +147,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.yearPage(
                         ),
                     )
                 },
-                supportingContent = if (r.occasions > 0) ({ Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) }) else null,
+                supportingContent = if (r.occasions > 0) {
+                    { Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) }
+                } else {
+                    null
+                },
             )
         }
     }
