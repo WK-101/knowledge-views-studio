@@ -162,7 +162,7 @@ private fun CaseDialogs(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline
             confirmLabel = stringResource(R.string.case_stop_confirm), destructive = true,
             onConfirm = {
                 st.stopping = false
-                vm.viewModelScope.launch { if (vm.cases.update { CaseFiles.stop(it, case.id) } != null) vm.toast(res.getString(R.string.case_stopped)) }
+                vm.viewModelScope.launch { if (vm.cases.stop(case.id)) vm.toast(res.getString(R.string.case_stopped)) }
                 back()
             },
             onDismiss = { st.stopping = false },
@@ -180,7 +180,7 @@ private fun CaseStatusRow(vm: AppViewModel, case: CaseFile) {
             modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, top = Spacing.s).semantics { heading() },
         )
         CaseStatusChooser(case.status) { s ->
-            vm.viewModelScope.launch { vm.cases.update { CaseFiles.setStatus(it, case.id, s, System.currentTimeMillis()) } }
+            vm.viewModelScope.launch { vm.cases.setStatus(case.id, s) }
         }
     }
 }
@@ -268,7 +268,7 @@ private fun ReferenceRow(vm: AppViewModel, case: CaseFile, r: CaseReference) {
             title = stringResource(R.string.action_delete_named, label), text = null, confirmLabel = stringResource(R.string.action_delete), destructive = true,
             onConfirm = {
                 deleting = false
-                vm.viewModelScope.launch { vm.cases.update { CaseFiles.removeReference(it, case.id, r.id) } }
+                vm.viewModelScope.launch { vm.cases.removeReference(case.id, r.id) }
             },
             onDismiss = { deleting = false },
         )
@@ -333,7 +333,7 @@ private fun AddReferenceDialog(vm: AppViewModel, case: CaseFile, onDone: () -> U
             val l = label
             val v = value
             vm.viewModelScope.launch {
-                val ok = vm.cases.addReference(case.id, l, v, typed = false)
+                val ok = vm.cases.addReference(case.id, l, v)
                 vm.toast(res.getString(if (ok) R.string.case_reference_added else R.string.case_reference_failed))
             }
         },

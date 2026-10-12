@@ -81,6 +81,7 @@ object CapabilityText {
         "promise_time" to (R.string.label_promise_time to R.string.discover_promise_time_summary),
         "next_up" to (R.string.next_up_label to R.string.discover_next_up_summary),
         "callback_watch" to (R.string.callback_title to R.string.discover_callback_watch_summary),
+        "call_round" to (R.string.round_title to R.string.discover_call_round_summary),
     )
 
     /** Title and summary of [c]; a row without texts fails loudly in the catalog test, never silently on screen. */

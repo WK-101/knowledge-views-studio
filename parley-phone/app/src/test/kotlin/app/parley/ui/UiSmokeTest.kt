@@ -148,7 +148,7 @@ class UiSmokeTest {
 
     /** Draws [content] as Parley's root does (theme, avatar, tips, Recents style, the app's view model) in [look]. */
     private fun show(look: Look, style: RecentsStyle = RecentsStyle.RICH, content: @Composable (AppViewModel) -> Unit) {
-        val vm = ViewModelProvider(activity)[AppViewModel::class.java]
+        val vm = ViewModelProvider(activity)[AppViewModel::class.java].also { it.start() }
         activity.setContent {
             ParleyTheme(mode = look.mode, amoled = look.amoled, dynamicColor = false) {
                 val density = LocalDensity.current

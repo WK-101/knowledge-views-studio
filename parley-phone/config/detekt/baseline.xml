@@ -238,7 +238,6 @@
     <ID>DestructuringDeclarationWithTooManyEntries:CircleWidget.kt$CircleWidget.Companion$val (row, name, line, call) = personIds[i].let { listOf(it[0], it[1], it[2], it[3]) }</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:PickerScreen.kt$val (uri, valueCol, typeCol, labelCol) = when (kind) { PickKind.PHONE -&gt; listOf(Phone.CONTENT_URI.toString(), Phone.NUMBER, Phone.TYPE, Phone.LABEL) PickKind.EMAIL -&gt; listOf(Email.CONTENT_URI.toString(), Email.ADDRESS, Email.TYPE, Email.LABEL) else -&gt; listOf(StructuredPostal.CONTENT_URI.toString(), StructuredPostal.FORMATTED_ADDRESS, StructuredPostal.TYPE, StructuredPostal.LABEL) }</ID>
     <ID>EmptyFunctionBlock:ParleyInCallService.kt$ParleyInCallService.&lt;no name provided&gt;${}</ID>
-    <ID>Filename:AppContainer.kt$app.parley.data.AppContainer.kt</ID>
     <ID>Filename:Phone.kt$app.parley.data.Phone.kt</ID>
     <ID>Filename:QuickMessage.kt$app.parley.ui.contact.QuickMessage.kt</ID>
     <ID>ForEachOnRange:MissedCallNotifier.kt$MissedCallNotifier$(0 until MissedCalls.MAX_CHILDREN).filter { !grouped || it &gt;= shown.size }</ID>
@@ -357,7 +356,6 @@
     <ID>LoopWithTooManyJumpStatements:Updater.kt$Updater$for</ID>
     <ID>LoopWithTooManyJumpStatements:VCardStream.kt$VCardStream$while</ID>
     <ID>LoopWithTooManyJumpStatements:VaultRepository.kt$VaultRepository$for</ID>
-    <ID>MatchingDeclarationName:AppContainer.kt$DataContainer</ID>
     <ID>MatchingDeclarationName:AudioRoutes.kt$AudioButton</ID>
     <ID>MatchingDeclarationName:Avatar.kt$PhotoCache</ID>
     <ID>MatchingDeclarationName:BirthdaysScreen.kt$UpcomingEvent</ID>
@@ -751,7 +749,7 @@
     <ID>NoUnusedImports:AppViewModel.kt$app.parley.AppViewModel.kt</ID>
     <ID>NoUnusedImports:ParleyRoot.kt$app.parley.ui.ParleyRoot.kt</ID>
     <ID>RunCatchingInSuspend:AbroadCalls.kt$AbroadCalls$runCatching { c.roaming.simStates(c.sims.accounts()) }</ID>
-    <ID>RunCatchingInSuspend:AppContainer.kt$DataContainer$runCatching { familySafety.load() }</ID>
+    <ID>RunCatchingInSuspend:DataContainer.kt$DataContainer$runCatching { familySafety.load() }</ID>
     <ID>RunCatchingInSuspend:AppLock.kt$runCatching { focus.requestFocus() }</ID>
     <ID>RunCatchingInSuspend:AppTelecomDependencies.kt$AppTelecomDependencies$runCatching { // Calls with private contacts leave no trace outside the vault when "Private call history" is on. if (number != null &amp;&amp; c.settings.current().privateVaultHistory &amp;&amp; c.vault.lookup(number) != null) return@runCatching // Android played the tone: say whether it was the contact's own or the default. val refined = if (facts.ringtone == RingtoneSource.SYSTEM &amp;&amp; number != null) { facts.copy(ringtone = if (contactRingtone(number) != null) RingtoneSource.CONTACT else RingtoneSource.DEFAULT) } else { facts } c.ringFacts.add(number, refined) }</ID>
     <ID>RunCatchingInSuspend:AppTelecomDependencies.kt$AppTelecomDependencies$runCatching { // Like ring facts: calls with private contacts leave no trace outside the vault with "Private call history" on. if (number != null &amp;&amp; c.settings.current().privateVaultHistory &amp;&amp; c.vault.lookup(number) != null) return@runCatching c.callQuality.add(number, facts) }</ID>
@@ -1196,11 +1194,11 @@
     <ID>RunCatchingInSuspend:VoicemailRepository.kt$VoicemailRepository$runCatching { cr.update(Voicemails.CONTENT_URI, ContentValues().apply { put(Voicemails.IS_READ, if (heard) 1 else 0) }, "${Voicemails._ID} IN (${ids.joinToString(",")})", null) }</ID>
     <ID>RunCatchingInSuspend:VoicemailRepository.kt$VoicemailRepository$runCatching { cr.update(v.uri, ContentValues().apply { put(Voicemails.DELETED, 1) }, null, null) &gt; 0 }</ID>
     <ID>SpacingAroundDot:IntroduceScreen.kt$.</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AppContainer.kt$DataContainer$/** "Add several numbers…" batches (one undo per batch). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AppContainer.kt$DataContainer$/** * Every feature part of the backup. Each names the [app.parley.common.storage.PersistentStores] sections it writes; * the backup reports a backed-up store no part covers. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AppContainer.kt$DataContainer$/** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AppContainer.kt$DataContainer$/** Contacts preferences (label ringtones among them), shared by [people] and the call path. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:AppContainer.kt$DataContainer$/** Spam-list packs (device-protected storage). */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:DataContainer.kt$DataContainer$/** "Add several numbers…" batches (one undo per batch). */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:DataContainer.kt$DataContainer$/** * Every feature part of the backup. Each names the [app.parley.common.storage.PersistentStores] sections it writes; * the backup reports a backed-up store no part covers. */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:DataContainer.kt$DataContainer$/** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:DataContainer.kt$DataContainer$/** Contacts preferences (label ringtones among them), shared by [people] and the call path. */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:DataContainer.kt$DataContainer$/** Spam-list packs (device-protected storage). */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:AppViewModel.kt$UiEvent.UndoCalls$/** Calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:BulkAdd.kt$BulkAdd.Candidate$/** Repeats can't be ticked: the first occurrence stands for them. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:CallActionReceiver.kt$CallActionReceiver.Companion$/** A call notification was swiped away (its delete intent). */</ID>
@@ -1255,7 +1253,7 @@
     <ID>ThrowsCount:RuleTemplate.kt$RuleTemplates$fun fromLink(link: String): OpenedTemplate</ID>
     <ID>ThrowsCount:RuleTemplate.kt$RuleTemplates$fun open(text: String): OpenedTemplate</ID>
     <ID>ThrowsCount:RuleTemplate.kt$RuleTemplates$fun validate(t: RuleTemplate)</ID>
-    <ID>TooGenericExceptionCaught:AppContainer.kt$DataContainer$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DataContainer.kt$DataContainer$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AppLock.kt$e2: Exception</ID>
     <ID>TooGenericExceptionCaught:AppLock.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AppViewModel.kt$AppViewModel$e: Exception</ID>

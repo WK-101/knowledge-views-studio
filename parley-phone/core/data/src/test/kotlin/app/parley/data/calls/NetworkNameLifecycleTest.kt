@@ -41,6 +41,7 @@ class NetworkNameLifecycleTest {
         FakeContactsProvider.install()
         FakeCallLogProvider.install()
         c = DataContainer(app)
+        c.start()
         c.startFull()
         runBlocking {
             c.settings.update { AppSettings() }

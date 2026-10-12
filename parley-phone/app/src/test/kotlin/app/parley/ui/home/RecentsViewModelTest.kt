@@ -57,7 +57,7 @@ class RecentsViewModelTest {
         TimeZone.setDefault(zone)
     }
 
-    private fun recents(): RecentsViewModel = t.viewModel { RecentsViewModel(t.c) { now } }.also { vm ->
+    private fun recents(): RecentsViewModel = t.viewModel { RecentsViewModel(t.c) { now }.also { it.start() } }.also { vm ->
         t.keep(vm.list)
         t.keep(vm.unreturnedMissed)
         t.keep(vm.unknownToday)
@@ -377,7 +377,7 @@ class RecentsViewModelTest {
 
     @Test fun the_list_is_null_until_the_call_log_has_loaded_then_holds_the_rows() {
         t.call("+44 20 7946 0001", today, Calls.INCOMING_TYPE, 5)
-        val vm = t.viewModel { RecentsViewModel(t.c) { now } }
+        val vm = t.viewModel { RecentsViewModel(t.c) { now }.also { it.start() } }
         assertNull(vm.list.value)
         t.keep(vm.list)
         assertNotNull(vm.groupsWhen())

@@ -35,6 +35,8 @@ class WhoTest {
         // Off hours and answering have no Everyone (off hours off; an unknown caller is never answered), the rest in order.
         assertEquals(listOf(WhoChoice.CONTACTS, WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL), WhoRules.choicesFor(WhoPlace.OFF_HOURS))
         assertEquals(WhoRules.choicesFor(WhoPlace.OFF_HOURS), WhoRules.choicesFor(WhoPlace.ANSWER))
+        // A call round calls a handful of people: never Everyone or the whole of Contacts.
+        assertEquals(listOf(WhoChoice.FAVOURITES, WhoChoice.CIRCLE, WhoChoice.LABEL), WhoRules.choicesFor(WhoPlace.ROUND))
     }
 
     @Test fun who_is_in() {

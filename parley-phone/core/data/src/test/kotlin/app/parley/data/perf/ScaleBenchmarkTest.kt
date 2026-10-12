@@ -51,7 +51,7 @@ class ScaleBenchmarkTest {
     private val day = 86_400_000L
     private val now = System.currentTimeMillis()
 
-    private fun container() = DataContainer(app).also { containers += it }
+    private fun container() = DataContainer(app).also { containers += it; it.start() }
 
     @After fun tearDown() {
         containers.forEach { c ->

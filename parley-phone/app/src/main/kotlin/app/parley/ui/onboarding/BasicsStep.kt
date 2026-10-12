@@ -56,7 +56,7 @@ import kotlinx.coroutines.launch
 internal fun ColumnScope.BasicsStep(vm: AppViewModel, done: (BasicsChoice) -> Unit) {
     val scope = rememberCoroutineScope()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
+    val situations by vm.situations.list.collectAsStateWithLifecycle()
     val start = Basics.current(settings, Situations.nightScheduled(situations))
     var preset by rememberSaveable { mutableStateOf(start.screening?.name) }
     var someoneElse by rememberSaveable { mutableStateOf(false) }

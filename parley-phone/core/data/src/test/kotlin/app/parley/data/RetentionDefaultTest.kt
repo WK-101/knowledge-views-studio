@@ -38,6 +38,7 @@ class RetentionDefaultTest {
     private fun repo(fresh: Boolean, storeScope: CoroutineScope = scope, on: String = file): SettingsRepository = runBlocking {
         val store = PreferenceFile(app, on)
         SettingsRepository(store, storeScope) { fresh }.also { s ->
+            s.start()
             withTimeout(5_000) { while ("call_log_retention_chosen" !in s.exportMap()) delay(10) }
         }
     }
@@ -77,7 +78,7 @@ class RetentionDefaultTest {
         val store = PreferenceFile(app, file)
         // As an earlier version stored it: the value only, with no mark.
         store.edit { it[intPreferencesKey("call_log_retention_days")] = 90 }
-        val s = SettingsRepository(store, scope) { false }
+        val s = SettingsRepository(store, scope) { false }.also { it.start() }
         assertEquals(90, s.current().callLogRetentionDays)
         assertTrue(s.current().callLogRetentionChosen)
         assertEquals(90, systemLogDays(s))

@@ -85,6 +85,8 @@ class ParleyApp : Application() {
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
         container = DataContainer(this)
+        // Built first, then started: its upkeep never runs inside a constructor.
+        container.start()
         // The privacy view knows when Parley's own lock is engaged (case files and the call path read it).
         container.privacy.bindAppLock(AppLock.locked)
         // Parley is English-only: a language picked in an older version is dropped once, off the main thread.

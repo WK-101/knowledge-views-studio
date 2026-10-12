@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 class SettingsRepository internal constructor(
     private val store: PreferenceFile,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     isFreshInstall: () -> Boolean,
 ) {
     constructor(context: Context, scope: CoroutineScope) : this(PreferenceFile(context, "settings"), scope, { neverUpdated(context) })
@@ -80,7 +80,8 @@ class SettingsRepository internal constructor(
         sessionOverlay.value = null
     }
 
-    init {
+    /** Pins what start-up pins (below), once, right after construction: nothing launches from the constructor. */
+    fun start() {
         // Pin the layout schema once, before any new default could apply: an existing user keeps
         // separate tabs exactly as they were (see SurfaceLayout.migrate).
         scope.launch {

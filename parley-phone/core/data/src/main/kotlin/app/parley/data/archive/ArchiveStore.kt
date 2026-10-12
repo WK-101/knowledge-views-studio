@@ -69,7 +69,8 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
 
     @Volatile private var index: Pair<List<ArchivedCard>, PhoneIdentity.LineMap<ArchivedCard>>? = null
 
-    init {
+    /** Reads the cards in the background, once, right after construction (its owner calls it); a use before then reads them itself. */
+    fun start() {
         c.scope.launch(Dispatchers.IO) { load() }
     }
 

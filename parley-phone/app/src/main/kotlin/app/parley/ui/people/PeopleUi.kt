@@ -73,12 +73,12 @@ class PeopleUi(
     private val c: DataContainer,
     private val scope: CoroutineScope,
     contacts: StateFlow<List<ContactSummary>?>,
-    query: StateFlow<String>,
+    private val query: StateFlow<String>,
     private val countryIso: String,
     /** The "Private" filter chip: only private contacts (negative ids) are listed. */
-    privateOnly: StateFlow<Boolean> = MutableStateFlow(false),
+    private val privateOnly: StateFlow<Boolean> = MutableStateFlow(false),
     /** Private contacts are in Parley's lists (false in discreet mode): their labels count then too. */
-    includePrivate: StateFlow<Boolean> = MutableStateFlow(true),
+    private val includePrivate: StateFlow<Boolean> = MutableStateFlow(true),
 ) {
 
     val settings: StateFlow<PeopleSettings> = c.people.prefs.settings
@@ -245,7 +245,13 @@ class PeopleUi(
     /** The favourites strip kept with [listHead], shown with it. */
     private val headFavourites = MutableStateFlow<List<ContactSummary>>(emptyList())
 
-    init {
+    /**
+     * Starts the list's upkeep (the kept head, its timeout and what follows a lock), once, right after construction (the
+     * app's view model calls it): nothing launches from the constructor.
+     */
+    fun start() {
+        privateSearch.start()
+        keepListHead()
         val started = SystemClock.uptimeMillis()
         scope.launch(Dispatchers.IO) {
             val snapshot = c.people.listHead.load() ?: return@launch
@@ -345,7 +351,7 @@ class PeopleUi(
         return { c.extras.dndRecord(contact.lookupKey, labels) }
     }
 
-    init {
+    private fun keepListHead() {
         // Kept a while after the list settles (as shown: unsearched, unfiltered), and only when its first screenful changed.
         scope.launch(Dispatchers.IO) {
             // Private rows only while they are listed and not locked with "Lock private contacts" (Concealment's hiding

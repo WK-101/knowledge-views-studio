@@ -29,7 +29,7 @@ object ParleyViewModels {
     val Factory: ViewModelProvider.Factory = viewModelFactory {
         initializer { EditorViewModel(data(), createSavedStateHandle()) }
         initializer { ContactDetailViewModel(data()) }
-        initializer { RecentsViewModel(data()) }
+        initializer { RecentsViewModel(data()).also { it.start() } }
         initializer { KeypadViewModel(data()) }
     }
 }

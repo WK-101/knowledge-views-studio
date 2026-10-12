@@ -32,7 +32,7 @@ enum class AppScreen {
     KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT, INTRODUCE,
     CALL_TIME, SIMS, SIMPLE_MODE, DRIVE_PROFILE, PHONE_MENUS, SPEED_DIAL, CALL_QUALITY,
     SHARED_LABELS, PRIVATE_NAMES, RESCUE_CALL,
-    CASE_FILES, ARCHIVED, HELP,
+    CASE_FILES, ARCHIVED, HELP, CALL_ROUND,
 
     /** Search everything (Recall) in the Recents search: a tab, opened with its search ready. */
     SEARCH_EVERYTHING,
@@ -171,6 +171,8 @@ object CapabilityCatalog {
         // Choices on a call (declined, missed, ended) and on Remind me to call: their pages say where, and open To call.
         help("promise_time", TOUCH, "Promise a time", "Text someone when you'll call back; Parley reminds you then", HelpTopic.PROMISE_TIME,
             "call you back", "promise", "later", "decline", "busy", since = "6.6"),
+        screen("call_round", TOUCH, "Call round", "Tell several people one thing, with who's next and who you've told", AppScreen.CALL_ROUND,
+            "call round", "tell everyone", "phone tree", "funeral", "news", "several people", since = "6.8"),
         help("callback_watch", TOUCH, "They'll call me back", "Let an expected callback ring through, and see if it never came", HelpTopic.CALLBACK_WATCH,
             "callback", "call back", "expecting", "hospital", "waiting", since = "6.6"),
         setting("remember", TOUCH, "Anything to remember?", "A note and a follow-up after calls with your contacts", "memory_prompt",

@@ -29,7 +29,7 @@ class NameOrderRestoreTest {
 
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
-        settings = SettingsRepository(app, scope)
+        settings = SettingsRepository(app, scope).also { it.start() }
     }
 
     @After fun tearDown() {
