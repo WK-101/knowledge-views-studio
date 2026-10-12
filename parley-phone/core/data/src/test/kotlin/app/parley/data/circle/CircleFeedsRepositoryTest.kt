@@ -117,4 +117,33 @@ class CircleFeedsRepositoryTest {
         assertEquals(1, members.length())
         assertEquals("bo", members.getJSONObject(0).getString("k"))
     }
+
+    @Test fun theyReFineOutsideTheCircleSurvivesABackup() = runBlocking {
+        val now = System.currentTimeMillis()
+        circle.markFine("marco", contactId = 9, now = now)
+        circle.setRhythm("bo", contactId = 2, everyDays = 30)
+        val exported = circle.backupExtras.export()
+        val fine = JSONArray(exported.getValue("${BackupExtras.PREFIX}circle.fine"))
+        // Only the mark outside the Circle: a member's rides with their rhythm.
+        assertEquals(1, fine.length())
+        assertEquals("marco", fine.getJSONObject(0).getString("k"))
+
+        val other = Room.inMemoryDatabaseBuilder(app, AppDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val marco = ContactSummary(9, "marco", "Marco", null, false, emptyList())
+            val restored = CircleRepository(
+                app, other.metaDao(), InteractionStore(other.interactionDao()),
+                index = { MutableStateFlow<CallLogIndex?>(null) }, contactsFlow = { MutableStateFlow<List<ContactSummary>?>(listOf(marco)) }, db = other,
+            )
+            restored.backupExtras.import(exported)
+            assertEquals(setOf("marco"), restored.notDrifting(now))
+            assertEquals(now + 365 * day, KeepRhythm.decode(other.metaDao().meta("marco")!!.rhythm).fineUntil)
+            assertFalse(restored.isMember("marco"))
+            // A backup from before this kept no such marks: restoring one changes nothing.
+            restored.backupExtras.import(exported - "${BackupExtras.PREFIX}circle.fine")
+            assertEquals(setOf("marco"), restored.notDrifting(now))
+        } finally {
+            other.close()
+        }
+    }
 }

@@ -12,8 +12,14 @@ enum class NextUpKind {
     /** Calls owed now and times you promised: the To call list's due items, as one line. */
     TO_CALL,
 
+    /** A call round under way with people still to tell: one line, "3 of 8 left · Next: Sam". */
+    CALL_ROUND,
+
     /** A birthday or anniversary today. */
     OCCASION,
+
+    /** A case file whose "Follow up by" day is today or has passed (and it isn't resolved). */
+    CASE_DUE,
 
     /** A Circle member who is due, at the hour they're usually free. */
     GOOD_TIME,
@@ -30,8 +36,8 @@ data class NextUpLine(val kind: NextUpKind, val id: String, val lineKeys: Set<St
 
 /**
  * Next up: the To call strip at the top of Recents, grown into at most [MAX_LINES] "now" lines, ranked by [NextUpKind]:
- * calls owed and promised, today's birthdays and anniversaries, a Circle member due in their good hours, a Chapter
- * ending this week, and last the To call items waiting for later. Nothing shows when nothing is due. Pure: the app
+ * calls owed and promised, a call round under way, today's birthdays and anniversaries, a case file to follow up, a
+ * Circle member due in their good hours, a Chapter ending this week, and last the To call items waiting for later. Nothing shows when nothing is due. Pure: the app
  * passes the To call count and the candidates it found, already filtered for what the privacy view may show.
  */
 object NextUp {
@@ -41,6 +47,7 @@ object NextUp {
     const val CHAPTER_DAYS = 7L
 
     const val TO_CALL_ID = "to-call"
+    const val CALL_ROUND_ID = "call-round"
     const val LATER_ID = "later"
 
     /**
