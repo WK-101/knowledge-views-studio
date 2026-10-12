@@ -183,4 +183,7 @@
     <string name="discover_next_up_summary">Calls you owe, today\'s birthdays and who\'s due now, at the top of Recents</string>
     <string name="discover_promise_time_summary">Text someone when you\'ll call back; Parley reminds you then</string>
     <string name="discover_callback_watch_summary">Let an expected callback ring through, and see if it never came</string>
+    <string name="discover_seasons_summary">A closer rhythm with an end, for a hard time; the usual one comes back by itself</string>
+    <string name="discover_quieter_summary">Someone you used to talk to much more often, once a week at most in the digest</string>
+    <string name="discover_label_circle_summary">A label can fill your Circle, or add everyone to Favourites</string>
 </resources>

@@ -31,7 +31,11 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.EventDate
 import app.parley.common.calls.CatchUp
+import app.parley.common.circle.CircleFeeds
+import app.parley.common.circle.CircleRhythm
 import app.parley.common.circle.CirclePlanner
+import app.parley.common.circle.LabelFeed
+import app.parley.common.circle.Seasons
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.KeepRhythm
 import app.parley.common.circle.RhythmMode
@@ -44,8 +48,23 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.extras.LabelRhythmSuggestion
 import app.parley.ui.history.RhythmSuggestion
 import app.parley.ui.people.eventLabel
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import app.parley.common.people.Chapters
+import app.parley.ui.Spacing
+import app.parley.ui.people.chapters.EndDialog
 import app.parley.ui.ParleyDialog
 
 private val rowColors @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -74,6 +93,8 @@ fun StayInTouchCard(
     keep: KeepInTouchLines? = null,
     /** Their next catch-up ([CatchUp.of]): the rhythm stays quiet about them until then. */
     catchUpAt: Long? = null,
+    /** The labels keeping them in the Circle ("In your Circle via Family"). */
+    feeds: List<LabelFeed> = emptyList(),
     onEdit: () -> Unit,
 ) {
     val res = LocalResources.current
@@ -85,8 +106,9 @@ fun StayInTouchCard(
     val next = d.events.mapNotNull { ev -> EventDate.parse(ev.date)?.let { ev to it.daysUntil(today) } }
         .filter { it.second <= 60 && !LifeEvents.isDeath(it.first.type, it.first.label) }
         .minByOrNull { it.second }
+    val effective = CircleFeeds.effective(every, rhythm, feeds, now)
     SegmentedGroup(title) {
-        if (every == null) {
+        if (effective == null) {
             if (invite) item("stay") {
                 ParleyListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
@@ -99,13 +121,16 @@ fun StayInTouchCard(
         } else {
             item("stay") {
                 val quiet = CatchUp.quietUntil(rhythm.snoozedUntil, catchUpAt)
-                val status = CirclePlanner.status(CirclePlanner.Member(d.lookupKey, rhythm.days(every), last?.time, quiet), now)
+                val status = CirclePlanner.status(CirclePlanner.Member(d.lookupKey, effective.days, last?.time, quiet), now)
                 ParleyListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
                     colors = rowColors,
                     leadingContent = { Icon(Icons.Rounded.Handshake, null, tint = MaterialTheme.colorScheme.primary) },
-                    headlineContent = { Text(CircleText.rhythm(res, every, rhythm)) },
-                    supportingContent = { Text(CircleText.last(res, last, now)) },
+                    headlineContent = {
+                        Text(every?.let { CircleText.rhythm(res, it, rhythm) } ?: pluralStringResource(R.plurals.circle_every_days, effective.days, effective.days))
+                    },
+                    // "Every 3 days · until 30 Nov" or "In your Circle via Family" under when you were last in touch.
+                    supportingContent = { Text(listOfNotNull(CircleText.last(res, last, now), CircleText.behind(res, effective)).joinToString("\n")) },
                     trailingContent = { StatusChip(status) },
                 )
             }
@@ -156,13 +181,22 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
     val res = LocalResources.current
     val current = meta?.reachOutDays
     val rhythm = KeepRhythm.decode(meta?.rhythm)
+    val circle = vm.c.circle
+    var season by rememberSaveable { mutableStateOf(false) }
+    if (season) {
+        SeasonDialog(rhythm, onDismiss = onDismiss) { days, until ->
+            onDismiss()
+            scope.launch { circle.setSeason(d.lookupKey, days, until) }
+        }
+        return
+    }
     fun set(days: Int?, natural: Boolean = false) {
         onDismiss()
         scope.launch {
-            vm.c.circle.setRhythm(d.lookupKey, contactId, days, natural)
+            circle.setRhythm(d.lookupKey, contactId, days, natural)
             if (days == null && current != null) {
                 val before = meta
-                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_removed, d.displayName)) { vm.c.circle.restoreMembership(before) })
+                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_removed, d.displayName)) { circle.restoreMembership(before) })
             }
         }
     }
@@ -195,6 +229,23 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
                         modifier = Modifier.clickable { set(days) },
                     )
                 }
+                // A season: a closer rhythm with an end, for members (the usual rhythm is what comes back).
+                if (current != null) ParleyListItem(
+                    modifier = Modifier.clickable { season = true },
+                    colors = rowColors,
+                    leadingContent = { Icon(Icons.Rounded.HourglassBottom, null, tint = if (rhythm.inSeason(System.currentTimeMillis())) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                    headlineContent = { Text(stringResource(R.string.circle_season_for_a_while)) },
+                    supportingContent = {
+                        val now = System.currentTimeMillis()
+                        Text(
+                            if (rhythm.inSeason(now)) {
+                                CircleText.behind(res, CircleRhythm(rhythm.seasonDays!!, until = rhythm.seasonUntil)).orEmpty()
+                            } else {
+                                stringResource(R.string.circle_season_for_a_while_body)
+                            },
+                        )
+                    },
+                )
                 if (current != null) ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.circle_remove)) },
                     colors = rowColors,
@@ -205,6 +256,34 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
         confirmButton = {},
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
+}
+
+/**
+ * "For a while": how often for now (every 3 days, every week, every 2 weeks) and until when (a date, or some weeks or
+ * months), the Chapter's own end question. A running season can be ended here.
+ */
+@Composable
+private fun SeasonDialog(rhythm: KeepRhythm, onDismiss: () -> Unit, onSet: (Int?, Long?) -> Unit) {
+    val now = remember { System.currentTimeMillis() }
+    val running = rhythm.inSeason(now)
+    var days by rememberSaveable { mutableIntStateOf(rhythm.seasonDays?.takeIf { running } ?: Seasons.CHOICES.first()) }
+    val zone = ZoneId.systemDefault()
+    EndDialog(
+        title = stringResource(R.string.circle_season_title),
+        confirm = stringResource(R.string.circle_season_set),
+        initial = rhythm.seasonUntil?.takeIf { running }?.let { Instant.ofEpochMilli(it - 1).atZone(zone).toLocalDate() },
+        onDismiss = onDismiss,
+        onRemove = if (running) ({ onSet(null, null) }) else null,
+        removeLabel = stringResource(R.string.circle_season_end_now),
+        header = {
+            Text(stringResource(R.string.circle_season_how_often), style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                Seasons.CHOICES.forEach { d ->
+                    FilterChip(days == d, { days = d }, label = { Text(pluralStringResource(R.plurals.circle_every_days, d, d)) })
+                }
+            }
+        },
+    ) { length -> onSet(days, Chapters.endsAt(length, System.currentTimeMillis(), zone)) }
 }
 
 private object CirclePlannerDefaults {

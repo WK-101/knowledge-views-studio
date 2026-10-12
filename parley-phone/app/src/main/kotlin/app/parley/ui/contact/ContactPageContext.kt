@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.circle.LabelFeed
 import app.parley.ui.circle.KeepInTouchLines
 import android.content.Context
 import androidx.activity.ComponentActivity
@@ -66,13 +67,16 @@ internal class ContactPageContext(
     val case: CaseShown = CaseShown(null, false),
     /** How you two keep in touch: the Stay in touch card and the pre-call peek's first line. */
     val keepInTouch: KeepInTouchLines? = null,
+    /** The labels keeping them in the Circle, when they are ("In your Circle via Family"). */
+    val circleFeeds: List<LabelFeed> = emptyList(),
 ) {
     /** Who a case file for them is about. */
     val caseOwner: CaseOwner get() = caseOwnerOf(d, ui.isPrivate)
 
     val isPrivate: Boolean get() = ui.isPrivate
     val prefs: MessengerPrefs get() = ui.prefs
-    val inCircle: Boolean get() = ui.meta?.reachOutDays != null
+    /** In the Circle with a rhythm of their own, or through a label. */
+    val inCircle: Boolean get() = ui.meta?.reachOutDays != null || circleFeeds.isNotEmpty()
     private val caps = ContactCapabilities.of(ui.storage)
 
     /** One page for every contact: a private one differs only by what only the address book can do. */

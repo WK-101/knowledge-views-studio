@@ -122,7 +122,9 @@ fun ChapterSection(vm: AppViewModel, title: String, members: List<ContactSummary
         )
     }
     if (setting) {
-        ChapterEndDialog(
+        EndDialog(
+            title = stringResource(R.string.chapter_set_title),
+            confirm = stringResource(R.string.chapter_set),
             initial = chapter?.let { Chapters.lastDay(it, zone) },
             onDismiss = { setting = false },
             onRemove = if (chapter == null) null else ({ setting = false; vm.c.extras.updateChapters { it - title } }),
@@ -144,7 +146,11 @@ private fun decide(
 ) {
     when (outcome) {
         Chapters.Outcome.KEEP -> {
-            vm.c.extras.updateChapters { it - title }
+            // A Chapter's rhythm was for while it ran: kept without an end, the label stops filling the Circle.
+            with(vm.c.extras) {
+                updatePolicies { m -> m[title]?.let { p -> m + (title to p.copy(circleFromLabel = false)) } ?: m }
+                updateChapters { it - title }
+            }
             ChapterNotices.cancel(vm.c.appContext)
             vm.toast(res.getString(R.string.chapter_kept, title))
         }
@@ -263,10 +269,23 @@ private fun AfterChoice(count: String, months: Boolean, onCount: (String) -> Uni
 /** The share of the row the count field takes. */
 private const val COUNT_WIDTH = 0.35f
 
-/** "When does this chapter end?": on a date, or after a number of weeks or months; "No end" for one that has an end. */
+/**
+ * "When does this end?": on a date, or after a number of weeks or months; [onRemove] ("No end", or ending a season now)
+ * for one that has an end. A Chapter asks it, and a Circle season with [header] (how often) above it.
+ */
+@Suppress("LongParameterList") // The question's own words and an optional part above it, shared by Chapters and seasons.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChapterEndDialog(initial: LocalDate?, onDismiss: () -> Unit, onRemove: (() -> Unit)?, onSet: (Chapters.Length) -> Unit) {
+internal fun EndDialog(
+    title: String,
+    confirm: String,
+    initial: LocalDate?,
+    onDismiss: () -> Unit,
+    onRemove: (() -> Unit)?,
+    removeLabel: String = stringResource(R.string.chapter_remove_end),
+    header: @Composable () -> Unit = {},
+    onSet: (Chapters.Length) -> Unit,
+) {
     val today = LocalDate.now()
     var onDate by rememberSaveable { mutableStateOf(initial != null) }
     var day by rememberSaveable { mutableStateOf(initial?.toEpochDay()) }
@@ -277,14 +296,15 @@ private fun ChapterEndDialog(initial: LocalDate?, onDismiss: () -> Unit, onRemov
     val max = if (months) Chapters.MAX_MONTHS else Chapters.MAX_WEEKS
     val valid = if (onDate) day?.let { !LocalDate.ofEpochDay(it).isBefore(today) } == true else n != null && n in 1..max
     ConfirmDialog(
-        title = stringResource(R.string.chapter_set_title),
+        title = title,
         text = null,
-        confirmLabel = stringResource(R.string.chapter_set),
+        confirmLabel = confirm,
         confirmEnabled = valid,
         onConfirm = { onSet(lengthOf(onDate, day ?: today.toEpochDay(), n ?: 1, months)) },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
         content = {
+            header()
             ParleyListItem(
                 modifier = Modifier.clickable { onDate = true },
                 leadingContent = { RadioButton(onDate, { onDate = true }) },
@@ -300,7 +320,7 @@ private fun ChapterEndDialog(initial: LocalDate?, onDismiss: () -> Unit, onRemov
             )
             if (!onDate) AfterChoice(count, months, { count = it }, { months = it })
             if (onRemove != null) {
-                TextButton(onRemove, Modifier.padding(top = Spacing.s)) { Text(stringResource(R.string.chapter_remove_end)) }
+                TextButton(onRemove, Modifier.padding(top = Spacing.s)) { Text(removeLabel) }
             }
         },
     )

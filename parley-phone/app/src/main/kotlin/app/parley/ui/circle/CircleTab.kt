@@ -243,7 +243,11 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
                 StatusChip(r.status)
             }
         },
-        supportingContent = { Text(CircleText.last(res, r.last), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
+            // A season or a label behind the rhythm: "Every 3 days · until 30 Nov", "In your Circle via Family".
+            val behind = CircleText.behind(res, r.now)
+            Text(listOfNotNull(CircleText.last(res, r.last), behind).joinToString("\n"), maxLines = if (behind == null) 1 else 2, overflow = TextOverflow.Ellipsis)
+        },
         trailingContent = {
             if (phone != null) Row {
                 IconButton({ vm.requestCall(phone.number, r.contact.displayName, source = CallSource.CONTACT) }) {

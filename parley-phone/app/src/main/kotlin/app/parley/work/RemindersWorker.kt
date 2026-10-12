@@ -27,6 +27,7 @@ import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.DateReminders
+import app.parley.common.circle.Drift
 import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.ReminderDelivery
@@ -48,6 +49,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 /**
@@ -159,13 +161,21 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     if (YearlyEvents.key(e.type, e.label, d) !in flags[e.lookupKey].orEmpty()) return@mapNotNull null
                     YearlyEvents.upcoming(e.lookupKey, e.label?.takeIf { it.isNotBlank() } ?: applicationContext.getString(R.string.work_special_date), d, today, CircleDigest.DATE_WINDOW_DAYS)
                 }
-                val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET), quiet, yearly)
+                val lastDrift = c.circle.stateString(S_LAST_DRIFT)
+                val drift = drifting(c, idx, now, contacts.keys, lastDrift)
+                val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET), quiet, yearly, drift = drift)
                 c.circle.setStateString(S_LAST_DIGEST, today.toString())
                 c.circle.setStateString(S_LAST_QUIET, picks.firstOrNull { it.reason == CircleDigest.Reason.QUIET }?.lookupKey)
-                if (picks.isNotEmpty()) {
+                c.circle.setStateString(S_LAST_DRIFT, picks.firstOrNull { it.reason == CircleDigest.Reason.DRIFT }?.lookupKey)
+                // Seasons that ended since the last digest: one line each, then they're cleared (the usual rhythm
+                // already counted from their end). Private contacts are never named here; theirs are cleared quietly.
+                val ended = catching { c.circle.endedSeasons(now) }.getOrDefault(emptyList())
+                val seasonLines = ended.mapNotNull { m -> contacts[m.lookupKey]?.let { it to CircleText.rhythm(applicationContext.resources, m.everyDays, m.rhythm) } }
+                if (picks.isNotEmpty() || seasonLines.isNotEmpty()) {
                     val turns = yourTurns(c, cfg, picks, idx, now)
-                    notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }, turns)
+                    notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }, turns, seasonLines, byKey.keys)
                 }
+                catching { c.circle.clearEndedSeasons(ended.map { it.lookupKey }, now) }
             }
             ReminderDelivery.AS_DUE -> {
                 val week = CircleDigest.weekOf(today).toString()
@@ -176,8 +186,11 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     val k = byKey[key] ?: continue
                     notifyNudge(k.contact, k.last, now)
                     // Only this column: the row may have changed since it was read (a pinned-note edit, a re-key).
-                    c.meta.setLastNudgedAt(key, now)
+                    // Someone in the Circle through a label may have no row yet: it is made for the date.
+                    if (k.m.own) c.meta.setLastNudgedAt(key, now) else c.circle.nudged(key, now)
                 }
+                // No digest to say it: ended seasons are simply cleared (the usual rhythm counts from their end).
+                catching { c.circle.clearEndedSeasons(c.circle.endedSeasons(now).map { it.lookupKey }, now) }
                 c.circle.setStateString(S_WEEK, week)
                 c.circle.setStateString(S_SENT, (sent + due.size).toString())
             }
@@ -235,11 +248,33 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         return due.mapNotNull { k -> KeepInTouch.yourTurn(touches[k].orEmpty(), due = true, firstMoverShown = true)?.let { k to it } }.toMap()
     }
 
-    private fun notifyDigest(people: List<Pair<ContactSummary, CircleDigest.Pick>>, turns: Map<String, Int>) {
+    /**
+     * This week's "quieter than usual" pick: a contact ([contacts]) you used to talk to much more often, not in a
+     * season, not marked "They're fine" and not last week's. None while a duress unlock hides relationship insights.
+     */
+    private suspend fun drifting(c: DataContainer, idx: CallLogIndex?, now: Long, contacts: Set<String>, lastDrift: String?): Drift.Candidate? {
+        if (!c.privacy.now().insightsShown) return null
+        val since = now - (Drift.RECENT_DAYS + Drift.BEFORE_DAYS) * CallLogIndex.DAY
+        val touches = catching { c.circle.touches(since, idx) }.getOrDefault(emptyList()).filter { it.kind.inTouch && it.key in contacts }
+        if (touches.isEmpty()) return null
+        val zone = ZoneId.systemDefault()
+        val candidates = touches.groupBy { it.key }.mapNotNull { (k, t) -> Drift.of(k, t.map { it.time }, now, zone) }
+        if (candidates.isEmpty()) return null
+        val quietOnes = catching { c.circle.notDrifting(now) }.getOrDefault(emptySet())
+        return Drift.pick(candidates, quietOnes, lastDrift)
+    }
+
+    private fun notifyDigest(
+        people: List<Pair<ContactSummary, CircleDigest.Pick>>,
+        turns: Map<String, Int>,
+        seasons: List<Pair<ContactSummary, String>>,
+        circle: Set<String>,
+    ) {
         val ctx = applicationContext
-        // Read again as the lines are written, so a duress unlock in between still hides "your turn".
+        // Read again as the lines are written, so a duress unlock in between still hides "your turn" and "quieter".
         val privacy = Privacy.duressOnly()
-        val lines = people.map { (ct, pick) ->
+        val shown = people.filter { (_, pick) -> pick.reason != CircleDigest.Reason.DRIFT || privacy.insightsShown }
+        val lines = shown.map { (ct, pick) ->
             when (pick.reason) {
                 // "Ana has called you the last 3 times. Your turn to call?"
                 CircleDigest.Reason.DUE -> CircleText.yourTurn(ctx.resources, ct.displayName, turns[ct.lookupKey], privacy)
@@ -250,8 +285,11 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 // "1 year since Ana's new job".
                 CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.circle_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
                     ?: ctx.getString(R.string.circle_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
+                // "You and Marco used to talk about every week; since April it's been about every month."
+                CircleDigest.Reason.DRIFT -> pick.drift?.let { CircleText.drift(ctx.resources, ct.displayName, it, privacy) }.orEmpty()
             }
-        }
+        } + seasons.map { (ct, usual) -> ctx.getString(R.string.circle_digest_season_ended, ct.displayName, usual) }
+        if (lines.isEmpty()) return
         val style = NotificationCompat.InboxStyle()
         lines.forEach { style.addLine(it) }
         val open = PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode(), IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE), update = true)
@@ -259,6 +297,21 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .setContentText(lines.joinToString(ctx.getString(R.string.main_separator)))
             .setStyle(style)
             .setContentIntent(open)
+        // Quieter than usual: Call, Add to your Circle (for someone outside it) and They're fine, for that one person.
+        shown.firstOrNull { it.second.reason == CircleDigest.Reason.DRIFT }?.let { (ct, pick) ->
+            val code = DateReminders.DIGEST_TAG.hashCode()
+            ct.primaryNumber?.let { phone ->
+                b.addAction(0, ctx.getString(R.string.action_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, ct.id), PendingIntent.FLAG_IMMUTABLE))
+            }
+            val drift = pick.drift
+            if (drift != null && ct.lookupKey !in circle) {
+                b.addAction(
+                    0, ctx.getString(R.string.circle_add_to_circle),
+                    CircleActionReceiver.addToCircle(ctx, code + 2, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id, Drift.suggestedDays(drift)),
+                )
+            }
+            b.addAction(0, ctx.getString(R.string.circle_drift_fine), CircleActionReceiver.fine(ctx, code + 3, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id))
+        }
         post(DateReminders.DIGEST_TAG, b)
     }
 
@@ -268,6 +321,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         private const val S_FIRED = "fired"
         private const val S_LAST_DIGEST = "lastDigest"
         private const val S_LAST_QUIET = "lastQuiet"
+        private const val S_LAST_DRIFT = "lastDrift"
         private const val S_WEEK = "week"
         private const val S_SENT = "sentThisWeek"
 

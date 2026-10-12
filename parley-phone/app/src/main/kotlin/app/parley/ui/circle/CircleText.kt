@@ -12,7 +12,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.R
 import app.parley.common.Messenger
 import app.parley.ui.common.Format
+import app.parley.common.circle.CircleRhythm
 import app.parley.common.circle.CircleStatus
+import app.parley.common.circle.Drift
 import app.parley.common.circle.ContactKind
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
@@ -22,6 +24,12 @@ import app.parley.common.circle.PeopleInsights
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.RhythmMode
+
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 /** Texts of the Circle, in the app language. Warm and blame-free: no counters, no "overdue". */
 object CircleText {
@@ -97,6 +105,42 @@ object CircleText {
     }
 
     /**
+     * What is behind a rhythm, when something is: "Every 3 days · until 30 Nov" (a season, or a Chapter's rhythm
+     * "through Hospital stay"), or "In your Circle via Family". Null for someone's own usual rhythm.
+     */
+    fun behind(res: Resources, r: CircleRhythm): String? {
+        val every = res.getQuantityString(R.plurals.circle_every_days, r.days, r.days)
+        val until = r.until?.let { lastDay(it) }
+        return when {
+            until != null && r.via != null -> res.getString(R.string.circle_season_via, every, until, r.via)
+            until != null -> res.getString(R.string.circle_season_until, every, until)
+            r.via != null -> res.getString(R.string.circle_via_label, r.via)
+            else -> null
+        }
+    }
+
+    /** The last day of a season ending at [until] (the start of the day after it), as "30 Nov". */
+    fun lastDay(until: Long): String =
+        DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()).format(Instant.ofEpochMilli(until - 1).atZone(ZoneId.systemDefault()))
+
+    /** "about every week", "about every 2 months": a gap said roughly. */
+    fun roughly(res: Resources, days: Int): String = when {
+        days < WEEKS_FROM_DAYS -> res.getQuantityString(R.plurals.circle_keep_every_days, days, days)
+        days < MONTHS_FROM_DAYS -> Math.round(days / 7.0).toInt().let { res.getQuantityString(R.plurals.circle_keep_every_weeks, it, it) }
+        else -> Math.round(days / DAYS_A_MONTH).toInt().let { res.getQuantityString(R.plurals.circle_keep_every_months, it, it) }
+    }
+
+    /**
+     * "You and Marco used to talk about every week; since April it's been about every month." Null while a duress
+     * unlock hides relationship insights.
+     */
+    fun drift(res: Resources, name: String, d: Drift.Candidate, privacy: PrivacyView = Privacy.duressOnly()): String? {
+        if (!privacy.insightsShown) return null
+        val month = Instant.ofEpochMilli(d.since).atZone(ZoneId.systemDefault()).month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        return res.getString(R.string.circle_digest_drift, name, roughly(res, d.usualBefore), month, roughly(res, d.usualNow))
+    }
+
+    /**
      * How you two keep in touch, as one short paragraph of [facts] about [name] (their short name); [date] says when a
      * call was ("Tue", "yesterday"). Null with no facts, and while a duress unlock hides relationship insights.
      */
@@ -139,6 +183,8 @@ object CircleText {
     }
 
     private const val WEEKS_FROM_DAYS = 14
+    private const val MONTHS_FROM_DAYS = 60
+    private const val DAYS_A_MONTH = 30.4
 
     /**
      * "Ana has called you the last 3 times. Your turn to call?" (the digest's line for a due member, and the start of

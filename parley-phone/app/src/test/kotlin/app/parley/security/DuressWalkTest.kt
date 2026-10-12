@@ -28,6 +28,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CircleStatus
+import app.parley.common.circle.Drift
 import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.KeepRhythm
 import app.parley.common.circle.PeopleInsights
@@ -188,6 +189,8 @@ class DuressWalkTest {
         assertTrue(CircleText.keepSummary(res, summary, c.privacy.now()) != null)
         assertEquals(reach, glance().reach)
         assertEquals(38, glance().talkShare)
+        val drift = Drift.Candidate("marco", 7, 30, System.currentTimeMillis())
+        assertTrue(CircleText.drift(res, "Marco", drift, c.privacy.now())!!.contains("Marco"))
 
         duress()
         // The one privacy view says so, with or without the settings at hand, and every insight reads it.
@@ -199,6 +202,8 @@ class DuressWalkTest {
             assertEquals(null, CircleText.keepInTouch(res, "Ana", facts, { "Tue" }, privacy))
             assertEquals(null, CircleText.yourTurn(res, "Ana", 3, privacy))
             assertEquals(null, CircleText.keepSummary(res, summary, privacy))
+            // Quieter than usual: no line (and the digest makes no pick).
+            assertEquals(null, CircleText.drift(res, "Marco", drift, privacy))
         }
         // The Circle's header keeps only the status counts, which every row's chip shows anyway.
         assertEquals(CircleGlance.Glance(1, 1, 2, null, null), glance())

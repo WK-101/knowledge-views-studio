@@ -173,6 +173,13 @@ object CapabilityCatalog {
             "call you back", "promise", "later", "decline", "busy", since = "6.6"),
         help("callback_watch", TOUCH, "They'll call me back", "Let an expected callback ring through, and see if it never came", HelpTopic.CALLBACK_WATCH,
             "callback", "call back", "expecting", "hospital", "waiting", since = "6.6"),
+        // Seasons, quieter than usual and a label's Circle live on the rhythm, in the digest and on label pages.
+        help("seasons", TOUCH, "For a while", "A closer rhythm with an end, for a hard time; the usual one comes back by itself", HelpTopic.SEASONS,
+            "season", "for a while", "temporary", "hospital", "new baby", "rhythm", since = "6.8"),
+        help("quieter", TOUCH, "Quieter than usual", "Someone you used to talk to much more often, once a week at most in the digest", HelpTopic.QUIETER,
+            "quieter", "drifting", "lost touch", "used to talk", since = "6.8"),
+        help("label_circle", TOUCH, "Keep in touch with everyone in a label", "A label can fill your Circle, or add everyone to Favourites", HelpTopic.LABEL_CIRCLE,
+            "label", "family", "circle", "favourites", "everyone", "bulk", since = "6.8"),
         setting("remember", TOUCH, "Anything to remember?", "A note and a follow-up after calls with your contacts", "memory_prompt",
             "note", "promise", "follow up"),
         // Also a chip on Contacts; this row keeps it reachable when the Contacts tab is hidden.

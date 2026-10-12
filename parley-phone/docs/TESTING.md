@@ -3570,3 +3570,46 @@ No new behaviour: the keypad and Backup & restore are split into parts. Check th
 Automated: `CatchUpQuietTest` (app).
 1. **A catch-up keeps the Circle quiet everywhere.** A next catch-up set after a call (51.9) already kept the reminders and Next up quiet, but the Circle list, its glance counts and the favourites' Due dot, the contact page's Stay in touch chip and "your turn" line, and the Circle widget still showed them as due. Now each place reads the catch-up date (`CatchUp.quietUntil`). Check: someone in your Circle who is due, set **On a date** next week after a call with them: the Circle shows them as Fine (not Due), the glance counts one fewer due, their favourite tile loses its Due dot, their page's Stay in touch chip says Fine and the "Ana has called you the last 3 times" line doesn't show, and the widget no longer lists them. Call them, or let the day come: Due again where the rhythm says so.
 2. **Same for a private contact in the Circle** (private contacts shown): set a catch-up after a call with them: their row in the Circle and their page follow the date as above. (The widget and reminders never name private contacts.)
+
+## 52. Occasional and safety (6.8)
+
+### 52.11 Seasons: a rhythm with an end
+Automated: `SeasonsTest` (a season counts while it runs and the usual rhythm comes back by itself, a Chapter's closer rhythm while it runs, an own season wins, an older Parley reading a newer `KeepRhythm` or `LabelPolicy` keeps the usual rhythm and the suggestion) (core:common); `CircleFeedsRepositoryTest` (set, end, clear once; changing the usual rhythm keeps the season; none for someone outside the Circle) (core:data).
+1. **For a while.** Grandma is in your Circle every 2 weeks. Her page › Stay in touch › tap the rhythm: the dialog has **For a while…**. Choose Every 3 days, After 4 weeks, Set. The Circle row says "Every 3 days · until 9 Nov" under when you were last in touch; her page says the same; her chip follows the 3-day gap.
+2. **On a date.** Open For a while… again: it shows the running season. Pick On a date, a date next month: the row's date changes. **End this season now**: the row loses the line at once.
+3. **It ends by itself.** Set a season ending today (On a date, today) and set the phone's date to tomorrow: the row shows her usual rhythm with no season line. With the weekly digest on, Sunday's digest has "Grandma's season has ended; back to the usual rhythm (Every 14 days)", once; the next Sunday it doesn't. With reminders "as they come due", nothing is said and the season is simply gone.
+4. **A Chapter carries a rhythm.** Make a label "Hospital stay" with Grandma and Sam (not in your Circle), give it an end (Chapter) in 3 weeks, set Keep in touch with everyone here to Every 3 days and switch it on: both show in the Circle "Every 3 days · until …, through Hospital stay". When the Chapter ends: Sam leaves the Circle, Grandma is back to every 2 weeks; Keep the label as it is switches the label's Circle switch off.
+5. **Older version.** Back up with a season running, restore on a 6.7 phone: Grandma is in the Circle every 2 weeks, nothing else changes.
+6. **Private contact** (shown): a private contact in the Circle gets a season the same way, and its row says so. With private contacts hidden, or after a duress unlock, they aren't in the Circle and the digest never names them (their ended season is cleared quietly).
+7. **Looks.** TalkBack reads the season line; large fonts wrap the row to two lines; dark theme; right to left.
+
+### 52.12 Quieter than usual
+Automated: `DriftTest` (two windows of your own history, at least 6 days in touch before, the gap at least doubled and two weeks or more, not when in touch within the old gap, one a week, skipping a season, "They're fine" and last week's, the digest's serendipity place) (core:common); `CircleFeedsRepositoryTest` ("They're fine" lasts a year and keeps someone out) (core:data); `DuressWalkTest` (no line after a duress unlock) (app).
+1. **The line.** With the weekly digest on and someone you called about weekly last year and about monthly in the last six months (not in a season): Sunday's digest has "You and Marco used to talk about every week; since April it's been about every month." in place of the "over a year" line, with **Call**, **Add to your Circle** (only when they aren't in it) and **They're fine**.
+2. **Call** dials them. **Add to your Circle** adds them with Natural rhythm (the digest goes); their page shows them in your Circle. **They're fine**: the digest goes, and Marco isn't suggested again for a year (set the date forward a week: someone else, or the usual serendipity line).
+3. **Strict.** Someone you talked to five times last year, someone you called yesterday, someone in a season or a running Chapter's rhythm: never in this line. Never two weeks running for the same person.
+4. **Duress.** After a duress unlock the digest has no such line and no actions for it. Private contacts are never named in the digest.
+5. **Lock screen.** The digest says only "Reminder" until unlocked.
+
+### 52.13 A label feeds the Circle
+Automated: `SeasonsTest` (only switched-on labels with a rhythm feed the Circle; own rhythm wins; each person once with the shortest; switching off takes out only label-fed members) (core:common); `CircleFeedsRepositoryTest` (members are own ∪ label-fed; a label-fed member can be snoozed and reminded; the backup holds only own rhythms) (core:data).
+1. **Nothing turns on by itself.** A label that had a rhythm before updating shows Keep in touch with everyone here · Every 14 days · suggested when you add someone from here, with the switch off. The Circle is unchanged.
+2. **Switch on.** Family (Ana, Bo, a private contact) at Every 14 days: switch on. All three are in the Circle; their rows say "In your Circle via Family"; Ana's page shows it in Stay in touch. Bo already has Every 30 days of his own: he keeps it and his row has no "via".
+3. **Shortest, once.** Put Ana in Friends too, at Every 7 days and switched on: she appears once, every 7 days, via Friends.
+4. **No rhythm yet.** On a label without a rhythm, the switch opens the rhythm choice first; picking one turns it on, Cancel leaves it off.
+5. **Switch off.** Turn Family's switch off: Ana (only in through it) and the private contact leave the Circle; Bo stays; their calls and logged moments are all still there.
+6. **Reminders.** With reminders as they come due, a label-fed member who is due gets a reminder once, and Not now works for them.
+7. **Hidden.** Hide private contacts: the private member leaves the Circle list and the label page; nothing names them. Duress unlock: the same.
+
+### 52.14 Add everyone to Favourites
+Automated: `SeasonsTest`, `CircleFeedsRepositoryTest` cover the Circle side; this one is device-only (it writes Android's star).
+1. **Asks with who.** On Family's page (settings fold), **Add everyone to Favourites**: "Add everyone in “Family” to Favourites?" lists exactly who will be starred (only those not already favourites), with a note about Do Not Disturb. Cancel changes nothing.
+2. **Starred as chosen.** Confirm: "3 people added to Favourites", Undo. They are favourites you chose (not under "Also starred for Do Not Disturb"). Someone who was starred only for a label's Do Not Disturb is listed and becomes a chosen favourite.
+3. **Undo** unstars exactly the people it starred (a favourite you had before stays) and puts the Do Not Disturb record back.
+4. **Private contact** (shown): starred with Parley's own star, in Favourites. Hidden: not listed, not starred.
+5. **The row hides** when everyone in the label is already a chosen favourite.
+
+### 52.15 Tools rows and help pages
+Automated: `HelpTopicTest`, `CapabilityRoutesTest` (core:common, app).
+1. Tools › Stay in touch has **For a while**, **Quieter than usual** and **Keep in touch with everyone in a label**, tagged as new in 6.8. Each opens its help page; the label one's button opens Labels.
+2. Searching Tools for "season", "drifting" or "bulk" finds them.

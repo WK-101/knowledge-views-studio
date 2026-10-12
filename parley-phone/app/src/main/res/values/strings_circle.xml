@@ -299,4 +299,24 @@
         <item quantity="one">%1$d chat started from Parley</item>
         <item quantity="other">%1$d chats started from Parley</item>
     </plurals>
+    <plurals name="circle_keep_every_months">
+        <item quantity="one">about every month</item>
+        <item quantity="other">about every %1$d months</item>
+    </plurals>
+    <!-- Seasons: a rhythm with an end. %1$s: the rhythm ("Every 3 days"), %2$s: the last day ("30 Nov"). -->
+    <string name="circle_season_until">%1$s · until %2$s</string>
+    <!-- A Chapter's rhythm: %3$s is the label ("Hospital stay"). -->
+    <string name="circle_season_via">%1$s · until %2$s, through %3$s</string>
+    <string name="circle_via_label">In your Circle via %1$s</string>
+    <string name="circle_season_for_a_while">For a while…</string>
+    <string name="circle_season_for_a_while_body">A closer rhythm for a hard time or a new baby; your usual one comes back by itself</string>
+    <string name="circle_season_title">For a while</string>
+    <string name="circle_season_how_often">How often for now</string>
+    <string name="circle_season_set">Set</string>
+    <string name="circle_season_end_now">End this season now</string>
+    <!-- %2$s: the usual rhythm ("Every 2 weeks"). -->
+    <string name="circle_digest_season_ended">%1$s\'s season has ended; back to the usual rhythm (%2$s)</string>
+    <!-- Quieter than usual. "You and Marco used to talk about every week; since April it's been about every month." -->
+    <string name="circle_digest_drift">You and %1$s used to talk %2$s; since %3$s it\'s been %4$s.</string>
+    <string name="circle_drift_fine">They\'re fine</string>
 </resources>

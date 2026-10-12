@@ -30,9 +30,27 @@ data class KeepRhythm(
     val learnedAt: Long? = null,
     /** "Not now": no reminder about this person before this time (epoch ms). */
     val snoozedUntil: Long? = null,
+    /** A season ("For a while…"): this gap in days counts instead of the usual one until [seasonUntil]. */
+    val seasonDays: Int? = null,
+    /** When the season ends (epoch ms); the usual rhythm comes back by itself then. */
+    val seasonUntil: Long? = null,
+    /** "They're fine": no "quieter than usual" about this person before this time (epoch ms). */
+    val fineUntil: Long? = null,
 ) {
-    /** The gap in days that counts now, given the stored "every N days" [everyDays]. */
+    /** The usual gap in days, given the stored "every N days" [everyDays] (a season aside). */
     fun days(everyDays: Int): Int = if (mode == RhythmMode.NATURAL) learnedDays ?: everyDays else everyDays
+
+    /** The gap that counts at [now]: the season's while it runs, else the usual one. */
+    fun days(everyDays: Int, now: Long): Int = if (inSeason(now)) seasonDays!! else days(everyDays)
+
+    fun inSeason(now: Long): Boolean = seasonDays != null && seasonUntil != null && now < seasonUntil
+
+    /** A season was set and is over: the digest says so once, then it is cleared ([endSeason]). */
+    fun seasonEnded(now: Long): Boolean = seasonUntil != null && now >= seasonUntil
+
+    fun endSeason(): KeepRhythm = copy(seasonDays = null, seasonUntil = null)
+
+    fun isFine(now: Long): Boolean = fineUntil != null && now < fineUntil
 
     /** NATURAL rhythms are re-learned once a month. */
     fun needsRelearn(now: Long): Boolean = mode == RhythmMode.NATURAL && (learnedAt == null || now - learnedAt >= NaturalRhythm.RELEARN_MS)
@@ -48,8 +66,8 @@ data class KeepRhythm(
         fun decode(text: String?): KeepRhythm = if (text.isNullOrBlank()) KeepRhythm() else runCatching { json.decodeFromString(serializer(), text) }.getOrDefault(KeepRhythm())
 
         /**
-         * Two rows now belong to one contact (MetaRekey): the row already at the new key wins, but a snooze is only
-         * kept if both were snoozed (the earlier end), so nobody is silenced by a merge.
+         * Two rows now belong to one contact (MetaRekey): the row already at the new key wins (its season too), but a
+         * snooze or a "They're fine" is only kept if both had one (the earlier end), so nobody is silenced by a merge.
          */
         fun merge(into: String?, from: String?): String? {
             if (into.isNullOrBlank()) return from
@@ -57,7 +75,8 @@ data class KeepRhythm(
             val a = decode(into)
             val b = decode(from)
             val snooze = if (a.snoozedUntil != null && b.snoozedUntil != null) minOf(a.snoozedUntil, b.snoozedUntil) else null
-            return a.copy(snoozedUntil = snooze).encode()
+            val fine = if (a.fineUntil != null && b.fineUntil != null) minOf(a.fineUntil, b.fineUntil) else null
+            return a.copy(snoozedUntil = snooze, fineUntil = fine).encode()
         }
     }
 }

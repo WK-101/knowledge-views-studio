@@ -238,6 +238,7 @@ private fun pageContext(
     val case = rememberCaseShown(vm, caseOwner)
     val catchUpAt by page.catchUpAt.collectAsStateWithLifecycle()
     val keepInTouch = keepInTouchOf(vm, ui, circleCfg, catchUpAt)
+    val circleFeeds by page.circleFeeds.collectAsStateWithLifecycle()
     if (d == null) return null
     return ContactPageContext(
         vm, page, ui, d, contactId, context, scope, resources, goodTime, lastTalked, today, dated, parleyRelations, relationsFromOthers,
@@ -258,6 +259,7 @@ private fun pageContext(
         pickRingtone = { ringtonePicker.launch(it) },
         case = case,
         keepInTouch = keepInTouch,
+        circleFeeds = circleFeeds,
     )
 }
 

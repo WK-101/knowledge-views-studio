@@ -81,7 +81,7 @@ internal fun StayInTouchSection(sections: PageSections, ctx: ContactPageContext)
             if (ctx.inCircle || ctx.goodTime != null) {
                 StayInTouchCard(
                     ctx.ui.meta, d, ctx.ui.history, ctx.ui.interactions, goodTime = ctx.goodTime, title = null, showNext = false, invite = false,
-                    keep = ctx.keepInTouch, catchUpAt = catchUpAt,
+                    keep = ctx.keepInTouch, catchUpAt = catchUpAt, feeds = ctx.circleFeeds,
                 ) {
                     ctx.show(ContactDialog.Rhythm)
                 }

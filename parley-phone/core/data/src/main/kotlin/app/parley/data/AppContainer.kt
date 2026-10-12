@@ -423,7 +423,7 @@ class DataContainer(context: Context) {
         CircleRepository(
             appContext, meta, InteractionStore(db.interactionDao()),
             index = { history.index }, contactsFlow = { contacts.contacts }, freshContacts = { contacts.loadNow() }, db = db,
-            archivedKeys = { archive.restoredKeys(it) },
+            archivedKeys = { archive.restoredKeys(it) }, labelFeeds = { extras.circleFeeds() },
         )
     }
 

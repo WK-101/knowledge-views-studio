@@ -8,6 +8,8 @@ import app.parley.common.ContactSummary
 import app.parley.common.backup.CallerChoiceRestore
 import app.parley.common.backup.PersonRef
 import app.parley.common.backup.PersonRefs
+import app.parley.common.circle.CircleFeeds
+import app.parley.common.circle.LabelFeed
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
 import app.parley.common.extras.DndStars
@@ -311,6 +313,65 @@ class ExtrasStore(private val c: DataContainer) {
             val titles = if (contactId < 0) c.privateLabels.titlesOf(-contactId) else c.contacts.labelTitlesOf(contactId)
             LabelPolicies.rhythmFor(titles, p)
         }
+    }
+
+    // --- Labels that feed the Circle ---
+
+    /**
+     * Lookup key → the labels keeping them in the Circle now ("Keep in touch with everyone here"; a Chapter only while
+     * it runs). Members are read from the address book and Parley's own memberships (a private contact under its
+     * private key, as its Circle row is). Empty when no label feeds the Circle, without reading anything.
+     */
+    suspend fun circleFeeds(now: Long = System.currentTimeMillis()): Map<String, List<LabelFeed>> {
+        val feeds = CircleFeeds.of(_policies.value, _chapters.value, now)
+        if (feeds.isEmpty()) return emptyMap()
+        return withContext(Dispatchers.IO) {
+            val keyOf = (c.contacts.contacts.value ?: runCatching { c.contacts.loadNow() }.getOrDefault(emptyList())).associate { it.id to it.lookupKey }
+            val members = feeds.associate { f ->
+                f.label to runCatching { c.people.labels.members(f.label) }.getOrDefault(emptySet()).mapNotNull { id ->
+                    when (val r = ContactRef.ofNavId(id)) {
+                        is ContactRef.Private -> ContactRef.privateKey(r.vaultId)
+                        else -> keyOf[id]
+                    }
+                }
+            }
+            CircleFeeds.byPerson(feeds) { members[it].orEmpty() }
+        }
+    }
+
+    /**
+     * "Add everyone to Favourites" on a label: stars [people] (list ids; the address book's star, or Parley's own for
+     * a private contact). Those Parley had starred only for a label's Do Not Disturb become favourites you chose: their
+     * record goes ([makeFavourite]). Returns what Undo needs.
+     */
+    suspend fun addToFavourites(people: List<ContactSummary>): FavouritesAdded = withContext(Dispatchers.IO) {
+        val starred = ArrayList<Long>()
+        val claimed = LinkedHashMap<String, Set<String>>()
+        for (p in people) {
+            when {
+                !p.starred -> if (catching { star(p.id, true) }.isSuccess) starred += p.id
+                p.id > 0 && p.lookupKey in _dndStars.value -> claimed[p.lookupKey] = makeFavourite(p.lookupKey)
+            }
+        }
+        c.contacts.refresh()
+        FavouritesAdded(starred, claimed)
+    }
+
+    /** Undo of [addToFavourites]: unstars exactly those it starred, and puts back the Do Not Disturb records it took. */
+    suspend fun undoFavourites(done: FavouritesAdded) = withContext(Dispatchers.IO) {
+        done.starred.forEach { id -> catching { star(id, false) } }
+        done.claimed.forEach { (k, labels) -> dndRecord(k, labels) }
+        c.contacts.refresh()
+    }
+
+    private suspend fun star(id: Long, on: Boolean) {
+        val r = ContactRef.ofNavId(id)
+        if (r is ContactRef.Private) c.vault.updateCallerChoices(r.vaultId) { it.copy(starred = on) } else c.contacts.setStarred(id, on)
+    }
+
+    /** What "Add everyone to Favourites" did: who it starred (list ids) and whose Do Not Disturb record it took. */
+    data class FavouritesAdded(val starred: List<Long>, val claimed: Map<String, Set<String>>) {
+        val count: Int get() = starred.size + claimed.size
     }
 
     // --- Simple mode ---
