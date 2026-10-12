@@ -137,7 +137,7 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
             val map = loaded()
             if (map.isEmpty() || number.isBlank()) return@withContext emptyList()
             VaultNumberKeys.lookup(number, region).flatMap { input -> map[keys.key(input)].orEmpty() }
-                .mapNotNull { sealed -> runCatching { NumberMemory.decode(String(keys.open(sealed), Charsets.UTF_8)) }.getOrNull() }
+                .mapNotNull { sealed -> catching { NumberMemory.decode(String(keys.open(sealed), Charsets.UTF_8)) }.getOrNull() }
                 .distinct()
         } catch (e: CancellationException) {
             throw e

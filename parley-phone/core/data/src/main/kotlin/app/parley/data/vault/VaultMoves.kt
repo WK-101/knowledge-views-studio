@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.common.catching
 import app.parley.common.circle.CarriedInteraction
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
@@ -52,13 +53,13 @@ class VaultMoves(
             ?: error("Couldn't read the whole contact, so it wasn't moved")
         // Read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
         val carried = shown.lookupKey.takeIf { it.isNotEmpty() && carryInteractions }?.let { key ->
-            runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
+            catching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
                 .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
         }.orEmpty()
         val id = vault.save(null, shown, record = record, interactions = Interactions.encodeCarried(carried))
         // The contact's photo becomes the private contact's (encrypted) caller photo.
         record.raws.asSequence().flatMap { it.rows }.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
-            ?.let { runCatching { vault.setPhoto(id, it) } }
+            ?.let { catching { vault.setPhoto(id, it) } }
         val purged = contacts.purgeForVault(contactId)
         contacts.refresh()
         MovedIn(id, purged.synced, purged.messengerCopies)
@@ -122,7 +123,7 @@ class VaultMoves(
         }
         if (newId == null) {
             // A partly written record goes again rather than staying beside the private contact.
-            if (inserted.isNotEmpty()) runCatching { contacts.discardInserted(inserted) }
+            if (inserted.isNotEmpty()) catching { contacts.discardInserted(inserted) }
             contacts.refresh()
             return@withContext MovedOut.NotWritten
         }
@@ -137,23 +138,23 @@ class VaultMoves(
                 false
             }
             if (!ok) {
-                runCatching { contacts.discardInserted(inserted) }
+                catching { contacts.discardInserted(inserted) }
                 contacts.refresh()
                 return@withContext MovedOut.Undone
             }
             // The interactions carried in the entry come back under the restored contact.
-            val carried = runCatching { Interactions.decodeCarried(vault.storedInteractions(vaultId)) }.getOrDefault(emptyList())
+            val carried = catching { Interactions.decodeCarried(vault.storedInteractions(vaultId)) }.getOrDefault(emptyList())
             val store = interactions()
             val key = if (carried.isNotEmpty() && store != null) contacts.lookupKeyOf(newId) else null
             if (store != null && key != null) carried.forEach { i ->
                 val type = InteractionType.entries.firstOrNull { it.name == i.t } ?: InteractionType.OTHER
                 // A note that can't be sealed right now: keep the entry itself rather than nothing.
-                runCatching { store.log(key, newId, type, InteractionChannel.decode(i.c), i.at, i.note, i.u) }
-                    .onFailure { runCatching { store.log(key, newId, type, InteractionChannel.decode(i.c), i.at, null, i.u) } }
+                catching { store.log(key, newId, type, InteractionChannel.decode(i.c), i.at, i.note, i.u) }
+                    .onFailure { catching { store.log(key, newId, type, InteractionChannel.decode(i.c), i.at, null, i.u) } }
             }
             val photo = vault.photoBytes(vaultId)
             val raw = photoRaw ?: contacts.rawIds(newId).firstOrNull()
-            if (photo != null && raw != null) runCatching { records.setPhoto(raw, photo) }
+            if (photo != null && raw != null) catching { records.setPhoto(raw, photo) }
             vault.delete(vaultId)
         } finally {
             vault.leaving -= vaultId

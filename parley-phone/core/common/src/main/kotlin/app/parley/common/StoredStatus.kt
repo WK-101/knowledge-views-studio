@@ -22,7 +22,7 @@ data class StoredStatus(val kind: String, val args: List<String> = emptyList()) 
         /** The status in [stored], or null for text from older versions (show that as it is). */
         fun decode(stored: String?): StoredStatus? {
             if (stored == null || !stored.startsWith(PREFIX)) return null
-            return runCatching { json.decodeFromString(serializer(), stored.removePrefix(PREFIX)) }.getOrNull()
+            return catching { json.decodeFromString(serializer(), stored.removePrefix(PREFIX)) }.getOrNull()
         }
     }
 }

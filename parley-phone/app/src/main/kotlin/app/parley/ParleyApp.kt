@@ -11,7 +11,6 @@ import androidx.core.content.ContextCompat
 import app.parley.blocking.BlockingSetup
 import app.parley.calls.PrivateCallLogSweep
 import app.parley.common.catching
-import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.StatePrefs
@@ -74,7 +73,7 @@ class ParleyApp : Application() {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND && ::container.isInitialized) {
             NumberInfo.trim()
             container.kept.drop()
-            container.scope.launch { suspendRunCatching { container.timeMachine.dropCaches(all = true) } }
+            container.scope.launch { catching { container.timeMachine.dropCaches(all = true) } }
         }
     }
 
@@ -90,10 +89,10 @@ class ParleyApp : Application() {
         // The privacy view knows when Parley's own lock is engaged (case files and the call path read it).
         container.privacy.bindAppLock(AppLock.locked)
         // Parley is English-only: a language picked in an older version is dropped once, off the main thread.
-        container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
+        container.scope.launch(Dispatchers.IO) { catching { AppLocale.reset(this@ParleyApp) } }
         // The ring path reads its state file directly: what older versions kept in files of their own is copied in
         // before anything can ring (once; afterwards a marker in a file the ring path loads anyway).
-        runCatching { StatePrefs.moveAll(this, StatePrefs.CALL_PATH) }
+        catching { StatePrefs.moveAll(this, StatePrefs.CALL_PATH) }
         TelecomGraph.install(AppTelecomDependencies(this, container))
         // Image caches sized to this phone's heap (a low-RAM phone's is a fraction of a flagship's).
         Runtime.getRuntime().maxMemory().let { heap ->
@@ -107,21 +106,21 @@ class ParleyApp : Application() {
         // Right after the user authenticates, the vault moves to an authentication-bound key if it isn't on one yet.
         VaultSession.onAuthenticated = {
             container.scope.launch(Dispatchers.IO) {
-                suspendRunCatching { container.vault.upgradeDetailKey() }
+                catching { container.vault.upgradeDetailKey() }
                 // Entries from before the caller-ID copy kept the star, labels, ringtone and voicemail get them now.
-                suspendRunCatching { container.vault.migrateCallerChoices() }
+                catching { container.vault.migrateCallerChoices() }
                 // And their dates, for a birthday today on Next up and the call screen (CallerIdCopy.C_DATES).
-                suspendRunCatching { container.vault.migrateDates() }
+                catching { container.vault.migrateDates() }
                 // Entries sealed as one blob are split, so their pages open only the small part (VaultCrypto.sealDetailParts).
-                suspendRunCatching { container.vault.splitDetails() }
+                catching { container.vault.splitDetails() }
             }
         }
         // Ringtones made from names: System UI's ringtone player needs its read grant again after a reboot (a directory
         // listing). Unused ones go (with their grants) only once the full app is up and its first screens are drawn:
         // the sweep reads every ringtone in use, private contacts' included, and never competes with a ringing call.
         container.scope.launch(Dispatchers.IO) {
-            suspendRunCatching { CallerTunes.regrant(this@ParleyApp) }
-            CallerTunes.afterStart(container.fullStart) { suspendRunCatching { CallerTunes.sweep(container) } }
+            catching { CallerTunes.regrant(this@ParleyApp) }
+            CallerTunes.afterStart(container.fullStart) { catching { CallerTunes.sweep(container) } }
         }
         AppLock.onLock = {
             container.vault.forgetOpened()
@@ -138,7 +137,7 @@ class ParleyApp : Application() {
         // reads it itself if it comes first). Not in a process started for a ringing call: it is a Keystore operation.
         container.scope.launch(Dispatchers.IO) {
             container.fullStart.await()
-            suspendRunCatching { container.appPin.load() }
+            catching { container.appPin.load() }
         }
         // The screen going off forgets opened private details (and the Contacts search's docs made from them),
         // whether or not the app lock is on: the vault never keeps them while the phone is locked.
@@ -162,12 +161,12 @@ class ParleyApp : Application() {
                 Trace.endAsyncSection(TRACE_WARM, 0)
             }
             // A private contact's call the last process couldn't take out of the system call log goes first.
-            suspendRunCatching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
+            catching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
             // Plaintext call-history exports and shared files an hour old or more; never younger, as this process may
             // have been started by another app opening one of them.
             ExportFiles.cleanup(this@ParleyApp)
             // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
-            runCatching { ContactCamera.sweep(this@ParleyApp) }
+            catching { ContactCamera.sweep(this@ParleyApp) }
             // Pictures shared before: no share from an earlier run is still being read.
             ImageExport.sweep(this@ParleyApp, all = true)
         }
@@ -194,7 +193,7 @@ class ParleyApp : Application() {
             delay(30_000)
             if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()
             // Notes, screened names, the journal and snapshots from older versions are sealed at rest once.
-            if (!container.recordSealing.done) suspendRunCatching { container.recordSealing.runIfNeeded() }
+            if (!container.recordSealing.done) catching { container.recordSealing.runIfNeeded() }
         }
     }
 }

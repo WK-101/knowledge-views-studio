@@ -1,5 +1,6 @@
 package app.parley.picker
 
+import app.parley.common.catching
 import app.parley.security.LockedActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -126,7 +127,7 @@ class PickerActivity : LockedActivity() {
     private var joinTargetName by mutableStateOf<String?>(null)
     private var joinConfirm by mutableStateOf<Pick?>(null)
 
-    private fun nameOf(contactId: Long): String? = runCatching {
+    private fun nameOf(contactId: Long): String? = catching {
         val uri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId)
         contentResolver.query(uri, arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)
             ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
@@ -137,7 +138,7 @@ class PickerActivity : LockedActivity() {
     /** The app that asked, by its label (the package name when it has none). */
     private fun callerLabel(): String {
         val pkg = callingActivity?.packageName ?: return getString(R.string.picker_join_another_app)
-        return runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+        return catching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
     }
 
     private fun join(target: Long, picks: List<Pick>) {

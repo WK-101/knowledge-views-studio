@@ -6,6 +6,7 @@ import android.os.SystemClock
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.CallAudioOutputs
 import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,7 +34,7 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
     /** Arms [session] when auto-answer applies to it now; nothing when it already was, or the user cancelled it. */
     fun consider(session: CallSession, host: Host) {
         if (session.autoAnswerAt != 0L || session.autoAnswerCancelled || session.screening) return
-        val cfg = runCatching { config() }.getOrDefault(CallExtrasConfig())
+        val cfg = catching { config() }.getOrDefault(CallExtrasConfig())
         if (!AutoAnswer.enabled(cfg) && !host.driving()) return
         val facts = host.facts(session) ?: return
         val reason = AutoAnswer.reason(cfg, facts) ?: return
@@ -45,7 +46,7 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
             jobs.remove(session.id)
             val now = host.facts(session)
             val still = now != null && session.autoAnswerAt != 0L && !session.autoAnswerCancelled && !session.silenced &&
-                AutoAnswer.reason(runCatching { config() }.getOrDefault(cfg), now) != null
+                AutoAnswer.reason(catching { config() }.getOrDefault(cfg), now) != null
             session.autoAnswerAt = 0
             if (still) host.answer(session)
             host.changed()
@@ -74,7 +75,7 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
          * media-only Bluetooth speaker doesn't count). Read from the audio outputs, which needs no permission
          * (Bluetooth's own APIs would).
          */
-        fun headsetConnected(context: Context): Boolean = runCatching {
+        fun headsetConnected(context: Context): Boolean = catching {
             CallAudioOutputs.headsetConnected(context.getSystemService(AudioManager::class.java).getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.type })
         }.getOrDefault(false)
     }

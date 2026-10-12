@@ -147,7 +147,7 @@ internal fun PostCallCard(call: CallUi, safetyChecked: Boolean, onChoice: (PostC
     if (saving) {
         // The network's name for the number, when it sent one; else a name made from the number and where it's from.
         var name by remember {
-            mutableStateOf(call.networkName ?: runCatching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number))
+            mutableStateOf(call.networkName ?: catching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number))
         }
         ConfirmDialog(
             title = stringResource(R.string.postcall_save_title),

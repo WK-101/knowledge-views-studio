@@ -1,5 +1,6 @@
 package app.parley.data.records
 
+import app.parley.common.catching
 import app.parley.data.applyInBatches
 import android.accounts.AccountManager
 import android.content.ContentProviderOperation
@@ -85,7 +86,7 @@ class ContactRecordStore(private val context: Context) {
         val hook = numbersWritten ?: return
         val numbers = rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1]?.takeIf(String::isNotBlank) }
         // The passport is a safety aid: a write never fails because it couldn't be noted.
-        if (numbers.isNotEmpty()) runCatching { hook(numbers, from ?: origin.get() ?: NumberOrigin.YOU) }
+        if (numbers.isNotEmpty()) catching { hook(numbers, from ?: origin.get() ?: NumberOrigin.YOU) }
     }
 
     data class GroupRef(val id: Long, val title: String?, val account: AccountRef, val system: Boolean)

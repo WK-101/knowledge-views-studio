@@ -6,6 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import app.parley.common.catching
 import app.parley.container
 import app.parley.data.DataContainer
 
@@ -18,7 +19,7 @@ class SpamListWorker(context: Context, params: WorkerParameters) : CoroutineWork
     override suspend fun doWork(): Result {
         run(applicationContext.container)
         // Lists subscribed from the optional "Parley Lists" app (read through its provider, no network here).
-        runCatching { ListsUpdaterClient.refresh(applicationContext, applicationContext.container.lists) }
+        catching { ListsUpdaterClient.refresh(applicationContext, applicationContext.container.lists) }
         return Result.success()
     }
 
@@ -30,9 +31,9 @@ class SpamListWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
 
         suspend fun run(c: DataContainer) {
-            runCatching { c.blocks.deleteExpiredRules() }
-            runCatching { c.blocks.pruneScreened() }
-            runCatching { if (c.lists.state.value.folderUri != null) c.lists.refreshFolder() }
+            catching { c.blocks.deleteExpiredRules() }
+            catching { c.blocks.pruneScreened() }
+            catching { if (c.lists.state.value.folderUri != null) c.lists.refreshFolder() }
         }
     }
 }

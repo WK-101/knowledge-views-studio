@@ -31,6 +31,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuShortcut
+import app.parley.common.catching
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
@@ -48,7 +49,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MenuShortcutsBlock(vm: AppViewModel, numbers: List<String>, who: String, photoUri: String? = null) {
     val store = vm.c.menus
-    LaunchedEffect(Unit) { runCatching { store.load() } }
+    LaunchedEffect(Unit) { catching { store.load() } }
     val state by store.state.collectAsStateWithLifecycle()
     val list = remember(state, numbers) { MenuMemory.shortcutsFor(state, numbers, vm.countryIso) }
     if (list.isEmpty()) return

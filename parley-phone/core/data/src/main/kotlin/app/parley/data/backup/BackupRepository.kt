@@ -55,7 +55,6 @@ import app.parley.common.record.DataRow
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
 import app.parley.common.storage.PersistentStores
-import app.parley.common.suspendRunCatching
 import app.parley.data.BlockRepository
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetailsJson
@@ -194,7 +193,7 @@ class BackupRepository(
             failed += missing
         }
         return parts.fold(emptyMap()) { acc, x ->
-            acc + suspendRunCatching { x.export() }.getOrElse { e ->
+            acc + catching { x.export() }.getOrElse { e ->
                 Log.w("BackupRepository", "Backup section ${x.section} failed", e)
                 failed += x.section
                 emptyMap()
@@ -280,7 +279,7 @@ class BackupRepository(
     }
 
     fun setFolder(uri: Uri, name: String?) {
-        runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        catching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.update { it.putString("folder", uri.toString()).putString("folderName", name) }
     }
 
@@ -351,7 +350,7 @@ class BackupRepository(
                 m
             }
         } catch (e: Exception) {
-            runCatching { DocumentsContract.deleteDocument(cr, doc) }
+            catching { DocumentsContract.deleteDocument(cr, doc) }
             return@withContext fail(
                 context.getString(R.string.data_bkp_failed, e.message.toString()), StoredStatus.of(BackupState.FAILED, e.message.toString()),
             )
@@ -366,7 +365,7 @@ class BackupRepository(
             false
         }
         if (!verified) {
-            runCatching { DocumentsContract.deleteDocument(cr, doc) }
+            catching { DocumentsContract.deleteDocument(cr, doc) }
             return@withContext fail(context.getString(R.string.data_bkp_not_verified), StoredStatus.of(BackupState.NOT_VERIFIED))
         }
         if (target != null) {
@@ -388,7 +387,7 @@ class BackupRepository(
         // delete the older complete backups one by one, and later runs would compare against the incomplete content.
         val incomplete = failedSections.isNotEmpty()
         if (scheduled && hash == (if (incomplete) state.lastIncompleteHash else state.lastContentHash)) {
-            runCatching { DocumentsContract.deleteDocument(cr, doc) }
+            catching { DocumentsContract.deleteDocument(cr, doc) }
             val status = if (incomplete) StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount)
             else StoredStatus.of(BackupState.UNCHANGED)
             prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", status.encode()) }
@@ -404,13 +403,13 @@ class BackupRepository(
                 ),
             )
         }
-        runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }
+        catching { DocumentsContract.renameDocument(cr, doc, finalName) }
 
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
         val hiding = Privacy.duressOnly().hiding
-        val vaultMissing = !vaultIncluded && !hiding && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
+        val vaultMissing = !vaultIncluded && !hiding && catching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
         // L4: a backup made after a duress unlock never rotates out older ones, nor becomes the count rotation compares with.
         val rotates = RetentionDecider.rotates(paused, safety, incomplete, hiding)
         if (rotates) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
@@ -448,7 +447,7 @@ class BackupRepository(
         return BackupOutcome(false, message = msg)
     }
 
-    private fun appVersion(): String = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
+    private fun appVersion(): String = catching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
 
     private fun device(): Map<String, String> = mapOf("model" to Build.MODEL, "sdk" to Build.VERSION.SDK_INT.toString())
 
@@ -486,7 +485,7 @@ class BackupRepository(
     }
 
     private suspend fun putPrivateExtras(o: JSONObject, vaultId: Long) {
-        val extras = runCatching { privateExtras?.exportPrivate(app.parley.common.people.ContactRef.privateKey(vaultId)) }.getOrNull() ?: return
+        val extras = catching { privateExtras?.exportPrivate(app.parley.common.people.ContactRef.privateKey(vaultId)) }.getOrNull() ?: return
         o.put("parley", extras)
     }
 
@@ -504,21 +503,21 @@ class BackupRepository(
         if (!vaultReadable()) return null
         val arr = JSONArray()
         for (v in list) {
-            val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue
+            val d = catching { vault.details(v.id) }.getOrNull() ?: continue
             val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
             if (v.purgeHistory) o.put("purgeHistory", true)
             putLabels(o, v)
             // The lossless phone-contact image of a moved contact, with the hash that tells whether the details
             // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older
             // Parley versions ignore it (and only wrote it for unedited entries, which is what a missing hash means).
-            runCatching { vault.storedRecord(v.id) }.getOrNull()?.let { s ->
+            catching { vault.storedRecord(v.id) }.getOrNull()?.let { s ->
                 val blobs = JSONObject()
                 o.put("record", RecordJson.encode(s.record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
                 o.put("recordBlobs", blobs)
                 if (s.recordOf.isNotEmpty()) o.put("recordOf", s.recordOf)
             }
             // Logged interactions carried in the entry while the contact is private.
-            runCatching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
+            catching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
             // Parley's own data about them, kept under their private key (never in the sections every backup has).
             putPrivateExtras(o, v.id)
             // The private call history: removed from the system log, so this is its only copy.
@@ -565,7 +564,7 @@ class BackupRepository(
     }
 
     /** Removes `.partial` files left by an interrupted backup (older than an hour, so a running one is safe). */
-    private fun cleanupPartials(folder: Uri) = runCatching {
+    private fun cleanupPartials(folder: Uri) = catching {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
         val cutoff = System.currentTimeMillis() - 3_600_000L
         cr.query(
@@ -580,7 +579,7 @@ class BackupRepository(
             while (c.moveToNext()) {
                 val name = c.getString(1) ?: continue
                 if (name.endsWith(".partial") && c.getLong(2) in 1 until cutoff) {
-                    runCatching { DocumentsContract.deleteDocument(cr, DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))) }
+                    catching { DocumentsContract.deleteDocument(cr, DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))) }
                 }
             }
         }
@@ -590,7 +589,7 @@ class BackupRepository(
         val files = listBackups().filter { it.name != protect }
         val decision = RetentionDecider.decide(files.map { BackupFile(it.name, it.time) }, prefs.state.value.policy, Instant.now(), zone)
         val toDelete = decision.delete.map { it.name }.toSet()
-        files.filter { it.name in toDelete }.forEach { runCatching { DocumentsContract.deleteDocument(cr, it.uri) } }
+        files.filter { it.name in toDelete }.forEach { catching { DocumentsContract.deleteDocument(cr, it.uri) } }
     }
 
     /** Where a backup's photos wait while it is written or read (each spool file is unlinked as soon as it is open). */
@@ -611,7 +610,7 @@ class BackupRepository(
         // The user just proved they hold this phone's backup secret: let it vouch for this phone if it didn't yet.
         val mine = prefs.keyBundle()
         if (mine != null && opened.bundle?.keyId == mine.keyId && !prefs.state.value.signedAsYours) {
-            opened.privateKey?.let { runCatching { endorse(mine, it) } }
+            opened.privateKey?.let { catching { endorse(mine, it) } }
         }
         val origin = ArchiveSignatures.verify(header.bytes, reader.manifest, opened.bundle, DeviceSigner.publicKey())
         OpenedBackup(uri, reader, origin)
@@ -690,7 +689,7 @@ class BackupRepository(
             if (h != null) r = r.copy(calls = r.calls + restoreArchive(opened, h))
         }
         // Feature parts ride on the choice they belong to; they match people against the contacts restored above.
-        val featureValues = if (o.contacts || o.blocking || o.settings) runCatching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()
+        val featureValues = if (o.contacts || o.blocking || o.settings) catching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()
         suspend fun features(which: RestorePart) {
             if (featureValues.isEmpty()) return
             extras().filter { it.restoreWith == which }.forEach { e ->
@@ -768,7 +767,7 @@ class BackupRepository(
         val BUILT_IN_SECTIONS = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT, TUNES) }
     }
 
-    private fun idForKey(key: String): Long? = runCatching {
+    private fun idForKey(key: String): Long? = catching {
         ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))?.let { ContentUris.parseId(it) }
     }.getOrNull()
 
@@ -811,7 +810,7 @@ class BackupRepository(
     }
 
     /** Label titles on this phone (the way label references are keyed; group row ids differ between phones). */
-    private fun labelTitlesHere(): Set<String> = runCatching { contacts.groups().map { LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
+    private fun labelTitlesHere(): Set<String> = catching { contacts.groups().map { LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
 
     /** Rules (deduplicated) and the blocked-call log (entries this phone doesn't have). Returns both counts. */
     private suspend fun restoreBlocking(opened: OpenedBackup): Pair<Int, Int> {
@@ -822,12 +821,12 @@ class BackupRepository(
         snap.rules.forEach { r ->
             val rule = BlockRule(
                 pattern = r.pattern,
-                type = runCatching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
-                action = runCatching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
+                type = catching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
+                action = catching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
                 enabled = r.enabled, note = r.note,
-                kind = runCatching { RuleKind.valueOf(r.kind) }.getOrDefault(RuleKind.BLOCK),
+                kind = catching { RuleKind.valueOf(r.kind) }.getOrDefault(RuleKind.BLOCK),
                 simId = r.simId, schedule = Schedule.decode(r.schedule),
-                notify = runCatching { NotifyLevel.valueOf(r.notify) }.getOrDefault(NotifyLevel.DEFAULT),
+                notify = catching { NotifyLevel.valueOf(r.notify) }.getOrDefault(NotifyLevel.DEFAULT),
                 ringtone = r.ringtone, expiresAt = r.expiresAt, label = r.label,
             )
             // Label rules are remapped by title; a rule for a label that doesn't exist here is dropped.
@@ -884,7 +883,7 @@ class BackupRepository(
             }
             val blobs = o.optJSONObject("recordBlobs")
             val record = o.optString("record").takeIf { it.isNotEmpty() }?.let { line ->
-                runCatching {
+                catching {
                     RecordJson.decode(line) { h ->
                         blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) }
                     }
@@ -898,20 +897,20 @@ class BackupRepository(
                 interactions = o.optString("interactions").takeIf { it.isNotEmpty() },
             )
             o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
-                runCatching { vault.setPhoto(id, Base64.decode(p, Base64.NO_WRAP)) }
+                catching { vault.setPhoto(id, Base64.decode(p, Base64.NO_WRAP)) }
             }
             // Labels found again by title on this phone (resolved whenever they are read).
             o.optJSONArray("labels")?.let { a ->
                 val titles = (0 until a.length()).mapNotNull { a.optString(it).takeIf { t -> t.isNotBlank() } }
-                if (titles.isNotEmpty()) runCatching { vault.updateCallerChoices(id) { s -> s.copy(labels = titles.map { PrivateLabels.Membership(0, it) }) } }
+                if (titles.isNotEmpty()) catching { vault.updateCallerChoices(id) { s -> s.copy(labels = titles.map { PrivateLabels.Membership(0, it) }) } }
             }
             val vibration = o.optString("vibration").ifEmpty { null }
             if (vibration != null || o.optBoolean("autoAnswer")) {
-                runCatching { vault.updateCallerChoices(id) { s -> s.copy(vibration = vibration, autoAnswer = o.optBoolean("autoAnswer")) } }
+                catching { vault.updateCallerChoices(id) { s -> s.copy(vibration = vibration, autoAnswer = o.optBoolean("autoAnswer")) } }
             }
             o.optLong("archivedAt").takeIf { it > 0 }?.let { at -> catching { vault.setArchived(id, at) } }
             restoreCalls(id, o)
-            o.optJSONObject("parley")?.let { x -> runCatching { privateExtras?.importPrivate(id, x) } }
+            o.optJSONObject("parley")?.let { x -> catching { privateExtras?.importPrivate(id, x) } }
             n++
         }
         return n

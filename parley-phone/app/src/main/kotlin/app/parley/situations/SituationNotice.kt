@@ -12,8 +12,8 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.Schedule
+import app.parley.common.catching
 import app.parley.common.situations.Situations
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.situations.SituationsController
 import app.parley.work.PrivateNotice
@@ -65,7 +65,7 @@ object SituationNotice {
     }
 
     fun cancel(context: Context) {
-        runCatching { NotificationManagerCompat.from(context).cancel(NotificationIds.TAG_SITUATION, NotificationIds.SITUATION_ID) }
+        catching { NotificationManagerCompat.from(context).cancel(NotificationIds.TAG_SITUATION, NotificationIds.SITUATION_ID) }
     }
 
     private fun minuteOfDay(millis: Long): Int = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).let { it.hour * 60 + it.minute }
@@ -83,7 +83,7 @@ class SituationNoticeReceiver : BroadcastReceiver() {
         val c = app.container
         c.scope.launch {
             try {
-                suspendRunCatching { c.situations.turnOff() }
+                catching { c.situations.turnOff() }
                 // Nothing was on any more (turned off elsewhere): the notice still goes.
                 SituationNotice.update(app, c.situations)
             } finally {

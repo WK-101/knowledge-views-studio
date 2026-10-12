@@ -17,6 +17,7 @@ import androidx.annotation.VisibleForTesting
 import app.parley.common.Verification
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RingVibration
+import app.parley.common.catching
 import app.parley.telecom.ui.InCallActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -97,7 +98,7 @@ object RescueCall {
     private var onEnd: ((answered: Boolean) -> Unit)? = null
 
     private val telecomInCall: (Context) -> Boolean = { c ->
-        runCatching { c.getSystemService(TelecomManager::class.java)?.isInCall == true }.getOrDefault(false)
+        catching { c.getSystemService(TelecomManager::class.java)?.isInCall == true }.getOrDefault(false)
     }
 
     /** Asks Android whether a call is up, for calls Parley doesn't see itself (another phone app's); tests replace it. */
@@ -134,7 +135,7 @@ object RescueCall {
         _state.value = RescueState(call, null, AUDIO)
         ring(app, who)
         val direct = !RescueNotifier.incoming(app, call)
-        if (direct) runCatching { app.startActivity(InCallActivity.intent(app, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        if (direct) catching { app.startActivity(InCallActivity.intent(app, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         watch(call.id)
         return true
     }
@@ -264,8 +265,8 @@ object RescueCall {
         when (am.ringerMode) {
             AudioManager.RINGER_MODE_NORMAL -> {
                 val uri = who.ringtone ?: Settings.System.DEFAULT_RINGTONE_URI?.toString()
-                tone = uri?.let { u -> runCatching { RingtoneManager.getRingtone(context, Uri.parse(u)) }.getOrNull() }?.also { t ->
-                    runCatching {
+                tone = uri?.let { u -> catching { RingtoneManager.getRingtone(context, Uri.parse(u)) }.getOrNull() }?.also { t ->
+                    catching {
                         t.audioAttributes = AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -291,9 +292,9 @@ object RescueCall {
     }
 
     private fun stopRinging() {
-        tone?.let { runCatching { it.stop() } }
+        tone?.let { catching { it.stop() } }
         tone = null
-        vibrator?.let { runCatching { it.cancel() } }
+        vibrator?.let { catching { it.cancel() } }
         vibrator = null
     }
 

@@ -11,6 +11,7 @@ import app.parley.common.MessengerApp
 import app.parley.common.MessengerLink
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.ui.Clipboard
@@ -28,7 +29,7 @@ object MessengerLauncher {
     fun installed(context: Context): List<MessengerApp> = MessengerApp.entries.filter { isAvailable(context, it) }
 
     /** The default SMS app, so the SMS link has an explicit package too. */
-    fun smsPackage(context: Context): String? = runCatching { Telephony.Sms.getDefaultSmsPackage(context) }.getOrNull()
+    fun smsPackage(context: Context): String? = catching { Telephony.Sms.getDefaultSmsPackage(context) }.getOrNull()
 
     fun intent(link: MessengerLink): Intent = Intent(link.action, link.uri.toUri()).apply {
         link.packageName?.let { setPackage(it) }

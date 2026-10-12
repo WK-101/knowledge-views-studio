@@ -28,7 +28,6 @@ import app.parley.data.people.TemporaryContactStore
 import app.parley.ui.common.ImageExport
 import app.parley.ui.contact.ContactCamera
 import app.parley.ui.history.ExportFiles
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -115,8 +114,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
          * read must not stop the archive's retention, day after day).
          */
         private inline fun <T> step(name: String, block: () -> T): T? =
-            runCatching(block).onFailure { e ->
-                if (e is CancellationException) throw e
+            catching(block).onFailure { e ->
                 Log.w(TAG, "Maintenance step failed: $name", e)
             }.getOrNull()
 
@@ -143,10 +141,10 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 // What Parley kept about them (Circle, moments, call-screen picture) goes with them.
                 step("private extras") { c.contactKeys.forget(app.parley.common.people.ContactRef.privateKey(v.id)); true }
                 v.numbers.forEach { n ->
-                    val otherOwner = runCatching { c.contacts.isContact(n) != false || c.vault.lookup(n) != null }.getOrDefault(true)
+                    val otherOwner = catching { c.contacts.isContact(n) != false || c.vault.lookup(n) != null }.getOrDefault(true)
                     if (otherOwner) return@forEach
-                    if (v.purgeHistory) runCatching { c.history.purgeNumber(n) }
-                    runCatching { c.messaging.forget(n) }
+                    if (v.purgeHistory) catching { c.history.purgeNumber(n) }
+                    catching { c.messaging.forget(n) }
                 }
             }
             return notices
@@ -179,7 +177,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 step("private call log") { c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30)) }
                 // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
-                runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n); c.callQuality.forget(n) } }
+                catching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n); c.callQuality.forget(n) } }
             }
             // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
             //    setting, except numbers kept forever)
@@ -201,7 +199,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 catching { c.messaging.pruneOlderThan(now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())) }
             }
             // "Forget messaged numbers after" (the stricter of it and the retention above wins).
-            runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
+            catching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
             step("journal") { c.journal.prune(now - TimeUnit.DAYS.toMillis(30)) }
             // Pruning leaves free pages behind; give them back when they add up.

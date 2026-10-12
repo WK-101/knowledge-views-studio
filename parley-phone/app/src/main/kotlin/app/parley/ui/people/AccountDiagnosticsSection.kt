@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
+import app.parley.common.catching
 import app.parley.common.people.AccountFindingKind
 import app.parley.data.AccountRef
 import app.parley.data.people.AccountReport
@@ -51,7 +52,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
     LaunchedEffect(round) { report = vm.c.people.accounts.report() }
     val r = report ?: return
     fun label(a: AccountRef?) = a?.displayLabel ?: res.getString(R.string.label_phone)
-    fun syncSettings() = runCatching {
+    fun syncSettings() = catching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
     }.onFailure { vm.toast(res.getString(R.string.ppl_sync_settings_failed)) }
 

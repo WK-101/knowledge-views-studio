@@ -32,7 +32,7 @@ import app.parley.blocking.BlockingActions
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.blocking.BlockPlan
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.common.sync.shared.SharedLabelMembership
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.data.sync.shared.SharedLabelState
@@ -57,7 +57,7 @@ fun askToBlock(numbers: List<String>, name: String? = null, note: String? = null
 fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null, note: String? = null, share: Boolean = true) {
     val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
-        val done = suspendRunCatching { BlockFlow.block(vm.c, numbers, note, share = share) }.getOrNull()
+        val done = catching { BlockFlow.block(vm.c, numbers, note, share = share) }.getOrNull()
         // What else happened, said with the result: emergency numbers left open, "Always allow" rules taken away.
         val notes = listOfNotNull(
             done?.emergency?.size?.takeIf { it > 0 && done.numbers.isNotEmpty() }?.let { res.getQuantityString(R.plurals.blockflow_emergency_left, it, it) },
@@ -78,7 +78,7 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null,
 fun unblockWithUndo(vm: AppViewModel, numbers: List<String>, name: String? = null) {
     val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
-        val done = suspendRunCatching { BlockFlow.unblock(vm.c, numbers) }.getOrNull() ?: return@launch
+        val done = catching { BlockFlow.unblock(vm.c, numbers) }.getOrNull() ?: return@launch
         when (done.numbers.size) {
             0 -> Unit
             1 -> vm.offerUndo(res.getString(R.string.vm_unblocked, name ?: Bidi.ltr(done.numbers[0])), done.undo)
@@ -92,7 +92,7 @@ fun allowWithUndo(vm: AppViewModel, number: String, hours: Int?, text: String) {
     vm.viewModelScope.launch {
         val iso = vm.countryIso
         val before = BlockPlan.exactRules(vm.c.blocks.allRules(), number, iso, RuleKind.ALLOW)
-        suspendRunCatching { BlockingActions.allowNumber(vm.c, number, hours) }.onFailure { return@launch }
+        catching { BlockingActions.allowNumber(vm.c, number, hours) }.onFailure { return@launch }
         vm.offerUndo(text) {
             val now = BlockPlan.exactRules(vm.c.blocks.allRules(), number, iso, RuleKind.ALLOW)
             now.filter { r -> before.none { it.id == r.id } }.forEach { vm.c.blocks.deleteRule(it.id) }
@@ -134,7 +134,7 @@ internal fun BlockConfirmDialog(vm: AppViewModel, x: BlockingDialog.Block, dismi
     // What blocking would change, and whether every number is an emergency number (read together, so the dialog
     // never shows "Already blocked" for one first).
     val loaded by produceState<Pair<List<BlockPlan.Block>, Boolean>?>(null, x) {
-        val plans = suspendRunCatching { BlockFlow.plans(vm.c, x.numbers) }.getOrDefault(emptyList())
+        val plans = catching { BlockFlow.plans(vm.c, x.numbers) }.getOrDefault(emptyList())
         value = plans to withContext(Dispatchers.IO) { x.numbers.isNotEmpty() && x.numbers.all { BlockFlow.isEmergency(vm.c, it) } }
     }
     // The labels whose family spam shield shares numbers blocked one by one (a Parley rule, not Android's list).

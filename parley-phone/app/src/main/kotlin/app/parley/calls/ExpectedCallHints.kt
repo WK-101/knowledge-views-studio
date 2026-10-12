@@ -70,7 +70,7 @@ object ExpectedCallHints {
             CircleRepository.NoteSource.PINNED -> return
         }
         val text = withContext(Dispatchers.IO) {
-            runCatching {
+            catching {
                 if (note.source == CircleRepository.NoteSource.LOGGED) c.circle.interactions.noteOf(note.id) else c.meta.callNote(note.id)?.text
             }.getOrNull()
         }

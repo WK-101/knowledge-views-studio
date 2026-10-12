@@ -18,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import app.parley.R
+import app.parley.common.catching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
@@ -86,7 +87,7 @@ object ChatThenDecide {
     suspend fun stillUnknown(c: DataContainer, number: String): Boolean = c.numberOwners.find(number, null).let { !it.saved && !it.unsure }
 
     suspend fun save(c: DataContainer, chat: OpenedChat, region: String, private: Boolean = true): TemporaryContacts.Saved? = withContext(Dispatchers.IO) {
-        runCatching { TemporaryContact.save(c, chat.number, TemporaryContact.suggestedName(chat.number, chat.appLabel, region), private = private) }.getOrNull()
+        catching { TemporaryContact.save(c, chat.number, TemporaryContact.suggestedName(chat.number, chat.appLabel, region), private = private) }.getOrNull()
     }
 }
 

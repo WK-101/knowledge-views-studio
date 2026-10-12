@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import app.parley.common.catching
 import app.parley.common.crypto.Aead
 import app.parley.common.storage.DurableFiles
 import app.parley.data.security.KeystoreSeal
@@ -81,7 +82,7 @@ internal class HistoryCrypto(
     fun reset(suffix: String, deleteKeystoreEntry: Boolean = true) = synchronized(this) {
         keys = null
         if (file.exists() && !DurableFiles.move(file, File(file.parentFile, "${file.name}.$suffix"))) file.delete()
-        if (deleteKeystoreEntry) runCatching { keyStore().deleteEntry(alias) }
+        if (deleteKeystoreEntry) catching { keyStore().deleteEntry(alias) }
     }
 
     /**

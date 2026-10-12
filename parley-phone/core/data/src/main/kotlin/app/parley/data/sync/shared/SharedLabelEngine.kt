@@ -3,6 +3,7 @@ package app.parley.data.sync.shared
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.RecordJson
 import app.parley.common.backup.KdfParams
+import app.parley.common.catching
 import app.parley.common.people.ThreeWayMerge.Side
 import app.parley.common.record.ContactRecord
 import app.parley.common.sync.shared.CardField
@@ -75,7 +76,7 @@ class SharedLabelEngine(
         if (SharedLabelCrypto.HEADER_NAME in listing) folder.read(SharedLabelCrypto.HEADER_NAME) else null
 
     private fun parse(bytes: ByteArray, labelId: String): SharedLabelCrypto.Header? =
-        runCatching { SharedLabelCrypto.parseHeader(bytes) }.getOrNull()?.takeIf { it.labelId == labelId }
+        catching { SharedLabelCrypto.parseHeader(bytes) }.getOrNull()?.takeIf { it.labelId == labelId }
 
     /** What the folder's header means for this phone. */
     private sealed interface HeaderCheck {
@@ -805,7 +806,7 @@ class SharedLabelEngine(
         val shown = LinkedHashMap<String, ByteArray>()
         val kept = HashSet<String>()
         fun headerEpoch(bytes: ByteArray?) =
-            bytes?.let { runCatching { SharedLabelCrypto.parseHeader(it) }.getOrNull() }?.takeIf { it.labelId == s.labelId }?.epoch
+            bytes?.let { catching { SharedLabelCrypto.parseHeader(it) }.getOrNull() }?.takeIf { it.labelId == s.labelId }?.epoch
         fun existing(name: String) = if (name in listing) folder.read(name) else null
         for ((name, bytes) in files) {
             val sid = SharedLabelFiles.sidOf(name)

@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -97,7 +98,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
             onDismiss()
             scope.launch {
                 val err = vm.c.people.sim.write(c, e)
-                if (err != null) runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
+                if (err != null) catching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
                 vm.toast(err ?: res.getString(R.string.sim_copied, c.label))
             }
         },

@@ -9,6 +9,7 @@ import android.os.SystemClock
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calls.FlipDetector
+import app.parley.common.catching
 
 /**
  * Settings › Calls › Answering › "Flip to silence": listens to the gravity sensor (the accelerometer where there is
@@ -19,7 +20,7 @@ import app.parley.common.calls.FlipDetector
  */
 internal class FlipSilencer(
     context: Context,
-    private val inEmergencyWindow: () -> Boolean = { runCatching { ScreeningGuard.inEmergencyWindow(context) }.getOrDefault(false) },
+    private val inEmergencyWindow: () -> Boolean = { catching { ScreeningGuard.inEmergencyWindow(context) }.getOrDefault(false) },
     private val silence: (String) -> Unit = { CallManager.ignore(it) },
 ) : SensorEventListener {
     private val sensors = context.getSystemService(SensorManager::class.java)

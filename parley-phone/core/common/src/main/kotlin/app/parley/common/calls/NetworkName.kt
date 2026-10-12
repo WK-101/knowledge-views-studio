@@ -2,6 +2,7 @@ package app.parley.common.calls
 
 import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.text.Normalizer
@@ -50,7 +51,7 @@ object NetworkName {
 
     fun encode(seen: NetworkNameSeen): String = json.encodeToString(NetworkNameSeen.serializer(), seen)
 
-    fun decode(stored: String): NetworkNameSeen? = runCatching { json.decodeFromString(NetworkNameSeen.serializer(), stored) }.getOrNull()
+    fun decode(stored: String): NetworkNameSeen? = catching { json.decodeFromString(NetworkNameSeen.serializer(), stored) }.getOrNull()
 
     /**
      * The name worth keeping from what the network sent ([raw], with its [presentation]), or null: only an allowed

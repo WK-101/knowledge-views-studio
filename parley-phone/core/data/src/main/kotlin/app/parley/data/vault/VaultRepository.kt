@@ -279,7 +279,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     private fun withCallerChoices(d: ContactDetails, o: JSONObject): ContactDetails = if (!o.has(C_SEEDED)) d else d.copy(
         starred = o.optBoolean(C_STAR, false),
-        groupIds = PrivateLabels.ids(CallerIdCopy.labelsOf(o), runCatching { labelGroups() }.getOrDefault(emptyList())),
+        groupIds = PrivateLabels.ids(CallerIdCopy.labelsOf(o), catching { labelGroups() }.getOrDefault(emptyList())),
         customRingtone = o.optString(C_TONE).ifEmpty { null },
         sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
     )
@@ -306,7 +306,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun open(id: Long): Opened? = withContext(Dispatchers.IO) {
         // An entry from before the caller-ID copy kept the star, labels, ringtone and voicemail gets them now (the
         // details are being opened anyway), so the page, the editor and "Make visible" see them.
-        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
+        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) catching { seedCallerChoices(id) }
         val e = dao.get(id) ?: return@withContext null
         val caller = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
         val (d, lost) = try {
@@ -327,7 +327,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     suspend fun callerCopy(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
         val e = dao.callerRow(id) ?: return@withContext null
-        runCatching {
+        catching {
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
             withCallerChoices(CallerIdCopy.rebuilt(id, o), o).copy(photoUri = photoUri(id), starred = o.optBoolean(C_STAR, false))
         }.getOrNull()
@@ -380,7 +380,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     @Volatile var onConcealed: () -> Unit = {}
 
-    private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
+    private fun deviceLocked(): Boolean = catching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
 
     /**
      * Entry [e]'s details from its main part: from memory when opened in the last [OPENED_MS] and unchanged since, and
@@ -396,7 +396,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val blob = if (VaultCrypto.isParts(e.detailBlob)) {
             e.detailBlob
         } else {
-            runCatching { split(e.id, e.detailBlob, JSONObject(text)) }.getOrNull() ?: e.detailBlob
+            catching { split(e.id, e.detailBlob, JSONObject(text)) }.getOrNull() ?: e.detailBlob
         }
         openedMain[e.id] = OpenedMain(blob, d, now)
         return d
@@ -518,7 +518,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     private suspend fun generationsInUse(): Set<Int> =
         // One entry's details at a time, never every entry's at once.
         dao.callerRowsNow().mapNotNull { r -> dao.detailBlob(r.id)?.let(VaultCrypto::generationOf) }.toSet() +
-            runCatching { keptGenerations() }.getOrDefault(emptySet())
+            catching { keptGenerations() }.getOrDefault(emptySet())
 
     /** Generations of detail blobs kept outside the table (set by the container: [PrivateTrash]). */
     @Volatile var keptGenerations: () -> Set<Int> = { emptySet() }
@@ -596,7 +596,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val existing = id?.let { dao.get(it) }
             val existingSummary = existing?.let { summarize(it) }
             val purge = purgeHistory ?: existingSummary?.purgeHistory ?: false
-            val groups = runCatching { labelGroups() }.getOrDefault(emptyList())
+            val groups = catching { labelGroups() }.getOrDefault(emptyList())
             // [loaded]: the editor's starting point. Only what the editor changed is taken from it; the rest stays as the
             // entry has it now (a star or a label changed from the list while the editor was open).
             val base = existingSummary?.takeIf { loaded != null && it.choicesKnown }
@@ -746,10 +746,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun updateCallerChoices(id: Long, change: (VaultSummary) -> VaultSummary): Boolean = withContext(Dispatchers.IO) {
         // An entry not seeded yet would have its old star, tone and labels replaced by the defaults: seed it first when
         // its details can be opened (a locked vault keeps the change to what the caller-ID copy has).
-        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
+        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) catching { seedCallerChoices(id) }
         keysLock.withLock {
             val e = dao.callerRow(id) ?: return@withLock false
-            val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
+            val o = catching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
             val before = summarize(e) ?: return@withLock false
             val after = change(before)
             if (after == before) return@withLock true
@@ -777,7 +777,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun seedCallerChoices(id: Long): Boolean = withContext(Dispatchers.IO) {
         keysLock.withLock {
             val e = dao.get(id) ?: return@withLock false
-            val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
+            val o = catching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
             if (o.has(C_SEEDED)) return@withLock true
             val detail = try {
                 JSONObject(String(VaultCrypto.openDetailMain(e.detailBlob)))
@@ -786,8 +786,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             }
             if (detail != null) {
                 // Photos aren't needed for this: their blobs are left out.
-                val line = runCatching { extrasOf(e.detailBlob, detail) }.getOrNull()?.optString(REC).orEmpty()
-                val record = line.takeIf { it.isNotEmpty() }?.let { runCatching { RecordJson.decode(it) { null } }.getOrNull() }
+                val line = catching { extrasOf(e.detailBlob, detail) }.getOrNull()?.optString(REC).orEmpty()
+                val record = line.takeIf { it.isNotEmpty() }?.let { catching { RecordJson.decode(it) { null } }.getOrNull() }
                 val seed = PrivateCallerChoices.seed(
                     detail.optBoolean("starred"), detail.optString("ringtone").ifEmpty { null }, detail.optBoolean("vm"), record,
                 )
@@ -881,7 +881,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val ok = keysLock.withLock {
                 db.withTransaction {
                     val e = dao.callerRow(id) ?: return@withTransaction true
-                    val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withTransaction false
+                    val o = catching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withTransaction false
                     val s = summarize(e) ?: return@withTransaction false
                     val region = o.optString(C_REGION).ifEmpty { fallbackRegion }
                     val rows = catching { numberRows(e.id, s.numbers, region, withPrevious = true) }.getOrNull() ?: return@withTransaction false
@@ -915,9 +915,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
         scope.launch {
             gate?.await()
-            runCatching { migrateNumberKeys() }
+            catching { migrateNumberKeys() }
             // Settles the key generation from the stored blobs before anything audits it (an interrupted upgrade).
-            runCatching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } }
+            catching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } }
         }
     }
 
@@ -931,7 +931,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             dao.setExpiry(id, expiresAt)
             if (purgeHistory == null) return@withLock
             val e = dao.callerRow(id) ?: return@withLock
-            val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock
+            val o = catching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock
             if (o.optBoolean("purge", false) == purgeHistory) return@withLock
             if (purgeHistory) o.put("purge", true) else o.remove("purge")
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
@@ -1012,7 +1012,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /** The decrypted photo (JPEG) of entry [id], or null. */
-    fun photoBytes(id: Long): ByteArray? = runCatching {
+    fun photoBytes(id: Long): ByteArray? = catching {
         val f = photoFile(id)
         if (!f.isFile) null else VaultCrypto.openCallerId(f.readBytes())
     }.getOrNull()
@@ -1122,7 +1122,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val x = extrasOf(e.detailBlob, o)
         val line = x.optString(REC).takeIf { it.isNotEmpty() } ?: return@withContext null
         val blobs = x.optJSONObject(REC_BLOBS)
-        val record = runCatching { RecordJson.decode(line) { h -> blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } } }.getOrNull()
+        val record = catching { RecordJson.decode(line) { h -> blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } } }.getOrNull()
             ?: return@withContext null
         val now = ContactDetailsJson.encode(ContactDetailsJson.decode(o.toString()))
         StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != x.optString(REC_OF), x.optString(REC_OF))

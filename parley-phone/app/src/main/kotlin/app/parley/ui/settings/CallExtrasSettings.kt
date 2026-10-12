@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.RingStyle
+import app.parley.common.catching
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Spacing
@@ -211,7 +212,7 @@ private fun RingingDialog(vm: AppViewModel, style: RingStyle, flip: Boolean, nam
 }
 
 /** Android's "Power button ends call" (a secure setting: 2 = hang up); null when it can't be read. */
-private fun powerButtonEndsCall(context: Context): Boolean? = runCatching {
+private fun powerButtonEndsCall(context: Context): Boolean? = catching {
     when (Settings.Secure.getInt(context.contentResolver, "incall_power_button_behavior", -1)) {
         2 -> true
         1 -> false

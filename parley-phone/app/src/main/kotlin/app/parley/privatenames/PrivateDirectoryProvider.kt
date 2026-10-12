@@ -13,6 +13,7 @@ import android.provider.ContactsContract.Directory
 import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.people.DirectoryPolicy
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
@@ -141,7 +142,7 @@ class PrivateDirectoryProvider : ContentProvider() {
 
         /** The package of the Contacts Provider ("com.android.providers.contacts" on AOSP; OEMs may differ). */
         @Suppress("DEPRECATION") // The flags overload of resolveContentProvider is deprecated only from Android 13.
-        private fun contactsProviderPackage(ctx: Context): String? = cp2 ?: runCatching {
+        private fun contactsProviderPackage(ctx: Context): String? = cp2 ?: catching {
             ctx.packageManager.resolveContentProvider(ContactsContract.AUTHORITY, 0)?.packageName
         }.getOrNull().also { cp2 = it }
 
@@ -152,14 +153,14 @@ class PrivateDirectoryProvider : ContentProvider() {
         fun setEnabled(ctx: Context, c: DataContainer, on: Boolean) {
             // A duress session's change is only shown: the component stays as stored.
             if (!c.people.privateNames.setDirectoryEnabled(on)) return
-            runCatching {
+            catching {
                 ctx.packageManager.setComponentEnabledSetting(
                     ComponentName(ctx, PrivateDirectoryProvider::class.java),
                     if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP,
                 )
             }
-            runCatching { Directory.notifyDirectoryChange(ctx.contentResolver) }
+            catching { Directory.notifyDirectoryChange(ctx.contentResolver) }
         }
     }
 }

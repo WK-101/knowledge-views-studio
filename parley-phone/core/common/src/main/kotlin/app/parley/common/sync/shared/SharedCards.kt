@@ -3,6 +3,7 @@ package app.parley.common.sync.shared
 import app.parley.common.Duplicates
 import app.parley.common.PhoneIdentity
 import app.parley.common.backup.RecordJson
+import app.parley.common.catching
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.ThreeWayMerge.Side
 import app.parley.common.record.Col
@@ -50,7 +51,7 @@ object SharedCards {
     fun encode(card: ContactRecord): String = RecordJson.encode(card)
 
     /** A card from a file, or null when it isn't one; whatever it holds is projected again (only shared kinds). */
-    fun decode(text: String): ContactRecord? = runCatching { project(RecordJson.decode(text) { null }) }.getOrNull()
+    fun decode(text: String): ContactRecord? = catching { project(RecordJson.decode(text) { null }) }.getOrNull()
 
     private fun rows(card: ContactRecord, field: CardField): List<DataRow> = card.raws.flatMap { it.rows }.filter { FIELDS[it.mimeType] == field }
 

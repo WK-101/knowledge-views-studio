@@ -26,7 +26,6 @@ import app.parley.common.NotifyLevel
 import app.parley.common.PhoneIdentity
 import app.parley.common.VerdictKind
 import app.parley.common.catching
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
@@ -85,7 +84,7 @@ object BlockingNotifier {
     fun onScreened(context: Context, c: DataContainer, e: ScreenedCall) {
         val app = context.applicationContext
         val turn = order.next()
-        c.scope.launch(Dispatchers.IO) { suspendRunCatching { post(app, c, e, turn) } }
+        c.scope.launch(Dispatchers.IO) { catching { post(app, c, e, turn) } }
     }
 
     private val order = PostOrder()

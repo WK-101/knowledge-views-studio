@@ -58,14 +58,9 @@ import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
 import app.parley.ui.showMessage
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** Ticks and additions outlive the card that started them (the call may end meanwhile). */
-private val agendaScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
 
 /**
  * A call the agenda applies to: a number that isn't hidden, never an emergency call, a conference or a rescue call
@@ -144,7 +139,7 @@ internal object CallAgendas {
 private fun toggle(context: Context, call: CallUi, s: CallAgendas.State, text: String, done: Boolean, failed: String) {
     s.ticked = if (done) s.ticked + text else s.ticked - text
     val number = call.number ?: return
-    agendaScope.launch {
+    CallScreenWrites.scope.launch {
         val ok = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.setAgendaDone(number, call.accountId, text, done) } }.getOrDefault(false)
         if (!ok) {
             s.ticked = if (done) s.ticked - text else s.ticked + text
@@ -319,7 +314,7 @@ internal fun AgendaAddDialog(call: CallUi, onDone: () -> Unit) {
             val item = text
             onDone()
             if (number != null) {
-                agendaScope.launch {
+                CallScreenWrites.scope.launch {
                     val result = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.addAgendaItem(number, call.accountId, item) } }
                         .getOrDefault(AgendaAdded.FAILED)
                     catching { showMessage(context, said.getValue(result)) }

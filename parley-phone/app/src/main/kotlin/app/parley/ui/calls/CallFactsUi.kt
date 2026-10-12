@@ -19,6 +19,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.common.catching
 import app.parley.common.ux.DefaultAppFeature
 import app.parley.R
 import app.parley.common.calls.CallQualityDiary
@@ -40,7 +41,7 @@ import kotlinx.coroutines.withContext
 fun CallFactsHistorySection(vm: AppViewModel, number: String) {
     val version by vm.c.callQuality.version.collectAsStateWithLifecycle()
     val facts by produceState(emptyList<CallQualityFacts>(), number, version) {
-        value = withContext(Dispatchers.IO) { runCatching { vm.c.callQuality.forNumber(number) }.getOrDefault(emptyList()) }
+        value = withContext(Dispatchers.IO) { catching { vm.c.callQuality.forNumber(number) }.getOrDefault(emptyList()) }
     }
     val shown = facts.filter { it.subject != null || it.drop != null || it.wifi || it.hd }.take(MAX_SHOWN)
     // One quality line for the number ("7 calls in 60 days, 2 dropped, all on Work").

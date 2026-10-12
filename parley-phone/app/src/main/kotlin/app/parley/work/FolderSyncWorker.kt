@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import app.parley.common.catching
 import app.parley.common.sync.FolderSyncSchedule
 import app.parley.common.sync.FolderSyncSchedule.Trigger
 import app.parley.container
@@ -39,13 +40,13 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         if (!FolderSyncSchedule.shouldRun(trigger, last, System.currentTimeMillis())) return Result.success()
         val sync = applicationContext.container.folderSync
         if (sync.status.value.folderUri != null && sync.status.value.auto) {
-            runCatching { sync.syncNow() }
+            catching { sync.syncNow() }
             // A paused run tells the user instead of waiting silently until they open the Sync screen.
             FolderSyncNotice.update(applicationContext, sync.status.value)
         }
         // Labels shared with other people's phones, each through its own folder (incremental; never deletes on a partial listing).
         val shared = applicationContext.container.sharedLabels
-        if (shared.wantsRuns()) runCatching { shared.syncAll() }
+        if (shared.wantsRuns()) catching { shared.syncAll() }
         // A content trigger fires once: watch for the next change, after this run.
         if (trigger == Trigger.CHANGE && wanted(applicationContext, null)) watchChanges(applicationContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
         prefs.edit().putLong(K_LAST_RUN, System.currentTimeMillis()).apply()

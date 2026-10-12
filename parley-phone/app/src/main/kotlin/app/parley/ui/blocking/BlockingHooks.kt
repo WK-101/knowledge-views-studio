@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import app.parley.common.catching
 import app.parley.ui.Bidi
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -149,7 +150,7 @@ private fun verdictBadge(context: android.content.Context, v: VerdictSummary?, d
 /** "Looks like a sales line (your calls)", quiet (never a warning), for an unknown number your calls tagged. */
 private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.res.Resources, learn: Boolean): RecentBadge? {
     if (!learn || g.vaultId != null) return null
-    return runCatching { vm.c.reputation.lookup(g.number, PhoneEnv.countryIso(vm.c.appContext, g.latest.accountId)) }.getOrNull()
+    return catching { vm.c.reputation.lookup(g.number, PhoneEnv.countryIso(vm.c.appContext, g.latest.accountId)) }.getOrNull()
         ?.let { RecentBadge(res.getString(TR.string.rep_tag), warn = false) }
 }
 

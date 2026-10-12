@@ -3,6 +3,7 @@ package app.parley.data.calls
 import android.content.Context
 import android.util.Base64
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.spam.CallReputation
 import app.parley.common.spam.Reputation
 import app.parley.common.spam.ReputationIndex
@@ -69,7 +70,7 @@ class ReputationStore private constructor(context: Context, private val keySourc
             stored = false
             return true
         }
-        val opened = runCatching { String(keySource.keys().open(Base64.decode(text, Base64.NO_WRAP))) }.getOrNull() ?: return false
+        val opened = catching { String(keySource.keys().open(Base64.decode(text, Base64.NO_WRAP))) }.getOrNull() ?: return false
         val map = CallReputation.decode(opened)
         entries = map
         stored = map.isNotEmpty()
@@ -83,7 +84,7 @@ class ReputationStore private constructor(context: Context, private val keySourc
         val map = entries ?: return null
         if (map.isEmpty()) return null
         val k = keySource.keys()
-        return runCatching {
+        return catching {
             map[k.mac(LINE + line)] ?: CallReputation.rangeOf(line)?.let { map[k.mac(RANGE + it)] }
         }.getOrNull()
     }
@@ -100,8 +101,8 @@ class ReputationStore private constructor(context: Context, private val keySourc
     /** Replaces the whole index with [index]. False when it couldn't be sealed (nothing is ever stored in plain text). */
     @Synchronized
     fun replace(index: ReputationIndex): Boolean {
-        val k = runCatching { keySource.keys() }.getOrNull() ?: return false
-        val map = runCatching {
+        val k = catching { keySource.keys() }.getOrNull() ?: return false
+        val map = catching {
             HashMap<String, Reputation>().apply {
                 index.lines.forEach { (line, r) -> put(k.mac(LINE + line), r) }
                 index.ranges.forEach { (range, r) -> put(k.mac(RANGE + range), r) }
@@ -111,7 +112,7 @@ class ReputationStore private constructor(context: Context, private val keySourc
         val sealed = if (map.isEmpty()) {
             null
         } else {
-            runCatching { Base64.encodeToString(k.seal(CallReputation.encode(map).toByteArray()), Base64.NO_WRAP) }.getOrNull() ?: return false
+            catching { Base64.encodeToString(k.seal(CallReputation.encode(map).toByteArray()), Base64.NO_WRAP) }.getOrNull() ?: return false
         }
         prefs.edit().apply { if (sealed == null) remove(KEY) else putString(KEY, sealed) }.apply()
         entries = map

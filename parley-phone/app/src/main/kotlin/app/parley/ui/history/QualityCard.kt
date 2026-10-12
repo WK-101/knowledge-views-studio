@@ -39,6 +39,7 @@ import app.parley.common.calls.DropRate
 import app.parley.common.calls.QualityAdvice
 import app.parley.common.calls.QualityPattern
 import app.parley.common.calls.QualityReport
+import app.parley.common.catching
 import app.parley.common.history.CallLogIndex
 import app.parley.data.vault.PrivateCall
 import app.parley.ui.Destination
@@ -71,7 +72,7 @@ fun QualityCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit
     val hideVault = privacy.privateHidden
     val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
     val data by produceState<QualityData?>(null, idx, version, hideVault, priv) {
-        value = withContext(Dispatchers.IO) { runCatching { qualityData(vm, idx, if (hideVault) emptyList() else priv) }.getOrNull() }
+        value = withContext(Dispatchers.IO) { catching { qualityData(vm, idx, if (hideVault) emptyList() else priv) }.getOrNull() }
     }
     val d = data ?: return
     val r = d.report

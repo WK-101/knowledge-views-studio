@@ -78,6 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.NavEvent
+import app.parley.common.catching
 import app.parley.common.ux.Basics
 import app.parley.common.ux.ComingFrom
 import app.parley.common.ux.OnboardingStep
@@ -179,7 +180,7 @@ private fun ColumnScope.WelcomeStep(onRestore: () -> Unit, next: () -> Unit) {
 }
 
 /** The installer package of this app (null when unknown or unreadable). */
-private fun installerOf(context: Context): String? = runCatching {
+private fun installerOf(context: Context): String? = catching {
     if (Build.VERSION.SDK_INT >= 30) {
         context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
     } else {
@@ -189,7 +190,7 @@ private fun installerOf(context: Context): String? = runCatching {
 }.getOrNull()
 
 private fun appInfo(context: Context) {
-    runCatching {
+    catching {
         context.startActivity(
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )

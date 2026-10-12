@@ -9,9 +9,9 @@ import app.parley.common.KeypadLayout
 import app.parley.common.T9
 import app.parley.common.TextSearchIndex
 import app.parley.common.calls.CallPill
+import app.parley.common.catching
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
-import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.Romanizer
@@ -152,7 +152,7 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     /** "Save for a while": a temporary contact for [number]; [onResult] gets null when it couldn't be saved. */
     fun saveTemporary(number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean, onResult: (TemporaryContacts.Saved?) -> Unit) {
         viewModelScope.launch {
-            onResult(suspendRunCatching { saveTemporaryNow(number, name, days, deleteHistory, visible) }.getOrNull())
+            onResult(catching { saveTemporaryNow(number, name, days, deleteHistory, visible) }.getOrNull())
         }
     }
 

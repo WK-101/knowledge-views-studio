@@ -134,7 +134,7 @@ class ContactKeys(
                 moveLocked(from, key, owner)
                 val title = contacts.details(owner)?.displayName.orEmpty()
                 if (title.isNotEmpty()) {
-                    runCatching { calling()?.update { cfg -> cfg.rule(LimitScope.CONTACT, key)?.let { r -> cfg.withRule(r.copy(title = title)) } ?: cfg } }
+                    catching { calling()?.update { cfg -> cfg.rule(LimitScope.CONTACT, key)?.let { r -> cfg.withRule(r.copy(title = title)) } ?: cfg } }
                 }
             }
             prefs.edit().remove(from).apply()
@@ -159,13 +159,13 @@ class ContactKeys(
             m.relationLinks?.let { o.put(X_LINKS, it) }
             m.yearlyEvents?.let { o.put(X_YEARLY, it) }
         }
-        val carried = runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
+        val carried = catching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
             .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
         if (carried.isNotEmpty()) o.put(X_INTERACTIONS, Interactions.encodeCarried(carried))
-        runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
+        catching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
         calling()?.config?.value?.contactPart(key)?.takeIf { !it.isEmpty }?.let { o.put(X_CALL_TIME, encodeCallTime(it)) }
-        runCatching { cardLinks()?.let { s -> s.load(); s.exportOne(key) } }.getOrNull()?.let { o.put(X_CARD, it) }
-        runCatching { shareLedger()?.let { s -> s.load(); s.exportFor(key) } }.getOrNull()?.let { o.put(X_SHARED, it) }
+        catching { cardLinks()?.let { s -> s.load(); s.exportOne(key) } }.getOrNull()?.let { o.put(X_CARD, it) }
+        catching { shareLedger()?.let { s -> s.load(); s.exportFor(key) } }.getOrNull()?.let { o.put(X_SHARED, it) }
         o.takeIf { it.length() > 0 }
     }
 
@@ -208,14 +208,14 @@ class ContactKeys(
             val store = interactions()
             if (store != null) Interactions.decodeCarried(o.optString(X_INTERACTIONS).ifEmpty { null }).forEach { i ->
                 val type = InteractionType.entries.firstOrNull { it.name == i.t } ?: InteractionType.OTHER
-                runCatching { store.log(key, -vaultId, type, InteractionChannel.decode(i.c), i.at, i.note, i.u) }
+                catching { store.log(key, -vaultId, type, InteractionChannel.decode(i.c), i.at, i.note, i.u) }
             }
             o.optString(X_BACKGROUND).ifEmpty { null }?.let { b ->
-                runCatching { backgrounds().write(key, android.util.Base64.decode(b, android.util.Base64.NO_WRAP)); backgrounds().remember(key) }
+                catching { backgrounds().write(key, android.util.Base64.decode(b, android.util.Base64.NO_WRAP)); backgrounds().remember(key) }
             }
-            o.optJSONObject(X_CALL_TIME)?.let { t -> runCatching { calling()?.update { it.withContactPart(key, decodeCallTime(t), "") } } }
-            o.optString(X_CARD).ifEmpty { null }?.let { j -> runCatching { cardLinks()?.importOne(key, j) } }
-            o.optString(X_SHARED).ifEmpty { null }?.let { j -> runCatching { shareLedger()?.importFor(key, j) } }
+            o.optJSONObject(X_CALL_TIME)?.let { t -> catching { calling()?.update { it.withContactPart(key, decodeCallTime(t), "") } } }
+            o.optString(X_CARD).ifEmpty { null }?.let { j -> catching { cardLinks()?.importOne(key, j) } }
+            o.optString(X_SHARED).ifEmpty { null }?.let { j -> catching { shareLedger()?.importFor(key, j) } }
         }
     }
 
@@ -242,13 +242,13 @@ class ContactKeys(
                 meta.setRelationLinks(r.lookupKey, RelationLinks.encode(links.filterValues { it.lookupKey != key }))
             }
         }
-        runCatching { backgrounds().clear(key) }
-        runCatching { backgrounds().forgetPhotoChoice(key) }
-        runCatching { originals()?.clear(key) }
-        runCatching { extras()?.dndForget(key) }
-        runCatching { extras()?.choiceForget(key) }
-        runCatching { calling()?.update { it.withoutContact(key) } }
-        runCatching { cardLinks()?.forget(key) }
+        catching { backgrounds().clear(key) }
+        catching { backgrounds().forgetPhotoChoice(key) }
+        catching { originals()?.clear(key) }
+        catching { extras()?.dndForget(key) }
+        catching { extras()?.choiceForget(key) }
+        catching { calling()?.update { it.withoutContact(key) } }
+        catching { cardLinks()?.forget(key) }
         catching { myCard()?.forgetLinks(key) }
         catching { relationMirrors()?.forgetCorrections(key) }
     }
@@ -265,10 +265,10 @@ class ContactKeys(
         mutex.withLock {
             // Without a listing (no permission) nothing can be resolved: leave everything where it is.
             val current = contacts.lookupKeys() ?: return@withLock 0
-            val settled = runCatching { settleWaitingLocked() }.getOrDefault(0)
+            val settled = catching { settleWaitingLocked() }.getOrDefault(0)
             var moved = 0
             val rows = meta.allMetaNow()
-            val bg = runCatching { backgrounds() }.getOrNull()
+            val bg = catching { backgrounds() }.getOrNull()
             val keys = LinkedHashMap<String, Long?>()
             // Private and archived contacts' keys are never looked up in the address book (a namesake must not take their data).
             rows.forEach { if (!ContactRef.isParleyOnlyKey(it.lookupKey)) keys[it.lookupKey] = it.contactId }
@@ -276,12 +276,12 @@ class ContactKeys(
             bg?.photoChoiceKeys()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             // With the contact id they were logged with, so a key change without a shared segment (a rename of a
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
-            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isParleyOnlyKey(k)) keys[k] = id }
-            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            catching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isParleyOnlyKey(k)) keys[k] = id }
+            catching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            catching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             catching { extras()?.chapterKeys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
-            runCatching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()
+            catching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
+            catching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()
                 ?.forEach { if (!ContactRef.isParleyOnlyKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
@@ -339,19 +339,19 @@ class ContactKeys(
             }
         }
         // Files and preferences: outside the database, and self-healing on the next sweep.
-        runCatching { backgrounds().move(from, to) }
-        runCatching { originals()?.move(from, to) }
-        runCatching { extras()?.dndRekey(from, to) }
+        catching { backgrounds().move(from, to) }
+        catching { originals()?.move(from, to) }
+        catching { extras()?.dndRekey(from, to) }
         // Who was in a label at its chapter's start stays known as such.
         catching { extras()?.chapterRekey(from, to, toId) }
         // The haptic caller ID and auto-answer (into the vault entry when [to] is a private contact's key).
-        runCatching { extras()?.choiceRekey(from, to) }
-        runCatching { cardLinks()?.rekey(from, to) }
-        runCatching { shareLedger()?.rekey(from, to) }
+        catching { extras()?.choiceRekey(from, to) }
+        catching { cardLinks()?.rekey(from, to) }
+        catching { shareLedger()?.rekey(from, to) }
         catching { myCard()?.rekeyLinks(from, to, toId) }
         catching { relationMirrors()?.rekeyCorrections(from, to) }
         // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
-        runCatching {
+        catching {
             calling()?.update { cfg ->
                 cfg.rekeyed(from, to, if (ContactRef.isPrivateKey(to)) "" else cfg.rule(LimitScope.CONTACT, from)?.title.orEmpty())
             }

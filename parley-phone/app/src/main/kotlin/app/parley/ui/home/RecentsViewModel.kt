@@ -19,6 +19,7 @@ import app.parley.common.calls.NetworkNameSeen
 import app.parley.common.calls.RecentsCallers
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
+import app.parley.common.catching
 import app.parley.common.history.HistoryFilter
 import app.parley.common.people.Archive
 import app.parley.common.people.ArchivedCard
@@ -89,7 +90,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     /** A chip tapped in Recents: shown now, and remembered for the next launch (Settings › Recents & history). */
     fun setFilter(f: RecentFilter) {
         filter.value = f
-        viewModelScope.launch { runCatching { c.settings.update { it.copy(recentsFilter = if (f == RecentFilter.ALL) "" else f.name) } } }
+        viewModelScope.launch { catching { c.settings.update { it.copy(recentsFilter = if (f == RecentFilter.ALL) "" else f.name) } } }
     }
 
     /** Restores the chip used last, once, right after construction (the view-model factory calls it). */
@@ -205,7 +206,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
                 list.orEmpty().asSequence()
                     .filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }
                     .map { it.number }.distinct().take(LOCATIONS_AHEAD)
-                    .forEach { n -> runCatching { NumberInfo.location(n, countryIso) } }
+                    .forEach { n -> catching { NumberInfo.location(n, countryIso) } }
             }
         }
     }

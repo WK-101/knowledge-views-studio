@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.common.catching
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
@@ -101,12 +102,12 @@ private const val ACTION_EDIT_EMERGENCY_INFO = "android.settings.EDIT_EMERGENCY_
 /** Makes sure a label titled [ICE_LABEL] exists; true when it does now. */
 private suspend fun ensureIceLabel(vm: AppViewModel): Boolean {
     val labels = vm.c.people.labels
-    if (runCatching { labels.label(ICE_LABEL) }.getOrNull() != null) return true
-    val accounts = runCatching { vm.c.contacts.accounts() }.getOrDefault(emptyList())
+    if (catching { labels.label(ICE_LABEL) }.getOrNull() != null) return true
+    val accounts = catching { vm.c.contacts.accounts() }.getOrDefault(emptyList())
     val s = vm.settings.value
     val account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
         ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull() ?: return false
-    val made = runCatching { labels.create(ICE_LABEL, account) }.getOrNull() != null
-    if (made) runCatching { vm.c.contacts.refresh() }
+    val made = catching { labels.create(ICE_LABEL, account) }.getOrNull() != null
+    if (made) catching { vm.c.contacts.refresh() }
     return made
 }

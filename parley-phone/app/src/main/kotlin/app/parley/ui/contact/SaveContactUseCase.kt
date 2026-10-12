@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.catching
 import app.parley.data.vault.VaultCrypto
 import android.net.Uri
 import app.parley.jobs.UserErrorText
@@ -10,7 +11,6 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
-import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.ContactChangedElsewhereException
 import app.parley.data.ContactDetails
@@ -107,7 +107,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val notes = ArrayList<Int>()
         val mirrors = ArrayList<RelationMirrors.Report>()
         val temporary = r.temporary?.takeIf { r.original == null && (r.vaultId ?: 0L) <= 0L }
-        val id = suspendRunCatching {
+        val id = catching {
             when {
                 temporary != null -> saveTemporary(r, temporary, notes, mirrors)
                 r.toVault -> saveVault(r, notes)
@@ -118,7 +118,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         ContactCamera.forget(c.appContext, r.photo)
         // The expiry picked in the editor; the vault's was written with the contact itself.
         val expiry = r.expiry
-        if (expiry != null && !r.toVault && suspendRunCatching { applyExpiry(r, id, expiry) }.isFailure) notes += R.string.editor_expiry_failed
+        if (expiry != null && !r.toVault && catching { applyExpiry(r, id, expiry) }.isFailure) notes += R.string.editor_expiry_failed
         // A temporary contact the user just edited for real is asked once whether to keep it (unless its time was
         // just chosen here, which answers that already).
         val key = r.original?.lookupKey
@@ -140,7 +140,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val id = withContext(Dispatchers.IO) {
             raw?.let { c.contacts.contactsOfRaws(listOf(it))[it] } ?: c.contacts.currentOf(o.lookupKey, o.id)?.first
         } ?: return null
-        val now = suspendRunCatching { if (raw != null) c.contacts.editableRaw(id, raw) else c.contacts.editable(id) }.getOrNull()
+        val now = catching { if (raw != null) c.contacts.editableRaw(id, raw) else c.contacts.editable(id) }.getOrNull()
         // The edited copy itself is gone (only another copy is left): treat it as removed.
         return now?.takeIf { raw == null || it.editRawId == raw }
     }
@@ -160,7 +160,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             val links = if (names.isEmpty()) {
                 emptyMap()
             } else {
-                val people = suspendRunCatching { withContext(Dispatchers.IO) { c.contacts.snapshot() } }.getOrDefault(emptyList())
+                val people = catching { withContext(Dispatchers.IO) { c.contacts.snapshot() } }.getOrDefault(emptyList())
                 RelationLinks.update(names, me.links.value, people.map { Triple(it.id, it.displayName, it.lookupKey) }, picked = r.pickedLinks)
             }
             me.save(d, links)
@@ -267,7 +267,7 @@ class SaveContactUseCase(private val c: DataContainer) {
     private suspend fun avatarFile(r: Request, kept: suspend () -> OriginalPhotos.Original?): File? {
         val bytes = framedAvatar(r, kept) ?: return null
         return withContext(Dispatchers.IO) {
-            runCatching {
+            catching {
                 val dir = File(c.appContext.cacheDir, ContactCamera.FRAMED_DIR).apply { mkdirs() }
                 File(dir, "avatar-${System.nanoTime()}.jpg").apply { writeBytes(bytes) }
             }.getOrNull()
@@ -305,7 +305,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         if (r.draft.relations.isEmpty() && r.original?.relations.isNullOrEmpty()) return
         if (!c.settings.current().mirrorRelations) return
         val links = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id)?.let { c.meta.meta(it) }?.relationLinks }
-        suspendRunCatching { c.people.relationMirrors.mirror(id, r.draft.relations, RelationLinks.decode(links), r.original?.relations.orEmpty()) }
+        catching { c.people.relationMirrors.mirror(id, r.draft.relations, RelationLinks.decode(links), r.original?.relations.orEmpty()) }
             .onSuccess { out += it }
     }
 
@@ -371,7 +371,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         if (before != null && r.background != BackgroundChange.None) saveBackground(r.background, before, saved, notes)
         if (saved != null) {
             rememberRelations(saved, r.draft, r.pickedLinks, r.original)
-            suspendRunCatching { originalPhoto(if (frameFailed) r.copy(photoFrame = null) else r, saved, photoBefore) }
+            catching { originalPhoto(if (frameFailed) r.copy(photoFrame = null) else r, saved, photoBefore) }
             mirrorRelations(r, saved, mirrors)
         }
         return saved

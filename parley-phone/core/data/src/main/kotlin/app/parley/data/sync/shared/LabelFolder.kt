@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.common.sync.FolderSyncRules
 import app.parley.common.sync.shared.SharedLabelFiles
@@ -41,7 +42,7 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
     internal var retryMs = 1_500L
 
     override suspend fun list(): Map<String, String?>? {
-        val treeId = runCatching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull() ?: return null
+        val treeId = catching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull() ?: return null
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, treeId)
         val columns = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE)
         repeat(TRIES) { attempt ->
@@ -70,7 +71,7 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
         throw LabelFolder.Incomplete()
     }
 
-    override fun read(name: String): ByteArray? = runCatching {
+    override fun read(name: String): ByteArray? = catching {
         cr.openInputStream(uris[name] ?: return null)?.use { Bounded.readBytes(it, SharedLabelFiles.MAX_FILE_BYTES, "label file") }
     }.getOrNull()
 
@@ -90,11 +91,11 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
 
     override fun delete(name: String): Boolean {
         val uri = uris[name] ?: return false
-        return runCatching { DocumentsContract.deleteDocument(cr, uri) }.getOrDefault(false).also { if (it) uris.remove(name) }
+        return catching { DocumentsContract.deleteDocument(cr, uri) }.getOrDefault(false).also { if (it) uris.remove(name) }
     }
 
     /** The document named [name] in the folder now, or null (one query; only when a write needs it). */
-    private fun find(name: String): Uri? = runCatching {
+    private fun find(name: String): Uri? = catching {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
         cr.query(children, arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
             var found: Uri? = null
@@ -105,7 +106,7 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
         }
     }.getOrNull()
 
-    private fun stampOf(uri: Uri): String? = runCatching {
+    private fun stampOf(uri: Uri): String? = catching {
         cr.query(uri, arrayOf(Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE), null, null, null)?.use { c ->
             if (c.moveToFirst()) FolderSyncRules.stamp(if (c.isNull(0)) null else c.getLong(0), if (c.isNull(1)) null else c.getLong(1)) else null
         }
@@ -118,11 +119,11 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
 
         /** Keeps access to a folder the user picked across restarts. */
         fun keep(context: Context, tree: Uri) {
-            runCatching { context.contentResolver.takePersistableUriPermission(tree, READ_WRITE) }
+            catching { context.contentResolver.takePersistableUriPermission(tree, READ_WRITE) }
         }
 
         fun release(context: Context, tree: Uri) {
-            runCatching { context.contentResolver.releasePersistableUriPermission(tree, READ_WRITE) }
+            catching { context.contentResolver.releasePersistableUriPermission(tree, READ_WRITE) }
         }
     }
 }

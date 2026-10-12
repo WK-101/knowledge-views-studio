@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.lazy.rememberLazyListState
+import app.parley.common.catching
 import app.parley.ui.ParleyListItem
 import app.parley.ui.SwitchRow
 import androidx.compose.runtime.mutableStateOf
@@ -88,7 +89,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
     fun run(allowMassDelete: Boolean = false) {
         running = true
         scope.launch {
-            val r = runCatching { sync.syncNow(allowMassDelete) }
+            val r = catching { sync.syncNow(allowMassDelete) }
             running = false
             vm.toast(r.getOrNull()?.summary(res) ?: res.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
             FolderSyncNotice.update(context, sync.status.value, post = false)

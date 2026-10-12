@@ -3,6 +3,7 @@ package app.parley.common.history
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
@@ -64,7 +65,7 @@ data class PlanConfig(
         private val json = Codecs.stored
         private val list = ListSerializer(serializer())
         fun encodeList(l: List<PlanConfig>): String = json.encodeToString(list, l)
-        fun decodeList(s: String?): List<PlanConfig> = if (s.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(list, s) }.getOrDefault(emptyList())
+        fun decodeList(s: String?): List<PlanConfig> = if (s.isNullOrBlank()) emptyList() else catching { json.decodeFromString(list, s) }.getOrDefault(emptyList())
     }
 }
 

@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
+import app.parley.common.catching
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Section
 import app.parley.ui.common.Format
@@ -37,7 +38,7 @@ import kotlinx.coroutines.withContext
 private fun rememberRingFacts(vm: AppViewModel, number: String): List<RingFacts> {
     val version by vm.c.ringFacts.version.collectAsStateWithLifecycle()
     val facts by produceState(emptyList<RingFacts>(), number, version) {
-        value = withContext(Dispatchers.IO) { runCatching { vm.c.ringFacts.forNumber(number) }.getOrDefault(emptyList()) }
+        value = withContext(Dispatchers.IO) { catching { vm.c.ringFacts.forNumber(number) }.getOrDefault(emptyList()) }
     }
     return facts
 }

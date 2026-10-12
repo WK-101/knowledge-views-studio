@@ -71,6 +71,7 @@ import app.parley.calls.PlayerState
 import app.parley.calls.VoicemailPlayer
 import app.parley.common.TextSearch
 import app.parley.common.calls.VoicemailFiles
+import app.parley.common.catching
 import app.parley.data.calls.Voicemail
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calls.VoicemailState
@@ -201,14 +202,14 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip({ vm.callVoicemail() }, { Text(stringResource(R.string.action_call_voicemail)) }, leadingIcon = { Icon(Icons.Rounded.Call, null, Modifier.size(18.dp)) })
                 AssistChip(
-                    { runCatching { context.startActivity(Intent(VoicemailRepository.CONFIGURE_ACTION)) }.onFailure { vm.toast(res.getString(R.string.vmi_no_settings)) } },
+                    { catching { context.startActivity(Intent(VoicemailRepository.CONFIGURE_ACTION)) }.onFailure { vm.toast(res.getString(R.string.vmi_no_settings)) } },
                     { Text(stringResource(R.string.vmi_settings)) },
                     leadingIcon = { Icon(Icons.Rounded.Settings, null, Modifier.size(18.dp)) },
                 )
                 // The carrier's visual voicemail app's own settings, when it publishes them.
                 state.sources.firstNotNullOfOrNull { it.settingsUri }?.let { uri ->
                     AssistChip(
-                        { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { vm.toast(res.getString(R.string.vmi_open_failed)) } },
+                        { catching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { vm.toast(res.getString(R.string.vmi_open_failed)) } },
                         { Text(stringResource(R.string.vmi_carrier_app)) },
                         leadingIcon = { Icon(Icons.Rounded.Voicemail, null, Modifier.size(18.dp)) },
                     )

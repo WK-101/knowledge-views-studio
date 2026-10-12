@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.data.ContactDetails
 import app.parley.data.EventItem
 import kotlinx.coroutines.launch
@@ -74,7 +75,7 @@ fun MissingDateChips(
                 val ok = if (save != null) {
                     save(event)
                 } else {
-                    val saved = runCatching { vm.c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }
+                    val saved = catching { vm.c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }
                     saved.getOrNull() != null
                 }
                 if (!ok) vm.toast(res.getString(R.string.ux_date_not_saved)) else onSaved()

@@ -48,6 +48,7 @@ import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.ListMode
+import app.parley.common.catching
 import app.parley.common.spam.BuiltInPacks
 import app.parley.common.spam.PackOrigin
 import app.parley.common.spam.PackState
@@ -94,7 +95,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             try {
                 val parsed = vm.c.lists.parse(uri)
                 pending = parsed
-                pendingDry = runCatching { vm.c.screener.dryRun(vm.c.history.calls.value.orEmpty(), 7, candidatePack = parsed) }.getOrNull()
+                pendingDry = catching { vm.c.screener.dryRun(vm.c.history.calls.value.orEmpty(), 7, candidatePack = parsed) }.getOrNull()
             } catch (e: Exception) {
                 error = e.message?.let { BlockingText.installFailure(context, it) } ?: res.getString(R.string.blk_not_valid_list)
             }

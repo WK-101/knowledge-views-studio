@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import app.parley.common.catching
 import app.parley.common.photo.FrameMath
 import app.parley.common.photo.PhotoFrame
 import app.parley.common.photo.PhotoMath
@@ -115,7 +116,7 @@ object ContactPhotoProcessor {
             var sample = 1
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxLong) sample *= 2
             val orientation = open()?.use {
-                runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
+                catching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
             }
                 ?: ExifInterface.ORIENTATION_NORMAL
             open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }?.let { upright(it, orientation) }
@@ -156,7 +157,7 @@ object ContactPhotoProcessor {
             null
         } else {
             val orientation = open()?.use {
-                runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
+                catching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
             }
                 ?: ExifInterface.ORIENTATION_NORMAL
             var sample = 1

@@ -59,10 +59,10 @@ object LockTransitions {
 object HiddenNotifications {
     fun clear(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        val active = runCatching { nm.activeNotifications }.getOrNull() ?: return
+        val active = catching { nm.activeNotifications }.getOrNull() ?: return
         for (sbn in active) {
             val ongoing = sbn.isOngoing || sbn.notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0
-            if (!ongoing) runCatching { nm.cancel(sbn.tag, sbn.id) }.onFailure { Log.w("HiddenNotifications", "Couldn't cancel: ${it.javaClass.simpleName}") }
+            if (!ongoing) catching { nm.cancel(sbn.tag, sbn.id) }.onFailure { Log.w("HiddenNotifications", "Couldn't cancel: ${it.javaClass.simpleName}") }
         }
     }
 }

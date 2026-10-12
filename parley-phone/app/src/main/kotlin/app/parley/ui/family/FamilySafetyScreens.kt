@@ -69,6 +69,7 @@ import app.parley.common.calls.Helper
 import app.parley.common.calls.Helpers
 import app.parley.common.calls.SafeWord
 import app.parley.common.calls.SafeWords
+import app.parley.common.catching
 import app.parley.data.PhoneEnv
 import app.parley.security.AppLock
 import app.parley.security.VaultSession
@@ -216,7 +217,7 @@ fun SafeWordsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
     val all by vm.everyone.collectAsStateWithLifecycle()
     val labels by produceState<List<String>?>(null, all) {
         store.load()
-        value = runCatching { vm.c.people.labels.labels().map { it.title } }.getOrDefault(emptyList())
+        value = catching { vm.c.people.labels.labels().map { it.title } }.getOrDefault(emptyList())
     }
     SettingsScaffold(stringResource(R.string.label_family_safe_word), back) {
         Text(

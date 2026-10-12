@@ -1,6 +1,7 @@
 package app.parley.data.people
 
 import app.parley.common.Hex
+import app.parley.common.catching
 import app.parley.common.storage.DurableFiles
 import java.io.ByteArrayOutputStream
 import android.content.Context
@@ -64,7 +65,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
     /** A sealed picture by its hashed key, opened in memory (for the vault photo provider); null when there is none. */
     fun sealedBytes(hash: String): ByteArray? {
         if (!HASH.matches(hash)) return null
-        return runCatching { File(dir, hash + SEALED).takeIf { it.isFile }?.readBytes()?.let(VaultCrypto::openCallerId) }.getOrNull()
+        return catching { File(dir, hash + SEALED).takeIf { it.isFile }?.readBytes()?.let(VaultCrypto::openCallerId) }.getOrNull()
     }
 
     /**
@@ -163,7 +164,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     /** Lookup keys that have a background, as far as the index knows. */
     @Synchronized
-    fun indexedKeys(): Set<String> = runCatching { indexFile.readLines().filter { it.isNotBlank() && has(it) }.toSet() }.getOrDefault(emptySet())
+    fun indexedKeys(): Set<String> = catching { indexFile.readLines().filter { it.isNotBlank() && has(it) }.toSet() }.getOrDefault(emptySet())
 
     @Synchronized
     private fun writeIndex(keys: Set<String>) {
@@ -192,7 +193,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         } else {
             // Into or out of the private side: sealed or opened on the way (left where it is if that can't be done).
             val bytes = read(from) ?: return
-            runCatching { write(to, bytes) }.onFailure { Log.w(TAG, "A call screen picture couldn't follow its contact now") }.getOrNull() ?: return
+            catching { write(to, bytes) }.onFailure { Log.w(TAG, "A call screen picture couldn't follow its contact now") }.getOrNull() ?: return
             fileFor(from).delete()
             sealedFor(from).delete()
         }
@@ -209,7 +210,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     @Synchronized
     private fun choices(): Map<String, Boolean> =
-        choices ?: CallerPhoto.decode(runCatching { choicesFile.takeIf { it.isFile }?.readText() }.getOrNull()).also { choices = it }
+        choices ?: CallerPhoto.decode(catching { choicesFile.takeIf { it.isFile }?.readText() }.getOrNull()).also { choices = it }
 
     /** The contact's own choice: true (show), false (hide) or null (follow the setting). */
     fun photoChoice(key: String?): Boolean? = key?.takeIf { it.isNotEmpty() }?.let { choices()[it] }

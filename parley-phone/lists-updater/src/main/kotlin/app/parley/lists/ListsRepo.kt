@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import app.parley.common.Codecs
+import app.parley.common.catching
 import app.parley.common.spam.Ed25519
 import app.parley.common.storage.DurableFiles
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,7 +86,7 @@ class ListsRepo private constructor(context: Context) {
     private val _state = MutableStateFlow(read())
     val state: StateFlow<UpdaterState> = _state.asStateFlow()
 
-    private fun read(): UpdaterState = runCatching {
+    private fun read(): UpdaterState = catching {
         if (stateFile.exists()) CODEC.decodeFromString(UpdaterState.serializer(), stateFile.readText()) else UpdaterState()
     }.getOrDefault(UpdaterState()).copy(running = false)
 

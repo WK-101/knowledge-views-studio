@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.InsertPrefill
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.EditorForm
 import app.parley.common.people.ExpiryChange
@@ -24,7 +25,6 @@ import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
-import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDraftJson
@@ -392,7 +392,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         photoProbe = null
         photoQuestion = null
         viewModelScope.launch {
-            val p = suspendRunCatching { c.people.originals.probe(uri) }.getOrNull() ?: return@launch
+            val p = catching { c.people.originals.probe(uri) }.getOrNull() ?: return@launch
             if (photo != uri) return@launch
             photoProbe = p
             photoQuestion = OriginalPhoto.nextQuestion(p, photoAnswers)
@@ -661,7 +661,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val json = ContactDraftJson.encode(d).takeIf { it.length <= MAX_DRAFT_CHARS } ?: return b
         if (isVault) {
             // Sealed, or not kept at all when the vault's key is locked right now.
-            runCatching { VaultCrypto.sealDetail(json.toByteArray()) }.getOrNull()?.let { b.putByteArray(K_SEALED_DRAFT, it) }
+            catching { VaultCrypto.sealDetail(json.toByteArray()) }.getOrNull()?.let { b.putByteArray(K_SEALED_DRAFT, it) }
         } else {
             b.putString(K_DRAFT, json)
         }
@@ -684,7 +684,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             b.getString(K_DRAFT)
         }
         mustReconcile = b.getBoolean(K_RECONCILE)
-        json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { restored ->
+        json?.let { catching { ContactDraftJson.decode(it) }.getOrNull() }?.let { restored ->
             if (args.vaultId == null && args.contactId != null) reconcile(restored, b.getLong(K_BASE_RAW), b.getLong(K_BASE_VERSION, -1L)) else draft = restored
         }
         account = if (b.getBoolean(K_HAS_ACCOUNT)) AccountRef(b.getString(K_ACCOUNT_TYPE), b.getString(K_ACCOUNT_NAME)) else null
@@ -777,7 +777,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         links.forEach { (k, l) -> put(k, JSONArray().put(l.lookupKey).put(l.contactId)) }
     }.toString()
 
-    private fun decodeLinks(s: String?): Map<String, RelationLinks.Link> = runCatching {
+    private fun decodeLinks(s: String?): Map<String, RelationLinks.Link> = catching {
         val o = JSONObject(s ?: return emptyMap())
         o.keys().asSequence().associateWith { k -> o.getJSONArray(k).let { RelationLinks.Link(it.getString(0), it.getLong(1)) } }
     }.getOrDefault(emptyMap())

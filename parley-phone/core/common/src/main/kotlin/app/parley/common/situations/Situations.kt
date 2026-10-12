@@ -8,6 +8,7 @@ import app.parley.common.OffHoursAllow
 import app.parley.common.PolicyClock
 import app.parley.common.Schedule
 import app.parley.common.calls.SpeakerDefault
+import app.parley.common.catching
 import app.parley.common.who.Who
 import app.parley.common.who.WhoChoice
 import app.parley.common.who.WhoRules
@@ -179,7 +180,7 @@ data class Behaviour(
     companion object {
         /** Reads [encode]d behaviours; null when unreadable. */
         fun decode(text: String?): Behaviour? =
-            if (text.isNullOrBlank()) null else runCatching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrNull()
+            if (text.isNullOrBlank()) null else catching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrNull()
     }
 }
 
@@ -216,7 +217,7 @@ data class SituationState(
             if (text.isNullOrBlank()) {
                 SituationState()
             } else {
-                runCatching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrDefault(SituationState())
+                catching { Codecs.fullTolerant.decodeFromString(serializer(), text) }.getOrDefault(SituationState())
             }
     }
 }
@@ -272,7 +273,7 @@ object Situations {
     fun encodeList(list: List<Situation>): String = Codecs.full.encodeToString(LIST, list)
 
     fun decodeList(text: String?): List<Situation>? =
-        if (text.isNullOrBlank()) null else runCatching { Codecs.fullTolerant.decodeFromString(LIST, text) }.getOrNull()
+        if (text.isNullOrBlank()) null else catching { Codecs.fullTolerant.decodeFromString(LIST, text) }.getOrNull()
 
     private val LIST = kotlinx.serialization.builtins.ListSerializer(Situation.serializer())
 

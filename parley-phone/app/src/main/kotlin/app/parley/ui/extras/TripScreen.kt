@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.CallSource
+import app.parley.common.catching
 import app.parley.common.extras.TripMatch
 import app.parley.data.PhoneEnv
 import app.parley.data.extras.ExtrasStore
@@ -76,7 +77,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     val hidden = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     val unlocked by vm.c.vault.lock.unlocked.collectAsStateWithLifecycle()
     val data by produceState<ExtrasStore.TripData?>(null, contacts, hidden, unlocked) {
-        value = runCatching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
+        value = catching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
     }
     val choices = remember(data) { data?.let { TripMatch.cityChoices(it.cities, store.lastTripCity) }.orEmpty() }
     val hits = remember(data, city) { data?.let { TripMatch.match(city, it.people) }.orEmpty() }

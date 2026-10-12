@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import app.parley.common.catching
 import app.parley.common.people.KeptAs
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Lock
@@ -108,7 +109,7 @@ private fun SegmentedGroupScope.callingRows(ctx: ContactPageContext) {
             val tone = d.customRingtone?.let {
                 // A tune made from the name has a hash for a file name; say whose it is instead.
                 if (CallerTunes.isOurs(context, it)) resources.getString(R.string.caller_tune_made_for, d.displayName)
-                else runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull()
+                else catching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull()
             }
             GroupDataRow(
                 Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.label_default_ringtone), resources.getString(R.string.label_ringtone),

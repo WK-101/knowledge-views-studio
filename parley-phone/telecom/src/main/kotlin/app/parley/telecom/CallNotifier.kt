@@ -26,6 +26,7 @@ import app.parley.common.NotificationRequests
 import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calltime.CallChronometer
+import app.parley.common.catching
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
 import kotlinx.coroutines.CoroutineScope
@@ -71,7 +72,7 @@ class CallNotifier internal constructor(
     init {
         instance = this
         val lockChanges = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_USER_PRESENT) }
-        runCatching { ContextCompat.registerReceiver(context, lockWatcher, lockChanges, ContextCompat.RECEIVER_NOT_EXPORTED) }
+        catching { ContextCompat.registerReceiver(context, lockWatcher, lockChanges, ContextCompat.RECEIVER_NOT_EXPORTED) }
         createChannels(context)
     }
 
@@ -196,7 +197,7 @@ class CallNotifier internal constructor(
     /** Called when the in-call service goes away: no more re-posting from dismiss intents. */
     fun release() {
         cancelAll()
-        runCatching { context.unregisterReceiver(lockWatcher) }
+        catching { context.unregisterReceiver(lockWatcher) }
         if (instance === this) instance = null
     }
 
@@ -308,7 +309,7 @@ class CallNotifier internal constructor(
     ).joinToString(context.getString(R.string.tc_separator))
 
     /** "Confirm before declining" (simple mode) covers the notification's Decline too. */
-    private fun confirmDecline(): Boolean = runCatching { TelecomGraph.dependencies.appearance.value.confirmDecline }.getOrDefault(false)
+    private fun confirmDecline(): Boolean = catching { TelecomGraph.dependencies.appearance.value.confirmDecline }.getOrDefault(false)
 
     /**
      * Decline in a call notification: straight away, or, with "Confirm before declining" on, the call screen asking
@@ -415,7 +416,7 @@ class CallNotifier internal constructor(
 
     companion object {
         private fun chosenLockMode(): LockScreenCaller =
-            runCatching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
+            catching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
 
         const val CH_INCOMING = NotificationChannels.INCOMING_CALLS
         const val CH_ONGOING = NotificationChannels.ONGOING_CALLS
@@ -427,7 +428,7 @@ class CallNotifier internal constructor(
          * Whether the incoming-calls channel can still pop up (heads-up / full screen). False when the user turned it
          * down to silent or off; true while it doesn't exist yet (it's created at high importance).
          */
-        fun incomingChannelAlerts(context: Context): Boolean = runCatching {
+        fun incomingChannelAlerts(context: Context): Boolean = catching {
             val ch = context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CH_INCOMING)
             ch == null || ch.importance >= NotificationManager.IMPORTANCE_HIGH
         }.getOrDefault(true)

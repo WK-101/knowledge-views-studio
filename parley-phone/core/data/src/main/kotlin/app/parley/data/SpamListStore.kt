@@ -14,6 +14,7 @@ import app.parley.common.RuleTools
 import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.common.security.LimitExceededException
 import app.parley.common.spam.BuiltInPacks
@@ -77,7 +78,7 @@ class SpamListStore(context: Context) {
 
     fun hasEnabledPacks(): Boolean = _state.value.packs.any { it.enabled }
 
-    private fun readState(): ListsState = runCatching { ListsState.decode(stateFile.takeIf { it.exists() }?.readText()) }.getOrDefault(ListsState())
+    private fun readState(): ListsState = catching { ListsState.decode(stateFile.takeIf { it.exists() }?.readText()) }.getOrDefault(ListsState())
 
     private fun writeState(s: ListsState) {
         // Throws when it can't be stored, so the lists in memory never differ from what the next start reads.
@@ -188,7 +189,7 @@ class SpamListStore(context: Context) {
 
     /** The full publisher key of an installed signed pack (read from its stored manifest for packs installed before it was kept). */
     private fun installedKey(existing: PackState): String? = existing.publicKey
-        ?: runCatching { ListPack.readManifest(File(packDir(existing.id), ListPack.MANIFEST).readBytes())?.publicKey }.getOrNull()
+        ?: catching { ListPack.readManifest(File(packDir(existing.id), ListPack.MANIFEST).readBytes())?.publicKey }.getOrNull()
 
     private fun installLocked(p: ParsedPack, origin: PackOrigin, force: Boolean): InstallResult {
         val m = p.manifest
@@ -280,7 +281,7 @@ class SpamListStore(context: Context) {
     suspend fun restoreUserPack(state: String, zip: ByteArray): Boolean {
         val saved = ListsState.decode(state).packs.firstOrNull() ?: return false
         if (_state.value.packs.any { it.id == saved.id }) return false
-        val parsed = runCatching { ListPack.parse(zip) }.getOrNull() ?: return false
+        val parsed = catching { ListPack.parse(zip) }.getOrNull() ?: return false
         if (install(parsed, PackOrigin.FILE) !is InstallResult.Installed) return false
         setPack(saved.id) {
             it.copy(
@@ -416,7 +417,7 @@ class SpamListStore(context: Context) {
     }
 
     private fun storeShareKey(crypto: RecordCrypto, k: ByteArray): Boolean =
-        runCatching { crypto.sealBytesOrThrow(k) }.getOrNull()?.let { DurableFiles.write(keyFile, it) } ?: false
+        catching { crypto.sealBytesOrThrow(k) }.getOrNull()?.let { DurableFiles.write(keyFile, it) } ?: false
 
     fun shareFingerprint(): String = Ed25519.fingerprint(Ed25519.publicKey(shareKey()))
 

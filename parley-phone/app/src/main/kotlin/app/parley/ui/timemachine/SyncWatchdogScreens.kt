@@ -3,6 +3,7 @@
 
 package app.parley.ui.timemachine
 
+import app.parley.common.catching
 import app.parley.data.backup.SyncWatch
 import android.app.Application
 import android.content.Context
@@ -131,7 +132,7 @@ object WatchText {
 
 /** Android's account sync settings, on the contacts authority. */
 fun openSyncSettings(context: Context, failed: () -> Unit) {
-    runCatching {
+    catching {
         context.startActivity(Intent(Settings.ACTION_SYNC_SETTINGS).putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(ContactsContract.AUTHORITY)))
     }.onFailure { failed() }
 }

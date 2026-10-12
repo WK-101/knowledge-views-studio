@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.parley.common.calls.RemindTime
 import app.parley.common.calls.ToCall
+import app.parley.common.catching
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
@@ -94,7 +95,7 @@ internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
                 onClick = {
                     close()
                     CallManager.reject(call.id)
-                    runCatching { TelecomGraph.dependencies.remindToCall(number, call.accountId, at) }
+                    catching { TelecomGraph.dependencies.remindToCall(number, call.accountId, at) }
                     systemMessage(context, res.getString(R.string.remind_declined_set, RemindTimes.whenText(context, at)))
                 },
                 // Indented under "Decline & remind", where the menu's icons line up.
@@ -182,7 +183,7 @@ internal fun RemindMeAction(number: String, accountId: String?, onOpen: (Intent)
                     text = { Text(RemindTimes.label(context, choice, at)) },
                     onClick = {
                         open = false
-                        runCatching { TelecomGraph.dependencies.remindToCall(number, accountId, at) }
+                        catching { TelecomGraph.dependencies.remindToCall(number, accountId, at) }
                         systemMessage(context, res.getString(R.string.remind_set, RemindTimes.whenText(context, at)))
                         onDone()
                     },

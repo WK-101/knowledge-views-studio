@@ -3,6 +3,7 @@ package app.parley.ui.calls
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.PrivateDates
 import app.parley.data.vault.VaultRepository
@@ -21,7 +22,6 @@ import app.parley.common.circle.Occasions
 import app.parley.common.people.Chapter
 import app.parley.common.people.Chapters
 import app.parley.common.security.PrivacyView
-import app.parley.common.suspendRunCatching
 import app.parley.data.ContactsRepository
 import app.parley.data.NumberInfo
 import app.parley.data.circle.CircleRepository
@@ -166,7 +166,7 @@ class NextUpModel(
 
     /** Today's birthdays first, then anniversaries; the dead are never called out. */
     private suspend fun occasions(byId: Map<Long, ContactSummary>, today: LocalDate): List<NextUpItem.Dated> {
-        val events = suspendRunCatching { contacts.events() }.getOrDefault(emptyList()).filter { it.contactId in byId }
+        val events = catching { contacts.events() }.getOrDefault(emptyList()).filter { it.contactId in byId }
         return events.groupBy { it.contactId }.mapNotNull { (id, list) ->
             val occasion = Occasions.today(list.map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }, today, IcuCalendars) ?: return@mapNotNull null
             val ct = byId.getValue(id)
@@ -192,10 +192,10 @@ class NextUpModel(
      * first. A catch-up date set after a call keeps a member quiet until then.
      */
     private suspend fun goodHours(people: List<ContactSummary>, calls: List<CallEntry>, state: ToCallState, now: Long): List<NextUpItem> {
-        val members = suspendRunCatching { circle.members() }.getOrDefault(emptyList())
+        val members = catching { circle.members() }.getOrDefault(emptyList())
         if (members.isEmpty()) return emptyList()
         val byKey = people.associateBy { it.lookupKey }
-        val lasts = suspendRunCatching { circle.lastContactsAll() }.getOrDefault(emptyMap())
+        val lasts = catching { circle.lastContactsAll() }.getOrDefault(emptyMap())
         val mine = ZoneId.systemDefault()
         val planned = members.mapNotNull { m ->
             val ct = byKey[m.lookupKey] ?: return@mapNotNull null

@@ -14,6 +14,7 @@ import app.parley.R
 import app.parley.common.cards.ShareMethod
 import app.parley.common.cards.ShareReceipt
 import app.parley.common.cards.SignedCards
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
@@ -36,7 +37,7 @@ object CardSharing {
      * profile has loaded, so the QR code, the file, "Send my card" and the swap all sign the same content.
      */
     suspend fun shareable(c: DataContainer): MeCard =
-        MeCards.merge(c.people.me.card.value, runCatching { c.people.me.profile() }.getOrNull())
+        MeCards.merge(c.people.me.card.value, catching { c.people.me.profile() }.getOrNull())
 
     /**
      * My card with [parts] as a vCard. A share of only what a signed card carries ([MeCards.isSignable]) is signed:
@@ -46,14 +47,14 @@ object CardSharing {
      */
     suspend fun vcard(c: DataContainer, parts: Set<MeCards.Part>): String = withContext(Dispatchers.IO) {
         if (!MeCards.isSignable(parts)) {
-            val profile = runCatching { c.people.me.profile() }.getOrNull()
+            val profile = catching { c.people.me.profile() }.getOrNull()
             val d = MeCardDetails.withProfile(c.people.me.details.value, profile)
             return@withContext MeCardDetails.vcard(d, parts, if (MeCards.Part.PHOTO in parts) c.people.me.photoBytes() else null)
         }
         val card = shareable(c)
         val plain = MeCards.vcard(card, parts)
         if (card.isEmpty) return@withContext plain
-        runCatching { c.people.cardIdentity.sign(card, parts) }.getOrNull()?.let { SignedCards.attach(plain, it) } ?: plain
+        catching { c.people.cardIdentity.sign(card, parts) }.getOrNull()?.let { SignedCards.attach(plain, it) } ?: plain
     }
 
     /** The signed vCard for a composable (null while it is being made; one signature per change of [parts] or the card). */
@@ -70,8 +71,8 @@ object CardSharing {
     fun record(c: DataContainer, name: String, number: String?, method: ShareMethod, phones: List<String>) {
         if (name.isBlank() && number.isNullOrBlank()) return
         c.scope.launch {
-            runCatching {
-                val private = number?.takeIf { it.isNotBlank() }?.let { n -> runCatching { c.vault.lookup(n) }.getOrNull()?.first }
+            catching {
+                val private = number?.takeIf { it.isNotBlank() }?.let { n -> catching { c.vault.lookup(n) }.getOrNull()?.first }
                 c.people.shareLedger.record(name, number, method, phones, contactKey = private?.let(ContactRef::privateKey))
             }
         }
@@ -103,7 +104,7 @@ object CardSharing {
     private suspend fun shownInList(c: DataContainer, receipts: List<ShareReceipt>, discreet: Boolean): List<ShareReceipt> = receipts.mapNotNull { r ->
         val vaultId = ContactRef.vaultIdOf(r.contactKey) ?: return@mapNotNull r.takeIf { r.contactKey == null }
         if (discreet) return@mapNotNull null
-        runCatching { c.vault.summary(vaultId) }.getOrNull()?.let { s -> r.copy(name = s.name, number = s.numbers.firstOrNull()) }
+        catching { c.vault.summary(vaultId) }.getOrNull()?.let { s -> r.copy(name = s.name, number = s.numbers.firstOrNull()) }
     }
 
     /** My card's numbers as they are shared now (Parley's copy; the phone's profile only fills in what's missing). */
@@ -128,7 +129,7 @@ object CardSharing {
 
     /** Your signed card reached someone (a swap, a file sent): its key is the one people now know. */
     fun markShared(c: DataContainer) {
-        c.scope.launch(Dispatchers.IO) { runCatching { c.people.cardIdentity.markShared() } }
+        c.scope.launch(Dispatchers.IO) { catching { c.people.cardIdentity.markShared() } }
     }
 
     private const val SWAP_WINDOW_MS = 10 * 60 * 1000L
@@ -137,7 +138,7 @@ object CardSharing {
      * Writes [vcard] to Parley's share folder and hands it to the app you choose. A signed card handed on counts as
      * shared ([markShared]); showing the QR code alone doesn't.
      */
-    fun shareFile(c: DataContainer, context: Context, vcard: String, subject: String): Boolean = runCatching {
+    fun shareFile(c: DataContainer, context: Context, vcard: String, subject: String): Boolean = catching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val file = File(dir, "my-card.vcf")
         file.writeText(vcard)

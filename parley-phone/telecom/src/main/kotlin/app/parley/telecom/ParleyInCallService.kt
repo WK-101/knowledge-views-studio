@@ -11,6 +11,7 @@ import android.telecom.CallEndpoint
 import android.telecom.CallEndpointException
 import android.telecom.InCallService
 import androidx.annotation.RequiresApi
+import app.parley.common.catching
 import app.parley.telecom.ui.InCallActivity
 
 /**
@@ -39,7 +40,7 @@ class ParleyInCallService : InCallService() {
         CallManager.onChanged = { calls ->
             notifier.update(calls)
             proximity.update(calls, CallManager.audio.value, CallManager.uiVisible, screenAtEarMode())
-            flip.update(calls, runCatching { TelecomGraph.dependencies.flipToSilence() }.getOrDefault(false))
+            flip.update(calls, catching { TelecomGraph.dependencies.flipToSilence() }.getOrDefault(false))
         }
     }
 

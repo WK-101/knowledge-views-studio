@@ -23,11 +23,11 @@ import app.parley.R
 import app.parley.common.PolicyClock
 import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.AssistedDial
+import app.parley.common.catching
 import app.parley.common.situations.DeviceTrigger
 import app.parley.common.situations.Situation
 import app.parley.common.situations.SituationKind
 import app.parley.common.situations.SituationSignals
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.telecom.CarAudio
@@ -86,7 +86,7 @@ object SituationTriggers {
             if (!workerRunning) schedule(app, c)
         }
         // While Parley runs: audio devices coming and going, and car mode.
-        runCatching {
+        catching {
             app.getSystemService(AudioManager::class.java).registerAudioDeviceCallback(
                 object : AudioDeviceCallback() {
                     override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) = lookSoon(c)
@@ -95,7 +95,7 @@ object SituationTriggers {
                 Handler(Looper.getMainLooper()),
             )
         }
-        runCatching {
+        catching {
             ContextCompat.registerReceiver(
                 app,
                 object : BroadcastReceiver() {
@@ -110,8 +110,8 @@ object SituationTriggers {
         }
         c.scope.launch {
             // Once: the Quiet nights preset becomes the Night Situation, before the triggers are looked at.
-            suspendRunCatching { c.situations.moveQuietNights() }
-            suspendRunCatching { c.situations.reconcile() }
+            catching { c.situations.moveQuietNights() }
+            catching { c.situations.reconcile() }
             // After a reboot the notice is gone while the Situation is still on.
             SituationNotice.update(app, c.situations)
             schedule(app, c)
@@ -125,14 +125,14 @@ object SituationTriggers {
         pendingLook = c.scope.launch {
             delay(SETTLE_MS)
             // A look of its own: a later callback cancels the wait, never a switch under way.
-            c.scope.launch { suspendRunCatching { c.situations.reconcile() } }
+            c.scope.launch { catching { c.situations.reconcile() } }
         }
     }
 
     /** What the triggers see now. Binder calls only (no disk): fine on the call path. */
     fun signals(context: Context, c: DataContainer): SituationSignals {
         val connected = CarAudio.connected(context)
-        val carMode = runCatching {
+        val carMode = catching {
             context.getSystemService(UiModeManager::class.java)?.currentModeType == Configuration.UI_MODE_TYPE_CAR
         }.getOrDefault(false)
         val car = carMode || DriveProfile.connectedCar(c.driveProfile.config.value, connected) != null
@@ -150,7 +150,7 @@ object SituationTriggers {
      * when a Situation turns on abroad: binder calls only, no disk.
      */
     private fun abroad(c: DataContainer): Boolean =
-        runCatching { c.roaming.simStates(c.sims.accounts()).any(AssistedDial::abroad) }.getOrDefault(false)
+        catching { c.roaming.simStates(c.sims.accounts()).any(AssistedDial::abroad) }.getOrDefault(false)
 
     /** The one job for the next window edge; none when no Situation has a window. */
     fun schedule(context: Context, c: DataContainer, fromWorker: Boolean = false) {
@@ -168,7 +168,7 @@ object SituationTriggers {
         next: Long?,
         fromWorker: Boolean,
         now: Long = System.currentTimeMillis(),
-        workManager: () -> WorkManager? = { runCatching { WorkManager.getInstance(context) }.getOrNull() },
+        workManager: () -> WorkManager? = { catching { WorkManager.getInstance(context) }.getOrNull() },
     ) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (next == null) {
@@ -202,7 +202,7 @@ object SituationTriggers {
     }
 
     fun refreshTile(context: Context) {
-        runCatching { TileService.requestListeningState(context, ComponentName(context, SituationTileService::class.java)) }
+        catching { TileService.requestListeningState(context, ComponentName(context, SituationTileService::class.java)) }
     }
 
     /** A Situation's name: the one given to it, else a built-in one's own. */
@@ -232,7 +232,7 @@ class SituationClockReceiver : BroadcastReceiver() {
         val c = app.container
         c.scope.launch(Dispatchers.IO) {
             try {
-                suspendRunCatching { c.situations.reconcile() }
+                catching { c.situations.reconcile() }
                 SituationTriggers.schedule(app, c)
                 SituationTriggers.refreshTile(app)
             } finally {

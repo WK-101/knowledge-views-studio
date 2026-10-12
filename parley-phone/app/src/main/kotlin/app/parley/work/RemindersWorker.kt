@@ -70,10 +70,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val cfg = c.circle.config.value
         val today = LocalDate.now()
         val now = System.currentTimeMillis()
-        if (s.birthdayReminders) runCatching { dates(c, cfg, today, now) }
+        if (s.birthdayReminders) catching { dates(c, cfg, today, now) }
         if (s.reachOutNudges) keepInTouch(c, cfg, today, now)
         // The Circle widget's dates and people move on daily.
-        runCatching { CircleWidget.refresh(applicationContext) }
+        catching { CircleWidget.refresh(applicationContext) }
         return Result.success()
     }
 
@@ -143,10 +143,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val byKey = known.associateBy { it.m.lookupKey }
         when (cfg.delivery) {
             ReminderDelivery.WEEKLY_DIGEST -> {
-                val last = c.circle.stateString(S_LAST_DIGEST)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                val last = c.circle.stateString(S_LAST_DIGEST)?.let { catching { LocalDate.parse(it) }.getOrNull() }
                 if (!CircleDigest.isDigestDay(today, last)) return
                 val keys = byKey.keys
-                val upcoming = runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>())
+                val upcoming = catching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>())
                     .filter { it.lookupKey in keys && !LifeEvents.isDeath(it.type, it.label) }
                     .mapNotNull { e ->
                         EventDate.parse(e.date)?.let { AltCalendars.effective(it, AltCalendar.byKey(e.calendar), today, IcuCalendars) }
@@ -156,7 +156,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val quiet = c.circle.lastContactsAll(idx).filterKeys { it in contacts }.map { (k, t) -> CircleDigest.Quiet(k, t) }
                 // Life events remembered yearly, for anyone (not only the Circle).
                 val flags = c.circle.yearlyFlags()
-                val yearly = if (flags.isEmpty()) emptyList() else runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>()).mapNotNull { e ->
+                val yearly = if (flags.isEmpty()) emptyList() else catching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>()).mapNotNull { e ->
                     val d = EventDate.parse(e.date) ?: return@mapNotNull null
                     if (LifeEvents.isDeath(e.type, e.label) || e.lookupKey !in contacts) return@mapNotNull null
                     if (YearlyEvents.key(e.type, e.label, d) !in flags[e.lookupKey].orEmpty()) return@mapNotNull null
@@ -315,8 +315,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val ctx = applicationContext
         val code = DateReminders.DIGEST_TAG.hashCode()
         ct.primaryNumber?.let { phone ->
-            val call = PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, ct.id), PendingIntent.FLAG_IMMUTABLE)
-            b.addAction(0, ctx.getString(R.string.action_call), call)
+            b.addAction(0, ctx.getString(R.string.action_call), driftCall(ctx, code + 1, phone, ct.id))
         }
         val drift = pick.drift
         if (drift != null && !inCircle) {
@@ -327,6 +326,15 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     companion object {
+        /**
+         * The digest's Call for this week's "quieter than usual" person. Its request code is the digest's own, the same
+         * every week, and only the extras differ: without updating them, last week's notification still in the shade
+         * would hand back its intent, and the tap would dial last week's person.
+         */
+        internal fun driftCall(context: Context, code: Int, phone: String, contactId: Long): PendingIntent = PendingIntent.getActivity(
+            context, code, Shortcuts.intent(context, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         private const val NAME = "parley-reminders"
         const val CHANNEL = NotificationChannels.REMINDERS
         private const val S_FIRED = "fired"

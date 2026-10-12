@@ -1,6 +1,7 @@
 package app.parley.work
 
 import app.parley.common.NotificationIds
+import app.parley.common.catching
 import app.parley.data.PhoneEnv
 import app.parley.common.PhoneIdentity
 import android.app.PendingIntent
@@ -40,12 +41,12 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val all = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() } ?: return Result.success()
         // The lookup key may have changed since (linked, renamed): follow it from the stored id.
         val contact = all.firstOrNull { it.lookupKey == key }
-            ?: runCatching { c.contacts.currentOf(key, inputData.getLong(KEY_ID, -1).takeIf { it > 0 }) }.getOrNull()?.let { (_, now) ->
+            ?: catching { c.contacts.currentOf(key, inputData.getLong(KEY_ID, -1).takeIf { it > 0 }) }.getOrNull()?.let { (_, now) ->
                 all.firstOrNull { it.lookupKey == now }
             }
             ?: return Result.success()
         // The open promises give the reminder its context ("☐ send the photos").
-        val promises = runCatching {
+        val promises = catching {
             c.circle.notesFor(
                 key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) },
             ).flatMap { n -> Promises.open(n.text).map { it.text } }

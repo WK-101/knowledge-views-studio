@@ -2,6 +2,7 @@ package app.parley.situations
 
 import android.os.Bundle
 import app.parley.IntentRoutes
+import app.parley.common.catching
 import app.parley.security.LockedActivity
 
 /**
@@ -14,7 +15,7 @@ import app.parley.security.LockedActivity
 class TileLongPressActivity : LockedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        runCatching { startActivity(IntentRoutes.tileLongPress(this, intent)) }
+        catching { startActivity(IntentRoutes.tileLongPress(this, intent)) }
         finish()
     }
 }

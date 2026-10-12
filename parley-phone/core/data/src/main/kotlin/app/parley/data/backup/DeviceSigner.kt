@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.util.Log
 import app.parley.common.backup.ArchiveSigner
+import app.parley.common.catching
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -51,7 +52,7 @@ internal class DeviceSigner private constructor(
         }
 
         /** The public half only (to recognise this phone's archives); null when there is none yet. */
-        fun publicKey(): ByteArray? = runCatching {
+        fun publicKey(): ByteArray? = catching {
             val ks = KeyStore.getInstance(STORE).apply { load(null) }
             ks.getCertificate(ALIAS)?.publicKey?.encoded
         }.getOrNull()

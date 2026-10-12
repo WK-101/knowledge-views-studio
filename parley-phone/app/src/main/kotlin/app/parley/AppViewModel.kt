@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import android.Manifest
 import android.annotation.SuppressLint
@@ -28,7 +29,6 @@ import app.parley.common.calltime.Ussd
 import app.parley.common.people.Collation
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
-import app.parley.common.suspendRunCatching
 import app.parley.data.ContactDetails
 import app.parley.data.DeviceAccounts
 import app.parley.data.DialWarning
@@ -215,7 +215,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * the number passport says so, and a call from one soon after says where it came from.
      */
     fun numbersFrom(numbers: List<String>, origin: NumberOrigin) {
-        if (numbers.isNotEmpty()) runCatching { c.contacts.passport.hint(numbers, origin) }
+        if (numbers.isNotEmpty()) catching { c.contacts.passport.hint(numbers, origin) }
     }
 
     private var hasCallLogPermission = false
@@ -261,7 +261,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Runs an Undo from [offerUndo] here, so leaving the screen doesn't stop it half way. */
     fun runUndo(undo: suspend () -> Unit) {
-        viewModelScope.launch { suspendRunCatching { undo() } }
+        viewModelScope.launch { catching { undo() } }
     }
 
     /** A text in the app's language, for toasts and messages built here. */
@@ -484,7 +484,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val conversions = app.parley.ui.contact.ContactConversions(c)
             // A private contact whose sealed copy couldn't be kept isn't deleted: the user is offered to delete it anyway.
             // The copies kept are what Undo brings back.
-            val kept = private.associateWith { suspendRunCatching { conversions.deletePrivateKept(-it) }.getOrNull() }
+            val kept = private.associateWith { catching { conversions.deletePrivateKept(-it) }.getOrNull() }
             val notDeleted = kept.filterValues { it == null }.keys.toList()
             val undoPrivate = kept.values.filterNotNull()
             if (notDeleted.isNotEmpty()) {
@@ -508,7 +508,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (c.people.relationMirrors.any()) {
                 device.forEach { id ->
                     val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) } ?: return@forEach
-                    suspendRunCatching { c.people.relationMirrors.takeBack(id, key) }
+                    catching { c.people.relationMirrors.takeBack(id, key) }
                 }
             }
             try {
@@ -529,7 +529,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val privateNumbers = HashMap<String, Boolean>()
             val kept = if (!keepPrivate) entries else entries.filter { e ->
-                e.number.isBlank() || !privateNumbers.getOrPut(e.number) { runCatching { c.vault.lookup(e.number, countryIso) != null }.getOrDefault(true) }
+                e.number.isBlank() || !privateNumbers.getOrPut(e.number) { catching { c.vault.lookup(e.number, countryIso) != null }.getOrDefault(true) }
             }
             if (kept.isEmpty()) return@launch
             val batch = c.history.delete(kept.filter { it.id > 0 })
@@ -574,7 +574,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             c.contacts.contacts.debounce(20_000).collect {
                 val st = c.folderSync.status.value
                 if (it != null && st.folderUri != null && st.auto) {
-                    runCatching { c.folderSync.syncNow() }
+                    catching { c.folderSync.syncNow() }
                     FolderSyncNotice.update(getApplication(), c.folderSync.status.value)
                 }
             }

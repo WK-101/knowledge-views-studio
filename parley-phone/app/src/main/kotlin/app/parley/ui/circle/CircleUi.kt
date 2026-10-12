@@ -4,7 +4,6 @@ import app.parley.common.catching
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
-import app.parley.common.suspendRunCatching
 import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleFeeds
 import app.parley.common.circle.CircleGlance
@@ -58,7 +57,7 @@ class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List
     /** Circle members (their own rhythm, or through a label), most urgent first; null while loading. */
     val rows: StateFlow<List<CircleRow>?> = combine(
         contacts, combine(c.meta.allMeta(), feeds) { m, f -> m to f }, c.circle.interactions.latest, c.history.index,
-        c.toCall.state.onStart { suspendRunCatching { c.toCall.load() } },
+        c.toCall.state.onStart { catching { c.toCall.load() } },
     ) { list, (metas, fed), latest, idx, toCall ->
         list ?: return@combine null
         val iso = c.directory.countryIso

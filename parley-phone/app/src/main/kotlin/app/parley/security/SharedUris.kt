@@ -3,6 +3,7 @@ package app.parley.security
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import app.parley.common.catching
 import app.parley.common.security.SharedUriPolicy
 import java.util.Locale
 
@@ -19,7 +20,7 @@ object SharedUris {
 
     private fun ownAuthority(context: Context, authority: String): Boolean {
         if (authority.startsWith(context.packageName.lowercase(Locale.ROOT))) return true
-        val owner = runCatching { context.packageManager.resolveContentProvider(authority, PackageManager.MATCH_DISABLED_COMPONENTS) }.getOrNull()
+        val owner = catching { context.packageManager.resolveContentProvider(authority, PackageManager.MATCH_DISABLED_COMPONENTS) }.getOrNull()
         return owner?.packageName == context.packageName
     }
 }

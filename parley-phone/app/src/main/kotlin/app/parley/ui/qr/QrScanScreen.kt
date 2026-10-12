@@ -1,6 +1,7 @@
 package app.parley.ui.qr
 
 import app.parley.calls.ExpectedCallHints
+import app.parley.common.catching
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
 import android.content.ActivityNotFoundException
@@ -143,7 +144,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { QrScanner.clearStalePhotos(context, pendingAtStart ?: photoPath) } }
 
     fun takePhoto() {
-        val (file, uri) = runCatching { QrScanner.newPhoto(context) }.getOrNull() ?: return
+        val (file, uri) = catching { QrScanner.newPhoto(context) }.getOrNull() ?: return
         photoPath = file.absolutePath
         try {
             camera.launch(uri)
@@ -179,7 +180,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             }
             OutlinedButton(
                 {
-                    runCatching { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }.onFailure {
+                    catching { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }.onFailure {
                         vm.toast(res.getString(R.string.qs_no_app))
                     }
                 },
@@ -222,7 +223,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     }
     payload?.let { p -> QrResultSheet(vm, p, onDismiss = { payload = null }, open = open) }
     // A parcel's tracking code can let the courier's call ring (asked once).
-    LaunchedEffect(payload) { payload?.let { p -> runCatching { ExpectedCallHints.qrScanned(vm.c, p.raw) } } }
+    LaunchedEffect(payload) { payload?.let { p -> catching { ExpectedCallHints.qrScanned(vm.c, p.raw) } } }
 }
 
 @Composable

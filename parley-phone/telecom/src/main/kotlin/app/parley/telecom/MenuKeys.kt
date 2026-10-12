@@ -35,8 +35,8 @@ internal class MenuKeys(private val scope: CoroutineScope, private val live: Liv
     fun start(id: String, c: Char): Long? {
         val call = live.find(id) ?: return null
         val s = live.session(id)
-        if (s.dtmfToken != null) runCatching { call.stopDtmfTone() }
-        runCatching { call.playDtmfTone(c) }
+        if (s.dtmfToken != null) catching { call.stopDtmfTone() }
+        catching { call.playDtmfTone(c) }
         val token = ++dtmfToken
         s.dtmfToken = token
         noteKey(call, s, c)
@@ -68,7 +68,7 @@ internal class MenuKeys(private val scope: CoroutineScope, private val live: Liv
         if (ended.incoming || ended.isConference || ended.hidden) return
         val number = ended.number?.takeIf { MenuMemory.remembers(it, ended.isEmergency) } ?: return
         val presses = s.menuPresses.toList()
-        runCatching { deps().onMenuKeys(number, ended.accountId, presses) }
+        catching { deps().onMenuKeys(number, ended.accountId, presses) }
     }
 
     private val _replay = MutableStateFlow<CallManager.MenuReplay?>(null)

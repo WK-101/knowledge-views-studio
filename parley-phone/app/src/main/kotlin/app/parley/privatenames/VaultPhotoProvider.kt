@@ -6,6 +6,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import app.parley.ParleyApp
+import app.parley.common.catching
 import app.parley.data.people.CallBackgrounds
 import java.io.FileNotFoundException
 
@@ -31,7 +32,7 @@ class VaultPhotoProvider : ContentProvider() {
         } ?: throw FileNotFoundException(uri.toString())
         val (read, write) = ParcelFileDescriptor.createPipe()
         Thread {
-            runCatching { ParcelFileDescriptor.AutoCloseOutputStream(write).use { it.write(bytes) } }
+            catching { ParcelFileDescriptor.AutoCloseOutputStream(write).use { it.write(bytes) } }
         }.apply { name = "vault-photo"; isDaemon = true }.start()
         return read
     }

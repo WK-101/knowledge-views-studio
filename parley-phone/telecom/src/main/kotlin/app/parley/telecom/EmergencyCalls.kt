@@ -3,6 +3,7 @@ package app.parley.telecom
 import android.content.Context
 import android.telecom.Call
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.catching
 import java.util.concurrent.ConcurrentHashMap
 
 /** Which calls are emergency calls, and what [EmergencyPolicy] needs to know about one. */
@@ -13,14 +14,14 @@ internal class EmergencyCalls(private val deps: () -> TelecomDependencies, priva
     fun isNumber(number: String?): Boolean {
         if (number.isNullOrBlank()) return false
         return numbers.getOrPut(number) {
-            runCatching { deps().isEmergencyNumber(number) }.getOrElse { EmergencyPolicy.isFallbackEmergencyNumber(number) }
+            catching { deps().isEmergencyNumber(number) }.getOrElse { EmergencyPolicy.isFallbackEmergencyNumber(number) }
         }
     }
 
     /** An emergency number, or a call the network identified as one, or one taking place in emergency callback mode. */
     fun isCall(call: Call, number: String?): Boolean = isNumber(number) || hasEmergencyProperty(call)
 
-    private fun hasEmergencyProperty(call: Call): Boolean = runCatching {
+    private fun hasEmergencyProperty(call: Call): Boolean = catching {
         call.details.hasProperty(Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL) ||
             call.details.hasProperty(Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE)
     }.getOrDefault(false)
@@ -29,8 +30,8 @@ internal class EmergencyCalls(private val deps: () -> TelecomDependencies, priva
     fun facts(call: Call, number: String?, incoming: Boolean): EmergencyPolicy.Facts = EmergencyPolicy.Facts(
         emergencyNumber = isNumber(number),
         emergencyCallProperty = hasEmergencyProperty(call),
-        inWindow = context()?.let { c -> runCatching { ScreeningGuard.inEmergencyWindow(c) }.getOrDefault(false) } ?: false,
-        userListed = !incoming && !number.isNullOrBlank() && runCatching { deps().startsEmergencyWindow(number) }.getOrDefault(false),
+        inWindow = context()?.let { c -> catching { ScreeningGuard.inEmergencyWindow(c) }.getOrDefault(false) } ?: false,
+        userListed = !incoming && !number.isNullOrBlank() && catching { deps().startsEmergencyWindow(number) }.getOrDefault(false),
     )
 
     /** No call is left: the next one asks the platform again. */

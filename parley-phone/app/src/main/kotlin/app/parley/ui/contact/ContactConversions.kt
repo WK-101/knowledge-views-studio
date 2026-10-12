@@ -3,10 +3,10 @@ package app.parley.ui.contact
 import android.provider.CallLog
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.calltime.LimitScope
+import app.parley.common.catching
 import app.parley.common.extras.CallerChoice
 import app.parley.common.people.ContactRef
 import app.parley.common.people.PrivateLabels
-import app.parley.common.suspendRunCatching
 import app.parley.data.vault.PrivateCall
 import app.parley.data.vault.VaultMoves
 import app.parley.data.vault.VaultSummary
@@ -55,7 +55,7 @@ class ContactConversions(private val c: DataContainer) {
         if (key != null) {
             // The relations Parley wrote on other contacts for this one ("Child: Sam" on Ana) would keep its name in
             // the address book: taken back where still as Parley left them, and forgotten from Parley's record.
-            suspendRunCatching { c.people.relationMirrors.takeBack(contactId, key) }
+            catching { c.people.relationMirrors.takeBack(contactId, key) }
             // No readable copy stays outside the vault: no undo journal entry, no address-book snapshots.
             c.journal.forget(key)
             c.timeMachine.purge(key)
@@ -70,8 +70,8 @@ class ContactConversions(private val c: DataContainer) {
         }
         // With "Private call history" on, their calls and ring facts leave the phone's call history too.
         if (c.settings.current().privateVaultHistory) {
-            d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value); c.callQuality.forget(p.value) } }
-            runCatching { c.vault.sweepCallLog(0) }
+            d.phones.forEach { p -> catching { c.ringFacts.forget(p.value); c.callQuality.forget(p.value) } }
+            catching { c.vault.sweepCallLog(0) }
         }
         MadePrivate(id, moved.removedAfterSync, moved.messengerCopies)
     }
@@ -102,7 +102,7 @@ class ContactConversions(private val c: DataContainer) {
     suspend fun makeVisible(vaultId: Long, d: ContactDetails, account: AccountRef): MadeVisible = inApp {
         val privateKey = ContactRef.privateKey(vaultId)
         // An entry from before the caller-ID copy kept them gets its star, labels, ringtone and voicemail first.
-        suspendRunCatching { c.vault.seedCallerChoices(vaultId) }
+        catching { c.vault.seedCallerChoices(vaultId) }
         val summary = c.vault.summary(vaultId)
         // Read before the entry goes: the private call history is deleted with it. All of it, or the move waits.
         val calls = c.vault.privateCallsOf(vaultId)
@@ -154,13 +154,13 @@ class ContactConversions(private val c: DataContainer) {
      * couldn't be kept, and then nothing was deleted.
      */
     suspend fun deletePrivateKept(vaultId: Long): String? = inApp {
-        val kept = suspendRunCatching { c.privateTrash.keepFile(vaultId) }.getOrNull() ?: return@inApp null
+        val kept = catching { c.privateTrash.keepFile(vaultId) }.getOrNull() ?: return@inApp null
         forgetPrivate(vaultId)
         kept
     }
 
     /** Undo of [deletePrivateKept]: the contact back from its sealed copy ([kept]); its new vault id, or null. */
-    suspend fun undoDeletePrivate(kept: String): Long? = inApp { suspendRunCatching { c.privateTrash.restore(kept) }.getOrNull() }
+    suspend fun undoDeletePrivate(kept: String): Long? = inApp { catching { c.privateTrash.restore(kept) }.getOrNull() }
 
     private suspend fun forgetPrivate(vaultId: Long) {
         c.vault.delete(vaultId)
@@ -189,17 +189,17 @@ class ContactConversions(private val c: DataContainer) {
 
     /** A contact made visible gets what the private one had: star, ringtone, "send to voicemail" and labels. */
     private suspend fun toAddressBook(contactId: Long, s: VaultSummary) = withContext(Dispatchers.IO) {
-        runCatching { c.contacts.setStarred(contactId, s.starred) }
-        runCatching { c.contacts.setRingtone(contactId, s.ringtone) }
-        runCatching { c.contacts.setSendToVoicemail(contactId, s.sendToVoicemail) }
+        catching { c.contacts.setStarred(contactId, s.starred) }
+        catching { c.contacts.setRingtone(contactId, s.ringtone) }
+        catching { c.contacts.setSendToVoicemail(contactId, s.sendToVoicemail) }
         val groups = c.contacts.groups()
         val wanted = PrivateLabels.titles(s.labels, groups.map { PrivateLabels.Group(it.id, it.title) })
         val have = c.contacts.labelTitlesOrNull(contactId) ?: return@withContext
         // Into a group of that label the contact's account can hold (the label may exist in several accounts).
         for (title in wanted - have) {
-            for (g in groups.filter { it.title.trim() == title }) if (runCatching { c.contacts.addToGroup(listOf(contactId), g) }.getOrDefault(1) == 0) break
+            for (g in groups.filter { it.title.trim() == title }) if (catching { c.contacts.addToGroup(listOf(contactId), g) }.getOrDefault(1) == 0) break
         }
-        (have - wanted).forEach { t -> runCatching { c.people.labels.removeMembers(t, listOf(contactId)) } }
+        (have - wanted).forEach { t -> catching { c.people.labels.removeMembers(t, listOf(contactId)) } }
     }
 
     /** Its vibration and auto-answer are Parley's own: they wait under the private key and follow the re-key. */

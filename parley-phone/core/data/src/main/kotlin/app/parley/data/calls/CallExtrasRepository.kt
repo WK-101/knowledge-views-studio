@@ -5,6 +5,7 @@ import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingFactsCodec
+import app.parley.common.catching
 import app.parley.data.history.CallHistory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,7 +67,7 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
         if (migrated) return
         migrated = true
         val old = prefs.getString(KEY_ROWS_V1, null) ?: return
-        val mac = runCatching { history() }.getOrNull() ?: return
+        val mac = catching { history() }.getOrNull() ?: return
         val moved = old.lineSequence().mapNotNull { line ->
             val tab = line.indexOf('\t')
             if (tab <= 0) return@mapNotNull null
@@ -74,7 +75,7 @@ class RingFactsStore(context: Context, private val history: () -> CallHistory) {
             val facts = RingFactsCodec.decode(line.substring(tab + 1)).firstOrNull() ?: return@mapNotNull null
             val key = when {
                 k == SealedLineStore.HIDDEN -> SealedLineStore.HIDDEN
-                k.startsWith("+") -> runCatching { SealedLineStore.MAC + mac.lineMac(k) }.getOrNull()
+                k.startsWith("+") -> catching { SealedLineStore.MAC + mac.lineMac(k) }.getOrNull()
                 else -> null
             } ?: return@mapNotNull null
             key to facts

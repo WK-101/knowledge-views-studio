@@ -9,6 +9,7 @@ import app.parley.common.SimAccount
 import app.parley.common.calls.AssistedDial
 import app.parley.common.calls.AssistedDialConfig
 import app.parley.common.calls.DriveProfileConfig
+import app.parley.common.catching
 import app.parley.data.SimRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,13 +73,13 @@ class RoamingRepository(context: Context, private val sims: SimRepository) {
     /** Each call-capable SIM in [accounts] with its countries now. Blocking (binder calls): call it off the main thread. */
     fun simStates(accounts: List<SimAccount>): List<AssistedDial.Sim> {
         val tm = app.getSystemService(TelephonyManager::class.java) ?: return emptyList()
-        val subs = runCatching { app.getSystemService(SubscriptionManager::class.java)?.activeSubscriptionInfoList.orEmpty() }.getOrDefault(emptyList())
+        val subs = catching { app.getSystemService(SubscriptionManager::class.java)?.activeSubscriptionInfoList.orEmpty() }.getOrDefault(emptyList())
         return accounts.mapNotNull { a ->
             val subId = subIdFor(tm, a.id, subs) ?: if (accounts.size == 1) SubscriptionManager.getDefaultSubscriptionId() else null
-            val one = subId?.takeIf { it != SubscriptionManager.INVALID_SUBSCRIPTION_ID }?.let { runCatching { tm.createForSubscriptionId(it) }.getOrNull() }
+            val one = subId?.takeIf { it != SubscriptionManager.INVALID_SUBSCRIPTION_ID }?.let { catching { tm.createForSubscriptionId(it) }.getOrNull() }
                 ?: tm.takeIf { accounts.size == 1 }
                 ?: return@mapNotNull null
-            runCatching {
+            catching {
                 AssistedDial.Sim(a.id, a.label, one.simCountryIso, one.networkCountryIso, one.isNetworkRoaming)
             }.getOrNull()
         }
@@ -86,7 +87,7 @@ class RoamingRepository(context: Context, private val sims: SimRepository) {
 
     private fun subIdFor(tm: TelephonyManager, accountId: String, subs: List<android.telephony.SubscriptionInfo>): Int? {
         if (Build.VERSION.SDK_INT >= 30) {
-            sims.handle(accountId)?.let { h -> runCatching { tm.getSubscriptionId(h) }.getOrNull() }
+            sims.handle(accountId)?.let { h -> catching { tm.getSubscriptionId(h) }.getOrNull() }
                 ?.takeIf { it != SubscriptionManager.INVALID_SUBSCRIPTION_ID }?.let { return it }
         }
         // Android 10 and some OEMs: the handle id is the ICCID or the subscription id itself.

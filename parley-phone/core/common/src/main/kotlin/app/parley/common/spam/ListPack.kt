@@ -92,14 +92,14 @@ object ListPack {
     fun storageName(id: String): String = "pack_" + sha256Hex(id.toByteArray(Charsets.UTF_8))
 
     /** A stored manifest, or null when it can't be read. */
-    fun readManifest(bytes: ByteArray): PackManifest? = runCatching { json.decodeFromString(PackManifest.serializer(), bytes.decodeToString()) }.getOrNull()
+    fun readManifest(bytes: ByteArray): PackManifest? = catching { json.decodeFromString(PackManifest.serializer(), bytes.decodeToString()) }.getOrNull()
 
     /** The publisher key a signed pack names, decoded (full 32 bytes), or null. */
-    fun publicKeyBytes(p: PackManifest): ByteArray? = p.publicKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
+    fun publicKeyBytes(p: PackManifest): ByteArray? = p.publicKey?.let { catching { Base64.getDecoder().decode(it) }.getOrNull() }
 
     /** Whether [candidate] was signed by the same publisher key as the installed pack ([installedKey], Base64). Full key compare. */
     fun sameKey(installedKey: String?, candidate: PackManifest): Boolean {
-        val a = installedKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() } ?: return false
+        val a = installedKey?.let { catching { Base64.getDecoder().decode(it) }.getOrNull() } ?: return false
         val b = publicKeyBytes(candidate) ?: return false
         return a.size == 32 && MessageDigest.isEqual(a, b)
     }
@@ -165,7 +165,7 @@ object ListPack {
         var status = SignatureStatus.UNSIGNED
         var fingerprint: String? = null
         if (sig != null) {
-            val key = manifest.publicKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
+            val key = manifest.publicKey?.let { catching { Base64.getDecoder().decode(it) }.getOrNull() }
                 ?: throw PackException("The list is signed but names no key")
             if (!Ed25519.verify(key, manifestBytes, sig)) throw PackException("The list's signature is not valid")
             status = SignatureStatus.SIGNED

@@ -66,6 +66,7 @@ class DialWidget : AppWidgetProvider() {
             val photo = p.getString("$id.photo", null)
             val views = RemoteViews(context.packageName, R.layout.widget_dial)
             views.setTextViewText(R.id.widget_name, name.substringBefore(' '))
+            // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
             val icon = photo?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
                 ?: Shortcuts.monogram(name, 160)
             views.setImageViewBitmap(R.id.widget_photo, circle(icon))

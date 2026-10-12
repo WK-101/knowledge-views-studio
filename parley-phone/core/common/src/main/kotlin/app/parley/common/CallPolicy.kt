@@ -195,7 +195,7 @@ data class ScreeningSettings(
 
         /** Reads settings stored by [encode]; unknown or broken input gives the defaults. */
         fun decode(json: String?): ScreeningSettings =
-            if (json.isNullOrBlank()) ScreeningSettings() else runCatching { CODEC.decodeFromString(serializer(), json) }.getOrDefault(ScreeningSettings())
+            if (json.isNullOrBlank()) ScreeningSettings() else catching { CODEC.decodeFromString(serializer(), json) }.getOrDefault(ScreeningSettings())
     }
 }
 

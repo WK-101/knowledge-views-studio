@@ -146,8 +146,8 @@ class PhoneNumbersOutsideIdentity(config: Config = Config.empty) : Rule(config) 
  * `catching {}`, which rethrows cancellation. Found by position, without types: a `runCatching` lexically inside a
  * `suspend fun`, or inside the block given to launch, async, withContext and the like.
  *
- * New code only: the sites written before the rule are in config/detekt/baseline.xml (several hundred, screening and
- * upkeep among them) and are replaced over time, so this guards against new ones rather than vouching for the old.
+ * The few runCatching sites left in coroutine code are baselined, each with a comment saying why (an image that can
+ * run out of memory must fall back too; a cancelled WorkManager operation means "not stopped").
  */
 class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
     override val issue: Issue = Issue(

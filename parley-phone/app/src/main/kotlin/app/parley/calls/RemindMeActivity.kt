@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.lifecycleScope
 import app.parley.MissedCallActionReceiver
 import app.parley.R
+import app.parley.common.catching
 import app.parley.container
 import app.parley.security.LockedActivity
 import app.parley.telecom.R as TelecomR
@@ -101,7 +102,7 @@ class RemindMeActivity : LockedActivity() {
             // Saved first, then told: "Reminder set" only when it was (no usable number, or a list that can't be read
             // right now, says so instead). Not cut short if the sheet closes meanwhile.
             val set = withContext(NonCancellable) {
-                runCatching { ToCallReminders.remind(app, number, accountId, at) }.getOrDefault(false).also { ok ->
+                catching { ToCallReminders.remind(app, number, accountId, at) }.getOrDefault(false).also { ok ->
                     if (ok) {
                         // That caller's missed-call notification is dealt with; the last one gone means all were seen.
                         if (notificationId != 0) app.getSystemService(NotificationManager::class.java).cancel(notificationId)

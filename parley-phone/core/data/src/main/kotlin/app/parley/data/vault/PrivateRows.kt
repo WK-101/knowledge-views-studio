@@ -1,6 +1,7 @@
 package app.parley.data.vault
 
 import android.content.Context
+import app.parley.common.catching
 import app.parley.data.db.VaultCallerRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -65,7 +66,7 @@ internal class PrivateRows(context: Context) {
     /** Row [r]'s summary from [kept] when it was kept from the very caller-ID copy [r] holds now. */
     private fun fromKept(r: VaultCallerRow, kept: PrivateSummaryCache.Entry?): Boolean {
         if (kept == null || kept.digest != PrivateSummaryCache.digest(r.callerIdBlob)) return false
-        val s = runCatching { CallerIdCopy.summary(r.id, kept.part, r.expiresAt, r.createdAt) }.getOrNull() ?: return false
+        val s = catching { CallerIdCopy.summary(r.id, kept.part, r.expiresAt, r.createdAt) }.getOrNull() ?: return false
         summaries[r.id] = r.callerIdBlob to s
         parts[r.id] = kept
         return true
@@ -78,7 +79,7 @@ internal class PrivateRows(context: Context) {
         cache.save(out)
     }
 
-    private fun open(e: VaultCallerRow): VaultSummary? = runCatching {
+    private fun open(e: VaultCallerRow): VaultSummary? = catching {
         val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
         val s = CallerIdCopy.summary(e.id, o, e.expiresAt, e.createdAt)
         summaries[e.id] = e.callerIdBlob to s

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
+import app.parley.common.catching
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
@@ -144,7 +145,7 @@ fun NotifyChoice(value: NotifyLevel, allowDefault: Boolean, onChange: (NotifyLev
 }
 
 fun ringtoneTitle(context: Context, uri: String?): String? =
-    uri?.let { u -> runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }
+    uri?.let { u -> catching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }
 
 /** System ringtone picker; [onPicked] gets null for "Default". */
 @Composable

@@ -23,15 +23,15 @@ object BlockingSetup {
     suspend fun warm(context: Context, c: DataContainer) {
         val appContext = context.applicationContext
         // A ring-volume boost left behind by a crash or a killed process is undone first.
-        runCatching { RingBoost.restore(appContext) }
-        runCatching { ScreeningGuard.inEmergencyWindow(appContext) }
-        runCatching { c.screener.warm() }
+        catching { RingBoost.restore(appContext) }
+        catching { ScreeningGuard.inEmergencyWindow(appContext) }
+        catching { c.screener.warm() }
         // Expected-call windows: read now so screening never opens the Keystore while a call rings.
-        runCatching { c.familySafety.load() }
+        catching { c.familySafety.load() }
         // Caller location for unknown callers (the call screen) and Recents.
-        runCatching { NumberInfo.warm(PhoneEnv.countryIso(appContext)) }
-        runCatching { c.calling.config.value }
-        runCatching { c.peoplePrefs.current() }
+        catching { NumberInfo.warm(PhoneEnv.countryIso(appContext)) }
+        catching { c.calling.config.value }
+        catching { c.peoplePrefs.current() }
     }
 
     /**
@@ -42,7 +42,7 @@ object BlockingSetup {
         val appContext = context.applicationContext
         c.lists.watchFolder { SpamListWorker.runSoon(appContext) }
         // Label references saved by older versions (group ids) are rewritten by title.
-        runCatching { c.people.labelRefs.migrate() }
+        catching { c.people.labelRefs.migrate() }
         catching { foldLockScreenNotes(c) }
     }
 

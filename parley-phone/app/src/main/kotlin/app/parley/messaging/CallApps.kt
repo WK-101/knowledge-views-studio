@@ -27,7 +27,7 @@ object CallApps {
 
     /** [pkg]'s name: the one Parley knows ("WhatsApp"), else Android's (launcher apps are visible), else the package. */
     fun label(context: Context, pkg: String): String = labels.getOrPut(pkg) {
-        InternetCalls.knownLabel(pkg) ?: runCatching {
+        InternetCalls.knownLabel(pkg) ?: catching {
             val pm = context.packageManager
             pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
         }.getOrNull()?.ifBlank { null } ?: pkg

@@ -37,6 +37,7 @@ import android.provider.ContactsContract.PhoneLookup
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
+import app.parley.common.catching
 import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
 import app.parley.common.AltCalendar
@@ -1044,7 +1045,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     /** Current id of a contact remembered by lookup key (ids change when contacts are re-aggregated); null if gone. */
     suspend fun resolve(lookupKey: String, contactId: Long): Long? = withContext(Dispatchers.IO) {
-        runCatching { Contacts.lookupContact(cr, Contacts.getLookupUri(contactId, lookupKey))?.let(ContentUris::parseId) }.getOrNull()
+        catching { Contacts.lookupContact(cr, Contacts.getLookupUri(contactId, lookupKey))?.let(ContentUris::parseId) }.getOrNull()
     }
 
     /**
@@ -1166,7 +1167,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val nameRow = contactIds.firstNotNullOfOrNull { structuredNameRowOf(it) }
         val raws = contactIds.flatMap { rawIds(it) }.distinct()
         setAggregation(raws, AggregationExceptions.TYPE_KEEP_TOGETHER)
-        nameRow?.let { runCatching { setDefault(it) } }
+        nameRow?.let { catching { setDefault(it) } }
         val merged = raws.firstNotNullOfOrNull { contactIdForRaw(it) }
         relinked(before, "MERGE")
         merged
@@ -1215,7 +1216,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Data.CONTENT_URI, dataId))
                 .withValue(Data.IS_PRIMARY, 1).withValue(Data.IS_SUPER_PRIMARY, 1).build(),
         )
-        runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }.isSuccess
+        catching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }.isSuccess
     }
 
     /** Clears the default [mimeType] row of [contactId] (no default number / e-mail any more). */
@@ -1225,7 +1226,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 .withSelection("${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), mimeType))
                 .withValue(Data.IS_PRIMARY, 0).withValue(Data.IS_SUPER_PRIMARY, 0).build(),
         )
-        runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }.isSuccess
+        catching { cr.applyBatch(ContactsContract.AUTHORITY, ops) }.isSuccess
     }
 
     /** AggregationExceptions for every pair, in batches small enough for the provider (33+ copies failed). */

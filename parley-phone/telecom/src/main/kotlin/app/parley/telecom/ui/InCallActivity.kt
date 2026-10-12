@@ -34,6 +34,7 @@ import app.parley.common.NotificationRequests
 import app.parley.common.calls.CallWaiting
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.RingKeys
+import app.parley.common.catching
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
@@ -352,13 +353,13 @@ class InCallActivity : ComponentActivity() {
     }
 
     private fun updatePip() {
-        if (pipSupported()) runCatching { setPictureInPictureParams(pipParams()) }
+        if (pipSupported()) catching { setPictureInPictureParams(pipParams()) }
     }
 
     /** Android 10 and 11 have no automatic PiP: enter it when the user leaves (Home, Recents). */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT < 31 && pipAllowed() && screenOn()) runCatching { enterPictureInPictureMode(pipParams()) }
+        if (Build.VERSION.SDK_INT < 31 && pipAllowed() && screenOn()) catching { enterPictureInPictureMode(pipParams()) }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -394,14 +395,14 @@ class InCallActivity : ComponentActivity() {
             }
             // Saved without unlocking (like a note during the call); nothing is shown back.
             is PostCallChoice.Remember -> {
-                runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
-                choice.catchUpAt?.let { at -> runCatching { deps.setCatchUp(choice.number, at) } }
+                catching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
+                choice.catchUpAt?.let { at -> catching { deps.setCatchUp(choice.number, at) } }
                 systemMessage(this, getString(R.string.memory_saved))
                 if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
             }
             is PostCallChoice.SavePrivately -> unlockThen {
                 lifecycleScope.launch {
-                    val said = runCatching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
+                    val said = catching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
                     systemMessage(this@InCallActivity, said ?: getString(R.string.incall_save_failed), long = true)
                     if (said != null && CallManager.state.value.isEmpty()) finishAndRemoveTask()
                 }

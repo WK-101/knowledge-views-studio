@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -182,12 +183,12 @@ object ArchiveSignatures {
     fun verify(header: ByteArray, m: Manifest, bundle: KeyBundle?, thisPhoneKey: ByteArray?): ArchiveOrigin {
         val s = m.signature ?: return ArchiveOrigin.UNSIGNED
         if (s.alg != ArchiveSignature.ALG) return ArchiveOrigin.BAD_SIGNATURE
-        val key = runCatching { unb64.decode(s.key) }.getOrNull() ?: return ArchiveOrigin.BAD_SIGNATURE
+        val key = catching { unb64.decode(s.key) }.getOrNull() ?: return ArchiveOrigin.BAD_SIGNATURE
         val ok = signatureValid(header, m, s, key)
         if (!ok) return ArchiveOrigin.BAD_SIGNATURE
         if (thisPhoneKey != null && MessageDigest.isEqual(thisPhoneKey, key)) return ArchiveOrigin.THIS_PHONE
         if (s.endorsement == null) return ArchiveOrigin.UNCONFIRMED_PHONE
-        val endorsement = runCatching { unb64.decode(s.endorsement) }.getOrNull()
+        val endorsement = catching { unb64.decode(s.endorsement) }.getOrNull()
         if (bundle != null && endorsement != null && endorsementValid(bundle.publicKey, key, endorsement)) return ArchiveOrigin.OTHER_PHONE
         return ArchiveOrigin.UNKNOWN_SIGNER
     }

@@ -10,6 +10,7 @@ import app.parley.common.RuleKind
 import app.parley.common.blocking.WangiriGuard
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
+import app.parley.common.catching
 import app.parley.data.db.CallRingEntity
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +39,7 @@ class DialGuard(
     private val recentCallsWith: (String) -> List<CallEntry> = { emptyList() },
 ) {
     suspend fun check(number: String): List<DialWarning> = withContext(Dispatchers.IO) {
-        runCatching { checkInternal(number) }.getOrDefault(emptyList())
+        catching { checkInternal(number) }.getOrDefault(emptyList())
     }
 
     private suspend fun checkInternal(number: String): List<DialWarning> {

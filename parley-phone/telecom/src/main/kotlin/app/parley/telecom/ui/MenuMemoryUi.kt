@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.common.NotificationPrivacy
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuPath
+import app.parley.common.catching
 import app.parley.common.ux.Tips
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
@@ -55,9 +56,7 @@ import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -65,9 +64,6 @@ import kotlinx.coroutines.withContext
 private fun menuMemoryApplies(call: CallUi): Boolean =
     !call.incoming && !call.hidden && !call.isEmergency && !call.isConference && !call.number.isNullOrBlank() &&
         (call.state == CallState.ACTIVE || call.state == CallState.HOLDING)
-
-/** Saving and "Don't remember" outlive the dialog (and the row) that started them. */
-private val menuScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
 /** Calls whose "Last time" row was turned off here ("Don't remember digits for this number"), for the screen's life. */
 private val stoppedHere = mutableStateListOf<String>()
@@ -96,7 +92,7 @@ internal fun MenuMemoryRow(call: CallUi) {
     LaunchedEffect(call.id, applies) {
         if (!applies || path != null) return@LaunchedEffect
         val number = call.number.orEmpty()
-        path = runCatching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.menuPath(number, call.accountId) } }.getOrNull()
+        path = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.menuPath(number, call.accountId) } }.getOrNull()
     }
     val p = path?.takeIf { it.steps.isNotEmpty() }
     if (!applies || p == null) return
@@ -195,8 +191,8 @@ private fun MenuSaveDialog(call: CallUi, p: MenuPath, st: MenuRowState) {
         onConfirm = {
             st.saving = false
             val chosen = name
-            menuScope.launch {
-                val ok = runCatching { TelecomGraph.dependencies.saveMenuShortcut(number, call.accountId, chosen, p.steps) }.getOrDefault(false)
+            CallScreenWrites.scope.launch {
+                val ok = catching { TelecomGraph.dependencies.saveMenuShortcut(number, call.accountId, chosen, p.steps) }.getOrDefault(false)
                 st.saveFailed = !ok
                 st.savedAs = if (ok) MenuMemory.cleanName(chosen) else null
             }
@@ -222,7 +218,7 @@ private fun MenuStopDialog(call: CallUi, st: MenuRowState) {
             if (CallManager.menuReplay.value?.callId == call.id) CallManager.stopMenuReplay()
             stoppedHere += call.id
             val number = call.number.orEmpty()
-            menuScope.launch { runCatching { TelecomGraph.dependencies.stopMenuMemory(number, call.accountId) } }
+            CallScreenWrites.scope.launch { catching { TelecomGraph.dependencies.stopMenuMemory(number, call.accountId) } }
         },
         onDismiss = { st.askStop = false },
     )
@@ -232,10 +228,10 @@ private fun MenuStopDialog(call: CallUi, st: MenuRowState) {
 @Composable
 private fun MenuTip() {
     if (tipClosedHere) return
-    val seen = remember { runCatching { TelecomGraph.dependencies.tipSeen(Tips.MENU_MEMORY) }.getOrDefault(true) }
+    val seen = remember { catching { TelecomGraph.dependencies.tipSeen(Tips.MENU_MEMORY) }.getOrDefault(true) }
     if (seen) return
     CallTip(stringResource(R.string.menu_tip)) {
         tipClosedHere = true
-        runCatching { TelecomGraph.dependencies.markTipSeen(Tips.MENU_MEMORY) }
+        catching { TelecomGraph.dependencies.markTipSeen(Tips.MENU_MEMORY) }
     }
 }

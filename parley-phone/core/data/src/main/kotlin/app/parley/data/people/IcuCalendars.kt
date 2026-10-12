@@ -6,6 +6,7 @@ import android.icu.util.ULocale
 import app.parley.common.AltCalendar
 import app.parley.common.AltDay
 import app.parley.common.CalendarConverter
+import app.parley.common.catching
 import java.time.LocalDate
 
 /**
@@ -30,7 +31,7 @@ object IcuCalendars : CalendarConverter {
         return AltDay(c.get(Calendar.EXTENDED_YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), leap)
     }
 
-    override fun toGregorian(calendar: AltCalendar, day: AltDay): LocalDate? = runCatching {
+    override fun toGregorian(calendar: AltCalendar, day: AltDay): LocalDate? = catching {
         val c = calendar(calendar).apply {
             clear()
             set(Calendar.EXTENDED_YEAR, day.year)
@@ -41,8 +42,8 @@ object IcuCalendars : CalendarConverter {
         }
         val millis = c.timeInMillis
         // Read back: a day the year doesn't have (or a leap month it lacks) is no day at all.
-        if (c.get(Calendar.MONTH) != day.month - 1 || c.get(Calendar.DAY_OF_MONTH) != day.day) return@runCatching null
-        if (calendar == AltCalendar.CHINESE && (c.get(Calendar.IS_LEAP_MONTH) == 1) != day.leap) return@runCatching null
+        if (c.get(Calendar.MONTH) != day.month - 1 || c.get(Calendar.DAY_OF_MONTH) != day.day) return@catching null
+        if (calendar == AltCalendar.CHINESE && (c.get(Calendar.IS_LEAP_MONTH) == 1) != day.leap) return@catching null
         val g = gregorian().apply { timeInMillis = millis }
         LocalDate.of(g.get(Calendar.YEAR), g.get(Calendar.MONTH) + 1, g.get(Calendar.DAY_OF_MONTH))
     }.getOrNull()

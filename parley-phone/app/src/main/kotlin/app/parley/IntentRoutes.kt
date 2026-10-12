@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
 import app.parley.common.StartTab
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelUpdates
@@ -208,7 +209,7 @@ object IntentRoutes {
     private fun go(e: NavEvent) = IntentTarget(e)
 
     /** The tile a long press came from, from the extra Android adds. */
-    private fun tileComponent(intent: Intent): ComponentName? = runCatching {
+    private fun tileComponent(intent: Intent): ComponentName? = catching {
         @Suppress("DEPRECATION") // The typed getter needs Android 13; this runs on older phones too.
         intent.getParcelableExtra<ComponentName>(Intent.EXTRA_COMPONENT_NAME)
     }.getOrNull()

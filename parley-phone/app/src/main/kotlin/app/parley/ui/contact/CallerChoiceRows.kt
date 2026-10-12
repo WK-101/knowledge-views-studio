@@ -41,6 +41,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.CallerHaptics
 import app.parley.common.calls.CallerHaptics.Preset
+import app.parley.common.catching
 import app.parley.common.extras.CallerChoice
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyListItem
@@ -170,7 +171,7 @@ internal object HapticPreview {
     fun play(context: Context, p: CallerHaptics.Pattern, name: String?) {
         val v = vibrator(context) ?: return
         if (!v.hasVibrator()) return
-        runCatching { v.vibrate(VibrationEffect.createWaveform(CallerHaptics.timings(p, name), -1)) }
+        catching { v.vibrate(VibrationEffect.createWaveform(CallerHaptics.timings(p, name), -1)) }
     }
 
     private fun vibrator(context: Context): Vibrator? = if (Build.VERSION.SDK_INT >= 31) {

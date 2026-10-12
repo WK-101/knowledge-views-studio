@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.common.catching
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -72,7 +73,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
     val all by vm.contacts.collectAsStateWithLifecycle()
     val contacts = remember(all) { all.orEmpty().associateBy { it.lookupKey } }
     val data by produceState<PeopleData?>(null, idx, contacts) {
-        value = runCatching {
+        value = catching {
             val now = System.currentTimeMillis()
             val circle = vm.c.circle.members().map { it.lookupKey }.filter { it in contacts }.toSet()
             val touches = vm.c.circle.touches(now - 400 * CallLogIndex.DAY, idx).filter { it.key in contacts }
@@ -83,7 +84,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
             val review = PeopleInsights.yearInReview(touches, circle, now)
             // First names from the structured name, never by splitting the display name.
             val named = (firstMovers.map { it.first } + review?.most?.map { it.first }.orEmpty()).mapNotNull { contacts[it] }
-            val given = runCatching { vm.c.contacts.givenNames(named.map { it.id }) }.getOrDefault(emptyMap())
+            val given = catching { vm.c.contacts.givenNames(named.map { it.id }) }.getOrDefault(emptyMap())
             PeopleData(
                 reach = if (circle.isEmpty()) null else PeopleInsights.reach(circle, touches, now),
                 loops = PeopleInsights.openLoops(touches, now).take(5),

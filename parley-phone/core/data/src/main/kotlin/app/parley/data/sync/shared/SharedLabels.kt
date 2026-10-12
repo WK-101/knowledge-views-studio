@@ -162,7 +162,7 @@ class SharedLabels(
         val engine = engine(s, signer)
         if (!engine.checkPassphrase(s, passphrase)) return@withContext InviteFile.WRONG_PASSPHRASE
         val i = engine.invitation(s, s.folderName) ?: return@withContext InviteFile.FAILED
-        if (runCatching { write(SharedLabelInvites.file(i, passphrase)) }.getOrDefault(false)) InviteFile.READY else InviteFile.FAILED
+        if (catching { write(SharedLabelInvites.file(i, passphrase)) }.getOrDefault(false)) InviteFile.READY else InviteFile.FAILED
     }
 
     /** What joining [i] through [folderUri] would show (members and fingerprints), or why it can't. */

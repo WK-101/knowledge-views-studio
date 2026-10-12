@@ -11,6 +11,7 @@ import app.parley.common.cards.ShareMethod
 import app.parley.common.cards.ShareReceipt
 import app.parley.common.cards.SignedCard
 import app.parley.common.cards.SignedCards
+import app.parley.common.catching
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
 import app.parley.common.spam.Ed25519
@@ -67,7 +68,7 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
         val plain = records.openText(stored) ?: return null
         // Written plain by an older version when the Keystore was briefly unavailable: sealed now.
         if (!records.isSealed(stored)) records.sealText(plain)?.takeIf(records::isSealed)?.let { prefs.edit(commit = true) { putString(K_SECRET, it) } }
-        return runCatching { Base64.decode(plain, Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 }
+        return catching { Base64.decode(plain, Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 }
     }
 
     override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
@@ -133,10 +134,10 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
      */
     @Synchronized
     fun importJson(json: String) {
-        val o = runCatching { JSONObject(json) }.getOrNull() ?: return
-        val key = runCatching { Base64.decode(o.optString("key"), Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 } ?: return
+        val o = catching { JSONObject(json) }.getOrNull() ?: return
+        val key = catching { Base64.decode(o.optString("key"), Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 } ?: return
         val id = o.optString("id").takeIf { it.isNotEmpty() } ?: return
-        val mine = prefs.getString(K_SECRET, null)?.let { records.openText(it) }?.let { runCatching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
+        val mine = prefs.getString(K_SECRET, null)?.let { records.openText(it) }?.let { catching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
         when {
             mine != null && mine.contentEquals(key) && prefs.getString(K_ID, null) == id ->
                 prefs.edit(commit = true) { putLong(K_VERSION, maxOf(prefs.getLong(K_VERSION, 0), o.optLong("v"))) }
@@ -163,8 +164,8 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
     @Synchronized
     fun usePrevious(): Boolean {
         val json = prefs.getString(K_PENDING, null)?.let { records.openText(it) } ?: return false
-        val o = runCatching { JSONObject(json) }.getOrNull() ?: return false
-        val key = runCatching { Base64.decode(o.optString("key"), Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 } ?: return false
+        val o = catching { JSONObject(json) }.getOrNull() ?: return false
+        val key = catching { Base64.decode(o.optString("key"), Base64.NO_WRAP) }.getOrNull()?.takeIf { it.size == 32 } ?: return false
         adopt(o, key, o.optString("id").takeIf { it.isNotEmpty() } ?: return false)
         return true
     }
@@ -293,7 +294,7 @@ class ShareLedgerStore(context: Context) : RecordSealing.Resealable {
 
     /** Merges a backup's receipts with this phone's (by id); private ones only come through [importFor]. */
     suspend fun importJson(json: String) {
-        val restored = runCatching { ShareLedger.decode(json) }.getOrNull()?.filterNot { ContactRef.isPrivateKey(it.contactKey) } ?: return
+        val restored = catching { ShareLedger.decode(json) }.getOrNull()?.filterNot { ContactRef.isPrivateKey(it.contactKey) } ?: return
         merge(restored)
     }
 
@@ -302,7 +303,7 @@ class ShareLedgerStore(context: Context) : RecordSealing.Resealable {
 
     /** A backup's receipts for a private contact, now [key] (a restore gives it a new id). */
     suspend fun importFor(key: String, json: String) {
-        val restored = runCatching { ShareLedger.decode(json) }.getOrNull() ?: return
+        val restored = catching { ShareLedger.decode(json) }.getOrNull() ?: return
         merge(restored.map { it.copy(name = "", number = null, contactKey = key) })
     }
 
@@ -326,7 +327,7 @@ class ShareLedgerStore(context: Context) : RecordSealing.Resealable {
 
 /** Text sealed with the vault's caller-ID key (no unlock needed), for what names a private contact. */
 internal object PrivateSeal {
-    fun seal(text: String): String? = runCatching {
+    fun seal(text: String): String? = catching {
         Base64.encodeToString(VaultCrypto.sealCallerId(text.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
     }.getOrNull()
 
@@ -412,7 +413,7 @@ class CardLinkStore(context: Context) : RecordSealing.Resealable {
 
     /** A backup's link for [key]: never over a link the contact already has, or another contact's (H1). */
     suspend fun importOne(key: String, json: String) {
-        val link = runCatching { CardLinkBook.decode(json).links.values.firstOrNull() }.getOrNull() ?: return
+        val link = catching { CardLinkBook.decode(json).links.values.firstOrNull() }.getOrNull() ?: return
         update { b -> if (b.byCardId(link.cardId) != null || key in b.links) b else b.put(key, link) }
     }
 
@@ -429,7 +430,7 @@ class CardLinkStore(context: Context) : RecordSealing.Resealable {
      * contact with one of the card's numbers); the others wait as held cards, linked when their contact opens.
      */
     suspend fun importDevice(json: String, keyFor: suspend (String, CardFields) -> String?) {
-        val restored = runCatching { CardLinkBook.decode(json) }.getOrNull() ?: return
+        val restored = catching { CardLinkBook.decode(json) }.getOrNull() ?: return
         val placed = restored.links.mapNotNull { (k, l) -> keyFor(k, l.fields)?.let { it to l } }
         val now = System.currentTimeMillis()
         update { b ->

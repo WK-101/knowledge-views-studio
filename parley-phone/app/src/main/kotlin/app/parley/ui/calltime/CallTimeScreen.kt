@@ -41,6 +41,7 @@ import app.parley.common.LabelRefs
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
+import app.parley.common.catching
 import app.parley.data.GroupInfo
 import app.parley.security.AppLock
 import app.parley.ui.ParleyListItem
@@ -75,7 +76,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     var pickLabel by remember { mutableStateOf(false) }
     var noLock by remember { mutableStateOf(false) }
     val gate = rememberSupervisedGate(config)
-    LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
+    LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { catching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
 
     val unlockReason = stringResource(R.string.ct_unlock_limits)
     val allCalls = stringResource(R.string.label_all_calls)

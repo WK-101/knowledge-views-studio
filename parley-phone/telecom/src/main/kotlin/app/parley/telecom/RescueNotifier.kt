@@ -14,6 +14,7 @@ import androidx.core.app.Person
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.LockScreenCaller
+import app.parley.common.catching
 import app.parley.telecom.ui.InCallActivity
 
 /**
@@ -61,7 +62,7 @@ internal object RescueNotifier {
     private fun notify(context: Context, id: Int, n: Notification): Boolean {
         val nmc = NotificationManagerCompat.from(context)
         if (!nmc.areNotificationsEnabled()) return false
-        return runCatching { nmc.notify(id, n) }.isSuccess
+        return catching { nmc.notify(id, n) }.isSuccess
     }
 
     /** Whether a ringing call's notification can open the call screen by itself (as [CallNotifier] checks for real calls). */
@@ -72,7 +73,7 @@ internal object RescueNotifier {
     }
 
     private fun lockMode(): LockScreenCaller =
-        runCatching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
+        catching { TelecomGraph.dependencies.appearance.value.lockScreen }.getOrDefault(LockScreenCaller.NAME)
 
     /** The caller as the lock screen may show it right now. */
     private fun shownTitle(context: Context, call: CallUi): String {

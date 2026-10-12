@@ -3,6 +3,7 @@ package app.parley.common.circle
 import app.parley.common.Codecs
 import app.parley.common.Messenger
 import app.parley.common.MessengerApp
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -94,7 +95,7 @@ object Interactions {
     fun decodeCarried(text: String?): List<CarriedInteraction> = if (text.isNullOrBlank()) {
         emptyList()
     } else {
-        runCatching { carriedJson.decodeFromString(ListSerializer(CarriedInteraction.serializer()), text) }.getOrDefault(emptyList())
+        catching { carriedJson.decodeFromString(ListSerializer(CarriedInteraction.serializer()), text) }.getOrDefault(emptyList())
     }
 
     fun kindOf(type: InteractionType): ContactKind = when (type) {

@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import app.parley.common.catching
 import app.parley.common.people.ContactSort
 import android.content.Context
 import app.parley.data.prefs.MutablePreferences
@@ -98,7 +99,7 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
             privateByDefault = this[K.privateDefault] ?: d.privateByDefault,
             pickerOneField = this[K.pickerOne] ?: d.pickerOneField,
             labelRingtones = this[K.ringtones]?.let { raw ->
-                runCatching { JSONObject(raw).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrNull()
+                catching { JSONObject(raw).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrNull()
             } ?: d.labelRingtones,
             swipe = SwipeConfig(
                 enabled = this[K.swipeOn] ?: d.swipe.enabled,

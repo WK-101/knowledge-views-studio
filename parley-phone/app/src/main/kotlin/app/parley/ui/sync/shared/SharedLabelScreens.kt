@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.security.Bounded
 import app.parley.common.security.PassphraseStrength
@@ -596,7 +597,7 @@ private fun OpenInvitation(link: String?, file: Uri?, onOpened: (Invitation) -> 
             busy = true
             scope.launch {
                 val opened = withContext(Dispatchers.IO) {
-                    runCatching {
+                    catching {
                         if (link != null) {
                             SharedLabelInvites.fromLink(link, code)
                         } else {

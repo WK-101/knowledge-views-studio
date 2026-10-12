@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.parley.common.catching
 import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.Tips
 import app.parley.telecom.CallState
@@ -65,8 +66,8 @@ internal fun ReputationLine(call: CallUi, ended: Boolean, compact: Boolean) {
     val res = LocalResources.current
     var open by rememberSaveable(call.id) { mutableStateOf(false) }
     // One line of explanation the first time the tag shows.
-    val firstTime = remember { runCatching { !TelecomGraph.dependencies.tipSeen(Tips.REPUTATION_TAG) }.getOrDefault(false) }
-    LaunchedEffect(Unit) { if (firstTime) runCatching { TelecomGraph.dependencies.markTipSeen(Tips.REPUTATION_TAG) } }
+    val firstTime = remember { catching { !TelecomGraph.dependencies.tipSeen(Tips.REPUTATION_TAG) }.getOrDefault(false) }
+    LaunchedEffect(Unit) { if (firstTime) catching { TelecomGraph.dependencies.markTipSeen(Tips.REPUTATION_TAG) } }
     val reasons = remember(rep, res) { ReputationText.reasons(res, rep) }
     Column(Modifier.padding(top = Spacing.xs).widthIn(max = 480.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -138,7 +139,7 @@ internal fun BlockRangeOffer(call: CallUi) {
     // The range shows the start of the number: not on a call masked on the lock screen.
     if (call.reputation == null || call.lockMasked) return
     val proposal by produceState<RangeProposal?>(null, number, call.accountId) {
-        value = withContext(Dispatchers.IO) { runCatching { TelecomGraph.dependencies.rangeProposal(number, call.accountId) }.getOrNull() }
+        value = withContext(Dispatchers.IO) { catching { TelecomGraph.dependencies.rangeProposal(number, call.accountId) }.getOrNull() }
     }
     val p = proposal ?: return
     val scope = rememberCoroutineScope()
@@ -153,7 +154,7 @@ internal fun BlockRangeOffer(call: CallUi) {
                 s is RangeBlock.Idle || s is RangeBlock.Undone -> {
                     val write = { action: BlockAction ->
                         state = RangeBlock.Working
-                        scope.launch { state = RangeBlock.Done(runCatching { TelecomGraph.dependencies.blockRange(p.prefix, action) }.getOrNull(), action) }
+                        scope.launch { state = RangeBlock.Done(catching { TelecomGraph.dependencies.blockRange(p.prefix, action) }.getOrNull(), action) }
                         Unit
                     }
                     FilledTonalButton({ write(BlockAction.SILENCE) }) {
@@ -170,7 +171,7 @@ internal fun BlockRangeOffer(call: CallUi) {
                 // The same removal as "Block & decline"'s Undo: the rule just written goes.
                 undoId != null -> TextButton({
                     scope.launch {
-                        runCatching { TelecomGraph.dependencies.undoBlockForDecline(undoId) }
+                        catching { TelecomGraph.dependencies.undoBlockForDecline(undoId) }
                         state = RangeBlock.Undone
                     }
                 }) { Text(stringResource(R.string.tc_undo)) }

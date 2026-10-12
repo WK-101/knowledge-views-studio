@@ -86,7 +86,7 @@ class SyncWatch(private val c: DataContainer) {
         val userKeys = if (diff == null) {
             emptySet()
         } else {
-            runCatching { c.meta.journal(since - HOUR).first().map { it.contactKey }.toSet() }.getOrDefault(emptySet())
+            catching { c.meta.journal(since - HOUR).first().map { it.contactKey }.toSet() }.getOrDefault(emptySet())
         }
         val found = SyncWatchdog.check(
             SyncWatchdog.Input(
@@ -107,7 +107,7 @@ class SyncWatch(private val c: DataContainer) {
         val now = withContext(Dispatchers.IO) { addressBook() } ?: return m
         var out = m
         for (e in cards) {
-            val all = runCatching { c.timeMachine.lastVersions(e.keys).values.toList() }.getOrNull() ?: continue
+            val all = catching { c.timeMachine.lastVersions(e.keys).values.toList() }.getOrNull() ?: continue
             if (all.isNotEmpty() && SyncWatchdog.stillGone(all, now).isEmpty()) out = out.expire(e)
         }
         return out
@@ -154,7 +154,7 @@ class SyncWatch(private val c: DataContainer) {
     /** Every contact as it is now (no photos), or null when the address book can't be read. */
     private fun addressBook(): List<ContactRecord>? {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return null
-        return runCatching { c.records.readAll(fullPhoto = false).toList() }.onFailure { Log.w(TAG, "Couldn't read contacts", it) }.getOrNull()
+        return catching { c.records.readAll(fullPhoto = false).toList() }.onFailure { Log.w(TAG, "Couldn't read contacts", it) }.getOrNull()
     }
 
     /** The contacts of a NUMBERS_LOST event that still exist and still miss numbers, with what they had. */
@@ -208,7 +208,7 @@ class SyncWatch(private val c: DataContainer) {
                 for (i in 1..14) row["data$i"]?.let { v.put("data$i", it) }
                 ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).build()
             }
-            runCatching { context.contentResolver.applyBatch(ContactsContract.AUTHORITY, ops) }
+            catching { context.contentResolver.applyBatch(ContactsContract.AUTHORITY, ops) }
                 .onFailure { Log.w(TAG, "Couldn't add numbers back", it) }
                 .getOrNull()?.forEach { r -> r.uri?.let { out += ContentUris.parseId(it) } }
         }
@@ -223,7 +223,7 @@ class SyncWatch(private val c: DataContainer) {
         c.contacts.refresh()
     }
 
-    private fun contactIdFor(key: String): Long? = runCatching {
+    private fun contactIdFor(key: String): Long? = catching {
         ContactsContract.Contacts.lookupContact(context.contentResolver, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))
             ?.let { ContentUris.parseId(it) }
     }.getOrNull()

@@ -96,7 +96,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
         val known = indexed.orEmpty().filter { (files[it.id] ?: return@filter false) <= indexedAt }
         val missing = ids - known.mapTo(HashSet()) { it.id }
         val opened = missing.mapNotNull { id ->
-            runCatching { Archive.decode(String(crypto.openBytes(File(dir, "$id$CARD").readBytes()), Charsets.UTF_8)) }
+            catching { Archive.decode(String(crypto.openBytes(File(dir, "$id$CARD").readBytes()), Charsets.UTF_8)) }
                 .onFailure { Log.w(TAG, "An archived card couldn't be read now") }.getOrNull()
         }
         val cards = (known + opened).sortedBy { it.name.lowercase() }
@@ -275,7 +275,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
     }
 
     /** Writes both files of [id] (the record first, so a card never points at nothing). False when either failed. */
-    private fun write(id: Long, card: ArchivedCard, record: ContactRecord): Boolean = runCatching {
+    private fun write(id: Long, card: ArchivedCard, record: ContactRecord): Boolean = catching {
         dir.mkdirs()
         writeSealed(File(dir, "$id$REC"), encodeRecord(record))
         writeSealed(File(dir, "$id$CARD"), Archive.encode(card))

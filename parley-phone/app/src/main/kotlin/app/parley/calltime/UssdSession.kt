@@ -8,6 +8,7 @@ import app.parley.R
 import app.parley.common.SimAccount
 import app.parley.common.calltime.Ussd
 import app.parley.common.calltime.UssdEntry
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -48,7 +49,7 @@ class UssdSession(private val c: DataContainer, private val scope: CoroutineScop
         val simLabel = if (sims.size >= 2) sims.firstOrNull { it.id == simId }?.label else null
         _state.value = UssdState.Sending(code, simLabel)
         val base = c.appContext.getSystemService(TelephonyManager::class.java)
-        val tm = c.sims.handle(simId)?.let { h -> runCatching { base?.createForPhoneAccountHandle(h) }.getOrNull() } ?: base
+        val tm = c.sims.handle(simId)?.let { h -> catching { base?.createForPhoneAccountHandle(h) }.getOrNull() } ?: base
         if (tm == null) {
             finish(code, c.appContext.getString(R.string.ct_ussd_unsupported), false, simLabel, simId)
             return

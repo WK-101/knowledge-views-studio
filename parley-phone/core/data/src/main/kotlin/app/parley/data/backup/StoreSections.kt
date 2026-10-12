@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.data.db.MetaDao
 import android.util.Base64
@@ -111,7 +112,7 @@ class ContactNotesBackup(
             val c = refs.resolve(o.toPersonRef()) ?: run { unmatched++; return@mapNotNull null }
             TemporaryContactEntity(
                 c.lookupKey, c.id, o.optLong("exp"), o.optBoolean("purge", true),
-                rawIds = runCatching { TemporaryExpiry.encodeIds(rawIds(c.id)) }.getOrNull()?.ifEmpty { null },
+                rawIds = catching { TemporaryExpiry.encodeIds(rawIds(c.id)) }.getOrNull()?.ifEmpty { null },
                 name = o.optString("n").ifEmpty { c.displayName }, keepAsked = o.optBoolean("asked", false),
             )
         }
@@ -194,7 +195,7 @@ class CallTimeBackup(
     override suspend fun importCounting(values: Map<String, String>): Int {
         values[K_SWITCHES]?.let { v -> callExtras.update { CallExtrasConfig.decode(v) } }
         val backup = values[K_CONFIG]?.let { CallingJson.decode(it) } ?: return 0
-        val people = values[K_PEOPLE]?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+        val people = values[K_PEOPLE]?.let { catching { JSONObject(it) }.getOrNull() } ?: JSONObject()
         val refs = PersonRefs(contactsNow(), archivedKeys(values))
         val mapped = CallTimeRestore.remap(backup) { k -> refs.resolve(people.optJSONObject(k)?.toPersonRef() ?: PersonRef(k))?.lookupKey }
         // Supervision is a safeguard either way: switching it off, or on, from a file waits for the user's confirmation.
@@ -248,7 +249,7 @@ class HistorySettingsBackup(private val prefs: () -> HistoryPrefs) : BackupExtra
     }
 
     override suspend fun import(values: Map<String, String>) {
-        val o = values[K]?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+        val o = values[K]?.let { catching { JSONObject(it) }.getOrNull() } ?: return
         val p = prefs()
         if (o.has("archive")) p.setArchiveEnabled(o.optBoolean("archive", true))
         if (o.has("bom")) p.setCsvBom(o.optBoolean("bom", true))
@@ -281,9 +282,9 @@ class SpamListsBackup(private val lists: () -> SpamListStore) : BackupExtras {
     override suspend fun import(values: Map<String, String>) {
         for ((k, v) in values) {
             if (!k.startsWith(PREFIX)) continue
-            val o = runCatching { JSONObject(v) }.getOrNull() ?: continue
-            val zip = runCatching { Base64.decode(o.getString("pack"), Base64.NO_WRAP) }.getOrNull() ?: continue
-            runCatching { lists().restoreUserPack(o.optString("state"), zip) }
+            val o = catching { JSONObject(v) }.getOrNull() ?: continue
+            val zip = catching { Base64.decode(o.getString("pack"), Base64.NO_WRAP) }.getOrNull() ?: continue
+            catching { lists().restoreUserPack(o.optString("state"), zip) }
         }
     }
 

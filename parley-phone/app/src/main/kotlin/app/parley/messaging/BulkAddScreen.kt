@@ -162,7 +162,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
     }
 
     LaunchedEffect(Unit) {
-        val (accs, groups) = withContext(Dispatchers.IO) { c.contacts.accounts() to runCatching { c.contacts.groups() }.getOrDefault(emptyList()) }
+        val (accs, groups) = withContext(Dispatchers.IO) { c.contacts.accounts() to catching { c.contacts.groups() }.getOrDefault(emptyList()) }
         accounts = accs
         labels = groups
         val s = vm.settings.value

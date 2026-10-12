@@ -120,7 +120,7 @@ class CallerTuneFiles(context: Context) {
                 Log.w(TAG, "A tune file was left out of the backup ($size bytes)")
                 return@forEach
             }
-            runCatching { f.readBytes() }.getOrNull()?.takeIf(::isWav)?.let { out[f.name] = it; total += it.size }
+            catching { f.readBytes() }.getOrNull()?.takeIf(::isWav)?.let { out[f.name] = it; total += it.size }
         }
         return out
     }

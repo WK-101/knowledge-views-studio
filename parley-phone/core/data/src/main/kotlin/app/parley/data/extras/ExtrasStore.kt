@@ -111,7 +111,7 @@ class ExtrasStore(private val c: DataContainer) {
         val vaultId = ContactRef.vaultIdOf(key) ?: return _choices.value[key] ?: CallerChoice()
         // Waiting here while a contact just made visible can't be read back yet (see ContactKeys.rekeyLater).
         _choices.value[key]?.let { return it }
-        val s = runCatching { c.vault.summary(vaultId) }.getOrNull() ?: return CallerChoice()
+        val s = catching { c.vault.summary(vaultId) }.getOrNull() ?: return CallerChoice()
         return CallerChoice(s.vibration, s.autoAnswer, s.neverCalls)
     }
 
@@ -198,7 +198,7 @@ class ExtrasStore(private val c: DataContainer) {
         // Android lets only address-book contacts through Do Not Disturb: a private contact is never starred for it
         // (that would need its name and number in the address book).
         val device = members.filter { it.id > 0 }
-        val starred = device.filter { !it.starred && runCatching { c.contacts.setStarred(it.id, true) }.isSuccess }
+        val starred = device.filter { !it.starred && catching { c.contacts.setStarred(it.id, true) }.isSuccess }
         val shared = device.filter { it.starred && it.lookupKey in ledger }
         updateDndStars { DndStars.add(it, label, (starred + shared).map { m -> m.lookupKey }) }
         c.contacts.refresh()
@@ -221,15 +221,15 @@ class ExtrasStore(private val c: DataContainer) {
             return@withContext 0
         }
         val dnd = dndLabels()
-        val ids = r.unstar.associateWith { k -> runCatching { c.contacts.currentOf(k, null)?.first }.getOrNull() }
+        val ids = r.unstar.associateWith { k -> catching { c.contacts.currentOf(k, null)?.first }.getOrNull() }
         val wants = ids.mapValues { (_, id) ->
-            if (id == null || dnd.isEmpty()) emptySet() else runCatching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd)
+            if (id == null || dnd.isEmpty()) emptySet() else catching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd)
         }
         val settled = DndStars.settle(r.ledger, r.unstar, wants)
         var n = 0
         for (k in settled.unstar) {
             val id = ids[k] ?: continue
-            if (runCatching { c.contacts.setStarred(id, false) }.isSuccess) n++
+            if (catching { c.contacts.setStarred(id, false) }.isSuccess) n++
         }
         updateDndStars { settled.ledger }
         c.contacts.refresh()
@@ -296,7 +296,7 @@ class ExtrasStore(private val c: DataContainer) {
     suspend fun labelSimFor(number: String): String? = withContext(Dispatchers.IO) {
         val p = _policies.value
         if (p.values.none { it.simId != null }) return@withContext null
-        runCatching {
+        catching {
             val titles = c.contacts.lookup(number)?.contactId?.let { c.contacts.labelTitlesOf(it) }
                 ?: c.privateLabels.titlesForNumber(number)
                 ?: return@withContext null
@@ -347,14 +347,16 @@ class ExtrasStore(private val c: DataContainer) {
     suspend fun addToFavourites(people: List<ContactSummary>): FavouritesAdded = withContext(Dispatchers.IO) {
         val starred = ArrayList<Long>()
         val claimed = LinkedHashMap<String, Set<String>>()
+        var count = 0
         for (p in people) {
-            when {
-                !p.starred -> if (catching { star(p.id, true) }.isSuccess) starred += p.id
-                p.id > 0 && p.lookupKey in _dndStars.value -> claimed[p.lookupKey] = makeFavourite(p.lookupKey)
-            }
+            val step = DndStars.favouriteStep(p.starred, device = p.id > 0, recorded = p.lookupKey in _dndStars.value)
+            if (step.star && catching { star(p.id, true) }.isFailure) continue
+            if (step.star) starred += p.id
+            if (step.claim) claimed[p.lookupKey] = makeFavourite(p.lookupKey)
+            if (step.star || step.claim) count++
         }
         c.contacts.refresh()
-        FavouritesAdded(starred, claimed)
+        FavouritesAdded(starred, claimed, count)
     }
 
     /** Undo of [addToFavourites]: unstars exactly those it starred, and puts back the Do Not Disturb records it took. */
@@ -369,10 +371,8 @@ class ExtrasStore(private val c: DataContainer) {
         if (r is ContactRef.Private) c.vault.updateCallerChoices(r.vaultId) { it.copy(starred = on) } else c.contacts.setStarred(id, on)
     }
 
-    /** What "Add everyone to Favourites" did: who it starred (list ids) and whose Do Not Disturb record it took. */
-    data class FavouritesAdded(val starred: List<Long>, val claimed: Map<String, Set<String>>) {
-        val count: Int get() = starred.size + claimed.size
-    }
+    /** What "Add everyone to Favourites" did: who it starred (list ids), whose Do Not Disturb record it took, and for how many people. */
+    data class FavouritesAdded(val starred: List<Long>, val claimed: Map<String, Set<String>>, val count: Int)
 
     // --- Simple mode ---
 
@@ -415,7 +415,7 @@ class ExtrasStore(private val c: DataContainer) {
         val cities = ArrayList<String>()
         val postal = ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE
         val note = ContactsContract.CommonDataKinds.Note.CONTENT_ITEM_TYPE
-        runCatching {
+        catching {
             c.appContext.contentResolver.query(
                 ContactsContract.Data.CONTENT_URI,
                 arrayOf(
@@ -544,7 +544,7 @@ class ExtrasStore(private val c: DataContainer) {
 
         override suspend fun importCounting(values: Map<String, String>): Int {
             val entries = values[X_CALLER_PEOPLE]?.let { v ->
-                val a = runCatching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
+                val a = catching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
                 (0 until a.length()).mapNotNull { i ->
                     val o = a.optJSONObject(i) ?: return@mapNotNull null
                     val choice = CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false))

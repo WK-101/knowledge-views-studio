@@ -12,6 +12,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import app.parley.common.Hex
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.photo.FrameMath
 import app.parley.common.photo.ImageFiles
@@ -171,14 +172,14 @@ class OriginalPhotos(context: Context) {
         val metaFile = metaFor(lookupKey)
         val image = imageFor(lookupKey)
         if (!metaFile.isFile || !image.isFile) return@withContext null
-        val meta = runCatching { JSONObject(metaFile.readText()) }.getOrNull() ?: return@withContext null
+        val meta = catching { JSONObject(metaFile.readText()) }.getOrNull() ?: return@withContext null
         when (val m = OriginalPhoto.match(meta.optString("before").ifEmpty { null }, meta.optString("bound"), current)) {
             OriginalPhoto.Match.Stale -> {
                 clear(lookupKey)
                 null
             }
             is OriginalPhoto.Match.Show -> {
-                m.bind?.let { runCatching { metaFile.writeText(meta.put("bound", it).toString()) } }
+                m.bind?.let { catching { metaFile.writeText(meta.put("bound", it).toString()) } }
                 original(meta, image, sealed = false)
             }
         }
@@ -193,10 +194,10 @@ class OriginalPhotos(context: Context) {
         if (lookupKey.isEmpty()) return@withContext
         ContactRef.vaultIdOf(lookupKey)?.let { setPrivateFrameNow(it, frame); return@withContext }
         val metaFile = metaFor(lookupKey)
-        val meta = runCatching { JSONObject(metaFile.readText()) }.getOrNull() ?: return@withContext
+        val meta = catching { JSONObject(metaFile.readText()) }.getOrNull() ?: return@withContext
         putFrame(meta, frame)
         if (rewritten != null) meta.put("before", rewritten).put("bound", "")
-        runCatching { metaFile.writeText(meta.toString()) }
+        catching { metaFile.writeText(meta.toString()) }
         _version.value++
     }
 
@@ -230,10 +231,10 @@ class OriginalPhotos(context: Context) {
             clearNow(from)
             return
         }
-        val meta = runCatching { JSONObject(metaFor(from).readText()) }.getOrNull() ?: return
+        val meta = catching { JSONObject(metaFor(from).readText()) }.getOrNull() ?: return
         if (!DurableFiles.move(src, imageFor(to))) return
         metaFor(from).delete()
-        runCatching { metaFor(to).writeText(meta.put("key", to).toString()) }
+        catching { metaFor(to).writeText(meta.put("key", to).toString()) }
         _version.value++
     }
 
@@ -241,7 +242,7 @@ class OriginalPhotos(context: Context) {
     class Carried internal constructor(internal val bytes: ByteArray, internal val meta: JSONObject)
 
     /** [key]'s original, readable, or null. */
-    fun take(key: String): Carried? = runCatching {
+    fun take(key: String): Carried? = catching {
         val id = ContactRef.vaultIdOf(key)
         val (image, meta) = if (id != null) privateImage(id) to privateMeta(id) else imageFor(key) to metaFor(key)
         if (!image.isFile || !meta.isFile) return null
@@ -253,7 +254,7 @@ class OriginalPhotos(context: Context) {
      * Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. The
      * same size limit as when a picture is first kept ([OriginalPhoto.MAX_BYTES]) holds here too.
      */
-    fun put(key: String, c: Carried): Boolean = runCatching {
+    fun put(key: String, c: Carried): Boolean = catching {
         if (c.bytes.size > OriginalPhoto.MAX_BYTES) return false
         val size = JSONObject().put("w", c.meta.optInt("w")).put("h", c.meta.optInt("h")).put("o", c.meta.optInt("o", ExifInterface.ORIENTATION_NORMAL))
         // The avatar's square goes along (Make private, Make visible), so it can still be adjusted there; so does how
@@ -278,7 +279,7 @@ class OriginalPhotos(context: Context) {
 
     /** Lookup keys that have an original. */
     fun keys(): Set<String> = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
-        .mapNotNull { f -> runCatching { JSONObject(f.readText()).optString("key") }.getOrNull()?.takeIf { it.isNotEmpty() } }
+        .mapNotNull { f -> catching { JSONObject(f.readText()).optString("key") }.getOrNull()?.takeIf { it.isNotEmpty() } }
         .filter { imageFor(it).isFile }.toSet()
 
     internal fun read(lookupKey: String): ByteArray? = imageFor(lookupKey).takeIf { it.isFile }?.readBytes()
@@ -330,7 +331,7 @@ class OriginalPhotos(context: Context) {
         val image = privateImage(id)
         val meta = privateMeta(id)
         if (!image.isFile || !meta.isFile) return@withContext null
-        runCatching { JSONObject(meta.readText()) }.getOrNull()?.let { original(it, image, sealed = true) }
+        catching { JSONObject(meta.readText()) }.getOrNull()?.let { original(it, image, sealed = true) }
     }
 
     /** Records the square private contact [id]'s avatar was cut from (null: the whole picture). */
@@ -338,9 +339,9 @@ class OriginalPhotos(context: Context) {
 
     private fun setPrivateFrameNow(id: Long, frame: PhotoFrame?) {
         val metaFile = privateMeta(id)
-        val meta = runCatching { JSONObject(metaFile.readText()) }.getOrNull() ?: return
+        val meta = catching { JSONObject(metaFile.readText()) }.getOrNull() ?: return
         putFrame(meta, frame)
-        runCatching { metaFile.writeText(meta.toString()) }
+        catching { metaFile.writeText(meta.toString()) }
         _version.value++
     }
 
@@ -506,13 +507,13 @@ class OriginalPhotos(context: Context) {
             null
         }
         val format = head?.let(ImageFiles::detect)
-        val size = runCatching {
+        val size = catching {
             cr.query(source, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
-        }.getOrNull() ?: runCatching { cr.openInputStream(source)?.use { countAtMost(it) } }.getOrNull() ?: -1L
+        }.getOrNull() ?: catching { cr.openInputStream(source)?.use { countAtMost(it) } }.getOrNull() ?: -1L
         val location = when (format) {
             null -> null
             ImageFiles.Format.GIF -> false
-            else -> runCatching { cr.openInputStream(source)?.use { hasLocation(ExifInterface(it)) } }.getOrNull()
+            else -> catching { cr.openInputStream(source)?.use { hasLocation(ExifInterface(it)) } }.getOrNull()
         }
         return OriginalPhoto.Probe(format, size, location)
     }
@@ -582,7 +583,7 @@ class OriginalPhotos(context: Context) {
     }
 
     /** Whether [f] carries a location; null when its metadata can't be read. */
-    private fun locationOf(f: File): Boolean? = runCatching { hasLocation(ExifInterface(f)) }.getOrNull()
+    private fun locationOf(f: File): Boolean? = catching { hasLocation(ExifInterface(f)) }.getOrNull()
 
     private fun hasLocation(exif: ExifInterface): Boolean = exif.latLong != null || LOCATION_TAGS.any { exif.getAttribute(it) != null }
 
@@ -612,7 +613,7 @@ class OriginalPhotos(context: Context) {
      * caller checks the result ([locationOf]): a failure leaves the tags.
      */
     private fun stripLocation(f: File) {
-        runCatching {
+        catching {
             val exif = ExifInterface(f)
             var changed = false
             for (tag in LOCATION_TAGS) {
@@ -631,7 +632,7 @@ class OriginalPhotos(context: Context) {
         BitmapFactory.decodeFile(f.path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         val normal = ExifInterface.ORIENTATION_NORMAL
-        val o = runCatching { ExifInterface(f).getAttributeInt(ExifInterface.TAG_ORIENTATION, normal) }.getOrDefault(normal)
+        val o = catching { ExifInterface(f).getAttributeInt(ExifInterface.TAG_ORIENTATION, normal) }.getOrDefault(normal)
         return Staged(f, bounds.outWidth, bounds.outHeight, o)
     }
 
@@ -663,7 +664,7 @@ class OriginalPhotos(context: Context) {
         )
 
         /** Private entry [id]'s original exactly as stored (still sealed) and its size record, for "Recently deleted". */
-        fun sealedPrivate(context: Context, id: Long): Pair<ByteArray, String>? = runCatching {
+        fun sealedPrivate(context: Context, id: Long): Pair<ByteArray, String>? = catching {
             val d = File(context.filesDir, "vault_photo_originals")
             val image = File(d, "v$id.bin")
             val meta = File(d, "v$id.json")
@@ -671,7 +672,7 @@ class OriginalPhotos(context: Context) {
         }.getOrNull()
 
         /** Puts back what [sealedPrivate] gave, under private entry [id] (restored with a new id). */
-        fun restoreSealedPrivate(context: Context, id: Long, image: ByteArray, meta: String): Boolean = runCatching {
+        fun restoreSealedPrivate(context: Context, id: Long, image: ByteArray, meta: String): Boolean = catching {
             val d = File(context.filesDir, "vault_photo_originals").apply { mkdirs() }
             DurableFiles.writeOrThrow(File(d, "v$id.bin"), image)
             File(d, "v$id.json").writeText(meta)

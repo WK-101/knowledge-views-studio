@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import app.parley.calls.ProximityProbe
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.PocketGuard
+import app.parley.common.catching
 import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import android.content.Intent
@@ -27,7 +28,7 @@ class ShortcutActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val kind = runCatching { Shortcuts.Kind.valueOf(intent.getStringExtra(EXTRA_KIND).orEmpty()) }.getOrNull()
+        val kind = catching { Shortcuts.Kind.valueOf(intent.getStringExtra(EXTRA_KIND).orEmpty()) }.getOrNull()
         val number = intent.getStringExtra(EXTRA_NUMBER)
         val contactId = intent.getLongExtra(EXTRA_CONTACT, -1L)
         when (kind) {
@@ -36,7 +37,7 @@ class ShortcutActivity : Activity() {
                 call(number, intent.getStringExtra(EXTRA_NAME), contactId)
                 return
             }
-            Shortcuts.Kind.MESSAGE -> if (!number.isNullOrBlank()) runCatching {
+            Shortcuts.Kind.MESSAGE -> if (!number.isNullOrBlank()) catching {
                 startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
             }
             Shortcuts.Kind.OPEN -> startActivity(
@@ -81,7 +82,7 @@ class ShortcutActivity : Activity() {
     private fun nameOf(contactId: Long): String? = if (contactId <= 0) {
         null
     } else {
-        runCatching {
+        catching {
             contentResolver.query(
                 ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId),
                 arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null,

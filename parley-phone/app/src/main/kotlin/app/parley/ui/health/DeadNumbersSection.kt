@@ -31,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.calls.NumberSignals
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.common.calls.DeadNumberRadar
 import app.parley.common.people.ContactRef
 import app.parley.ui.Bidi
@@ -109,7 +109,7 @@ private fun DeadNumberMenu(vm: AppViewModel, d: NumberSignals.DeadNumber, shown:
                     )
                     val line = res.getString(R.string.health_out_of_service_note, d.number, since)
                     scope.launch {
-                        val undo = suspendRunCatching { NumberSignals.moveToNote(vm.c, d, line) }.getOrNull()
+                        val undo = catching { NumberSignals.moveToNote(vm.c, d, line) }.getOrNull()
                         if (undo == null) {
                             // Kept by an account Parley can't change this way: the editor shows what can be done.
                             vm.toast(res.getString(R.string.health_out_of_service_not_moved))

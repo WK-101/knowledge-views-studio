@@ -1,5 +1,6 @@
 package app.parley.common.security
 
+import app.parley.common.catching
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -76,7 +77,7 @@ data class PinRecord(
             val f = s?.split(SEP) ?: return null
             // 10 fields before PIN changes were counted, 12 since.
             if ((f.size != 10 && f.size != 12) || f[0] != VERSION) return null
-            return runCatching {
+            return catching {
                 PinRecord(
                     salt = f[4].also { Base64.getDecoder().decode(it) },
                     log2N = f[1].toInt().also { require(it in 10..20) },

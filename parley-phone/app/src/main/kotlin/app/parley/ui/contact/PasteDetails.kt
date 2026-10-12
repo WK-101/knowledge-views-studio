@@ -57,6 +57,7 @@ import app.parley.common.ContactSummary
 import app.parley.common.NumberText
 import app.parley.common.PhoneEntry
 import app.parley.common.cards.SignedCards
+import app.parley.common.catching
 import app.parley.common.extras.PendingSlot
 import app.parley.common.people.DuplicateHit
 import app.parley.common.people.DuplicateLookup
@@ -109,9 +110,9 @@ object PasteInbox {
  */
 internal object PasteHints {
     suspend fun of(context: Context, text: String): List<PasteParser.Hint> = withContext(Dispatchers.Default) {
-        runCatching {
+        catching {
             val tc = context.getSystemService(TextClassificationManager::class.java)?.textClassifier
-            if (tc == null || tc === TextClassifier.NO_OP) return@runCatching emptyList()
+            if (tc == null || tc === TextClassifier.NO_OP) return@catching emptyList()
             val t = text.take(minOf(PasteParser.MAX_TEXT, tc.maxGenerateLinksTextLength))
             val entities = listOf(TextClassifier.TYPE_ADDRESS, TextClassifier.TYPE_PHONE, TextClassifier.TYPE_EMAIL, TextClassifier.TYPE_URL)
             val request = TextLinks.Request.Builder(t)
@@ -371,7 +372,7 @@ private fun shown(res: Resources, f: PasteParser.Field): String = when (f.kind) 
     else -> f.value
 }
 
-private fun birthday(date: String): String = runCatching {
+private fun birthday(date: String): String = catching {
     val locale = Locale.getDefault()
     if (date.startsWith("--")) {
         val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMMM")

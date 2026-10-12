@@ -13,6 +13,7 @@ import android.security.keystore.UserNotAuthenticatedException
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import app.parley.common.Hex
+import app.parley.common.catching
 import app.parley.common.storage.DurableFiles
 import app.parley.data.StatePrefs
 import app.parley.data.security.KeystoreSeal
@@ -243,7 +244,7 @@ object VaultCrypto {
         for (g in stored) {
             if (g > effective && g !in inUse) {
                 Log.w("VaultCrypto", "Removing detail key generation $g left by an interrupted upgrade")
-                runCatching { deleteAlias(detailAlias(g)) }
+                catching { deleteAlias(detailAlias(g)) }
             }
         }
     }
@@ -528,8 +529,8 @@ object VaultCrypto {
     /** The current detail key's properties from the Keystore ([KeyInfo]); a generation of -1 when there is no key. */
     fun auditDetailKey(): KeyAudit {
         val gen = currentGeneration() ?: return KeyAudit(-1, false, false, false, false, false)
-        val key = runCatching { detailKey(gen) }.getOrNull() ?: return KeyAudit(gen, false, false, false, false, false)
-        val info = runCatching { SecretKeyFactory.getInstance(key.algorithm, STORE).getKeySpec(key, KeyInfo::class.java) as KeyInfo }.getOrNull()
+        val key = catching { detailKey(gen) }.getOrNull() ?: return KeyAudit(gen, false, false, false, false, false)
+        val info = catching { SecretKeyFactory.getInstance(key.algorithm, STORE).getKeySpec(key, KeyInfo::class.java) as KeyInfo }.getOrNull()
             ?: return KeyAudit(gen, true, false, false, false, false)
         val level = if (Build.VERSION.SDK_INT >= 31) info.securityLevel else null
 

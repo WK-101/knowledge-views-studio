@@ -10,6 +10,7 @@ import app.parley.CallGate
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.ReasonFacts
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,7 @@ object CallReasons {
     internal suspend fun emergency(number: String, platform: suspend (String) -> Boolean): Boolean {
         val n = MenuMemory.dialled(number)
         if (EmergencyPolicy.isFallbackEmergencyNumber(n)) return true
-        return withTimeoutOrNull(EMERGENCY_CHECK_MS) { runCatching { platform(n) }.getOrDefault(true) } ?: true
+        return withTimeoutOrNull(EMERGENCY_CHECK_MS) { catching { platform(n) }.getOrDefault(true) } ?: true
     }
 
     /**
@@ -43,7 +44,7 @@ object CallReasons {
      * an emergency one. Off the main thread.
      */
     suspend fun facts(context: Context, c: DataContainer, number: String, simId: String?): Facts = withContext(Dispatchers.IO) {
-        val chosen = simId ?: c.placer.resolveSim(number) ?: runCatching { c.sims.defaultOutgoing() }.getOrNull()
+        val chosen = simId ?: c.placer.resolveSim(number) ?: catching { c.sims.defaultOutgoing() }.getOrNull()
         val accounts = subjectAccounts(context)
         Facts(
             ReasonFacts(emergency = false, simId = chosen, subjectSims = accounts.mapValues { it.value != null }, canText = canText(context, number)),
@@ -77,7 +78,7 @@ object CallReasons {
         Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", MenuMemory.dialled(number), null)).apply { if (text != null) putExtra("sms_body", text) }
 
     fun canText(context: Context, number: String): Boolean =
-        runCatching { smsIntent(number, null).resolveActivity(context.packageManager) != null }.getOrDefault(false)
+        catching { smsIntent(number, null).resolveActivity(context.packageManager) != null }.getOrDefault(false)
 
     /** Opens the messaging app with [text] for [number]; the user sends it. False when no app took it. */
     fun textFirst(context: Context, number: String, text: String): Boolean =

@@ -1,5 +1,6 @@
 package app.parley.data.sync
 
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import app.parley.common.storage.DurableFiles
 import app.parley.data.people.IcuCalendars
@@ -124,7 +125,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun load() = SyncStatus(
         prefs.getString("folder", null), prefs.getString("folderName", null), prefs.getBoolean("auto", true),
         prefs.getLong("lastAt", 0), prefs.getString("lastResult", null), prefs.getInt("pendingDeletions", 0),
-        mode = runCatching { SyncMode.valueOf(prefs.getString("mode", null)!!) }.getOrDefault(SyncMode.UNSET),
+        mode = catching { SyncMode.valueOf(prefs.getString("mode", null)!!) }.getOrDefault(SyncMode.UNSET),
         plainLeft = prefs.getInt("plainLeft", 0),
     )
 
@@ -134,13 +135,13 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         SyncMode.ENCRYPTED -> prefs.getString("folderKey", null)?.let { stored ->
             val crypto = RecordCrypto.get(context)
             val sealed = Base64.decode(stored, Base64.NO_WRAP)
-            if (!crypto.isSealed(sealed)) null else runCatching { SyncCodec.Encrypted(crypto.openBytes(sealed)) }.getOrNull()
+            if (!crypto.isSealed(sealed)) null else catching { SyncCodec.Encrypted(crypto.openBytes(sealed)) }.getOrNull()
         }
         SyncMode.UNSET -> null
     }
 
     /** Whether the chosen folder already holds an encrypted sync (another phone set it up): then its passphrase is needed. */
-    suspend fun folderIsEncrypted(): Boolean = withContext(Dispatchers.IO) { runCatching { readHeader() != null }.getOrDefault(false) }
+    suspend fun folderIsEncrypted(): Boolean = withContext(Dispatchers.IO) { catching { readHeader() != null }.getOrDefault(false) }
 
     private fun folderDoc(): Pair<Uri, String>? {
         val folder = status.value.folderUri?.let(Uri::parse) ?: return null
@@ -293,7 +294,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 // Another phone moved it already: the next run reads and compares that file.
                 if (e != null) moved[target] = e.copy(stamp = null, ver = 0)
             } else {
-                val bytes = runCatching { cr.openInputStream(listing.getValue(name).uri)?.use { Bounded.readBytes(it, Bounded.Caps.SYNC_FILE) } }.getOrNull()
+                val bytes = catching { cr.openInputStream(listing.getValue(name).uri)?.use { Bounded.readBytes(it, Bounded.Caps.SYNC_FILE) } }.getOrNull()
                     ?: continue // unreadable: kept, and counted as left below
                 val version = FolderSyncRules.nextVersion(0, now)
                 val uri = DocumentsContract.createDocument(cr, parent, codec.mime, target) ?: continue
@@ -301,7 +302,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 // A file edited elsewhere since the last run keeps no stamp, so the next run still applies that edit.
                 if (e != null) moved[target] = e.copy(stamp = if (sha(bytes) == e.fileHash) stampOf(uri) else null, ver = version)
             }
-            runCatching { DocumentsContract.deleteDocument(cr, listing.getValue(name).uri) }
+            catching { DocumentsContract.deleteDocument(cr, listing.getValue(name).uri) }
         }
         // Entries whose plain file is gone already (another phone moved it first) follow the new name too.
         for ((name, e) in state) if (plain.accepts(name) && name !in listing) moved.putIfAbsent(encryptedName(name), e.copy(stamp = null, ver = 0))
@@ -323,7 +324,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun isParleyPlainFile(name: String, uri: Uri): Boolean {
         val base = name.removeSuffix(SyncCodec.Plain.extension)
         if (!PARLEY_NAME.matches(base)) return false
-        val uid = runCatching {
+        val uid = catching {
             cr.openInputStream(uri)?.use { Bounded.readBytes(it, Bounded.Caps.SYNC_FILE) }
                 ?.let { VCardStream.parseOne(String(it, Charsets.UTF_8))?.uid?.value }
         }.getOrNull() ?: return false
@@ -337,7 +338,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun retryPlainRemoval(listing: Map<String, Listed>, codec: SyncCodec) {
         val plain = SyncCodec.Plain
         fun removed(name: String, file: Listed) = codec.fileName(name.removeSuffix(plain.extension)) in listing &&
-            runCatching { DocumentsContract.deleteDocument(cr, file.uri) }.getOrDefault(false)
+            catching { DocumentsContract.deleteDocument(cr, file.uri) }.getOrDefault(false)
         val left = listing.count { (name, file) -> plain.accepts(name) && isParleyPlainFile(name, file.uri) && !removed(name, file) }
         prefs.edit().putInt("plainLeft", left).apply()
         _status.value = load()
@@ -346,7 +347,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     fun setFolder(uri: Uri?, name: String?) {
         // A new folder starts without a mode: the user chooses encrypted (default) or plain files for it.
         prefs.edit().remove("pendingDeletions").remove("lastResult").remove("mode").remove("folderKey").remove("plainLeft").apply()
-        if (uri != null) runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        if (uri != null) catching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.edit().putString("folder", uri?.toString()).putString("folderName", name).apply()
         stateFile.delete() // new folder: start fresh (first sync links matching contacts instead of duplicating)
         goneFile.delete()
@@ -380,7 +381,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         val ownAt: Long? = null,
     )
 
-    private fun readState(): MutableMap<String, Entry> = runCatching {
+    private fun readState(): MutableMap<String, Entry> = catching {
         val o = JSONObject(stateFile.readText())
         o.keys().asSequence().associateWith { k ->
             o.getJSONObject(k).let {
@@ -411,7 +412,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         writeAtomically(stateFile, o.toString())
     }
 
-    private fun readGone(): MutableMap<String, Long> = runCatching {
+    private fun readGone(): MutableMap<String, Long> = catching {
         val o = JSONObject(goneFile.readText())
         o.keys().asSequence().associateWith { o.getLong(it) }.toMutableMap()
     }.getOrDefault(mutableMapOf())
@@ -485,7 +486,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         return VCardStream.writeOne(card).toByteArray()
     }
 
-    private fun parse(bytes: ByteArray): ContactRecord? = runCatching {
+    private fun parse(bytes: ByteArray): ContactRecord? = catching {
         VCardStream.parseOne(String(bytes, Charsets.UTF_8))?.let { VCardMapper.fromVCard(it, calendars = IcuCalendars) }
     }.getOrNull()
 
@@ -575,7 +576,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
 
         // The vCard in a file, or null when it can't be read (too large, another key, altered): left alone, not deleted.
         fun readFile(name: String, uri: Uri): SyncCodec.Decoded? =
-            runCatching { cr.openInputStream(uri)?.use { codec.decode(name, Bounded.readBytes(it, Bounded.Caps.SYNC_FILE)) } }.getOrNull()
+            catching { cr.openInputStream(uri)?.use { codec.decode(name, Bounded.readBytes(it, Bounded.Caps.SYNC_FILE)) } }.getOrNull()
                 .also { stats = stats.copy(filesRead = stats.filesRead + 1) }
 
         // Local contacts: keys, raw ids and change tokens only.
@@ -723,7 +724,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             when (look.action()) {
                 FolderSyncRules.Action.NONE -> Unit
                 FolderSyncRules.Action.DELETE_FILE -> {
-                    files[name]?.let { runCatching { DocumentsContract.deleteDocument(cr, it.uri) } }
+                    files[name]?.let { catching { DocumentsContract.deleteDocument(cr, it.uri) } }
                     state.remove(name)
                     rememberGone(name, e)
                     rep = rep.copy(deletedFiles = rep.deletedFiles + 1)
@@ -759,7 +760,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                     val file = files[name] ?: continue
                     val theirs = readFile(name, file.uri) ?: continue
                     val rec = head?.let(::readOne) ?: continue
-                    runCatching {
+                    catching {
                         val aside = codec.conflictName(name, System.currentTimeMillis())
                         DocumentsContract.createDocument(cr, parentDoc, codec.mime, aside)
                             ?.let { u -> cr.openOutputStream(u, "wt")!!.use { it.write(codec.encode(aside, theirs.vcard, theirs.version)) } }
@@ -866,7 +867,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         return rep
     }
 
-    private fun stampOf(uri: Uri): String? = runCatching {
+    private fun stampOf(uri: Uri): String? = catching {
         cr.query(uri, arrayOf(Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE), null, null, null)?.use { c ->
             if (c.moveToFirst()) FolderSyncRules.stamp(if (c.isNull(0)) null else c.getLong(0), if (c.isNull(1)) null else c.getLong(1)) else null
         }
@@ -884,12 +885,12 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             if (!records.writing(NumberOrigin.SYNC) { records.replaceContent(id, remote, target, writable) }) null else id
         } else {
             val newId = records.writing(NumberOrigin.SYNC) { records.insert(remote, target = null) } ?: return null
-            runCatching { contacts.delete(listOf(id)) }
+            catching { contacts.delete(listOf(id)) }
             newId
         }
     }
 
-    private fun idFor(key: String): Long? = runCatching {
+    private fun idFor(key: String): Long? = catching {
         ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))
             ?.let { ContentUris.parseId(it) }
     }.getOrNull()

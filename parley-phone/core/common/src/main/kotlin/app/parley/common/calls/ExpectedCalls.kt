@@ -1,6 +1,7 @@
 package app.parley.common.calls
 
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import java.time.DayOfWeek
 import java.time.Instant
@@ -149,7 +150,7 @@ object ExpectedCalls {
     /** The day [line] names, or null. */
     internal fun dayOf(line: String, today: LocalDate): LocalDate? {
         iso.find(line)?.let { m ->
-            return runCatching { LocalDate.of(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt()) }.getOrNull()
+            return catching { LocalDate.of(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt()) }.getOrNull()
         }
         dayMonth.find(line)?.let { m -> return monthDate(m.groupValues[2], m.groupValues[1].toInt(), today) }
         monthDay.find(line)?.let { m -> return monthDate(m.groupValues[1], m.groupValues[2].toInt(), today) }
@@ -197,8 +198,8 @@ object ExpectedCalls {
     /** "12 Oct": this year, or next year when that day is more than a day gone. */
     private fun monthDate(month: String, day: Int, today: LocalDate): LocalDate? {
         val m = months.indexOf(month.lowercase().take(3)).takeIf { it >= 0 } ?: return null
-        val d = runCatching { LocalDate.of(today.year, Month.of(m + 1), day) }.getOrNull() ?: return null
-        return if (d.isBefore(today.minusDays(1))) runCatching { d.plusYears(1) }.getOrNull() else d
+        val d = catching { LocalDate.of(today.year, Month.of(m + 1), day) }.getOrNull() ?: return null
+        return if (d.isBefore(today.minusDays(1))) catching { d.plusYears(1) }.getOrNull() else d
     }
 
     /** The hours on [day] that [line] points to: a time, part of the day, or the usual daytime hours. */

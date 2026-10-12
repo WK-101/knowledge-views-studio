@@ -34,7 +34,6 @@ import app.parley.common.people.PrivateLabels
 import app.parley.common.security.Concealed
 import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.Reputation
-import app.parley.common.suspendRunCatching
 import app.parley.data.calls.ReputationStore
 import app.parley.data.security.Privacy
 import app.parley.data.vault.VaultRepository
@@ -151,8 +150,8 @@ class CallScreener(
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification || s.blockInvalid ||
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
             s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true ||
-            (s.learnFromCalls && reputation?.mayHaveEntries == true) || runCatching { situationsWatching() }.getOrDefault(false) ||
-            runCatching { family?.mayMatch() == true }.getOrDefault(true)
+            (s.learnFromCalls && reputation?.mayHaveEntries == true) || catching { situationsWatching() }.getOrDefault(false) ||
+            catching { family?.mayMatch() == true }.getOrDefault(true)
     }
 
     /**
@@ -164,8 +163,8 @@ class CallScreener(
     /** Reads settings and rules once, off the main thread, so [isActive] and [hasSimRules] answer from memory. */
     suspend fun warm() {
         settings.current()
-        runCatching { blocks.enabledRules() }
-        runCatching { reputation?.load() }
+        catching { blocks.enabledRules() }
+        catching { reputation?.load() }
         catching { family?.load() }
     }
 
@@ -179,14 +178,14 @@ class CallScreener(
     suspend fun screenCall(req: ScreenRequest): ScreeningResult {
         // Never longer than a moment: the call is screened with what is set if the look takes longer (the look only
         // waits; a switch it started finishes in the background).
-        beforeScreen?.let { look -> suspendRunCatching { withTimeoutOrNull(SITUATION_LOOK_MS) { look() } } }
+        beforeScreen?.let { look -> catching { withTimeoutOrNull(SITUATION_LOOK_MS) { look() } } }
         val s = currentSettings()
         val now = System.currentTimeMillis()
         // A process just started for this call: the shield's verdicts are read once (no-op afterwards).
         catching { family?.load() }
         // Rules from the database, not the flow: in a process just started for this call the flow is still empty.
         val rules = blocks.enabledRules()
-        val tones = runCatching { labelRingtones() }.getOrDefault(emptyMap())
+        val tones = catching { labelRingtones() }.getOrDefault(emptyMap())
         val g = gather(req, s, now, replayHistory = null, rules = rules, tones = tones)
         val result = pipeline.screen(g.facts, rules, s, PolicyClock.of(now)).let {
             when {
@@ -203,7 +202,7 @@ class CallScreener(
                 else -> it
             }
         }
-        scope.launch { runCatching { commit(req, g, result, s, now) } }
+        scope.launch { catching { commit(req, g, result, s, now) } }
         return result
     }
 
@@ -274,7 +273,7 @@ class CallScreener(
     fun currentSettingsNow(): ScreeningSettings = settings.settings.value.let { it.screening.copy(repeatCallers = it.repeatCallerRingsThrough) }
 
     private suspend fun currentSettings(): ScreeningSettings = settings.current().let {
-        it.screening.copy(repeatCallers = it.repeatCallerRingsThrough, expected = runCatching { expectedWindows() }.getOrDefault(emptyList()))
+        it.screening.copy(repeatCallers = it.repeatCallerRingsThrough, expected = catching { expectedWindows() }.getOrDefault(emptyList()))
     }
 
     /** The expected-call windows in force (sealed in their own store); none until set at start. */
@@ -448,7 +447,7 @@ class CallScreener(
         key?.takeIf { it.isNotEmpty() }?.let { k -> catching { withContext(Dispatchers.IO) { inCircle(k) } }.getOrNull() }
 
     private suspend fun blockedTimes(number: String, at: Long, s: ScreeningSettings): List<Long> =
-        runCatching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
+        catching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
 
     private suspend fun labelsOf(contactId: Long): Set<String> =
         withContext(Dispatchers.IO) { contacts.labelTitlesOrNull(contactId) } ?: error("contacts unavailable")
@@ -496,8 +495,8 @@ class CallScreener(
         if (!unknown || !s.learnFromCalls) return null
         val store = reputation ?: return null
         // From memory only, so the ring never waits on storage: an index not read yet gives no tag this time and is read in the background.
-        if (!store.isLoaded) scope.launch(Dispatchers.IO) { runCatching { store.load() } }
-        return runCatching { store.lookupLoaded(number, iso) }.getOrNull()
+        if (!store.isLoaded) scope.launch(Dispatchers.IO) { catching { store.load() } }
+        return catching { store.lookupLoaded(number, iso) }.getOrNull()
     }
 
     /** Earlier calls with [number] before [at], newest first. */
@@ -508,7 +507,7 @@ class CallScreener(
                 .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
                 .take(50).toList()
         }
-        return runCatching { callLog?.pastCalls(number, at) }.getOrNull().orEmpty()
+        return catching { callLog?.pastCalls(number, at) }.getOrNull().orEmpty()
             .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
     }
 
@@ -522,9 +521,9 @@ class CallScreener(
      */
     private suspend fun privateCaller(hit: Pair<Long, CallerInfo>?, needLabels: Boolean): PrivateCaller? {
         hit ?: return null
-        val p = runCatching { vault.summary(hit.first) }.getOrNull() ?: return PrivateCaller(hit.second.name, false, emptySet(), null, false)
+        val p = catching { vault.summary(hit.first) }.getOrNull() ?: return PrivateCaller(hit.second.name, false, emptySet(), null, false)
         val labels = if (needLabels && p.labels.isNotEmpty()) {
-            PrivateLabels.titles(p.labels, runCatching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList()))
+            PrivateLabels.titles(p.labels, catching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList()))
         } else {
             emptySet()
         }

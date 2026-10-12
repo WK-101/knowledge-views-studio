@@ -1,6 +1,7 @@
 package app.parley.common.calls
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.NumberParseException
 import com.google.i18n.phonenumbers.PhoneNumberUtil
@@ -72,7 +73,7 @@ object AssistedDial {
         if (homeCode == 0 || homeCode == util.getCountryCodeForRegion(visited)) return null
         if (shortOrEmergency(digits, home) || shortOrEmergency(digits, visited)) return null
         val n = homeLine(digits, home, homeCode) ?: return null
-        val alsoLocal = runCatching { util.isValidNumberForRegion(util.parse(digits, visited), visited) }.getOrDefault(false)
+        val alsoLocal = catching { util.isValidNumberForRegion(util.parse(digits, visited), visited) }.getOrDefault(false)
         return Plan(
             dial = util.format(n, PhoneNumberFormat.E164) + tail,
             shown = util.format(n, PhoneNumberFormat.INTERNATIONAL) + tail,
@@ -177,7 +178,7 @@ data class AssistedDialConfig(
         private val json = Codecs.full
 
         fun decode(text: String?): AssistedDialConfig =
-            if (text.isNullOrBlank()) AssistedDialConfig() else runCatching { json.decodeFromString(serializer(), text) }.getOrDefault(AssistedDialConfig())
+            if (text.isNullOrBlank()) AssistedDialConfig() else catching { json.decodeFromString(serializer(), text) }.getOrDefault(AssistedDialConfig())
 
         fun encode(c: AssistedDialConfig): String = json.encodeToString(serializer(), c)
     }

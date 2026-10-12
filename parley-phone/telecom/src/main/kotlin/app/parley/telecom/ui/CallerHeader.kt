@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.common.NotificationPrivacy
 import app.parley.common.Verification
 import app.parley.common.calls.CallerLine
+import app.parley.common.catching
 import app.parley.common.circle.GoodTime
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
@@ -339,7 +340,7 @@ private fun rememberCallerZone(call: CallUi): ZoneId? {
     val number = call.number?.takeIf { !call.hidden && !call.lockMasked && it.isNotBlank() }
     val zone by produceState<ZoneId?>(null, number, call.accountId) {
         value = if (number == null) null else withContext(Dispatchers.IO) {
-            runCatching { TelecomGraph.dependencies.callerZone(number, call.accountId)?.let(ZoneId::of) }.getOrNull()
+            catching { TelecomGraph.dependencies.callerZone(number, call.accountId)?.let(ZoneId::of) }.getOrNull()
         }
     }
     return zone?.takeIf { GoodTime.differs(it, ZoneId.systemDefault(), System.currentTimeMillis()) }

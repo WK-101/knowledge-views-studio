@@ -1,5 +1,6 @@
 package app.parley.common.vcard
 
+import app.parley.common.catching
 import java.io.ByteArrayOutputStream
 import java.util.IdentityHashMap
 import java.util.Locale
@@ -674,11 +675,11 @@ object VCardMapper {
         ofPartial: (PartialDate) -> P,
         ofText: (String) -> P,
     ): P {
-        DATE_FULL.matchEntire(date)?.let { val (y, m, d) = it.destructured; runCatching { return ofDate(LocalDate.of(y.toInt(), m.toInt(), d.toInt())) } }
+        DATE_FULL.matchEntire(date)?.let { val (y, m, d) = it.destructured; catching { return ofDate(LocalDate.of(y.toInt(), m.toInt(), d.toInt())) } }
         // An impossible month or day ("--13-45") is written as text, like an impossible full date: never a failed export.
         DATE_NOYEAR.matchEntire(date)?.let {
             val (m, d) = it.destructured
-            runCatching { return ofPartial(PartialDate.builder().month(m.toInt()).date(d.toInt()).build()) }
+            catching { return ofPartial(PartialDate.builder().month(m.toInt()).date(d.toInt()).build()) }
         }
         return ofText(date)
     }
@@ -1131,7 +1132,7 @@ object VCardMapper {
         parts.drop(1).take(14).forEachIndexed { i, s -> if (s.isNotEmpty()) v["data${i + 1}"] = s }
         val slot15 = parts.getOrNull(15)?.takeIf { it.isNotEmpty() }
         val blob = slot15?.let {
-            if (p.getParameter(X_BLOB) != null) runCatching { Base64.getDecoder().decode(it) }.getOrNull() else it.toByteArray(Charsets.UTF_8)
+            if (p.getParameter(X_BLOB) != null) catching { Base64.getDecoder().decode(it) }.getOrNull() else it.toByteArray(Charsets.UTF_8)
         }
         if (mime == Mime.GROUP) {
             // Android's composer writes group membership rows with a device-local id only: meaningless elsewhere.

@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.catching
 import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.Destination
 import android.content.res.Configuration
@@ -171,7 +172,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     )
 
     val rootFocus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
+    LaunchedEffect(Unit) { catching { rootFocus.requestFocus() } }
 
     // Docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on the panel) and a
     // keypad button brings it back; the panel's height still never changes while typing.

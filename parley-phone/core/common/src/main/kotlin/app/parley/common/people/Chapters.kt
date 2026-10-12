@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -183,7 +184,7 @@ object Chapters {
     private val serializer = MapSerializer(String.serializer(), Chapter.serializer())
 
     fun decode(text: String?): Map<String, Chapter> =
-        if (text.isNullOrBlank()) emptyMap() else runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap())
+        if (text.isNullOrBlank()) emptyMap() else catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap())
 
     fun encode(map: Map<String, Chapter>): String = json.encodeToString(serializer, map)
 }

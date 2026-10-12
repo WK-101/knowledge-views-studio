@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
+import app.parley.common.catching
 import app.parley.common.security.PinBackoff
 import app.parley.common.security.PinHasher
 import app.parley.common.security.PinProblem
@@ -127,8 +128,8 @@ class AppPinStore(context: Context, private val records: () -> RecordCrypto) {
 
     /** A record stored plain by an older version (a Keystore failure then) is sealed as soon as sealing works. */
     private fun resealIfPlain(r: PinRecord) {
-        val plain = runCatching { !records().isSealed(file.readBytes()) }.getOrDefault(false)
-        if (plain) runCatching { write(r) }.onFailure { Log.w(TAG, "PIN record still unsealed: ${it.javaClass.simpleName}") }
+        val plain = catching { !records().isSealed(file.readBytes()) }.getOrDefault(false)
+        if (plain) catching { write(r) }.onFailure { Log.w(TAG, "PIN record still unsealed: ${it.javaClass.simpleName}") }
     }
 
     private fun write(r: PinRecord?) {

@@ -28,8 +28,8 @@ android {
         applicationId = "app.parley.phone"
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
-        versionCode = 39
-        versionName = "6.7.0"
+        versionCode = 40
+        versionName = "6.8.0"
         // The instrumented smoke tests in src/androidTest (a device or emulator: docs/PERFORMANCE_BENCHMARKS.md).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.

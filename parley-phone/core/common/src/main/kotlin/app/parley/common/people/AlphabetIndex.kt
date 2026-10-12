@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.catching
 import app.parley.common.ux.ListSections
 import kotlin.math.roundToInt
 
@@ -204,5 +205,5 @@ object AlphabetIndex {
     }
 
     private fun scriptOf(key: String): Character.UnicodeScript =
-        runCatching { Character.UnicodeScript.of(key.codePointAt(0)) }.getOrDefault(Character.UnicodeScript.COMMON)
+        catching { Character.UnicodeScript.of(key.codePointAt(0)) }.getOrDefault(Character.UnicodeScript.COMMON)
 }

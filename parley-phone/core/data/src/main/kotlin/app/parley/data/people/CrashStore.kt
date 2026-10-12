@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import app.parley.common.catching
 import app.parley.common.people.ExitReport
 import app.parley.common.people.Reports
 import app.parley.common.security.Bounded
@@ -39,7 +40,7 @@ class CrashStore(context: Context) {
     fun install() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { if (prefs.getBoolean(K_ENABLED, debuggable)) store(thread, error) }
+            catching { if (prefs.getBoolean(K_ENABLED, debuggable)) store(thread, error) }
             previous?.uncaughtException(thread, error)
         }
     }
@@ -58,7 +59,7 @@ class CrashStore(context: Context) {
 
     /** The stored crash, if any. */
     fun last(): Reports.Crash? = prefs.getString(K_LAST, null)?.let { raw ->
-        runCatching {
+        catching {
             val o = JSONObject(raw)
             Reports.Crash(o.getLong("t"), o.optString("th"), o.optString("s"), o.optString("v"), o.optString("a"))
         }.getOrNull()
@@ -70,7 +71,7 @@ class CrashStore(context: Context) {
 
     private val android get() = "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     private val device get() = "${Build.MANUFACTURER} ${Build.MODEL}"
-    private val version get() = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty()
+    private val version get() = catching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty()
 
     /**
      * The report of a crash or ANR Android recorded since the last start ([ExitReport]), offered once: the next call
@@ -93,7 +94,7 @@ class CrashStore(context: Context) {
                 ExitReport.Kind.ANR -> exits.firstOrNull { it.timestamp == exit.time }?.traceInputStream?.use { input ->
                     // Bounded: only the main thread's block near the top is wanted, never the whole dump in memory.
                     val lines = Bounded.LineReader(Bounded.stream(input, MAX_TRACE, "trace").bufferedReader())
-                    runCatching { ExitReport.anrStack(lines.lineSequence()) }.getOrNull()
+                    catching { ExitReport.anrStack(lines.lineSequence()) }.getOrNull()
                 }
                 ExitReport.Kind.CRASH -> last()?.takeIf { kotlin.math.abs(it.time - exit.time) < SAME_CRASH_MS }?.stack
                 ExitReport.Kind.NATIVE_CRASH -> null

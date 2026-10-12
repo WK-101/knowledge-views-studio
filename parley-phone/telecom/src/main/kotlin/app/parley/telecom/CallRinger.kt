@@ -23,6 +23,7 @@ import app.parley.common.calls.RingRamp
 import app.parley.common.calls.RingStyle
 import app.parley.common.calls.RingVibration
 import app.parley.common.calls.RingerMode
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,13 +179,13 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
 
     /** Starts [t] and records it; neither failing stops the vibration already going. */
     private fun sound(t: Ringtone, played: () -> Unit) {
-        runCatching { t.play() }
-        runCatching { played() }
+        catching { t.play() }
+        catching { played() }
     }
 
     /** The vibration [d] from the start (after the system cancelled it). */
     private fun restartVibration(c: Context, d: RingVibration.Decision.Vibrate) {
-        vibrator?.let { runCatching { it.cancel() } }
+        vibrator?.let { catching { it.cancel() } }
         vibrator = vibrate(c, d.timings, d.usage)
     }
 
@@ -247,7 +248,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
     }
 
     /** Another player (Telecom's ringer) is still playing a ringtone. Our own tone isn't playing yet at this point. */
-    private fun systemRingtonePlaying(am: AudioManager): Boolean = runCatching {
+    private fun systemRingtonePlaying(am: AudioManager): Boolean = catching {
         am.activePlaybackConfigurations.any { it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE }
     }.getOrDefault(false)
 
@@ -262,14 +263,14 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
     }
 
     private fun vibrate(context: Context, d: RingVibration.Decision.Vibrate) {
-        vibrator?.let { runCatching { it.cancel() } }
+        vibrator?.let { catching { it.cancel() } }
         vibrator = vibrate(context, d.timings, d.usage)
         playing = d
         watchScreen(context)
     }
 
     private fun cancelVibration() {
-        vibrator?.let { runCatching { it.cancel() } }
+        vibrator?.let { catching { it.cancel() } }
         vibrator = null
         playing = null
     }
@@ -294,14 +295,14 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
     private fun watchScreen(context: Context) {
         if (watchingScreen != null) return
         val app = context.applicationContext
-        val ok = runCatching {
+        val ok = catching {
             ContextCompat.registerReceiver(app, screenWatch, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED)
         }.isSuccess
         if (ok) watchingScreen = app
     }
 
     private fun unwatchScreen() {
-        watchingScreen?.let { c -> runCatching { c.unregisterReceiver(screenWatch) } }
+        watchingScreen?.let { c -> catching { c.unregisterReceiver(screenWatch) } }
         watchingScreen = null
     }
 
@@ -314,7 +315,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
 
     /** Stops the tone and its vibration. */
     fun stop() {
-        runCatching { tone?.stop() }
+        catching { tone?.stop() }
         release()
         cancelVibration()
         unwatchScreen()
@@ -356,8 +357,8 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         /** The system's "Vibrate for calls" settings as stored (null where the phone stored none). */
         fun systemSetting(context: Context): RingVibration.SystemSetting {
             val cr = context.contentResolver
-            fun system(key: String): Int? = runCatching { Settings.System.getInt(cr, key) }.getOrNull()
-            fun global(key: String): Int? = runCatching { Settings.Global.getInt(cr, key) }.getOrNull()
+            fun system(key: String): Int? = catching { Settings.System.getInt(cr, key) }.getOrNull()
+            fun global(key: String): Int? = catching { Settings.Global.getInt(cr, key) }.getOrNull()
             return RingVibration.SystemSetting(
                 sdk = Build.VERSION.SDK_INT,
                 vibrateWhenRinging = system(Settings.System.VIBRATE_WHEN_RINGING),
@@ -383,13 +384,13 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         ): RingVibration.Decision {
             val am = context.getSystemService(AudioManager::class.java)
             val nm = context.getSystemService(NotificationManager::class.java)
-            val ringer = when (runCatching { am?.ringerMode }.getOrNull()) {
+            val ringer = when (catching { am?.ringerMode }.getOrNull()) {
                 AudioManager.RINGER_MODE_NORMAL -> RingerMode.NORMAL
                 AudioManager.RINGER_MODE_VIBRATE -> RingerMode.VIBRATE
                 AudioManager.RINGER_MODE_SILENT -> RingerMode.SILENT
                 else -> RingerMode.UNKNOWN
             }
-            val dnd = when (runCatching { nm?.currentInterruptionFilter }.getOrNull()) {
+            val dnd = when (catching { nm?.currentInterruptionFilter }.getOrNull()) {
                 NotificationManager.INTERRUPTION_FILTER_ALL -> DndState.OFF
                 NotificationManager.INTERRUPTION_FILTER_PRIORITY -> DndState.PRIORITY
                 NotificationManager.INTERRUPTION_FILTER_ALARMS -> DndState.ALARMS
@@ -424,7 +425,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
          */
         fun vibrate(context: Context, timings: LongArray, usage: RingVibration.Usage): Vibrator? {
             val v = vibratorOf(context)?.takeIf { it.hasVibrator() } ?: return null
-            return runCatching {
+            return catching {
                 val effect = VibrationEffect.createWaveform(timings, 0)
                 if (Build.VERSION.SDK_INT >= 33) {
                     val u = if (usage == RingVibration.Usage.ALARM) VibrationAttributes.USAGE_ALARM else VibrationAttributes.USAGE_RINGTONE
@@ -443,8 +444,8 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
          * (the AudioAttributes default), so a haptic ringtone never takes the vibrator from the ring vibration.
          */
         internal fun ringtone(context: Context, uri: String): Ringtone? {
-            val t = runCatching { RingtoneManager.getRingtone(context, Uri.parse(uri)) }.getOrNull() ?: return null
-            runCatching {
+            val t = catching { RingtoneManager.getRingtone(context, Uri.parse(uri)) }.getOrNull() ?: return null
+            catching {
                 t.audioAttributes = AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)

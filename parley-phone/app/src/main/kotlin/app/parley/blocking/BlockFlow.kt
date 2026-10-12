@@ -6,7 +6,6 @@ import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.common.blocking.BlockPlan
 import app.parley.common.catching
-import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.Permissions
@@ -87,7 +86,7 @@ object BlockFlow {
             }
             done += n
         }
-        return Done(done, emergency, lifted) { undo.asReversed().forEach { suspendRunCatching { it() } } }
+        return Done(done, emergency, lifted) { undo.asReversed().forEach { catching { it() } } }
     }
 
     /** Unblocks [numbers]: their entries on Android's list and their exact rules. */
@@ -106,6 +105,6 @@ object BlockFlow {
             }
             done += n
         }
-        return Done(done) { undo.asReversed().forEach { suspendRunCatching { it() } } }
+        return Done(done) { undo.asReversed().forEach { catching { it() } } }
     }
 }

@@ -2,7 +2,6 @@ package app.parley.data.history
 
 import app.parley.common.catching
 import app.parley.common.storage.DurableFiles
-import app.parley.common.suspendRunCatching
 import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
@@ -197,7 +196,7 @@ class CallHistory(
 
     /** Closes the archive database so "Delete all Parley data" can remove its file (the process restarts after). */
     internal fun closeForWipe() = synchronized(this) {
-        runCatching { dbRef?.close() }
+        catching { dbRef?.close() }
         dbRef = null
     }
 
@@ -233,7 +232,7 @@ class CallHistory(
                 val missing = ids.filter { it !in decrypted && it !in undecryptable }
                 missing.chunked(500).forEach { chunk ->
                     for (r in dao.byIds(chunk)) {
-                        val rec = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
+                        val rec = openOrNull(r.blob)?.let { catching { decode(it) }.getOrNull() }
                         if (rec != null) decrypted[r.id] = rec else undecryptable += r.id
                     }
                 }
@@ -255,7 +254,7 @@ class CallHistory(
         Log.w(TAG, "Archive key lost; the old archive is kept aside and a new one starts", e)
         val suffix = "lost-" + System.currentTimeMillis()
         synchronized(this) {
-            runCatching { dbRef?.close() }
+            catching { dbRef?.close() }
             dbRef = null
             for (ext in listOf("", "-wal", "-shm", "-journal")) {
                 val f = context.getDatabasePath(HistoryDatabase.NAME + ext)
@@ -267,7 +266,7 @@ class CallHistory(
         undecryptable.clear()
         _kept.value = emptyMap()
         _archive.value = emptyList()
-        runCatching { prefs.setArchiveReset(System.currentTimeMillis()) }
+        catching { prefs.setArchiveReset(System.currentTimeMillis()) }
     }
 
     /**
@@ -452,7 +451,7 @@ class CallHistory(
     }
 
     /** A row's call, or null when it can't be read (key problems are passed on, as by [openOrNull]). */
-    private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
+    private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { catching { decode(it) }.getOrNull() }
 
     /** Number memory: changes whenever calls are archived or leave the archive. */
     suspend fun memoryStamp(): String = withContext(Dispatchers.IO) {
@@ -660,7 +659,7 @@ class CallHistory(
         } else {
             dao.removeKeepForever(list.flatMap { personMacs(it, iso) })
         }
-        _kept.value = dao.keepForever().mapNotNull { k -> runCatching { k.personKey to String(crypto.open(k.blob)) }.getOrNull() }.toMap()
+        _kept.value = dao.keepForever().mapNotNull { k -> catching { k.personKey to String(crypto.open(k.blob)) }.getOrNull() }.toMap()
     }
 
     suspend fun removeKeepForeverKeys(keys: List<String>) = withContext(Dispatchers.IO) {
@@ -694,7 +693,7 @@ class CallHistory(
             )
             val providerIds = list.map { it.id }.filter { it < ARCHIVE_ID_BASE }
             providerIds.chunked(500).forEach { chunk ->
-                runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }
+                catching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }
             }
             val keys = list.map { crypto.mac(HistoryMerge.key(it)) }
             handDeletes.mark()
@@ -702,9 +701,9 @@ class CallHistory(
             reload()
             // Ring facts of deleted calls go with them.
             list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
-                .forEach { (n, calls) -> runCatching { onForget?.invoke(n, calls.map { it.date }) } }
+                .forEach { (n, calls) -> catching { onForget?.invoke(n, calls.map { it.date }) } }
             batch
-        }.also { batch -> suspendRunCatching { onDeleted?.invoke(numbers, batch) } }
+        }.also { batch -> catching { onDeleted?.invoke(numbers, batch) } }
     }
 
     /**
@@ -750,13 +749,13 @@ class CallHistory(
         val iso = countryIso
         var n = 0
         val ids = ArrayList<Long>()
-        runCatching {
+        catching {
             // The filter URI matches loosely (the last digits); only rows that are exactly this line are deleted.
             cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID, Calls.NUMBER), null, null, null)
                 ?.use { c -> while (c.moveToNext()) if (PhoneIdentity.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
         }
         ids.chunked(500).forEach { chunk ->
-            n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
+            n += catching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
         }
         mutex.withLock {
             catching {
@@ -771,7 +770,7 @@ class CallHistory(
                 reload()
             }
         }
-        runCatching { onForget?.invoke(number, null) }
+        catching { onForget?.invoke(number, null) }
         n
     }
 
@@ -817,14 +816,14 @@ class CallHistory(
     private val undoLock = Mutex()
 
     private suspend fun undoDeleteLocked(batchId: Long): Int {
-        val trashed = dao.trashed(batchId).mapNotNull { runCatching { decode(String(crypto.open(it.blob))) }.getOrNull() }
+        val trashed = dao.trashed(batchId).mapNotNull { catching { decode(String(crypto.open(it.blob))) }.getOrNull() }
         if (trashed.isEmpty()) return 0
         // Idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
         val from = trashed.minOf { it.date } - 1000
         val present = readProvider(from).filter { it.date <= trashed.maxOf { r -> r.date } + 1000 }
         val rows = HistoryMerge.missing(trashed, present) { HistoryMerge.key(it.toEntry(0)) }
         val values = rows.map { it.toValues() }.toTypedArray()
-        val n = if (values.isEmpty()) 0 else runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+        val n = if (values.isEmpty()) 0 else catching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
         if (prefs.current().archiveEnabled) mutex.withLock {
             val iso = countryIso
             val now = System.currentTimeMillis()
@@ -836,7 +835,7 @@ class CallHistory(
             insertNew(fresh)
             reload()
         }
-        suspendRunCatching { onUndone?.invoke(trashed.mapNotNull { it.number?.takeIf(String::isNotBlank) }.distinct(), batchId) }
+        catching { onUndone?.invoke(trashed.mapNotNull { it.number?.takeIf(String::isNotBlank) }.distinct(), batchId) }
         dao.deleteBatch(batchId)
         return maxOf(n, trashed.size.takeIf { prefs.current().archiveEnabled } ?: 0)
     }
@@ -878,9 +877,9 @@ class CallHistory(
                     }
                 }
             }.toTypedArray()
-            n += runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+            n += catching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
         }
-        runCatching { sync(full = true) }
+        catching { sync(full = true) }
         n
     }
 
@@ -1003,13 +1002,13 @@ class CallHistory(
         scope.launch(Dispatchers.IO) {
             gate.await()
             val s = prefs.current()
-            runCatching { reload() }
+            catching { reload() }
             if (s.archiveEnabled) {
                 val stale = System.currentTimeMillis() - s.lastFullSync > TimeUnit.HOURS.toMillis(6)
-                runCatching { sync(full = stale) }
+                catching { sync(full = stale) }
             }
             cr.changes(Calls.CONTENT_URI).debounce(1500).collect {
-                if (prefs.current().archiveEnabled) runCatching { sync(full = false) }
+                if (prefs.current().archiveEnabled) catching { sync(full = false) }
             }
         }
     }

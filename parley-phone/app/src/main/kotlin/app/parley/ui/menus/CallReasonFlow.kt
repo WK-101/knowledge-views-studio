@@ -39,6 +39,7 @@ import app.parley.R
 import app.parley.calls.CallReasons
 import app.parley.common.calls.CallReason
 import app.parley.common.calls.ReasonWay
+import app.parley.common.catching
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
@@ -121,7 +122,7 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
 /** The facts for [target], or null to call at once: an emergency number (checked first), or facts that took too long. */
 private suspend fun reasonFacts(vm: AppViewModel, context: android.content.Context, target: ReasonTarget): CallReasons.Facts? {
     if (CallReasons.emergency(vm.c, target.number)) return null
-    return withTimeoutOrNull(CallReasons.FACTS_MS) { runCatching { CallReasons.facts(context, vm.c, target.number, target.simId) }.getOrNull() }
+    return withTimeoutOrNull(CallReasons.FACTS_MS) { catching { CallReasons.facts(context, vm.c, target.number, target.simId) }.getOrNull() }
 }
 
 /** The sheet: the reason, what will happen with it, and the ways it can go (the best one filled). */

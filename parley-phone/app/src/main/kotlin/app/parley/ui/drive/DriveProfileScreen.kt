@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.situations.SituationArea
 import app.parley.common.who.Who
 import app.parley.common.who.WhoPlace
@@ -202,7 +203,7 @@ private fun WhileConnected(cfg: DriveProfileConfig, labels: Collection<String>, 
 @SuppressLint("MissingPermission") // Checked just before; a refusal is caught.
 private fun pairedDevices(context: Context): List<CarDevice> {
     if (Build.VERSION.SDK_INT < 31 || !Permissions.has(context, Manifest.permission.BLUETOOTH_CONNECT)) return emptyList()
-    return runCatching {
+    return catching {
         context.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices.orEmpty()
             .mapNotNull { d -> d.address?.let { a -> CarDevice(a, d.name?.takeIf { it.isNotBlank() } ?: a) } }
     }.getOrDefault(emptyList())

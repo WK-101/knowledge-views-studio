@@ -61,8 +61,8 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
     /** Number memory: contacts deleted in Parley and not restored, with their numbers (each copy opened once). */
     suspend fun deletedForMemory(): List<NumberMemory.Deleted> = withContext(Dispatchers.IO) {
         recent().first().filter { it.action == "DELETE" && !it.restored }.mapNotNull { row ->
-            val e = runCatching { dao.journalEntry(row.id) }.getOrNull() ?: return@mapNotNull null
-            val json = runCatching { JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() })) }.getOrNull() ?: return@mapNotNull null
+            val e = catching { dao.journalEntry(row.id) }.getOrNull() ?: return@mapNotNull null
+            val json = catching { JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() })) }.getOrNull() ?: return@mapNotNull null
             // Photos aren't needed for the numbers: they stay hashes, so a contact with a photo is read too.
             val record = catching { RecordJson.decodeLight(json.getString("record")) }.getOrNull() ?: return@mapNotNull null
             val numbers = record.raws.flatMap { r -> r.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }

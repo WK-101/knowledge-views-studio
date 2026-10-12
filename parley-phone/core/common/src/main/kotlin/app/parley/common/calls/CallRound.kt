@@ -4,6 +4,7 @@ import app.parley.common.Codecs
 import app.parley.common.ContactSummary
 import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.who.Who
 import app.parley.common.who.WhoChoice
@@ -75,7 +76,7 @@ object CallRounds {
     fun encode(r: CallRound): String = json.encodeToString(CallRound.serializer(), r)
 
     fun decode(stored: String?): CallRound =
-        stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(CallRound.serializer(), it) }.getOrNull() } ?: CallRound()
+        stored?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(CallRound.serializer(), it) }.getOrNull() } ?: CallRound()
 
     /**
      * A new round telling [people] [message]: each person once (by key, in the order given), only people with a number,

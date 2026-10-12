@@ -1,5 +1,6 @@
 package app.parley.common.qr
 
+import app.parley.common.catching
 import java.net.IDN
 import java.net.URI
 
@@ -100,7 +101,7 @@ data class WebUrl(
             val url = WebUrl(scheme, host, port, path, query, fragment, hadUserInfo = at >= 0)
             // Belt and braces: java.net.URI must read the same host (the path can't change it: it starts with "/").
             val origin = "$scheme://$host" + (port?.let { ":$it" } ?: "") + "/"
-            val check = runCatching { URI(origin) }.getOrNull() ?: return null
+            val check = catching { URI(origin) }.getOrNull() ?: return null
             if (check.userInfo != null || !check.host.equals(host, ignoreCase = true)) return null
             return url
         }

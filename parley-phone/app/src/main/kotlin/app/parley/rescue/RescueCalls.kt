@@ -17,7 +17,6 @@ import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
 import app.parley.common.catching
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.StatePrefs
@@ -162,7 +161,7 @@ object RescueCalls {
     /** Android's boot count (-1 when unknown); it needs no permission. Tests replace it. */
     @VisibleForTesting
     internal var bootCount: (Context) -> Int = { c ->
-        runCatching { Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
+        catching { Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
     }
 
     /** Who the call shows, looked up off the main thread; tests replace it, so the ringing itself is real. */
@@ -332,6 +331,8 @@ object RescueCalls {
     suspend fun set(context: Context, choices: Choices, nowMillis: Long = clock()): Outcome {
         val app = context.applicationContext
         val c = if (choices.checkIn) choices.copy(whenChoice = CheckIns.whenFor(choices.whenChoice)) else choices
+        // A new check-in replaces what an earlier unanswered one said.
+        if (c.checkIn) CheckInNotice.cancel(app)
         val now = c.whenChoice == RescueWhen.NOW
         val hidingNow = hiding()
         withContext(io) {
@@ -404,7 +405,9 @@ object RescueCalls {
     private suspend fun ring(app: Context, request: RescueRequest, clip: String?): Boolean {
         val who = lookUp(app, request, clip)
         val helper = request.helper
-        val onEnd: ((Boolean) -> Unit)? = helper?.let { h -> { answered -> if (CheckIns.asksForHelp(answered)) scope.launch { unanswered(app, h) } } }
+        val onEnd: ((Boolean) -> Unit)? = helper?.let { h ->
+            { answered -> if (CheckIns.asksForHelp(answered)) scope.launch { unanswered(app, h) } else CheckInNotice.cancel(app) }
+        }
         val rang = withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who, onEnd) }
         if (!rang && helper != null) unanswered(app, helper)
         return rang
@@ -412,7 +415,7 @@ object RescueCalls {
 
     /** A check-in wasn't answered: offers its helper ([chosen], or the first when that one is gone). */
     private suspend fun unanswered(app: Context, chosen: String) {
-        val helper = suspendRunCatching { helperFor(app, chosen) }.getOrNull()
+        val helper = catching { helperFor(app, chosen) }.getOrNull()
         withContext(Dispatchers.Main.immediate) { notice(app, helper) }
     }
 
@@ -443,7 +446,7 @@ object RescueCalls {
      */
     private suspend fun caller(c: DataContainer, r: RescueRequest, clip: String?): RescueCaller {
         val number = r.number?.takeIf { it.isNotBlank() } ?: return RescueCaller(name = RescuePlan.shownName(r.name, null), clip = clip)
-        val shown = suspendRunCatching { TelecomGraph.dependencies.callerInfo(number, null) }.getOrNull()
+        val shown = catching { TelecomGraph.dependencies.callerInfo(number, null) }.getOrNull()
         val hidesPrivate = c.privacy.now().privateHidden
         // Their own tone (a contact's, or a private contact's unless those are hidden), else their label's.
         val found = catching { c.numberOwners.find(number, null) }.getOrNull()
@@ -497,7 +500,7 @@ object RescueCalls {
         setAlarm(app, w, r)
         val delayMs = r.atMillis - nowMillis
         if (!RescuePlan.keepsAwake(delayMs)) return
-        runCatching {
+        catching {
             w.wakeLock = app.getSystemService(PowerManager::class.java)
                 ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "parley:rescue")
                 ?.apply { setReferenceCounted(false); acquire(delayMs + AWAKE_GRACE_MS) }
@@ -511,14 +514,14 @@ object RescueCalls {
     }
 
     private fun releaseWakeLock(w: Waiting) {
-        w.wakeLock?.let { runCatching { if (it.isHeld) it.release() } }
+        w.wakeLock?.let { catching { if (it.isHeld) it.release() } }
         w.wakeLock = null
     }
 
     private fun setAlarm(app: Context, w: Waiting, r: RescueRequest) {
         val am = alarmManager(app) ?: return
         // Inexact on purpose: Parley holds no exact-alarm permission.
-        runCatching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.atMillis, alarmIntent(app, w, r.id)) }
+        catching { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, r.atMillis, alarmIntent(app, w, r.id)) }
     }
 
     private fun alarmManager(app: Context): AlarmManager? = app.getSystemService(AlarmManager::class.java)

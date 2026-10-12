@@ -288,6 +288,7 @@ private fun PhoneRow(
 private fun UsualAppIcon(app: MessengerApp, description: String) {
     val context = LocalContext.current
     val bmp = remember(app.packageName) {
+        // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
         runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(72, 72).asImageBitmap() }.getOrNull()
     }
     if (bmp != null) Image(bmp, description, Modifier.size(24.dp)) else Icon(Icons.AutoMirrored.Rounded.Chat, description)

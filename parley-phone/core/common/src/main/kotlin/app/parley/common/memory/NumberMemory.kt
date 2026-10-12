@@ -3,6 +3,7 @@ package app.parley.common.memory
 import app.parley.common.Codecs
 import app.parley.common.NumberText
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -77,7 +78,7 @@ object NumberMemory {
 
     fun encode(hint: MemoryHint): String = json.encodeToString(MemoryHint.serializer(), hint)
 
-    fun decode(stored: String): MemoryHint? = runCatching { json.decodeFromString(MemoryHint.serializer(), stored) }.getOrNull()
+    fun decode(stored: String): MemoryHint? = catching { json.decodeFromString(MemoryHint.serializer(), stored) }.getOrNull()
 
     /**
      * The hints worth showing at [place], best first: deleted contacts, then snapshots, notes, the call history's old

@@ -10,6 +10,7 @@ import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallCount
 import app.parley.common.calls.ToCallEntry
 import app.parley.common.calls.ToCallState
+import app.parley.common.catching
 import app.parley.common.circle.Promises
 import app.parley.data.DataContainer
 import app.parley.data.circle.CircleRepository
@@ -124,7 +125,7 @@ class ToCallModel(
         }
     }
 
-    private suspend fun promiseFor(contact: ContactSummary): String? = runCatching {
+    private suspend fun promiseFor(contact: ContactSummary): String? = catching {
         val keys = contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, iso) }.toSet()
         c.circle.notesFor(contact.lookupKey, keys, limit = PROMISE_NOTES)
             .filter { it.source != CircleRepository.NoteSource.PINNED }

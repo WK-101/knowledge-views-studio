@@ -16,6 +16,7 @@ import app.parley.common.calls.AutoAnswer
 import app.parley.common.calls.CarDevice
 import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.DriveProfileConfig
+import app.parley.common.catching
 
 /**
  * The drive profile on the call path ([DriveProfile] decides). Whether a marked car is connected is read from
@@ -35,7 +36,7 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
     private val silenced = HashSet<String>()
     private val announcer = Announcer()
 
-    fun config(): DriveProfileConfig = runCatching { config.invoke() }.getOrDefault(DriveProfileConfig())
+    fun config(): DriveProfileConfig = catching { config.invoke() }.getOrDefault(DriveProfileConfig())
 
     /** The marked car connected now, or null (read at most every [CHECK_MS]; nothing is read with no car marked). */
     fun car(context: Context): CarDevice? {
@@ -110,7 +111,7 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
             engine = TextToSpeech(context.applicationContext) { status ->
                 val e = engine
                 if (status != TextToSpeech.SUCCESS || e == null || tts !== e) return@TextToSpeech
-                runCatching {
+                catching {
                     e.setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -137,8 +138,8 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
         /** Stops speaking (for [id] only, when given). */
         fun stop(id: String?) {
             if (id != null && id != speakingFor) return
-            runCatching { tts?.stop() }
-            runCatching { tts?.shutdown() }
+            catching { tts?.stop() }
+            catching { tts?.shutdown() }
             tts = null
             speakingFor = null
         }
@@ -156,7 +157,7 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
          * Priority with this caller let through (a silent phone stays silent, in the car too). Whether Priority lets the
          * caller through is Android's own answer for [handle] on Android 13+, else read from the Priority policy.
          */
-        fun ringerOn(context: Context, handle: Uri?, known: Boolean, starred: Boolean): Boolean = runCatching {
+        fun ringerOn(context: Context, handle: Uri?, known: Boolean, starred: Boolean): Boolean = catching {
             val audio = context.getSystemService(AudioManager::class.java)
             val nm = context.getSystemService(NotificationManager::class.java)
             val dnd = when (nm?.currentInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_UNKNOWN) {
@@ -171,9 +172,9 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
 
         private fun priorityLetsThrough(nm: NotificationManager, handle: Uri?, known: Boolean, starred: Boolean): Boolean {
             if (Build.VERSION.SDK_INT >= 33 && handle != null) {
-                runCatching { return nm.matchesCallFilter(handle) }
+                catching { return nm.matchesCallFilter(handle) }
             }
-            val policy = runCatching { nm.notificationPolicy }.getOrNull() ?: return false
+            val policy = catching { nm.notificationPolicy }.getOrNull() ?: return false
             val calls = policy.priorityCategories and NotificationManager.Policy.PRIORITY_CATEGORY_CALLS != 0
             return DriveProfile.priorityAllows(calls, policy.priorityCallSenders, known, starred)
         }
@@ -193,7 +194,7 @@ object CarAudio {
     /** Bluetooth outputs a car can be: hands-free (SCO), media (A2DP) and LE audio. */
     private val CAR_TYPES = setOf(AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, TYPE_BLE_HEADSET, TYPE_BLE_SPEAKER)
 
-    fun connected(context: Context): List<DriveProfile.Connected> = runCatching {
+    fun connected(context: Context): List<DriveProfile.Connected> = catching {
         context.getSystemService(AudioManager::class.java).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .filter { it.type in CAR_TYPES }
             .map { DriveProfile.Connected(it.address, it.productName?.toString(), it.type) }

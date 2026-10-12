@@ -64,6 +64,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.StartTab
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.TemporaryDue
 import app.parley.common.ux.Tips
@@ -214,8 +215,8 @@ object TemporaryContactActions {
             item.vaultId != null -> {
                 val numbers = vm.c.vault.contacts.value.firstOrNull { it.id == item.vaultId }?.numbers ?: listOfNotNull(item.number)
                 numbers.forEach { n ->
-                    if (item.purgeHistory) runCatching { vm.c.history.purgeNumber(n) }
-                    runCatching { vm.c.messaging.forget(n) }
+                    if (item.purgeHistory) catching { vm.c.history.purgeNumber(n) }
+                    catching { vm.c.messaging.forget(n) }
                 }
                 // As when it expires: a temporary private contact keeps no sealed copy.
                 app.parley.ui.contact.ContactConversions(vm.c).deletePrivate(item.vaultId, keepCopy = false)

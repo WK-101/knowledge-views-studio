@@ -1,6 +1,7 @@
 package app.parley.common.extras
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
@@ -54,7 +55,7 @@ object CallerChoices {
     fun decode(text: String?): Map<String, CallerChoice> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
     }
 
     fun encode(map: Map<String, CallerChoice>): String = json.encodeToString(serializer, map.filter { (k, v) -> k.isNotEmpty() && !v.isEmpty })
@@ -93,7 +94,7 @@ object LabelPolicies {
     fun decode(text: String?): Map<String, LabelPolicy> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filterValues { !it.isEmpty }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filterValues { !it.isEmpty }
     }
 
     fun encode(map: Map<String, LabelPolicy>): String = json.encodeToString(serializer, map.filterValues { !it.isEmpty })
@@ -132,13 +133,24 @@ object DndStars {
     private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), SetSerializer(String.serializer()))
 
+    /** What "Add everyone to Favourites" does for one member ([favouriteStep]). */
+    data class FavouriteStep(val star: Boolean, val claim: Boolean)
+
+    /**
+     * "Add everyone to Favourites" for one member: [FavouriteStep.star] them when they aren't starred, and
+     * [FavouriteStep.claim] (drop Parley's Do Not Disturb record of them, so the star becomes the user's) whenever Parley
+     * holds one, starred now or not: a record left beside a star the user just chose would let switching that label's
+     * Do Not Disturb off take the favourite away. Only address-book contacts ([device]) are ever recorded.
+     */
+    fun favouriteStep(starred: Boolean, device: Boolean, recorded: Boolean): FavouriteStep = FavouriteStep(star = !starred, claim = device && recorded)
+
     /** A new ledger and the contacts no label asks for any more (to unstar). */
     data class Release(val ledger: Map<String, Set<String>>, val unstar: Set<String>)
 
     fun decode(text: String?): Map<String, Set<String>> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && v.isNotEmpty() }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && v.isNotEmpty() }
     }
 
     fun encode(ledger: Map<String, Set<String>>): String = json.encodeToString(serializer, ledger.filterValues { it.isNotEmpty() })

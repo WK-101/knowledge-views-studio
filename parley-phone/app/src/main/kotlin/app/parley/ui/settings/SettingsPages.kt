@@ -575,7 +575,7 @@ internal fun NotificationsPage(vm: AppViewModel) {
         if (Build.MANUFACTURER.equals("Xiaomi", true) || Build.MANUFACTURER.equals("Redmi", true) || Build.MANUFACTURER.equals("POCO", true)) {
             linkRow("xiaomi", Icons.Rounded.PhoneAndroid, external = true) {
                 val miui = Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", context.packageName)
-                runCatching { context.startActivity(miui) }.onFailure {
+                catching { context.startActivity(miui) }.onFailure {
                     context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
                 }
             }

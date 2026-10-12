@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationManagerCompat
 import app.parley.common.NotificationIds
+import app.parley.common.catching
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
@@ -132,7 +133,7 @@ class PrivateNameAccess(context: Context) {
     @Synchronized
     fun takePrompt(pkg: String, now: Long = System.currentTimeMillis()): Boolean {
         val key = ASKED_PREFIX + pkg
-        val asked = runCatching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
+        val asked = catching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
         if (!LookupPolicy.shouldAsk(approval(pkg), asked.optLong(key, 0L), now)) return false
         asked.put(key, now)
         prefs.edit().putString(K_ASKED, asked.toString()).apply()
@@ -151,13 +152,13 @@ class PrivateNameAccess(context: Context) {
         publish(read())
     }
 
-    private fun certs(): Map<String, String> = runCatching {
+    private fun certs(): Map<String, String> = catching {
         val o = JSONObject(prefs.getString(K_DIR_CERTS, "{}")!!)
         o.keys().asSequence().associateWith { o.getString(it) }
     }.getOrDefault(emptyMap())
 
     /** Hex SHA-256 of the app's current signing certificate, or null when it isn't installed. */
-    private fun currentCert(pkg: String): String? = runCatching {
+    private fun currentCert(pkg: String): String? = catching {
         val info = pm.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo ?: return null
         val signers = if (info.hasMultipleSigners()) info.apkContentsSigners else info.signingCertificateHistory
         val cert = signers?.lastOrNull() ?: return null
@@ -165,7 +166,7 @@ class PrivateNameAccess(context: Context) {
     }.getOrNull()
 
     /** Whether [pkg] is (still) signed with [certHex], including after a key rotation Android vouches for. */
-    private fun signedWith(pkg: String, certHex: String): Boolean = runCatching {
+    private fun signedWith(pkg: String, certHex: String): Boolean = catching {
         val bytes = certHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
         pm.hasSigningCertificate(pkg, bytes, PackageManager.CERT_INPUT_SHA256)
     }.getOrDefault(false)
@@ -196,11 +197,11 @@ class PrivateNameAccess(context: Context) {
     }
 
     private fun read(): PrivateNameState {
-        val approvals = runCatching {
+        val approvals = catching {
             val o = JSONObject(prefs.getString(K_DIR_APPROVALS, "{}")!!)
             o.keys().asSequence().mapNotNull { k -> LookupApproval.entries.firstOrNull { it.name == o.getString(k) }?.let { k to it } }.toMap()
         }.getOrDefault(emptyMap())
-        val log = runCatching {
+        val log = catching {
             val a = JSONArray(prefs.getString(K_LOG, "[]")!!)
             (0 until a.length()).mapNotNull { i ->
                 val o = a.getJSONObject(i)
@@ -216,19 +217,19 @@ class PrivateNameAccess(context: Context) {
      * Directory, which that app never asked for). Idempotent, and a no-op once done.
      */
     private fun forgetLookupProvider() {
-        val asked = runCatching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
+        val asked = catching { JSONObject(prefs.getString(K_ASKED, "{}")!!) }.getOrDefault(JSONObject())
         val lookupAsked = asked.keys().asSequence().filter { it.startsWith(LEGACY_ASKED_PREFIX) }.toList()
-        val log = runCatching { JSONArray(prefs.getString(K_LOG, "[]")!!) }.getOrDefault(JSONArray())
+        val log = catching { JSONArray(prefs.getString(K_LOG, "[]")!!) }.getOrDefault(JSONArray())
         val lookupLines = (0 until log.length()).count { !log.getJSONObject(it).optBoolean("d") }
         if (LEGACY_KEYS.none { prefs.contains(it) } && lookupAsked.isEmpty() && lookupLines == 0) return
         val keptLog = JSONArray()
         for (i in 0 until log.length()) log.getJSONObject(i).takeIf { it.optBoolean("d") }?.let { keptLog.put(it) }
         lookupAsked.forEach { asked.remove(it) }
         // Every app the lookup provider knew of: approved or refused, prompted, or in its log.
-        val approved = runCatching { JSONObject(prefs.getString("approvals", "{}")!!).keys().asSequence().toList() }.getOrDefault(emptyList())
+        val approved = catching { JSONObject(prefs.getString("approvals", "{}")!!).keys().asSequence().toList() }.getOrDefault(emptyList())
         val logged = (0 until log.length()).mapNotNull { i -> log.getJSONObject(i).takeIf { !it.optBoolean("d") }?.optString("p")?.takeIf { it.isNotEmpty() } }
         (approved + lookupAsked.map { it.removePrefix(LEGACY_ASKED_PREFIX) } + logged).distinct().forEach { pkg ->
-            runCatching { notifications.cancel(NotificationIds.TAG_PRIVATE_NAME, pkg.hashCode()) }
+            catching { notifications.cancel(NotificationIds.TAG_PRIVATE_NAME, pkg.hashCode()) }
         }
         prefs.edit().apply {
             LEGACY_KEYS.forEach { remove(it) }
@@ -257,7 +258,7 @@ class PrivateNameAccess(context: Context) {
     fun importApprovals(json: String) {
         // A restore while hiding never grants (or takes back) access; see the class comment.
         if (hidingNow()) return
-        runCatching {
+        catching {
             val o = JSONObject(json)
             for (key in o.keys()) {
                 if (!key.startsWith(DIR_PREFIX)) continue

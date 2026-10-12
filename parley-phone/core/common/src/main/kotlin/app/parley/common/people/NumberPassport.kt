@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -113,7 +114,7 @@ object NumberPassport {
 
     /** A document that can't be read starts again from nothing: no stamp, so no warning (never a false one). */
     fun decode(stored: String?): PassportState =
-        stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(PassportState.serializer(), it) }.getOrNull() } ?: PassportState()
+        stored?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(PassportState.serializer(), it) }.getOrNull() } ?: PassportState()
 
     /**
      * Parley's editor saved [contact]: numbers in [after] but not [before] are stamped with [originOf] (the editor's

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.common.catching
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun makeVisibleBody(contacts: ContactsRepository): String {
     val cloud by produceState<AccountRef?>(null, contacts) {
-        value = withContext(Dispatchers.IO) { runCatching { contacts.systemDefaultAccount() }.getOrNull() }
+        value = withContext(Dispatchers.IO) { catching { contacts.systemDefaultAccount() }.getOrNull() }
     }
     val body = stringResource(R.string.contact_make_visible_body)
     return cloud?.let { body + "\n\n" + stringResource(R.string.contact_make_visible_cloud, it.displayLabel) } ?: body

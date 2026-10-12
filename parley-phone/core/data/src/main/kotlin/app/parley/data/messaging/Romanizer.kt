@@ -1,6 +1,7 @@
 package app.parley.data.messaging
 
 import android.icu.text.Transliterator
+import app.parley.common.catching
 import app.parley.common.people.Latinizer
 import app.parley.common.people.Scripts
 import java.util.concurrent.ConcurrentHashMap
@@ -59,7 +60,7 @@ object Romanizer : Latinizer {
     fun phonetic(name: String?): String? {
         val n = name?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         if (n.all { it.code < 0x250 }) return n
-        return any.get()?.let { runCatching { it.transliterate(n) }.getOrNull() }?.trim()?.takeIf { it.isNotEmpty() }
+        return any.get()?.let { catching { it.transliterate(n) }.getOrNull() }?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     /**
@@ -94,7 +95,7 @@ object Romanizer : Latinizer {
 
     /** [t] in Latin letters, single-spaced; "" when it can't be spelled. */
     private fun spell(t: String): String =
-        any.get()?.let { runCatching { it.transliterate(t) }.getOrNull() }?.replace(SPACES, " ")?.trim().orEmpty()
+        any.get()?.let { catching { it.transliterate(t) }.getOrNull() }?.replace(SPACES, " ")?.trim().orEmpty()
 
     /**
      * A name's Latin spelling as a person would write it: each word capitalised ("Иван петров" → "Ivan Petrov"), for the
@@ -105,7 +106,7 @@ object Romanizer : Latinizer {
     private const val SPELLED_MAX = 2_000
     private val SPACES = Regex("\\s+")
 
-    private fun transliterate(t: Transliterator?, s: String): String? = t?.let { synchronized(it) { runCatching { it.transliterate(s) }.getOrNull() } }
+    private fun transliterate(t: Transliterator?, s: String): String? = t?.let { synchronized(it) { catching { it.transliterate(s) }.getOrNull() } }
 
     private fun clean(s: String?): String = s.orEmpty().lowercase().filter { it in 'a'..'z' }
 

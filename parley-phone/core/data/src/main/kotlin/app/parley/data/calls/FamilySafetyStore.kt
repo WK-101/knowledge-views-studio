@@ -10,6 +10,7 @@ import app.parley.common.calls.FamilySafetyState
 import app.parley.common.calls.Helper
 import app.parley.common.calls.SafeWord
 import app.parley.common.calls.SafeWords
+import app.parley.common.catching
 import app.parley.common.security.Concealed
 import app.parley.data.security.Concealment
 import app.parley.data.security.Privacy
@@ -102,7 +103,7 @@ class FamilySafetyStore(context: Context) {
             if (!loadLocked()) return@withLock false
             val next = f(doc)
             if (next == doc) return@withLock true
-            val sealed = runCatching {
+            val sealed = catching {
                 Base64.encodeToString(VaultCrypto.sealCallerId(FamilySafetyState.encode(next).toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
             }.getOrNull() ?: return@withLock false
             prefs.edit().putString(KEY, sealed).apply()

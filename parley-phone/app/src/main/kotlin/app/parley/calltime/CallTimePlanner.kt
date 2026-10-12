@@ -72,7 +72,7 @@ class CallTimePlanner(private val c: DataContainer) {
         // The hour after an emergency call, and numbers listed as starting it: never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
-            inWindow = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
+            inWindow = catching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
             userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any {
                 PhoneIdentity.same(it, number, PhoneEnv.countryIso(c.appContext))
             },
@@ -97,8 +97,8 @@ class CallTimePlanner(private val c: DataContainer) {
      */
     private suspend fun labelsFor(config: CallingConfig, contactId: Long?, vaultId: Long?): Set<String> = when {
         config.rules.none { it.scope == LimitScope.LABEL } -> emptySet()
-        contactId != null -> runCatching { c.people.labelsOf(contactId) }.getOrDefault(emptySet())
-        vaultId != null -> runCatching { c.privateLabels.titlesOf(vaultId) }.getOrDefault(emptySet())
+        contactId != null -> catching { c.people.labelsOf(contactId) }.getOrDefault(emptySet())
+        vaultId != null -> catching { c.privateLabels.titlesOf(vaultId) }.getOrDefault(emptySet())
         else -> emptySet()
     }
 

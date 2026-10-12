@@ -10,6 +10,7 @@ import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import app.parley.common.SimAccount
 import app.parley.common.calls.SimLine
+import app.parley.common.catching
 
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
@@ -75,7 +76,7 @@ class SimRepository(private val context: Context) {
         handles.mapNotNull { (id, h) ->
             val subId = subIdFor(h)
             val info = subs.firstOrNull { it.subscriptionId == subId } ?: subs.firstOrNull { iccIdOf(it) == id } ?: return@mapNotNull null
-            val number = runCatching { if (Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId) else olderNumberOf(info) }
+            val number = catching { if (Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId) else olderNumberOf(info) }
                 .getOrNull()?.ifBlank { null }
             id to SimLine(carrier = info.carrierName?.toString(), number = number)
         }.toMap()
@@ -89,7 +90,7 @@ class SimRepository(private val context: Context) {
 
     // The ICCID is deprecated for apps but still matches a handle on Android 10.
     @Suppress("DEPRECATION")
-    private fun iccIdOf(info: SubscriptionInfo): String? = runCatching { info.iccId }.getOrNull()
+    private fun iccIdOf(info: SubscriptionInfo): String? = catching { info.iccId }.getOrNull()
 
     private fun subscriptionSlots(): Map<Int, Int> = try {
         context.getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList.orEmpty()

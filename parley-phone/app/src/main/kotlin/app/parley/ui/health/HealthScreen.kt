@@ -1,5 +1,6 @@
 package app.parley.ui.health
 
+import app.parley.common.catching
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.calls.NumberSignals
 import app.parley.common.ContactSummary
-import app.parley.common.suspendRunCatching
 import app.parley.common.ux.BackupNudge
 import app.parley.data.HealthIssue
 import app.parley.data.HealthKind
@@ -203,7 +203,7 @@ private fun rememberDeadNumbers(vm: AppViewModel, contacts: List<ContactSummary>
     var dead by remember { mutableStateOf<List<NumberSignals.DeadNumber>>(emptyList()) }
     LaunchedEffect(contacts, quality, answers, calls) {
         val history = calls ?: return@LaunchedEffect
-        dead = suspendRunCatching { NumberSignals.deadNumbers(vm.c, contacts.orEmpty(), history) }.getOrDefault(emptyList())
+        dead = catching { NumberSignals.deadNumbers(vm.c, contacts.orEmpty(), history) }.getOrDefault(emptyList())
     }
     return dead
 }

@@ -410,7 +410,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             val privateEmails = ArrayList<String>()
             var locked = false
             for (m in private) {
-                val d = runCatching { vm.c.vault.details(-m.id) }
+                val d = catching { vm.c.vault.details(-m.id) }
                 if (d.exceptionOrNull() is VaultCrypto.LockedException) {
                     locked = true
                     break
@@ -564,7 +564,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     LabelSettingsFold(settingsOpen, { settingsOpen = !settingsOpen }) {
                         val name = tone?.let { u ->
                             if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
-                            else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+                            else catching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
                         }
                         ParleyListItem(
                             modifier = Modifier.clickable(onClick = ::pickTone),

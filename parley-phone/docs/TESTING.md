@@ -3719,8 +3719,15 @@ Automated: `CallRoundBridgeTest` (app: the note for someone not told yet only; n
 5. Delete all Parley data: the round is gone.
 
 ### 52.19 Container discipline: start-up unchanged
-Automated: `ContainerReachTest` (app: `vm.c.` at most 607 times, at most 35 classes take the whole container, nothing launches from an `init` block), the existing suites for settings, the vault, call history, archive, messaging, To call, the Contacts list head and private search, all now started by an explicit `start()`.
+Automated: `ContainerReachTest` (app: `vm.c.` at most 596 times, at most 35 classes take the whole container, nothing launches from an `init` block), the existing suites for settings, the vault, call history, archive, messaging, To call, the Contacts list head and private search, all now started by an explicit `start()`.
 1. Cold start Parley from the launcher (after a reboot): the Contacts list shows its kept first screenful at once, then the whole list; Recents opens on the chip used last; favourites shortcuts update.
 2. Cold start for an incoming call (Parley closed): the call rings and screens as before; the contact list and call archive aren't read until the call settles or the UI opens.
 3. Case files (list, a case: status, references, Stop keeping), a label's chapter (give it an end, End now, Keep, Archive who joined) and Situations (turn on with How long?, turn off from the home line and from a "Set by" banner, add, rename, delete) all behave as in 6.7.
 
+
+### 52.20 Review fixes
+Automated: `DigestCallTest` (app: the digest's Call for someone quieter than usual is brought up to date each week), `FavouriteStepTest` (core/common: "Add everyone to Favourites" takes Parley's Do Not Disturb record of anyone it stars), `CheckInTest.a_new_check_in_or_an_answer_takes_an_earlier_unanswered_notice_away` (app), `ResultsTest` (core/common: `catching` rethrows cancellation and lets errors through), `ContainerReachTest` (`vm.c.` ceiling lowered to the count).
+1. Quieter than usual, two weeks running: leave last week's digest in the shade, wait for (or force with the reminders worker) this week's with a different person; its Call dials this week's person, not last week's.
+2. A label with "Allow through Do Not Disturb": in the Contacts app, unstar one of its members that Parley starred. On the label's page, Add everyone to Favourites (they're starred again), then switch "Allow through Do Not Disturb" off: they stay a favourite. Undo the add instead: they're unstarred and the Do Not Disturb record is as before.
+3. Check-in: let one go unanswered (the notice shows), then set a new check-in: the old notice goes. Let another go unanswered, set one more and answer it ("I'm fine"): no notice is left.
+4. Error handling (`catching` everywhere): leave a screen while it loads (Contacts, a contact's page, Recents, a label's chapter) and back out of the call screen during a call: nothing reports "failed" or shows an error afterwards; photos too large to decode still fall back to the monogram.

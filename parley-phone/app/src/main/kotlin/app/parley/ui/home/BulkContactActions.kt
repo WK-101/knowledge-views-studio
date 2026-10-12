@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.catching
 import app.parley.common.people.BulkAction
 import app.parley.common.people.BulkActions
 import app.parley.common.people.BulkEdit
@@ -7,7 +8,6 @@ import app.parley.common.people.BulkEdits
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.Messengers
-import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.DataContainer
 import app.parley.data.GroupInfo
@@ -26,7 +26,7 @@ class BulkContactActions(private val c: DataContainer) {
     /** Stars (or unstars) all of them: the address book's star, or Parley's own for a private contact. */
     suspend fun star(ids: Collection<Long>, on: Boolean) {
         ids.forEach { id ->
-            if (BulkActions.isPrivate(id)) c.vault.updateCallerChoices(-id) { it.copy(starred = on) } else suspendRunCatching { c.contacts.setStarred(id, on) }
+            if (BulkActions.isPrivate(id)) c.vault.updateCallerChoices(-id) { it.copy(starred = on) } else catching { c.contacts.setStarred(id, on) }
         }
         c.contacts.refresh()
     }
@@ -41,7 +41,7 @@ class BulkContactActions(private val c: DataContainer) {
     /** Device contacts among [ids] get a copy in History & undo before a bulk edit changes them (private ones keep none). */
     private suspend fun journal(ids: Collection<Long>) {
         val device = ids.filterNot { BulkActions.isPrivate(it) }
-        if (device.isNotEmpty()) suspendRunCatching { c.contacts.recordChange(device, "EDIT") }
+        if (device.isNotEmpty()) catching { c.contacts.recordChange(device, "EDIT") }
     }
 
     /** Adds them to [group]'s label: how many device contacts had no copy in its account, and who joined (for Undo). */
@@ -98,7 +98,7 @@ class BulkContactActions(private val c: DataContainer) {
 
     private suspend fun applyRingtone(id: Long, ringtone: String?) {
         if (BulkActions.isPrivate(id)) c.vault.updateCallerChoices(-id) { it.copy(ringtone = ringtone) }
-        else suspendRunCatching { c.contacts.setRingtone(id, ringtone) }
+        else catching { c.contacts.setRingtone(id, ringtone) }
     }
 
     /**
@@ -185,7 +185,7 @@ class BulkContactActions(private val c: DataContainer) {
 
     /** One contact of [moveToAccount]: journaled as "Moved", its movable copies copied into [account], then removed. */
     private suspend fun moveOne(id: Long, account: AccountRef): MoveOutcome {
-        val record = suspendRunCatching { c.records.read(id, fullPhoto = true) }.getOrNull()
+        val record = catching { c.records.read(id, fullPhoto = true) }.getOrNull()
         if (record == null || record.raws.isEmpty()) return MoveOutcome.Failed("")
         val copies = record.raws.mapNotNull { r ->
             val a = AccountRef(r.accountType, r.accountName)
@@ -215,21 +215,21 @@ class BulkContactActions(private val c: DataContainer) {
         val r = c.records.insertAll(listOf(moving), account, announceRedirect = false).single()
         val newId = r.contactId
         if (newId == null || r.rawIds.isEmpty()) return null
-        val placed = suspendRunCatching {
+        val placed = catching {
             if (split.staying.isNotEmpty()) c.contacts.keepTogether(r.rawIds + split.staying)
             c.contacts.deleteRawsUnjournaled(split.moving)
         }
         if (placed.isFailure) {
             // The new copy is taken back: the originals are all still there.
-            suspendRunCatching { c.contacts.discardInserted(r.rawIds) }
+            catching { c.contacts.discardInserted(r.rawIds) }
             return null
         }
         // Android may join the new copy with someone's other copies: follow it to where it is now.
         val now = c.contacts.contactsOfRaws(r.rawIds).values.firstOrNull() ?: newId
         val newKey = c.contacts.lookupKeyOf(now)
-        if (oldKey != null && newKey != null && oldKey != newKey) suspendRunCatching { c.contactKeys.rekey(oldKey, newKey, now) }
+        if (oldKey != null && newKey != null && oldKey != newKey) catching { c.contactKeys.rekey(oldKey, newKey, now) }
         // A temporary contact stays temporary: its entry now names the new copies, which are what expire.
-        (newKey ?: oldKey)?.let { k -> suspendRunCatching { c.temporaries.replaceRaws(k, split.moving, r.rawIds, now) } }
+        (newKey ?: oldKey)?.let { k -> catching { c.temporaries.replaceRaws(k, split.moving, r.rawIds, now) } }
         return MoveOutcome.Moved(r.redirectedTo, split.keptReadOnly > 0, MoveUndo(moving, r.rawIds, split.staying, newKey))
     }
 
@@ -248,8 +248,8 @@ class BulkContactActions(private val c: DataContainer) {
                 c.contacts.deleteRawsUnjournaled(m.newRaws)
                 val now = c.contacts.contactsOfRaws(back.rawIds).values.firstOrNull() ?: backId
                 val key = c.contacts.lookupKeyOf(now)
-                if (m.newKey != null && key != null && m.newKey != key) suspendRunCatching { c.contactKeys.rekey(m.newKey, key, now) }
-                (key ?: m.newKey)?.let { k -> suspendRunCatching { c.temporaries.replaceRaws(k, m.newRaws, back.rawIds, now) } }
+                if (m.newKey != null && key != null && m.newKey != key) catching { c.contactKeys.rekey(m.newKey, key, now) }
+                (key ?: m.newKey)?.let { k -> catching { c.temporaries.replaceRaws(k, m.newRaws, back.rawIds, now) } }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -319,7 +319,7 @@ class BulkContactActions(private val c: DataContainer) {
         val total = base + device.size
         for ((i, id) in device.withIndex()) {
             onProgress(base + i, total)
-            val d = withContext(Dispatchers.IO) { suspendRunCatching { c.contacts.details(id) }.getOrNull() }
+            val d = withContext(Dispatchers.IO) { catching { c.contacts.details(id) }.getOrNull() }
             if (d == null) {
                 failed += id to names[id].orEmpty()
                 continue
@@ -360,7 +360,7 @@ class BulkContactActions(private val c: DataContainer) {
         val details = vaultIds.associateWith { c.vault.details(it) }
         val conversions = ContactConversions(c)
         val done = details.mapNotNull { (v, d) ->
-            d?.let { suspendRunCatching { conversions.makeVisible(v, it, account) }.getOrNull() as? ContactConversions.MadeVisible.Done }
+            d?.let { catching { conversions.makeVisible(v, it, account) }.getOrNull() as? ContactConversions.MadeVisible.Done }
         }
         return MadeVisible(done.size, done.mapNotNull { it.redirectedTo }.toSet())
     }

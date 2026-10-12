@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
 import app.parley.R
+import app.parley.common.catching
 import app.parley.data.calls.Voicemail
 import app.parley.telecom.CallManager
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +62,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
 
     fun seek(ms: Long) {
         val p = player ?: return
-        runCatching { p.seekTo(ms.toInt()) }
+        catching { p.seekTo(ms.toInt()) }
         _state.value = _state.value.copy(positionMs = ms)
     }
 
@@ -71,8 +72,8 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
         _state.value = _state.value.copy(speaker = on)
         val v = current ?: return
         val p = player ?: return
-        val pos = runCatching { p.currentPosition.toLong() }.getOrDefault(0)
-        val wasPlaying = runCatching { p.isPlaying }.getOrDefault(false)
+        val pos = catching { p.currentPosition.toLong() }.getOrDefault(0)
+        val wasPlaying = catching { p.isPlaying }.getOrDefault(false)
         releasePlayer()
         if (wasPlaying) start(v, pos) else prepareOnly(v, pos)
     }
@@ -88,7 +89,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
         _state.value = PlayerState(id = v.id, speaker = speaker, durationMs = v.durationSec * 1000)
         val mp = create(v, speaker) ?: return
         mp.setOnPreparedListener {
-            if (from > 0) runCatching { it.seekTo(from.toInt()) }
+            if (from > 0) catching { it.seekTo(from.toInt()) }
             if (!requestFocus()) {
                 _state.value = _state.value.copy(error = app.getString(R.string.vm_error_audio_busy))
                 return@setOnPreparedListener
@@ -99,17 +100,17 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
             startTicker()
             onStarted(v)
         }
-        runCatching { mp.prepareAsync() }.onFailure { fail(app.getString(R.string.vm_error_play)) }
+        catching { mp.prepareAsync() }.onFailure { fail(app.getString(R.string.vm_error_play)) }
     }
 
     private fun prepareOnly(v: Voicemail, at: Long) {
         current = v
         val mp = create(v, _state.value.speaker) ?: return
         mp.setOnPreparedListener {
-            runCatching { it.seekTo(at.toInt()) }
+            catching { it.seekTo(at.toInt()) }
             _state.value = _state.value.copy(positionMs = at, durationMs = it.duration.toLong())
         }
-        runCatching { mp.prepareAsync() }
+        catching { mp.prepareAsync() }
     }
 
     private fun create(v: Voicemail, speaker: Boolean): MediaPlayer? = try {
@@ -124,7 +125,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
             setOnCompletionListener {
                 stopTicker()
                 _state.value = _state.value.copy(playing = false, positionMs = 0)
-                runCatching { it.seekTo(0) }
+                catching { it.seekTo(0) }
                 restoreAudio()
             }
             setOnErrorListener { _, _, _ ->
@@ -138,7 +139,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
     }
 
     private fun pause() {
-        runCatching { player?.pause() }
+        catching { player?.pause() }
         stopTicker()
         _state.value = _state.value.copy(playing = false)
         restoreAudio()
@@ -152,7 +153,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
         }
         if (!requestFocus()) return
         routeForEarpiece(!_state.value.speaker)
-        runCatching { p.start() }
+        catching { p.start() }
         _state.value = _state.value.copy(playing = true, error = null)
         startTicker()
     }
@@ -161,7 +162,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
         stopTicker()
         ticker = scope.launch {
             while (isActive) {
-                player?.let { p -> runCatching { _state.value = _state.value.copy(positionMs = p.currentPosition.toLong()) } }
+                player?.let { p -> catching { _state.value = _state.value.copy(positionMs = p.currentPosition.toLong()) } }
                 delay(200)
             }
         }
@@ -183,13 +184,13 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
             .setOnAudioFocusChangeListener { change -> if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) pause() }
             .build()
         focus = req
-        return runCatching { am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED }.getOrDefault(true)
+        return catching { am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED }.getOrDefault(true)
     }
 
     /** Earpiece: the communication mode routes voice to the earpiece; speaker mode leaves the audio mode alone. */
     private fun routeForEarpiece(earpiece: Boolean) {
         if (!earpiece) return
-        runCatching {
+        catching {
             am.mode = AudioManager.MODE_IN_COMMUNICATION
             modeChanged = true
             if (Build.VERSION.SDK_INT >= 31) {
@@ -202,13 +203,13 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
     }
 
     private fun restoreAudio() {
-        focus?.let { f -> runCatching { am.abandonAudioFocusRequest(f) } }
+        focus?.let { f -> catching { am.abandonAudioFocusRequest(f) } }
         focus = null
         if (!modeChanged) return
         modeChanged = false
         // Never touch the audio of a call that started meanwhile.
         if (CallManager.state.value.any { it.isLive }) return
-        runCatching {
+        catching {
             if (Build.VERSION.SDK_INT >= 31) am.clearCommunicationDevice()
             am.mode = AudioManager.MODE_NORMAL
         }
@@ -216,7 +217,7 @@ class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Un
 
     private fun releasePlayer() {
         stopTicker()
-        player?.let { runCatching { it.release() } }
+        player?.let { catching { it.release() } }
         player = null
         restoreAudio()
     }

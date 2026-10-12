@@ -37,6 +37,7 @@ import app.parley.common.NumberText
 import app.parley.common.cards.ShareLedger
 import app.parley.common.cards.ShareMethod
 import app.parley.common.cards.SharedPerson
+import app.parley.common.catching
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.EmptyState
@@ -81,7 +82,7 @@ fun SharedWithScreen(vm: AppViewModel, back: () -> Unit) {
     var forget by remember { mutableStateOf<SharedPerson?>(null) }
     var clearAll by remember { mutableStateOf(false) }
     val fingerprint by produceState<String?>(null) {
-        value = withContext(Dispatchers.IO) { runCatching { vm.c.people.cardIdentity.fingerprint() }.getOrNull() }
+        value = withContext(Dispatchers.IO) { catching { vm.c.people.cardIdentity.fingerprint() }.getOrNull() }
     }
 
     ParleyScaffold(topBar = {

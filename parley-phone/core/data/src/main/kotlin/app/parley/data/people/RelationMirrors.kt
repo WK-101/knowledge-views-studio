@@ -2,6 +2,7 @@ package app.parley.data.people
 
 import android.content.Context
 import android.util.Log
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RelationMirror
@@ -270,7 +271,7 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
 
     private suspend fun load(key: String, id: Long): Target? {
         val all = contacts.details(id) ?: return null
-        val editable = runCatching { contacts.editable(id) }.getOrNull()
+        val editable = catching { contacts.editable(id) }.getOrNull()
         return Target(key, id, all, editable)
     }
 
@@ -293,7 +294,7 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
             } catch (e: ContactChangedElsewhereException) {
                 // A sync wrote meanwhile: read it again once, then leave it.
                 if (attempt == 1) return Reason.CHANGED
-                ed = runCatching { contacts.editable(t.id) }.getOrNull() ?: return Reason.CHANGED
+                ed = catching { contacts.editable(t.id) }.getOrNull() ?: return Reason.CHANGED
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -306,7 +307,7 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
 
     /** The other contact's relation to this one links back here, so it opens this contact too. */
     private suspend fun linkBack(targetKeyBefore: String, step: RelationMirror.Step, selfKey: String, selfId: Long) {
-        runCatching {
+        catching {
             val (tid, key) = contacts.currentOf(targetKeyBefore, null) ?: return
             val m = meta.meta(key)
             val links = RelationLinks.decode(m?.relationLinks).toMutableMap()

@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import app.parley.common.catching
 import app.parley.ui.Destination
 import app.parley.ui.Routes
 import app.parley.ui.appVm
@@ -42,8 +43,8 @@ fun NavGraphBuilder.blockingGraph(nav: NavController) {
     composable<BlockingRoutes.Templates> { TemplatesScreen(appVm(), back) }
     composable<BlockingRoutes.Rule> {
         val a = it.toRoute<BlockingRoutes.Rule>()
-        val kind = runCatching { RuleKind.valueOf(a.kind) }.getOrDefault(RuleKind.BLOCK)
-        val type = runCatching { RuleType.valueOf(a.type) }.getOrDefault(RuleType.PREFIX)
+        val kind = catching { RuleKind.valueOf(a.kind) }.getOrDefault(RuleKind.BLOCK)
+        val type = catching { RuleType.valueOf(a.type) }.getOrDefault(RuleType.PREFIX)
         RuleEditorScreen(appVm(), a.id, newRule(kind, type, a.pattern), back)
     }
 }

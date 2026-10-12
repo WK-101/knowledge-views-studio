@@ -9,6 +9,7 @@ import app.parley.common.calltime.CallTimeBook
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calltime.Countdown
 import app.parley.common.calltime.CountdownEvent
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -75,8 +76,8 @@ object CallClock {
         if (emergency) return true
         val ctx = appContext
         val facts = EmergencyPolicy.Facts(
-            inWindow = ctx != null && runCatching { ScreeningGuard.inEmergencyWindow(ctx) }.getOrDefault(false),
-            userListed = !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false),
+            inWindow = ctx != null && catching { ScreeningGuard.inEmergencyWindow(ctx) }.getOrDefault(false),
+            userListed = !number.isNullOrBlank() && catching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false),
         )
         return EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.CALL_LIMITS, facts)
     }
@@ -107,7 +108,7 @@ object CallClock {
         }
         scope.launch {
             val plan = withTimeoutOrNull(PLAN_TIMEOUT_MS) {
-                runCatching { TelecomGraph.dependencies.callTimePlan(number, accountId, incoming) }.getOrNull()
+                catching { TelecomGraph.dependencies.callTimePlan(number, accountId, incoming) }.getOrNull()
             } ?: CallTimePlan.NONE
             if (id !in requested) return@launch // the call is already gone
             plans[id] = plan
@@ -129,7 +130,7 @@ object CallClock {
             liveIds += c.id
             // The connect buzz is optional, and skipped for a call just answered here (it had the answer buzz).
             if (c.state == CallState.ACTIVE && connected.add(c.id) && !CallManager.wasAnsweredByUser(c.id) &&
-                runCatching { TelecomGraph.dependencies.connectHaptic() }.getOrDefault(true)
+                catching { TelecomGraph.dependencies.connectHaptic() }.getOrDefault(true)
             ) feedback?.haptic(CallHaptic.CONNECT)
             val running = c.state == CallState.ACTIVE || c.state == CallState.HOLDING
             if (running) requestPlan(c.id, c.number, c.accountId, c.incoming, c.isEmergency)

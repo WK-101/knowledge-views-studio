@@ -8,6 +8,7 @@ import app.parley.common.calls.DndState
 import app.parley.common.calls.RingRamp
 import app.parley.common.calls.RingStyle
 import app.parley.common.calls.RingerMode
+import app.parley.common.catching
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
@@ -40,10 +41,10 @@ object RingVolumeRamp {
         val app = context.applicationContext
         RingBoost.io.execute {
             cancelSteps()
-            runCatching {
-                val target = begin(app, style) ?: return@runCatching
+            catching {
+                val target = begin(app, style) ?: return@catching
                 RingRamp.steps(target, RingRamp.DURATION_MS, delayMs).forEach { step ->
-                    pending += RingBoost.io.schedule({ runCatching { advance(app, step.volume) } }, step.atMs, TimeUnit.MILLISECONDS)
+                    pending += RingBoost.io.schedule({ catching { advance(app, step.volume) } }, step.atMs, TimeUnit.MILLISECONDS)
                 }
             }
         }
@@ -54,7 +55,7 @@ object RingVolumeRamp {
         val app = context.applicationContext
         RingBoost.io.execute {
             cancelSteps()
-            runCatching { restore(app) }
+            catching { restore(app) }
         }
     }
 
@@ -154,8 +155,8 @@ object RingVolumeRamp {
     /** The ring can be heard and its volume set: normal ringer mode, and Do Not Disturb not muting the ring stream. */
     private fun audible(context: Context, am: AudioManager): Boolean {
         if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return false
-        if (runCatching { am.isStreamMute(AudioManager.STREAM_RING) }.getOrDefault(false)) return false
-        val filter = runCatching { context.getSystemService(NotificationManager::class.java)?.currentInterruptionFilter }.getOrNull()
+        if (catching { am.isStreamMute(AudioManager.STREAM_RING) }.getOrDefault(false)) return false
+        val filter = catching { context.getSystemService(NotificationManager::class.java)?.currentInterruptionFilter }.getOrNull()
         return filter == null || filter == NotificationManager.INTERRUPTION_FILTER_ALL || filter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN
     }
 
@@ -168,8 +169,8 @@ object RingVolumeRamp {
      */
     internal fun systemRamps(context: Context): Boolean {
         val cr = context.contentResolver
-        val system = runCatching { Settings.System.getInt(cr, APPLY_RAMPING_RINGER, 0) != 0 }.getOrDefault(false)
-        val global = runCatching { Settings.Global.getInt(cr, APPLY_RAMPING_RINGER, 0) != 0 }.getOrDefault(false)
+        val system = catching { Settings.System.getInt(cr, APPLY_RAMPING_RINGER, 0) != 0 }.getOrDefault(false)
+        val global = catching { Settings.Global.getInt(cr, APPLY_RAMPING_RINGER, 0) != 0 }.getOrDefault(false)
         return system || global
     }
 

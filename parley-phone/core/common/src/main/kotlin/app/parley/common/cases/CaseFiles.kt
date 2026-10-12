@@ -4,6 +4,7 @@ import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuPress
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 
 /** Whether Parley keeps a case file for an organisation. */
@@ -345,5 +346,5 @@ object CaseFiles {
     fun encode(state: CaseState): String = json.encodeToString(CaseState.serializer(), state)
 
     fun decode(stored: String?): CaseState =
-        stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(CaseState.serializer(), it) }.getOrNull() } ?: CaseState()
+        stored?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(CaseState.serializer(), it) }.getOrNull() } ?: CaseState()
 }

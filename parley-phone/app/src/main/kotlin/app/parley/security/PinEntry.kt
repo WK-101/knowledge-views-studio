@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.security.PinRules
 import app.parley.common.security.PinVerdict
 import app.parley.container
@@ -60,7 +61,7 @@ internal fun PinUnlock(autoFocus: Boolean) {
     LaunchedEffect(Unit) { state.waitFor(activity.container.appPin.waitNow()) }
     LaunchedEffect(state.waitUntil) { state.tick() }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(autoFocus, state.waiting) { if (autoFocus && !state.waiting) runCatching { focus.requestFocus() } }
+    LaunchedEffect(autoFocus, state.waiting) { if (autoFocus && !state.waiting) catching { focus.requestFocus() } }
     val submit = { state.submit(activity) }
     OutlinedTextField(
         state.pin, state::type,
@@ -153,7 +154,7 @@ internal fun NewPinDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(first) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(first) { catching { focus.requestFocus() } }
 
     fun next() {
         if (busy) return

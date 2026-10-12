@@ -54,6 +54,7 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.cards.ShareLedger
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
@@ -388,8 +389,8 @@ private fun CardKeyChoiceBanner(vm: AppViewModel) {
         stringResource(R.string.card_key_restore_question),
         icon = Icons.Rounded.Key,
         action = stringResource(R.string.card_key_restore_use_earlier),
-        onAction = { scope.launch(Dispatchers.IO) { runCatching { identity.usePrevious() } } },
-        onDismiss = { scope.launch(Dispatchers.IO) { runCatching { identity.keepThis() } } },
+        onAction = { scope.launch(Dispatchers.IO) { catching { identity.usePrevious() } } },
+        onDismiss = { scope.launch(Dispatchers.IO) { catching { identity.keepThis() } } },
         dismissLabel = stringResource(R.string.card_key_restore_keep_this),
     )
 }
