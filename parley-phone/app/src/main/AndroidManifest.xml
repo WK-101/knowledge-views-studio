@@ -389,7 +389,8 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
-        <!-- The Circle widget (resizable RemoteViews). -->
+        <!-- The Circle widget placed before the People widget (resizable RemoteViews): kept for those; Parley disables
+             this entry once none is placed, so the widget list offers the People widget only. -->
         <receiver
             android:name=".shortcuts.CircleWidget"
             android:exported="false"
@@ -402,7 +403,8 @@
                 android:resource="@xml/widget_circle_info" />
         </receiver>
 
-        <!-- The Favourites widget (resizable RemoteViews) and its settings: what a tap does. -->
+        <!-- The People widget (once the Favourites widget, so placed ones keep working) and its settings: Favourites or
+             your Circle, and what a tap does. -->
         <activity
             android:name=".shortcuts.FavoritesWidgetConfigActivity"
             android:exported="true">
@@ -413,7 +415,7 @@
         <receiver
             android:name=".shortcuts.FavoritesWidget"
             android:exported="false"
-            android:label="@string/label_favourites">
+            android:label="@string/people_widget_title">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

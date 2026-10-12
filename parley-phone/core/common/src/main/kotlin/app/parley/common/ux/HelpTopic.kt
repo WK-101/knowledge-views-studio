@@ -63,6 +63,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** A label fills your Circle or your Favourites: on each label's page. */
     LABEL_CIRCLE(CapabilityTarget.Screen(AppScreen.LABELS), explainsFeature = true),
+
+    /** Your year: opened from the People card in Call insights, and once from the digest in early January. */
+    YOUR_YEAR(CapabilityTarget.Screen(AppScreen.CALL_INSIGHTS), explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */

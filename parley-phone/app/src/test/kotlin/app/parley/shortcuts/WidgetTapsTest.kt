@@ -47,13 +47,13 @@ class WidgetTapsTest {
     @Test fun a_favourite_and_a_circle_call_never_share_a_pending_intent() {
         // The ids that collided before: Favourites widget 1, place 4, and Circle widget 96, place 0 (code 8068 both).
         val ana = FavoritesWidgetPlan.Tile(11, "Ana", "+44 20 7946 0011", null)
-        val fav = FavoritesWidget.tapIntent(context, 1, 4, ana, FavoritesWidgetPlan.Tap.CALL)
+        val fav = FavouritesDrawing.tapIntent(context, 1, 4, ana, FavoritesWidgetPlan.Tap.CALL)
         val circle = WidgetTaps.activity(
             context, WidgetTaps.Kind.CIRCLE_CALL, 96, 0, Shortcuts.intent(context, Shortcuts.Kind.CALL, "+44 20 7946 0022", 22, "Ben"),
         )
         assertNotEquals(fav, circle)
         // Drawn again in either order, each keeps its own person.
-        FavoritesWidget.tapIntent(context, 1, 4, ana, FavoritesWidgetPlan.Tap.CALL)
+        FavouritesDrawing.tapIntent(context, 1, 4, ana, FavoritesWidgetPlan.Tap.CALL)
         assertEquals("+44 20 7946 0011", shadowOf(fav).savedIntent.getStringExtra(ShortcutActivity.EXTRA_NUMBER))
         assertEquals("Ana", shadowOf(fav).savedIntent.getStringExtra(ShortcutActivity.EXTRA_NAME))
         assertEquals("+44 20 7946 0022", shadowOf(circle).savedIntent.getStringExtra(ShortcutActivity.EXTRA_NUMBER))
@@ -62,8 +62,8 @@ class WidgetTapsTest {
     @Test fun the_same_place_of_two_widgets_of_one_kind_stays_apart() {
         val ana = FavoritesWidgetPlan.Tile(11, "Ana", "+44 20 7946 0011", null)
         val ben = FavoritesWidgetPlan.Tile(22, "Ben", null, null)
-        val first = FavoritesWidget.tapIntent(context, 3, 0, ana, FavoritesWidgetPlan.Tap.CALL)
-        val second = FavoritesWidget.tapIntent(context, 4, 0, ben, FavoritesWidgetPlan.Tap.CALL)
+        val first = FavouritesDrawing.tapIntent(context, 3, 0, ana, FavoritesWidgetPlan.Tap.CALL)
+        val second = FavouritesDrawing.tapIntent(context, 4, 0, ben, FavoritesWidgetPlan.Tap.CALL)
         assertNotEquals(first, second)
         assertEquals("+44 20 7946 0011", shadowOf(first).savedIntent.getStringExtra(ShortcutActivity.EXTRA_NUMBER))
         // Ben has no number: his tap opens his page.

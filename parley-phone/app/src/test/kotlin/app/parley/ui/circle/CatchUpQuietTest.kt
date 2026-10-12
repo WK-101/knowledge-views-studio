@@ -15,7 +15,7 @@ class CatchUpQuietTest {
 
     @Test fun every_place_that_plans_the_circle_honours_the_catch_up() {
         listOf(
-            "ui/circle/CircleUi.kt", "ui/circle/KeepInTouchLines.kt", "ui/circle/CircleContact.kt", "shortcuts/CircleWidget.kt",
+            "ui/circle/CircleUi.kt", "ui/circle/KeepInTouchLines.kt", "ui/circle/CircleContact.kt", "shortcuts/CircleDrawing.kt",
             "ui/calls/NextUpModel.kt", "work/RemindersWorker.kt",
         ).forEach { path ->
             val text = File(root, path).readText()

@@ -43,6 +43,7 @@ import app.parley.ui.Destination
 import app.parley.ui.calls.CallRoundUi
 import app.parley.ui.cases.CasesUi
 import app.parley.ui.circle.CircleUi
+import app.parley.ui.history.YourYearUi
 import app.parley.ui.people.chapters.ChaptersUi
 import app.parley.ui.people.chapters.Temporaries
 import app.parley.ui.situations.SituationControls
@@ -360,6 +361,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, everyone)
+
+    /** Your year (from the People card and the January digest), read when its page opens. */
+    val yourYear: YourYearUi by lazy { YourYearUi(c.circle, c.history, c.vault) }
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

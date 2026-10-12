@@ -39,6 +39,9 @@ object HistoryRoutes {
 
     /** Tools › Case files: every case kept, the newest activity first. */
     @Serializable data object Cases : Destination
+
+    /** Your year, from the People card; [year] 0: the page picks (last year in January, else the newest). */
+    @Serializable data class YourYear(val year: Int = 0) : Destination
 }
 
 /** Call history: a number's history, insights, import, the SIMs' settings and case files. */
@@ -54,4 +57,5 @@ fun NavGraphBuilder.historyGraph(nav: NavController) {
     composable<HistoryRoutes.Sim> { SimSettingsScreen(appVm(), it.toRoute<HistoryRoutes.Sim>().id, back = back) }
     composable<HistoryRoutes.Case> { app.parley.ui.cases.CaseScreen(appVm(), it.toRoute<HistoryRoutes.Case>().id, back = back) }
     composable<HistoryRoutes.Cases> { app.parley.ui.cases.CaseListScreen(appVm(), back = back, open = open) }
+    composable<HistoryRoutes.YourYear> { YourYearScreen(appVm(), it.toRoute<HistoryRoutes.YourYear>().year, back = back, open = open) }
 }

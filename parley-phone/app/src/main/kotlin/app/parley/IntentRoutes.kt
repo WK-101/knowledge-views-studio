@@ -17,6 +17,7 @@ import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingRoutes
 import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.settings.CallsRoutes
@@ -84,6 +85,7 @@ object IntentRoutes {
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
             ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
             ACTION_EXPORT_CONTACTS, ACTION_RESCUE_CALL, ACTION_OPEN_LABEL, ACTION_OPEN_SITUATIONS, ACTION_SEARCH_EVERYTHING,
+            ACTION_SHOW_YOUR_YEAR,
         )
     }
 
@@ -182,6 +184,10 @@ object IntentRoutes {
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
     const val ACTION_SHOW_MISSED = "app.parley.SHOW_MISSED"
     const val ACTION_SHOW_CIRCLE = "app.parley.SHOW_CIRCLE"
+
+    /** The January digest's Your year: the look back at [EXTRA_YEAR]. */
+    const val ACTION_SHOW_YOUR_YEAR = "app.parley.SHOW_YOUR_YEAR"
+    const val EXTRA_YEAR = "year"
 
     /** The To call reminder opens the list. */
     const val ACTION_SHOW_TO_CALL = "app.parley.SHOW_TO_CALL"
@@ -318,6 +324,7 @@ object IntentRoutes {
             QS_TILE_PREFERENCES -> go(NavEvent.Route(SituationRoutes.RescueCall)).takeIf { tileComponent(intent)?.className == SITUATION_TILE }
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
+            ACTION_SHOW_YOUR_YEAR -> go(NavEvent.Route(HistoryRoutes.YourYear(intent.getIntExtra(EXTRA_YEAR, 0))))
             ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))
             ACTION_OPEN_EXPORT -> intent.getStringExtra(EXTRA_FILE)?.takeIf { it.isNotEmpty() }?.let { f ->
                 val mime = intent.getStringExtra(EXTRA_MIME).orEmpty()

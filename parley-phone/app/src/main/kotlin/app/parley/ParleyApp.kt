@@ -21,8 +21,7 @@ import app.parley.jobs.UserJobWorker
 import app.parley.jobs.UserJobs
 import app.parley.security.AppLock
 import app.parley.security.VaultSession
-import app.parley.shortcuts.CircleWidget
-import app.parley.shortcuts.FavoritesWidget
+import app.parley.shortcuts.PeopleWidget
 import app.parley.shortcuts.WidgetLockRefresh
 import app.parley.situations.SituationTriggers
 import app.parley.telecom.TelecomGraph
@@ -101,8 +100,7 @@ class ParleyApp : Application() {
         }
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
-        CircleWidget.observe(this, container)
-        FavoritesWidget.observe(this, container)
+        PeopleWidget.observe(this, container)
         // Right after the user authenticates, the vault moves to an authentication-bound key if it isn't on one yet.
         VaultSession.onAuthenticated = {
             container.scope.launch(Dispatchers.IO) {

@@ -47,7 +47,7 @@ class PrivateEventsTest {
         val app = File(File("..").canonicalFile, "app/src/main/kotlin/app/parley")
         assertTrue(File(app, "ui/birthdays/BirthdaysScreen.kt").readText().contains("vm.privateEvents"))
         // The widget and the reminders' notifications keep to the address book's dates.
-        listOf("shortcuts/CircleWidget.kt", "work/RemindersWorker.kt").forEach { f ->
+        listOf("shortcuts/CircleDrawing.kt", "work/RemindersWorker.kt").forEach { f ->
             val text = File(app, f).readText()
             assertFalse("$f reads private dates", text.contains("PrivateEvents") || text.contains("privateEvents") || text.contains("PrivateDates"))
         }

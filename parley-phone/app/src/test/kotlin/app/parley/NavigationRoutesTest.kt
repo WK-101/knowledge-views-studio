@@ -143,6 +143,14 @@ class NavigationRoutesTest {
         opens(dest)
     }
 
+    @Test fun theJanuaryDigestOpensTheYearItOffers() {
+        val year = app.parley.ui.history.HistoryRoutes.YourYear(2025)
+        assertEquals(year, routeOf(resolve(IntentRoutes.ACTION_SHOW_YOUR_YEAR) { putExtra(IntentRoutes.EXTRA_YEAR, 2025) }))
+        opens(year)
+        // Without a year, the page picks one.
+        assertEquals(app.parley.ui.history.HistoryRoutes.YourYear(), routeOf(resolve(IntentRoutes.ACTION_SHOW_YOUR_YEAR)))
+    }
+
     @Test fun notificationActionsKeepTheirExtras() {
         assertEquals(NavEvent.Tab(StartTab.CIRCLE), resolve(IntentRoutes.ACTION_SHOW_CIRCLE)?.event)
         val missed = resolve(IntentRoutes.ACTION_SHOW_MISSED)

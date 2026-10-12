@@ -32,6 +32,7 @@ import app.parley.common.circle.KeepInTouch
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.ReminderDelivery
 import app.parley.common.circle.YearlyEvents
+import app.parley.common.circle.YourYear
 import app.parley.common.people.LifeEvents
 import app.parley.container
 import app.parley.data.ContactEvent
@@ -41,7 +42,7 @@ import app.parley.data.security.Privacy
 import app.parley.common.security.PrivacyView
 import app.parley.common.history.CallLogIndex
 import app.parley.data.circle.CircleRepository
-import app.parley.shortcuts.CircleWidget
+import app.parley.shortcuts.PeopleWidget
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.circle.CircleText
 import kotlinx.coroutines.flow.filterNotNull
@@ -73,7 +74,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         if (s.birthdayReminders) catching { dates(c, cfg, today, now) }
         if (s.reachOutNudges) keepInTouch(c, cfg, today, now)
         // The Circle widget's dates and people move on daily.
-        catching { CircleWidget.refresh(applicationContext) }
+        catching { PeopleWidget.refresh(applicationContext) }
         return Result.success()
     }
 
@@ -163,7 +164,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     YearlyEvents.upcoming(e.lookupKey, e.label?.takeIf { it.isNotBlank() } ?: applicationContext.getString(R.string.work_special_date), d, today, CircleDigest.DATE_WINDOW_DAYS)
                 }
                 val lastDrift = c.circle.stateString(S_LAST_DRIFT)
-                val drift = drifting(c, idx, now, contacts.keys, lastDrift)
+                // Early in January, once: last year to look back on. That week the year's page says who got quieter,
+                // so the digest makes no "quieter than usual" pick (and its actions leave room for Your year).
+                val yearOffer = yearToOffer(c, today, idx, contacts.keys)
+                val drift = if (yearOffer != null) null else drifting(c, idx, now, contacts.keys, lastDrift)
                 val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET), quiet, yearly, drift = drift)
                 c.circle.setStateString(S_LAST_DIGEST, today.toString())
                 c.circle.setStateString(S_LAST_QUIET, picks.firstOrNull { it.reason == CircleDigest.Reason.QUIET }?.lookupKey)
@@ -173,10 +177,12 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val ended = catching { c.circle.endedSeasons(now) }.getOrDefault(emptyList())
                 val res = applicationContext.resources
                 val seasonLines = ended.mapNotNull { m -> contacts[m.lookupKey]?.let { it to CircleText.rhythm(res, m.everyDays, m.rhythm) } }
-                if (picks.isNotEmpty() || seasonLines.isNotEmpty()) {
+                if (picks.isNotEmpty() || seasonLines.isNotEmpty() || yearOffer != null) {
                     val turns = yourTurns(c, cfg, picks, idx, now)
                     val people = picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }
-                    notifyDigest(people, turns, seasonLines, byKey.keys)
+                    if (notifyDigest(people, turns, seasonLines, byKey.keys, yearOffer) && yearOffer != null) {
+                        c.circle.setStateString(S_YEAR_OFFERED, yearOffer.toString())
+                    }
                 }
                 catching { c.circle.clearEndedSeasons(ended.map { it.lookupKey }, now) }
             }
@@ -267,19 +273,37 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         return Drift.pick(candidates, quietOnes, lastDrift)
     }
 
+    /**
+     * Last year, when the digest should offer to look back on it now ([YourYear.offerYear]): early in January, not
+     * offered before, with enough history that year, and never while a duress unlock hides relationship insights.
+     */
+    private suspend fun yearToOffer(c: DataContainer, today: LocalDate, idx: CallLogIndex?, contacts: Set<String>): Int? {
+        if (!c.privacy.now().insightsShown) return null
+        val year = YourYear.offerYear(today, c.circle.stateString(S_YEAR_OFFERED)?.toIntOrNull()) ?: return null
+        val range = YourYear.bounds(year, ZoneId.systemDefault())
+        val touches = catching { c.circle.touches(range.first, idx, range.last + 1) }.getOrDefault(emptyList()).filter { it.key in contacts }
+        val review = YourYear.review(touches, emptySet(), year, ZoneId.systemDefault(), null) ?: return null
+        return year.takeIf { review.inTouch >= YourYear.OFFER_MIN }
+    }
+
+    /** Posts the digest; whether it did (false: nothing to say). [year]: last year, offered to look back on. */
     private fun notifyDigest(
         people: List<Pair<ContactSummary, CircleDigest.Pick>>,
         turns: Map<String, Int>,
         seasons: List<Pair<ContactSummary, String>>,
         circle: Set<String>,
-    ) {
+        year: Int?,
+    ): Boolean {
         val ctx = applicationContext
-        // Read again as the lines are written, so a duress unlock in between still hides "your turn" and "quieter".
+        // Read again as the lines are written, so a duress unlock in between still hides "your turn", "quieter" and
+        // the year's look back.
         val privacy = Privacy.duressOnly()
         val shown = people.filter { (_, pick) -> pick.reason != CircleDigest.Reason.DRIFT || privacy.insightsShown }
+        val yearShown = year?.takeIf { privacy.insightsShown }
         val lines = shown.map { (ct, pick) -> digestLine(ct, pick, turns, privacy) } +
-            seasons.map { (ct, usual) -> ctx.getString(R.string.circle_digest_season_ended, ct.displayName, usual) }
-        if (lines.isEmpty()) return
+            seasons.map { (ct, usual) -> ctx.getString(R.string.circle_digest_season_ended, ct.displayName, usual) } +
+            listOfNotNull(yearShown?.let { ctx.getString(R.string.circle_digest_your_year, it.toString()) })
+        if (lines.isEmpty()) return false
         val style = NotificationCompat.InboxStyle()
         lines.forEach { style.addLine(it) }
         val open = PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode(), IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE), update = true)
@@ -288,7 +312,13 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .setStyle(style)
             .setContentIntent(open)
         shown.firstOrNull { it.second.reason == CircleDigest.Reason.DRIFT }?.let { (ct, pick) -> addDriftActions(b, ct, pick, ct.lookupKey in circle) }
+        yearShown?.let { y ->
+            val intent = IntentRoutes.own(ctx).setAction(IntentRoutes.ACTION_SHOW_YOUR_YEAR).putExtra(IntentRoutes.EXTRA_YEAR, y)
+            val openYear = PrivateNotice.open(ctx, DateReminders.DIGEST_TAG.hashCode() + YEAR_CODE, intent, update = true)
+            b.addAction(0, ctx.getString(R.string.circle_year_review), openYear)
+        }
         post(DateReminders.DIGEST_TAG, b)
+        return true
     }
 
     /** One person's line in the weekly digest. */
@@ -341,6 +371,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         private const val S_LAST_DIGEST = "lastDigest"
         private const val S_LAST_QUIET = "lastQuiet"
         private const val S_LAST_DRIFT = "lastDrift"
+        private const val S_YEAR_OFFERED = "yearOffered"
+
+        /** Request-code offset of the digest's Your year (after Call, Add to your Circle and They're fine). */
+        private const val YEAR_CODE = 4
         private const val S_WEEK = "week"
         private const val S_SENT = "sentThisWeek"
 
