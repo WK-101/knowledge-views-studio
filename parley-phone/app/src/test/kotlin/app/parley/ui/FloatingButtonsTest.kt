@@ -79,7 +79,10 @@ class FloatingButtonsTest {
         assertEquals(16.dp, ParleyFabDefaults.CornerRadius)
         val kit = File(root, "core/ui/src/main/kotlin/app/parley/ui/ParleyFabDefaults.kt").readText()
         val menu = kit.substring(kit.indexOf("fun ParleyFabMenu("))
-        listOf("lerp(", "CircleShape", "ParleyShapes.pill", "Size / 2", "FloatingActionButtonMenu", "ToggleFloatingActionButton", "RoundedCornerShape(").forEach {
+        val other = listOf(
+            "lerp(", "CircleShape", "ParleyShapes.pill", "Size / 2", "FloatingActionButtonMenu", "ToggleFloatingActionButton", "RoundedCornerShape(",
+        )
+        other.forEach {
             assertFalse("the add menu uses $it: keep ParleyShapes.fab open and closed", menu.contains(it))
         }
         // The button and every item take the floating button's shape and height.

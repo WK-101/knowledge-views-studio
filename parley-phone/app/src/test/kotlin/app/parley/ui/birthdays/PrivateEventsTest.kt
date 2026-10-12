@@ -19,7 +19,9 @@ class PrivateEventsTest {
         7, "Grace", listOf("+1 202 555 0100"), expiresAt = null,
         dates = listOf(EventItem(date = "1906-12-09", type = 3), EventItem(date = "--06-01", type = 1, label = null)),
     )
-    private val archived = VaultSummary(8, "Ada", listOf("+44 20 7946 0000"), expiresAt = null, archivedAt = 1L, dates = listOf(EventItem(date = "--12-10", type = 3)))
+    private val archived = VaultSummary(
+        8, "Ada", listOf("+44 20 7946 0000"), expiresAt = null, archivedAt = 1L, dates = listOf(EventItem(date = "--12-10", type = 3)),
+    )
 
     @Test fun visible_private_contacts_dates_are_listed_and_open_their_page() {
         val events = PrivateEvents.of(listOf(grace, archived), open, lockedByPerson = false) { "photo:$it" }
