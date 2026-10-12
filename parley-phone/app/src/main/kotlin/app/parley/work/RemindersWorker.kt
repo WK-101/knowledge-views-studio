@@ -315,8 +315,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val ctx = applicationContext
         val code = DateReminders.DIGEST_TAG.hashCode()
         ct.primaryNumber?.let { phone ->
-            val call = PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, ct.id), PendingIntent.FLAG_IMMUTABLE)
-            b.addAction(0, ctx.getString(R.string.action_call), call)
+            b.addAction(0, ctx.getString(R.string.action_call), driftCall(ctx, code + 1, phone, ct.id))
         }
         val drift = pick.drift
         if (drift != null && !inCircle) {
@@ -327,6 +326,15 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     companion object {
+        /**
+         * The digest's Call for this week's "quieter than usual" person. Its request code is the digest's own, the same
+         * every week, and only the extras differ: without updating them, last week's notification still in the shade
+         * would hand back its intent, and the tap would dial last week's person.
+         */
+        internal fun driftCall(context: Context, code: Int, phone: String, contactId: Long): PendingIntent = PendingIntent.getActivity(
+            context, code, Shortcuts.intent(context, Shortcuts.Kind.CALL, phone, contactId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         private const val NAME = "parley-reminders"
         const val CHANNEL = NotificationChannels.REMINDERS
         private const val S_FIRED = "fired"

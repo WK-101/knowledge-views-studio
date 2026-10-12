@@ -133,6 +133,17 @@ object DndStars {
     private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), SetSerializer(String.serializer()))
 
+    /** What "Add everyone to Favourites" does for one member ([favouriteStep]). */
+    data class FavouriteStep(val star: Boolean, val claim: Boolean)
+
+    /**
+     * "Add everyone to Favourites" for one member: [FavouriteStep.star] them when they aren't starred, and
+     * [FavouriteStep.claim] (drop Parley's Do Not Disturb record of them, so the star becomes the user's) whenever Parley
+     * holds one, starred now or not: a record left beside a star the user just chose would let switching that label's
+     * Do Not Disturb off take the favourite away. Only address-book contacts ([device]) are ever recorded.
+     */
+    fun favouriteStep(starred: Boolean, device: Boolean, recorded: Boolean): FavouriteStep = FavouriteStep(star = !starred, claim = device && recorded)
+
     /** A new ledger and the contacts no label asks for any more (to unstar). */
     data class Release(val ledger: Map<String, Set<String>>, val unstar: Set<String>)
 

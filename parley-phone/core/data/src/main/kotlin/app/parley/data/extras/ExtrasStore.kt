@@ -347,14 +347,16 @@ class ExtrasStore(private val c: DataContainer) {
     suspend fun addToFavourites(people: List<ContactSummary>): FavouritesAdded = withContext(Dispatchers.IO) {
         val starred = ArrayList<Long>()
         val claimed = LinkedHashMap<String, Set<String>>()
+        var count = 0
         for (p in people) {
-            when {
-                !p.starred -> if (catching { star(p.id, true) }.isSuccess) starred += p.id
-                p.id > 0 && p.lookupKey in _dndStars.value -> claimed[p.lookupKey] = makeFavourite(p.lookupKey)
-            }
+            val step = DndStars.favouriteStep(p.starred, device = p.id > 0, recorded = p.lookupKey in _dndStars.value)
+            if (step.star && catching { star(p.id, true) }.isFailure) continue
+            if (step.star) starred += p.id
+            if (step.claim) claimed[p.lookupKey] = makeFavourite(p.lookupKey)
+            if (step.star || step.claim) count++
         }
         c.contacts.refresh()
-        FavouritesAdded(starred, claimed)
+        FavouritesAdded(starred, claimed, count)
     }
 
     /** Undo of [addToFavourites]: unstars exactly those it starred, and puts back the Do Not Disturb records it took. */
@@ -369,10 +371,8 @@ class ExtrasStore(private val c: DataContainer) {
         if (r is ContactRef.Private) c.vault.updateCallerChoices(r.vaultId) { it.copy(starred = on) } else c.contacts.setStarred(id, on)
     }
 
-    /** What "Add everyone to Favourites" did: who it starred (list ids) and whose Do Not Disturb record it took. */
-    data class FavouritesAdded(val starred: List<Long>, val claimed: Map<String, Set<String>>) {
-        val count: Int get() = starred.size + claimed.size
-    }
+    /** What "Add everyone to Favourites" did: who it starred (list ids), whose Do Not Disturb record it took, and for how many people. */
+    data class FavouritesAdded(val starred: List<Long>, val claimed: Map<String, Set<String>>, val count: Int)
 
     // --- Simple mode ---
 

@@ -331,6 +331,8 @@ object RescueCalls {
     suspend fun set(context: Context, choices: Choices, nowMillis: Long = clock()): Outcome {
         val app = context.applicationContext
         val c = if (choices.checkIn) choices.copy(whenChoice = CheckIns.whenFor(choices.whenChoice)) else choices
+        // A new check-in replaces what an earlier unanswered one said.
+        if (c.checkIn) CheckInNotice.cancel(app)
         val now = c.whenChoice == RescueWhen.NOW
         val hidingNow = hiding()
         withContext(io) {
@@ -403,7 +405,9 @@ object RescueCalls {
     private suspend fun ring(app: Context, request: RescueRequest, clip: String?): Boolean {
         val who = lookUp(app, request, clip)
         val helper = request.helper
-        val onEnd: ((Boolean) -> Unit)? = helper?.let { h -> { answered -> if (CheckIns.asksForHelp(answered)) scope.launch { unanswered(app, h) } } }
+        val onEnd: ((Boolean) -> Unit)? = helper?.let { h ->
+            { answered -> if (CheckIns.asksForHelp(answered)) scope.launch { unanswered(app, h) } else CheckInNotice.cancel(app) }
+        }
         val rang = withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who, onEnd) }
         if (!rang && helper != null) unanswered(app, helper)
         return rang

@@ -141,6 +141,19 @@ class CheckInTest {
         assertEquals(sam, RescueCalls.pending(context).value?.helper)
     }
 
+    @Test fun a_new_check_in_or_an_answer_takes_an_earlier_unanswered_notice_away() = onVirtualTime {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        fun shown() = shadowOf(nm).activeNotifications.any { it.tag == NotificationIds.TAG_CHECK_IN }
+        CheckInNotice.post(context, CheckInHelper("Sam", sam))
+        ringIt()
+        assertFalse("setting a new check-in clears the old notice", shown())
+        CheckInNotice.post(context, CheckInHelper("Sam", sam))
+        RescueCall.answer()
+        RescueCall.end()
+        runCurrent()
+        assertFalse("answering says you're fine: the old notice goes", shown())
+    }
+
     @Test fun the_notice_offers_text_and_call_and_names_nobody_on_the_lock_screen() {
         CheckInNotice.post(context, CheckInHelper("Sam", sam))
         val nm = context.getSystemService(NotificationManager::class.java)
