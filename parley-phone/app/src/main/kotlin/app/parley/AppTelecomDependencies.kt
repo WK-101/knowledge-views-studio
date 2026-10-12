@@ -206,7 +206,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             val who = whoFacts(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
             // Its birthday today, from the same copy, while private contacts may show (not locked with "Lock private
             // contacts"); the call screen keeps it off the lock screen.
-            val occasion = if (PrivateDates.mayShow(c.privacy.now(), c.vault.lock.lockedByPerson.value)) catching { privateOccasionOf(id) }.getOrNull() else null
+            val datesShown = PrivateDates.mayShow(c.privacy.now(), c.vault.lock.lockedByPerson.value)
+            val occasion = if (datesShown) catching { privateOccasionOf(id) }.getOrNull() else null
             CallerDisplay(
                 // "Show names as" last name first, as for the address book's contacts above.
                 NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),

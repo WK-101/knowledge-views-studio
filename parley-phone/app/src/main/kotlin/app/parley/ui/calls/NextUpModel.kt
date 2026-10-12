@@ -118,7 +118,9 @@ class NextUpModel(
     )
 
     private val candidates: Flow<List<NextUpItem>> =
-        combine(calls.debounce(CALLS_DEBOUNCE_MS), contacts.contacts, privacy, privatePeople, ticks) { cl, ct, p, pv, t -> Sources(cl, ct, p.insightsShown, t, pv) }
+        combine(calls.debounce(CALLS_DEBOUNCE_MS), contacts.contacts, privacy, privatePeople, ticks) { cl, ct, p, pv, t ->
+            Sources(cl, ct, p.insightsShown, t, pv)
+        }
             .combine(chapters) { s, ch -> s to ch }
             .combine(toCallState) { (s, ch), state -> Triple(s, ch, state) }
             .mapLatest { (s, ch, state) -> read(s, ch, state) }

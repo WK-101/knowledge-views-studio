@@ -68,7 +68,10 @@ internal object CallerIdCopy {
     fun datesOf(o: JSONObject): List<EventItem> {
         val a = o.optJSONArray(C_DATES) ?: return emptyList()
         return (0 until a.length()).mapNotNull { i ->
-            a.optJSONObject(i)?.let { EventItem(date = it.optString("d"), type = it.optInt("t", 3), label = it.optString("l").ifEmpty { null }, calendar = it.optString("c").ifEmpty { null }) }
+            a.optJSONObject(i)?.let {
+                val label = it.optString("l").ifEmpty { null }
+                EventItem(date = it.optString("d"), type = it.optInt("t", 3), label = label, calendar = it.optString("c").ifEmpty { null })
+            }
         }.filter { it.date.isNotBlank() }
     }
 

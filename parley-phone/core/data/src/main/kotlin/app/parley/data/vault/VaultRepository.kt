@@ -105,7 +105,7 @@ data class VaultSummary(
     val archivedAt: Long? = null,
     /**
      * Its dates (birthday, anniversary…), from the caller-ID copy, for Next up and the call screen's "Birthday today".
-     * Shown only while private contacts may show; empty for an entry not seeded yet ([VaultRepository.migrateDates]).
+     * Shown only while private contacts may show; empty for an entry not seeded yet ([VaultDates.migrate]).
      */
     val dates: List<EventItem> = emptyList(),
 ) {
@@ -316,7 +316,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             CallerIdCopy.rebuilt(id, caller) to true
         }
         // An entry from before the copy kept the dates gets them now, from the details just opened.
-        if (!lost && !CallerIdCopy.hasDates(caller)) runCatching { seedDates(id, d.events) }
+        if (!lost && !CallerIdCopy.hasDates(caller)) catching { dates.seed(id, d.events) }
         Opened(withCallerChoices(d.copy(photoUri = photoUri(id)), caller), lost)
     }
 
@@ -827,47 +827,11 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         seeded
     }
 
-    /**
-     * Writes [events] as entry [id]'s dates in its caller-ID copy when the copy doesn't keep them yet (saved before it
-     * did); the rest of the copy, and "u", stay as they are.
-     */
-    private suspend fun seedDates(id: Long, events: List<EventItem>) = keysLock.withLock {
-        val e = dao.callerRow(id) ?: return@withLock
-        val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
-        if (CallerIdCopy.hasDates(o)) return@withLock
-        CallerIdCopy.putDates(o, events)
-        dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
-    }
+    /** Dates in the caller-ID copies ([CallerIdCopy.C_DATES]): seeded for entries saved before they were kept there. */
+    private val dates by lazy { VaultDates(context, dao, keysLock, PREFS) }
 
-    /**
-     * Migration, after the vault's unlock: every entry whose caller-ID copy doesn't keep its dates yet gets them from its
-     * sealed details ([seedDates]). Stops while the vault is locked and runs again on the next unlock; marked done once
-     * every entry has them. An entry whose detail key is lost keeps none. Returns how many were seeded now.
-     */
-    suspend fun migrateDates(): Int = withContext(Dispatchers.IO) {
-        val prefs = StatePrefs.open(context, PREFS)
-        if (prefs.getBoolean(K_DATES_SEEDED, false)) return@withContext 0
-        var seeded = 0
-        var pending = false
-        for (row in dao.callerRowsNow()) {
-            val copy = runCatching { JSONObject(String(VaultCrypto.openCallerId(row.callerIdBlob))) }.getOrNull() ?: continue
-            if (CallerIdCopy.hasDates(copy)) continue
-            val e = dao.get(row.id) ?: continue
-            try {
-                seedDates(row.id, ContactDetailsJson.decode(String(VaultCrypto.openDetailMain(e.detailBlob))).events)
-                seeded++
-            } catch (_: VaultCrypto.LockedException) {
-                return@withContext seeded
-            } catch (_: VaultCrypto.KeyLostException) {
-                // Its details can't be read any more: marked with none, so it isn't tried on every unlock.
-                runCatching { seedDates(row.id, emptyList()) }
-            } catch (_: VaultCrypto.KeyUnavailableException) {
-                pending = true
-            }
-        }
-        if (!pending) prefs.edit().putBoolean(K_DATES_SEEDED, true).apply()
-        seeded
-    }
+    /** See [VaultDates.migrate]. */
+    suspend fun migrateDates(): Int = dates.migrate()
 
     /** Entry [id]'s summary (caller-ID copy), read straight from the database; null when gone or unreadable. */
     suspend fun summary(id: Long): VaultSummary? = withContext(Dispatchers.IO) { dao.callerRow(id)?.let { summarize(it) } }
@@ -1224,7 +1188,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val K_CALL_CHOICES = "call_choices"
         const val K_CHOICES_SEEDED = "caller_choices_seeded"
         const val K_SPLIT = "details_split"
-        const val K_DATES_SEEDED = "dates_seeded"
 
         /** What goes in the extra part of the sealed details (VaultCrypto.sealDetailParts). */
         val EXTRA_KEYS = listOf(REC, REC_BLOBS, REC_OF, INTERACTIONS)

@@ -18,7 +18,8 @@ class PrivateDatesTest {
     @Test fun gone_when_hidden_locked_under_duress_or_on_the_lock_screen() {
         assertFalse("Hide private contacts", PrivateDates.mayShow(PrivacyView.of(AppSettings(hideVault = true), DuressState(), false), false))
         assertFalse("Lock private contacts", PrivateDates.mayShow(open, lockedByPerson = true))
-        assertFalse("duress", PrivateDates.mayShow(PrivacyView.of(AppSettings(hideVault = false), DuressState(hiding = true, vaultLocked = true), false), false))
+        val duress = PrivacyView.of(AppSettings(hideVault = false), DuressState(hiding = true, vaultLocked = true), false)
+        assertFalse("duress", PrivateDates.mayShow(duress, false))
         assertFalse("lock screen", PrivateDates.mayShow(open, lockedByPerson = false, onLockScreen = true))
         assertFalse("unknown", PrivateDates.mayShow(PrivacyView.CLOSED, lockedByPerson = false))
     }
