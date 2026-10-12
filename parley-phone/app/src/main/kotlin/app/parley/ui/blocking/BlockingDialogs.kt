@@ -49,6 +49,7 @@ import app.parley.common.ScreeningResult
 import app.parley.common.TraceCodec
 import app.parley.common.TraceMark
 import app.parley.common.TraceStep
+import app.parley.common.catching
 import app.parley.data.db.BlockedCallEntity
 import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
@@ -163,7 +164,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
         if (!live) {
             stored = vm.c.blocks.screenedCalls.first().firstOrNull { it.number != null && PhoneIdentity.same(it.number, number, vm.countryIso) }
         }
-        if (live || stored == null) test = runCatching { vm.c.screener.test(number) }.getOrNull()
+        if (live || stored == null) test = catching { vm.c.screener.test(number) }.getOrNull()
         loaded = true
     }
     val blocked = stored?.let { !it.allowed } ?: test?.blocked ?: false

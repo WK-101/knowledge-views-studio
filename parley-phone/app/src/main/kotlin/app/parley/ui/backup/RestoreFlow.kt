@@ -87,7 +87,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             confirmLabel = stringResource(R.string.action_open),
             onConfirm = {
                 val unlock = if (useRecovery) {
-                    runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse {
+                    catching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse {
                         error = res.getString(R.string.rst_not_recovery)
                         return@ConfirmDialog
                     }

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.spam.Reputation
 import app.parley.telecom.ReputationText
 import app.parley.ui.ParleyDialog
@@ -37,7 +38,7 @@ fun rememberReputation(vm: AppViewModel, number: String, isContact: Boolean): Re
     val learn = settings.screening.learnFromCalls
     val rep by produceState<Reputation?>(null, number, isContact, version, learn) {
         value = if (!learn || isContact || number.isBlank()) null
-        else withContext(Dispatchers.IO) { runCatching { vm.c.reputation.lookup(number, vm.countryIso) }.getOrNull() }
+        else withContext(Dispatchers.IO) { catching { vm.c.reputation.lookup(number, vm.countryIso) }.getOrNull() }
     }
     return rep
 }

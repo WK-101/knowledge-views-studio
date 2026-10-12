@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import app.parley.ui.Clipboard
 import app.parley.ui.sync.shared.SharedLabelInbox
@@ -286,7 +287,7 @@ fun forgetScannedCard(context: Context, uri: Uri) {
 private val TEL_LINE = Regex("^TEL[^:\\r\\n]*:(.+)$", setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE))
 
 private fun importVcard(context: Context, vm: AppViewModel, vcard: String, keep: Set<ScannedCard.Flag>) {
-    runCatching {
+    catching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val f = File(dir, SCANNED_CARD)
         f.writeText(vcard)

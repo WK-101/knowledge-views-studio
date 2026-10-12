@@ -3,6 +3,7 @@ package app.parley.data.people
 import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
+import app.parley.common.catching
 import app.parley.common.people.TemporaryExpiry
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
@@ -196,14 +197,14 @@ class TemporaryContactStore(private val c: DataContainer) {
                 val numbers = numbersOf(d.deleteRaws)
                 if (d.deleteRaws.isNotEmpty()) {
                     // Journaled first; if that or the delete fails the entry stays and is retried tomorrow.
-                    if (runCatching { c.contacts.deleteRaws(d.deleteRaws) }.isFailure) return@withLock
+                    if (catching { c.contacts.deleteRaws(d.deleteRaws) }.isFailure) return@withLock
                 }
                 c.meta.clearTemporary(t.lookupKey)
                 // Only numbers no remaining contact uses lose their call history.
                 val unused = numbers.filter { c.contacts.isContact(it) == false }
                 // They leave the "last messaged" record too.
-                unused.forEach { n -> runCatching { c.messaging.forget(n) } }
-                if (d.purgeHistory) unused.forEach { n -> runCatching { c.history.purgeNumber(n) } }
+                unused.forEach { n -> catching { c.messaging.forget(n) } }
+                if (d.purgeHistory) unused.forEach { n -> catching { c.history.purgeNumber(n) } }
                 if (d.keptMerged) {
                     notices += Notice(name, keptDetails = d.deleteRaws.isNotEmpty())
                 }
@@ -215,7 +216,7 @@ class TemporaryContactStore(private val c: DataContainer) {
     private fun numbersOf(rawIds: Set<Long>): List<String> {
         if (rawIds.isEmpty()) return emptyList()
         val out = ArrayList<String>()
-        runCatching {
+        catching {
             c.appContext.contentResolver.query(
                 Data.CONTENT_URI, arrayOf(Phone.NUMBER),
                 "${Data.RAW_CONTACT_ID} IN (${rawIds.joinToString(",")}) AND ${Data.MIMETYPE}=?", arrayOf(Phone.CONTENT_ITEM_TYPE), null,

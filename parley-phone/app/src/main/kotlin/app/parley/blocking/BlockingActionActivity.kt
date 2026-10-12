@@ -2,6 +2,7 @@ package app.parley.blocking
 
 import android.app.Activity
 import android.os.Bundle
+import app.parley.common.catching
 import app.parley.container
 import kotlinx.coroutines.launch
 
@@ -16,7 +17,7 @@ class BlockingActionActivity : Activity() {
         super.onCreate(savedInstanceState)
         val i = intent
         val app = applicationContext
-        app.container.scope.launch { runCatching { BlockingActionReceiver.perform(app, i) } }
+        app.container.scope.launch { catching { BlockingActionReceiver.perform(app, i) } }
         finish()
     }
 }

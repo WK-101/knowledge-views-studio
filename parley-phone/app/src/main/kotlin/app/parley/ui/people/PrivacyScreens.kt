@@ -1,6 +1,7 @@
 package app.parley.ui.people
 
 import androidx.annotation.StringRes
+import app.parley.common.catching
 import app.parley.security.SensitiveScreen
 import app.parley.ui.Destination
 import android.content.Intent
@@ -84,7 +85,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val apps by produceState<List<ContactsAccessApp>?>(null) { value = vm.c.people.audit.appsWithAccess() }
     val graphene = remember { vm.c.people.audit.isGrapheneOs() }
-    fun appSettings(pkg: String) = runCatching {
+    fun appSettings(pkg: String) = catching {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
     }.onFailure { vm.toast(res.getString(R.string.who_settings_failed)) }
 
@@ -207,6 +208,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
 @Composable
 private fun AppIcon(pkg: String) {
     val context = LocalContext.current
+    // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
     val bmp = remember(pkg) { runCatching { context.packageManager.getApplicationIcon(pkg).toBitmap(96, 96).asImageBitmap() }.getOrNull() }
     if (bmp != null) Image(bmp, null, Modifier.size(40.dp)) else Icon(Icons.Rounded.Android, null, Modifier.size(40.dp))
 }
@@ -250,7 +252,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     val access = vm.c.people.privateNames
     val st by access.state.collectAsStateWithLifecycle()
     val pm = context.packageManager
-    fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+    fun label(pkg: String) = catching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
     // "Allow" shows the package and its signing certificate first; the other answers apply at once.
     var approving by remember { mutableStateOf<String?>(null) }
     approving?.let { pkg -> PrivateNameApprovalDialog(access, pkg) { approving = null } }

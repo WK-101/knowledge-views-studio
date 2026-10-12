@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
+import app.parley.common.catching
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.ui.ParleyListItem
@@ -354,7 +355,7 @@ private const val ACTION_ZEN = "android.settings.ZEN_MODE_SETTINGS"
 /** In "Stay in touch", the rhythm one of the person's labels asks for, offered first. Nothing when none does. */
 @Composable
 fun LabelRhythmSuggestion(vm: AppViewModel, contactId: Long, pick: (Int) -> Unit) {
-    val suggestion by produceState<Pair<String, Int>?>(null, contactId) { value = runCatching { vm.c.extras.labelRhythmFor(contactId) }.getOrNull() }
+    val suggestion by produceState<Pair<String, Int>?>(null, contactId) { value = catching { vm.c.extras.labelRhythmFor(contactId) }.getOrNull() }
     val (label, days) = suggestion ?: return
     ParleyListItem(
         modifier = Modifier.clickable { pick(days) },

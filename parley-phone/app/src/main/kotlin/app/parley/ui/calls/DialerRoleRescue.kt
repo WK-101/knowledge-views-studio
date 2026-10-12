@@ -1,5 +1,6 @@
 package app.parley.ui.calls
 
+import app.parley.common.catching
 import app.parley.security.SensitiveScreen
 import android.app.Activity
 import android.app.role.RoleManager
@@ -63,7 +64,7 @@ fun rememberDialerRoleRequest(onResult: (granted: Boolean) -> Unit = {}): () -> 
                 rm.isRoleHeld(RoleManager.ROLE_DIALER) -> result(true)
                 else -> {
                     startedAt = SystemClock.elapsedRealtime()
-                    runCatching { launcher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }.onFailure { guide = true }
+                    catching { launcher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }.onFailure { guide = true }
                 }
             }
         }
@@ -71,7 +72,7 @@ fun rememberDialerRoleRequest(onResult: (granted: Boolean) -> Unit = {}): () -> 
 }
 
 private fun isDefaultDialer(context: Context): Boolean =
-    runCatching { context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true }.getOrDefault(false)
+    catching { context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true }.getOrDefault(false)
 
 /** The by-hand guide for this Android version, with buttons to App info and to Default apps. */
 @Composable
@@ -108,7 +109,7 @@ fun DialerRoleGuide(onDismiss: () -> Unit) {
 private fun open(context: Context, intent: Intent) {
     val ok = context.startOrSay(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     if (!ok) {
-        runCatching {
+        catching {
             context.startActivity(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )

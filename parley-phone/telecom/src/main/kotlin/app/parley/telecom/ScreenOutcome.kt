@@ -6,6 +6,7 @@ import android.media.AudioManager
 import app.parley.common.Decision
 import app.parley.common.RangThrough
 import app.parley.common.calls.RingtoneSource
+import app.parley.common.catching
 import app.parley.common.spam.Reputation
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -59,12 +60,12 @@ object RingBoost {
 
     fun boostAsync(context: Context) {
         val app = context.applicationContext
-        io.execute { runCatching { boost(app) } }
+        io.execute { catching { boost(app) } }
     }
 
     fun restoreAsync(context: Context) {
         val app = context.applicationContext
-        io.execute { runCatching { restore(app) } }
+        io.execute { catching { restore(app) } }
     }
 
     fun boost(context: Context) {

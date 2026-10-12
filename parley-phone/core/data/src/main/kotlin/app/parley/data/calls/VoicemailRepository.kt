@@ -10,6 +10,7 @@ import android.provider.VoicemailContract.Status
 import android.provider.VoicemailContract.Voicemails
 import android.telephony.TelephonyManager
 import app.parley.common.calls.VoicemailFiles
+import app.parley.common.catching
 import app.parley.data.Permissions
 import app.parley.data.R
 import app.parley.data.changes
@@ -173,7 +174,7 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
     /** Marks voicemails heard (the source app syncs this to the server when it can). */
     suspend fun markHeard(ids: Collection<Long>, heard: Boolean = true) = withContext(Dispatchers.IO) {
         if (ids.isEmpty()) return@withContext
-        runCatching {
+        catching {
             cr.update(Voicemails.CONTENT_URI, ContentValues().apply { put(Voicemails.IS_READ, if (heard) 1 else 0) }, "${Voicemails._ID} IN (${ids.joinToString(",")})", null)
         }
     }
@@ -183,8 +184,8 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
      * when that isn't possible the row is removed here only.
      */
     suspend fun delete(v: Voicemail): Boolean = withContext(Dispatchers.IO) {
-        val marked = runCatching { cr.update(v.uri, ContentValues().apply { put(Voicemails.DELETED, 1) }, null, null) > 0 }.getOrDefault(false)
-        marked || runCatching { cr.delete(v.uri, null, null) > 0 }.getOrDefault(false)
+        val marked = catching { cr.update(v.uri, ContentValues().apply { put(Voicemails.DELETED, 1) }, null, null) > 0 }.getOrDefault(false)
+        marked || catching { cr.delete(v.uri, null, null) > 0 }.getOrDefault(false)
     }
 
     /**
@@ -193,7 +194,7 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
      */
     fun requestDownload(v: Voicemail): Boolean {
         val pkg = v.sourcePackage?.takeIf { it.isNotBlank() } ?: return false
-        return runCatching {
+        return catching {
             context.sendBroadcast(Intent(VoicemailContract.ACTION_FETCH_VOICEMAIL, v.uri).setPackage(pkg))
             true
         }.getOrDefault(false)

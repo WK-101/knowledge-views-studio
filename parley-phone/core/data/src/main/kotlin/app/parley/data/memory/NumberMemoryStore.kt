@@ -2,6 +2,7 @@ package app.parley.data.memory
 
 import android.util.Log
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import app.parley.common.memory.CallTally
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
@@ -68,10 +69,10 @@ class NumberMemoryStore(private val c: DataContainer) {
 
     /** The To call list and the last chat, straight from their in-memory stores. */
     private suspend fun live(number: String, region: String): List<MemoryHint> = buildList {
-        runCatching { c.messaging.lastMessaged(number) }.getOrNull()?.let { m ->
+        catching { c.messaging.lastMessaged(number) }.getOrNull()?.let { m ->
             add(MemoryHint(MemorySource.MESSAGED, excerpt = m.label, at = m.at))
         }
-        runCatching {
+        catching {
             if (!c.toCall.available) c.toCall.load()
             c.toCall.state.value.items.filter { PhoneIdentity.same(it.number, number, region) }.minByOrNull { it.since }
         }.getOrNull()?.let { add(MemoryHint(MemorySource.TO_CALL, at = it.since)) }

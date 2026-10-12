@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import app.parley.common.calls.CallHandOff
 import app.parley.common.calls.VerifyCallBack
+import app.parley.common.catching
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
@@ -55,7 +56,7 @@ internal fun HandOffSheet(call: CallUi, onDismiss: () -> Unit) {
     val app = context.applicationContext
     var query by rememberSaveable { mutableStateOf("") }
     val saved by produceState<List<VerifyCallBack.Saved>?>(emptyList()) {
-        value = withContext(Dispatchers.IO) { runCatching { TelecomGraph.dependencies.handOffTargets() }.getOrDefault(emptyList()) }
+        value = withContext(Dispatchers.IO) { catching { TelecomGraph.dependencies.handOffTargets() }.getOrDefault(emptyList()) }
     }
     val matches = remember(saved, query) { saved?.let { CallHandOff.matches(query, it) }.orEmpty() }
     val typed = CallHandOff.target(query)

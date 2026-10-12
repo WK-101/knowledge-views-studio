@@ -61,7 +61,7 @@ class FamilyShieldStore(
      */
     fun update(states: List<SharedLabelState>, complete: Boolean = true) {
         set(states, complete)
-        if (complete) index?.let { runCatching { writeIndex(it) } }
+        if (complete) index?.let { catching { writeIndex(it) } }
     }
 
     private fun set(states: List<SharedLabelState>, complete: Boolean) {
@@ -87,7 +87,7 @@ class FamilyShieldStore(
     }
 
     /** The written index, when it was made from the states on disk now; null otherwise (they are read then). */
-    private fun readIndex(): List<LabelIndex>? = runCatching {
+    private fun readIndex(): List<LabelIndex>? = catching {
         val f = File(dir, INDEX_FILE)
         if (!f.isFile) return null
         val o = JSONObject(sealer.open(f.readText()) ?: return null)
@@ -154,9 +154,9 @@ class FamilyShieldStore(
      */
     private fun read(): List<ShieldOwn>? {
         if (!file.exists()) return emptyList()
-        val text = runCatching { file.readText() }.getOrNull() ?: return null
-        val opened = runCatching { sealer.open(text) }.getOrNull() ?: return null
-        return runCatching {
+        val text = catching { file.readText() }.getOrNull() ?: return null
+        val opened = catching { sealer.open(text) }.getOrNull() ?: return null
+        return catching {
             val a = JSONArray(opened)
             (0 until a.length()).mapNotNull { i ->
                 val o = a.optJSONObject(i) ?: return@mapNotNull null

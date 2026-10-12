@@ -30,7 +30,7 @@ import java.util.TimeZone
 object CallPromises {
     /** Their time zone, when the number tells it (offline). */
     fun theirZone(context: Context, number: String, accountId: String?): ZoneId? =
-        runCatching { NumberInfo.timeZone(number, PhoneEnv.countryIso(context, accountId)) }.getOrNull()
+        catching { NumberInfo.timeZone(number, PhoneEnv.countryIso(context, accountId)) }.getOrNull()
 
     /** When the Situation on now ends, for "when you're free" (null when none is on, or it has no end). */
     fun freeAt(c: DataContainer, now: Long = System.currentTimeMillis()): Long? = catching {

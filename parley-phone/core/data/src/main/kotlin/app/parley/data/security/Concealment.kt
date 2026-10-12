@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
+import app.parley.common.catching
 import app.parley.common.security.Concealed
 import app.parley.common.security.DuressMachine
 import app.parley.common.security.DuressPolicy
@@ -55,7 +56,7 @@ object Concealment {
         synchronized(this) {
             if (!loaded) {
                 val f = file
-                val stored = if (f?.exists() == true) runCatching { f.readText() }.getOrElse { "hv" } else ""
+                val stored = if (f?.exists() == true) catching { f.readText() }.getOrElse { "hv" } else ""
                 val s = DuressMachine.restored(hiding = stored.startsWith("h"), vaultLocked = stored == "hv")
                 apply(s)
                 loaded = true

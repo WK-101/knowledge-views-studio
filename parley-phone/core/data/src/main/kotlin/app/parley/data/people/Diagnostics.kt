@@ -10,6 +10,7 @@ import android.database.Cursor
 import android.os.Build
 import android.provider.ContactsContract
 import app.parley.common.AppSettings
+import app.parley.common.catching
 import app.parley.common.people.Masking
 import app.parley.common.people.Reports
 import app.parley.data.StatePrefs
@@ -31,7 +32,7 @@ class Diagnostics(private val context: Context) {
     /** Remembers an error for the report (last [MAX] errors, on this phone only): where, and its kind only. */
     @Synchronized
     fun record(where: String, error: Throwable) {
-        val arr = runCatching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
+        val arr = catching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
         val next = JSONArray()
         val start = maxOf(0, arr.length() - MAX + 1)
         for (i in start until arr.length()) next.put(arr.get(i))
@@ -43,7 +44,7 @@ class Diagnostics(private val context: Context) {
         fun m(s: String) = if (mask) Masking.mask(s) else s
         val fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneId.systemDefault())
         val pm = context.packageManager
-        val pkg = runCatching { pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS) }.getOrNull()
+        val pkg = catching { pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS) }.getOrNull()
         appendLine("Parley diagnostics")
         appendLine("Created: ${fmt.format(Instant.now())}")
         appendLine("Numbers and email addresses masked: ${if (mask) "yes" else "no"}")
@@ -85,7 +86,7 @@ class Diagnostics(private val context: Context) {
         extra.forEach { (k, v) -> appendLine("$k=${m(v)}") }
         appendLine()
         appendLine("== Recent errors")
-        val arr = runCatching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
+        val arr = catching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
         if (arr.length() == 0) appendLine("None recorded")
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
@@ -96,7 +97,7 @@ class Diagnostics(private val context: Context) {
             appendLine()
             appendLine("== Recent app exits (from Android)")
             val am = context.getSystemService(ActivityManager::class.java)
-            val exits = runCatching { am.getHistoricalProcessExitReasons(context.packageName, 0, 8) }.getOrDefault(emptyList())
+            val exits = catching { am.getHistoricalProcessExitReasons(context.packageName, 0, 8) }.getOrDefault(emptyList())
             if (exits.isEmpty()) appendLine("None reported")
             exits.forEach { e ->
                 appendLine("${fmt.format(Instant.ofEpochMilli(e.timestamp))} ${reason(e.reason)}" + (e.description?.let { " — " + m(it) } ?: ""))

@@ -47,6 +47,7 @@ import app.parley.common.cards.CardField
 import app.parley.common.cards.HeldOffer
 import app.parley.common.cards.SignedCard
 import app.parley.common.cards.SignedCards
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import android.net.Uri
 import androidx.compose.runtime.State
@@ -111,7 +112,7 @@ object CardUpdateText {
 fun CardUpdateBanner(vm: AppViewModel, navId: Long, key: String, details: ContactDetails) {
     val res = LocalResources.current
     val book by vm.c.people.cardLinks.book.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { runCatching { vm.c.people.cardLinks.load() } }
+    LaunchedEffect(Unit) { catching { vm.c.people.cardLinks.load() } }
     val link = book.links[key]
     val offer = remember(book, key, details) { CardInbox.heldOffer(book, key, details, vm.countryIso) }
     if (offer != null) HeldCardBanner(vm, key, details.displayName, link?.fingerprint, offer)
@@ -124,7 +125,7 @@ fun CardUpdateBanner(vm: AppViewModel, navId: Long, key: String, details: Contac
     }
     // Everything the new card says, the contact already shows: nothing to ask, the update is simply taken as seen.
     LaunchedEffect(link, changes.isEmpty()) {
-        if (changes.isEmpty()) runCatching { CardUpdateApply.save(vm.c, navId, key, emptyList(), vm.countryIso) }
+        if (changes.isEmpty()) catching { CardUpdateApply.save(vm.c, navId, key, emptyList(), vm.countryIso) }
     }
     if (changes.isEmpty()) return
     var hidden by rememberSaveable(pending.version) { mutableStateOf(false) }
@@ -254,7 +255,7 @@ fun CardArrivalNotes(vm: AppViewModel, text: String?, onOpen: (() -> Unit)? = nu
     var unsigned by remember(text) { mutableStateOf(0) }
     LaunchedEffect(text) {
         if (text == null) return@LaunchedEffect
-        val got = runCatching { CardInbox.receive(vm.c, text, vm.countryIso) }.getOrDefault(emptyList())
+        val got = catching { CardInbox.receive(vm.c, text, vm.countryIso) }.getOrDefault(emptyList())
         unsigned = if (got.isEmpty()) 0 else withContext(Dispatchers.Default) { (SignedCards.count(text) - got.size).coerceAtLeast(0) }
         results.clear()
         results.addAll(got)
@@ -311,7 +312,7 @@ private const val SIGNED_CHECK_MAX = 2L shl 20
 @Composable
 fun rememberSignedCardText(vm: AppViewModel, uri: Uri): State<String?> = produceState<String?>(null, uri) {
     value = withContext(Dispatchers.IO) {
-        runCatching {
+        catching {
             vm.c.appContext.contentResolver.openInputStream(uri)?.use { String(Bounded.readBytes(it, SIGNED_CHECK_MAX, "vCard"), Charsets.UTF_8) }
         }.getOrNull()?.takeIf { SignedCards.mayHold(it) }
     }

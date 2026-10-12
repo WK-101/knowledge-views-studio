@@ -2,6 +2,7 @@ package app.parley.messaging
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import app.parley.common.catching
 import app.parley.ui.temporary.TemporaryContactActions
 import app.parley.security.VaultUnlockDeclined
 import androidx.activity.ComponentActivity
@@ -474,11 +475,11 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     // contact and private lookups finish (the "save for calls" row waits for it).
     var known by remember(number) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(number) {
-        known = withContext(Dispatchers.IO) { runCatching { !ChatThenDecide.stillUnknown(c, number) }.getOrDefault(true) }
+        known = withContext(Dispatchers.IO) { catching { !ChatThenDecide.stillUnknown(c, number) }.getOrDefault(true) }
     }
     var actions by remember(number) { mutableStateOf<List<MessengerAction>>(emptyList()) }
     LaunchedEffect(number, e164) {
-        actions = withContext(Dispatchers.IO) { runCatching { Messengers.actionsForNumber(context, e164 ?: number) }.getOrDefault(emptyList()) }
+        actions = withContext(Dispatchers.IO) { catching { Messengers.actionsForNumber(context, e164 ?: number) }.getOrDefault(emptyList()) }
     }
     val calls = remember(actions, callApps, region) {
         ReachPlan.callOn(callApps, ReachGroups.group(actions.map { it.row }) { a, b -> PhoneIdentity.same(a, b, region) })
@@ -662,7 +663,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
             askSave = false
             scope.launch {
                 // Checked again right before saving: never a second copy of a contact or a private person's number.
-                val unknown = withContext(Dispatchers.IO) { runCatching { ChatThenDecide.stillUnknown(c, number) && (e164 == null || ChatThenDecide.stillUnknown(c, e164)) }.getOrDefault(false) }
+                val unknown = withContext(Dispatchers.IO) { catching { ChatThenDecide.stillUnknown(c, number) && (e164 == null || ChatThenDecide.stillUnknown(c, e164)) }.getOrDefault(false) }
                 if (!unknown) return@launch toast(res.getString(R.string.reach_save_already_known))
                 // Private contacts locked: their unlock first; cancelled, nothing is saved and nothing said.
                 val saved = try {

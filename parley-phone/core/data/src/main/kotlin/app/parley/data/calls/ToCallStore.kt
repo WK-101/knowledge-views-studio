@@ -3,6 +3,7 @@ package app.parley.data.calls
 import android.content.Context
 import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallState
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStores
 import app.parley.data.backup.BackupExtras
 import app.parley.data.security.RecordSealing
@@ -101,7 +102,7 @@ class ToCallStore internal constructor(
     suspend fun write(f: (ToCallState) -> ToCallState): Write {
         readFold()
         val w = doc.write(f)
-        if (w.changed) runCatching { onChanged?.invoke() }
+        if (w.changed) catching { onChanged?.invoke() }
         return Write(w.state, w.changed, w.saved)
     }
 
@@ -120,7 +121,7 @@ class ToCallStore internal constructor(
             val s = load()
             // Never an empty list in place of one that can't be read right now: the backup reports this part instead.
             check(available) { "The To call list can't be read right now" }
-            val leaveOut = s.items.map { it.number }.filter { runCatching { isPrivate(it) }.getOrDefault(true) }.toSet()
+            val leaveOut = s.items.map { it.number }.filter { catching { isPrivate(it) }.getOrDefault(true) }.toSet()
             return mapOf(X_STATE to ToCall.encode(ToCall.without(s) { it in leaveOut }))
         }
 

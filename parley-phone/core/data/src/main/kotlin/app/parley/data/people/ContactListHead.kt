@@ -21,7 +21,7 @@ class ContactListHead(context: Context, private val crypto: RecordCrypto) : Reco
     @Volatile private var kept: String? = null
 
     /** The kept rows, or null (none yet, or they can't be opened). Reads the disk: call off the main thread. */
-    fun load(): ListHead.Snapshot? = runCatching {
+    fun load(): ListHead.Snapshot? = catching {
         if (!file.isFile) return null
         String(crypto.openBytes(file.readBytes())).also { kept = it }
     }.getOrNull()?.let(ListHead::decode)
@@ -30,7 +30,7 @@ class ContactListHead(context: Context, private val crypto: RecordCrypto) : Reco
     @Synchronized
     fun save(encoded: String) {
         if (!ListHead.changed(encoded, kept)) return
-        runCatching {
+        catching {
             val sealed = crypto.sealBytes(encoded.toByteArray())
             // Private rows are never written in the clear (a key that can't be used now keeps the old head instead).
             if (encoded.contains("\"withPrivate\":true") && !crypto.isSealed(sealed)) return
@@ -44,7 +44,7 @@ class ContactListHead(context: Context, private val crypto: RecordCrypto) : Reco
      */
     @Synchronized
     fun dropPrivate() {
-        val text = kept ?: runCatching { if (file.isFile) String(crypto.openBytes(file.readBytes())) else null }.getOrNull()
+        val text = kept ?: catching { if (file.isFile) String(crypto.openBytes(file.readBytes())) else null }.getOrNull()
         if (text == null) {
             if (file.isFile) clear()
             return
@@ -54,7 +54,7 @@ class ContactListHead(context: Context, private val crypto: RecordCrypto) : Reco
             clear()
             return
         }
-        val sealed = runCatching { crypto.sealBytes(without.toByteArray()) }.getOrNull()
+        val sealed = catching { crypto.sealBytes(without.toByteArray()) }.getOrNull()
         if (sealed == null || !write(sealed)) clear() else kept = without
     }
 

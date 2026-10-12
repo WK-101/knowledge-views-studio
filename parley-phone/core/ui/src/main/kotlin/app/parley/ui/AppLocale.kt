@@ -4,6 +4,7 @@ import android.app.LocaleManager
 import android.content.Context
 import android.os.Build
 import android.os.LocaleList
+import app.parley.common.catching
 
 /**
  * Parley is English-only. Versions before 4.6 offered a per-app language (stored by Android 13+ itself, and in
@@ -14,10 +15,10 @@ object AppLocale {
     private const val PREFS = "parley_app_locale"
 
     fun reset(context: Context) {
-        runCatching { context.deleteSharedPreferences(PREFS) }
+        catching { context.deleteSharedPreferences(PREFS) }
         if (Build.VERSION.SDK_INT >= 33) {
-            runCatching {
-                val manager = context.getSystemService(LocaleManager::class.java) ?: return@runCatching
+            catching {
+                val manager = context.getSystemService(LocaleManager::class.java) ?: return@catching
                 if (!manager.applicationLocales.isEmpty) manager.applicationLocales = LocaleList.getEmptyLocaleList()
             }
         }

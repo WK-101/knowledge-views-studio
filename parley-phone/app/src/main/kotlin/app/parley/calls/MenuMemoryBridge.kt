@@ -6,6 +6,7 @@ import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.MenuShortcut
 import app.parley.common.calls.MenuStep
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
@@ -21,10 +22,10 @@ import kotlinx.coroutines.withContext
  * nothing at all while Settings › Calls › Phone menus › "Remember menu keys" is off (shortcuts still work).
  */
 class MenuMemoryBridge(private val app: Context, private val c: DataContainer) : MenuMemoryHooks {
-    private val remembering: Boolean get() = runCatching { c.callExtras.config.value.rememberMenuKeys }.getOrDefault(false)
+    private val remembering: Boolean get() = catching { c.callExtras.config.value.rememberMenuKeys }.getOrDefault(false)
 
     private fun allowed(number: String): Boolean =
-        MenuMemory.remembers(number, runCatching { EmergencyNumbers.isEmergency(app, MenuMemory.dialled(number)) }.getOrDefault(true))
+        MenuMemory.remembers(number, catching { EmergencyNumbers.isEmergency(app, MenuMemory.dialled(number)) }.getOrDefault(true))
 
     private fun key(number: String, accountId: String?): String = MenuMemory.key(number, PhoneEnv.countryIso(app, accountId))
 
@@ -37,9 +38,9 @@ class MenuMemoryBridge(private val app: Context, private val c: DataContainer) :
 
     override fun onMenuKeys(number: String, accountId: String?, presses: List<MenuPress>) {
         c.scope.launch(Dispatchers.IO) {
-            runCatching {
-                if (!remembering || !allowed(number)) return@runCatching
-                val path = MenuMemory.record(presses, System.currentTimeMillis(), number) ?: return@runCatching
+            catching {
+                if (!remembering || !allowed(number)) return@catching
+                val path = MenuMemory.record(presses, System.currentTimeMillis(), number) ?: return@catching
                 val k = key(number, accountId)
                 c.menus.update { MenuMemory.remember(it, k, path) }
             }

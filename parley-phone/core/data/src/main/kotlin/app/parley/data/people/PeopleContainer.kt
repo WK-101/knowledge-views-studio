@@ -1,6 +1,7 @@
 package app.parley.data.people
 
 import app.parley.common.LabelRefs
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.util.Base64
@@ -188,15 +189,15 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
         val byKey = contacts.associateBy { it.lookupKey }
         for ((k, json) in all) {
-            val o = runCatching { JSONObject(json) }.getOrNull() ?: continue
+            val o = catching { JSONObject(json) }.getOrNull() ?: continue
             val key = k.removePrefix("${BackupExtras.PREFIX}orig.")
             val phones = o.optJSONArray("phones")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
             val name = o.optString("name")
             val target = byKey[key] ?: contacts.firstOrNull { ct ->
                 ct.displayName == name && (phones.isEmpty() || ct.phones.any { PhoneIdentity.portableKey(it.number) in phones })
             } ?: continue
-            val bytes = runCatching { Base64.decode(o.getString("image"), Base64.NO_WRAP) }.getOrNull() ?: continue
-            runCatching { p.originals.restore(target.lookupKey, bytes, target.photoUri) }
+            val bytes = catching { Base64.decode(o.getString("image"), Base64.NO_WRAP) }.getOrNull() ?: continue
+            catching { p.originals.restore(target.lookupKey, bytes, target.photoUri) }
         }
     }
 
@@ -214,7 +215,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
         val byKey = contacts.associateBy { it.lookupKey }
         for ((k, json) in bgs) {
-            val o = runCatching { JSONObject(json) }.getOrNull() ?: continue
+            val o = catching { JSONObject(json) }.getOrNull() ?: continue
             val key = k.removePrefix("${BackupExtras.PREFIX}bg.")
             val phones = o.optJSONArray("phones")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
             val name = o.optString("name")
@@ -222,7 +223,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
             val target = byKey[key] ?: contacts.firstOrNull { ct ->
                 ct.displayName == name && (phones.isEmpty() || ct.phones.any { PhoneIdentity.portableKey(it.number) in phones })
             } ?: continue
-            val bytes = runCatching { Base64.decode(o.getString("jpeg"), Base64.NO_WRAP) }.getOrNull() ?: continue
+            val bytes = catching { Base64.decode(o.getString("jpeg"), Base64.NO_WRAP) }.getOrNull() ?: continue
             p.backgrounds.write(target.lookupKey, bytes)
         }
     }

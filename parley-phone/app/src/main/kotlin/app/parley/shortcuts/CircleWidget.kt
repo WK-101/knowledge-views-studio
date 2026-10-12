@@ -105,7 +105,7 @@ class CircleWidget : AppWidgetProvider() {
         private const val INDEX_WAIT_MS = 8_000L
 
         private fun ids(context: Context): IntArray =
-            runCatching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, CircleWidget::class.java)) }.getOrDefault(IntArray(0))
+            catching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, CircleWidget::class.java)) }.getOrDefault(IntArray(0))
 
         private const val ACTION_REVEAL = "app.parley.action.CIRCLE_WIDGET_REVEAL"
 
@@ -124,7 +124,7 @@ class CircleWidget : AppWidgetProvider() {
             val ids = ids(ctx)
             if (ids.isEmpty()) return
             val c = ctx.container
-            val content = runCatching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull() ?: Content(emptyList(), emptyList())
+            val content = catching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull() ?: Content(emptyList(), emptyList())
             // With the app lock on, names show only while both the phone and Parley are unlocked.
             val s = c.settings.current()
             val deviceLocked = ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
@@ -139,7 +139,7 @@ class CircleWidget : AppWidgetProvider() {
             val today = LocalDate.now()
             val now = System.currentTimeMillis()
             val res = ctx.resources
-            val events = runCatching { c.contacts.events() }.getOrDefault(emptyList())
+            val events = catching { c.contacts.events() }.getOrDefault(emptyList())
                 .filter { it.lookupKey in contacts && !LifeEvents.isDeath(it.type, it.label) }
                 .mapNotNull { e -> EventDate.parse(e.date)?.let { d -> e to d.daysUntil(today).toInt() } }
                 .filter { it.second in 0..DATE_DAYS }
@@ -293,12 +293,12 @@ class CircleWidget : AppWidgetProvider() {
                             .drop(1)
                             .debounce(3_000)
                     }
-                }.collect { if (ids(ctx).isNotEmpty()) runCatching { refresh(ctx) } }
+                }.collect { if (ids(ctx).isNotEmpty()) catching { refresh(ctx) } }
             }
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     if (ids(ctx).isEmpty() || !c.settings.settings.value.appLock) return
-                    c.scope.launch { runCatching { refresh(ctx) } }
+                    c.scope.launch { catching { refresh(ctx) } }
                 }
             }
             val filter = IntentFilter().apply {
@@ -306,7 +306,7 @@ class CircleWidget : AppWidgetProvider() {
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
             // System broadcasts only; not exported to other apps.
-            runCatching { ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
+            catching { ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
         }
     }
 }

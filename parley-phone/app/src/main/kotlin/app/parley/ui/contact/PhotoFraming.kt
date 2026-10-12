@@ -81,6 +81,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.photo.FrameMath
 import app.parley.common.photo.PhotoFrame
 import app.parley.data.ContactPhotoProcessor
@@ -194,13 +195,13 @@ private fun rememberTakePhoto(vm: AppViewModel, onTaken: (String) -> Unit): () -
     }
     val noCamera = stringResource(R.string.editor_no_camera)
     return {
-        val created = runCatching { ContactCamera.newPhoto(context) }.getOrNull()
+        val created = catching { ContactCamera.newPhoto(context) }.getOrNull()
         if (created == null) {
             vm.toast(noCamera)
         } else {
             val (file, uri) = created
             shot = listOf(file.absolutePath, uri.toString())
-            runCatching { camera.launch(uri) }.onFailure {
+            catching { camera.launch(uri) }.onFailure {
                 // No camera app (ActivityNotFoundException) or one that refused.
                 shot = null
                 file.delete()
@@ -213,6 +214,7 @@ private fun rememberTakePhoto(vm: AppViewModel, onTaken: (String) -> Unit): () -
 /** The square [frame] cuts from the picked photo or the kept one, small, for the editor's header. */
 private suspend fun framedPreview(vm: AppViewModel, context: Context, photo: Uri?, kept: OriginalPhotos.Original?, frame: PhotoFrame): ImageBitmap? =
     withContext(Dispatchers.IO) {
+        // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
         runCatching {
             val b = when {
                 photo != null -> ContactPhotoProcessor.decodeBounded(context.contentResolver, photo, PREVIEW_PX)
@@ -318,7 +320,7 @@ private fun rememberFramingPicture(vm: AppViewModel, source: FramingSource): Res
     val originals = vm.c.people.originals
     if (source is FramingSource.Kept) DisposableEffect(source.original) { onDispose { originals.release(source.original) } }
     val loaded by produceState<Result<Bitmap>?>(null, source) {
-        value = runCatching {
+        value = catching {
             when (source) {
                 is FramingSource.Picked -> withContext(Dispatchers.IO) { ContactPhotoProcessor.decodeBounded(context.contentResolver, source.uri, FRAMING_PX) }
                 is FramingSource.Kept -> originals.decode(source.original, FRAMING_PX)
@@ -476,6 +478,7 @@ internal object FaceFinder {
 
     /** The middle of the largest face in [bitmap], in its pixels, or null when none is found. */
     fun find(bitmap: Bitmap): Pair<Double, Double>? = runCatching {
+        // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
         val scale = min(1.0, SCAN_PX.toDouble() / maxOf(bitmap.width, bitmap.height))
         // The detector needs an even width and 565 pixels.
         val w = ((bitmap.width * scale).toInt() / 2 * 2).coerceAtLeast(2)
@@ -530,12 +533,12 @@ object ContactCamera {
     fun forget(context: Context, uri: Uri?) {
         if (uri == null || uri.authority != authority(context) || uri.pathSegments.firstOrNull() != DIR) return
         val name = uri.lastPathSegment ?: return
-        runCatching { File(dir(context), name).takeIf { it.parentFile == dir(context) }?.delete() }
+        catching { File(dir(context), name).takeIf { it.parentFile == dir(context) }?.delete() }
     }
 
     /** Clears shots and framed files that no editor or save can still be using (see [STALE_MS], [FRAMED_STALE_MS]). */
     fun sweep(context: Context, now: Long = System.currentTimeMillis()) {
-        fun clear(folder: File, age: Long) = runCatching { folder.listFiles()?.forEach { if (now - it.lastModified() > age) it.delete() } }
+        fun clear(folder: File, age: Long) = catching { folder.listFiles()?.forEach { if (now - it.lastModified() > age) it.delete() } }
         clear(File(context.cacheDir, DIR), STALE_MS)
         clear(File(context.cacheDir, FRAMED_DIR), FRAMED_STALE_MS)
     }

@@ -139,7 +139,7 @@ class DataContainer(context: Context) {
                 s.expectedWindows = {
                     // Memory only on the call path: not read yet means none this time, and a read in the background.
                     val windows = familySafety.windowsNow()
-                        ?: emptyList<ExpectedWindow>().also { scope.launch(warmDispatcher) { runCatching { familySafety.load() } } }
+                        ?: emptyList<ExpectedWindow>().also { scope.launch(warmDispatcher) { catching { familySafety.load() } } }
                     // A private contact's name stays out of "expecting a call (note on …)" in discreet mode.
                     val discreet = privacy.now().privateHidden
                     windows.map { w -> if (w.label != null && w.shownLabel(discreet) == null) w.copy(label = null) else w }
@@ -480,20 +480,20 @@ class DataContainer(context: Context) {
      * screens never pay for that on the main thread. Construction only: nothing here scans contacts or calls.
      */
     fun warmStores() {
-        runCatching { extras }
-        runCatching { callExtras }
-        runCatching { situations }
-        runCatching { calling }
-        runCatching { ux }
-        runCatching { circle }
-        runCatching { messaging }
+        catching { extras }
+        catching { callExtras }
+        catching { situations }
+        catching { calling }
+        catching { ux }
+        catching { circle }
+        catching { messaging }
         // Not the vault: it is built when first asked (a lookup on the call path, or the UI), and its listings and
         // upkeep wait for the full app (fullStart), so a process started for a call never opens its rows.
-        runCatching { history }
-        runCatching { people }
+        catching { history }
+        catching { people }
         // My card: built here so the one-time fold-in of the old "My details" writes on IO, not on the first screen.
-        runCatching { people.me }
-        runCatching { directory }
+        catching { people.me }
+        catching { directory }
     }
 
     /** The UI started, or a call settled: load and follow everything. Idempotent. */

@@ -98,7 +98,7 @@ object ImageExport {
     suspend fun save(context: Context, target: Uri, bytes: ByteArray): Boolean = withContext(Dispatchers.IO) {
         try {
             // "wt": a document the provider already had (a name chosen again) is replaced, never partly overwritten.
-            val out = runCatching { context.contentResolver.openOutputStream(target, "wt") }.getOrNull()
+            val out = catching { context.contentResolver.openOutputStream(target, "wt") }.getOrNull()
                 ?: context.contentResolver.openOutputStream(target, "w")
                 ?: return@withContext false
             out.use { it.write(bytes) }
@@ -159,7 +159,7 @@ object ImageExport {
         val segments = uri.pathSegments
         // Only a folder [writeShareCopy] made ("p1700000000000-123"), never "..".
         if (segments.size != 3 || !FOLDER.matches(segments[1])) return
-        runCatching {
+        catching {
             val folder = File(dir(context), segments[1])
             if (folder.parentFile == dir(context)) folder.deleteRecursively()
         }
@@ -170,7 +170,7 @@ object ImageExport {
      * every one (at start: no share from before is still being read).
      */
     fun sweep(context: Context, now: Long = System.currentTimeMillis(), all: Boolean = false) {
-        runCatching {
+        catching {
             dir(context).listFiles()?.forEach { f ->
                 val age = now - f.lastModified()
                 val limit = if (f.name.startsWith(PRIVATE_PREFIX)) PRIVATE_STALE_MS else STALE_MS
@@ -181,14 +181,14 @@ object ImageExport {
 
     /** Deletes every private contact's shared copy at once (Parley locked: what was opened for the session goes). */
     fun forgetPrivate(context: Context) {
-        runCatching { dir(context).listFiles()?.forEach { if (it.name.startsWith(PRIVATE_PREFIX)) it.deleteRecursively() } }
+        catching { dir(context).listFiles()?.forEach { if (it.name.startsWith(PRIVATE_PREFIX)) it.deleteRecursively() } }
     }
 
     // ---- Reading what is handed out
 
     /** The bytes behind [uri] (a content or file URI), at most [MAX_BYTES]; null when they can't be read. */
     suspend fun readUri(context: Context, uri: String): ByteArray? = withContext(Dispatchers.IO) {
-        runCatching { context.contentResolver.openInputStream(Uri.parse(uri))?.use(::readBounded) }
+        catching { context.contentResolver.openInputStream(Uri.parse(uri))?.use(::readBounded) }
             .onFailure { Log.w(TAG, "Couldn't read the picture", it) }.getOrNull()
     }
 
@@ -198,7 +198,7 @@ object ImageExport {
      */
     suspend fun readAndroidPhoto(context: Context, contactId: Long?, photoUri: String): ByteArray? = withContext(Dispatchers.IO) {
         val large = contactId?.takeIf { it > 0 }?.let { id ->
-            runCatching {
+            catching {
                 val contact = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, id)
                 ContactsContract.Contacts.openContactPhotoInputStream(context.contentResolver, contact, true)?.use(::readBounded)
             }.getOrNull()

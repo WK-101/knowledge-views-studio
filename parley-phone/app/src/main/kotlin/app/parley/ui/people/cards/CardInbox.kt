@@ -10,8 +10,8 @@ import app.parley.common.cards.HeldCard
 import app.parley.common.cards.HeldOffer
 import app.parley.common.cards.SignedCard
 import app.parley.common.cards.SignedCards
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
-import app.parley.common.suspendRunCatching
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
@@ -64,12 +64,12 @@ object CardInbox {
     suspend fun receive(c: DataContainer, text: String, region: String?): List<Result> = withContext(Dispatchers.IO) {
         if (!SignedCards.mayHold(text)) return@withContext emptyList()
         val checks = SignedCards.check(text)
-        val loaded = suspendRunCatching { c.people.cardLinks.load() }.getOrDefault(false)
+        val loaded = catching { c.people.cardLinks.load() }.getOrDefault(false)
         checks.map { check ->
             when (check) {
                 is CardCheck.Broken -> Result.Broken
                 is CardCheck.Signed ->
-                    if (!loaded) Result.Unchecked else suspendRunCatching { receiveOne(c, check.card, region) }.getOrDefault(Result.Unchecked)
+                    if (!loaded) Result.Unchecked else catching { receiveOne(c, check.card, region) }.getOrDefault(Result.Unchecked)
             }
         }
     }

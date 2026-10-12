@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.data.Permissions
 import app.parley.telecom.CallNotifier
 import app.parley.ui.CallColors
@@ -114,7 +115,7 @@ private fun rememberFixer(vm: AppViewModel, onDone: () -> Unit = {}): (HealthChe
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.refreshEnvironment(); onDone() }
     return { check ->
         NotificationHealth.fixIntent(context, check)?.let { intent ->
-            runCatching { launcher.launch(intent) }.onFailure {
+            catching { launcher.launch(intent) }.onFailure {
                 context.startOrSay(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, ("package:" + context.packageName).toUri()))
             }
         }

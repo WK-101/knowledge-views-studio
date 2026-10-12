@@ -107,11 +107,11 @@ internal object LabelUpdateFiles {
         }
     }
 
-    fun displayName(context: Context, uri: Uri): String? = runCatching {
+    fun displayName(context: Context, uri: Uri): String? = catching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
     }.getOrNull()
 
-    fun read(context: Context, uri: Uri): ByteArray? = runCatching {
+    fun read(context: Context, uri: Uri): ByteArray? = catching {
         context.contentResolver.openInputStream(uri)?.use { Bounded.readBytes(it, SharedLabelUpdates.MAX_SEALED, "label update") }
     }.getOrNull()
 

@@ -20,6 +20,7 @@ import app.parley.common.calls.FailureKind
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.RingEnd
 import app.parley.common.calls.RingFacts
+import app.parley.common.catching
 
 /**
  * What Parley keeps when a call ends: its end facts (for the failure banner), its quality facts, how it rang, the
@@ -39,7 +40,7 @@ internal class CallEndRecorder(
         endedInSimPicker = lastLiveState == CallState.SELECT_ACCOUNT,
         userEnded = s.userEnded,
         airplaneMode = context()?.let { c ->
-            runCatching { Settings.Global.getInt(c.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false)
+            catching { Settings.Global.getInt(c.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false)
         } ?: false,
         emergency = ended.isEmergency,
         hasNumber = !ended.hidden && !ended.number.isNullOrBlank(),
@@ -72,11 +73,11 @@ internal class CallEndRecorder(
             roaming = roaming(call, failed),
             offline = offline(ended.failure, failed),
         )
-        runCatching { deps().onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
+        catching { deps().onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
         // A case file keeps the call with its hold time and, for a call you placed, the menu keys (minus anything secret).
         val number = ended.number?.takeIf { !ended.hidden && it.isNotBlank() } ?: return facts
         val keys = if (ended.incoming) emptyList() else s.menuPresses.toList()
-        runCatching { deps().onCaseCall(number, ended.accountId, facts, keys) }
+        catching { deps().onCaseCall(number, ended.accountId, facts, keys) }
         return facts
     }
 
@@ -93,8 +94,8 @@ internal class CallEndRecorder(
     private fun roaming(call: Call, failed: Boolean): Boolean? {
         if (!failed) return null
         val c = context() ?: return null
-        return runCatching {
-            val tm = c.getSystemService(TelephonyManager::class.java) ?: return@runCatching null
+        return catching {
+            val tm = c.getSystemService(TelephonyManager::class.java) ?: return@catching null
             val handle = call.details.accountHandle
             val sub = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && handle != null) {
                 tm.getSubscriptionId(handle).takeIf { it != SubscriptionManager.INVALID_SUBSCRIPTION_ID }
@@ -114,24 +115,24 @@ internal class CallEndRecorder(
         s.ringStartedAt?.let { started ->
             val connected = ended.connectTimeMillis > 0
             val rang = ((if (connected) ended.connectTimeMillis else System.currentTimeMillis()) - started).coerceAtLeast(0)
-            runCatching { deps().onRingFinished(ended.number, started, rang, connected) }
+            catching { deps().onRingFinished(ended.number, started, rang, connected) }
             s.ringFacts?.let { f ->
-                runCatching { deps().onRingFacts(ended.number.takeIf { !ended.hidden }, finishRingFacts(s, call, f, rang, connected)) }
+                catching { deps().onRingFacts(ended.number.takeIf { !ended.hidden }, finishRingFacts(s, call, f, rang, connected)) }
             }
         }
         // The window started when the call was added; it runs for its full length from the end of the call too.
         val ctx = context()
         if (ctx != null && EmergencyPolicy.startsWindow(emergency.facts(call, ended.number, ended.incoming), ended.incoming)) {
-            runCatching { ScreeningGuard.noteEmergencyCall(ctx) }
+            catching { ScreeningGuard.noteEmergencyCall(ctx) }
         }
         if (ended.connectTimeMillis > 0 && !ended.isEmergency && !ended.isConference) {
             val talkedSec = ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0)
-            runCatching {
+            catching {
                 deps().onCallUsage(ended.number.takeIf { !ended.hidden }, call.details.accountHandle?.id, ended.incoming, ended.connectTimeMillis, talkedSec)
             }
         }
         rememberNetworkName(call, ended, s)
-        runCatching { deps().onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
+        catching { deps().onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
     }
 
     /**
@@ -143,10 +144,10 @@ internal class CallEndRecorder(
         val number = ended.number?.takeIf { ended.incoming && !ended.hidden && it.isNotBlank() && !ended.isEmergency } ?: return
         val d = call.details
         val name = s.networkName
-            ?: NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
+            ?: NetworkName.clean(catching { d.callerDisplayName }.getOrNull(), catching { d.callerDisplayNamePresentation }.getOrDefault(0))
             ?: return
         val at = s.startedAt.takeIf { it > 0 } ?: System.currentTimeMillis()
-        runCatching { deps().onNetworkName(number, name, d.accountHandle?.id ?: ended.accountId, at) }
+        catching { deps().onNetworkName(number, name, d.accountHandle?.id ?: ended.accountId, at) }
     }
 
     /**

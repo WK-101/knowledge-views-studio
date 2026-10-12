@@ -1,6 +1,7 @@
 package app.parley.common.calltime
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -145,10 +146,10 @@ object CallingJson {
 
     /** A missing or damaged file gives the defaults (everything off), never a crash on the call path. */
     fun decode(text: String?): CallingConfig =
-        if (text.isNullOrBlank()) CallingConfig() else runCatching { json.decodeFromString(CallingConfig.serializer(), text) }.getOrDefault(CallingConfig())
+        if (text.isNullOrBlank()) CallingConfig() else catching { json.decodeFromString(CallingConfig.serializer(), text) }.getOrDefault(CallingConfig())
 
     fun encodeUssd(list: List<UssdEntry>): String = json.encodeToString(ListSerializer(UssdEntry.serializer()), list)
 
     fun decodeUssd(text: String?): List<UssdEntry> =
-        if (text.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
+        if (text.isNullOrBlank()) emptyList() else catching { json.decodeFromString(ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
 }

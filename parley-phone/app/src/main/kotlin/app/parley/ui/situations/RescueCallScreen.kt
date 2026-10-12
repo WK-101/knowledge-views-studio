@@ -61,6 +61,7 @@ import app.parley.common.calls.CheckIns
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
+import app.parley.common.catching
 import app.parley.rescue.CheckInHelper
 import app.parley.rescue.RescueCalls
 import app.parley.ui.Banner
@@ -362,10 +363,10 @@ private fun timeText(context: Context, minuteOfDay: Int): String {
 /** Keeps reading the picked sound after a restart (the picker's grant, no permission); its name, or null when it can't. */
 private fun keepSound(context: Context, uri: Uri, previous: String?): String? {
     val cr = context.contentResolver
-    val ok = runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }.isSuccess
+    val ok = catching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }.isSuccess
     if (!ok) return null
     if (previous != null && previous != uri.toString()) releaseSound(context, previous)
-    return runCatching {
+    return catching {
         cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
     }.getOrNull() ?: uri.lastPathSegment.orEmpty()
 }
@@ -376,7 +377,7 @@ private val saving = Dispatchers.IO.limitedParallelism(1)
 /** Lets go of the sound, unless a call waiting will play it once answered. */
 private fun releaseSound(context: Context, uri: String?) {
     if (uri == null || RescueCalls.clipInUse(uri)) return
-    runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    catching { context.contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
 }
 
 /** Contacts with a number (private ones too, unless hidden), to pick who calls. */

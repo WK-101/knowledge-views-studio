@@ -2,6 +2,7 @@ package app.parley.ui.contact
 
 import app.parley.common.calls.CatchUp
 import app.parley.common.calls.ToCallItem
+import app.parley.common.catching
 import app.parley.common.people.NumberStamp
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -24,7 +25,6 @@ import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.storage
-import app.parley.common.suspendRunCatching
 import app.parley.common.circle.LabelFeed
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
@@ -184,9 +184,9 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         .mapLatest {
             val id = r.contactId
             val details = c.contacts.details(id)
-            val messengers = withContext(Dispatchers.IO) { runCatching { Messengers.actions(c.appContext, id) }.getOrDefault(emptyList()) }
+            val messengers = withContext(Dispatchers.IO) { catching { Messengers.actions(c.appContext, id) }.getOrDefault(emptyList()) }
             val other = withContext(Dispatchers.IO) {
-                runCatching {
+                catching {
                     c.records.read(id, fullPhoto = false)?.raws.orEmpty().flatMap { raw ->
                         val messenger = app.parley.common.record.Messengers.isMessengerAccount(raw.accountType)
                         OtherFields.describe(raw.rows) { messenger }
@@ -260,13 +260,13 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     val toCall: StateFlow<ToCallItem?> = combine(phones, c.toCall.state) { mine, s ->
         val keys = mine.map { PhoneIdentity.key(it, countryIso) }.toSet()
         s.items.firstOrNull { it.key in keys }
-    }.onStart { suspendRunCatching { c.toCall.load() } }
+    }.onStart { catching { c.toCall.load() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /** The next catch-up kept for any of their numbers ([CatchUp.of]): the rhythm stays quiet about them until then. */
     val catchUpAt: StateFlow<Long?> = combine(phones, c.toCall.state) { mine, s ->
         CatchUp.of(s, mine.map { PhoneIdentity.key(it, countryIso) })
-    }.onStart { suspendRunCatching { c.toCall.load() } }
+    }.onStart { catching { c.toCall.load() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /**
@@ -285,7 +285,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     /** The labels keeping them in the Circle ("In your Circle via Family"), read again when labels or contacts change. */
     val circleFeeds: StateFlow<List<LabelFeed>> = combine(lookupKey, c.extras.policies, c.extras.chapters, c.contacts.contacts) { k, _, _, _ -> k }
-        .mapLatest { k -> suspendRunCatching { c.circle.feedsFor(k) }.getOrDefault(emptyList()) }
+        .mapLatest { k -> catching { c.circle.feedsFor(k) }.getOrDefault(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
 
     /** When they delete themselves: the temporary-contacts table for a device contact, the vault entry for a private one. */
@@ -312,7 +312,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     // The person's notes, re-read when any of their sources changes.
     private val memory = combine(lookupKey, numberKeys, personal) { k, keys, p -> Triple(k, keys, p.meta?.pinnedNote) }
         .mapLatest { (k, keys, pinned) ->
-            val notes = suspendRunCatching { c.circle.notesFor(k, keys) }.getOrDefault(emptyList())
+            val notes = catching { c.circle.notesFor(k, keys) }.getOrDefault(emptyList())
             // A private contact's note for calls (and with it its agenda) is in its sealed entry, read for the page
             // only while it is open: [meta] has it then.
             val sealed = pinned?.takeIf { ContactRef.isPrivateKey(k) && it.isNotBlank() }
@@ -342,10 +342,10 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         combine(phones, history, c.callQuality.version, c.numberAdvice.version, c.prefs.numberSims) { mine, calls, _, _, _ -> mine to calls }
             .mapLatest { (mine, calls) ->
                 if (mine.isEmpty()) return@mapLatest NumberAdviceUi()
-                val dead = suspendRunCatching { NumberSignals.deadAmong(c, mine, calls) }.getOrDefault(emptySet())
+                val dead = catching { NumberSignals.deadAmong(c, mine, calls) }.getOrDefault(emptySet())
                 val sims = withContext(Dispatchers.IO) { c.sims.accounts() }
                 // A number that seems out of service isn't a reason to pick a SIM.
-                val tip = suspendRunCatching { NumberSignals.simTip(c, mine - dead, sims) }.getOrNull()
+                val tip = catching { NumberSignals.simTip(c, mine - dead, sims) }.getOrNull()
                 NumberAdviceUi(dead, tip)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), NumberAdviceUi())
@@ -362,7 +362,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 mine.mapNotNull { n -> s.stamps[c.contacts.passport.line(n).key]?.let { n to it } }.toMap()
             }
         }
-            .onStart { suspendRunCatching { c.contacts.passport.load() } }
+            .onStart { catching { c.contacts.passport.load() } }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyMap())
 
@@ -385,7 +385,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 if (d == null || l.access != PrivateAccess.OPEN) {
                     emptyList()
                 } else {
-                    suspendRunCatching { RelationsFromOthers.load(c, d, l.ref is ContactRef.Private, metas, s) }.getOrDefault(emptyList())
+                    catching { RelationsFromOthers.load(c, d, l.ref is ContactRef.Private, metas, s) }.getOrDefault(emptyList())
                 }
             }
             .distinctUntilChanged()
@@ -476,7 +476,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** A birthday or anniversary from the page's date chips: into the address book, or a private contact's sealed details. */
     suspend fun addDate(d: ContactDetails, event: app.parley.data.EventItem): Boolean {
         if (vaultId != null) return updatePrivate { it.copy(events = it.events + event) }
-        val saved = runCatching { c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }.getOrNull()
+        val saved = catching { c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }.getOrNull()
         if (saved != null) reload()
         return saved != null
     }
@@ -588,7 +588,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             // "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
             if (entry != null) {
                 val key = ExpectedCallHints.loggedKey(entry)
-                runCatching { ExpectedCallHints.noteSaved(c, d.displayName, note, key, privateName = ContactRef.isPrivateKey(d.lookupKey)) }
+                catching { ExpectedCallHints.noteSaved(c, d.displayName, note, key, privateName = ContactRef.isPrivateKey(d.lookupKey)) }
             }
         } catch (_: InteractionStore.SealException) {
             say(R.string.circle_note_failed)
@@ -666,11 +666,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             .mapLatest { (r, shared) ->
                 val titles = withContext(Dispatchers.IO) {
                     when (r) {
-                        is ContactRef.Private -> suspendRunCatching { c.privateLabels.titlesOf(r.vaultId) }.getOrDefault(emptySet())
+                        is ContactRef.Private -> catching { c.privateLabels.titlesOf(r.vaultId) }.getOrDefault(emptySet())
                         is ContactRef.Device -> c.contacts.labelTitlesOf(r.contactId)
                     }
                 }
-                if (titles.isNotEmpty()) suspendRunCatching { c.sharedLabels.load() }
+                if (titles.isNotEmpty()) catching { c.sharedLabels.load() }
                 ContactLabels.chips(titles, shared.map { it.title }.toSet(), labelOrder)
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
@@ -682,8 +682,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     suspend fun labelChoices(): List<GroupInfo> {
         val d = current ?: return emptyList()
         val private = vaultId != null
-        val groups = withContext(Dispatchers.IO) { suspendRunCatching { c.contacts.groups() }.getOrDefault(emptyList()) }
-        suspendRunCatching { c.sharedLabels.load() }
+        val groups = withContext(Dispatchers.IO) { catching { c.contacts.groups() }.getOrDefault(emptyList()) }
+        catching { c.sharedLabels.load() }
         val shared = if (private) c.sharedLabels.states.value.map { it.title.trim() }.toSet() else emptySet()
         val accounts = if (private) null else d.rawContacts.map { accountKey(it.account) }.toSet().takeIf { it.isNotEmpty() }
         val offered = ContactLabels.offered(

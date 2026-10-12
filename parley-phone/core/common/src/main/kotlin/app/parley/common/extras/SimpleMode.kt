@@ -3,6 +3,7 @@ package app.parley.common.extras
 import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 
 /**
@@ -39,7 +40,7 @@ object SimpleSetup {
     private data class Exported(val format: Int = FORMAT, val config: SimpleConfig)
 
     fun decode(text: String?): SimpleConfig =
-        if (text.isNullOrBlank()) SimpleConfig() else runCatching { json.decodeFromString(SimpleConfig.serializer(), text) }.getOrDefault(SimpleConfig()).normalised()
+        if (text.isNullOrBlank()) SimpleConfig() else catching { json.decodeFromString(SimpleConfig.serializer(), text) }.getOrDefault(SimpleConfig()).normalised()
 
     fun encode(c: SimpleConfig): String = json.encodeToString(SimpleConfig.serializer(), c)
 
@@ -62,7 +63,7 @@ object SimpleSetup {
      * forward every call), no pauses or extensions, nothing over-long.
      */
     fun importChecked(text: String): Imported {
-        val e = runCatching { json.decodeFromString(Exported.serializer(), text) }.getOrElse { throw IllegalArgumentException("Not a simple-mode setup", it) }
+        val e = catching { json.decodeFromString(Exported.serializer(), text) }.getOrElse { throw IllegalArgumentException("Not a simple-mode setup", it) }
         require(e.format <= FORMAT) { "Setup from a newer version" }
         val raw = e.config.people.take(MAX_IMPORTED)
         val cfg = e.config.copy(people = raw.map { it.copy(lookupKey = null) }).normalised().copy(enabled = false)

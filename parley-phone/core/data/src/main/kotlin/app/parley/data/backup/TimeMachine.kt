@@ -81,7 +81,7 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
 
     /** Re-seals snapshot blobs written before sealing existed; returns how many. */
     suspend fun resealOld(): Int = mutex.withLock {
-        withContext(Dispatchers.IO) { store.all().count { runCatching { store.resealIfPlain(it) }.getOrDefault(false) } }
+        withContext(Dispatchers.IO) { store.all().count { catching { store.resealIfPlain(it) }.getOrDefault(false) } }
     }
 
     /** One full index per snapshot, as versions before 5.4 wrote them; only read to move them over. */
@@ -140,15 +140,15 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         val after = log.timestamps.lastOrNull() ?: Long.MIN_VALUE
         files.mapNotNull { f -> f.name.removeSuffix(".idx").toLongOrNull()?.let { it to f } }.sortedBy { it.first }.forEach { (t, f) ->
             if (t <= after) return@forEach
-            val idx = runCatching { SnapshotIndex.fromBytes(f.readBytes()) }.getOrNull() ?: return@forEach
-            if (idx.timestamp > (log.timestamps.lastOrNull() ?: Long.MIN_VALUE)) runCatching { log.add(idx.timestamp, idx.contacts) }
+            val idx = catching { SnapshotIndex.fromBytes(f.readBytes()) }.getOrNull() ?: return@forEach
+            if (idx.timestamp > (log.timestamps.lastOrNull() ?: Long.MIN_VALUE)) catching { log.add(idx.timestamp, idx.contacts) }
         }
         for (h in log.records()) photosOf(h)?.let { log.notePhotos(h, it) }
         return log
     }
 
     /** The photo blobs record [hash] refers to, read without opening the photos; null when it can't be read. */
-    private fun photosOf(hash: String): List<String>? = runCatching { store.get(hash)?.let { RecordJson.blobHashes(it.decodeToString()) } }.getOrNull()
+    private fun photosOf(hash: String): List<String>? = catching { store.get(hash)?.let { RecordJson.blobHashes(it.decodeToString()) } }.getOrNull()
 
     private fun write(log: SnapshotLog) {
         DurableFiles.write(logFile, log.encode())
@@ -317,7 +317,7 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     suspend fun lastVersions(keys: Collection<String>, atOrBefore: Long = Long.MAX_VALUE): Map<String, ContactRecord> = withContext(Dispatchers.IO) {
         val hashes = withLog { log -> keys.distinct().mapNotNull { k -> log.lastPresent(k, atOrBefore)?.let { k to it } } }
         val out = LinkedHashMap<String, ContactRecord>()
-        hashes.forEach { (k, h) -> runCatching { Snapshots.load(store, h) }.getOrNull()?.let { out[k] = it } }
+        hashes.forEach { (k, h) -> catching { Snapshots.load(store, h) }.getOrNull()?.let { out[k] = it } }
         out
     }
 

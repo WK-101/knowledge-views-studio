@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.catching
 import app.parley.ui.people.rememberWorkResults
 import app.parley.ui.people.workResultsSection
 import app.parley.ui.Destination
@@ -207,7 +208,7 @@ internal fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
     AssistChip(
         modifier = Modifier.padding(top = 12.dp),
         onClick = {
-            val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
+            val text = catching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
             val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
             if (number.isNullOrEmpty()) showMessage(context, res.getString(R.string.keypad_no_clip_number))
             else onPaste(number)
@@ -243,7 +244,7 @@ internal fun ImeiSheet(onDismiss: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button({
-                runCatching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
+                catching { context.startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
                 onDismiss()
             }) { Text(stringResource(R.string.keypad_open_about)) }
             TextButton(onDismiss) { Text(stringResource(R.string.action_close)) }

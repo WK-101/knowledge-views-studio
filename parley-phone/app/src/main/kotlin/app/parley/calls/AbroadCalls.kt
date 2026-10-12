@@ -2,6 +2,7 @@ package app.parley.calls
 
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.AssistedDial
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,7 +21,7 @@ class AbroadCalls(private val c: DataContainer) {
     suspend fun questions(number: String, simId: String?): Questions = withContext(Dispatchers.IO) {
         val cfg = c.roaming.config.value
         if ((!cfg.assistedDialling && !cfg.localSimHint) || PhoneIdentity.isServiceCode(number)) return@withContext NONE
-        val sims = runCatching { c.roaming.simStates(c.sims.accounts()) }.getOrDefault(emptyList())
+        val sims = catching { c.roaming.simStates(c.sims.accounts()) }.getOrDefault(emptyList())
         if (sims.isEmpty()) return@withContext NONE
         // Home again (or elsewhere): the next trip gets its suggestion.
         if (AssistedDial.tripOver(sims, c.roaming.hintedTrip)) c.roaming.hintedTrip = null

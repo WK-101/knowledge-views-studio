@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.catching
 import app.parley.data.security.SealedBlockDao
 import app.parley.data.security.RecordCrypto
 import app.parley.data.db.BlockDao
@@ -238,14 +239,14 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     private fun BlockRuleEntity.toRule() = BlockRule(
         id = id,
         pattern = pattern,
-        type = runCatching { RuleType.valueOf(type) }.getOrDefault(RuleType.EXACT),
-        action = runCatching { BlockAction.valueOf(action) }.getOrDefault(BlockAction.REJECT),
+        type = catching { RuleType.valueOf(type) }.getOrDefault(RuleType.EXACT),
+        action = catching { BlockAction.valueOf(action) }.getOrDefault(BlockAction.REJECT),
         enabled = enabled,
         note = note,
-        kind = runCatching { RuleKind.valueOf(kind) }.getOrDefault(RuleKind.BLOCK),
+        kind = catching { RuleKind.valueOf(kind) }.getOrDefault(RuleKind.BLOCK),
         simId = simId,
         schedule = Schedule.decode(schedule),
-        notify = runCatching { NotifyLevel.valueOf(notify) }.getOrDefault(NotifyLevel.DEFAULT),
+        notify = catching { NotifyLevel.valueOf(notify) }.getOrDefault(NotifyLevel.DEFAULT),
         ringtone = ringtone,
         expiresAt = expiresAt,
         hitCount = hitCount,

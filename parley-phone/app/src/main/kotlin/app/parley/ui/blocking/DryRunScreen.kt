@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingText
+import app.parley.common.catching
 import app.parley.data.DryRun
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
@@ -56,7 +57,7 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
     LaunchedEffect(days, calls, rules, settings.screening) {
         loading = true
-        result = runCatching { vm.c.screener.dryRun(calls.orEmpty(), days) }.getOrNull()
+        result = catching { vm.c.screener.dryRun(calls.orEmpty(), days) }.getOrNull()
         loading = false
     }
     ParleyScaffold(topBar = {

@@ -33,8 +33,8 @@ import app.parley.common.calls.MissedCall
 import app.parley.common.calls.MissedCaller
 import app.parley.common.calls.MissedCalls
 import app.parley.common.calls.MissedReAlert
+import app.parley.common.catching
 import app.parley.common.security.PrivacyView
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
@@ -85,12 +85,12 @@ object MissedCallNotifier {
             listOf(MissedCaller(if (n.isBlank()) MissedCalls.HIDDEN else n, n, n.isBlank(), telecomCount, System.currentTimeMillis(), System.currentTimeMillis(), null))
         }
         val total = maxOf(telecomCount, callers.sumOf { it.count })
-        val sims = runCatching { c.sims.accounts() }.getOrDefault(emptyList())
+        val sims = catching { c.sims.accounts() }.getOrDefault(emptyList())
         val simLabels = if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap()
         val privacy = c.privacy.now()
         val shown = callers.take(MissedCalls.MAX_CHILDREN)
         val grouped = shown.size > 1
-        val screened = runCatching { c.blocks.screenedSince((callers.minOf { it.first }) - 15 * 60_000L) }.getOrDefault(emptyList())
+        val screened = catching { c.blocks.screenedSince((callers.minOf { it.first }) - 15 * 60_000L) }.getOrDefault(emptyList())
         val nmc = NotificationManagerCompat.from(context)
         // The name the network sent with a call that just ended is still being written: wait for it (briefly).
         NetworkNames.settle()
@@ -123,7 +123,7 @@ object MissedCallNotifier {
             if (grouped) b.setGroup(GROUP).setSortKey("%02d".format(Locale.ROOT, i))
             if (!caller.hidden && caller.number.isNotBlank()) {
                 // One-ring scams and premium lines: no one-tap call back from the notification; the app asks first.
-                val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
+                val risky = catching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
                 // "Call back" takes the same path as any call in Parley (CallGate), in a small window that only
                 // shows up when the gate has something to ask.
                 if (!risky) {
@@ -159,7 +159,7 @@ object MissedCallNotifier {
                 if (!d.isContact) {
                     // Never Block for an emergency number; and a number on the Always allow list gets the app's question
                     // (which says the allowance goes, with Undo) rather than losing it unseen.
-                    val now = suspendRunCatching { BlockFlow.now(c, caller.number) }.getOrNull()
+                    val now = catching { BlockFlow.now(c, caller.number) }.getOrNull()
                     if (now?.emergency != true) {
                         b.addAction(blockAction(context, caller.number, NotificationRequests.MISSED_BLOCK + i, id, ask = now?.allowRules?.isNotEmpty() == true))
                     }
@@ -232,7 +232,7 @@ object MissedCallNotifier {
                     PhoneIdentity.same(e.number, n, iso)
             }?.verdict?.let { v -> BlockingText.verdict(context, v) }
         }
-        val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
+        val facts = catching { c.ringFacts.near(number, caller.latest) }.getOrNull()
         val why = RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
         val counted = if (caller.count > 1) context.getString(R.string.format_text_count, name, caller.count) else name
@@ -314,12 +314,13 @@ object MissedCallNotifier {
     }
 
     /** Any missed-call notification still on screen. */
-    fun anyShowing(context: Context, childrenOnly: Boolean = false): Boolean = runCatching {
+    fun anyShowing(context: Context, childrenOnly: Boolean = false): Boolean = catching {
         context.getSystemService(NotificationManager::class.java).activeNotifications.any { NotificationIds.isMissedCall(it.tag, it.id, childrenOnly) }
     }.getOrDefault(false)
 
     /** A small round contact photo for the notification's large icon. */
     private fun loadCircle(context: Context, uri: String): Bitmap? = runCatching {
+        // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
         val src = context.contentResolver.openInputStream(Uri.parse(uri))?.use { BitmapFactory.decodeStream(it) } ?: return null
         val size = minOf(src.width, src.height).coerceAtMost(256)
         val scaled = Bitmap.createScaledBitmap(src, size, size, true)
@@ -350,7 +351,7 @@ object MissedCallNotifier {
             cancelAlarm(context)
             return
         }
-        runCatching { context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(context)) }
+        catching { context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarmIntent(context)) }
     }
 
     /** Called when the re-alert alarm fires. */
@@ -362,7 +363,7 @@ object MissedCallNotifier {
             return
         }
         val unseen = unseenMissed(context)
-        val dnd = when (runCatching { context.getSystemService(NotificationManager::class.java).currentInterruptionFilter }.getOrNull()) {
+        val dnd = when (catching { context.getSystemService(NotificationManager::class.java).currentInterruptionFilter }.getOrNull()) {
             NotificationManager.INTERRUPTION_FILTER_ALL -> DndState.OFF
             NotificationManager.INTERRUPTION_FILTER_PRIORITY -> DndState.PRIORITY
             NotificationManager.INTERRUPTION_FILTER_ALARMS -> DndState.ALARMS
@@ -384,7 +385,7 @@ object MissedCallNotifier {
     }
 
     private fun cancelAlarm(context: Context) {
-        runCatching { context.getSystemService(AlarmManager::class.java).cancel(alarmIntent(context)) }
+        catching { context.getSystemService(AlarmManager::class.java).cancel(alarmIntent(context)) }
     }
 
     private fun alarmIntent(context: Context) = PendingIntent.getBroadcast(

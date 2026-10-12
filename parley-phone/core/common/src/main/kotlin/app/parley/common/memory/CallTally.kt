@@ -2,6 +2,7 @@ package app.parley.common.memory
 
 import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -94,6 +95,6 @@ data class CallTally(
         fun empty(region: String?) = CallTally(region = region)
 
         /** Null when [bytes] aren't a tally (then everything is read again). */
-        fun decode(bytes: ByteArray): CallTally? = runCatching { json.decodeFromString(serializer(), bytes.toString(Charsets.UTF_8)) }.getOrNull()
+        fun decode(bytes: ByteArray): CallTally? = catching { json.decodeFromString(serializer(), bytes.toString(Charsets.UTF_8)) }.getOrNull()
     }
 }

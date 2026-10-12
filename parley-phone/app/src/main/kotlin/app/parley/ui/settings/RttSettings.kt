@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.ui.LinkRow
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.Spacing
@@ -64,7 +65,7 @@ internal fun RttSettingsGroup(vm: AppViewModel) {
 
 /** Whether any of this phone's calling accounts offers RTT now (false when it can't be read). */
 @SuppressLint("MissingPermission")
-private fun rttOffered(context: Context): Boolean = runCatching {
-    val tm = context.getSystemService(TelecomManager::class.java) ?: return@runCatching false
+private fun rttOffered(context: Context): Boolean = catching {
+    val tm = context.getSystemService(TelecomManager::class.java) ?: return@catching false
     tm.callCapablePhoneAccounts.any { h -> tm.getPhoneAccount(h)?.hasCapabilities(PhoneAccount.CAPABILITY_RTT) == true }
 }.getOrDefault(false)

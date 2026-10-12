@@ -1,5 +1,6 @@
 package app.parley.ui.circle
 
+import app.parley.common.catching
 import app.parley.common.security.PrivacyView
 import app.parley.data.security.Privacy
 import app.parley.calls.AgendaTicks
@@ -120,12 +121,12 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
     }
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
     // A promise of a call that is done no longer lets anyone ring through.
-    runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, note) }
+    catching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, note) }
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
         CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) {
             vm.c.circle.setPromiseDone(lookupKey, after, item.line, false)
-            runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, after) }
+            catching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, after) }
         })
     }
 }

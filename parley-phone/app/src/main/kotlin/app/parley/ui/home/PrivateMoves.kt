@@ -1,6 +1,6 @@
 package app.parley.ui.home
 
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -73,7 +73,7 @@ class PrivateMoves(c: DataContainer, private val scope: CoroutineScope) {
     ) {
         scope.launch {
             val outcome = try {
-                suspendRunCatching { bulk.makePrivate(ids, names, already) { done, total -> _state.value = State.Moving(done, total) } }
+                catching { bulk.makePrivate(ids, names, already) { done, total -> _state.value = State.Moving(done, total) } }
             } catch (e: CancellationException) {
                 _state.value = null
                 throw e

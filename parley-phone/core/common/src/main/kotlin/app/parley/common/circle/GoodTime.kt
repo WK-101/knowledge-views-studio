@@ -2,6 +2,7 @@ package app.parley.common.circle
 
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.catching
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -60,7 +61,7 @@ object GoodTime {
      * several that are all at the same offset now. Null when unknown or when the country spans several offsets.
      */
     fun zoneOf(ids: List<String>, now: Long): ZoneId? {
-        val zones = ids.mapNotNull { id -> runCatching { ZoneId.of(id) }.getOrNull() }
+        val zones = ids.mapNotNull { id -> catching { ZoneId.of(id) }.getOrNull() }
         if (zones.isEmpty()) return null
         val offsets = zones.map { it.rules.getOffset(Instant.ofEpochMilli(now)) }.toSet()
         return if (offsets.size == 1) zones.first() else null

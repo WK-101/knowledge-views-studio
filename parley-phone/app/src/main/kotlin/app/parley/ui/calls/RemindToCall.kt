@@ -34,7 +34,7 @@ import app.parley.calls.CallPromiseActivity
 import app.parley.calls.ToCallReminders
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.ToCall
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.data.PhoneEnv
 import app.parley.telecom.R as TelecomR
 import app.parley.telecom.ui.RemindTimes
@@ -116,8 +116,8 @@ fun RemindToCallSheet(
 fun remindWithUndo(vm: AppViewModel, number: String, accountId: String?, at: Long) {
     val app = vm.getApplication<Application>()
     vm.viewModelScope.launch {
-        val before = suspendRunCatching { vm.c.toCall.load() }.getOrNull()
-        val set = before != null && suspendRunCatching { ToCallReminders.remind(app, number, accountId, at) }.getOrDefault(false)
+        val before = catching { vm.c.toCall.load() }.getOrNull()
+        val set = before != null && catching { ToCallReminders.remind(app, number, accountId, at) }.getOrDefault(false)
         if (before == null || !set) {
             vm.toast(app.getString(R.string.to_call_remind_failed))
             return@launch

@@ -4,6 +4,7 @@ import android.content.Context
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.NetworkNameSeen
+import app.parley.common.catching
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +33,7 @@ object NetworkNames {
         ) { _, vault, on ->
             if (!on) return@combine NONE
             val privateNumbers = PhoneIdentity.LineSet(vault.flatMap { it.numbers }, PhoneEnv.countryIso(c.appContext))
-            runCatching { c.networkNames.reader { it in privateNumbers } }.getOrElse { { _: String -> emptyList() } }
+            catching { c.networkNames.reader { it in privateNumbers } }.getOrElse { { _: String -> emptyList() } }
         }.flowOn(Dispatchers.IO)
 
     /** No names: until the readers are ready. */

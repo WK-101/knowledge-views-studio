@@ -5,6 +5,7 @@ import android.os.SystemClock
 import app.parley.common.calls.HelperCancel
 import app.parley.common.calls.HelperJoin
 import app.parley.common.calls.HelperStage
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,7 +43,7 @@ object HelperCalls {
         _join.value = HelperJoinUi(fromId, helper.name, helper.number)
         watchCalls()
         scope.launch {
-            val problem = runCatching { TelecomGraph.dependencies.redial(helper.number, accountId) }.getOrElse { it.message }
+            val problem = catching { TelecomGraph.dependencies.redial(helper.number, accountId) }.getOrElse { it.message }
             if (problem != null) {
                 _join.value = null
                 onProblem(problem)

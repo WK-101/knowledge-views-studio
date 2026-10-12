@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.NameReply
 import app.parley.common.calls.ScamCheck
+import app.parley.common.catching
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
 import app.parley.telecom.TelecomGraph
@@ -135,7 +136,7 @@ private fun Way(icon: ImageVector, title: Int, detail: Int?, onClick: () -> Unit
 
 /** The "Text me your name" reply for [call], or null: a saved caller, no number to text, or turned off. */
 internal fun nameReplyFor(call: CallUi): String? = NameReply.offered(
-    runCatching { TelecomGraph.dependencies.appearance.value.nameReply }.getOrDefault(""),
+    catching { TelecomGraph.dependencies.appearance.value.nameReply }.getOrDefault(""),
     savedCaller = !(call.unknown || call.noContact),
     hasNumber = !call.hidden && !call.number.isNullOrBlank(),
     emergency = call.isEmergency,

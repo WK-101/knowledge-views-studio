@@ -19,12 +19,12 @@ class LocalLabelFolder(private val dir: File) : LabelFolder {
     }
 
     override fun read(name: String): ByteArray? = fileOf(name)?.takeIf { it.isFile && it.length() <= SharedLabelFiles.MAX_FILE_BYTES }
-        ?.let { f -> runCatching { f.readBytes() }.getOrNull() }
+        ?.let { f -> catching { f.readBytes() }.getOrNull() }
 
     /** Written to a temporary file and renamed, so a crash never leaves half a file. */
     override fun write(name: String, bytes: ByteArray): String? {
         val target = fileOf(name) ?: return null
-        return runCatching {
+        return catching {
             DurableFiles.writeOrThrow(target, bytes)
             SharedLabelUpdates.stamp(bytes)
         }.getOrNull()

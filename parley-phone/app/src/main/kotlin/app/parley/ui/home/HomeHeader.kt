@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.ux.Tips
 import app.parley.ui.ParleyType
 import app.parley.ui.common.CoachMarkAnchor
@@ -108,7 +109,7 @@ fun HomeHeader(
 private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Unit, onClose: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) { catching { focus.requestFocus() } }
     ParleyTopBar(
         navigationIcon = { BackButton(onClose, stringResource(R.string.action_close_search)) },
         title = {

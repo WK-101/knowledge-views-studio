@@ -14,6 +14,3 @@ inline fun <T> catching(block: () -> T): Result<T> = try {
 } catch (e: Exception) {
     Result.failure(e)
 }
-
-/** The older name of [catching], kept for code written against it. */
-inline fun <T> suspendRunCatching(block: () -> T): Result<T> = catching(block)

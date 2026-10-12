@@ -1,5 +1,6 @@
 package app.parley.common.qr
 
+import app.parley.common.catching
 import java.net.IDN
 
 /**
@@ -59,7 +60,7 @@ object UrlSafety {
             return Info(scheme, host, host, host, warnings, w.href)
         }
         val ascii = host
-        val unicode = runCatching { IDN.toUnicode(ascii, IDN.ALLOW_UNASSIGNED) }.getOrDefault(host).lowercase()
+        val unicode = catching { IDN.toUnicode(ascii, IDN.ALLOW_UNASSIGNED) }.getOrDefault(host).lowercase()
         if (ascii != unicode || ascii.split('.').any { it.startsWith("xn--") }) warnings += Warning.IDN
         if (unicode.split('.').any { mixedScripts(it) }) warnings += Warning.MIXED_SCRIPT
         val domain = registrable(unicode)

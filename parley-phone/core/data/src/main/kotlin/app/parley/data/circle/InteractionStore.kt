@@ -1,5 +1,6 @@
 package app.parley.data.circle
 
+import app.parley.common.catching
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
 import app.parley.common.security.Concealed
@@ -60,7 +61,7 @@ class InteractionStore(private val dao: InteractionDao) {
             if (!Concealment.writtenWhileHiding(t)) return null
         }
         if (blob == null) return null
-        return runCatching { String(VaultCrypto.openCallerId(blob), Charsets.UTF_8) }.getOrNull()
+        return catching { String(VaultCrypto.openCallerId(blob), Charsets.UTF_8) }.getOrNull()
     }
 
     private fun token(id: Long) = "moment:$id"
@@ -172,7 +173,7 @@ class InteractionStore(private val dao: InteractionDao) {
 
     /** Puts a deleted entry back (Undo), with its original time and key. */
     suspend fun restore(i: Interaction): Long? =
-        runCatching { log(i.lookupKey, i.contactId, i.type, i.channel, i.time, i.note, i.dedupeKey, written = false) }.getOrNull()
+        catching { log(i.lookupKey, i.contactId, i.type, i.channel, i.time, i.note, i.dedupeKey, written = false) }.getOrNull()
 
     /** Undo of an automatic "Log this?" entry. */
     suspend fun deleteByDedupe(key: String) = withContext(Dispatchers.IO) { dao.deleteByDedupe(key) }

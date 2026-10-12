@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.ui.Destination
 import android.graphics.Bitmap
@@ -115,7 +116,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         filePass = null
         if (uri != null && pass != null) scope.launch {
             val ok = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(SimpleTransfer.encryptFile(cfg, pass)) } }.isSuccess
+                catching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(SimpleTransfer.encryptFile(cfg, pass)) } }.isSuccess
             }
             pass.fill(' ')
             vm.toast(res.getString(if (ok) R.string.simple_file_saved else R.string.simple_file_failed))
@@ -386,7 +387,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         val q = qr
                         val f = file
                         imported = withContext(Dispatchers.IO) {
-                            runCatching {
+                            catching {
                                 if (q != null) SimpleTransfer.fromQr(q, code)
                                 else SimpleTransfer.decryptFile(
                                     context.contentResolver.openInputStream(f!!)!!.use { Bounded.readBytes(it, Bounded.Caps.SETUP_FILE, "setup") },

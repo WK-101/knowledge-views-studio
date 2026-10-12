@@ -1,6 +1,7 @@
 package app.parley.ui.people
 
 import android.os.SystemClock
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ContactSearch
 import app.parley.data.DataContainer
@@ -142,7 +143,7 @@ class PrivateSearch(
      * they can't be opened right now (the Keystore is busy): that contact is found by name and number, as listed.
      */
     private suspend fun detailsOf(vaultId: Long): ContactDetails? {
-        val r = runCatching { c.vault.details(vaultId) }
+        val r = catching { c.vault.details(vaultId) }
         when (val e = r.exceptionOrNull()) {
             is VaultCrypto.LockedException, is CancellationException -> throw e
         }

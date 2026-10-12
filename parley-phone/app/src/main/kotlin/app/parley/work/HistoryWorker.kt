@@ -12,6 +12,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
+import app.parley.common.catching
 import app.parley.common.history.PlanUsage
 import app.parley.container
 import app.parley.ui.history.ExportFiles
@@ -27,12 +28,12 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val c = applicationContext.container
         val full = inputData.getBoolean(KEY_FULL, true)
         // After a call, with the full app running its own archive sync follows the call log already: not twice.
-        if (full || !c.fullStart.isOpen) runCatching { c.history.sync(full) }
+        if (full || !c.fullStart.isOpen) catching { c.history.sync(full) }
         if (full) {
-            runCatching { c.history.applyRetention(c.settings.current().callLogRetentionDays) }
+            catching { c.history.applyRetention(c.settings.current().callLogRetentionDays) }
             ExportFiles.cleanup(applicationContext, olderThanMillis = TimeUnit.HOURS.toMillis(1))
         }
-        runCatching { warnPlans(applicationContext) }
+        catching { warnPlans(applicationContext) }
         return Result.success()
     }
 

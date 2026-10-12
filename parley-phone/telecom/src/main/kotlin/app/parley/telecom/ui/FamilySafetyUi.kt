@@ -73,6 +73,7 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.calls.HelperStage
 import app.parley.common.calls.Helpers
 import app.parley.common.calls.SafeWords
+import app.parley.common.catching
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
@@ -141,13 +142,13 @@ internal class FamilyCallState {
 @Composable
 internal fun LoadFamilyCallState(primary: CallUi?, st: FamilyCallState) {
     LaunchedEffect(Unit) {
-        st.helpers = runCatching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.helpers() } }.getOrDefault(emptyList())
+        st.helpers = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.helpers() } }.getOrDefault(emptyList())
     }
     val call = primary?.takeIf { !it.isEmergency && it.state != CallState.SELECT_ACCOUNT }
     LaunchedEffect(call?.id, call?.number) {
         if (call == null) return@LaunchedEffect
         val number = call.number?.takeIf { !call.hidden && it.isNotBlank() }
-        val found = runCatching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.safeWordsFor(number, call.accountId) } }.getOrDefault(emptyList())
+        val found = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.safeWordsFor(number, call.accountId) } }.getOrDefault(emptyList())
         st.prompts = call.id to found
     }
 }
@@ -215,7 +216,7 @@ private class Reveal(private val label: String, private val appLocked: () -> Boo
     }
 
     suspend fun load() {
-        if (answer == null) answer = runCatching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.safeWordAnswer(label) } }.getOrNull()
+        if (answer == null) answer = catching { withContext(Dispatchers.IO) { TelecomGraph.dependencies.safeWordAnswer(label) } }.getOrNull()
     }
 }
 
@@ -225,7 +226,7 @@ private fun SafeWordRow(p: SafeWordPrompt, labelled: Boolean, onUnlock: (() -> U
     val scope = rememberCoroutineScope()
     val locked by rememberUpdatedState(rememberKeyguardLocked())
     // Parley's own app lock, read from memory each time the answer is asked for.
-    val reveal = remember(p.label) { Reveal(p.label) { runCatching { TelecomGraph.dependencies.appLockLocked() }.getOrDefault(true) } }
+    val reveal = remember(p.label) { Reveal(p.label) { catching { TelecomGraph.dependencies.appLockLocked() }.getOrDefault(true) } }
     val confirmTitle = stringResource(R.string.safeword_confirm_title)
     // Android 10 without a fingerprint: the keyguard's own "confirm your PIN" screen.
     val credential = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -340,7 +341,7 @@ private fun confirmItsYou(context: Context, title: String, onFallback: (android.
             setDeviceCredentialAllowed(true)
         }
     }.build()
-    runCatching {
+    catching {
         prompt.authenticate(
             CancellationSignal(), context.mainExecutor,
             object : BiometricPrompt.AuthenticationCallback() {

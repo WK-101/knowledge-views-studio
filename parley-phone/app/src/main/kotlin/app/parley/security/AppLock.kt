@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.catching
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -487,7 +488,7 @@ private fun EmergencyDialog(initial: String, onDismiss: () -> Unit) {
     var isEmergency by remember { mutableStateOf(false) }
     LaunchedEffect(number) { isEmergency = withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(context, number.trim()) } }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) { catching { focus.requestFocus() } }
     ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.Emergency, null) },
@@ -532,7 +533,7 @@ private fun keypadDigits(v: String): String = EmergencyPolicy.asciiDigits(v).fil
 object EmergencyDialer {
     /** When Parley can't place the call itself: the system dialer (never Parley's own keypad, which is behind the lock). */
     fun openSystemDialer(context: Context, number: String) {
-        val pkg = runCatching { context.getSystemService(TelecomManager::class.java)?.systemDialerPackage }.getOrNull()
+        val pkg = catching { context.getSystemService(TelecomManager::class.java)?.systemDialerPackage }.getOrNull()
             ?.takeIf { it != context.packageName } ?: return
         try {
             context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

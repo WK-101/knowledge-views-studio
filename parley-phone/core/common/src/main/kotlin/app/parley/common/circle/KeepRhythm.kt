@@ -1,6 +1,7 @@
 package app.parley.common.circle
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import java.time.Instant
 import java.time.ZoneId
@@ -63,7 +64,7 @@ data class KeepRhythm(
     companion object {
         private val json = Codecs.stored
 
-        fun decode(text: String?): KeepRhythm = if (text.isNullOrBlank()) KeepRhythm() else runCatching { json.decodeFromString(serializer(), text) }.getOrDefault(KeepRhythm())
+        fun decode(text: String?): KeepRhythm = if (text.isNullOrBlank()) KeepRhythm() else catching { json.decodeFromString(serializer(), text) }.getOrDefault(KeepRhythm())
 
         /**
          * Two rows now belong to one contact (MetaRekey): the row already at the new key wins (its season too), but a

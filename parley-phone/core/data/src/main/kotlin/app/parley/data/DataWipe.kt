@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.CallLog
 import android.provider.ContactsContract.RawContacts
 import android.util.Log
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStore
 import app.parley.common.storage.PersistentStores
 import app.parley.common.storage.StoreKind
@@ -47,8 +48,8 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
         if (o.phoneContacts) step("phone contacts") { deletePhoneContacts() }
         // Databases: closed first, so their files (and journals) can go.
         step("databases") {
-            runCatching { c.db.close() }
-            runCatching { c.history.closeForWipe() }
+            catching { c.db.close() }
+            catching { c.history.closeForWipe() }
             PersistentStores.of(StoreKind.ROOM_TABLE).mapNotNull { it.location }.distinct().forEach { name ->
                 if (!context.deleteDatabase(name) && context.getDatabasePath(name).exists()) failed += name
             }
@@ -86,7 +87,7 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
     /** Parley's Keystore keys (the Keystore only lists this app's own). */
     private fun deleteKeys() {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        ks.aliases().toList().forEach { runCatching { ks.deleteEntry(it) } }
+        ks.aliases().toList().forEach { catching { ks.deleteEntry(it) } }
         // Fingerprints remembered in memory were made with the HMAC key that just went.
         app.parley.data.vault.VaultCrypto.forgetKeyHandles()
     }

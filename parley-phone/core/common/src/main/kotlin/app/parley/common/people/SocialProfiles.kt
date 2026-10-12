@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.catching
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Locale
@@ -249,12 +250,12 @@ object SocialProfiles {
         val s = raw.trim()
         if (s.isEmpty() || s.any { it.isWhitespace() }) return null
         val withScheme = if (s.contains("://")) s else "https://$s"
-        val uri = runCatching { URI(withScheme.replace(" ", "%20")) }.getOrNull() ?: return null
+        val uri = catching { URI(withScheme.replace(" ", "%20")) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
         if (scheme != "http" && scheme != "https") return null
         var host = uri.host?.lowercase(Locale.ROOT)?.trimEnd('.') ?: return null
         for (p in listOf("www.", "m.", "mobile.", "web.", "old.", "new.", "np.")) if (host.startsWith(p)) host = host.removePrefix(p)
-        val path = runCatching { uri.rawPath?.let { URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") } }.getOrNull() ?: uri.path.orEmpty()
+        val path = catching { uri.rawPath?.let { URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") } }.getOrNull() ?: uri.path.orEmpty()
         val segments = path.split('/').filter { it.isNotEmpty() }
         val query = uri.rawQuery.orEmpty().split('&').mapNotNull { kv ->
             val k = kv.substringBefore('=', "")

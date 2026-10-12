@@ -55,6 +55,7 @@ import app.parley.common.RuleKind
 import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.common.Schedule
+import app.parley.common.catching
 import app.parley.data.DryRun
 import app.parley.data.GroupInfo
 import app.parley.ui.common.Format
@@ -322,7 +323,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     dryRunning = true
                     scope.launch {
                         val calls = vm.c.history.calls.value.orEmpty()
-                        dry = runCatching { vm.c.screener.dryRun(calls, 7, candidateRule = r.copy(id = -1, pattern = checked.pattern, enabled = true, hitCount = 0)) }.getOrNull()
+                        dry = catching { vm.c.screener.dryRun(calls, 7, candidateRule = r.copy(id = -1, pattern = checked.pattern, enabled = true, hitCount = 0)) }.getOrNull()
                         dryRunning = false
                     }
                 }, enabled = !dryRunning) { Text(stringResource(if (dryRunning) R.string.blk_editor_dry_busy else R.string.blk_editor_dry_button)) }

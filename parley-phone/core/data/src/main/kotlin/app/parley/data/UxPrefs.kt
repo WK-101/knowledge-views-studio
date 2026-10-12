@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import app.parley.common.catching
 import app.parley.common.ux.BackupNudge
 import app.parley.common.ux.Tips
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,7 +62,7 @@ class UxPrefs(context: Context) {
 
     /** When Parley was first installed on this device (the backup clock starts there before the first backup). */
     fun installedAt(context: Context): Long =
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime }.getOrDefault(0L)
+        catching { context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime }.getOrDefault(0L)
 
     private companion object {
         const val K_TIPS = "seen_tips"

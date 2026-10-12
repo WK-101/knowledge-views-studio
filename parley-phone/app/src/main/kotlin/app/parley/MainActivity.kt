@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.catching
 import app.parley.security.SharedUris
 import app.parley.security.LockedActivity
 import android.Manifest
@@ -149,8 +150,8 @@ class MainActivity : LockedActivity() {
         lifecycleScope.launch {
             val s = vm.c.settings.current()
             // The phone is unlocked now: a Circle widget drawn while it was locked shows names again.
-            if (s.appLock) launch { runCatching { CircleWidget.refreshIfShownLocked(applicationContext) } }
-            if (s.appLock) launch { runCatching { FavoritesWidget.refreshIfShownLocked(applicationContext) } }
+            if (s.appLock) launch { catching { CircleWidget.refreshIfShownLocked(applicationContext) } }
+            if (s.appLock) launch { catching { FavoritesWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == Intent.ACTION_MAIN) {
                 vm.navigate(NavEvent.Tab(HomeLayout(s.navTabs, s.surfaces).startRequest(s.startTab)))
@@ -235,8 +236,8 @@ class MainActivity : LockedActivity() {
         val value = data.schemeSpecificPart.orEmpty()
         val id: Long? = withContext(Dispatchers.IO) {
             when (data.scheme) {
-                "tel" -> runCatching { vm.c.contacts.lookup(value)?.contactId }.getOrNull()
-                "mailto" -> runCatching {
+                "tel" -> catching { vm.c.contacts.lookup(value)?.contactId }.getOrNull()
+                "mailto" -> catching {
                     contentResolver.query(
                         Uri.withAppendedPath(ContactsContract.CommonDataKinds.Email.CONTENT_LOOKUP_URI, Uri.encode(value)),
                         arrayOf(ContactsContract.Data.CONTACT_ID), null, null, null,

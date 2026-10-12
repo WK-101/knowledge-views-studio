@@ -2,6 +2,7 @@ package app.parley.common.people
 
 import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 
 /**
@@ -72,5 +73,5 @@ object Archive {
     fun encode(card: ArchivedCard): String = json.encodeToString(ArchivedCard.serializer(), card)
 
     fun decode(text: String?): ArchivedCard? =
-        text?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(ArchivedCard.serializer(), it) }.getOrNull() }
+        text?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(ArchivedCard.serializer(), it) }.getOrNull() }
 }

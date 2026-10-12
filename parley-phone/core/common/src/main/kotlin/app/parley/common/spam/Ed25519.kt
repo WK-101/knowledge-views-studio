@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import app.parley.common.catching
 import java.security.SecureRandom
 import java.util.Locale
 import java.math.BigInteger
@@ -23,7 +24,7 @@ object Ed25519 {
 
     /** Whether the platform has Ed25519 (checked once). */
     val platformAvailable: Boolean by lazy {
-        runCatching { Signature.getInstance("Ed25519"); KeyFactory.getInstance("Ed25519") }.isSuccess
+        catching { Signature.getInstance("Ed25519"); KeyFactory.getInstance("Ed25519") }.isSuccess
     }
 
     // BigInteger.TWO only exists from Android API 33.

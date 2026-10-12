@@ -10,6 +10,7 @@ import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import app.parley.common.RegionPick
+import app.parley.common.catching
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -32,12 +33,12 @@ object PhoneEnv {
 
     private fun readCountryIso(context: Context): String {
         val tm = context.getSystemService(TelephonyManager::class.java)
-        val system = runCatching {
+        val system = catching {
             val list = Resources.getSystem().configuration.locales
             (0 until list.size()).map { list[it].country } + LocaleList.getAdjustedDefault().let { l -> (0 until l.size()).map { l[it].country } }
         }.getOrDefault(emptyList())
         return RegionPick.pick(
-            runCatching { tm?.simCountryIso }.getOrNull(), runCatching { tm?.networkCountryIso }.getOrNull(), system, Locale.getDefault().country,
+            catching { tm?.simCountryIso }.getOrNull(), catching { tm?.networkCountryIso }.getOrNull(), system, Locale.getDefault().country,
         )
     }
 
@@ -63,7 +64,7 @@ object PhoneEnv {
             val subId = if (Build.VERSION.SDK_INT >= 30) {
                 val tm = context.getSystemService(TelephonyManager::class.java)
                 context.getSystemService(TelecomManager::class.java)?.callCapablePhoneAccounts
-                    ?.firstOrNull { it.id == accountId }?.let { h -> runCatching { tm?.getSubscriptionId(h) }.getOrNull() }
+                    ?.firstOrNull { it.id == accountId }?.let { h -> catching { tm?.getSubscriptionId(h) }.getOrNull() }
             } else {
                 null
             }

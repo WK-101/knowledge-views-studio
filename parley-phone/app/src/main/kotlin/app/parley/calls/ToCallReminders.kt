@@ -74,10 +74,10 @@ object ToCallReminders {
         val key = PhoneIdentity.key(number, iso)
         if (!canRemind(key, number)) return false
         // Their time zone, when the number tells it (offline), for "after 6 pm their time".
-        val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
+        val zone = catching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId, promised = promised) }
         // A number nobody saved may call back before then (asked once; off until accepted).
-        runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
+        catching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
         return containerOf(context).toCall.available
     }
 
@@ -89,7 +89,7 @@ object ToCallReminders {
         val iso = PhoneEnv.countryIso(context, null)
         val key = PhoneIdentity.key(number, iso)
         if (!canRemind(key, number)) return false
-        val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
+        val zone = catching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { CatchUp.set(it, key, number, at, now, zone) }
         return containerOf(context).toCall.available
     }
@@ -104,7 +104,7 @@ object ToCallReminders {
         if (w.changed && !workerRunning) schedule(context, w.state)
         // A line that left the list (done, removed, or settled by a call) stops ringing through.
         val gone = before?.items.orEmpty().map { it.key }.toSet() - w.state.items.map { it.key }.toSet()
-        if (w.changed && gone.isNotEmpty()) runCatching { ExpectedCallHints.toCallGone(containerOf(context), gone) }
+        if (w.changed && gone.isNotEmpty()) catching { ExpectedCallHints.toCallGone(containerOf(context), gone) }
         return w.state
     }
 
@@ -114,7 +114,7 @@ object ToCallReminders {
      * worker never cancels itself.
      */
     fun schedule(context: Context, state: ToCallState, now: Long = System.currentTimeMillis(), fromWorker: Boolean = false) {
-        val wm = runCatching { WorkManager.getInstance(context) }.getOrNull() ?: return
+        val wm = catching { WorkManager.getInstance(context) }.getOrNull() ?: return
         val next = ToCall.nextAlarm(state, now)
         if (next == null) {
             // The running worker ends by itself; cancelling it here would cut it short.
@@ -161,7 +161,7 @@ object ToCallReminders {
         val private = catching { c.vault.privateCallsNow().map(CallHistory::privateEntry) }.getOrDefault(emptyList())
         val calls = items.flatMap { item ->
             val iso = PhoneEnv.countryIso(context, item.accountId)
-            val system = loaded ?: runCatching { c.callLog.pastCalls(item.number, now, limit = 20) }.getOrDefault(emptyList())
+            val system = loaded ?: catching { c.callLog.pastCalls(item.number, now, limit = 20) }.getOrDefault(emptyList())
             (system + private).filter { ToCall.settles(it) && PhoneIdentity.same(it.number, item.number, iso) }.map { SettlingCall(item.key, it.date) }
         }
         // Inside the worker: the one schedule at its end covers this change.
@@ -260,7 +260,7 @@ class ToCallActionReceiver : BroadcastReceiver() {
         context.container.scope.launch {
             try {
                 ToCallReminders.cancelNotification(context)
-                runCatching { ToCallReminders.update(context) { ToCall.notNow(it, keys, System.currentTimeMillis()) } }
+                catching { ToCallReminders.update(context) { ToCall.notNow(it, keys, System.currentTimeMillis()) } }
             } finally {
                 pending.finish()
             }

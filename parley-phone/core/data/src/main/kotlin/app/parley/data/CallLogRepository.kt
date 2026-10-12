@@ -9,6 +9,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.backup.CallLogRecord
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -151,7 +152,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
 
     /** Every row of the system call log, oldest first, with the columns a backup keeps. */
     fun exportAll(): Sequence<CallLogRecord> = sequence {
-        val c = runCatching {
+        val c = catching {
             cr.query(
                 Calls.CONTENT_URI,
                 arrayOf(
@@ -176,7 +177,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
     /** "number|date|duration|type" of every system call-log row, to skip rows a restore would add twice. */
     fun rowSignatures(): Set<String> {
         val existing = HashSet<String>()
-        runCatching {
+        catching {
             cr.query(Calls.CONTENT_URI, arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE), null, null, null)?.use { c ->
                 while (c.moveToNext()) existing += signature(c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3))
             }
@@ -201,7 +202,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
                 put(Calls.FEATURES, rec.features)
             }
         }.toTypedArray()
-        runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+        catching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
     }
 
     suspend fun delete(ids: Collection<Long>) = withContext(Dispatchers.IO) {

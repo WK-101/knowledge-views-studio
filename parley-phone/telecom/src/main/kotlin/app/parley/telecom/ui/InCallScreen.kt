@@ -602,14 +602,14 @@ private val tipsDismissedHere = mutableStateListOf<String>()
 
 private fun markTipSeen(id: String) {
     if (id !in tipsDismissedHere) tipsDismissedHere += id
-    runCatching { TelecomGraph.dependencies.markTipSeen(id) }
+    catching { TelecomGraph.dependencies.markTipSeen(id) }
 }
 
 /** The speaker tip, once: press and hold Speaker for the list of outputs (only while connected, with somewhere to choose). */
 @Composable
 private fun AudioRoutesTip(call: CallUi, audio: AudioUi) {
     if (call.state != CallState.ACTIVE || audio.routes.size < 2 || Tips.CALL_AUDIO_ROUTES in tipsDismissedHere) return
-    val seen = remember { runCatching { TelecomGraph.dependencies.tipSeen(Tips.CALL_AUDIO_ROUTES) }.getOrDefault(true) }
+    val seen = remember { catching { TelecomGraph.dependencies.tipSeen(Tips.CALL_AUDIO_ROUTES) }.getOrDefault(true) }
     if (seen) return
     CallTip(stringResource(R.string.call_tip_audio_routes)) { markTipSeen(Tips.CALL_AUDIO_ROUTES) }
 }

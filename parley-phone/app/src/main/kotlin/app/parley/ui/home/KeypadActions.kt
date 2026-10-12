@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.catching
 import app.parley.ui.Destination
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -91,7 +92,7 @@ internal class KeypadActions(
         val target = r?.number ?: DialTarget.pick(input, results.firstOrNull()?.number) ?: return
         if (!CallReason.offered(target)) return
         // Found it: the tip about the long-press has done its job.
-        runCatching { vm.c.ux.dismissTip(Tips.CALL_REASON) }
+        catching { vm.c.ux.dismissTip(Tips.CALL_REASON) }
         show(KeypadDialog.Reason(ReasonTarget(target, r?.contact?.displayName ?: nameFor(target), simId)))
     }
 
@@ -209,7 +210,7 @@ internal class DialTones(private val context: Context, private val scope: Corout
 
     private fun allowed(appSetting: Boolean): Boolean = KeypadFeedback.playTone(
         appSetting = appSetting,
-        systemDialpadTones = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
+        systemDialpadTones = catching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
         ringerNormal = audioManager?.ringerMode?.let { it == AudioManager.RINGER_MODE_NORMAL } ?: true,
     )
 
@@ -234,7 +235,7 @@ internal class DialTones(private val context: Context, private val scope: Corout
     /** A key can leave the screen mid-press (keypad hidden, tab changed): its tone must not keep playing. */
     fun release() {
         token.incrementAndGet()
-        runCatching { tone?.stopTone() }
+        catching { tone?.stopTone() }
         tone?.release()
     }
 }

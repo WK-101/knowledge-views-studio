@@ -17,6 +17,7 @@ import app.parley.common.ReachGroup
 import app.parley.common.ReachGroups
 import app.parley.common.ReachKind
 import app.parley.common.ReachRow
+import app.parley.common.catching
 import app.parley.common.people.HandleLink
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessageRoutes
@@ -96,7 +97,7 @@ object ContactMessaging {
         if (r.isPrivate) return
         val key = r.lookupKey?.takeIf { it.isNotEmpty() } ?: return
         val c = context.container
-        c.scope.launch { runCatching { c.circle.onLaunched(key, r.contactId, r.name, channel) } }
+        c.scope.launch { catching { c.circle.onLaunched(key, r.contactId, r.name, channel) } }
     }
 
     /** [start] for a messenger row of [r] (chat or video), then the Circle's "Log this?". */
@@ -106,7 +107,7 @@ object ContactMessaging {
 
     /** "Last messaged via…" for the number (private numbers are never recorded, see MessagingStore). */
     private fun record(context: Context, number: String, app: MessengerApp?, label: String) {
-        runCatching {
+        catching {
             val store = context.container.messaging
             store.lastApp = app?.packageName ?: store.lastApp
             store.recordOpened(number, app, label, isContact = true)

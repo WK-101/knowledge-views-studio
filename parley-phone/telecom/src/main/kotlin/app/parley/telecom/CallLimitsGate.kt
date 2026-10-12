@@ -2,6 +2,7 @@ package app.parley.telecom
 
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
+import app.parley.common.catching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -27,7 +28,7 @@ internal class CallLimitsGate(private val scope: CoroutineScope, private val hoo
         if (EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)) return
         scope.launch {
             val over = withTimeoutOrNull(ScreeningCoordinator.SCREEN_TIMEOUT_MS) {
-                runCatching { hooks().silenceOverQuota(number, accountId) }.getOrDefault(false)
+                catching { hooks().silenceOverQuota(number, accountId) }.getOrDefault(false)
             } == true
             if (over && stillRinging() && !session.silenced) {
                 session.silenced = true

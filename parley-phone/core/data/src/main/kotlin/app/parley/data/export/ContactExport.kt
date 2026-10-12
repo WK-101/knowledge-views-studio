@@ -320,7 +320,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
          * can't delete keeps it, empty).
          */
         fun discard(context: Context, target: Uri) {
-            runCatching {
+            catching {
                 if (target.scheme == "file") target.path?.let { File(it).delete() } else DocumentsContract.deleteDocument(context.contentResolver, target)
             }
                 .onFailure { Log.w(TAG, "Couldn't remove an unfinished export", it) }
@@ -337,7 +337,7 @@ class ContactExport(private val context: Context, private val c: DataContainer) 
             val folder = prefs.getString("folder", null)
             val wasUpdating = folder != null && prefs.getBoolean("auto", true)
             folder?.let { u ->
-                runCatching {
+                catching {
                     context.contentResolver.releasePersistableUriPermission(
                         Uri.parse(u), Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
                     )

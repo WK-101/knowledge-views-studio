@@ -16,6 +16,7 @@ import androidx.core.graphics.drawable.IconCompat
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
+import app.parley.common.catching
 import app.parley.ui.avatarColor
 import app.parley.ui.avatarInk
 import app.parley.ui.initialsOf
@@ -35,6 +36,7 @@ object Shortcuts {
             .apply { if (name != null) putExtra(ShortcutActivity.EXTRA_NAME, name) }
 
     fun icon(context: Context, name: String, photoUri: String?): IconCompat {
+        // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
         val bmp = photoUri?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
         return IconCompat.createWithAdaptiveBitmap(bmp?.let { square(it) } ?: monogram(name))
     }
@@ -102,7 +104,7 @@ object Shortcuts {
 
     /** A deleted menu shortcut's pinned copy stops working (launchers keep the icon, greyed out). */
     fun disableMenu(context: Context, id: String, message: String) {
-        runCatching { ShortcutManagerCompat.disableShortcuts(context, listOf(menuId(id)), message) }
+        catching { ShortcutManagerCompat.disableShortcuts(context, listOf(menuId(id)), message) }
     }
 
     /** A renamed menu shortcut keeps its pinned copy in step, its photo included ([iconOf] is replaced in tests). */
@@ -110,7 +112,7 @@ object Shortcuts {
         context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?,
         iconOf: (Context, String, String?) -> IconCompat = ::icon,
     ) {
-        runCatching { ShortcutManagerCompat.updateShortcuts(context, listOf(menuInfo(context, id, name, dialString, iconName, photoUri, iconOf))) }
+        catching { ShortcutManagerCompat.updateShortcuts(context, listOf(menuInfo(context, id, name, dialString, iconName, photoUri, iconOf))) }
     }
 
     /** One menu shortcut as pinned and as renamed, so the two can't drift apart. */
@@ -126,7 +128,7 @@ object Shortcuts {
 
     /** Keeps launcher long-press shortcuts in sync with favourites. */
     fun updateDynamic(context: Context, favorites: List<ContactSummary>) {
-        runCatching {
+        catching {
             val list = ArrayList<ShortcutInfoCompat>()
             list += ShortcutInfoCompat.Builder(context, "new-contact")
                 .setShortLabel(context.getString(R.string.label_new_contact))

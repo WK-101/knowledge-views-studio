@@ -140,7 +140,7 @@ class MeCardStore(context: Context) {
     /** The photo's URI for the avatar (its time in it, so a new one isn't served from a cache), or null. */
     fun photoUri(): String? = photoFile().takeIf { it.isFile }?.let { "${Uri.fromFile(it)}?v=${it.lastModified()}" }
 
-    fun photoBytes(): ByteArray? = runCatching { photoFile().takeIf { it.isFile }?.readBytes() }.getOrNull()
+    fun photoBytes(): ByteArray? = catching { photoFile().takeIf { it.isFile }?.readBytes() }.getOrNull()
 
     /** Stores [jpeg] as My card's photo; false when it couldn't be written. */
     suspend fun setPhoto(jpeg: ByteArray): Boolean = withContext(Dispatchers.IO) {
@@ -171,16 +171,16 @@ class MeCardStore(context: Context) {
      */
     fun importJson(json: String) {
         if (!MeCardDetails.isEmpty(_details.value)) return
-        val o = runCatching { JSONObject(json) }.getOrNull() ?: return
+        val o = catching { JSONObject(json) }.getOrNull() ?: return
         if (!o.has(J_DETAILS)) {
-            runCatching { decodeCard(json) }.getOrNull()?.let(::save)
+            catching { decodeCard(json) }.getOrNull()?.let(::save)
             return
         }
-        val d = runCatching { decode(o.getString(J_DETAILS)) }.getOrNull() ?: return
+        val d = catching { decode(o.getString(J_DETAILS)) }.getOrNull() ?: return
         save(d, RelationLinks.decode(o.optString(J_LINKS).ifEmpty { null }))
         o.optString(J_PHOTO).ifEmpty { null }?.let { b64 ->
-            runCatching { Base64.decode(b64, Base64.NO_WRAP) }.getOrNull()?.let { bytes ->
-                runCatching {
+            catching { Base64.decode(b64, Base64.NO_WRAP) }.getOrNull()?.let { bytes ->
+                catching {
                     val f = photoFile()
                     f.parentFile?.mkdirs()
                     f.writeBytes(bytes)
@@ -195,8 +195,8 @@ class MeCardStore(context: Context) {
      * contact and written back that way at once, so the old copy can't drift from it.
      */
     private fun read(): ContactDetails {
-        prefs.getString(K_DETAILS, null)?.let { s -> runCatching { decode(s) }.getOrNull()?.let { return it.copy(photoUri = photoUri()) } }
-        val old = prefs.getString(K_CARD, null)?.let { runCatching { decodeCard(it) }.getOrNull() } ?: return ContactDetails(photoUri = photoUri())
+        prefs.getString(K_DETAILS, null)?.let { s -> catching { decode(s) }.getOrNull()?.let { return it.copy(photoUri = photoUri()) } }
+        val old = prefs.getString(K_CARD, null)?.let { catching { decodeCard(it) }.getOrNull() } ?: return ContactDetails(photoUri = photoUri())
         val d = MeCardDetails.toDetails(old.cleaned())
         prefs.edit(commit = true) {
             putString(K_DETAILS, encode(d))

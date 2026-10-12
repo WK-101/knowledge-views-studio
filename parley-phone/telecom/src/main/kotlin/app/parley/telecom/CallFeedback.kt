@@ -10,6 +10,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import app.parley.common.calltime.CallHaptic
+import app.parley.common.catching
 
 /**
  * Haptics and earpiece beeps during calls.
@@ -29,7 +30,7 @@ internal class CallFeedback(context: Context) {
 
     /** Call event haptics, only when enabled in settings. */
     fun haptic(h: CallHaptic) {
-        val enabled = runCatching { TelecomGraph.dependencies.callHaptics() }.getOrDefault(false)
+        val enabled = catching { TelecomGraph.dependencies.callHaptics() }.getOrDefault(false)
         if (enabled) vibrate(h)
     }
 

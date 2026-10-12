@@ -2,6 +2,7 @@ package app.parley.data
 
 import app.parley.common.GeoLanguages
 import app.parley.common.RecentCache
+import app.parley.common.catching
 import app.parley.common.circle.GoodTime
 import app.parley.common.phone.AreaNames
 import app.parley.common.phone.PhoneData
@@ -63,7 +64,7 @@ object NumberInfo {
      * callers come from), so the first incoming call or Recents scroll doesn't pay for it.
      */
     fun warm(countryIso: String) {
-        runCatching {
+        catching {
             val example = util.getExampleNumber(countryIso.uppercase(Locale.ROOT)) ?: return
             location(util.format(example, PhoneNumberUtil.PhoneNumberFormat.E164), countryIso)
         }

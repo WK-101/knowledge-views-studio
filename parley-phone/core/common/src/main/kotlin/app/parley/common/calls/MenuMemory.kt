@@ -2,6 +2,7 @@ package app.parley.common.calls
 
 import app.parley.common.Codecs
 import app.parley.common.PhoneIdentity
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlin.math.roundToLong
 
@@ -318,7 +319,7 @@ object MenuMemory {
     fun encode(state: MenuState): String = json.encodeToString(MenuState.serializer(), state)
 
     fun decode(stored: String?): MenuState =
-        stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(MenuState.serializer(), it) }.getOrNull() } ?: MenuState()
+        stored?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(MenuState.serializer(), it) }.getOrNull() } ?: MenuState()
 
     private val TONES = "0123456789*#".toSet()
     private val MARKS = setOf('#', '*')

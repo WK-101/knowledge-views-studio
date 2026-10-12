@@ -1,5 +1,6 @@
 package app.parley.common.cards
 
+import app.parley.common.catching
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
 import app.parley.common.spam.Ed25519
@@ -166,7 +167,7 @@ object SignedCards {
 
     fun encodeKey(raw: ByteArray): String = b64.encodeToString(raw)
 
-    fun fingerprint(publicKey: String): String = runCatching { Ed25519.fingerprint(unb64.decode(publicKey)) }.getOrDefault("")
+    fun fingerprint(publicKey: String): String = catching { Ed25519.fingerprint(unb64.decode(publicKey)) }.getOrDefault("")
 
     /** A new random card id (128 bits, base64url). */
     fun newCardId(random: java.util.Random = java.security.SecureRandom()): String = ByteArray(16).also { random.nextBytes(it) }.let(b64::encodeToString)
@@ -225,7 +226,7 @@ object SignedCards {
         return SignedCard(cardId, version, pub, f, b64.encodeToString(sig), parts)
     }
 
-    fun verify(card: SignedCard): Boolean = runCatching {
+    fun verify(card: SignedCard): Boolean = catching {
         Ed25519.verify(unb64.decode(card.publicKey), payload(card.cardId, card.version, card.publicKey, card.fields, card.parts), unb64.decode(card.signature))
     }.getOrDefault(false)
 

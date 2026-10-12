@@ -7,6 +7,7 @@ import android.util.Base64
 import app.parley.common.StoredStatus
 import app.parley.common.backup.KeyBundle
 import app.parley.common.backup.RetentionPolicy
+import app.parley.common.catching
 import app.parley.data.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,7 +88,7 @@ class BackupPrefs(context: Context) {
     private fun load() = BackupState(
         folderUri = prefs.getString("folder", null),
         folderName = prefs.getString("folderName", null),
-        schedule = runCatching { BackupSchedule.valueOf(prefs.getString("schedule", "OFF")!!) }.getOrDefault(BackupSchedule.OFF),
+        schedule = catching { BackupSchedule.valueOf(prefs.getString("schedule", "OFF")!!) }.getOrDefault(BackupSchedule.OFF),
         keepLast = prefs.getInt("keepLast", 0),
         hasKeys = prefs.contains("bundle"),
         keyId = prefs.getString("keyId", null),
@@ -109,7 +110,7 @@ class BackupPrefs(context: Context) {
         _state.value = load()
     }
 
-    fun keyBundle(): KeyBundle? = prefs.getString("bundle", null)?.let { runCatching { KeyBundle.fromBytes(Base64.decode(it, Base64.NO_WRAP)) }.getOrNull() }
+    fun keyBundle(): KeyBundle? = prefs.getString("bundle", null)?.let { catching { KeyBundle.fromBytes(Base64.decode(it, Base64.NO_WRAP)) }.getOrNull() }
 
     fun saveKeyBundle(b: KeyBundle) = update {
         it.putString("bundle", Base64.encodeToString(b.toBytes(), Base64.NO_WRAP)).putString("keyId", b.keyId)
@@ -118,7 +119,7 @@ class BackupPrefs(context: Context) {
     /** The key bundle's endorsement of this phone's signing key, if it is for the current bundle. */
     fun endorsement(): ByteArray? {
         if (!state.value.signedAsYours) return null
-        return prefs.getString("endorsement", null)?.let { runCatching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
+        return prefs.getString("endorsement", null)?.let { catching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
     }
 
     fun saveEndorsement(keyId: String, endorsement: ByteArray) = update {

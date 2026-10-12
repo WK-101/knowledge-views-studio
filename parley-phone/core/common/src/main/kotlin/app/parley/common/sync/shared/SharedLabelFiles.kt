@@ -2,6 +2,7 @@ package app.parley.common.sync.shared
 
 import app.parley.common.Codecs
 import app.parley.common.backup.RecordJson
+import app.parley.common.catching
 import app.parley.common.spam.Ed25519
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -150,7 +151,7 @@ object SharedLabelFiles {
     /** The hash of a signed file's body ([CardFile.bodyHash]) without checking its signature; null when it isn't one. */
     fun bodyHash(signed: ByteArray): String? = unwrap(signed)?.first?.let { RecordJson.sha256Hex(it.toByteArray(Charsets.UTF_8)) }
 
-    private fun unwrap(bytes: ByteArray): Pair<String, ByteArray>? = runCatching {
+    private fun unwrap(bytes: ByteArray): Pair<String, ByteArray>? = catching {
         if (bytes.size > MAX_FILE_BYTES) return null
         val o = json.parseToJsonElement(String(bytes, Charsets.UTF_8)).jsonObject
         val body = o.str("body") ?: return null
@@ -188,7 +189,7 @@ object SharedLabelFiles {
     @Suppress("CyclomaticComplexMethod") // Every check of a signed card in one place, each failing to null.
     fun readCard(labelId: String, fileName: String, bytes: ByteArray): CardFile? {
         val (body, sig) = unwrap(bytes) ?: return null
-        val f = runCatching {
+        val f = catching {
             val o = json.parseToJsonElement(body).jsonObject
             val sid = o.str("sid") ?: return null
             val v = o.long("v") ?: return null
@@ -238,7 +239,7 @@ object SharedLabelFiles {
     /** A header signature, checked: well formed and signed by its signer. Whether the signer may sign is the caller's question. */
     fun readHeaderSig(labelId: String, bytes: ByteArray): HeaderSig? {
         val (body, sig) = unwrap(bytes) ?: return null
-        val h = runCatching {
+        val h = catching {
             val o = json.parseToJsonElement(body).jsonObject
             val by = unb64.decode(o.str("by") ?: return null)
             if (by.size != 32) return null
@@ -308,7 +309,7 @@ object SharedLabelFiles {
     @Suppress("CyclomaticComplexMethod") // Every check of a signed journal in one place, each failing to null.
     fun readJournal(labelId: String, fileName: String, bytes: ByteArray): Journal? {
         val (body, sig) = unwrap(bytes) ?: return null
-        val j = runCatching {
+        val j = catching {
             val o = json.parseToJsonElement(body).jsonObject
             val member = unb64.decode(o.str("member") ?: return null)
             if (member.size != 32) return null
@@ -321,7 +322,7 @@ object SharedLabelFiles {
             }
             val carried = (o["carried"] as? JsonArray).orEmpty().take(MAX_MEMBERS).mapNotNull { e ->
                 val c = e as? JsonObject ?: return@mapNotNull null
-                val key = runCatching { unb64.decode(c.str("key")) }.getOrNull()?.takeIf { it.size == 32 } ?: return@mapNotNull null
+                val key = catching { unb64.decode(c.str("key")) }.getOrNull()?.takeIf { it.size == 32 } ?: return@mapNotNull null
                 Carried(key, c.str("name").orEmpty().take(MAX_NAME))
             }
             val entries = (o["entries"] as? JsonArray).orEmpty().takeLast(MAX_ENTRIES).mapNotNull { e ->
@@ -329,9 +330,9 @@ object SharedLabelFiles {
                 JournalEntry(
                     id = x.long("id") ?: return@mapNotNull null,
                     sid = x.str("sid")?.takeIf(::isId) ?: return@mapNotNull null,
-                    kind = runCatching { ChangeKind.valueOf(x.str("kind")!!) }.getOrNull() ?: return@mapNotNull null,
+                    kind = catching { ChangeKind.valueOf(x.str("kind")!!) }.getOrNull() ?: return@mapNotNull null,
                     fields = (x["fields"] as? JsonArray).orEmpty()
-                        .mapNotNull { f -> runCatching { CardField.valueOf((f as JsonPrimitive).content) }.getOrNull() }.toSet(),
+                        .mapNotNull { f -> catching { CardField.valueOf((f as JsonPrimitive).content) }.getOrNull() }.toSet(),
                     contactName = x.str("name").orEmpty().take(MAX_NAME),
                     at = x.long("at") ?: return@mapNotNull null,
                 )

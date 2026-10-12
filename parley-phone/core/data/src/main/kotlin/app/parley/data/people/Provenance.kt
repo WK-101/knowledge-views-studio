@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.Contacts
 import android.provider.ContactsContract.RawContacts
+import app.parley.common.catching
 import app.parley.common.people.ParleyWrite
 import app.parley.common.people.Provenance
 import app.parley.common.people.ProvenanceVerdict
@@ -44,7 +45,7 @@ class ParleyWriteLog(context: Context) {
     @Synchronized
     fun load(): MutableList<Entry> {
         val raw = prefs.getString(KEY, null) ?: return ArrayList()
-        return runCatching {
+        return catching {
             val a = JSONArray(raw)
             (0 until a.length()).mapTo(ArrayList()) { i ->
                 val o = a.getJSONObject(i)

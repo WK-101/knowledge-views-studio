@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.room.withTransaction
 import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneKeyMigration
+import app.parley.common.catching
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.history.CallHistory
@@ -47,12 +48,12 @@ class PhoneKeyMigrator(
         val calls = withTimeoutOrNull(WAIT_MS) { history().calls.filterNotNull().first() } ?: return@withContext 0
         val region = PhoneEnv.countryIso(context)
         val known = people.flatMap { c -> c.phones.map { it.number } } + calls.map { it.number } +
-            runCatching { history().archivedNumbers() }.getOrDefault(emptyList())
+            catching { history().archivedNumbers() }.getOrDefault(emptyList())
         val meta = db.metaDao()
         val blocks = db.blockDao()
         val sims = db.prefsDao()
         // The messaged-numbers record's old entries too, so they resolve through contacts and calls on their own.
-        val messagedDigits = runCatching { messaging().legacyDigits() }.getOrDefault(emptyList())
+        val messagedDigits = catching { messaging().legacyDigits() }.getOrDefault(emptyList())
         val stored = meta.callNoteKeys() + blocks.ringKeys() + sims.allSimsNow().map { it.matchKey } + messagedDigits
         // Nothing known yet (a phone still syncing its contacts): marking the migration done would strand old keys.
         if (known.isEmpty() && stored.any { PhoneIdentity.isLegacyKey(it) }) return@withContext 0
@@ -71,7 +72,7 @@ class PhoneKeyMigrator(
                     }
                 }
             }
-            runCatching { messaging().rekeyLegacy(plan) }.onFailure { Log.w(TAG, "Messaged-numbers record not re-keyed", it) }
+            catching { messaging().rekeyLegacy(plan) }.onFailure { Log.w(TAG, "Messaged-numbers record not re-keyed", it) }
             prefs.edit().putInt(K_VERSION, VERSION).apply()
             plan.size
         } catch (e: CancellationException) {

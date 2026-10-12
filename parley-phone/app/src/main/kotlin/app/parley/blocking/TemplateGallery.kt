@@ -10,6 +10,7 @@ import app.parley.common.OffHoursAllow
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.Schedule
+import app.parley.common.catching
 import app.parley.common.spam.ListPack
 import app.parley.common.spam.PackOrigin
 import app.parley.common.storage.DurableFiles
@@ -39,21 +40,21 @@ class TemplateGallery private constructor(context: Context) {
     private val app = context.applicationContext
     private val file = File(app.filesDir, "blocking/templates.json")
     private val lock = Mutex()
-    private val _state = MutableStateFlow(TemplateGalleryState.decode(runCatching { file.takeIf { it.exists() }?.readText() }.getOrNull()))
+    private val _state = MutableStateFlow(TemplateGalleryState.decode(catching { file.takeIf { it.exists() }?.readText() }.getOrNull()))
     val state: StateFlow<TemplateGalleryState> = _state.asStateFlow()
 
     /** A template in the gallery. [fingerprint] is the sender's key for imported ones. */
     data class Entry(val template: RuleTemplate, val builtIn: Boolean, val fingerprint: String? = null)
 
     val builtIns: List<RuleTemplate> by lazy {
-        val names = runCatching { app.assets.list(ASSETS).orEmpty().filter { it.endsWith(".json") }.sorted() }.getOrDefault(emptyList())
-        names.mapNotNull { n -> runCatching { RuleTemplates.parse(app.assets.open("$ASSETS/$n").bufferedReader().use { it.readText() }) }.getOrNull() }
+        val names = catching { app.assets.list(ASSETS).orEmpty().filter { it.endsWith(".json") }.sorted() }.getOrDefault(emptyList())
+        names.mapNotNull { n -> catching { RuleTemplates.parse(app.assets.open("$ASSETS/$n").bufferedReader().use { it.readText() }) }.getOrNull() }
     }
 
     fun entries(s: TemplateGalleryState = _state.value): List<Entry> {
         val builtInIds = builtIns.map { it.id }.toSet()
         val imported = s.imported.mapNotNull { i ->
-            runCatching { Entry(RuleTemplates.parse(i.json), false, i.fingerprint) }.getOrNull()?.takeIf { it.template.id !in builtInIds }
+            catching { Entry(RuleTemplates.parse(i.json), false, i.fingerprint) }.getOrNull()?.takeIf { it.template.id !in builtInIds }
         }
         return builtIns.map { Entry(it, true) } + imported
     }
@@ -108,8 +109,8 @@ class TemplateGallery private constructor(context: Context) {
 
     private suspend fun uninstallLocked(c: DataContainer, id: String) {
         val inst = installed(id) ?: return
-        inst.ruleIds.forEach { runCatching { c.blocks.deleteRule(it) } }
-        inst.packId?.let { runCatching { c.lists.remove(it) } }
+        inst.ruleIds.forEach { catching { c.blocks.deleteRule(it) } }
+        inst.packId?.let { catching { c.lists.remove(it) } }
         inst.settingsBefore?.let { before -> c.settings.update { a -> a.copy(screening = before.apply(a.screening)) } }
         write { s -> s.copy(installed = s.installed.filter { it.id != id }) }
     }
@@ -154,7 +155,7 @@ class TemplateGallery private constructor(context: Context) {
         if (builtIns.any { it.id == t.id }) return app.getString(R.string.blk_tpl_already_built_in, TemplateText.name(app, t))
         write { s ->
             s.copy(
-                imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != t.id } + ImportedTemplate(
+                imported = s.imported.filter { catching { RuleTemplates.parse(it.json).id }.getOrNull() != t.id } + ImportedTemplate(
                     opened.json, opened.fingerprint, System.currentTimeMillis(),
                 ),
             )
@@ -164,14 +165,14 @@ class TemplateGallery private constructor(context: Context) {
 
     suspend fun removeImported(c: DataContainer, id: String) {
         uninstall(c, id)
-        write { s -> s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
+        write { s -> s.copy(imported = s.imported.filter { catching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
     }
 
     /** [removeImported], returning the way back: the template kept again, and its group back as it was when installed. */
     suspend fun removeImportedWithUndo(c: DataContainer, id: String): suspend () -> Unit {
-        val kept = _state.value.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() == id }
+        val kept = _state.value.imported.filter { catching { RuleTemplates.parse(it.json).id }.getOrNull() == id }
         val reinstall = uninstallWithUndo(c, id)
-        write { s -> s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
+        write { s -> s.copy(imported = s.imported.filter { catching { RuleTemplates.parse(it.json).id }.getOrNull() != id }) }
         return {
             write { s -> s.copy(imported = s.imported + kept.filter { k -> s.imported.none { it.json == k.json } }) }
             reinstall()

@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.circle.InteractionType
 import app.parley.common.extras.Handshake
 import app.parley.common.extras.PendingSlot
@@ -62,8 +63,8 @@ object HandshakeInbox {
         val p = slot.take(handshake, System.currentTimeMillis()) ?: return
         if (savedId == null || savedId <= 0) return
         vm.c.scope.launch {
-            val key = runCatching { vm.c.contacts.lookupKeyOf(savedId) }.getOrNull() ?: return@launch
-            runCatching { vm.c.circle.interactions.log(key, savedId, InteractionType.MEET, null, p.time, p.line, Handshake.meetKey(p.nonce)) }
+            val key = catching { vm.c.contacts.lookupKeyOf(savedId) }.getOrNull() ?: return@launch
+            catching { vm.c.circle.interactions.log(key, savedId, InteractionType.MEET, null, p.time, p.line, Handshake.meetKey(p.nonce)) }
         }
     }
 

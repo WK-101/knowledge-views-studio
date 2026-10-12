@@ -53,7 +53,7 @@ class LabelsRepository(
     /** Contact ids with this label, in any account; private members by their list id ([ContactRef.navId]). */
     suspend fun members(title: String): Set<Long> = withContext(Dispatchers.IO) {
         val device = label(title)?.groups?.flatMap { contacts.contactIdsInGroup(it.id) }?.toSet().orEmpty()
-        val private = runCatching { privateLabels()?.membersOf(title) }.getOrNull().orEmpty().map { ContactRef.Private(it).navId }
+        val private = catching { privateLabels()?.membersOf(title) }.getOrNull().orEmpty().map { ContactRef.Private(it).navId }
         device + private
     }
 
@@ -76,7 +76,7 @@ class LabelsRepository(
         val existing = label(t)
         val source = label(title) ?: return@withContext 0
         if (existing != null) return@withContext merge(setOf(title), t)
-        runCatching { privateLabels()?.renamed(mapOf(title to t)) }
+        catching { privateLabels()?.renamed(mapOf(title to t)) }
         val ops = safe(source.groups).map {
             ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).withValue(Groups.TITLE, t)
         }
@@ -91,7 +91,7 @@ class LabelsRepository(
      */
     suspend fun delete(title: String): String? = withContext(Dispatchers.IO) {
         val l = label(title) ?: return@withContext null
-        runCatching { privateLabels()?.deleted(l.title) }
+        catching { privateLabels()?.deleted(l.title) }
         cr.applyInBatches(safe(l.groups).map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)) })
         refs?.deleted(setOf(l.title))
     }
@@ -149,7 +149,7 @@ class LabelsRepository(
      */
     suspend fun merge(sources: Set<String>, target: String): Int = withContext(Dispatchers.IO) {
         val all = labels()
-        runCatching { privateLabels()?.renamed(sources.filter { it != target }.associateWith { target }) }
+        catching { privateLabels()?.renamed(sources.filter { it != target }.associateWith { target }) }
         val targetLabel = all.firstOrNull { it.title == target }
         var added = 0
         val deletes = ArrayList<ContentProviderOperation.Builder>()

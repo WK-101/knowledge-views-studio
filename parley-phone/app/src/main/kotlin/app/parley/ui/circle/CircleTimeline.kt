@@ -54,6 +54,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.EventDate
+import app.parley.common.catching
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.Timeline
@@ -165,7 +166,7 @@ suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long
         }
         // "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
         if (entry != null) {
-            runCatching {
+            catching {
                 ExpectedCallHints.noteSaved(vm.c, d.displayName, note, ExpectedCallHints.loggedKey(entry), privateName = ContactRef.isPrivateKey(d.lookupKey))
             }
         }
@@ -285,13 +286,13 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
             scope.launch {
                 val gone = vm.c.circle.interactions.delete(item.id) ?: return@launch
                 // A deleted note no longer expects a call (Undo brings the entry back under a new id, and its window).
-                runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.loggedKey(item.id)) }
+                catching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.loggedKey(item.id)) }
                 CircleSnacks.show(
                     CircleSnack(res.getString(R.string.circle_entry_deleted)) {
                         val back = vm.c.circle.interactions.restore(gone)
                         // Without the page's name at hand: the window comes back unnamed ("from your notes").
                         if (back != null && gone.note != null) {
-                            runCatching { ExpectedCallHints.noteSaved(vm.c, null, gone.note, ExpectedCallHints.loggedKey(back)) }
+                            catching { ExpectedCallHints.noteSaved(vm.c, null, gone.note, ExpectedCallHints.loggedKey(back)) }
                         }
                     },
                 )

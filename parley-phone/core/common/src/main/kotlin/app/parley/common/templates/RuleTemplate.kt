@@ -1,6 +1,7 @@
 package app.parley.common.templates
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.common.security.LimitExceededException
 import app.parley.common.BlockAction
@@ -146,7 +147,7 @@ data class TemplateGalleryState(
     companion object {
         private val CODEC = Codecs.stored
         fun decode(s: String?): TemplateGalleryState =
-            if (s.isNullOrBlank()) TemplateGalleryState() else runCatching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(TemplateGalleryState())
+            if (s.isNullOrBlank()) TemplateGalleryState() else catching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(TemplateGalleryState())
     }
 }
 
@@ -281,8 +282,8 @@ object RuleTemplates {
             throw TemplateException("This isn't a Parley template file")
         }
         if (env.format != 1) throw TemplateException("This template needs a newer version of Parley")
-        val key = runCatching { Base64.getDecoder().decode(env.publicKey) }.getOrNull()
-        val sig = runCatching { Base64.getDecoder().decode(env.signature) }.getOrNull()
+        val key = catching { Base64.getDecoder().decode(env.publicKey) }.getOrNull()
+        val sig = catching { Base64.getDecoder().decode(env.signature) }.getOrNull()
         if (key == null || key.size != 32 || sig == null || sig.size != 64) throw TemplateException("The template's signature is missing")
         if (!Ed25519.verify(key, env.template.encodeToByteArray(), sig)) throw TemplateException(
             "The template's signature is not valid: it was changed after signing",

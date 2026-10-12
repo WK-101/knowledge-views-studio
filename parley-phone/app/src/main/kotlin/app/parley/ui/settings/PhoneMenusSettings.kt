@@ -17,6 +17,7 @@ import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.MenuMemory
+import app.parley.common.catching
 import app.parley.ui.Destination
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
@@ -49,7 +50,7 @@ internal fun PhoneMenusScreen(vm: AppViewModel, back: () -> Unit) {
         SegmentedGroup {
             switchRow("menu_memory", cfg.rememberMenuKeys, Icons.Rounded.History) { on ->
                 vm.c.callExtras.update { it.copy(rememberMenuKeys = on) }
-                if (!on) vm.viewModelScope.launch { runCatching { vm.c.menus.update(MenuMemory::forgetPaths) } }
+                if (!on) vm.viewModelScope.launch { catching { vm.c.menus.update(MenuMemory::forgetPaths) } }
             }
         }
     }

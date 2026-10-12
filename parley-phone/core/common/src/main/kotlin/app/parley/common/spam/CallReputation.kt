@@ -2,6 +2,7 @@ package app.parley.common.spam
 
 import app.parley.common.CallType
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -319,7 +320,7 @@ object CallReputation {
 
     /** Reads [encode]'s output; broken input gives nothing (never a wrong tag). */
     fun decode(text: String?): Map<String, Reputation> =
-        if (text.isNullOrBlank()) emptyMap() else runCatching { CODEC.decodeFromString(MAP, text) }.getOrDefault(emptyMap())
+        if (text.isNullOrBlank()) emptyMap() else catching { CODEC.decodeFromString(MAP, text) }.getOrDefault(emptyMap())
 }
 
 private const val DAY_MS = 86_400_000L

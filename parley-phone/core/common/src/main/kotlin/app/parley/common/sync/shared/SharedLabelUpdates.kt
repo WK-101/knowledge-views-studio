@@ -2,6 +2,7 @@ package app.parley.common.sync.shared
 
 import app.parley.common.Codecs
 import app.parley.common.backup.RecordJson
+import app.parley.common.catching
 import app.parley.common.crypto.Aead
 import app.parley.common.security.Bounded
 import app.parley.common.spam.Ed25519
@@ -177,7 +178,7 @@ object SharedLabelUpdates {
     }
 
     @Suppress("CyclomaticComplexMethod", "ReturnCount") // Every check of a signed update in one place, each failing to null.
-    private fun read(plain: ByteArray, labelId: String, epoch: Int): LabelUpdate? = runCatching {
+    private fun read(plain: ByteArray, labelId: String, epoch: Int): LabelUpdate? = catching {
         val signed = json.parseToJsonElement(String(Bounded.gunzip(plain, MAX_EXPANDED, "label update"), Charsets.UTF_8)).jsonObject
         val body = signed.str("body") ?: return null
         val sig = unb64.decode(signed.str("sig") ?: return null)

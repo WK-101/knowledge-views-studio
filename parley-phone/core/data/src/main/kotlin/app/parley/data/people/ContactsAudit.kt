@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import app.parley.common.catching
 import app.parley.common.record.Messengers
 import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +44,7 @@ class ContactsAudit(private val context: Context) {
             .map { ai ->
                 ContactsAccessApp(
                     packageName = ai.packageName,
-                    label = runCatching { pm.getApplicationLabel(ai).toString() }.getOrDefault(ai.packageName),
+                    label = catching { pm.getApplicationLabel(ai).toString() }.getOrDefault(ai.packageName),
                     system = ai.flags and ApplicationInfo.FLAG_SYSTEM != 0,
                     note = noteFor(ai.packageName),
                 )

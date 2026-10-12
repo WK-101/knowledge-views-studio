@@ -53,14 +53,9 @@ import app.parley.telecom.R
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.Spacing
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-/** Keeping a reference outlives the dialog that started it. */
-private val caseScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
 /** A connected call with a number, not an emergency call or a conference. */
 private fun caseApplies(call: CallUi): Boolean =
@@ -116,7 +111,7 @@ internal fun CaseReferenceRow(call: CallUi, typed: String) {
                 asking = false
                 val number = call.number.orEmpty()
                 val chosen = value
-                caseScope.launch {
+                CallScreenWrites.scope.launch {
                     result = catching { TelecomGraph.dependencies.keepCaseReference(number, call.accountId, chosen) }.getOrDefault(false)
                 }
             },
@@ -188,7 +183,7 @@ internal fun CaseCodesCard(call: CallUi, modifier: Modifier = Modifier) {
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = {
-                        caseScope.launch {
+                        CallScreenWrites.scope.launch {
                             val number = call.number.orEmpty()
                             val value = catching { TelecomGraph.dependencies.openCaseCode(number, call.accountId, code.id) }.getOrNull()
                             shown = code to value

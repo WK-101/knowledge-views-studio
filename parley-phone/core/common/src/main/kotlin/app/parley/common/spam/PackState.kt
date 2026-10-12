@@ -4,6 +4,7 @@ import app.parley.common.BlockAction
 import app.parley.common.Codecs
 import app.parley.common.ListMode
 import app.parley.common.NotifyLevel
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 
 /** UPDATER: copied from the optional "Parley Lists" companion app. */
@@ -68,6 +69,6 @@ data class ListsState(
 
     companion object {
         private val CODEC = Codecs.stored
-        fun decode(s: String?): ListsState = if (s.isNullOrBlank()) ListsState() else runCatching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(ListsState())
+        fun decode(s: String?): ListsState = if (s.isNullOrBlank()) ListsState() else catching { CODEC.decodeFromString(serializer(), s) }.getOrDefault(ListsState())
     }
 }

@@ -46,10 +46,10 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
     /** [keep], returning the kept copy's file (what [restore] takes, for an Undo); null when it couldn't be kept. */
     suspend fun keepFile(vaultId: Long, now: Long = System.currentTimeMillis()): String? = withContext(Dispatchers.IO) {
         val e = vault.sealedCopy(vaultId) ?: return@withContext null
-        val extras = runCatching { keys()?.exportPrivate(ContactRef.privateKey(vaultId)) }.getOrNull()
+        val extras = catching { keys()?.exportPrivate(ContactRef.privateKey(vaultId)) }.getOrNull()
         // The photo as picked (still sealed) and the relations other contacts link to it: deleting the entry drops both.
         val original = OriginalPhotos.sealedPrivate(context, vaultId)
-        val incoming = runCatching { keys()?.incomingLinks(ContactRef.privateKey(vaultId)) }.getOrNull().orEmpty()
+        val incoming = catching { keys()?.incomingLinks(ContactRef.privateKey(vaultId)) }.getOrNull().orEmpty()
         val o = JSONObject()
             .put(K_AT, now)
             .put(K_CALLER, b64(e.callerIdBlob))
@@ -80,7 +80,7 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
         purge(now)
         files().mapNotNull { f ->
             val o = open(f) ?: return@mapNotNull null
-            val caller = runCatching { JSONObject(String(VaultCrypto.openCallerId(Base64.decode(o.getString(K_CALLER), Base64.NO_WRAP)))) }.getOrNull()
+            val caller = catching { JSONObject(String(VaultCrypto.openCallerId(Base64.decode(o.getString(K_CALLER), Base64.NO_WRAP)))) }.getOrNull()
                 ?: return@mapNotNull null
             val nums = caller.optJSONArray("numbers") ?: JSONArray()
             Kept(f.name, caller.optString("name"), (0 until nums.length()).map { nums.getString(it) }, o.optLong(K_AT))
@@ -105,14 +105,14 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
                 o.optLong(K_CREATED, System.currentTimeMillis()), o.optString(K_PHOTO).ifEmpty { null }?.let(::unb64), calls,
             )
             val id = vault.restoreSealed(entry)
-            o.optJSONObject(K_EXTRAS)?.let { x -> runCatching { keys()?.importPrivate(id, x) } }
+            o.optJSONObject(K_EXTRAS)?.let { x -> catching { keys()?.importPrivate(id, x) } }
             o.optString(K_ORIGINAL).ifEmpty { null }?.let { image ->
                 OriginalPhotos.restoreSealedPrivate(context, id, unb64(image), o.optString(K_ORIGINAL_META))
             }
             o.optJSONArray(K_INCOMING)?.let { a ->
                 val links = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { it.optString("k") to it.optString("n") } }
                     .filter { (k, n) -> k.isNotEmpty() && n.isNotEmpty() }
-                runCatching { keys()?.restoreIncomingLinks(id, links) }
+                catching { keys()?.restoreIncomingLinks(id, links) }
             }
             f.delete()
             id
@@ -139,7 +139,7 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
 
     private fun files(): List<File> = dir().listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".bin") }
 
-    private fun open(f: File): JSONObject? = runCatching { JSONObject(String(VaultCrypto.openCallerId(f.readBytes()))) }.getOrNull()
+    private fun open(f: File): JSONObject? = catching { JSONObject(String(VaultCrypto.openCallerId(f.readBytes()))) }.getOrNull()
 
     private fun b64(b: ByteArray) = Base64.encodeToString(b, Base64.NO_WRAP)
     private fun unb64(s: String): ByteArray = Base64.decode(s, Base64.NO_WRAP)

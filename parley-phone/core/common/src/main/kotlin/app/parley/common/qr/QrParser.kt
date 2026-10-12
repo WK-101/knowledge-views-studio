@@ -1,5 +1,6 @@
 package app.parley.common.qr
 
+import app.parley.common.catching
 import app.parley.common.vcard.VCardStream
 import java.time.DateTimeException
 import java.time.Duration
@@ -387,7 +388,7 @@ object QrParser {
     }
 
     /** DTSTART plus a DURATION such as `PT1H30M` or `P1D`. */
-    private fun duration(start: IcsTime, v: String): IcsTime? = runCatching {
+    private fun duration(start: IcsTime, v: String): IcsTime? = catching {
         val d = Duration.parse(v.trim().replace(Regex("^P(\\d+)D$"), "P$1DT0S"))
         val base = LocalDateTime.of(start.year, start.month, start.day, start.hour ?: 0, start.minute, start.second)
         val e = base.plus(d)

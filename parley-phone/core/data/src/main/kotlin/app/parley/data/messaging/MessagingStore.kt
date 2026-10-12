@@ -7,6 +7,7 @@ import app.parley.common.KeypadLayout
 import app.parley.common.MessagedEntry
 import app.parley.common.MessagedRecord
 import app.parley.common.MessengerApp
+import app.parley.common.catching
 import app.parley.data.PhoneEnv
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CompletableDeferred
@@ -91,7 +92,7 @@ class MessagingStore(
                 loaded.complete(Unit)
             }
             // Expired entries go as soon as the record is loaded, not only in the daily housekeeping.
-            runCatching { pruneExpired() }
+            catching { pruneExpired() }
         }
     }
 
@@ -140,7 +141,7 @@ class MessagingStore(
         if (!_recordEnabled.value) return
         scope.launch(Dispatchers.IO) {
             // Private contacts' numbers are never written down, not even encrypted.
-            if (runCatching { isPrivateNumber(number) }.getOrDefault(true)) return@launch
+            if (catching { isPrivateNumber(number) }.getOrDefault(true)) return@launch
             update { MessagedRecord.record(it, number, app?.packageName, label, now, region()) }
         }
     }
@@ -228,14 +229,14 @@ class MessagingStore(
 
     private fun loadRecord(): List<MessagedEntry> {
         prefs.getString(K_RECORD, null)?.let { enc ->
-            val read = runCatching { decode(String(VaultCrypto.openCallerId(Base64.decode(enc, Base64.NO_WRAP)))) }
+            val read = catching { decode(String(VaultCrypto.openCallerId(Base64.decode(enc, Base64.NO_WRAP)))) }
             _recordUnreadable.value = read.isFailure
             return read.getOrDefault(emptyList())
         }
         _recordUnreadable.value = false
         // The plain record from before numbers were stored: convert once, then remove it.
         val plain = prefs.getString(K_LAST_MESSAGED_PLAIN, null) ?: return emptyList()
-        val migrated = runCatching {
+        val migrated = catching {
             val json = JSONObject(plain)
             json.keys().asSequence().mapNotNull { k ->
                 val o = json.getJSONObject(k)
@@ -253,7 +254,7 @@ class MessagingStore(
             prefs.edit { remove(K_RECORD).remove(K_LAST_MESSAGED_PLAIN) }
             return true
         }
-        val sealed = runCatching { VaultCrypto.sealCallerId(encode(list).toByteArray()) }.getOrNull() ?: return false
+        val sealed = catching { VaultCrypto.sealCallerId(encode(list).toByteArray()) }.getOrNull() ?: return false
         prefs.edit { putString(K_RECORD, Base64.encodeToString(sealed, Base64.NO_WRAP)).remove(K_LAST_MESSAGED_PLAIN) }
         return true
     }

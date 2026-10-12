@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.NumberText
+import app.parley.common.catching
 import app.parley.common.people.PasteParser.Field
 import app.parley.common.people.PasteParser.Kind
 import app.parley.common.people.PasteParser.Label
@@ -197,7 +198,7 @@ internal object PasteLines {
         val text = mask.toString()
         val out = ArrayList<Piece>()
         val hint = region?.uppercase(Locale.ROOT) ?: "ZZ"
-        val matches = runCatching { util.findNumbers(text, hint, PhoneNumberUtil.Leniency.POSSIBLE, Long.MAX_VALUE).toList() }.getOrDefault(emptyList())
+        val matches = catching { util.findNumbers(text, hint, PhoneNumberUtil.Leniency.POSSIBLE, Long.MAX_VALUE).toList() }.getOrDefault(emptyList())
         var boundary = 0
         for (m in matches) {
             if (m.start() < boundary) continue

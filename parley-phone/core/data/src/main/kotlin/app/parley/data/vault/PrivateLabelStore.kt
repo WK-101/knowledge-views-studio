@@ -1,5 +1,6 @@
 package app.parley.data.vault
 
+import app.parley.common.catching
 import app.parley.common.people.PrivateLabels
 import app.parley.data.ContactsRepository
 import app.parley.data.GroupInfo
@@ -34,7 +35,7 @@ class PrivateLabelStore(private val vault: VaultRepository, private val contacts
 
     /** The address book's labels now; empty when contacts can't be read (then stored titles are trusted). */
     fun groupsNow(): List<PrivateLabels.Group> =
-        runCatching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList())
+        catching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList())
 
     /**
      * Private contact id → the titles of its labels, for Parley's own lists (label pages, filters, counts). Archived ones
@@ -57,7 +58,7 @@ class PrivateLabelStore(private val vault: VaultRepository, private val contacts
 
     /** Titles of the labels of the private contact with [number], or null when no private contact has it. */
     suspend fun titlesForNumber(number: String, countryIso: String? = null): Set<String>? = withContext(Dispatchers.IO) {
-        val hit = runCatching { vault.lookup(number, countryIso) }.getOrNull() ?: return@withContext null
+        val hit = catching { vault.lookup(number, countryIso) }.getOrNull() ?: return@withContext null
         titlesOf(hit.first)
     }
 

@@ -34,12 +34,12 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
      * because a SIM-limited allow rule might apply).
      */
     fun reusable(e: Earlier): ScreenOutcome? = e.outcome?.takeIf {
-        !(it.decision == Decision.Allow && e.accountId != null && (it.deferredToSim || runCatching { hooks().simRulesActive() }.getOrDefault(true)))
+        !(it.decision == Decision.Allow && e.accountId != null && (it.deferredToSim || catching { hooks().simRulesActive() }.getOrDefault(true)))
     }
 
     /** Whether an incoming call goes through screening at all (never an emergency call; decided by the caller). */
     fun applies(e: Earlier, hidden: Boolean): Boolean =
-        reusable(e) != null || e.outcome != null || hidden || runCatching { hooks().screeningActive() }.getOrDefault(true)
+        reusable(e) != null || e.outcome != null || hidden || catching { hooks().screeningActive() }.getOrDefault(true)
 
     /** The name the network sent with a call, and how it was presented (`TelecomManager.PRESENTATION_*`). */
     data class CallerName(val text: String?, val presentation: Int)

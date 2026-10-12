@@ -11,6 +11,7 @@ import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationRequests
+import app.parley.common.catching
 import app.parley.shortcuts.Shortcuts
 import app.parley.work.PrivateNotice
 
@@ -51,7 +52,7 @@ object CheckInNotice {
     }
 
     fun cancel(context: Context) {
-        runCatching { NotificationManagerCompat.from(context).cancel(NotificationIds.TAG_CHECK_IN, NotificationIds.CHECK_IN_ID) }
+        catching { NotificationManagerCompat.from(context).cancel(NotificationIds.TAG_CHECK_IN, NotificationIds.CHECK_IN_ID) }
     }
 
     /** The messages app, open on the helper with the words ready; the user sends them. */

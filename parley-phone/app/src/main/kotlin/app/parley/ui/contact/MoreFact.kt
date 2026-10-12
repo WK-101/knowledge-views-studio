@@ -5,6 +5,7 @@ import app.parley.R
 import app.parley.common.AltCalendar
 import app.parley.common.AltCalendars
 import app.parley.common.EventDate
+import app.parley.common.catching
 import app.parley.common.people.Citizenship
 import app.parley.common.people.Languages
 import app.parley.data.ContactDetails
@@ -46,7 +47,7 @@ internal fun describeCalendarEvent(res: Resources, date: String, calendar: Strin
     val cal = AltCalendar.byKey(calendar) ?: return null
     val e = EventDate.parse(date) ?: return null
     val y = e.year ?: return null
-    val shown = runCatching { LocalDate.of(y, e.month, e.day) }.getOrNull() ?: return null
+    val shown = catching { LocalDate.of(y, e.month, e.day) }.getOrNull() ?: return null
     val next = AltCalendars.next(shown, cal, today, IcuCalendars)
     val nextText = next?.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
     return listOfNotNull(

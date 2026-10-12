@@ -4,6 +4,7 @@ import android.telecom.Call
 import android.telecom.TelecomManager
 import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.SpeakerOnStart
+import app.parley.common.catching
 
 /**
  * Settings › Calls › "Start calls on speaker" ([SpeakerOnStart]): decided once per call, as soon as it is answered or
@@ -14,7 +15,7 @@ internal class SpeakerStart(private val live: LiveCalls, private val deps: () ->
         if (!ready()) return
         val top = live.calls.filter { it.parent == null }
         if (top.isEmpty()) return
-        val choice = runCatching { deps().speakerDefault() }.getOrDefault(SpeakerDefault.OFF)
+        val choice = catching { deps().speakerDefault() }.getOrDefault(SpeakerDefault.OFF)
         val audio = live.audio
         top.forEach { c ->
             val s = live.sessionOrNull(live.idOf(c))?.takeIf { !it.speakerDecided } ?: return@forEach

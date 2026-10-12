@@ -3,6 +3,7 @@ package app.parley.common.history
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Instant
@@ -94,9 +95,9 @@ data class HistoryFilter(
 
         /** Tolerates garbage (returns an empty list) so a bad preference never breaks Recents. */
         fun decodeList(s: String?): List<HistoryFilter> =
-            if (s.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(listSerializer, s) }.getOrDefault(emptyList())
+            if (s.isNullOrBlank()) emptyList() else catching { json.decodeFromString(listSerializer, s) }.getOrDefault(emptyList())
 
         fun encode(f: HistoryFilter): String = json.encodeToString(serializer(), f)
-        fun decode(s: String?): HistoryFilter = if (s.isNullOrBlank()) HistoryFilter() else runCatching { json.decodeFromString(serializer(), s) }.getOrDefault(HistoryFilter())
+        fun decode(s: String?): HistoryFilter = if (s.isNullOrBlank()) HistoryFilter() else catching { json.decodeFromString(serializer(), s) }.getOrDefault(HistoryFilter())
     }
 }

@@ -101,14 +101,14 @@ internal object CallerTunes {
 
     /** Whether [uri] is one of Parley's tunes (its title is then "Tune made for …", not the file's hash). */
     fun isOurs(context: Context, uri: String?): Boolean {
-        val u = uri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return false
+        val u = uri?.let { catching { Uri.parse(it) }.getOrNull() } ?: return false
         return u.scheme == "content" && u.authority == authority(context) && u.pathSegments.firstOrNull() == DIR
     }
 
     /** Read grants for every kept tune again (they don't survive a reboot). Cheap: a directory listing. */
     fun regrant(context: Context) {
         val files = File(context.filesDir, DIR).listFiles { f -> f.name.endsWith(".wav") } ?: return
-        files.forEach { f -> runCatching { grant(context, FileProvider.getUriForFile(context, authority(context), f)) } }
+        files.forEach { f -> catching { grant(context, FileProvider.getUriForFile(context, authority(context), f)) } }
     }
 
     /**
@@ -172,12 +172,12 @@ internal object CallerTunes {
     const val SWEEP_AFTER_START_MS = 20_000L
 
     private fun revoke(context: Context, uri: Uri) = READERS.forEach { pkg ->
-        runCatching { context.revokeUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        catching { context.revokeUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
     private fun grant(context: Context, uri: Uri) = READERS.forEach { pkg ->
         // A package this phone doesn't have (or can't see) just doesn't get one.
-        runCatching { context.grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        catching { context.grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 }
 
@@ -187,7 +187,7 @@ internal class TunePreview {
 
     fun play(samples: ShortArray) {
         stop()
-        track = runCatching {
+        track = catching {
             AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -213,7 +213,7 @@ internal class TunePreview {
     }
 
     fun stop() {
-        track?.let { t -> runCatching { t.stop() }; runCatching { t.release() } }
+        track?.let { t -> catching { t.stop() }; catching { t.release() } }
         track = null
     }
 }

@@ -1,6 +1,7 @@
 package app.parley.data.sync.shared
 
 import android.util.Base64
+import app.parley.common.catching
 import app.parley.common.storage.DurableFiles
 import app.parley.common.sync.shared.CardField
 import app.parley.common.sync.shared.Carried
@@ -208,7 +209,7 @@ data class SharedLabelState(
             .put("f", JSONArray(e.fields.map { it.name })).put("c", e.contactName).put("at", e.at)
 
         private fun fields(a: JSONArray?): Set<CardField> =
-            (0 until (a?.length() ?: 0)).mapNotNull { i -> runCatching { CardField.valueOf(a!!.getString(i)) }.getOrNull() }.toSet()
+            (0 until (a?.length() ?: 0)).mapNotNull { i -> catching { CardField.valueOf(a!!.getString(i)) }.getOrNull() }.toSet()
 
         private fun <T> JSONArray?.items(f: (JSONObject) -> T?): List<T> =
             if (this == null) emptyList() else (0 until length()).mapNotNull { i -> optJSONObject(i)?.let(f) }
@@ -269,7 +270,7 @@ data class SharedLabelState(
                 },
                 stamps = stamps,
                 lastSyncAt = o.optLong("lastAt"),
-                lastResult = o.optString("result").takeIf { it.isNotEmpty() }?.let { r -> runCatching { SharedRunResult.valueOf(r) }.getOrNull() },
+                lastResult = o.optString("result").takeIf { it.isNotEmpty() }?.let { r -> catching { SharedRunResult.valueOf(r) }.getOrNull() },
                 pendingDeletions = o.optInt("pendingDel"),
                 privateLeftOut = o.optInt("private"),
                 oldKey = o.optString("oldKey").takeIf { it.isNotEmpty() }?.let(::unb64),
@@ -281,7 +282,7 @@ data class SharedLabelState(
                 exchanged = o.optJSONObject("exchanged")?.let { x -> x.keys().asSequence().associateWith { x.getLong(it) } }.orEmpty(),
                 lastSentAt = o.optLong("sentAt"),
                 shieldOn = o.optBoolean("shieldOn"),
-                shieldMode = runCatching { ShieldMode.valueOf(o.optString("shieldMode")) }.getOrDefault(ShieldMode.WARN),
+                shieldMode = catching { ShieldMode.valueOf(o.optString("shieldMode")) }.getOrDefault(ShieldMode.WARN),
                 shieldIn = o.optJSONObject("shieldIn")?.let { x ->
                     x.keys().asSequence().associateWith { m ->
                         x.optJSONArray(m).items { v -> ShieldKind.of(v.optString("k"))?.let { k -> ShieldVerdict(v.getString("h"), k, v.optLong("at")) } }
@@ -312,7 +313,7 @@ class SharedLabelStateStore(private val dir: File, private val sealer: StateSeal
     /** Every state that could be opened, and whether that was all of them ([Read.complete] false: try again later). */
     fun read(): Read {
         val files = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().sortedBy { it.name }
-        val states = files.mapNotNull { f -> runCatching { sealer.open(f.readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull() }
+        val states = files.mapNotNull { f -> catching { sealer.open(f.readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull() }
         return Read(states, complete = states.size == files.size)
     }
 
@@ -320,7 +321,7 @@ class SharedLabelStateStore(private val dir: File, private val sealer: StateSeal
 
     fun isNotEmpty(): Boolean = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty().isNotEmpty()
 
-    fun get(id: String): SharedLabelState? = runCatching { sealer.open(fileOf(id).readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull()
+    fun get(id: String): SharedLabelState? = catching { sealer.open(fileOf(id).readText())?.let { SharedLabelState.fromJson(JSONObject(it)) } }.getOrNull()
 
     /** Written to a temporary file and renamed, so a crash never leaves half a state. False when it can't be sealed. */
     fun put(s: SharedLabelState): Boolean {

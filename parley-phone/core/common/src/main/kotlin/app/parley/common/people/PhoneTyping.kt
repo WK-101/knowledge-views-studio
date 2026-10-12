@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.catching
 import app.parley.common.phone.PhoneData
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 
@@ -40,7 +41,7 @@ class PhoneTyping private constructor(
 
         fun of(text: String, regionIso: String): PhoneTyping {
             if (!formattable(text)) return identity(text)
-            val formatted = runCatching {
+            val formatted = catching {
                 val f = util.getAsYouTypeFormatter(regionIso.uppercase(java.util.Locale.ROOT))
                 var out = ""
                 for (ch in text) out = f.inputDigit(ch)

@@ -3,6 +3,7 @@ package app.parley.ui.qr
 import android.content.Context
 import android.net.Uri
 import androidx.core.content.FileProvider
+import app.parley.common.catching
 import app.parley.common.photo.PhotoMath
 import app.parley.common.qr.QrImageDecoder
 import app.parley.common.qr.QrPhotoFiles
@@ -66,7 +67,7 @@ object QrScanner {
 
     /** Deletes one camera photo, once it has been read (or the camera app gave up). */
     fun deletePhoto(file: File) {
-        runCatching { file.delete() }
+        catching { file.delete() }
     }
 
     /**
@@ -75,7 +76,7 @@ object QrScanner {
      */
     fun clearStalePhotos(context: Context, pending: String?) {
         val now = System.currentTimeMillis()
-        runCatching {
+        catching {
             dir(context).listFiles()?.forEach { f ->
                 if (QrPhotoFiles.isStale(f.absolutePath, f.lastModified(), now, pending)) f.delete()
             }

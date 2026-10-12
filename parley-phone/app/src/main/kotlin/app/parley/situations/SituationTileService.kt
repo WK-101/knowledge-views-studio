@@ -3,7 +3,7 @@ package app.parley.situations
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.parley.R
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.container
 import app.parley.data.situations.SituationsController
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +25,7 @@ class SituationTileService : TileService() {
         // A window or the car may have changed things since the tile was last drawn.
         c.scope.launch(Dispatchers.IO) {
             val sit = c.situations
-            suspendRunCatching { sit.reconcile() }
+            catching { sit.reconcile() }
             render(sit)
         }
     }
@@ -42,7 +42,7 @@ class SituationTileService : TileService() {
             val list = sit.list.value
             val at = list.indexOfFirst { it.id == sit.state.value.activeId }
             val target = list.getOrNull(at + 1)
-            suspendRunCatching { if (target != null) sit.turnOn(target.id) else sit.turnOff() }
+            catching { if (target != null) sit.turnOn(target.id) else sit.turnOff() }
             render(sit)
         }
     }

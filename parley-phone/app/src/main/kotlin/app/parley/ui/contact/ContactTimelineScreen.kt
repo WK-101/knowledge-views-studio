@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import android.content.res.Resources
 import androidx.compose.material3.Surface
@@ -85,7 +86,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     LaunchedEffect(contactId, all, privates) {
         d = when (ref) {
             // A private contact's timeline, like its page: its details under its Parley key (nothing while locked).
-            is ContactRef.Private -> runCatching { vm.c.vault.details(ref.vaultId) }.getOrNull()
+            is ContactRef.Private -> catching { vm.c.vault.details(ref.vaultId) }.getOrNull()
                 ?.copy(id = contactId, lookupKey = ContactRef.privateKey(ref.vaultId))
             else -> vm.c.contacts.details(contactId)
         }

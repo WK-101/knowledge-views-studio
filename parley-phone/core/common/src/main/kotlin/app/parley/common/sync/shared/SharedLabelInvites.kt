@@ -6,6 +6,7 @@ import app.parley.common.backup.KdfParams
 import app.parley.common.backup.KdfPolicy
 import app.parley.common.backup.Recipient
 import app.parley.common.backup.Unlock
+import app.parley.common.catching
 import app.parley.common.security.Bounded
 import app.parley.common.spam.Ed25519
 import kotlinx.serialization.json.JsonElement
@@ -86,7 +87,7 @@ object SharedLabelInvites {
      * An invitation from its JSON, checked: well formed, the key 32 bytes, the ticket the inviter's for this label and
      * epoch, and not expired at [now]. Null otherwise.
      */
-    fun decode(bytes: ByteArray, now: Long = System.currentTimeMillis()): Invitation? = runCatching {
+    fun decode(bytes: ByteArray, now: Long = System.currentTimeMillis()): Invitation? = catching {
         val o = json.parseToJsonElement(String(bytes, Charsets.UTF_8)).jsonObject
         fun s(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
         fun key(k: String) = unb64.decode(s(k)!!).takeIf { it.size == 32 }!!
@@ -117,7 +118,7 @@ object SharedLabelInvites {
     fun isLink(text: String) = text.trim().startsWith("parley://label?", ignoreCase = true)
 
     /** The invitation in a scanned link; null for a wrong passcode or a code that isn't one. */
-    fun fromLink(link: String, passcode: String, now: Long = System.currentTimeMillis()): Invitation? = runCatching {
+    fun fromLink(link: String, passcode: String, now: Long = System.currentTimeMillis()): Invitation? = catching {
         val d = link.trim().substringAfter("d=", "").substringBefore('&')
         val sealed = Base64.getUrlDecoder().decode(d)
         val plain = BackupCrypto.decryptBytes(sealed, Unlock.Passphrase(normalize(passcode)), KdfPolicy.exactly(QR_KDF))
@@ -134,7 +135,7 @@ object SharedLabelInvites {
         passphrase: CharArray,
         policy: KdfPolicy = KdfPolicy.exactly(BackupCrypto.DEFAULT_KDF),
         now: Long = System.currentTimeMillis(),
-    ): Invitation? = runCatching {
+    ): Invitation? = catching {
         decode(Bounded.gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase), policy), Bounded.Caps.QR_GUNZIP, "invitation"), now)
     }.getOrNull()
 }

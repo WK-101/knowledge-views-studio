@@ -1,5 +1,6 @@
 package app.parley.common.qr
 
+import app.parley.common.catching
 import app.parley.common.record.ContactRecord
 import java.time.DateTimeException
 import java.time.LocalDateTime
@@ -127,7 +128,7 @@ data class IcsTime(
         val z = when {
             utc -> ZoneOffset.UTC
             allDay -> zone
-            else -> tzid?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: zone
+            else -> tzid?.let { catching { ZoneId.of(it) }.getOrNull() } ?: zone
         }
         return try {
             LocalDateTime.of(year, month, day, hour ?: 0, minute, second).atZone(z).toInstant().toEpochMilli()

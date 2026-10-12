@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import app.parley.common.catching
 
 /**
  * The sound a user picked for an answered rescue call, played once at the ear like a voice on the line (or on the
@@ -23,7 +24,7 @@ internal class RescueClip(private val context: Context) {
 
     fun play(uri: String, speaker: Boolean) {
         val audio = am ?: return
-        runCatching {
+        catching {
             audio.mode = AudioManager.MODE_IN_COMMUNICATION
             tookMode = true
             route(speaker)
@@ -52,7 +53,7 @@ internal class RescueClip(private val context: Context) {
     fun route(speaker: Boolean) {
         val audio = am ?: return
         if (!tookMode) return
-        runCatching {
+        catching {
             if (Build.VERSION.SDK_INT >= 31) {
                 val type = if (speaker) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
                 audio.availableCommunicationDevices.firstOrNull { it.type == type }?.let { audio.setCommunicationDevice(it) }
@@ -69,7 +70,7 @@ internal class RescueClip(private val context: Context) {
         val audio = am ?: return
         if (!tookMode) return
         tookMode = false
-        runCatching {
+        catching {
             if (Build.VERSION.SDK_INT >= 31) {
                 audio.clearCommunicationDevice()
             } else {
@@ -81,7 +82,7 @@ internal class RescueClip(private val context: Context) {
     }
 
     private fun releasePlayer() {
-        player?.let { runCatching { it.release() } }
+        player?.let { catching { it.release() } }
         player = null
     }
 }

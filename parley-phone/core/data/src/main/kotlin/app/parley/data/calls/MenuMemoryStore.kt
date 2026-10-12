@@ -3,6 +3,7 @@ package app.parley.data.calls
 import android.content.Context
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuState
+import app.parley.common.catching
 import app.parley.common.storage.PersistentStores
 import app.parley.data.backup.BackupExtras
 import app.parley.data.security.RecordSealing
@@ -63,7 +64,7 @@ class MenuMemoryStore internal constructor(
             val s = load()
             check(available) { "Menu memory can't be read right now" }
             val numbers = s.paths.values.map { it.number } + s.shortcuts.map { it.number }
-            val leaveOut = numbers.filter { it.isNotEmpty() && runCatching { isPrivate(it) }.getOrDefault(true) }.toSet()
+            val leaveOut = numbers.filter { it.isNotEmpty() && catching { isPrivate(it) }.getOrDefault(true) }.toSet()
             return mapOf(X_STATE to MenuMemory.encode(MenuMemory.forBackup(s) { it in leaveOut }))
         }
 

@@ -129,7 +129,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     // Checked again when the private contacts change: a number made private while the page is open loses its
     // network name at once.
     val privateListing by vm.c.vault.listing.collectAsStateWithLifecycle()
-    LaunchedEffect(number, privateListing) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
+    LaunchedEffect(number, privateListing) { privateNumber = catching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
     // A saved organisation's first call to you after you had only ever called them (their calls can be faked).
     val firstFromThem by produceState<Long?>(null, number, calls?.size) {
         value = catching { NeverCallsYouFacts.firstFromThem(vm.c, number, vm.countryIso) }.getOrNull()
@@ -320,7 +320,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                                 scope.launch {
                                     vm.c.meta.deleteCallNote(n.id)
                                     // A deleted call note no longer expects a call.
-                                    runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.callNoteKey(n.id)) }
+                                    catching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.callNoteKey(n.id)) }
                                 }
                             }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_delete_note)) }
                         },

@@ -1,5 +1,6 @@
 package app.parley.data.sync.shared
 
+import app.parley.common.catching
 import app.parley.common.people.NumberOrigin
 import android.content.ContentUris
 import android.content.Context
@@ -84,7 +85,7 @@ class ProviderLabelContacts(
     override suspend fun privateMembers(title: String): Int = labels.members(title).count { ContactRef.ofNavId(it) is ContactRef.Private }
 
     override suspend fun idFor(key: String, lastId: Long?): Long? = withContext(Dispatchers.IO) {
-        runCatching {
+        catching {
             val uri = if (lastId != null) {
                 ContactsContract.Contacts.getLookupUri(lastId, key)
             } else {

@@ -8,6 +8,7 @@ import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.DialCodes
+import app.parley.common.catching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -32,7 +33,7 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /** The SIM for [number] without a choice of its own: the remembered one, else a label's. Off the main thread. */
     suspend fun resolveSim(number: String): String? = withContext(Dispatchers.IO) {
-        prefs.simFor(number) ?: runCatching { fallbackSim?.invoke(number) }.getOrNull()
+        prefs.simFor(number) ?: catching { fallbackSim?.invoke(number) }.getOrNull()
     }
 
     /**

@@ -5,6 +5,7 @@ import app.parley.common.CallEntry
 import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import app.parley.common.catching
 import app.parley.common.spam.CallReputation
 import app.parley.common.spam.RangeProposal
 import app.parley.common.spam.RepCall
@@ -60,9 +61,9 @@ object ReputationLearner {
         fun iso(accountId: String?) = isoBySim.getOrPut(accountId) { PhoneEnv.countryIso(ctx, accountId) }
 
         // Ring lengths, by the key Parley's ringer filed them under.
-        val rings = runCatching { c.blocks.ringsSince(since) }.getOrDefault(emptyList()).groupBy { it.numberKey }
+        val rings = catching { c.blocks.ringsSince(since) }.getOrDefault(emptyList()).groupBy { it.numberKey }
         // Calls Parley's screening blocked or silenced: they say nothing about what you did.
-        val screened = runCatching { c.blocks.screenedSince(since) }.getOrDefault(emptyList())
+        val screened = catching { c.blocks.screenedSince(since) }.getOrDefault(emptyList())
             .filter { !it.allowed && !it.number.isNullOrBlank() }
             .mapNotNull { e -> PhoneIdentity.e164(e.number, iso(e.simId))?.let { it to e.time } }
             .groupBy({ it.first }, { it.second })
@@ -82,8 +83,8 @@ object ReputationLearner {
 
     /** Your contacts' and private contacts' numbers: never scored, and their ranges neither. */
     private suspend fun knownNumbers(c: DataContainer): List<String> {
-        val contacts = c.contacts.contacts.value ?: runCatching { c.contacts.loadNow() }.getOrDefault(emptyList())
-        val privateNumbers = runCatching { c.vault.allNumbers() }.getOrDefault(emptyList())
+        val contacts = c.contacts.contacts.value ?: catching { c.contacts.loadNow() }.getOrDefault(emptyList())
+        val privateNumbers = catching { c.vault.allNumbers() }.getOrDefault(emptyList())
         return contacts.flatMap { ct -> ct.phones.map { it.number } } + privateNumbers
     }
 
@@ -104,9 +105,9 @@ object ReputationLearner {
 
     /** Numbers you blocked one by one: exact block rules and Android's list. */
     private suspend fun blockedLines(c: DataContainer, iso: String): Set<String> {
-        val rules: List<BlockRule> = runCatching { c.blocks.enabledRules() }.getOrDefault(emptyList())
+        val rules: List<BlockRule> = catching { c.blocks.enabledRules() }.getOrDefault(emptyList())
         val fromRules = rules.filter { it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT }.map { it.pattern }
-        val system = runCatching { c.blocks.loadSystemNow().map { it.number } }.getOrDefault(emptyList())
+        val system = catching { c.blocks.loadSystemNow().map { it.number } }.getOrDefault(emptyList())
         return (fromRules + system).mapNotNullTo(HashSet()) { PhoneIdentity.e164(it, iso) }
     }
 }

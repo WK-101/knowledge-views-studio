@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.parley.common.calls.VerifyCallBack
+import app.parley.common.catching
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
@@ -193,13 +194,13 @@ internal fun VerifySheet(call: CallUi, live: Boolean, onDismiss: () -> Unit) {
     val number = call.number?.takeIf { !call.hidden && it.isNotBlank() }
     val own by produceState<List<VerifyCallBack.Saved>?>(null, number, call.accountId) {
         value = if (number == null) emptyList() else withContext(Dispatchers.IO) {
-            runCatching { VerifyCallBack.choices(TelecomGraph.dependencies.savedNumbersFor(number, call.accountId), number) }.getOrDefault(emptyList())
+            catching { VerifyCallBack.choices(TelecomGraph.dependencies.savedNumbersFor(number, call.accountId), number) }.getOrDefault(emptyList())
         }
     }
     var pickOrganisation by remember { mutableStateOf(false) }
     val organisations by produceState<Organisations>(Organisations.Loading, pickOrganisation) {
         if (!pickOrganisation) return@produceState
-        val list = withContext(Dispatchers.IO) { runCatching { TelecomGraph.dependencies.savedOrganisations() }.getOrDefault(emptyList()) }
+        val list = withContext(Dispatchers.IO) { catching { TelecomGraph.dependencies.savedOrganisations() }.getOrDefault(emptyList()) }
         value = if (list == null) Organisations.Locked else Organisations.Loaded(VerifyCallBack.organisations(list))
     }
     val app = context.applicationContext

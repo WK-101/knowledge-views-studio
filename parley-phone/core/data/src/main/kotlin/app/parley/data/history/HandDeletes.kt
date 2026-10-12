@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import android.content.Context
+import app.parley.common.catching
 import app.parley.data.StatePrefs
 
 /**
@@ -12,13 +13,13 @@ internal class HandDeletes(private val context: Context) {
     private fun prefs() = StatePrefs.open(context, "history_upkeep")
 
     fun mark() {
-        runCatching { prefs().edit().putBoolean(K_PENDING, true).commit() }
+        catching { prefs().edit().putBoolean(K_PENDING, true).commit() }
     }
 
-    fun pending(): Boolean = runCatching { prefs().getBoolean(K_PENDING, false) }.getOrDefault(true)
+    fun pending(): Boolean = catching { prefs().getBoolean(K_PENDING, false) }.getOrDefault(true)
 
     fun done() {
-        runCatching { prefs().edit().remove(K_PENDING).commit() }
+        catching { prefs().edit().remove(K_PENDING).commit() }
     }
 
     private companion object {

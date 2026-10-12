@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.common.catching
 import app.parley.security.SensitiveScreen
 import android.app.NotificationManager
 import android.content.Context
@@ -172,7 +173,7 @@ private fun confirmWipe(
         // asked for and nothing says they were left out (the backup leaves them out silently, see WipeJob).
         if (!backupFirst || Privacy.duressOnly().hiding) return proceed(false)
         scope.launch {
-            val hasPrivate = runCatching { vm.c.vault.summariesNow().isNotEmpty() }.getOrDefault(true)
+            val hasPrivate = catching { vm.c.vault.summariesNow().isNotEmpty() }.getOrDefault(true)
             when {
                 !hasPrivate || !VaultCrypto.detailNeedsUnlock() -> proceed(false)
                 act == null -> show(WipeStep.VaultLocked)
@@ -214,12 +215,13 @@ private class WipeJob(
         }
         val stopped = withContext(Dispatchers.IO + NonCancellable) {
             // Background work must be stopped first, or it would write the old data back; if it can't be, nothing goes.
+            // runCatching, not catching: a cancelled WorkManager operation throws CancellationException here, meaning "not stopped".
             runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }.isSuccess
         }
         if (!stopped) return show(WipeStep.Failed(res.getString(R.string.wipe_not_now)))
         withContext(Dispatchers.IO + NonCancellable) {
-            runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
-            runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
+            catching { app.getSystemService(NotificationManager::class.java).cancelAll() }
+            catching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
             c.wipe.wipe(options)
         }
         restart(app)
@@ -233,7 +235,7 @@ private class WipeJob(
             !b.ok -> WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))
             b.failedSections.isNotEmpty() -> WipeStep.Failed(res.getString(R.string.wipe_backup_incomplete, b.message))
             // While hiding, the backup leaves private contacts out without a word (as every backup made then does).
-            !b.vaultIncluded && !withoutPrivate && !Privacy.duressOnly().hiding && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) ->
+            !b.vaultIncluded && !withoutPrivate && !Privacy.duressOnly().hiding && catching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) ->
                 WipeStep.VaultLocked
             else -> null
         }

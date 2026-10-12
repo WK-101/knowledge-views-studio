@@ -7,6 +7,7 @@ import androidx.annotation.VisibleForTesting
 import app.parley.common.Decision
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.catching
 
 /**
  * Safety rules around screening that must hold regardless of user settings:
@@ -61,7 +62,7 @@ object ScreeningGuard {
 
     /** Tells a monotonic time from an earlier boot apart; -1 when unknown. */
     private fun bootCount(context: Context): Int =
-        runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
+        catching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1)
 
     @Synchronized
     fun remember(number: String?, decision: Decision) = remember(number, ScreenOutcome(decision))

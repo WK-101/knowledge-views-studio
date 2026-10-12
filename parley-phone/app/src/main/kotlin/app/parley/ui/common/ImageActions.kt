@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.photo.ImageFiles
 import app.parley.common.photo.OriginalPhoto
 import app.parley.security.AppLock
@@ -152,7 +153,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
             withBytes { bytes, format ->
                 pending = bytes
                 val name = ImageFiles.fileName(current?.name, format, fallback)
-                runCatching { saver.launch(name to format.mime) }.onFailure {
+                catching { saver.launch(name to format.mime) }.onFailure {
                     pending = null
                     message = res.getString(R.string.blk_no_app)
                 }
@@ -164,7 +165,7 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
                 val uri = ImageExport.shareFile(app, bytes, ImageFiles.fileName(img.name, format, fallback), img.private)
                 // A private contact's decrypted copy goes after its time even while Parley stays open and unlocked.
                 if (img.private) ImageExport.sweepPrivateLater(app, vm.c.scope)
-                runCatching { sharer.launch(ImageExport.shareIntent(uri, format.mime, res.getString(R.string.img_share_title))) }.onFailure {
+                catching { sharer.launch(ImageExport.shareIntent(uri, format.mime, res.getString(R.string.img_share_title))) }.onFailure {
                     vm.c.scope.launch(Dispatchers.IO) { ImageExport.forget(app, uri) }
                     message = res.getString(R.string.blk_no_app)
                 }

@@ -8,6 +8,7 @@ import app.parley.common.calls.DndState
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingVibration
 import app.parley.common.calls.RingerMode
+import app.parley.common.catching
 
 /**
  * Reads the ringer's state when a call starts ringing: Do Not Disturb, ringer mode, ring volume and "vibrate for
@@ -17,7 +18,7 @@ internal object RingSnapshot {
     fun capture(context: Context, startedAt: Long): RingFacts {
         val am = context.getSystemService(AudioManager::class.java)
         val nm = context.getSystemService(NotificationManager::class.java)
-        val dnd = when (runCatching { nm?.currentInterruptionFilter }.getOrNull()) {
+        val dnd = when (catching { nm?.currentInterruptionFilter }.getOrNull()) {
             NotificationManager.INTERRUPTION_FILTER_ALL -> DndState.OFF
             NotificationManager.INTERRUPTION_FILTER_PRIORITY -> DndState.PRIORITY
             NotificationManager.INTERRUPTION_FILTER_ALARMS -> DndState.ALARMS
@@ -26,18 +27,18 @@ internal object RingSnapshot {
         }
         // In priority mode, whether calls (from anyone, contacts or starred) or repeat callers may ring. Android decides
         // per caller; this only says whether any call can get through.
-        val allowsCalls = if (dnd != DndState.PRIORITY) null else runCatching {
-            val p = nm?.notificationPolicy ?: return@runCatching null
+        val allowsCalls = if (dnd != DndState.PRIORITY) null else catching {
+            val p = nm?.notificationPolicy ?: return@catching null
             (p.priorityCategories and (NotificationManager.Policy.PRIORITY_CATEGORY_CALLS or NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS)) != 0
         }.getOrNull()
-        val ringer = when (runCatching { am?.ringerMode }.getOrNull()) {
+        val ringer = when (catching { am?.ringerMode }.getOrNull()) {
             AudioManager.RINGER_MODE_NORMAL -> RingerMode.NORMAL
             AudioManager.RINGER_MODE_VIBRATE -> RingerMode.VIBRATE
             AudioManager.RINGER_MODE_SILENT -> RingerMode.SILENT
             else -> RingerMode.UNKNOWN
         }
-        val volume = runCatching { am?.getStreamVolume(AudioManager.STREAM_RING) }.getOrNull()
-        val max = runCatching { am?.getStreamMaxVolume(AudioManager.STREAM_RING) }.getOrNull()
+        val volume = catching { am?.getStreamVolume(AudioManager.STREAM_RING) }.getOrNull()
+        val max = catching { am?.getStreamMaxVolume(AudioManager.STREAM_RING) }.getOrNull()
         return RingFacts(
             startedAt = startedAt,
             dnd = dnd,
@@ -53,7 +54,7 @@ internal object RingSnapshot {
     private fun vibrateForCalls(context: Context, ringer: RingerMode): Boolean? = when (ringer) {
         RingerMode.VIBRATE -> true
         RingerMode.SILENT -> false
-        else -> runCatching { RingVibration.systemVibrates(CallRinger.systemSetting(context)) }.getOrNull()
+        else -> catching { RingVibration.systemVibrates(CallRinger.systemSetting(context)) }.getOrNull()
     }
 
     fun route(audio: AudioUi): Pair<AnswerRoute, String?>? {

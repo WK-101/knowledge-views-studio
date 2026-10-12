@@ -102,7 +102,7 @@ object AltCalendars {
     /** When [date], kept by [calendar] (null: Gregorian), is next due; null when that is more than a year away. */
     fun due(date: EventDate, calendar: AltCalendar?, today: LocalDate, converter: CalendarConverter?): Due? {
         val y = date.year
-        val original = y?.let { runCatching { LocalDate.of(it, date.month, date.day) }.getOrNull() }
+        val original = y?.let { catching { LocalDate.of(it, date.month, date.day) }.getOrNull() }
         if (calendar == null || converter == null || original == null) return plain(date, today)
         val round = nextRound(original, calendar, today, converter) ?: return plain(date, today)
         // A long lunar year: nothing is due before then.

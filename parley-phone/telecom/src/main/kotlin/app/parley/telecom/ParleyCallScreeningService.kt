@@ -33,21 +33,21 @@ class ParleyCallScreeningService : CallScreeningService() {
     override fun onScreenCall(details: Call.Details) {
         // onScreenCall → respondToCall, for Perfetto / systrace (ended in [respond]).
         Trace.beginAsyncSection(TRACE_RESPOND, System.identityHashCode(details))
-        val incoming = runCatching { details.callDirection == Call.Details.DIRECTION_INCOMING }.getOrDefault(true)
-        val number = runCatching { details.handle?.schemeSpecificPart }.getOrNull()
+        val incoming = catching { details.callDirection == Call.Details.DIRECTION_INCOMING }.getOrDefault(true)
+        val number = catching { details.handle?.schemeSpecificPart }.getOrNull()
         // Any doubt about an emergency lets the call through.
         val emergency = EmergencyPolicy.Facts(
-            emergencyNumber = !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrDefault(false),
-            emergencyCallProperty = runCatching {
+            emergencyNumber = !number.isNullOrBlank() && catching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrDefault(false),
+            emergencyCallProperty = catching {
                 details.hasProperty(Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE) || details.hasProperty(Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL)
             }.getOrDefault(false),
-            inWindow = runCatching { ScreeningGuard.inEmergencyWindow(this) }.getOrDefault(true),
+            inWindow = catching { ScreeningGuard.inEmergencyWindow(this) }.getOrDefault(true),
         )
         if (!incoming || EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.SCREENING, emergency)) {
             allow(details)
             return
         }
-        val verification = runCatching {
+        val verification = catching {
             if (Build.VERSION.SDK_INT < 30) Verification.NOT_VERIFIED else when (details.callerNumberVerificationStatus) {
                 Connection.VERIFICATION_STATUS_PASSED -> Verification.PASSED
                 Connection.VERIFICATION_STATUS_FAILED -> Verification.FAILED
@@ -114,10 +114,10 @@ class ParleyCallScreeningService : CallScreeningService() {
 
     /** Parley is the default phone app, so its in-call service gets every call this service lets through. */
     private fun isPhoneApp(): Boolean =
-        runCatching { getSystemService(TelecomManager::class.java)?.defaultDialerPackage == packageName }.getOrDefault(false)
+        catching { getSystemService(TelecomManager::class.java)?.defaultDialerPackage == packageName }.getOrDefault(false)
 
     private fun respond(details: Call.Details, response: CallResponse) {
-        runCatching { respondToCall(details, response) }
+        catching { respondToCall(details, response) }
         Trace.endAsyncSection(TRACE_RESPOND, System.identityHashCode(details))
     }
 

@@ -168,8 +168,8 @@ private fun NotificationsGroup() {
                 stringResource(R.string.rem_notifications_title), stringResource(R.string.rem_notifications_summary), Icons.Rounded.Notifications,
                 external = true,
             ) {
-                runCatching { NoticeChannels.regroupExisting(context) }
-                runCatching {
+                catching { NoticeChannels.regroupExisting(context) }
+                catching {
                     context.startActivity(
                         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

@@ -273,7 +273,7 @@ class CircleRepository(
             val key = c.personKey.takeIf { it.startsWith("c:") }?.removePrefix("c:")?.takeIf { it.isNotEmpty() } ?: return@forEach
             if ((out[key] ?: Long.MIN_VALUE) < c.date) out[key] = c.date
         }
-        runCatching { interactions.touchesSince(0) }.getOrDefault(emptyList()).forEach { t ->
+        catching { interactions.touchesSince(0) }.getOrDefault(emptyList()).forEach { t ->
             if ((out[t.lookupKey] ?: Long.MIN_VALUE) < t.time) out[t.lookupKey] = t.time
         }
         return out
@@ -307,7 +307,7 @@ class CircleRepository(
         val mode = _config.value.logMode(channel)
         if (mode == LogMode.NEVER) return
         val key = Interactions.promptKey(channel, lookupKey, now)
-        val logged = if (mode == LogMode.ALWAYS) runCatching { interactions.log(lookupKey, contactId, channel.type, channel, now, null, key) }.getOrNull() else null
+        val logged = if (mode == LogMode.ALWAYS) catching { interactions.log(lookupKey, contactId, channel.type, channel, now, null, key) }.getOrNull() else null
         if (mode == LogMode.ALWAYS && logged == null) return
         _prompt.value = LogPrompt(lookupKey, contactId, name, channel, now, key, logged)
     }
@@ -318,7 +318,7 @@ class CircleRepository(
      */
     suspend fun accept(p: LogPrompt): Long? {
         clearPrompt(p)
-        return runCatching { interactions.log(p.lookupKey, p.contactId, p.channel.type, p.channel, p.time, null, p.dedupeKey) }.getOrNull()
+        return catching { interactions.log(p.lookupKey, p.contactId, p.channel.type, p.channel, p.time, null, p.dedupeKey) }.getOrNull()
     }
 
     // --- Bookkeeping for the reminders worker ---
@@ -332,7 +332,7 @@ class CircleRepository(
     suspend fun markWished(lookupKey: String, contactId: Long?, occurrence: String, now: Long = System.currentTimeMillis()): Boolean {
         setStateSet(S_WISHED, DateReminders.prune(stateSet(S_WISHED), now) + "$occurrence|$now")
         if (lookupKey.isEmpty()) return false
-        return runCatching { interactions.log(lookupKey, contactId, InteractionType.MESSAGE, null, now, null, Interactions.wishedKey(occurrence)) != null }.getOrDefault(false)
+        return catching { interactions.log(lookupKey, contactId, InteractionType.MESSAGE, null, now, null, Interactions.wishedKey(occurrence)) != null }.getOrDefault(false)
     }
 
     fun isWished(occurrence: String): Boolean = DateReminders.has(stateSet(S_WISHED), occurrence)
@@ -353,9 +353,9 @@ class CircleRepository(
      */
     suspend fun notesFor(lookupKey: String, numberKeys: Collection<String>, limit: Int = 60): List<PersonNote> = withContext(Dispatchers.IO) {
         if (lookupKey.isEmpty()) return@withContext emptyList()
-        val calls = runCatching { if (numberKeys.isEmpty()) emptyList() else meta.callNotesNow(numberKeys.distinct()) }.getOrDefault(emptyList())
+        val calls = catching { if (numberKeys.isEmpty()) emptyList() else meta.callNotesNow(numberKeys.distinct()) }.getOrDefault(emptyList())
             .take(limit).map { PersonNote(NoteSource.CALL, it.id, it.callDate, it.text) }
-        val logged = runCatching { interactions.interactionsFor(lookupKey) }.getOrDefault(emptyList())
+        val logged = catching { interactions.interactionsFor(lookupKey) }.getOrDefault(emptyList())
             .take(limit).mapNotNull { i -> i.note?.let { PersonNote(NoteSource.LOGGED, i.id, i.time, it) } }
         val pinned = meta.meta(lookupKey)?.pinnedNote?.takeIf { it.isNotBlank() }?.let { PersonNote(NoteSource.PINNED, 0, 0, it) }
         (calls + logged).sortedByDescending { it.time } + listOfNotNull(pinned)
@@ -365,7 +365,7 @@ class CircleRepository(
     suspend fun setPromiseDone(lookupKey: String, note: PersonNote, line: Int, done: Boolean): Boolean = withContext(Dispatchers.IO) {
         // [note] is what was shown; the note may have been edited since: re-read it and change only that promise's
         // box in the current text (in one transaction, so nothing written meanwhile is reverted).
-        runCatching {
+        catching {
             tx {
                 val current = when (note.source) {
                     NoteSource.CALL -> meta.callNote(note.id)?.text
@@ -429,7 +429,7 @@ class CircleRepository(
             val key = c.personKey.takeIf { it.startsWith("c:") }?.removePrefix("c:")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
             PeopleInsights.touchOf(key, c.call)
         }
-        val logged = runCatching { interactions.touchesSince(since) }.getOrDefault(emptyList()).map {
+        val logged = catching { interactions.touchesSince(since) }.getOrDefault(emptyList()).map {
             PeopleInsights.Touch(it.lookupKey, it.time, PeopleInsights.loggedKind(it.dedupeKey))
         }
         return calls + logged
@@ -443,7 +443,7 @@ class CircleRepository(
 
         /** Contacts read fresh (a restore has just inserted some), else the snapshot. */
         private suspend fun contactsNow(): List<ContactSummary> =
-            runCatching { freshContacts() }.getOrNull() ?: withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()
+            catching { freshContacts() }.getOrNull() ?: withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()
 
         override suspend fun export(): Map<String, String> {
             val out = LinkedHashMap<String, String>()
@@ -509,7 +509,7 @@ class CircleRepository(
             // One transaction: a restore interrupted midway leaves none of the Circle half-restored.
             tx {
                 values[X_MEMBERS]?.let { json ->
-                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    val a = catching { JSONArray(json) }.getOrNull() ?: return@let
                     for (i in 0 until a.length()) {
                         val o = a.optJSONObject(i) ?: continue
                         val c = resolve(o) ?: continue
@@ -521,7 +521,7 @@ class CircleRepository(
                     }
                 }
                 values[X_INTERACTIONS]?.let { json ->
-                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    val a = catching { JSONArray(json) }.getOrNull() ?: return@let
                     for (i in 0 until a.length()) {
                         val o = a.optJSONObject(i) ?: continue
                         val c = resolve(o) ?: continue
@@ -529,7 +529,7 @@ class CircleRepository(
                         val channel = if (o.isNull("c")) null else InteractionChannel.decode(o.optString("c"))
                         val note = if (o.isNull("note")) null else o.optString("note")
                         // The unique key makes a second restore of the same backup add nothing.
-                        runCatching {
+                        catching {
                             interactions.log(
                                 c.lookupKey,
                                 c.id,
@@ -543,7 +543,7 @@ class CircleRepository(
                     }
                 }
                 values[X_YEARLY]?.let { json ->
-                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    val a = catching { JSONArray(json) }.getOrNull() ?: return@let
                     for (i in 0 until a.length()) {
                         val o = a.optJSONObject(i) ?: continue
                         val c = resolve(o) ?: continue

@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.os.Looper
 import android.util.Base64
 import app.parley.common.Hex
+import app.parley.common.catching
 import app.parley.data.history.CallFactEntity
 import app.parley.data.history.CallHistory
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -112,7 +113,7 @@ class SealedLineStore<T>(
     val version: StateFlow<Int> = _version.asStateFlow()
 
     /** The line key of [number] (null when the key can't be used now); a hidden number has its own. */
-    fun keyOf(number: String?): String? = if (number.isNullOrBlank()) HIDDEN else runCatching { MAC + keys().lineMac(number) }.getOrNull()
+    fun keyOf(number: String?): String? = if (number.isNullOrBlank()) HIDDEN else catching { MAC + keys().lineMac(number) }.getOrNull()
 
     /**
      * The stored rows, or null when the key or the table can't be used right now. Only a fully read list is cached: a
@@ -121,14 +122,14 @@ class SealedLineStore<T>(
     @Synchronized
     private fun loaded(): Loaded<T>? {
         cache?.let { return it }
-        val h = runCatching { keys() }.getOrNull() ?: return null
-        val t = runCatching { disk() }.getOrNull() ?: return null
+        val h = catching { keys() }.getOrNull() ?: return null
+        val t = catching { disk() }.getOrNull() ?: return null
         if (!moveIn(h, t)) return null
-        val stored = runCatching { t.rows(kind) }.getOrNull() ?: return null
+        val stored = catching { t.rows(kind) }.getOrNull() ?: return null
         val rows = ArrayList<Row<T>>()
         val unread = ArrayList<CallFactEntity>()
         for (e in stored) {
-            val opened = runCatching { String(h.open(e.blob)) }
+            val opened = catching { String(h.open(e.blob)) }
             if (opened.isFailure) {
                 unread += e
             } else {
@@ -162,13 +163,13 @@ class SealedLineStore<T>(
             val tab = line.indexOf('\t')
             if (tab <= 0) return@mapNotNull null
             val key = line.substring(0, tab)
-            val blob = runCatching { Base64.decode(line.substring(tab + 1), Base64.NO_WRAP) }.getOrNull() ?: return@mapNotNull null
+            val blob = catching { Base64.decode(line.substring(tab + 1), Base64.NO_WRAP) }.getOrNull() ?: return@mapNotNull null
             // A row that can't be opened now has no date to keep it by: it ages from the move.
-            val at = runCatching { decode(String(h.open(blob)))?.let(startedAt) }.getOrNull() ?: now
+            val at = catching { decode(String(h.open(blob)))?.let(startedAt) }.getOrNull() ?: now
             CallFactEntity(idOf(kind, key, blob), kind, key, at, blob)
         }.toList()
         val marker = CallFactEntity(MOVED + kind, kind + MOVED, "", Long.MAX_VALUE, ByteArray(0))
-        runCatching { t.adopt(kind, rows, marker) }.getOrElse { return false }
+        catching { t.adopt(kind, rows, marker) }.getOrElse { return false }
         from.prefs.edit().remove(from.key).commit()
         return true
     }
@@ -224,9 +225,9 @@ class SealedLineStore<T>(
 
     /** Whether any row is kept, readable now or not. */
     fun any(): Boolean {
-        val t = runCatching { disk() }.getOrNull() ?: return true
+        val t = catching { disk() }.getOrNull() ?: return true
         if (legacy?.prefs?.getString(legacy.key, null)?.isNotBlank() == true) return true
-        return runCatching { t.count(kind) > 0 }.getOrDefault(true)
+        return catching { t.count(kind) > 0 }.getOrDefault(true)
     }
 
     /**
@@ -253,20 +254,20 @@ class SealedLineStore<T>(
     /** Forgets everything. */
     @Synchronized
     fun clear() {
-        runCatching { disk().clear(kind) }
+        catching { disk().clear(kind) }
         legacy?.let { it.prefs.edit().remove(it.key).commit() }
         cache = Loaded(emptyList(), emptyList())
         _version.value++
     }
 
     private fun sealed(k: String, facts: T): CallFactEntity? {
-        val blob = runCatching { keys().seal(encode(facts).toByteArray()) }.getOrNull() ?: return null
+        val blob = catching { keys().seal(encode(facts).toByteArray()) }.getOrNull() ?: return null
         return CallFactEntity(idOf(kind, k, blob), kind, k, startedAt(facts), blob)
     }
 
     /** Writes [add] in place of [drop] (rows by id), pruned as the table is; the cache follows when it was whole. */
     private fun store(l: Loaded<T>, drop: List<String>, add: List<Pair<CallFactEntity, T>>, now: Long): Boolean {
-        val t = runCatching { disk() }.getOrNull() ?: return false
+        val t = catching { disk() }.getOrNull() ?: return false
         if (!save(t, drop, add.map { it.first }, now)) return false
         val gone = drop.toSet()
         val next = (add.map { (e, facts) -> Row(e.id, e.lineKey, facts) } + l.rows.filterNot { it.id in gone })
@@ -279,7 +280,7 @@ class SealedLineStore<T>(
     }
 
     private fun save(t: Table, drop: Collection<String>, add: List<CallFactEntity>, now: Long): Boolean =
-        runCatching { t.write(kind, drop, add, now - keepDays * DAY_MS, maxRows) }.isSuccess
+        catching { t.write(kind, drop, add, now - keepDays * DAY_MS, maxRows) }.isSuccess
 
     companion object {
         const val HIDDEN = "hidden"

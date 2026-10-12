@@ -47,6 +47,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.backup.SnapshotClearing
 import app.parley.common.backup.SnapshotKeep
+import app.parley.common.catching
 import app.parley.data.UndoStorage
 import app.parley.security.AppLock
 import app.parley.ui.ConfirmDialog
@@ -73,17 +74,17 @@ fun UndoStorageSheet(vm: AppViewModel, onDismiss: () -> Unit, onCleared: () -> U
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var round by remember { mutableIntStateOf(0) }
-    val usage by produceState<UndoStorage.Usage?>(null, round) { value = runCatching { vm.c.undoStorage.usage() }.getOrNull() }
+    val usage by produceState<UndoStorage.Usage?>(null, round) { value = catching { vm.c.undoStorage.usage() }.getOrNull() }
     // Deleted private contacts are counted apart (nothing is opened to count them) and not at all in discreet mode,
     // where their row is hidden; clearing contact changes never clears them.
     val hideVault = vm.privacy.collectAsStateWithLifecycle().value.privateHidden
     val privateKept by produceState(0, round, hideVault) {
-        value = if (hideVault) 0 else withContext(Dispatchers.IO) { runCatching { vm.c.privateTrash.count() }.getOrDefault(0) }
+        value = if (hideVault) 0 else withContext(Dispatchers.IO) { catching { vm.c.privateTrash.count() }.getOrDefault(0) }
     }
     var asking by remember { mutableStateOf<UndoStore?>(null) }
 
     fun clear(store: UndoStore, keep: SnapshotKeep) = scope.launch {
-        val message = runCatching {
+        val message = catching {
             when (store) {
                 UndoStore.CONTACTS -> vm.c.undoStorage.clearContactChanges().let { res.getQuantityString(R.plurals.jr_cleared_contacts, it, it) }
                 UndoStore.PRIVATE -> vm.c.privateTrash.clear().let { res.getQuantityString(R.plurals.jr_cleared_private, it, it) }

@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.catching
 import app.parley.ui.Destination
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +40,7 @@ import app.parley.ui.discover.CapabilityText
 import app.parley.ui.discover.DiscoverRoutes
 
 /** This build's version code, and whether this version is the first one installed on the device. */
-private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
+private fun versionInfo(context: Context): Pair<Int, Boolean> = catching {
     val info = context.packageManager.getPackageInfo(context.packageName, 0)
     info.longVersionCode.toInt() to (info.firstInstallTime == info.lastUpdateTime)
 }.getOrDefault(0 to true)

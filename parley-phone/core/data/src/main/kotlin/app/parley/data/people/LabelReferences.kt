@@ -5,6 +5,7 @@ import app.parley.common.LabelRefs
 import app.parley.common.OffHours
 import app.parley.common.calls.SafeWord
 import app.parley.common.calltime.LimitRule
+import app.parley.common.catching
 import app.parley.common.extras.LabelPolicy
 import app.parley.common.OffHoursAllow
 import app.parley.common.RuleType
@@ -25,7 +26,7 @@ import kotlinx.coroutines.withContext
 class LabelReferences(private val c: DataContainer, private val prefs: PeoplePrefs) {
 
     /** Group id → title of every label on this phone (empty when contacts can't be read). */
-    private fun groupTitles(): Map<Long, String> = runCatching { c.contacts.groups().associate { it.id to it.title } }.getOrDefault(emptyMap())
+    private fun groupTitles(): Map<Long, String> = catching { c.contacts.groups().associate { it.id to it.title } }.getOrDefault(emptyMap())
 
     /** One-off upgrade of id-based references; cheap and idempotent, run at app start off the main thread. */
     suspend fun migrate() = withContext(Dispatchers.IO) {

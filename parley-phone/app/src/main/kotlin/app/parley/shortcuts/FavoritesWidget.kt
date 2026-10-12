@@ -144,14 +144,14 @@ class FavoritesWidget : AppWidgetProvider() {
 
         /** What a tap on a person does in widget [id] (calls, unless chosen otherwise). */
         fun tap(context: Context, id: Int): FavoritesWidgetPlan.Tap =
-            runCatching { FavoritesWidgetPlan.Tap.valueOf(prefs(context).getString(tapKey(id), null).orEmpty()) }.getOrDefault(FavoritesWidgetPlan.Tap.CALL)
+            catching { FavoritesWidgetPlan.Tap.valueOf(prefs(context).getString(tapKey(id), null).orEmpty()) }.getOrDefault(FavoritesWidgetPlan.Tap.CALL)
 
         fun setTap(context: Context, id: Int, tap: FavoritesWidgetPlan.Tap) {
             prefs(context).edit().putString(tapKey(id), tap.name).apply()
         }
 
         private fun ids(context: Context): IntArray =
-            runCatching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, FavoritesWidget::class.java)) }.getOrDefault(IntArray(0))
+            catching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, FavoritesWidget::class.java)) }.getOrDefault(IntArray(0))
 
         /** Parley came to the front (so the phone is unlocked): brings names back if the widget still hides them. */
         suspend fun refreshIfShownLocked(context: Context) {
@@ -164,7 +164,7 @@ class FavoritesWidget : AppWidgetProvider() {
             val ids = ids(ctx)
             if (ids.isEmpty()) return
             val c = ctx.container
-            val favourites = runCatching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull().orEmpty()
+            val favourites = catching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull().orEmpty()
             // With the app lock on, names show only while both the phone and Parley are unlocked.
             val s = c.settings.current()
             val deviceLocked = ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
@@ -225,7 +225,7 @@ class FavoritesWidget : AppWidgetProvider() {
         /** The sizes Android 12 and later list for the widget (null before, or when the launcher gives none). */
         private fun listedSizes(options: Bundle?): List<FavoritesWidgetPlan.Size>? {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || options == null) return null
-            val sizes = runCatching {
+            val sizes = catching {
                 BundleCompat.getParcelableArrayList(options, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
             }.getOrNull() ?: return null
             return sizes.map { FavoritesWidgetPlan.Size(it.width.toInt(), it.height.toInt()) }
@@ -288,6 +288,7 @@ class FavoritesWidget : AppWidgetProvider() {
             cell.setTextViewText(R.id.fav_cell_name, t.name)
             val photo = photos.getOrPut(t.contactId) {
                 t.photoUri?.let { uri ->
+                    // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
                     runCatching { ctx.contentResolver.openInputStream(Uri.parse(uri))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull()
                 }?.let { DialWidget.circle(it, PHOTO_PX) } ?: DialWidget.circle(Shortcuts.monogram(t.name, PHOTO_PX), PHOTO_PX)
             }
@@ -341,12 +342,12 @@ class FavoritesWidget : AppWidgetProvider() {
                             .drop(1)
                             .debounce(2_000)
                     }
-                }.collect { if (ids(ctx).isNotEmpty()) runCatching { refresh(ctx) } }
+                }.collect { if (ids(ctx).isNotEmpty()) catching { refresh(ctx) } }
             }
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     if (ids(ctx).isEmpty() || !c.settings.settings.value.appLock) return
-                    c.scope.launch { runCatching { refresh(ctx) } }
+                    c.scope.launch { catching { refresh(ctx) } }
                 }
             }
             val filter = IntentFilter().apply {
@@ -354,7 +355,7 @@ class FavoritesWidget : AppWidgetProvider() {
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
             // System broadcasts only; not exported to other apps.
-            runCatching { ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
+            catching { ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
         }
     }
 }

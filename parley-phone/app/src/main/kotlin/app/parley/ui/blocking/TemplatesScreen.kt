@@ -52,6 +52,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.ui.Section
 import app.parley.ui.common.ImageActionButtons
 import app.parley.ui.common.generatedImage
@@ -282,7 +283,7 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                     else -> TextButton({
                         scope.launch {
                             dryBusy = true
-                            dry = runCatching {
+                            dry = catching {
                                 val pack = RuleTemplates.toPack(t)?.let { b -> withContext(Dispatchers.Default) { ListPack.parse(b) } }
                                 vm.c.screener.dryRun(
                                     vm.c.history.calls.value.orEmpty(), 7,

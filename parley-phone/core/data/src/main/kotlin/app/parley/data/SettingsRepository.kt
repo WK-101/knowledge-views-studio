@@ -361,7 +361,7 @@ class SettingsRepository internal constructor(
         /** The stored call-history retention, for restoring a backup made before it had a default. */
         val RETENTION_KEY: String = K.retention.name
 
-        private fun neverUpdated(context: Context): Boolean = runCatching {
+        private fun neverUpdated(context: Context): Boolean = catching {
             context.packageManager.getPackageInfo(context.packageName, 0).let { it.firstInstallTime == it.lastUpdateTime }
         }.getOrDefault(false)
 

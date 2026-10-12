@@ -4,7 +4,7 @@ import app.parley.calls.AbroadCalls
 import app.parley.calls.NumberSignals
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.PhoneIdentity
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.SimCard
@@ -69,10 +69,10 @@ class CallGate(private val c: DataContainer) {
     }
 
     private suspend fun readSimCards(number: String): List<SimCard> {
-        val sims = suspendRunCatching { c.sims.accounts() }.getOrDefault(emptyList())
-        val lines = suspendRunCatching { c.sims.lines() }.getOrDefault(emptyMap())
-        val roaming = suspendRunCatching { c.roaming.simStates(sims).filter { it.roaming }.map { it.id }.toSet() }.getOrDefault(emptySet())
-        val learned = suspendRunCatching { NumberSignals.simTip(c, listOf(number), sims) }.getOrNull()
+        val sims = catching { c.sims.accounts() }.getOrDefault(emptyList())
+        val lines = catching { c.sims.lines() }.getOrDefault(emptyMap())
+        val roaming = catching { c.roaming.simStates(sims).filter { it.roaming }.map { it.id }.toSet() }.getOrDefault(emptySet())
+        val learned = catching { NumberSignals.simTip(c, listOf(number), sims) }.getOrNull()
         return SimChoice.cards(sims, lines, roaming, learned?.let { SimSuggestion(it.simId, SimReason.FEWER_DROPS) })
     }
 

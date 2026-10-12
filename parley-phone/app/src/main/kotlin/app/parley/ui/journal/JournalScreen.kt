@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.people.ContactRef
 import app.parley.data.vault.PrivateTrash
 import app.parley.security.AppLock
@@ -155,7 +156,7 @@ private class PrivateTrashUi(
     }
 
     fun restore(k: PrivateTrash.Kept, res: Resources) = scope.launch {
-        val id = runCatching { vm.c.privateTrash.restore(k.file) }.getOrNull()
+        val id = catching { vm.c.privateTrash.restore(k.file) }.getOrNull()
         reload()
         if (id == null) return@launch vm.toast(res.getString(R.string.jr_restore_failed))
         vm.toast(res.getString(R.string.label_restored, k.name))

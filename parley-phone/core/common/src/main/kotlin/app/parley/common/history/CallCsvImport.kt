@@ -1,6 +1,7 @@
 package app.parley.common.history
 
 import app.parley.common.CallType
+import app.parley.common.catching
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -321,9 +322,9 @@ object CallCsvImport {
     fun parseDate(date: String?, time: String?, zone: ZoneId, dayFirst: Boolean): Long? {
         val d = date?.trim() ?: return null
         parseEpoch(d)?.let { return it }
-        runCatching { return OffsetDateTime.parse(d).toInstant().toEpochMilli() }
-        runCatching { return Instant.parse(d).toEpochMilli() }
-        runCatching { return LocalDateTime.parse(d).atZone(zone).toInstant().toEpochMilli() }
+        catching { return OffsetDateTime.parse(d).toInstant().toEpochMilli() }
+        catching { return Instant.parse(d).toEpochMilli() }
+        catching { return LocalDateTime.parse(d).atZone(zone).toInstant().toEpochMilli() }
         val full = if (time != null) "$d ${time.trim()}" else d
         val patterns = dateTimePatterns + if (dayFirst) dayFirstPatterns + monthFirstPatterns else monthFirstPatterns + dayFirstPatterns
         for (p in patterns) {
@@ -333,7 +334,7 @@ object CallCsvImport {
             }
         }
         if (time == null) {
-            runCatching { return LocalDate.parse(d).atTime(LocalTime.NOON).atZone(zone).toInstant().toEpochMilli() }
+            catching { return LocalDate.parse(d).atTime(LocalTime.NOON).atZone(zone).toInstant().toEpochMilli() }
         }
         return null
     }

@@ -102,6 +102,7 @@ internal fun rememberCallPicture(uri: String?): ImageBitmap? {
         value = null
         if (uri == null) return@produceState
         value = withContext(Dispatchers.IO) {
+            // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
             runCatching {
                 val u = Uri.parse(uri)
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }

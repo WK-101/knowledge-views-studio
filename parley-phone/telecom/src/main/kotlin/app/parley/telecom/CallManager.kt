@@ -223,7 +223,7 @@ object CallManager {
                 otherCall = calls.any { it != call && it.parent == null && mapState(it.stateCompat()) != CallState.DISCONNECTED },
                 emergency = emergency.isCall(call, number),
                 headsetConnected = AutoAnswerGate.headsetConnected(appContext),
-                simpleMode = runCatching { deps.appearance.value.simpleMode }.getOrDefault(false),
+                simpleMode = catching { deps.appearance.value.simpleMode }.getOrDefault(false),
                 chosen = session.info?.autoAnswerChosen == true,
                 favourite = session.info?.favourite == true,
                 inCircle = session.info?.inCircle == true,
@@ -273,13 +273,13 @@ object CallManager {
             notifier.traceIncoming(s)
             val now = System.currentTimeMillis()
             s.ringStartedAt = now
-            s.ringFacts = runCatching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
+            s.ringFacts = catching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
         }
 
         // An emergency call opens the emergency window as soon as it exists, so a call-back arriving during it, or
         // after the process died before the call ended, still gets through.
         val emergency = emergency.facts(call, number, incoming)
-        if (EmergencyPolicy.startsWindow(emergency, incoming)) runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
+        if (EmergencyPolicy.startsWindow(emergency, incoming)) catching { ScreeningGuard.noteEmergencyCall(appContext) }
 
         // Screening runs before we show any UI. Never an emergency call or right after one (call-backs must get through).
         val accountId = call.details.accountHandle?.id
@@ -289,7 +289,7 @@ object CallManager {
         // Selecting a SIM automatically if the user pinned one for this number.
         if (call.stateCompat() == Call.STATE_SELECT_PHONE_ACCOUNT && number != null) {
             scope.launch {
-                val pref = runCatching { deps.preferredAccountId(number) }.getOrNull()
+                val pref = catching { deps.preferredAccountId(number) }.getOrNull()
                 val handle = pref?.let { handleFor(it) }
                 if (handle != null) call.phoneAccountSelected(handle, false)
             }
@@ -307,7 +307,7 @@ object CallManager {
         if (number != null && !hidden) {
             scope.launch {
                 var looked = false
-                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
+                val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { catching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
                 if (looked) lookedUp(s, found, number, accountId)
                 // "You said you'd call at 15:30": a promise to a caller who rings first, saved or not.
                 if (incoming && looked) rememberPromise(call, s, number, accountId)
@@ -326,7 +326,7 @@ object CallManager {
                         publish()
                         // "Where is this number from": the geocoder loads large data files the first time, so never
                         // on the main thread while the phone rings.
-                        val where = withContext(Dispatchers.IO) { runCatching { deps.describeNumber(number) }.getOrNull().orEmpty() }
+                        val where = withContext(Dispatchers.IO) { catching { deps.describeNumber(number) }.getOrNull().orEmpty() }
                         if (calls.contains(call)) s.location = where
                     }
                 }
@@ -353,7 +353,7 @@ object CallManager {
             return
         }
         scope.launch {
-            s.savedPrivately = runCatching { deps.isSavedCaller(number, accountId) }.getOrDefault(false)
+            s.savedPrivately = catching { deps.isSavedCaller(number, accountId) }.getOrDefault(false)
             s.lookupDone = true
             publish()
         }
@@ -392,7 +392,7 @@ object CallManager {
         // Screening's verdict first: a repeat caller or an expected call it lets through must ring.
         withTimeoutOrNull(ScreeningCoordinator.SCREEN_TIMEOUT_MS + SCREEN_GRACE_MS) { while (s.screening && ringing(call)) delay(SCREEN_POLL_MS) }
         val saved = number != null &&
-            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.isSavedCaller(number, accountId) }.getOrNull() } != false
+            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { catching { deps.isSavedCaller(number, accountId) }.getOrNull() } != false
         val caller = DriveProfile.Caller(
             known = false, saved = saved, hidden = number == null,
             emergency = EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency.facts(call, number, incoming = true)),
@@ -467,7 +467,7 @@ object CallManager {
     private fun rememberNumber(call: Call, s: CallSession, number: String, accountId: String?) {
         scope.launch {
             val line = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
-                withContext(Dispatchers.IO) { runCatching { deps.numberMemory(number, accountId) }.getOrNull() }
+                withContext(Dispatchers.IO) { catching { deps.numberMemory(number, accountId) }.getOrNull() }
             } ?: return@launch
             if (!calls.contains(call)) return@launch
             s.numberMemory = line
@@ -500,7 +500,7 @@ object CallManager {
      */
     private fun toneFor(s: CallSession, pattern: LongArray?): String? {
         s.outcome?.ringtone?.let { return it }
-        if (s.unknownCaller) return runCatching { deps.unknownRingtone() }.getOrNull()
+        if (s.unknownCaller) return catching { deps.unknownRingtone() }.getOrNull()
         if (pattern == null) return null
         // Only the vibration would differ, and the call doesn't vibrate now (normal mode with "Vibrate for calls" off):
         // Telecom keeps ringing, with no gap while Parley's tone starts over.
@@ -525,7 +525,7 @@ object CallManager {
         if (!screening.applies(earlier, hidden)) return
         val callerName = ScreeningCoordinator.CallerName(
             call.details.callerDisplayName?.takeIf { it.isNotBlank() },
-            runCatching { call.details.callerDisplayNamePresentation }.getOrDefault(0),
+            catching { call.details.callerDisplayNamePresentation }.getOrDefault(0),
         )
         screening.start(s, number, hidden, verificationOf(call), callerName, earlier, screeningHost)
     }
@@ -549,7 +549,7 @@ object CallManager {
             return
         }
         if (emergencyCallBack || calls.size > 1) return
-        val style = runCatching { deps.ringStyle() }.getOrDefault(RingStyle.NORMAL)
+        val style = catching { deps.ringStyle() }.getOrDefault(RingStyle.NORMAL)
         if (style == RingStyle.NORMAL) return
         val first = RingRamp.vibratesFirst(style, CallRinger.ringVibrates(appContext))
         if (first) {
@@ -867,7 +867,7 @@ object CallManager {
         CallClock.haptic(CallHaptic.DECLINE)
         publish()
         // Its own job in the long-lived scope: the timeout below only stops waiting for it.
-        val write = scope.async { runCatching { deps.blockForDecline(number) }.getOrNull() }
+        val write = scope.async { catching { deps.blockForDecline(number) }.getOrNull() }
         scope.launch {
             withTimeoutOrNull(BLOCK_TIMEOUT_MS) { write.join() }
             val stillRinging = ringing(call)
@@ -891,7 +891,7 @@ object CallManager {
         val rule = b.ruleId?.takeIf { it > 0 } ?: return
         if (b.undone || b.pending) return
         _declineBlock.value = b.copy(undone = true)
-        scope.launch { runCatching { deps.undoBlockForDecline(rule) } }
+        scope.launch { catching { deps.undoBlockForDecline(rule) } }
     }
 
     /** Done on the "Blocked · Undo" card shown above a call that goes on. */
@@ -912,13 +912,13 @@ object CallManager {
 
     /** Retry on the failure banner. The reason it still failed, or null. */
     suspend fun redial(number: String, accountId: String?): String? =
-        runCatching { deps.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
+        catching { deps.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
 
     /** The caller lookup hadn't finished when the call ended: fill the name in on the call-ended screen. */
     private fun lookUpEndedName(ended: CallUi) {
         val number = ended.number ?: return
         scope.launch {
-            val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch
+            val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { catching { deps.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch
             val now = _lastEnded.value
             if (now?.id == ended.id) {
                 _lastEnded.value = now.copy(name = found.name, label = found.label, photoUri = found.photoUri, contactId = found.contactId, noContact = false)
@@ -976,7 +976,7 @@ object CallManager {
         val now = _lastEnded.value?.takeIf { it.id == id } ?: return
         val tip = now.simTip ?: return
         _lastEnded.value = now.copy(simTip = null, accountId = if (accept) tip.simId else now.accountId)
-        runCatching { deps.answerSimTip(tip, accept) }
+        catching { deps.answerSimTip(tip, accept) }
     }
 
     fun dismissDrop(id: String) {
@@ -1018,7 +1018,7 @@ object CallManager {
     fun saveNote(id: String, text: String) {
         if (RescueCall.owns(id)) return
         val call = find(id) ?: return
-        runCatching { deps.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
+        catching { deps.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
     }
 
     fun hangup(id: String) {

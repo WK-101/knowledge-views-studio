@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.parley.common.catching
 import app.parley.common.ux.Tips
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
@@ -43,8 +44,8 @@ internal fun DriveStatusLine(call: CallUi?, keypadOpen: Boolean) {
     // Hidden with the keypad open in a call (the caller collapses then), shown while it rings.
     if (call == null || !call.driving || !call.isLive) return
     if (keypadOpen && call.state != CallState.RINGING) return
-    val firstTime = remember { runCatching { !TelecomGraph.dependencies.tipSeen(Tips.DRIVE_PROFILE) }.getOrDefault(false) }
-    LaunchedEffect(Unit) { if (firstTime) runCatching { TelecomGraph.dependencies.markTipSeen(Tips.DRIVE_PROFILE) } }
+    val firstTime = remember { catching { !TelecomGraph.dependencies.tipSeen(Tips.DRIVE_PROFILE) }.getOrDefault(false) }
+    LaunchedEffect(Unit) { if (firstTime) catching { TelecomGraph.dependencies.markTipSeen(Tips.DRIVE_PROFILE) } }
     Column(Modifier.padding(top = Spacing.xs).widthIn(max = 480.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.DirectionsCar, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

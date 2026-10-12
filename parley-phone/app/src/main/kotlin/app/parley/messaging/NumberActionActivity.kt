@@ -345,7 +345,7 @@ class NumberActionActivity : LockedActivity() {
     private fun offerContactLater(text: String, region: String?) {
         contactCheck?.cancel()
         contactCheck = lifecycleScope.launch {
-            val worth = withContext(Dispatchers.Default) { runCatching { PasteParser.worthOffering(text, region) }.getOrDefault(false) }
+            val worth = withContext(Dispatchers.Default) { catching { PasteParser.worthOffering(text, region) }.getOrDefault(false) }
             if (worth) contactText = text
         }
     }
@@ -534,7 +534,7 @@ class NumberActionActivity : LockedActivity() {
         val e164 = remember(typed, region) { NumberText.toE164(typed, region) }
         val ready = e164 != null && MessengerLinks.unavailable(e164) == null
         val focus = remember { FocusRequester() }
-        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        LaunchedEffect(Unit) { catching { focus.requestFocus() } }
 
         fun paste() {
             val clip = Clipboard.readText(this, MAX_TEXT)

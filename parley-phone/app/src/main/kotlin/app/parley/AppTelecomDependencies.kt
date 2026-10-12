@@ -161,7 +161,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 val note = async { it.lookupKey?.let { k -> Agenda.withoutItems(c.meta.meta(k)?.pinnedNote) } }
                 // Job and company under the name.
                 val org = async { c.contacts.organization(it.contactId) }
-                val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
+                val pronouns = async { catching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
                 val nativeName = async { catching { c.contacts.nativeNameOf(it.contactId) }.getOrNull() }
                 // The last note and open promises; the call screen decides whether the lock screen may show them, by
                 // "Caller on the lock screen" ("Name and notes"), the one rule for notes there.
@@ -174,7 +174,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // Only when a "who" of auto-answer or the drive profile names a label: the labels.
                 val who = async { whoFacts(null) { c.contacts.labelTitlesOf(it.contactId) } }
                 // "Show names as" last name first: the "Family, Given" form, as in the lists.
-                val alternative = async { if (lastFirst) runCatching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
+                val alternative = async { if (lastFirst) catching { c.contacts.alternativeName(it.contactId) }.getOrNull() else null }
                 val parts = CallerParts(
                     note.await(), org.await(), pronouns.await(), memory.await(), alternative.await(), nativeName.await(),
                     occasion.await(), inCircle.await(),
@@ -261,17 +261,17 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */
     private fun showsPhoto(key: String?): Boolean =
-        CallerPhoto.shows(c.settings.settings.value.showCallerPhoto, runCatching { c.people.backgrounds.photoChoice(key) }.getOrNull())
+        CallerPhoto.shows(c.settings.settings.value.showCallerPhoto, catching { c.people.backgrounds.photoChoice(key) }.getOrNull())
 
     /**
      * The caller's haptic caller ID and auto-answer: their own ([key]: their Parley key), else their labels' ([labels]
      * is read only when a label has either, so most calls never look labels up).
      */
     private suspend fun callerChoices(key: String?, labels: suspend () -> Set<String>): CallerChoice {
-        val own = key?.let { runCatching { c.extras.choiceFor(it) }.getOrNull() } ?: CallerChoice()
+        val own = key?.let { catching { c.extras.choiceFor(it) }.getOrNull() } ?: CallerChoice()
         val labelPolicies = c.extras.labelCallChoices()
         if (labelPolicies.isEmpty()) return own
-        val titles = runCatching { labels() }.getOrDefault(emptySet())
+        val titles = catching { labels() }.getOrDefault(emptySet())
         return CallerChoice(
             vibration = CallerHaptics.resolve(own.vibration, titles, labelPolicies.mapNotNull { (t, p) -> p.vibration?.let { t to it } }.toMap()),
             autoAnswer = own.autoAnswer || CallerChoices.labelAutoAnswer(titles, labelPolicies),
@@ -341,7 +341,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // "they'll call back Tue" in a call note can expect that call, from that number only (a hidden or
             // unknown line opens nothing: the window would cover everyone).
             if (!number.isNullOrBlank() && id > 0) {
-                runCatching {
+                catching {
                     val (name, isPrivate) = ExpectedCallHints.caller(c, number)
                     ExpectedCallHints.noteSaved(c, name, text, ExpectedCallHints.callNoteKey(id), number = number, privateName = isPrivate)
                 }
@@ -354,7 +354,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val region = PhoneEnv.countryIso(app)
         val numbers = (
             c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { it.number }
-                ?: contactId?.let { runCatching { c.contacts.numbersOf(it) }.getOrNull() }.orEmpty()
+                ?: contactId?.let { catching { c.contacts.numbersOf(it) }.getOrNull() }.orEmpty()
             ) + number
         val keys = numbers.flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
         val notes = c.circle.notesFor(lookupKey, keys).filter { it.source != CircleRepository.NoteSource.PINNED }
@@ -402,7 +402,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** "Decline & remind" and the post-call card's "Remind me": the To call list. */
     override fun remindToCall(number: String, accountId: String?, at: Long) {
-        c.scope.launch { runCatching { ToCallReminders.remind(app, number, accountId, at) } }
+        c.scope.launch { catching { ToCallReminders.remind(app, number, accountId, at) } }
     }
 
     override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {
@@ -425,8 +425,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         // Only while a rule counts allowances: nothing about calls is kept for its own sake.
         if (c.calling.config.value.rules.none { it.hasQuota }) return
         c.scope.launch(Dispatchers.IO) {
-            val found = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
-            runCatching {
+            val found = number?.let { catching { c.contacts.lookup(it) }.getOrNull() }
+            catching {
                 c.callUsage.record(
                     CallUsageEntity(
                         startedAt = connectTimeMillis, durationSec = durationSec, incoming = incoming,
@@ -456,26 +456,26 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
      * rules the call path reads are refreshed whatever happened.
      */
     override suspend fun blockForDecline(number: String): Long? = withContext(Dispatchers.IO) {
-        val pattern = runCatching { RuleTools.check(number, RuleType.EXACT, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
+        val pattern = catching { RuleTools.check(number, RuleType.EXACT, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
             ?: return@withContext null
         suspend fun existing() = c.blocks.allRules().any {
             it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
         }
         try {
-            runCatching {
+            catching {
                 if (existing()) 0L else c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.EXACT, note = app.getString(R.string.blk_note_block_decline)))
             }.getOrElse {
                 // The write reported an error: say "blocked" only when the rule is really there (no Undo then).
-                if (runCatching { existing() }.getOrDefault(false)) 0L else null
+                if (catching { existing() }.getOrDefault(false)) 0L else null
             }
         } finally {
-            runCatching { c.blocks.enabledRules() } // refreshes the in-memory rules the call path reads
+            catching { c.blocks.enabledRules() } // refreshes the in-memory rules the call path reads
         }
     }
 
     override suspend fun undoBlockForDecline(ruleId: Long) {
         withContext(Dispatchers.IO) {
-            runCatching {
+            catching {
                 c.blocks.deleteRule(ruleId)
                 c.blocks.enabledRules()
             }
@@ -485,7 +485,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** "Block this range?" works from your own calls, gathered now (the call has ended). */
     override suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = withContext(Dispatchers.IO) {
         if (!c.settings.current().screening.learnFromCalls) return@withContext null
-        runCatching { ReputationLearner.proposeRange(c, number, accountId) }.getOrNull()
+        catching { ReputationLearner.proposeRange(c, number, accountId) }.getOrNull()
     }
 
     /**
@@ -493,21 +493,21 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
      * default: a range covers a thousand numbers, mostly strangers, and repeat callers never pass a rule.
      */
     override suspend fun blockRange(prefix: String, action: BlockAction): Long? = withContext(Dispatchers.IO) {
-        val pattern = runCatching { RuleTools.check(prefix, RuleType.PREFIX, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
+        val pattern = catching { RuleTools.check(prefix, RuleType.PREFIX, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
             ?: return@withContext null
         suspend fun existing() = c.blocks.allRules().any {
             it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.PREFIX && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
         }
         try {
-            runCatching {
+            catching {
                 if (existing()) {
                     0L
                 } else {
                     c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.PREFIX, action = action, note = app.getString(R.string.blk_note_range)))
                 }
-            }.getOrElse { if (runCatching { existing() }.getOrDefault(false)) 0L else null }
+            }.getOrElse { if (catching { existing() }.getOrDefault(false)) 0L else null }
         } finally {
-            runCatching { c.blocks.enabledRules() }
+            catching { c.blocks.enabledRules() }
         }
     }
 
@@ -582,7 +582,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun tipSeen(id: String): Boolean = id in c.ux.state.value.seenTips
 
     override fun markTipSeen(id: String) {
-        c.scope.launch(Dispatchers.IO) { runCatching { c.ux.dismissTip(id) } }
+        c.scope.launch(Dispatchers.IO) { catching { c.ux.dismissTip(id) } }
     }
 
     override fun onCallQuality(number: String?, facts: CallQualityFacts) {
@@ -693,12 +693,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     private suspend fun isPrivate(number: String): Boolean =
         c.numberOwners.find(number, null, NumberOwners.Use.CALL_PATH).let { it.private != null || it.privateFailed }
 
-    private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
+    private fun contactRingtone(number: String): String? = catching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
 
     // ---- Family safety
 
     override suspend fun safeWordsFor(number: String?, accountId: String?): List<SafeWordPrompt> = withContext(Dispatchers.IO) {
-        val words = runCatching { c.familySafety.safeWords() }.getOrDefault(emptyMap())
+        val words = catching { c.familySafety.safeWords() }.getOrDefault(emptyMap())
         if (words.isEmpty()) return@withContext emptyList()
         // A saved member of the label needs no check: their labels, a private contact's too (unless discreet mode
         // hides it, when it counts as an unknown caller like everywhere else).
@@ -709,10 +709,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** The labels [number] is a saved member of (a private contact's too, unless discreet mode hides it); null when unknown. */
     private suspend fun callerLabels(number: String, accountId: String?): Set<String>? {
         val found = c.numberOwners.find(number, accountId, NumberOwners.Use.CALL_PATH)
-        found.contact?.takeIf { !it.work }?.let { return runCatching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
+        found.contact?.takeIf { !it.work }?.let { return catching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
         if (c.privacy.now().privateHidden) return null
         val (id, _) = found.private ?: return null
-        return runCatching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet())
+        return catching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet())
     }
 
     override suspend fun safeWordAnswer(label: String): String? = withContext(Dispatchers.IO) { c.familySafety.safeWord(label)?.answer }
@@ -762,7 +762,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun isBlocked(number: String): Boolean = withContext(Dispatchers.IO) { BlockFlow.now(c, number).blocked }
 
     override suspend fun savePrivately(number: String, name: String): String? = withContext(Dispatchers.IO) {
-        val saved = runCatching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null
+        val saved = catching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null
         val days = TemporaryContacts.DEFAULT_DAYS
         app.resources.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days)
     }
@@ -802,7 +802,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {
         if (number.isNullOrBlank()) return
-        c.scope.launch { runCatching { c.blocks.addRing(number, startedAt, ringMillis, answered) } }
+        c.scope.launch { catching { c.blocks.addRing(number, startedAt, ringMillis, answered) } }
     }
 
     override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }

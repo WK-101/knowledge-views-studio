@@ -9,6 +9,7 @@ import app.parley.common.calls.CallSubject
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calls.NetworkName
+import app.parley.common.catching
 
 /**
  * What the call screen, notifications and observers see of a call ([CallUi]), built from Telecom's details and what
@@ -165,7 +166,7 @@ internal class CallUiMapper(
      * (Telecom clears them as the call ends), and the caller's subject and priority, which some networks send late.
      */
     private fun networkName(d: Call.Details): String? =
-        NetworkName.clean(runCatching { d.callerDisplayName }.getOrNull(), runCatching { d.callerDisplayNamePresentation }.getOrDefault(0))
+        NetworkName.clean(catching { d.callerDisplayName }.getOrNull(), catching { d.callerDisplayNamePresentation }.getOrDefault(0))
 
     fun noteFacts(c: Call, s: CallSession, st: CallState) {
         val d = c.details
@@ -180,10 +181,10 @@ internal class CallUiMapper(
             if (d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO)) s.hdSeen = true
             if (s.simLabel == null) s.simLabel = accounts.label(d.accountHandle)
         }
-        if (s.subject == null) s.subject = CallSubject.clean(runCatching { d.extras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
-            ?: CallSubject.clean(runCatching { d.intentExtras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
+        if (s.subject == null) s.subject = CallSubject.clean(catching { d.extras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
+            ?: CallSubject.clean(catching { d.intentExtras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
         if (!s.urgent && Build.VERSION.SDK_INT >= 31) {
-            s.urgent = runCatching { d.extras?.getInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_NORMAL) == TelecomManager.PRIORITY_URGENT }
+            s.urgent = catching { d.extras?.getInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_NORMAL) == TelecomManager.PRIORITY_URGENT }
                 .getOrDefault(false)
         }
     }

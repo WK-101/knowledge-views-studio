@@ -2,6 +2,7 @@ package app.parley.common.calls
 
 import app.parley.common.CallEntry
 import app.parley.common.Codecs
+import app.parley.common.catching
 import app.parley.common.ux.CallClass
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -156,7 +157,7 @@ object ToCall {
     fun encode(state: ToCallState): String = json.encodeToString(ToCallState.serializer(), state)
 
     fun decode(stored: String?): ToCallState =
-        stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(ToCallState.serializer(), it) }.getOrNull() } ?: ToCallState()
+        stored?.takeIf { it.isNotBlank() }?.let { catching { json.decodeFromString(ToCallState.serializer(), it) }.getOrNull() } ?: ToCallState()
 
     // ---------------------------------------------------------------- Times
 
@@ -207,7 +208,7 @@ object ToCall {
         return theirEvening(at, z)
     }
 
-    fun zoneOf(id: String?): ZoneId? = id?.takeIf { it.isNotBlank() }?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+    fun zoneOf(id: String?): ZoneId? = id?.takeIf { it.isNotBlank() }?.let { catching { ZoneId.of(it) }.getOrNull() }
 
     /**
      * Whether "after 6 pm their time" is worth offering: their zone is known and its clock differs from the user's

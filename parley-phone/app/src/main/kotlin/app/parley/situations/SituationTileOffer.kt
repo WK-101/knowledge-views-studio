@@ -7,6 +7,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import androidx.annotation.RequiresApi
 import app.parley.R
+import app.parley.common.catching
 import app.parley.common.ux.Tips
 import app.parley.data.UxPrefs
 
@@ -26,7 +27,7 @@ object SituationTileOffer {
     private fun request(context: Context) {
         val bar = context.getSystemService(StatusBarManager::class.java) ?: return
         // An answer changes nothing here: the tile reads the Situation on now whenever it shows.
-        runCatching {
+        catching {
             bar.requestAddTileService(
                 ComponentName(context, SituationTileService::class.java),
                 context.getString(R.string.sit_tile_label),

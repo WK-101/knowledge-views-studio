@@ -2,6 +2,7 @@ package app.parley.common.people
 
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
+import app.parley.common.catching
 import app.parley.common.ux.ListSections
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -103,7 +104,7 @@ object ListHead {
     }
 
     /** The kept rows, or null when there are none or they can't be read (then the list simply waits). */
-    fun decode(text: String): Snapshot? = runCatching {
+    fun decode(text: String): Snapshot? = catching {
         val trimmed = text.trimStart()
         val kept = if (trimmed.startsWith("[")) {
             // Kept before headers and private rows were: address-book rows in name order.

@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import app.parley.common.catching
 import app.parley.telecom.R
 
 /**
@@ -53,7 +54,7 @@ fun SpeakCallerName(callId: String?, name: String?) {
         }
         onDispose {
             handler.removeCallbacksAndMessages(null)
-            runCatching { tts?.stop(); tts?.shutdown() }
+            catching { tts?.stop(); tts?.shutdown() }
             tts = null
         }
     }

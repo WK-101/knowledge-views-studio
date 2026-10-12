@@ -2,7 +2,7 @@ package app.parley.data.security
 
 import android.content.Context
 import android.util.Log
-import app.parley.common.suspendRunCatching
+import app.parley.common.catching
 import app.parley.data.StatePrefs
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
@@ -49,7 +49,7 @@ class RecordSealing(
             if (!name.isNullOrEmpty()) sealText(name, t) { blocks.resealCallerName(b.id, name, it) }
         }
         sealJournal(t)
-        suspendRunCatching { t.sealed += timeMachine().resealOld() }.onFailure { t.left++ }
+        catching { t.sealed += timeMachine().resealOld() }.onFailure { t.left++ }
         t.left += resealStores()
         if (t.left == 0) prefs.edit().putBoolean(DONE, true).apply() else Log.w(TAG, "${t.left} records stay plain until the next run")
         return t.sealed
@@ -78,7 +78,7 @@ class RecordSealing(
     }
 
     /** The stores that seal their own values; returns how many still hold something plain or unwritten. */
-    private suspend fun resealStores(): Int = stores().count { !suspendRunCatching { it.resealPlain() }.getOrDefault(false) }
+    private suspend fun resealStores(): Int = stores().count { !catching { it.resealPlain() }.getOrDefault(false) }
 
     private class Tally(var sealed: Int = 0, var left: Int = 0)
 

@@ -11,6 +11,7 @@ import android.telecom.TelecomManager
 import app.parley.common.calls.RttReader
 import app.parley.common.calls.RttTranscript
 import app.parley.common.calls.RttTyping
+import app.parley.common.catching
 import java.io.IOException
 import java.util.concurrent.Executors
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -140,7 +141,7 @@ object CallRtt {
     /** The in-call service went away: nothing is read or watched any more (ended conversations keep their time). */
     internal fun release() {
         watched.forEach { (_, w) ->
-            runCatching { w.call.unregisterCallback(w.callback) }
+            catching { w.call.unregisterCallback(w.callback) }
             w.reader.follow(null)
         }
         watched.clear()
@@ -150,7 +151,7 @@ object CallRtt {
     /** The user answered [id]: with "Answer with RTT" on, ask to switch once it's connected. */
     internal fun onAnswered(id: String) {
         val w = watched[id] ?: return
-        if (runCatching { TelecomGraph.dependencies.answerWithRtt() }.getOrDefault(false)) {
+        if (catching { TelecomGraph.dependencies.answerWithRtt() }.getOrDefault(false)) {
             w.askWhenActive = true
             refresh(id)
         }
@@ -160,7 +161,7 @@ object CallRtt {
         val w = watched[id] ?: return
         val call = w.call
         val d = call.details
-        val active = runCatching { call.isRttActive }.getOrDefault(false)
+        val active = catching { call.isRttActive }.getOrDefault(false)
         val state = stateOf(call)
         if (state == Call.STATE_ACTIVE) noteLine(w, d)
         val supported = active || d.hasProperty(Call.Details.PROPERTY_RTT) || accountSupportsRtt(w)
@@ -180,7 +181,7 @@ object CallRtt {
     private fun followStream(id: String, w: Watched, rtt: Call.RttCall?): RttMode? {
         w.reading = rtt
         if (w.reader.follow(rtt) && rtt != null) startReading(id, w.reader, rtt)
-        return rtt?.let { RttMode.of(runCatching { it.rttAudioMode }.getOrDefault(Call.RttCall.RTT_MODE_FULL)) }
+        return rtt?.let { RttMode.of(catching { it.rttAudioMode }.getOrDefault(Call.RttCall.RTT_MODE_FULL)) }
     }
 
     /** The line and connect time, for Save (a hidden number keeps none). */
@@ -228,17 +229,17 @@ object CallRtt {
         Thread({
             var rtt: Call.RttCall? = first
             // Whatever arrived before this thread started, then each new piece as it comes.
-            deliver(runCatching { first.readImmediately() }.getOrNull())
+            deliver(catching { first.readImmediately() }.getOrNull())
             while (rtt != null) {
                 val from: Call.RttCall = rtt
                 // Null once the stream closed (RTT off, or the call ended).
-                val text = runCatching { from.read() }.getOrNull()
+                val text = catching { from.read() }.getOrNull()
                 deliver(text)
                 val next = reader.next(from, closed = text == null)
                 if (next != null && next !== from) {
                     // Replaced: what the old object had buffered first, then what waits on the new one.
-                    if (text != null) deliver(runCatching { from.readImmediately() }.getOrNull())
-                    deliver(runCatching { next.readImmediately() }.getOrNull())
+                    if (text != null) deliver(catching { from.readImmediately() }.getOrNull())
+                    deliver(catching { next.readImmediately() }.getOrNull())
                 }
                 rtt = next
             }
@@ -251,7 +252,7 @@ object CallRtt {
     fun request(id: String) {
         val call = watched[id]?.call ?: return
         update(id) { it.copy(requesting = true, failed = false) }
-        runCatching { call.sendRttRequest() }.onFailure { update(id) { s -> s.copy(requesting = false, failed = true) } }
+        catching { call.sendRttRequest() }.onFailure { update(id) { s -> s.copy(requesting = false, failed = true) } }
     }
 
     /** Answers the other person's request to switch to RTT. */
@@ -259,19 +260,19 @@ object CallRtt {
         val w = watched[id] ?: return
         val req = _state.value[id]?.incomingRequest ?: return
         update(id) { it.copy(incomingRequest = null) }
-        runCatching { w.call.respondToRttRequest(req, accept) }
+        catching { w.call.respondToRttRequest(req, accept) }
     }
 
     /** Turns RTT off for [id]; the call goes on as a voice call. */
     fun stop(id: String) {
-        runCatching { watched[id]?.call?.stopRtt() }
+        catching { watched[id]?.call?.stopRtt() }
     }
 
     fun setMode(id: String, mode: RttMode) {
         val w = watched[id] ?: return
         val rtt = w.reading ?: return
         update(id) { it.copy(mode = mode) }
-        runCatching { rtt.setRttMode(mode.telecom) }
+        catching { rtt.setRttMode(mode.telecom) }
     }
 
     fun dismissFailure(id: String) = update(id) { it.copy(failed = false) }
@@ -312,7 +313,7 @@ object CallRtt {
         if (s.transcript.isEmpty) return
         val w = watched[id]
         val (number, connectedAt) = if (w != null) w.number to w.connectedAt else ended[id] ?: return
-        runCatching { TelecomGraph.dependencies.saveCallNote(number, connectedAt, s.transcript.asText(themLabel, meLabel)) }
+        catching { TelecomGraph.dependencies.saveCallNote(number, connectedAt, s.transcript.asText(themLabel, meLabel)) }
         update(id) { it.copy(saved = true) }
     }
 

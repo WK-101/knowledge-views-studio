@@ -106,8 +106,8 @@ class BulkAddStore(private val c: DataContainer) {
             BulkDestination.Private -> for (chunk in items.chunked(CHUNK)) {
                 chunk.forEach { item ->
                     coroutineContext.ensureActive()
-                    runCatching { c.vault.save(null, details(item)) }
-                        .onSuccess { vaultIds += it; runCatching { c.messaging.forget(item.number) } }
+                    catching { c.vault.save(null, details(item)) }
+                        .onSuccess { vaultIds += it; catching { c.messaging.forget(item.number) } }
                         .onFailure { failed += "${item.name}: ${it.message ?: notSaved}" }
                 }
                 done += chunk.size
@@ -116,7 +116,7 @@ class BulkAddStore(private val c: DataContainer) {
             is BulkDestination.Temporary -> for (chunk in items.chunked(CHUNK)) {
                 chunk.forEach { item ->
                     coroutineContext.ensureActive()
-                    val saved = runCatching { TemporaryContacts.save(c, item.name, item.number, destination.days, private = destination.private, now = now) }.getOrNull()
+                    val saved = catching { TemporaryContacts.save(c, item.name, item.number, destination.days, private = destination.private, now = now) }.getOrNull()
                     when {
                         saved == null -> failed += "${item.name}: $notSaved"
                         saved.private -> vaultIds += saved.id
@@ -143,7 +143,7 @@ class BulkAddStore(private val c: DataContainer) {
      * a 30-day copy of each one.
      */
     suspend fun remove(batch: BulkBatch, journal: Boolean) = withContext(Dispatchers.IO) {
-        batch.lookupKeys.forEach { runCatching { c.temporaries.clear(it) } }
+        batch.lookupKeys.forEach { catching { c.temporaries.clear(it) } }
         if (batch.rawIds.isNotEmpty()) {
             if (journal) {
                 c.contacts.deleteRaws(batch.rawIds)
@@ -155,8 +155,8 @@ class BulkAddStore(private val c: DataContainer) {
             }
         }
         batch.vaultIds.forEach {
-            runCatching { c.vault.delete(it) }
-            runCatching { c.contactKeys.forget(app.parley.common.people.ContactRef.privateKey(it)) }
+            catching { c.vault.delete(it) }
+            catching { c.contactKeys.forget(app.parley.common.people.ContactRef.privateKey(it)) }
         }
         c.contacts.refresh()
         forget(batch.tag)
@@ -194,7 +194,7 @@ class BulkAddStore(private val c: DataContainer) {
         prefs.edit { putString(K_BATCHES, a.toString()) }
     }
 
-    private fun load(): List<BulkBatch> = runCatching {
+    private fun load(): List<BulkBatch> = catching {
         val a = JSONArray(prefs.getString(K_BATCHES, "[]"))
         (0 until a.length()).map { i ->
             val o = a.getJSONObject(i)

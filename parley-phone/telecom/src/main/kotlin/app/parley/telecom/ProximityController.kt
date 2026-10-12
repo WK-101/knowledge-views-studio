@@ -3,6 +3,7 @@ package app.parley.telecom
 import android.content.Context
 import android.os.PowerManager
 import app.parley.common.calls.ScreenAtEar
+import app.parley.common.catching
 
 /**
  * Turns the screen off when the phone is held to the ear during an earpiece call. Settings › Calls › During calls
@@ -10,7 +11,7 @@ import app.parley.common.calls.ScreenAtEar
  * screen stays on while an outgoing call is dialled ([ScreenAtEar]).
  */
 /** Settings › Calls › "Turn the screen off at your ear", read from memory (real calls and rescue calls alike). */
-internal fun screenAtEarMode(): ScreenAtEar.Mode = runCatching {
+internal fun screenAtEarMode(): ScreenAtEar.Mode = catching {
     val d = TelecomGraph.dependencies
     ScreenAtEar.mode(d.proximityEnabled(), d.proximityOnceAnswered())
 }.getOrDefault(ScreenAtEar.Mode.DURING_CALLS)

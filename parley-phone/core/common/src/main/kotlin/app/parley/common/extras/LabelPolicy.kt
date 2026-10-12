@@ -1,6 +1,7 @@
 package app.parley.common.extras
 
 import app.parley.common.Codecs
+import app.parley.common.catching
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.SetSerializer
@@ -54,7 +55,7 @@ object CallerChoices {
     fun decode(text: String?): Map<String, CallerChoice> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
     }
 
     fun encode(map: Map<String, CallerChoice>): String = json.encodeToString(serializer, map.filter { (k, v) -> k.isNotEmpty() && !v.isEmpty })
@@ -93,7 +94,7 @@ object LabelPolicies {
     fun decode(text: String?): Map<String, LabelPolicy> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filterValues { !it.isEmpty }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filterValues { !it.isEmpty }
     }
 
     fun encode(map: Map<String, LabelPolicy>): String = json.encodeToString(serializer, map.filterValues { !it.isEmpty })
@@ -138,7 +139,7 @@ object DndStars {
     fun decode(text: String?): Map<String, Set<String>> = if (text.isNullOrBlank()) {
         emptyMap()
     } else {
-        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && v.isNotEmpty() }
+        catching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && v.isNotEmpty() }
     }
 
     fun encode(ledger: Map<String, Set<String>>): String = json.encodeToString(serializer, ledger.filterValues { it.isNotEmpty() })

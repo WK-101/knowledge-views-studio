@@ -3,6 +3,7 @@ package app.parley.data.calls
 import android.content.Context
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.NetworkNameSeen
+import app.parley.common.catching
 import app.parley.data.history.CallHistory
 import kotlinx.coroutines.flow.StateFlow
 import java.util.concurrent.ConcurrentHashMap
@@ -131,14 +132,14 @@ class NetworkNameStore private constructor(
         // A kind with '#' is a store's marker (its rows were copied from preferences), not a batch.
         (tableAsides() + prefs.all.keys.filter { it.startsWith(ASIDE) }.map { it.removePrefix(ASIDE) }).distinct()
 
-    private fun tableAsides(): List<String> = runCatching { SealedLineStore.offMain(table()).kinds(ASIDE_KIND) }.getOrDefault(emptyList())
+    private fun tableAsides(): List<String> = catching { SealedLineStore.offMain(table()).kinds(ASIDE_KIND) }.getOrDefault(emptyList())
         .filter { '#' !in it }.map { it.removePrefix(ASIDE_KIND) }
 
     private fun dropAsides(which: (String) -> Boolean) {
         val gone = asideBatches().filter(which)
         if (gone.isEmpty()) return
         gone.forEach { b ->
-            runCatching { SealedLineStore.offMain(table()).let { t -> listOf("", SealedLineStore.MOVED).forEach { m -> t.clear(ASIDE_KIND + b + m) } } }
+            catching { SealedLineStore.offMain(table()).let { t -> listOf("", SealedLineStore.MOVED).forEach { m -> t.clear(ASIDE_KIND + b + m) } } }
         }
         prefs.edit().apply { gone.forEach { remove(ASIDE + it) } }.commit()
     }

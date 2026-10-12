@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import app.parley.PendingCall
 import app.parley.R
 import app.parley.common.calls.AssistedDial
+import app.parley.common.catching
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyDialog
 import app.parley.ui.Spacing
@@ -108,4 +109,4 @@ private fun LocalSimDialog(hint: AssistedDial.LocalSimHint, onUse: () -> Unit, o
 
 /** "United Kingdom" for "GB", in the app's language. */
 private fun countryName(iso: String): String =
-    runCatching { Locale.Builder().setRegion(iso).build().displayCountry }.getOrNull()?.takeIf { it.isNotBlank() } ?: iso
+    catching { Locale.Builder().setRegion(iso).build().displayCountry }.getOrNull()?.takeIf { it.isNotBlank() } ?: iso

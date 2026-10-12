@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.common.catching
 import app.parley.ui.ParleyListItem
 import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.Destination
@@ -268,7 +269,7 @@ private fun categoryRoute(c: SettingsCategory): Destination =
 private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    LaunchedEffect(Unit) { catching { focus.requestFocus() } }
     ParleyTopBar(
         navigationIcon = { BackButton(onClose, stringResource(R.string.action_close_search)) },
         title = {
