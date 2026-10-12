@@ -10,7 +10,6 @@ import app.parley.common.people.ContactStorage
 import app.parley.common.people.MessengerPrefs
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
-import app.parley.data.EventItem
 import app.parley.testing.AppTestbed
 import app.parley.testing.AppTestbed.Companion.MINUTE
 import kotlinx.coroutines.launch
@@ -156,14 +155,6 @@ class ContactDetailViewModelTest {
         val prefs = MessengerPrefs(message = "org.example.chat")
         vm.setMessengerPrefs(prefs)
         vm.until("the usual app") { it.prefs == prefs }
-    }
-
-    @Test fun a_date_from_the_chips_is_added_to_the_address_book() {
-        val id = saveAda()
-        val vm = page(id) { it.details != null }
-        val ok = runBlocking { vm.addDate(vm.state.value.details!!, EventItem(date = "--12-10", type = 3)) }
-        assertTrue(ok)
-        assertEquals(listOf("--12-10"), runBlocking { t.c.contacts.editable(id) }!!.events.map { it.date })
     }
 
     @Test fun the_sim_for_a_number_is_remembered() {

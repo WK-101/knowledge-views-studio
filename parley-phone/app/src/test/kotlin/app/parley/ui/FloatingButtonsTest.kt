@@ -2,6 +2,7 @@ package app.parley.ui
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -70,6 +71,29 @@ class FloatingButtonsTest {
         val withFab = app.filterValues { FAB.containsMatchIn(it) || it.contains("DockedKeypadButton(") }
         val magic = withFab.filterValues { CLEARANCE.containsMatchIn(it) }.keys
         assertTrue("hand-made clearance in $magic: use ParleyFabDefaults.Reserve", magic.isEmpty())
+    }
+
+    @Test fun the_menu_keeps_the_buttons_shape_open_and_closed() {
+        // Contacts' add menu: the button keeps its 16 dp corner when it opens (no morph into a circle) and its items
+        // are tiles of the same corner and height, Parley's own rather than Material's sample menu.
+        assertEquals(16.dp, ParleyFabDefaults.CornerRadius)
+        val kit = File(root, "core/ui/src/main/kotlin/app/parley/ui/ParleyFabDefaults.kt").readText()
+        val menu = kit.substring(kit.indexOf("fun ParleyFabMenu("))
+        val other = listOf(
+            "lerp(", "CircleShape", "ParleyShapes.pill", "Size / 2", "FloatingActionButtonMenu", "ToggleFloatingActionButton", "RoundedCornerShape(",
+        )
+        other.forEach {
+            assertFalse("the add menu uses $it: keep ParleyShapes.fab open and closed", menu.contains(it))
+        }
+        // The button and every item take the floating button's shape and height.
+        assertEquals(2, Regex("""shape = ParleyShapes\.fab""").findAll(menu).count())
+        assertTrue(menu.contains("Modifier.size(ParleyFabDefaults.Size)") && menu.contains("heightIn(min = ParleyFabDefaults.Size)"))
+        // Moves with the theme's springs, like everything else.
+        assertFalse(Regex("""\btween\(|\bspring\(""").containsMatchIn(menu))
+        // And no screen builds its items from Material's sample.
+        val home = app.getValue("HomeScreen.kt")
+        assertFalse(home.contains("FloatingActionButtonMenuItem"))
+        assertEquals(3, Regex("""^\s+Item\(stringResource""", RegexOption.MULTILINE).findAll(home).count())
     }
 
     private companion object {

@@ -1,40 +1,50 @@
 package app.parley.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonMenu
-import androidx.compose.material3.FloatingActionButtonMenuScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 
 /**
  * The one floating button of a screen, the same everywhere: [Size] square with [CornerRadius] corners
@@ -70,6 +80,15 @@ object ParleyFabDefaults {
 
     /** Bottom content padding for a list a floating button floats over ([extra] on top): its last row scrolls clear. */
     fun listPadding(extra: Dp = 0.dp): PaddingValues = PaddingValues(bottom = Reserve + extra)
+
+    /** Between a menu's items, and between the last item and its button ([ParleyFabMenu]). */
+    val MenuGap: Dp = Spacing.s
+
+    /** A menu item's lift over the list below (lower than the button's own, so the button stays on top). */
+    val MenuItemElevation: Dp = 3.dp
+
+    /** A menu item's icon, the size of the button's. */
+    val MenuIconSize: Dp = 24.dp
 }
 
 /**
@@ -134,12 +153,15 @@ fun ParleyFab(
 }
 
 /**
- * A floating button that opens a short menu of ways to do one thing (Contacts' "Add": New contact, Scan QR code…):
- * Material's expressive FAB menu, with the closed button the same size, corner and place as [ParleyFab]. TalkBack
- * reads it as a button with [stateDescription] ("menu closed"), and [actionLabel] as what a double tap does.
- * [wrap] puts something around the button itself (a coach mark's anchor).
+ * A floating button that opens a short menu of ways to do one thing (Contacts' "Add": New contact, Scan QR code…).
+ * Parley's own, not Material's sample menu: the button keeps the size, [ParleyFabDefaults.CornerRadius] corner and
+ * place of [ParleyFab] open or closed (its colour deepens and the icon turns into Close), and each item
+ * ([ParleyFabMenuScope.Item]) is a [ParleyFabDefaults.Size]-tall tile with the same corner, on the surface colour the
+ * app's cards use, its icon in the primary colour and its label in the extended button's type, all of them as wide as
+ * the widest so icons and labels line up. The items rise from the button with the theme's fast springs
+ * ([ParleyMotion]). TalkBack reads the button as a button with [stateDescription] ("menu closed"), and
+ * [actionLabel] as what a double tap does. [wrap] puts something around the button itself (a coach mark's anchor).
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ParleyFabMenu(
     expanded: Boolean,
@@ -151,36 +173,86 @@ fun ParleyFabMenu(
     modifier: Modifier = Modifier,
     visible: Boolean = true,
     wrap: @Composable (@Composable () -> Unit) -> Unit = { it() },
-    items: @Composable FloatingActionButtonMenuScope.() -> Unit,
+    items: @Composable ParleyFabMenuScope.() -> Unit,
 ) {
     FabVisibility(visible, modifier) {
-        FloatingActionButtonMenu(
-            expanded = expanded,
-            button = {
-                wrap {
-                    ToggleFloatingActionButton(
-                        checked = expanded, onCheckedChange = onExpandedChange,
-                        // A button that opens a menu, not an on/off switch.
-                        modifier = Modifier.clearAndSetSemantics {
-                            this.contentDescription = contentDescription
-                            this.stateDescription = stateDescription
-                            role = Role.Button
-                            onClick(label = actionLabel) { onExpandedChange(!expanded); true }
-                        },
-                        containerColor = ToggleFloatingActionButtonDefaults.containerColor(
-                            MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary,
-                        ),
-                        containerSize = { ParleyFabDefaults.Size },
-                        // Closed: the corner of every floating button; open: round, as Material's menu has it.
-                        containerCornerRadius = { p -> lerp(ParleyFabDefaults.CornerRadius, ParleyFabDefaults.Size / 2, p) },
-                    ) {
-                        Icon(if (checkedProgress > 0.5f) Icons.Rounded.Close else icon, null)
-                    }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(ParleyFabDefaults.MenuGap)) {
+            // The items grow out of the button's outer corner: bottom right, or bottom left when right to left.
+            val origin = if (LocalLayoutDirection.current == LayoutDirection.Rtl) TransformOrigin(0f, 1f) else TransformOrigin(1f, 1f)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(ParleyMotion.fastEffects()) + scaleIn(ParleyMotion.fastSpatial(), initialScale = MENU_FROM, transformOrigin = origin),
+                exit = fadeOut(ParleyMotion.fastEffects()) + scaleOut(ParleyMotion.fastSpatial(), targetScale = MENU_FROM, transformOrigin = origin),
+            ) {
+                Column(Modifier.width(IntrinsicSize.Max), verticalArrangement = Arrangement.spacedBy(ParleyFabDefaults.MenuGap)) {
+                    ParleyFabMenuScope.items()
                 }
-            },
-            // The menu pads its button by Margin at the end and below; undone so the closed button sits where a
-            // ParleyFab does (offset follows the layout direction, so right to left too).
-            modifier = Modifier.offset(x = ParleyFabDefaults.Margin, y = ParleyFabDefaults.Margin),
-        ) { items() }
+            }
+            wrap { FabMenuButton(expanded, onExpandedChange, icon, contentDescription, stateDescription, actionLabel) }
+        }
     }
 }
+
+/** The menu's own button: [ParleyFab]'s size and corner, primary container closed and primary open. */
+@Composable
+private fun FabMenuButton(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
+    stateDescription: String,
+    actionLabel: String,
+) {
+    val colors = MaterialTheme.colorScheme
+    val container by animateColorAsState(if (expanded) colors.primary else colors.primaryContainer, ParleyMotion.fastEffects(), label = "fabMenu")
+    val content by animateColorAsState(if (expanded) colors.onPrimary else colors.onPrimaryContainer, ParleyMotion.fastEffects(), label = "fabMenuIcon")
+    FloatingActionButton(
+        onClick = { onExpandedChange(!expanded) },
+        // A button that opens a menu, not an on/off switch.
+        modifier = Modifier.size(ParleyFabDefaults.Size).clearAndSetSemantics {
+            this.contentDescription = contentDescription
+            this.stateDescription = stateDescription
+            role = Role.Button
+            onClick(label = actionLabel) { onExpandedChange(!expanded); true }
+        },
+        shape = ParleyShapes.fab, containerColor = container, contentColor = content,
+    ) {
+        val fade = ParleyMotion.fastEffects<Float>()
+        val scale = ParleyMotion.fastSpatial<Float>()
+        AnimatedContent(
+            expanded,
+            transitionSpec = {
+                (fadeIn(fade) + scaleIn(scale, initialScale = ICON_FROM)) togetherWith (fadeOut(fade) + scaleOut(scale, targetScale = ICON_FROM))
+            },
+            label = "fabMenuGlyph",
+        ) { open -> Icon(if (open) Icons.Rounded.Close else icon, null) }
+    }
+}
+
+/** What a [ParleyFabMenu] holds: its items, top to bottom. */
+object ParleyFabMenuScope {
+    /** One way in the menu: [icon] and [text] on a tile shaped like the button, as wide as the widest item. */
+    @Composable
+    fun Item(text: String, icon: ImageVector, onClick: () -> Unit) {
+        val colors = MaterialTheme.colorScheme
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().heightIn(min = ParleyFabDefaults.Size).semantics { role = Role.Button },
+            shape = ParleyShapes.fab,
+            color = colors.surfaceContainerHigh,
+            contentColor = colors.onSurface,
+            shadowElevation = ParleyFabDefaults.MenuItemElevation,
+        ) {
+            Row(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, Modifier.size(ParleyFabDefaults.MenuIconSize), tint = colors.primary)
+                Text(text, Modifier.padding(start = Spacing.m), style = MaterialTheme.typography.labelLarge, maxLines = 2)
+            }
+        }
+    }
+}
+
+/** How small the menu's items start when they rise from the button. */
+private const val MENU_FROM = 0.85f
+
+/** How small the button's icon starts as it turns into Close and back. */
+private const val ICON_FROM = 0.6f

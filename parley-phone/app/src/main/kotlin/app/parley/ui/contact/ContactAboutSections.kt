@@ -42,7 +42,6 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.EventDate
 import app.parley.common.circle.YearlyEvents
-import app.parley.common.people.ContactCapability
 import app.parley.common.people.ContactPage
 import app.parley.common.people.ContactSection
 import app.parley.common.people.LifeEvents
@@ -113,14 +112,14 @@ internal fun AboutSections(sections: PageSections, ctx: ContactPageContext) {
 @Suppress("CyclomaticComplexMethod") // A row per date, each with its own yearly reminder.
 private fun DatesSection(sections: PageSections, ctx: ContactPageContext) {
     val d = ctx.d
-    val quickDates = ctx.can(ContactCapability.QUICK_DATES) && hasMissingDates(d)
-    if (d.events.isEmpty() && !quickDates) return
+    // Dates are added in the editor; a contact without any has no Dates rows.
+    if (d.events.isEmpty()) return
     val resources = LocalResources.current
     val sep = stringResource(R.string.main_separator)
     val today = ctx.today
     val next = ContactPage.nextDate(ctx.dated.map { it.second }, today)?.let { (j, days) -> ctx.dated[j].first to days }
     val summary = next?.let { (i, days) -> ctx.dateText(i, days) }
-        ?: if (d.events.isNotEmpty()) resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size) else ""
+        ?: resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size)
     sections.addRows(ContactSection.DATES, sectionTitle(resources, ContactSection.DATES), summary) {
         val yearly = YearlyEvents.decode(ctx.ui.meta?.yearlyEvents)
         d.events.forEachIndexed { i, ev ->
@@ -147,14 +146,6 @@ private fun DatesSection(sections: PageSections, ctx: ContactPageContext) {
                             }
                         }
                     },
-                )
-            }
-        }
-        // Empty birthday / anniversary slots, saved straight to the system contact.
-        if (quickDates) {
-            item {
-                MissingDateChips(
-                    ctx.vm, d, onSaved = ctx.page::reload, modifier = Modifier.padding(vertical = Spacing.xs), save = { e -> ctx.page.addDate(d, e) },
                 )
             }
         }

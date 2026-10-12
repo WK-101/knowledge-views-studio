@@ -95,7 +95,7 @@ internal fun ContactHeader(
                 is VariantChip.Temporary -> ctx.show(ContactDialog.Expiry)
             }
         })
-        // Their labels, right under the name, with "Add to label" (private ones too, also while locked).
+        // Their labels, right under the name, when they have any (private ones too, also while locked).
         ContactLabelChips(ctx)
         Spacer(Modifier.height(Spacing.m))
         ActionTiles(ctx)

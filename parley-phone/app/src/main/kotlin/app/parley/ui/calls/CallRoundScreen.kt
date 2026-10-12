@@ -3,6 +3,7 @@
 
 package app.parley.ui.calls
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -52,6 +54,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ContactSummary
 import app.parley.common.calls.CallRound
 import app.parley.common.calls.CallRounds
 import app.parley.common.calls.RoundMark
@@ -70,6 +73,7 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.PrivateMarked
 import app.parley.ui.Spacing
 import app.parley.ui.appVm
+import app.parley.ui.people.PeoplePickerSheet
 import app.parley.ui.avatarSize
 import app.parley.ui.situations.WhoRow
 import app.parley.ui.situations.rememberLabelRows
@@ -88,8 +92,9 @@ fun NavGraphBuilder.callRoundGraph(nav: NavController) {
 
 /**
  * A call round: one thing to tell several people. Before it starts: what to say and who (Favourites, Your Circle, a
- * label, or people chosen in Contacts). Under way: the one thing to say, who's next with Call (Parley never calls by
- * itself), Told them · No answer · Later, and everyone with their mark. The one thing to say also shows on the call
+ * label, people chosen here with "Choose people…", or people selected in Contacts). Under way: the one thing to say,
+ * who's next with Call (Parley never calls by itself), Told them · No answer · Later, everyone with their mark, and
+ * "Add people" for more (private contacts only while they show, as everywhere). The one thing to say also shows on the call
  * screen while you call them (never while the phone is locked); a duress unlock hides it here and there, like notes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,6 +143,7 @@ private fun RoundSetup(vm: AppViewModel) {
     val labels = rememberLabelRows(vm)
     var message by rememberSaveable { mutableStateOf("") }
     var who by remember { mutableStateOf<Who?>(null) }
+    var choosing by rememberSaveable { mutableStateOf(false) }
     val picked = remember(chosen, who, everyone, circle, index) {
         if (chosen.isNotEmpty()) {
             chosen
@@ -167,6 +173,7 @@ private fun RoundSetup(vm: AppViewModel) {
         item(key = "who") {
             if (chosen.isNotEmpty()) {
                 ParleyListItem(
+                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.round_change_people)) { choosing = true },
                     leadingContent = { Icon(Icons.Rounded.Groups, null) },
                     headlineContent = { Text(stringResource(R.string.round_who)) },
                     supportingContent = {
@@ -180,6 +187,7 @@ private fun RoundSetup(vm: AppViewModel) {
                 WhoRow(
                     stringResource(R.string.round_who), count, Icons.Rounded.Groups, who, WhoPlace.ROUND, labels.keys,
                     none = stringResource(R.string.round_nobody),
+                    more = stringResource(R.string.round_choose_people), onMore = { choosing = true },
                 ) { who = it }
                 Text(
                     stringResource(R.string.round_choose_in_contacts), style = MaterialTheme.typography.bodySmall,
@@ -200,6 +208,44 @@ private fun RoundSetup(vm: AppViewModel) {
             ) { Text(stringResource(R.string.round_start)) }
         }
     }
+    if (choosing) ChoosePeople(ui, everyone.orEmpty(), chosen) { choosing = false }
+}
+
+/** "Choose people…": the round's people picked by name, those chosen before ticked again. */
+@Composable
+private fun ChoosePeople(ui: CallRoundUi, everyone: List<ContactSummary>, chosen: List<RoundPerson>, onDismiss: () -> Unit) {
+    val candidates = remember(everyone) { callable(everyone) }
+    val keys = chosen.map { it.key }.toSet()
+    PeoplePickerSheet(
+        title = stringResource(R.string.round_choose_people_title),
+        people = candidates,
+        confirm = { n -> if (n == 0) stringResource(R.string.round_choose_people) else pluralStringResource(R.plurals.round_choose_n, n, n) },
+        onDismiss = onDismiss,
+        initial = candidates.filter { CallRounds.personOf(it)?.key in keys }.map { it.id }.toSet(),
+    ) { people ->
+        onDismiss()
+        ui.chosen.value = people.mapNotNull(CallRounds::personOf)
+    }
+}
+
+/** The contacts a round can call (those with a number): the lists' own, so private ones only while they show. */
+private fun callable(everyone: List<ContactSummary>): List<ContactSummary> = everyone.filter { CallRounds.personOf(it) != null }
+
+/** "Add people" under way: everyone with a number not in the round yet; they join at the end of who's waiting. */
+@Composable
+private fun AddToRound(vm: AppViewModel, round: CallRound, onDismiss: () -> Unit) {
+    val everyone by vm.everyone.collectAsStateWithLifecycle()
+    val inRound = round.people.map { it.key }.toSet()
+    val candidates = remember(everyone, inRound) { callable(everyone.orEmpty()).filter { CallRounds.personOf(it)?.key !in inRound } }
+    PeoplePickerSheet(
+        title = stringResource(R.string.round_add_people),
+        people = candidates,
+        confirm = { n -> if (n == 0) stringResource(R.string.round_add_people) else pluralStringResource(R.plurals.lbl_add_n, n, n) },
+        onDismiss = onDismiss,
+    ) { people ->
+        onDismiss()
+        vm.callRound.add(people.mapNotNull(CallRounds::personOf))
+    }
 }
 
 /** The round under way: the message, the score, who's next and everyone. */
@@ -208,6 +254,7 @@ private fun RoundUnderWay(vm: AppViewModel, round: CallRound, messageShown: Bool
     val ui = vm.callRound
     val score = CallRounds.score(round)
     val next = CallRounds.next(round)
+    var adding by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize()) {
         if (messageShown) {
             item(key = "message") {
@@ -242,7 +289,18 @@ private fun RoundUnderWay(vm: AppViewModel, round: CallRound, messageShown: Bool
             ListSectionHeader(stringResource(R.string.round_everyone), Modifier.fillMaxWidth().semantics { heading() }, top = Spacing.m)
         }
         items(round.people, key = { it.key }) { person -> PersonRow(vm, person) }
+        if (round.people.size < CallRounds.MAX_PEOPLE) {
+            item(key = "add") {
+                ParleyListItem(
+                    modifier = Modifier.clickable { adding = true },
+                    leadingContent = { Icon(Icons.Rounded.PersonAdd, null, tint = MaterialTheme.colorScheme.primary) },
+                    headlineContent = { Text(stringResource(R.string.round_add_people)) },
+                    supportingContent = { Text(stringResource(R.string.round_add_people_sub)) },
+                )
+            }
+        }
     }
+    if (adding) AddToRound(vm, round) { adding = false }
 }
 
 @Composable

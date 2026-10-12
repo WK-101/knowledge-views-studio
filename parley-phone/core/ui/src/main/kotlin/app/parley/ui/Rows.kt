@@ -262,7 +262,7 @@ fun ParleyListItem(
 /**
  * A row for one person (a contact, a private contact, a caller, a helper): their avatar at the list density's size
  * ([avatar] for a fixed one), the name on one line ([headline] when what's shown differs from the avatar's name), and
- * the usual supporting and trailing slots. Clicks go in [modifier].
+ * the usual supporting and trailing slots, with the lock badge when [private]. Clicks go in [modifier].
  */
 @Composable
 fun PersonRow(
@@ -271,6 +271,7 @@ fun PersonRow(
     modifier: Modifier = Modifier,
     headline: String = name,
     avatar: Dp? = null,
+    private: Boolean = false,
     colors: ListItemColors = ListItemDefaults.colors(),
     supportingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
@@ -278,7 +279,7 @@ fun PersonRow(
     ParleyListItem(
         modifier = modifier,
         colors = colors,
-        leadingContent = { Avatar(name, photoUri, avatar ?: avatarSize()) },
+        leadingContent = { PrivateMarked(private) { Avatar(name, photoUri, avatar ?: avatarSize()) } },
         headlineContent = { Text(headline, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = supportingContent,
         trailingContent = trailingContent,

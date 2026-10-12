@@ -43,6 +43,13 @@ class CallRoundUi(
         return saved
     }
 
+    /** Adds [people] to the round under way (private ones only while they show); those already in it stay as they are. */
+    fun add(people: List<RoundPerson>) {
+        val visible = if (privacy.value.privateShown) people else people.filterNot { it.private }
+        if (visible.isEmpty()) return
+        scope.launch { catching { store().update { r -> if (r.active) CallRounds.add(r, visible) else r } } }
+    }
+
     fun mark(key: String, mark: RoundMark) {
         scope.launch { catching { store().update { CallRounds.mark(it, key, mark) } } }
     }
