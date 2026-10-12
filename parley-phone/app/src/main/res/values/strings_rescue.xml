@@ -35,4 +35,27 @@
 
     <string name="rescue_row_sub">A call that looks real, to help you leave</string>
     <string name="shortcut_rescue_long">Set up a rescue call</string>
+
+    <!-- Check-in: Rescue call's second mode. -->
+    <string name="checkin_mode">Check-in</string>
+    <string name="checkin_intro">A call rings at the time you choose. Answer it to say you\'re fine. If you don\'t, Parley offers one tap to text or call your helper. Nothing is sent unless you tap.</string>
+    <string name="checkin_helper_title">If you don\'t answer</string>
+    <string name="checkin_helper_add">Add a helper</string>
+    <string name="checkin_helper_add_sub">Someone you trust, from your contacts</string>
+    <string name="checkin_set">Set the check-in</string>
+    <string name="checkin_caller_default">Check-in</string>
+    <string name="checkin_pending">Check-in at %1$s. If you don\'t answer, Parley offers to reach %2$s.</string>
+    <string name="checkin_pending_late">Check-in at about %1$s; Android may ring it a few minutes late. If you don\'t answer, Parley offers to reach %2$s.</string>
+    <string name="checkin_pending_helper">your helper</string>
+    <string name="checkin_facts">Parley never sends or dials by itself. Text opens your messages with the words ready, and you send them. If a real call keeps the check-in from ringing, you\'re offered the same taps.</string>
+    <string name="checkin_channel">Check-ins</string>
+    <string name="checkin_channel_desc">When a check-in isn\'t answered: one tap to text or call your helper</string>
+    <string name="checkin_missed_title">Your check-in wasn\'t answered</string>
+    <string name="checkin_missed_text">Text or call %1$s with one tap. Nothing is sent unless you tap.</string>
+    <string name="checkin_missed_public">Check-in</string>
+    <string name="checkin_text_named">Text %1$s</string>
+    <string name="checkin_call_named">Call %1$s</string>
+    <string name="checkin_text_helper">Text helper</string>
+    <string name="checkin_call_helper">Call helper</string>
+    <string name="checkin_sms_body">I may need help. Please call me.</string>
 </resources>

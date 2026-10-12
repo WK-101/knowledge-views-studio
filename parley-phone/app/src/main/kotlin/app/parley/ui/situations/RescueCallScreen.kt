@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +31,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -46,19 +50,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.TextSearch
+import app.parley.common.calls.CheckIns
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
+import app.parley.rescue.CheckInHelper
 import app.parley.rescue.RescueCalls
 import app.parley.ui.Banner
 import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.Destination
 import app.parley.ui.InfoRow
 import app.parley.ui.LinkRow
 import app.parley.ui.ParleyDialog
@@ -67,6 +75,7 @@ import app.parley.ui.PersonRow
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
+import app.parley.ui.family.FamilyRoutes
 import app.parley.ui.rowColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,10 +86,10 @@ import java.util.Calendar
  * Rescue call's screen: who calls (a name, or a contact, whose call shows as theirs would), when, and a sound to hear
  * once answered. Reached from Calls › Situations, Tools, the launcher shortcut and a long press on the Situation tile;
  * never from the home screen. The choices are remembered on this phone only; a duress unlock hides them and the call
- * waiting ([RescueCalls]).
+ * waiting ([RescueCalls]). Its second mode, Check-in, sets the same call with a helper to offer if it isn't answered.
  */
 @Composable
-fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
+fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // While a duress unlock hides things: no call waiting and none of the last choices (the waiting call still rings).
@@ -102,6 +111,9 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
         // Sealed, off the main thread, one write after another.
         scope.launch(saving) { RescueCalls.saveChoices(context, c) }
     }
+    // The helpers a check-in can offer, named as they may be shown now (read again as the hiding changes).
+    var helpers by remember { mutableStateOf<List<CheckInHelper>>(emptyList()) }
+    LaunchedEffect(duress.hiding) { helpers = RescueCalls.helpers(context) }
     val pickSound = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val kept = keepSound(context, uri, choices.clip)
@@ -109,14 +121,17 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
     }
 
     SettingsScaffold(stringResource(R.string.label_rescue_call), back) {
+        ModeChooser(choices.checkIn) { checkIn ->
+            update(choices.copy(checkIn = checkIn, whenChoice = if (checkIn) CheckIns.whenFor(choices.whenChoice) else choices.whenChoice))
+        }
         Text(
-            stringResource(R.string.rescue_intro), style = MaterialTheme.typography.bodyMedium,
+            stringResource(if (choices.checkIn) R.string.checkin_intro else R.string.rescue_intro), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
         )
         pending?.let { p ->
             Banner(
-                pendingText(context, p), modifier = Modifier.padding(horizontal = Spacing.listInset, vertical = Spacing.s),
+                pendingText(context, p, helpers), modifier = Modifier.padding(horizontal = Spacing.listInset, vertical = Spacing.s),
                 action = stringResource(R.string.rescue_cancel), onAction = { RescueCalls.cancel(context) },
             )
         }
@@ -130,23 +145,37 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit) {
             update(choices.copy(number = null))
         }
         WhenGroup(context, choices, onTime = { timeOpen = true }) { update(choices.copy(whenChoice = it)) }
+        // A check-in offers the helper shown as chosen (the first, until another is picked).
+        val helper = if (choices.checkIn) (helpers.firstOrNull { it.number == choices.helper } ?: helpers.firstOrNull())?.number else null
+        if (choices.checkIn) {
+            HelperGroup(helpers, helper, onAdd = { open(FamilyRoutes.Helpers) }) { update(choices.copy(helper = it)) }
+        }
         SoundGroup(choices, onPick = { pickSound.launch(arrayOf("audio/*")) }) {
             releaseSound(context, choices.clip)
             update(choices.copy(clip = null, clipName = null))
         }
-        val ready = choices.name.isNotBlank() || !choices.number.isNullOrBlank()
+        val ready = CheckIns.ready(choices.checkIn, choices.name, choices.number, helper)
+        val checkInName = stringResource(R.string.checkin_caller_default)
         Button(
             onClick = {
                 scope.launch {
-                    val outcome = RescueCalls.set(context, choices)
+                    val set = if (!choices.checkIn) choices else choices.copy(helper = helper, name = choices.name.ifBlank { checkInName })
+                    val outcome = RescueCalls.set(context, set)
                     notice = if (outcome == RescueCalls.Outcome.REAL_CALL) R.string.rescue_real_call else null
                 }
             },
             enabled = ready,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.l).heightIn(min = 56.dp),
-        ) { Text(stringResource(if (choices.whenChoice == RescueWhen.NOW) R.string.rescue_ring_now else R.string.rescue_set)) }
+        ) {
+            val label = when {
+                choices.checkIn -> R.string.checkin_set
+                choices.whenChoice == RescueWhen.NOW -> R.string.rescue_ring_now
+                else -> R.string.rescue_set
+            }
+            Text(stringResource(label))
+        }
         Text(
-            stringResource(R.string.rescue_facts), style = MaterialTheme.typography.bodySmall,
+            stringResource(if (choices.checkIn) R.string.checkin_facts else R.string.rescue_facts), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl),
         )
@@ -229,7 +258,7 @@ private fun WhoGroup(choices: RescueCalls.Choices, onName: (String) -> Unit, onP
 @Composable
 private fun WhenGroup(context: Context, choices: RescueCalls.Choices, onTime: () -> Unit, onPick: (RescueWhen) -> Unit) {
     SegmentedGroup(stringResource(R.string.label_when)) {
-        RescueWhen.entries.forEach { w ->
+        (if (choices.checkIn) CheckIns.whenChoices else RescueWhen.entries).forEach { w ->
             item("rescue_when_${w.name}") {
                 val selected = choices.whenChoice == w
                 val sub = if (w == RescueWhen.AT_TIME) stringResource(R.string.rescue_when_time_sub, timeText(context, choices.minuteOfDay)) else null
@@ -253,12 +282,59 @@ private fun whenLabel(w: RescueWhen): Int = when (w) {
     RescueWhen.AT_TIME -> R.string.rescue_when_time
 }
 
-/** "Mum calls at 14:05", saying it may be late when Parley can't keep the phone awake that long. */
-private fun pendingText(context: Context, p: RescueRequest): String {
-    val name = p.name.ifBlank { p.number?.let(Bidi::ltr) ?: context.getString(R.string.rescue_pending_nobody) }
+/**
+ * "Mum calls at 14:05", or for a check-in "Check-in at 23:00… Parley offers to reach Sam", saying it may be late when
+ * Parley can't keep the phone awake that long.
+ */
+private fun pendingText(context: Context, p: RescueRequest, helpers: List<CheckInHelper>): String {
     val at = DateFormat.getTimeFormat(context).format(p.atMillis)
     val late = !RescuePlan.keepsAwake(p.atMillis - System.currentTimeMillis())
+    p.helper?.let { h ->
+        val who = helpers.firstOrNull { it.number == h }?.name ?: h.takeIf { it.isNotBlank() }?.let(Bidi::ltr)
+            ?: context.getString(R.string.checkin_pending_helper)
+        return context.getString(if (late) R.string.checkin_pending_late else R.string.checkin_pending, at, who)
+    }
+    val name = p.name.ifBlank { p.number?.let(Bidi::ltr) ?: context.getString(R.string.rescue_pending_nobody) }
     return context.getString(if (late) R.string.rescue_pending_late else R.string.rescue_pending, name, at)
+}
+
+/** Rescue call · Check-in: one screen, two modes. Each button is a radio for TalkBack. */
+@Composable
+private fun ModeChooser(checkIn: Boolean, onPick: (Boolean) -> Unit) {
+    val modes = listOf(false to R.string.label_rescue_call, true to R.string.checkin_mode)
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.s)) {
+        modes.forEachIndexed { i, (mode, label) ->
+            SegmentedButton(
+                selected = mode == checkIn,
+                onClick = { if (mode != checkIn) onPick(mode) },
+                shape = SegmentedButtonDefaults.itemShape(i, modes.size),
+            ) { Text(stringResource(label), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        }
+    }
+}
+
+/** The helper a check-in offers if it isn't answered: one of the helpers, or the way to add one. */
+@Composable
+private fun HelperGroup(helpers: List<CheckInHelper>, selected: String?, onAdd: () -> Unit, onPick: (String) -> Unit) {
+    SegmentedGroup(stringResource(R.string.checkin_helper_title)) {
+        helpers.forEach { h ->
+            item("checkin_helper_${h.number}") {
+                val on = h.number == selected
+                ParleyListItem(
+                    headlineContent = { Text(h.name) },
+                    supportingContent = { Text(Bidi.ltr(h.number)) },
+                    leadingContent = { RadioButton(on, onClick = null) },
+                    colors = rowColors(),
+                    modifier = Modifier.selectable(on, role = Role.RadioButton) { onPick(h.number) },
+                )
+            }
+        }
+        if (helpers.isEmpty()) {
+            item("checkin_helper_add") {
+                LinkRow(stringResource(R.string.checkin_helper_add), stringResource(R.string.checkin_helper_add_sub), Icons.Rounded.PersonAdd, onClick = onAdd)
+            }
+        }
+    }
 }
 
 private fun timeText(context: Context, minuteOfDay: Int): String {

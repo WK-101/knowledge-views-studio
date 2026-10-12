@@ -115,4 +115,14 @@
     <string name="sit_night_row_off">Situation · only by hand · tap to set its times</string>
     <!-- Driving › Your car. -->
     <string name="sit_drive_answer_sub">Only while your car is connected · who is chosen in Your car</string>
+    <!-- A Situation that suggests itself (at most one card a week, from your own calls). -->
+    <string name="sit_suggest_car_title">Use “%1$s” for %2$s?</string>
+    <string name="sit_suggest_car_text">You often answer calls on “%1$s”. %2$s could turn on by itself whenever it connects, and off when it doesn\'t.</string>
+    <string name="sit_suggest_night_title">%1$s from %2$s?</string>
+    <string name="sit_suggest_night_text">Calls after %1$s mostly go unanswered, and you rarely make any then. %2$s could turn on by itself until %3$s. You choose who still rings.</string>
+    <string name="sit_suggest_meeting_title">%1$s every %2$s, %3$s–%4$s?</string>
+    <string name="sit_suggest_meeting_text">You often decline calls then. %1$s could turn on by itself at that time. You choose who still rings.</string>
+    <string name="sit_suggest_source">Worked out on this phone from your own calls.</string>
+    <string name="sit_suggest_accept">Set it up</string>
+    <string name="sit_suggest_never">Don\'t suggest this</string>
 </resources>

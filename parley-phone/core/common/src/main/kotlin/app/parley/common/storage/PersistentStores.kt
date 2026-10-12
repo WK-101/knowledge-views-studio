@@ -233,6 +233,11 @@ object PersistentStores {
             local("The Situation on now and what to put back when it goes off: this phone's moment, not a preference"),
         ),
         PersistentStore("situation_triggers", StoreKind.PREFS, local("Whether this phone's job for a Situation's next window is queued")),
+        PersistentStore(
+            "situation_suggestions", StoreKind.PREFS,
+            local("When a Situation suggestion was last answered, and the kinds not to suggest again (nothing about the calls)"),
+            location = LOCAL_STATE,
+        ),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone"), location = LOCAL_STATE),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
