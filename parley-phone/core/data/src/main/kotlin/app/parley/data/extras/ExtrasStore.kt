@@ -326,9 +326,9 @@ class ExtrasStore(private val c: DataContainer) {
         val feeds = CircleFeeds.of(_policies.value, _chapters.value, now)
         if (feeds.isEmpty()) return emptyMap()
         return withContext(Dispatchers.IO) {
-            val keyOf = (c.contacts.contacts.value ?: runCatching { c.contacts.loadNow() }.getOrDefault(emptyList())).associate { it.id to it.lookupKey }
+            val keyOf = (c.contacts.contacts.value ?: catching { c.contacts.loadNow() }.getOrDefault(emptyList())).associate { it.id to it.lookupKey }
             val members = feeds.associate { f ->
-                f.label to runCatching { c.people.labels.members(f.label) }.getOrDefault(emptySet()).mapNotNull { id ->
+                f.label to catching { c.people.labels.members(f.label) }.getOrDefault(emptySet()).mapNotNull { id ->
                     when (val r = ContactRef.ofNavId(id)) {
                         is ContactRef.Private -> ContactRef.privateKey(r.vaultId)
                         else -> keyOf[id]

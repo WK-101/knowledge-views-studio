@@ -42,7 +42,12 @@ class SeasonsTest {
 
     /** KeepRhythm as Parley 6.7 knew it (no season, no "They're fine"). */
     @Serializable
-    private data class KeepRhythm67(val mode: RhythmMode = RhythmMode.EVERY, val learnedDays: Int? = null, val learnedAt: Long? = null, val snoozedUntil: Long? = null)
+    private data class KeepRhythm67(
+        val mode: RhythmMode = RhythmMode.EVERY,
+        val learnedDays: Int? = null,
+        val learnedAt: Long? = null,
+        val snoozedUntil: Long? = null,
+    )
 
     /** LabelPolicy as Parley 6.7 knew it (no Circle switch). */
     @Serializable

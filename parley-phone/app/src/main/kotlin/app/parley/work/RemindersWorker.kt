@@ -38,6 +38,7 @@ import app.parley.data.ContactEvent
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.data.security.Privacy
+import app.parley.common.security.PrivacyView
 import app.parley.common.history.CallLogIndex
 import app.parley.data.circle.CircleRepository
 import app.parley.shortcuts.CircleWidget
@@ -170,10 +171,12 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 // Seasons that ended since the last digest: one line each, then they're cleared (the usual rhythm
                 // already counted from their end). Private contacts are never named here; theirs are cleared quietly.
                 val ended = catching { c.circle.endedSeasons(now) }.getOrDefault(emptyList())
-                val seasonLines = ended.mapNotNull { m -> contacts[m.lookupKey]?.let { it to CircleText.rhythm(applicationContext.resources, m.everyDays, m.rhythm) } }
+                val res = applicationContext.resources
+                val seasonLines = ended.mapNotNull { m -> contacts[m.lookupKey]?.let { it to CircleText.rhythm(res, m.everyDays, m.rhythm) } }
                 if (picks.isNotEmpty() || seasonLines.isNotEmpty()) {
                     val turns = yourTurns(c, cfg, picks, idx, now)
-                    notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }, turns, seasonLines, byKey.keys)
+                    val people = picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } }
+                    notifyDigest(people, turns, seasonLines, byKey.keys)
                 }
                 catching { c.circle.clearEndedSeasons(ended.map { it.lookupKey }, now) }
             }
@@ -274,21 +277,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         // Read again as the lines are written, so a duress unlock in between still hides "your turn" and "quieter".
         val privacy = Privacy.duressOnly()
         val shown = people.filter { (_, pick) -> pick.reason != CircleDigest.Reason.DRIFT || privacy.insightsShown }
-        val lines = shown.map { (ct, pick) ->
-            when (pick.reason) {
-                // "Ana has called you the last 3 times. Your turn to call?"
-                CircleDigest.Reason.DUE -> CircleText.yourTurn(ctx.resources, ct.displayName, turns[ct.lookupKey], privacy)
-                    ?: ctx.getString(R.string.circle_might_enjoy, ct.displayName)
-                CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
-                // Over a year since you were in touch.
-                CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_long_quiet, ct.displayName)
-                // "1 year since Ana's new job".
-                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.circle_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
-                    ?: ctx.getString(R.string.circle_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
-                // "You and Marco used to talk about every week; since April it's been about every month."
-                CircleDigest.Reason.DRIFT -> pick.drift?.let { CircleText.drift(ctx.resources, ct.displayName, it, privacy) }.orEmpty()
-            }
-        } + seasons.map { (ct, usual) -> ctx.getString(R.string.circle_digest_season_ended, ct.displayName, usual) }
+        val lines = shown.map { (ct, pick) -> digestLine(ct, pick, turns, privacy) } +
+            seasons.map { (ct, usual) -> ctx.getString(R.string.circle_digest_season_ended, ct.displayName, usual) }
         if (lines.isEmpty()) return
         val style = NotificationCompat.InboxStyle()
         lines.forEach { style.addLine(it) }
@@ -297,22 +287,43 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .setContentText(lines.joinToString(ctx.getString(R.string.main_separator)))
             .setStyle(style)
             .setContentIntent(open)
-        // Quieter than usual: Call, Add to your Circle (for someone outside it) and They're fine, for that one person.
-        shown.firstOrNull { it.second.reason == CircleDigest.Reason.DRIFT }?.let { (ct, pick) ->
-            val code = DateReminders.DIGEST_TAG.hashCode()
-            ct.primaryNumber?.let { phone ->
-                b.addAction(0, ctx.getString(R.string.action_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, ct.id), PendingIntent.FLAG_IMMUTABLE))
-            }
-            val drift = pick.drift
-            if (drift != null && ct.lookupKey !in circle) {
-                b.addAction(
-                    0, ctx.getString(R.string.circle_add_to_circle),
-                    CircleActionReceiver.addToCircle(ctx, code + 2, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id, Drift.suggestedDays(drift)),
-                )
-            }
-            b.addAction(0, ctx.getString(R.string.circle_drift_fine), CircleActionReceiver.fine(ctx, code + 3, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id))
-        }
+        shown.firstOrNull { it.second.reason == CircleDigest.Reason.DRIFT }?.let { (ct, pick) -> addDriftActions(b, ct, pick, ct.lookupKey in circle) }
         post(DateReminders.DIGEST_TAG, b)
+    }
+
+    /** One person's line in the weekly digest. */
+    private fun digestLine(ct: ContactSummary, pick: CircleDigest.Pick, turns: Map<String, Int>, privacy: PrivacyView): String {
+        val ctx = applicationContext
+        return when (pick.reason) {
+            // "Ana has called you the last 3 times. Your turn to call?"
+            CircleDigest.Reason.DUE -> CircleText.yourTurn(ctx.resources, ct.displayName, turns[ct.lookupKey], privacy)
+                ?: ctx.getString(R.string.circle_might_enjoy, ct.displayName)
+            CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
+            // Over a year since you were in touch.
+            CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_long_quiet, ct.displayName)
+            // "1 year since Ana's new job".
+            CircleDigest.Reason.YEARLY -> pick.years?.let { y ->
+                ctx.resources.getQuantityString(R.plurals.circle_digest_yearly, y, y, ct.displayName, pick.label.orEmpty())
+            } ?: ctx.getString(R.string.circle_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
+            // "You and Marco used to talk about every week; since April it's been about every month."
+            CircleDigest.Reason.DRIFT -> pick.drift?.let { CircleText.drift(ctx.resources, ct.displayName, it, privacy) }.orEmpty()
+        }
+    }
+
+    /** Quieter than usual: Call, Add to your Circle (for someone outside it) and They're fine, for that one person. */
+    private fun addDriftActions(b: NotificationCompat.Builder, ct: ContactSummary, pick: CircleDigest.Pick, inCircle: Boolean) {
+        val ctx = applicationContext
+        val code = DateReminders.DIGEST_TAG.hashCode()
+        ct.primaryNumber?.let { phone ->
+            val call = PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, ct.id), PendingIntent.FLAG_IMMUTABLE)
+            b.addAction(0, ctx.getString(R.string.action_call), call)
+        }
+        val drift = pick.drift
+        if (drift != null && !inCircle) {
+            val add = CircleActionReceiver.addToCircle(ctx, code + 2, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id, Drift.suggestedDays(drift))
+            b.addAction(0, ctx.getString(R.string.circle_add_to_circle), add)
+        }
+        b.addAction(0, ctx.getString(R.string.circle_drift_fine), CircleActionReceiver.fine(ctx, code + 3, DateReminders.DIGEST_TAG, ct.lookupKey, ct.id))
     }
 
     companion object {

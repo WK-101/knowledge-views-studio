@@ -114,7 +114,7 @@ class CircleRepository(
         val days: Int get() = rhythmAt(System.currentTimeMillis()).days
     }
 
-    private suspend fun feedsNow(): Map<String, List<LabelFeed>> = runCatching { labelFeeds() }.getOrDefault(emptyMap())
+    private suspend fun feedsNow(): Map<String, List<LabelFeed>> = catching { labelFeeds() }.getOrDefault(emptyMap())
 
     suspend fun members(): List<Member> = withContext(Dispatchers.IO) {
         val feeds = feedsNow()

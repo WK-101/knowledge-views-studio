@@ -58,7 +58,10 @@ class CircleActionReceiver : BroadcastReceiver() {
             pending(context, code, Intent(ACTION_NOT_NOW).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey))
 
         fun addToCircle(context: Context, code: Int, tag: String, lookupKey: String, contactId: Long, days: Int): PendingIntent =
-            pending(context, code, Intent(ACTION_ADD).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey).putExtra(EXTRA_CONTACT_ID, contactId).putExtra(EXTRA_DAYS, days))
+            pending(
+                context, code,
+                Intent(ACTION_ADD).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey).putExtra(EXTRA_CONTACT_ID, contactId).putExtra(EXTRA_DAYS, days),
+            )
 
         fun fine(context: Context, code: Int, tag: String, lookupKey: String, contactId: Long): PendingIntent =
             pending(context, code, Intent(ACTION_FINE).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey).putExtra(EXTRA_CONTACT_ID, contactId))

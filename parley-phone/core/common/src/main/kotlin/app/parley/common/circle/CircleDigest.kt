@@ -80,25 +80,24 @@ object CircleDigest {
             return if (i < 0) null else dateQueue.removeAt(i)
         }
         nextDate()?.let { out += it; used += it.lookupKey }
-        val drifting = drift?.takeIf { it.lookupKey !in used }
-        if (drifting != null) {
-            out += Pick(drifting.lookupKey, Reason.DRIFT, drift = drifting)
-            used += drifting.lookupKey
-        }
-        val snoozed = members.filter { it.snoozedUntil != null && now < it.snoozedUntil }.map { it.lookupKey }.toSet()
-        val eligible = quiet.filter { q -> q.lookupKey !in used && q.lookupKey != lastQuiet && q.lookupKey !in snoozed && now - q.last >= QUIET_DAYS * DAY }
-            .distinctBy { it.lookupKey }.sortedBy { it.lookupKey }
-        if (drifting == null && eligible.isNotEmpty()) {
-            val q = eligible[Math.floorMod(seed, eligible.size.toLong()).toInt()]
-            out += Pick(q.lookupKey, Reason.QUIET)
-            used += q.lookupKey
-        }
+        val drifting = drift?.takeIf { it.lookupKey !in used }?.also { out += Pick(it.lookupKey, Reason.DRIFT, drift = it); used += it.lookupKey }
+        if (drifting == null) serendipity(members, quiet, used, lastQuiet, now, seed)?.let { out += it; used += it.lookupKey }
         while (out.size < MAX_PEOPLE) {
             val p = nextDate() ?: break
             out += p
             used += p.lookupKey
         }
         return out.take(MAX_PEOPLE)
+    }
+
+    /** Someone you haven't been in touch with for over a year, not snoozed, not [used], not last week's. */
+    @Suppress("LongParameterList") // What pick() already has at hand; a holder class would only rename them.
+    private fun serendipity(members: List<CirclePlanner.Member>, quiet: List<Quiet>, used: Set<String>, lastQuiet: String?, now: Long, seed: Long): Pick? {
+        val snoozed = members.filter { it.snoozedUntil != null && now < it.snoozedUntil }.map { it.lookupKey }.toSet()
+        val eligible = quiet.filter { q -> q.lookupKey !in used && q.lookupKey != lastQuiet && q.lookupKey !in snoozed && now - q.last >= QUIET_DAYS * DAY }
+            .distinctBy { it.lookupKey }.sortedBy { it.lookupKey }
+        if (eligible.isEmpty()) return null
+        return Pick(eligible[Math.floorMod(seed, eligible.size.toLong()).toInt()].lookupKey, Reason.QUIET)
     }
 
     /**

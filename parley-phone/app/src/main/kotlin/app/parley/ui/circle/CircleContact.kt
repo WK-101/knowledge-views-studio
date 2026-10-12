@@ -127,7 +127,8 @@ fun StayInTouchCard(
                     colors = rowColors,
                     leadingContent = { Icon(Icons.Rounded.Handshake, null, tint = MaterialTheme.colorScheme.primary) },
                     headlineContent = {
-                        Text(every?.let { CircleText.rhythm(res, it, rhythm) } ?: pluralStringResource(R.plurals.circle_every_days, effective.days, effective.days))
+                        val days = effective.days
+                        Text(every?.let { CircleText.rhythm(res, it, rhythm) } ?: pluralStringResource(R.plurals.circle_every_days, days, days))
                     },
                     // "Every 3 days · until 30 Nov" or "In your Circle via Family" under when you were last in touch.
                     supportingContent = { Text(listOfNotNull(CircleText.last(res, last, now), CircleText.behind(res, effective)).joinToString("\n")) },
@@ -230,22 +231,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
                     )
                 }
                 // A season: a closer rhythm with an end, for members (the usual rhythm is what comes back).
-                if (current != null) ParleyListItem(
-                    modifier = Modifier.clickable { season = true },
-                    colors = rowColors,
-                    leadingContent = { Icon(Icons.Rounded.HourglassBottom, null, tint = if (rhythm.inSeason(System.currentTimeMillis())) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                    headlineContent = { Text(stringResource(R.string.circle_season_for_a_while)) },
-                    supportingContent = {
-                        val now = System.currentTimeMillis()
-                        Text(
-                            if (rhythm.inSeason(now)) {
-                                CircleText.behind(res, CircleRhythm(rhythm.seasonDays!!, until = rhythm.seasonUntil)).orEmpty()
-                            } else {
-                                stringResource(R.string.circle_season_for_a_while_body)
-                            },
-                        )
-                    },
-                )
+                if (current != null) SeasonRow(rhythm) { season = true }
                 if (current != null) ParleyListItem(
                     headlineContent = { Text(stringResource(R.string.circle_remove)) },
                     colors = rowColors,
@@ -255,6 +241,31 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
         },
         confirmButton = {},
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+    )
+}
+
+/** "For a while…" in the rhythm dialog: the running season, or what it is for. */
+@Composable
+private fun SeasonRow(rhythm: KeepRhythm, onClick: () -> Unit) {
+    val res = LocalResources.current
+    val now = System.currentTimeMillis()
+    val on = rhythm.inSeason(now)
+    ParleyListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        colors = rowColors,
+        leadingContent = {
+            Icon(Icons.Rounded.HourglassBottom, null, tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        headlineContent = { Text(stringResource(R.string.circle_season_for_a_while)) },
+        supportingContent = {
+            Text(
+                if (on) {
+                    CircleText.behind(res, CircleRhythm(rhythm.seasonDays!!, until = rhythm.seasonUntil)).orEmpty()
+                } else {
+                    stringResource(R.string.circle_season_for_a_while_body)
+                },
+            )
+        },
     )
 }
 

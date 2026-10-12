@@ -75,6 +75,7 @@ internal class ContactPageContext(
 
     val isPrivate: Boolean get() = ui.isPrivate
     val prefs: MessengerPrefs get() = ui.prefs
+
     /** In the Circle with a rhythm of their own, or through a label. */
     val inCircle: Boolean get() = ui.meta?.reachOutDays != null || circleFeeds.isNotEmpty()
     private val caps = ContactCapabilities.of(ui.storage)

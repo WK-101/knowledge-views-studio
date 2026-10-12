@@ -71,6 +71,7 @@ class DriftTest {
         assertEquals(listOf(CircleDigest.Pick("old", CircleDigest.Reason.QUIET)), CircleDigest.pick(emptyList(), emptyList(), now, quiet = quiet))
         // Already in this digest as due: said once, as due.
         val due = CirclePlanner.Member("marco", 7, now - 30 * day)
-        assertEquals(listOf(CircleDigest.Reason.DUE, CircleDigest.Reason.QUIET), CircleDigest.pick(listOf(due), emptyList(), now, quiet = quiet, drift = d).map { it.reason })
+        val picks = CircleDigest.pick(listOf(due), emptyList(), now, quiet = quiet, drift = d)
+        assertEquals(listOf(CircleDigest.Reason.DUE, CircleDigest.Reason.QUIET), picks.map { it.reason })
     }
 }

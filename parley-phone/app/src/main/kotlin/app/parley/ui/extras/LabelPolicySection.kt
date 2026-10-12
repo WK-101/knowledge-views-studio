@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -58,7 +61,8 @@ import app.parley.ui.ConfirmDialog
 /**
  * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
  * their own), "Keep in touch with everyone here" (a rhythm, and a switch that puts every member in the Circle with it),
- * "Add everyone to Favourites", and "Allow through Do Not Disturb". Android only lets starred contacts through, so that works by starring the members, which also puts them
+ * "Add everyone to Favourites", and "Allow through Do Not Disturb". Android only lets starred contacts through, so
+ * that works by starring the members, which also puts them
  * in Favourites: the confirmation lists exactly who will be starred before anything changes.
  */
 @Composable
@@ -132,17 +136,21 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             },
             trailingContent = {
                 val label = stringResource(R.string.label_policy_circle_switch)
-                Switch(
-                    p.feedsCircle,
-                    onCheckedChange = { on ->
+                // The switch alone toggles (the row opens the rhythm), at a full touch target.
+                Box(
+                    Modifier.toggleable(p.feedsCircle, role = Role.Switch) { on ->
                         when {
                             !on -> extras.updatePolicy(title) { it.copy(circleFromLabel = false) }
                             p.rhythmDays == null -> { feedAfterPick = true; pickRhythm = true }
                             else -> extras.updatePolicy(title) { it.copy(circleFromLabel = true) }
                         }
-                    },
-                    modifier = Modifier.semantics { contentDescription = label },
-                )
+                    }.semantics { contentDescription = label }.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Not a SwitchRow: the row opens the rhythm, and only the switch beside it puts everyone in the Circle.
+                    @Suppress("DesignSystemComponent")
+                    Switch(p.feedsCircle, onCheckedChange = null)
+                }
             },
         )
         val days = p.rhythmDays
@@ -260,7 +268,10 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         content = {
             // Exactly who, before anything changes.
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(pluralStringResource(R.plurals.label_policy_favourites_preview, toFavourite.size, toFavourite.size), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    pluralStringResource(R.plurals.label_policy_favourites_preview, toFavourite.size, toFavourite.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 toFavourite.forEach { m ->
                     ParleyListItem(
                         leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
