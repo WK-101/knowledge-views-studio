@@ -7,6 +7,7 @@ import android.text.format.DateUtils
 import android.util.Log
 import app.parley.blocking.BlockFlow
 import app.parley.calls.AgendaBridge
+import app.parley.calls.CallRoundBridge
 import app.parley.calls.CallPromises
 import app.parley.calls.CaseFileBridge
 import app.parley.calls.ExpectedCallHints
@@ -78,6 +79,7 @@ import app.parley.data.people.NumberOwners
 import app.parley.data.vault.VaultCallChoices
 import app.parley.messaging.TemporaryContact
 import app.parley.telecom.AgendaHooks
+import app.parley.telecom.CallRoundHooks
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
@@ -119,7 +121,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     // Case files too.
     CaseFileHooks by CaseFileBridge(app, c),
     // And the agenda (things to talk about).
-    AgendaHooks by AgendaBridge(app, c) {
+    AgendaHooks by AgendaBridge(app, c),
+    // A call round's one thing to say.
+    CallRoundHooks by CallRoundBridge(app, { c.callRound }, { c.privacy.now() }) {
     private companion object {
         /** After the last call ends, this long before the full app loads. */
         const val CALL_SETTLE_MS = 10_000L

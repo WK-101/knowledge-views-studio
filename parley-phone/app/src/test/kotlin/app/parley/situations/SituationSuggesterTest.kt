@@ -34,6 +34,6 @@ class SituationSuggesterTest {
         val now = 1_790_000_000_000L
         SituationSuggester.answer(context, SuggestionKind.MEETING, never = false, now = now)
         // The container (and the call history) isn't touched: this test's application has none.
-        assertNull(SituationSuggester.find(context, now + SituationSuggestions.WEEK_MS - 1))
+        assertNull(SituationSuggester.find(context, { emptyList() }, now + SituationSuggestions.WEEK_MS - 1))
     }
 }

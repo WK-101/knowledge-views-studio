@@ -44,7 +44,7 @@ class PrivateCallsTest {
         VaultCrypto.appContext = context
         File(context.noBackupFilesDir, PrivateCallSeal.KEY_FILE).delete()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
-        vault = VaultRepository(context, db, scope, gate)
+        vault = VaultRepository(context, db, scope, gate).also { it.start() }
     }
 
     @After fun tearDown() {

@@ -63,7 +63,7 @@ fun CaseCard(vm: AppViewModel, owner: CaseOwner, open: (Destination) -> Unit, mo
             if (id != null) {
                 open(HistoryRoutes.Case(id))
             } else {
-                vm.viewModelScope.launch { CaseData.ensure(vm.c, owner, vm.countryIso)?.let { open(HistoryRoutes.Case(it)) } }
+                vm.viewModelScope.launch { vm.cases.ensure(owner, vm.countryIso)?.let { open(HistoryRoutes.Case(it)) } }
             }
         },
     ) {

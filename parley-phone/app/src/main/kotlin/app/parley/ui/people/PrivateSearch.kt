@@ -36,11 +36,11 @@ import kotlinx.coroutines.yield
 @OptIn(ExperimentalCoroutinesApi::class)
 class PrivateSearch(
     private val c: DataContainer,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     /** A search or a filter is in use, and private contacts are listed (discreet mode off). */
-    wanted: StateFlow<Boolean>,
+    private val wanted: StateFlow<Boolean>,
     /** Changes whenever the search is used (the query or the filters change). */
-    activity: Flow<Any?>,
+    private val activity: Flow<Any?>,
 ) {
     private val _docs = MutableStateFlow<Map<Long, ContactSearch.Doc>>(emptyMap())
 
@@ -62,7 +62,8 @@ class PrivateSearch(
     /** The docs were dropped after the idle time: the next use of the search opens them again. */
     @Volatile private var expired = false
 
-    init {
+    /** Follows the search and the locks, once, right after construction (its owner calls it). */
+    fun start() {
         scope.launch {
             activity.collectLatest {
                 if (expired) {

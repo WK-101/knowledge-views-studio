@@ -92,10 +92,10 @@ class MenusTest {
             assertEquals(f.hasPrivate, SelectionMenu.Action.MAKE_VISIBLE in actions(top))
             assertEquals(f.hasDevice, SelectionMenu.Action.MAKE_PRIVATE in actions(top))
         }
-        // Everything at once: 11 actions in 6 entries (it was 10 entries with "Introduce myself…", now a Tools row).
-        // Edit… (bulk edit, with Add to label inside it) comes first.
+        // Everything at once: 12 actions in 7 entries (it was 10 entries with "Introduce myself…", now a Tools row; Start a
+        // call round took the seventh). Edit… (bulk edit, with Add to label inside it) comes first.
         val all = SelectionMenu.build(SelectionMenu.Facts(hasDevice = true, hasPrivate = true, canMerge = true))
-        assertEquals(6, all.size)
+        assertEquals(MENU_LIMIT, all.size)
         assertEquals(MenuEntry.Action(SelectionMenu.Action.EDIT), all.first())
         assertEquals(SelectionMenu.Action.entries.toSet(), actions(all).toSet())
     }

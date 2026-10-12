@@ -57,6 +57,7 @@ class MainActivity : LockedActivity() {
         super.onCreate(savedInstanceState)
         // The UI is starting: load contacts, calls and the rest (a process started for a call or a worker doesn't).
         container.startFull()
+        vm.start()
         if (savedInstanceState == null) handleIntent(intent)
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()

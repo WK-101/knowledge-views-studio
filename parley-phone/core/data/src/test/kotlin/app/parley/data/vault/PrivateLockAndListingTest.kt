@@ -79,7 +79,7 @@ class PrivateLockAndListingTest {
         repeat(OPENED) { i -> person("P%03d".format(i), "+1 202 555 %04d".format(i)) }
         c.vault.forgetOpened()
         // A new process: nothing opened yet, every caller-ID copy opened for the first listing.
-        val fresh = VaultRepository(app, c.db, c.scope)
+        val fresh = VaultRepository(app, c.db, c.scope).also { it.start() }
         VaultCrypto.Meter.reset()
         val started = System.nanoTime()
         val first = withTimeout(30_000) { fresh.listing.filterNotNull().first() }

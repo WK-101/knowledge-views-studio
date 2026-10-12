@@ -160,7 +160,7 @@ private fun PresetsItem(st: BlockingState, log: List<BlockedCallEntity>, pick: (
             weekOf(all, now) { vm.contactFor(it)?.lookupKey }
         }
     }
-    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
+    val situations by vm.situations.list.collectAsStateWithLifecycle()
     PresetHeader(ScreeningPreset.current(st.screening, Situations.nightScheduled(situations)), week, pick)
 }
 

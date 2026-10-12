@@ -323,8 +323,8 @@ private fun SituationsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
     )
-    val situations by vm.c.situations.list.collectAsStateWithLifecycle()
-    val now by vm.c.situations.state.collectAsStateWithLifecycle()
+    val situations by vm.situations.list.collectAsStateWithLifecycle()
+    val now by vm.situations.state.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.label_situations)) {
         // Search for Situations lands on the first one.
         situations.firstOrNull()?.let { first -> item("situations") { SituationRow(vm, first, now, open) } }

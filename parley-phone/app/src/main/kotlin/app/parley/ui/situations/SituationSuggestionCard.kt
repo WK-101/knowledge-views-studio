@@ -58,7 +58,10 @@ fun SituationSuggestionCard(vm: AppViewModel, open: (Destination) -> Unit, modif
     val scope = rememberCoroutineScope()
     val privacy by vm.privacy.collectAsStateWithLifecycle()
     var suggestion by remember { mutableStateOf<SituationSuggestion?>(null) }
-    LaunchedEffect(Unit) { suggestion = SituationSuggester.find(context) }
+    LaunchedEffect(Unit) {
+        vm.situations.prepare()
+        suggestion = SituationSuggester.find(context, { vm.situations.list.value })
+    }
     val s = suggestion?.takeIf { !privacy.hiding } ?: return
     val (title, text) = remember(s) { words(context, s) }
     fun answer(never: Boolean) {
@@ -88,9 +91,10 @@ fun SituationSuggestionCard(vm: AppViewModel, open: (Destination) -> Unit, modif
                 TextButton({ answer(never = false) }) { Text(stringResource(R.string.label_not_now)) }
                 Button({
                     suggestion = null
-                    scope.launch {
-                        if (SituationSuggester.accept(context, s)) open(SituationRoutes.Edit(s.situationId))
-                    }
+                    // The Situation takes the time or the car kit; its page opens with who may ring.
+                    vm.situations.edit(s.situationId) { s.applyTo(it) }
+                    scope.launch(Dispatchers.IO) { SituationSuggester.answer(context, s.kind, never = false) }
+                    open(SituationRoutes.Edit(s.situationId))
                 }) { Text(stringResource(R.string.sit_suggest_accept)) }
             }
         }

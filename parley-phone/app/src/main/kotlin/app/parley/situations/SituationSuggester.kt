@@ -3,11 +3,11 @@ package app.parley.situations
 import android.content.Context
 import androidx.core.content.edit
 import app.parley.common.catching
+import app.parley.common.situations.Situation
 import app.parley.common.situations.SituationSuggestion
 import app.parley.common.situations.SituationSuggestions
 import app.parley.common.situations.SuggestionKind
 import app.parley.common.situations.SuggestionMarks
-import app.parley.common.suspendRunCatching
 import app.parley.container
 import app.parley.data.StatePrefs
 import kotlinx.coroutines.Dispatchers
@@ -42,21 +42,23 @@ object SituationSuggester {
         return SuggestionMarks(p.getLong(K_ANSWERED, 0), never)
     }
 
-    /** The suggestion to show now, or null; worked out off the main thread. */
-    suspend fun find(context: Context, now: Long = System.currentTimeMillis()): SituationSuggestion? = withContext(Dispatchers.IO) {
-        val app = context.applicationContext
+    /** The suggestion to show now for the Situations [list], or null; worked out off the main thread. */
+    suspend fun find(context: Context, list: () -> List<Situation>, now: Long = System.currentTimeMillis()): SituationSuggestion? =
+        withContext(Dispatchers.IO) { findNow(context.applicationContext, list, now) }
+
+    private suspend fun findNow(app: Context, list: () -> List<Situation>, now: Long): SituationSuggestion? {
         val marks = marks(app)
         // Shown at most once a week: nothing else is read before then.
-        if (now - marks.answeredAt < SituationSuggestions.WEEK_MS) return@withContext null
+        if (now - marks.answeredAt < SituationSuggestions.WEEK_MS) return null
         val c = app.container
         // Reused, unless the Situation it would change has started switching itself on meanwhile.
         found?.takeIf { now - it.first in 0 until REUSE_MS }?.let { (_, s) ->
-            if (s == null || c.situations.list.value.any { it.id == s.situationId && !it.automatic }) return@withContext s
+            if (s == null || list().any { it.id == s.situationId && !it.automatic }) return s
         }
-        val calls = withTimeoutOrNull(LOAD_MS) { c.history.callsWithPrivate.filterNotNull().first() } ?: return@withContext null
+        val calls = withTimeoutOrNull(LOAD_MS) { c.history.callsWithPrivate.filterNotNull().first() } ?: return null
         val rings = catching { c.ringFacts.all() }.getOrNull().orEmpty()
         val cars = c.driveProfile.config.value.cars.isNotEmpty()
-        SituationSuggestions.suggest(calls, rings, c.situations.list.value, cars, marks, now, ZoneId.systemDefault()).also { found = now to it }
+        return SituationSuggestions.suggest(calls, rings, list(), cars, marks, now, ZoneId.systemDefault()).also { found = now to it }
     }
 
     /** "Not now" ([never] false) or "Don't suggest this" ([never] true): the card goes, and none comes for a week. */
@@ -68,13 +70,5 @@ object SituationSuggester {
             putLong(K_ANSWERED, now)
             if (never) putStringSet(K_NEVER, before + kind.name)
         }
-    }
-
-    /** "Set it up": the Situation takes the suggestion (its page opens next, with who may ring), and none comes for a week. */
-    suspend fun accept(context: Context, s: SituationSuggestion): Boolean {
-        val app = context.applicationContext
-        val ok = suspendRunCatching { app.container.situations.edit(s.situationId) { s.applyTo(it) } }.getOrDefault(false)
-        if (ok) withContext(Dispatchers.IO) { answer(app, s.kind, never = false) }
-        return ok
     }
 }

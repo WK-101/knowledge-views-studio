@@ -129,7 +129,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
-    val chapters by vm.c.extras.chapters.collectAsStateWithLifecycle()
+    val chapters by vm.chapters.chapters.collectAsStateWithLifecycle()
     val now = remember(chapters) { System.currentTimeMillis() }
 
     // Scroll-linked top-bar tint.
@@ -437,7 +437,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var addingPeople by rememberSaveable { mutableStateOf(false) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
-    val chapters by vm.c.extras.chapters.collectAsStateWithLifecycle()
+    val chapters by vm.chapters.chapters.collectAsStateWithLifecycle()
     val hasChapter = chapters[current] != null
     val tone = s.labelRingtones[current]
     // A tune made from a name that was replaced or reset here goes once nothing else uses it (its grants with it).

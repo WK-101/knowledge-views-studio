@@ -36,7 +36,8 @@ class VaultLock(private val scope: CoroutineScope) {
      */
     val lockedByPerson: StateFlow<Boolean> = lockedNow.asStateFlow()
 
-    init {
+    /** Reads whether "Lock private contacts" holds, once, right after construction (the vault calls it). */
+    fun start() {
         scope.launch(Dispatchers.IO) { lockedNow.value = catching { VaultCrypto.lockedByPerson }.getOrDefault(true) }
     }
 

@@ -92,7 +92,8 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         viewModelScope.launch { runCatching { c.settings.update { it.copy(recentsFilter = if (f == RecentFilter.ALL) "" else f.name) } } }
     }
 
-    init {
+    /** Restores the chip used last, once, right after construction (the view-model factory calls it). */
+    fun start() {
         // Recents opens on the chip used last, unless something (a missed-call notification) already chose one.
         viewModelScope.launch {
             val s = c.settings.current()
@@ -239,7 +240,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptySet())
 
     /** The To call list: its strip tops Recents; fed by these calls and the missed calls still to return. */
-    val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed) }
+    val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed).also { it.start() } }
 
     /** Next up: the To call strip with today's dates, a Circle member in their good hours and Chapters ending. */
     val nextUp: NextUpModel by lazy {

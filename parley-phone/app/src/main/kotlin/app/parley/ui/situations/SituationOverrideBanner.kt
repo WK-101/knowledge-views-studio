@@ -15,7 +15,6 @@ import app.parley.common.situations.Situations
 import app.parley.data.DataContainer
 import app.parley.situations.SituationTriggers
 import app.parley.ui.Banner
-import kotlinx.coroutines.launch
 
 /**
  * "Set by Meeting · Turn off" at the top of a page whose values the Situation on now sets ([Situations.overrides]):
@@ -25,16 +24,15 @@ import kotlinx.coroutines.launch
 @Composable
 fun SituationOverrideBanner(vm: AppViewModel, area: SituationArea) {
     val context = LocalContext.current
-    val c = vm.c
-    val state by c.situations.state.collectAsStateWithLifecycle()
-    val list by c.situations.list.collectAsStateWithLifecycle()
+    val state by vm.situations.state.collectAsStateWithLifecycle()
+    val list by vm.situations.list.collectAsStateWithLifecycle()
     val on = state.activeId?.let { id -> list.firstOrNull { it.id == id } }
     if (on == null || !Situations.overrides(on, area)) return
     Banner(
         stringResource(R.string.sit_set_by, SituationTriggers.name(context, on)),
         icon = Icons.Rounded.Tune,
         action = stringResource(R.string.action_turn_off),
-        onAction = { c.scope.launch { c.situations.turnOff() } },
+        onAction = { vm.situations.turnOff() },
     )
 }
 
