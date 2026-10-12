@@ -319,4 +319,45 @@
     <!-- Quieter than usual. "You and Marco used to talk about every week; since April it's been about every month." -->
     <string name="circle_digest_drift">You and %1$s used to talk %2$s; since %3$s it\'s been %4$s.</string>
     <string name="circle_drift_fine">They\'re fine</string>
+    <!-- Your year: a look back at one calendar year, from the People card. -->
+    <string name="year_open_sub">Look back at any year</string>
+    <string name="year_chips">Years</string>
+    <plurals name="year_in_touch">
+        <item quantity="one">In touch %1$d time</item>
+        <item quantity="other">In touch %1$d times</item>
+    </plurals>
+    <string name="year_most">Most in touch</string>
+    <string name="year_closer">Closer this year</string>
+    <string name="year_quieter">Quieter this year</string>
+    <plurals name="year_conversations">
+        <item quantity="one">%1$d conversation</item>
+        <item quantity="other">%1$d conversations</item>
+    </plurals>
+    <!-- "12 conversations · 4 the year before" -->
+    <string name="year_change_before">%1$d the year before</string>
+    <string name="year_gap">Longest gap in your Circle</string>
+    <plurals name="year_gap_days">
+        <item quantity="one">%1$d day without talking to %2$s</item>
+        <item quantity="other">%1$d days without talking to %2$s</item>
+    </plurals>
+    <string name="year_how">How you kept in touch</string>
+    <plurals name="year_calls">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <plurals name="year_chats">
+        <item quantity="one">%1$d chat started from Parley</item>
+        <item quantity="other">%1$d chats started from Parley</item>
+    </plurals>
+    <!-- "Parley has calls from March 2025": older calls depend on what Android's call log kept. -->
+    <string name="year_thin">Parley has calls from %1$s</string>
+    <string name="year_empty_title">Nothing to look back on yet</string>
+    <string name="year_empty_body">Your year fills in as you call and chat with your contacts.</string>
+    <string name="year_add_quieter_sub">%1$s, with a gentle rhythm</string>
+    <plurals name="year_added">
+        <item quantity="one">Added %1$d person to your Circle</item>
+        <item quantity="other">Added %1$d people to your Circle</item>
+    </plurals>
+    <!-- The weekly digest in early January, once: "Your 2025 is ready to look back on". -->
+    <string name="circle_digest_your_year">Your %1$s is ready to look back on</string>
 </resources>

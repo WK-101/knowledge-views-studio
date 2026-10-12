@@ -339,7 +339,8 @@ in History & undo, private names in notifications and on the call screen. And, b
   suggestions with their call counts; the Circle header's reach and talk-time share (its Due/Soon/Fine counts stay, as
   every row's chip does), how you two keep in touch on a contact's page and in the pre-call peek, and "your turn" in the
   weekly digest (it says "might enjoy hearing from you" as before), and "quieter than usual" in the weekly digest (no
-  line, no pick, no actions). A rhythm you set yourself still shows, and so does a season ("Every 3 days · until 30
+  line, no pick, no actions), and Your year: its page reads as a phone with nothing to look back on, and the January
+  digest doesn't offer it. A rhythm you set yourself still shows, and so does a season ("Every 3 days · until 30
   Nov") or a label behind it ("In your Circle via Family"): they are choices, not insights.
 - **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
   call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
@@ -559,7 +560,9 @@ see your contacts" says so on Android 17 and later.
 - **Fresh-number line.** "New number, added 3 days ago" names nobody and says only where the number came from, so,
   like "This number never calls you", it stays on the lock screen. **Call their older number** asks for the unlock,
   and the older number is never shown on the call screen, only dialled.
-- **Widgets.** With the app lock on, the Circle and Favourites widgets show counts instead of names while the phone
+- **Widgets.** The People widget (Favourites or Circle, chosen when it's placed; Circle widgets placed before 6.9 draw
+  the same way) reads only phone contacts, so private contacts are never in it, whether or not they show in Parley.
+  With the app lock on, it shows counts instead of names while the phone
   **or Parley** is locked, not only while the phone is locked. They redraw when Parley locks, when the phone is
   unlocked, and when Parley's lock delay runs out after you leave it: a one-time background job set for that moment
   (no exact-alarm permission, so Android may run it up to a few minutes late, longer in battery saver or Doze). The

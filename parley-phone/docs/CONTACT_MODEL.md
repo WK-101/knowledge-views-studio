@@ -392,7 +392,10 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   private contact's page finds no contact, its own ringtone isn't played and, by default, its sealed details refuse to
   open, until the real Parley PIN. Nothing is changed in the vault.
 - Private contacts are merged only into Parley's own lists (`AppViewModel.everyone`), never into `ContactDirectory`,
-  the widgets, the private-name provider or anything another app can query.
+  the widgets (the People widget, in either mode, reads only phone contacts), the private-name provider or anything
+  another app can query.
+- Your year (6.9) counts private contacts, their calls (the private call history) and their logged moments only while
+  they may show (`vm.everyone` lists them and `PrivacyView.privateShown`); hidden, it reads as if they weren't there.
 - Labels, the ringtone, "send to voicemail" and the star are sealed with the caller-ID key like the name; nothing of
   them is written to the address book, logs or notifications. A private caller sent to voicemail is never logged as a
   blocked call when Parley is the phone app (see "Ringtone and Send to voicemail"); a label's "Allow through Do Not

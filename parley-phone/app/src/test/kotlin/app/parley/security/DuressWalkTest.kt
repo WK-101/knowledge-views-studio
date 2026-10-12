@@ -207,6 +207,10 @@ class DuressWalkTest {
         }
         // The Circle's header keeps only the status counts, which every row's chip shows anyway.
         assertEquals(CircleGlance.Glance(1, 1, 2, null, null), glance())
+        // Your year reads as a phone with nothing to look back on.
+        val year = app.parley.ui.history.YourYearUi(c.circle, c.history, c.vault)
+        assertTrue(year.years(setOf("ana"), c.privacy.now()).years.isEmpty())
+        assertEquals(null, year.page(2025, setOf("ana"), c.privacy.now(), 0L))
         // A rhythm you set yourself is a choice, not an insight: it still shows.
         assertTrue(CircleText.rhythm(res, 14, KeepRhythm()).contains("14"))
     }

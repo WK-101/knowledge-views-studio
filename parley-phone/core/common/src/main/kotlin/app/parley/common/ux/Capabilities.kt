@@ -180,6 +180,9 @@ object CapabilityCatalog {
             "season", "for a while", "temporary", "hospital", "new baby", "rhythm", since = "6.8"),
         help("quieter", TOUCH, "Quieter than usual", "Someone you used to talk to much more often, once a week at most in the digest", HelpTopic.QUIETER,
             "quieter", "drifting", "lost touch", "used to talk", since = "6.8"),
+        // Your year opens from the People card in Call insights (and once from the digest in January).
+        help("your_year", TOUCH, "Your year", "Look back at any year: who you were most in touch with, closer and quieter", HelpTopic.YOUR_YEAR,
+            "year", "look back", "review", "wrapped", "most in touch", "closer", since = "6.9"),
         help(
             "label_circle", TOUCH, "Keep in touch with everyone in a label", "A label can fill your Circle, or add everyone to Favourites",
             HelpTopic.LABEL_CIRCLE, "label", "family", "circle", "favourites", "everyone", "bulk", since = "6.8",

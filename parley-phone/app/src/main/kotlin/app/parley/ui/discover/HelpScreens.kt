@@ -46,6 +46,7 @@ object HelpText {
         HelpTopic.SEASONS -> HelpTexts(R.string.circle_season_title, R.string.help_seasons_body, null)
         HelpTopic.QUIETER -> HelpTexts(R.string.help_quieter_title, R.string.help_quieter_body, null)
         HelpTopic.LABEL_CIRCLE -> HelpTexts(R.string.help_label_circle_title, R.string.help_label_circle_body, R.string.label_labels)
+        HelpTopic.YOUR_YEAR -> HelpTexts(R.string.circle_year_review, R.string.help_your_year_body, R.string.label_call_insights)
     }
 }
 

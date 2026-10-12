@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingDown
 import androidx.compose.material.icons.automirrored.rounded.TrendingFlat
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +41,7 @@ import app.parley.common.ContactSummary
 import app.parley.common.circle.PeopleInsights
 import app.parley.common.history.CallLogIndex
 import app.parley.ui.Bidi
+import app.parley.ui.LinkRow
 import app.parley.ui.ParleyListItem
 import app.parley.ui.PersonRow
 import app.parley.ui.Routes
@@ -61,7 +63,8 @@ private data class PeopleData(
 /**
  * The "People" card in Insights (never on the home screen): reach in your circle this month against the month
  * before, open loops (their call you haven't returned, your call they haven't answered; any later contact closes
- * them), who usually reaches out first (private, hideable) and a year in review once there are 20 entries. The
+ * them), who usually reaches out first (private, hideable), a year in review once there are 20 entries and the way
+ * into Your year (any year, [YourYearScreen]). The
  * whole card can be turned off here or in Settings › Recents & history. Private contacts are never in it.
  */
 @Composable
@@ -167,8 +170,8 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
+        SubHeader(stringResource(R.string.circle_year_review))
         d.review?.let { r ->
-            SubHeader(stringResource(R.string.circle_year_review))
             val most = r.most.mapNotNull { (k, n) ->
                 contacts[k]?.let {
                     stringResource(R.string.format_bracket_pair, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString()))
@@ -185,6 +188,8 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
             if (r.occasions > 0) ParleyListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) })
             ParleyListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_entries, r.entries, r.entries)) })
         }
+        // Any year, looked back on in full (relationship insights too: the card is hidden after a duress unlock).
+        LinkRow(stringResource(R.string.year_open_sub), null, Icons.Rounded.Event) { open(HistoryRoutes.YourYear()) }
     }
 }
 

@@ -3731,3 +3731,30 @@ Automated: `DigestCallTest` (app: the digest's Call for someone quieter than usu
 2. A label with "Allow through Do Not Disturb": in the Contacts app, unstar one of its members that Parley starred. On the label's page, Add everyone to Favourites (they're starred again), then switch "Allow through Do Not Disturb" off: they stay a favourite. Undo the add instead: they're unstarred and the Do Not Disturb record is as before.
 3. Check-in: let one go unanswered (the notice shows), then set a new check-in: the old notice goes. Let another go unanswered, set one more and answer it ("I'm fine"): no notice is left.
 4. Error handling (`catching` everywhere): leave a screen while it loads (Contacts, a contact's page, Recents, a label's chapter) and back out of the call screen during a call: nothing reports "failed" or shows an error afterwards; photos too large to decode still fall back to the monogram.
+
+## 53. Looking back (6.9)
+
+### 53.6 Your year
+Automated: `YourYearTest` (conversations not entries, closer and quieter among people with 4 or more, no comparison without the year before, the Circle's longest gap with its dates, occasions, calls and chats, years in the phone's zone, the thin-history note, the January offer) (core:common); `NavigationRoutesTest.theJanuaryDigestOpensTheYearItOffers`, `CapabilityRoutesTest` (the Tools row and its help page) and `DuressWalkTest` (nothing after a duress unlock) (app).
+1. **Open it.** Call insights › People card › **Look back at any year**: "Your year" opens with a row of year chips, one for every year with calls or chats with your contacts, newest first (in January the year just ended is chosen).
+2. **The page.** "In touch N times" (calls a few hours apart count once), **Most in touch** (three people with their conversations), **Closer this year** and **Quieter this year** (three each, "12 conversations · 4 the year before"; only people with at least 4 in one of the two years), **Longest gap in your Circle** with its dates ("1 Feb – 1 Jun"), **How you kept in touch** (calls · chats started from Parley, with occasions acknowledged). Each person opens their page.
+3. **Any year.** Tap an older chip: the page changes to that year and stays quick with several years of history (only that year and the one before are read). The first year of Parley's history has no Closer or Quieter, and says "Parley has calls from March 2025" when it starts after the first week of January.
+4. **Tools.** Tools › Stay in touch › **Your year** (New in 6.9) opens its help page, whose button opens Call insights; searching "look back" or "wrapped" finds it.
+
+### 53.7 Your year: add the quieter ones, and privacy
+1. With someone quieter this year who isn't in your Circle: **Add to your Circle** at the end names them; tap it: "Added 2 people to your Circle", they're in the Circle with Natural rhythm, and the action is gone.
+2. **Private contacts.** With private contacts shown, a private contact you call often is in Most in touch and opens their page; lock and hide private contacts (or turn on Hide private contacts): reopen the page, and they and their calls are gone from every line and count.
+3. **Duress.** After a duress unlock the People card is hidden; opening the page from the January digest or an old link shows "Nothing to look back on yet", as on a new phone.
+
+### 53.8 The January digest offers Your year
+1. Weekly digest on, at least 20 conversations last year: set the date to the first Sunday of January (1–14 Jan) and run the reminders. The digest has the line "Your 2025 is ready to look back on" and a **Your year** button that opens the page at 2025 (behind the app lock).
+2. That week the digest has no "quieter than usual" line (the page has the quieter ones). The next Sunday it isn't offered again; nor next January for the same year.
+3. Fewer than 20 conversations, or a duress unlock: no line. The lock screen shows only "Reminder".
+
+### 53.9 One People widget
+Automated: `PeopleWidgetPlanTest` (widgets placed before keep their mode; a stored choice; an unreadable one falls back to Favourites; the old Circle entry only while one is placed) (core:common); `WidgetTapsTest` (app).
+1. **Update.** On 6.8, place a Favourites widget (tap opens their page) and a Circle widget, then update to 6.9: both still show what they did, and the Favourites one still opens pages.
+2. **One entry.** The widget list offers **People** (and Direct dial) while the old Circle widget is placed; remove that Circle widget, open Parley: the list no longer offers Circle.
+3. **Place a People widget.** Its settings open: **Shows** Favourites · Your Circle; with Favourites, **When you tap someone**. Choose Your Circle, Done: the widget shows who's due and dates coming up, each with Call. Back instead of Done keeps it, showing Favourites.
+4. **Change it later.** Long-press › settings (reconfigure) on the People widget: switch to Favourites; the grid appears.
+5. **Private and locked.** With private contacts shown and starred or in the Circle, they never appear in either mode. With the app lock on, lock the phone: both modes show only counts; unlock: names return (tap to show also works).

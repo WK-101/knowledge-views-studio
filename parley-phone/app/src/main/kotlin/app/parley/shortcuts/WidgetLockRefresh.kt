@@ -63,8 +63,7 @@ object WidgetLockRefresh {
     }
 
     internal suspend fun redraw(context: Context) {
-        catching { CircleWidget.refresh(context) }
-        catching { FavoritesWidget.refresh(context) }
+        catching { PeopleWidget.refresh(context) }
     }
 }
 
