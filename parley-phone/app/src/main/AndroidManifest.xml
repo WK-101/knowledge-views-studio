@@ -389,8 +389,8 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
-        <!-- The Circle widget placed before the People widget (resizable RemoteViews): kept for those; Parley disables
-             this entry once none is placed, so the widget list offers the People widget only. -->
+        <!-- The Circle widget placed before the People widget (resizable RemoteViews): kept for those, hidden from the
+             widget list (Android 13 on), never disabled (that would remove them). -->
         <receiver
             android:name=".shortcuts.CircleWidget"
             android:exported="false"

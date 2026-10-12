@@ -145,11 +145,7 @@ private fun NextUpRow(vm: AppViewModel, item: NextUpItem, open: (Destination) ->
         )
         is NextUpItem.CaseDue -> Line(
             Icons.Rounded.FolderOpen,
-            if (item.overdue) {
-                stringResource(R.string.next_up_case_overdue, item.name, followUpDate(item.day))
-            } else {
-                stringResource(R.string.next_up_case_today, item.name)
-            },
+            caseText(item),
             emptyList(), onClickLabel = null, onClick = { open(HistoryRoutes.Case(item.caseId)) }, trailing = fold,
         )
         is NextUpItem.RoundLeft -> Line(
@@ -212,4 +208,15 @@ private fun chapterText(context: Context, title: String, lastDay: LocalDate): St
             lastDay.dayOfWeek.getDisplayName(TextStyle.FULL, context.resources.configuration.locales[0] ?: Locale.getDefault()),
         )
     }
+}
+
+/** A case file's line: due today or past its date, and how many other cases are due too. */
+@Composable
+private fun caseText(item: NextUpItem.CaseDue): String {
+    val line = if (item.overdue) {
+        stringResource(R.string.next_up_case_overdue, item.name, followUpDate(item.day))
+    } else {
+        stringResource(R.string.next_up_case_today, item.name)
+    }
+    return if (item.more > 0) stringResource(R.string.next_up_case_more, line, item.more) else line
 }

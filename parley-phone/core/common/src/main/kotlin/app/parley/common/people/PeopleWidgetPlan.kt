@@ -4,7 +4,7 @@ package app.parley.common.people
  * The People widget: one home-screen widget that shows your Favourites or your Circle, chosen when it is placed (and
  * again from its settings). It took over the Favourites widget's place in the widget list, so every Favourites widget
  * already placed is a People widget showing Favourites. A Circle widget placed before keeps its own entry, drawn by the
- * same code in Circle mode, and that entry leaves the widget list once none is placed. Like both before, it never
+ * same code in Circle mode, and that entry is hidden from the widget list (Android 13 on). Like both before, it never
  * shows private contacts: the launcher, another app, draws it.
  */
 object PeopleWidgetPlan {
@@ -18,7 +18,4 @@ object PeopleWidgetPlan {
         legacyCircle -> Mode.CIRCLE
         else -> Mode.entries.firstOrNull { it.name == stored } ?: Mode.FAVOURITES
     }
-
-    /** Whether the old Circle widget's entry stays in the widget list: only while one of them is still placed. */
-    fun keepCircleEntry(placed: Int): Boolean = placed > 0
 }

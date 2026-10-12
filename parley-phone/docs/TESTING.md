@@ -3784,9 +3784,9 @@ Automated: `YourYearTest` (conversations not entries, closer and quieter among p
 3. Fewer than 20 conversations, or a duress unlock: no line. The lock screen shows only "Reminder".
 
 ### 53.9 One People widget
-Automated: `PeopleWidgetPlanTest` (widgets placed before keep their mode; a stored choice; an unreadable one falls back to Favourites; the old Circle entry only while one is placed) (core:common); `WidgetTapsTest` (app).
+Automated: `PeopleWidgetPlanTest` (widgets placed before keep their mode; a stored choice; an unreadable one falls back to Favourites; no runtime disabling) (core:common); `WidgetTapsTest` (app).
 1. **Update.** On 6.8, place a Favourites widget (tap opens their page) and a Circle widget, then update to 6.9: both still show what they did, and the Favourites one still opens pages.
-2. **One entry.** The widget list offers **People** (and Direct dial) while the old Circle widget is placed; remove that Circle widget, open Parley: the list no longer offers Circle.
+2. **One entry.** On Android 13+ the widget list offers **People** (and Direct dial), never Circle, while an old Circle widget stays placed and working; on Android 10–12 both entries show.
 3. **Place a People widget.** Its settings open: **Shows** Favourites · Your Circle; with Favourites, **When you tap someone**. Choose Your Circle, Done: the widget shows who's due and dates coming up, each with Call. Back instead of Done keeps it, showing Favourites.
 4. **Change it later.** Long-press › settings (reconfigure) on the People widget: switch to Favourites; the grid appears.
 5. **Private and locked.** With private contacts shown and starred or in the Circle, they never appear in either mode. With the app lock on, lock the phone: both modes show only counts; unlock: names return (tap to show also works).
@@ -3825,3 +3825,11 @@ Automated: `ChaptersTest.no_end_asks_about_the_circle_only_for_a_label_that_feed
 3. A label without "Keep in touch with everyone here": **No end** takes the end away at once, with no question, as before.
 4. Cancel the question: nothing changes. **Keep the label as it is** at a Chapter's end still stops the label filling the Circle, as before.
 
+
+### 53.15 Review fixes
+
+Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its settings are open; the old Circle entry is hidden, never disabled) and `WarmTraceTest` (overlapping warm-ups trace separate sections) (app); `NextUpTest` (many cases due take one line) (core:common).
+
+1. **Back out of a new People widget.** Place a People widget and press Back on its settings: the widget stays and shows your Favourites at once (no blank or "loading" widget). Long-press it › settings (Android 12+): change it to Your Circle, Done: it redraws.
+2. **Old Circle widget after the update.** With a Circle widget placed on 6.8, update: it keeps working. Remove it and add it back from the widget list on Android 10–12 (it is still listed there); on Android 13+ the list offers only People. No placed widget ever disappears after opening Parley.
+3. **Many cases due.** Set "Follow up by" to today on three case files and have a Circle member due in their good hours: Next up shows one case line, "Follow up with … (+2 more)", and the Circle line still shows.

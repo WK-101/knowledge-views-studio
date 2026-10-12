@@ -65,9 +65,13 @@ sealed interface NextUpItem {
 
     data class ChapterEnds(override val line: NextUpLine, val title: String, val lastDay: LocalDate) : NextUpItem
 
-    /** A case file to follow up: its "Follow up by" [day] is today, or [overdue]. [private]: a private contact's. */
+    /**
+     * A case file to follow up: its "Follow up by" [day] is today, or [overdue]. [private]: a private contact's. Only
+     * one case has a line; [more] says how many others are due too.
+     */
     data class CaseDue(
         override val line: NextUpLine, val caseId: String, val name: String, val day: LocalDate, val overdue: Boolean, val private: Boolean,
+        val more: Int = 0,
     ) : NextUpItem
 
     /** A call round under way: [left] of [total] still to tell, [next] the one to call now. */
@@ -184,6 +188,7 @@ class NextUpModel(
         val count = ToCall.count(rows.map { it.entry }, now)
         val keys = rows.map { it.entry.key }.toSet()
         val byLine = found.associateBy { it.line.kind to it.line.id }
+        val moreCases = NextUp.moreCases(found.map { it.line })
         NextUp.lines(count, keys, found.map { it.line }).mapNotNull { line ->
             when (line.kind) {
                 NextUpKind.TO_CALL -> {
@@ -191,6 +196,7 @@ class NextUpModel(
                     NextUpItem.Owed(line, due, due.mapNotNull { it.entry.promisedAt }.minOrNull())
                 }
                 NextUpKind.LATER -> NextUpItem.Later(line, count.later)
+                NextUpKind.CASE_DUE -> (byLine[line.kind to line.id] as? NextUpItem.CaseDue)?.copy(more = moreCases)
                 else -> byLine[line.kind to line.id]
             }
         }

@@ -2,8 +2,6 @@ package app.parley.common.people
 
 import app.parley.common.people.PeopleWidgetPlan.Mode
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PeopleWidgetPlanTest {
@@ -20,10 +18,5 @@ class PeopleWidgetPlanTest {
         assertEquals(Mode.FAVOURITES, PeopleWidgetPlan.mode("FAVOURITES", legacyCircle = false))
         // Something unreadable (a newer version's mode, after a downgrade) falls back to Favourites.
         assertEquals(Mode.FAVOURITES, PeopleWidgetPlan.mode("LABEL", legacyCircle = false))
-    }
-
-    @Test fun the_old_circle_entry_stays_only_while_one_is_placed() {
-        assertTrue(PeopleWidgetPlan.keepCircleEntry(1))
-        assertFalse(PeopleWidgetPlan.keepCircleEntry(0))
     }
 }

@@ -9,7 +9,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.core.content.ContextCompat
@@ -75,7 +74,10 @@ abstract class PeopleWidgetProvider : AppWidgetProvider() {
 /** The People widget (its component name is the Favourites widget's, so the ones already placed keep working). */
 class FavoritesWidget : PeopleWidgetProvider()
 
-/** Circle widgets placed before the People widget; their entry leaves the widget list once none is placed. */
+/**
+ * Circle widgets placed before the People widget. Its entry is hidden from the widget list (Android 13 on), never
+ * disabled: Android removes every placed widget of a disabled provider.
+ */
 class CircleWidget : PeopleWidgetProvider()
 
 /**
@@ -119,6 +121,17 @@ object PeopleWidget {
         placed(context)
     }
 
+    /** A widget's settings opened (when it's placed, or again later): it is drawn and followed right away. */
+    internal fun drawOnPlacing(context: Context) {
+        val ctx = context.applicationContext
+        ctx.container.scope.launch {
+            catching {
+                placed(ctx)
+                refresh(ctx)
+            }
+        }
+    }
+
     internal fun forget(context: Context, ids: IntArray) {
         val p = prefs(context).edit()
         ids.forEach { p.remove(tapKey(it)).remove(modeKey(it)) }
@@ -133,26 +146,10 @@ object PeopleWidget {
         ids(context, FavoritesWidget::class.java).map { Triple(it, mode(context, it), FavoritesWidget::class.java) } +
             ids(context, CircleWidget::class.java).map { Triple(it, Mode.CIRCLE, CircleWidget::class.java) }
 
-    /** Widgets were placed or removed: what the app follows changes, and the old Circle entry may leave the list. */
+    /** Widgets were placed or removed: what the app follows changes. */
     internal fun placed(context: Context) {
         val ctx = context.applicationContext
         modes.value = placedNow(ctx).map { it.second }.toSet()
-        keepCircleEntry(ctx)
-    }
-
-    /**
-     * Takes the old Circle widget out of the widget list once none is placed (a Circle widget is a People widget now).
-     * Never while one is placed: disabling a provider removes its widgets from the home screen.
-     */
-    private fun keepCircleEntry(ctx: Context) {
-        // Unknown (the widget service didn't answer) counts as placed.
-        val placed = catching { AppWidgetManager.getInstance(ctx).getAppWidgetIds(ComponentName(ctx, CircleWidget::class.java)).size }.getOrNull() ?: return
-        if (PeopleWidgetPlan.keepCircleEntry(placed)) return
-        catching {
-            ctx.packageManager.setComponentEnabledSetting(
-                ComponentName(ctx, CircleWidget::class.java), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP,
-            )
-        }
     }
 
     /** Parley came to the front (so the phone is unlocked): brings names back if a widget still hides them. */
