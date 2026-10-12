@@ -144,12 +144,5 @@ class PrivateLockedFlowsTest {
         t.until("the locked page") { private.state.value.access == PrivateAccess.LOCKED }
         assertEquals(listOf("Book club"), private.labels.value.map { it.title })
         t.c.vault.unlockedByPerson()
-
-        // "Add to label": the labels they aren't in, then the new one on the page.
-        t.until("Grace's page") { private.state.value.details != null }
-        val offered = runBlocking { private.labelChoices() }
-        assertEquals(listOf("Family"), offered.map { it.title })
-        private.addToLabel(offered.single())
-        t.until({ "Grace in Family, got ${private.labels.value}" }) { private.labels.value.map { it.title } == listOf("Book club", "Family") }
     }
 }

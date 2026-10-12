@@ -92,6 +92,20 @@ object CallRounds {
         return CallRound(text, who, now)
     }
 
+    /**
+     * [r] with [people] added at the end of who waits: someone already in it (by key) or without a number is skipped,
+     * and the round never grows past [MAX_PEOPLE]. Nobody's mark changes; the message stays.
+     */
+    fun add(r: CallRound, people: List<RoundPerson>): CallRound {
+        val have = r.people.map { it.key }.toSet()
+        val room = (MAX_PEOPLE - r.people.size).coerceAtLeast(0)
+        val more = people.filter { it.number.isNotBlank() && it.key.isNotBlank() && it.key !in have }
+            .distinctBy { it.key }
+            .take(room)
+            .map { it.copy(mark = RoundMark.WAITING, numbers = (listOf(it.number) + it.numbers).filter(String::isNotBlank).distinct()) }
+        return if (more.isEmpty()) r else r.copy(people = r.people + more)
+    }
+
     /** [c] as a person to call in a round (their default number, else the first); null without a number. */
     fun personOf(c: ContactSummary): RoundPerson? {
         val number = c.primaryNumber?.takeIf { it.isNotBlank() } ?: return null

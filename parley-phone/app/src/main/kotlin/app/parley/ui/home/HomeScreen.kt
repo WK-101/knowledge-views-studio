@@ -35,8 +35,6 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FloatingActionButtonMenuItem
 import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ScreenSnackbarHost
 import app.parley.ui.clearOfFab
@@ -419,7 +417,6 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
  * someone in one place. New contact is private while only private contacts show. [visible]: Contacts is open, with no
  * selection or search; hidden, it comes back closed.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AddButton(vm: AppViewModel, open: (Destination) -> Unit, visible: Boolean) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -437,16 +434,10 @@ private fun AddButton(vm: AppViewModel, open: (Destination) -> Unit, visible: Bo
         visible = visible,
         wrap = { button -> CoachMarkAnchor(Tips.CONTACTS_ADD_MENU, tip) { button() } },
     ) {
-        FloatingActionButtonMenuItem(
-            onClick = { go(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit()) },
-            text = { Text(stringResource(R.string.action_create_contact)) }, icon = { Icon(Icons.Rounded.PersonAdd, null) },
-        )
-        FloatingActionButtonMenuItem(
-            onClick = { go(QrRoutes.Scan) }, text = { Text(stringResource(R.string.action_scan_qr_code)) }, icon = { Icon(Icons.Rounded.QrCodeScanner, null) },
-        )
-        FloatingActionButtonMenuItem(
-            onClick = { go(MessagingRoutes.BulkAdd) }, text = { Text(stringResource(R.string.home_add_several)) },
-            icon = { Icon(Icons.Rounded.GroupAdd, null) },
-        )
+        Item(stringResource(R.string.action_create_contact), Icons.Rounded.PersonAdd) {
+            go(if (vm.showVault.value) Routes.edit(vault = 0) else Routes.edit())
+        }
+        Item(stringResource(R.string.action_scan_qr_code), Icons.Rounded.QrCodeScanner) { go(QrRoutes.Scan) }
+        Item(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BulkAdd) }
     }
 }

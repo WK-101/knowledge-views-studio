@@ -87,7 +87,8 @@ live in one container with the label as a quiet second line, and settings go las
    open with them. For everyone else "Add to your Circle" moves into the settings group. Since 6.7 what is open is one
    **Open with them** card (`OpenWithThem.kt`): their To call item, the things to talk about (from the note for calls)
    and the promises in their other notes, each kept where it was; the Note for calls section keeps the note itself.
-5. **About {name}.** Dates (with the "Add birthday" / "Add anniversary" chips as one row), websites, relations,
+5. **About {name}.** Dates (only those they have: 6.9 dropped the "Add birthday" / "Add anniversary" chips; dates
+   and labels are added in the editor, and an empty Dates group or label row isn't drawn), websites, relations,
    the contact's note and the note for calls, joined into one group.
 6. **Timeline.** The latest three entries in one group (no month headings; each entry carries its date) and
    "Show all", which opens the full timeline with search and filters.

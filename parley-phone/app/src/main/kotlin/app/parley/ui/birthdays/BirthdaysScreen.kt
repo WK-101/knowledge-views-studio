@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.EventDate
+import app.parley.common.catching
 import app.parley.common.StartTab
 import app.parley.common.people.LifeEvents
 import app.parley.data.ContactEvent
@@ -63,7 +64,11 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
     val context = LocalContext.current
     val resources = LocalResources.current
     val all by vm.contacts.collectAsStateWithLifecycle()
-    val list by produceState<List<UpcomingEvent>?>(null, all) { value = withContext(Dispatchers.IO) { upcoming(vm.c.contacts.events()) } }
+    // Private contacts' dates join while they may show (hidden, locked or under duress there are none).
+    val privates by vm.privateEvents.collectAsStateWithLifecycle()
+    val list by produceState<List<UpcomingEvent>?>(null, all, privates) {
+        value = withContext(Dispatchers.IO) { upcoming(catching { vm.c.contacts.events() }.getOrDefault(emptyList()) + privates) }
+    }
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
@@ -99,6 +104,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                             PersonRow(
                                 e.name, e.photoUri,
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
+                                private = e.contactId < 0,
                                 supportingContent = {
                                     val birth = EventDate.parse(e.date)
                                     Text(

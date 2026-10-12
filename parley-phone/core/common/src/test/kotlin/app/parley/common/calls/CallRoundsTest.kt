@@ -32,6 +32,26 @@ class CallRoundsTest {
         assertEquals(CallRounds.MAX_MESSAGE, CallRounds.start("x".repeat(500), listOf(ana), 1L)!!.message.length)
     }
 
+    @Test fun people_added_to_a_round_under_way_wait_at_the_end() {
+        val dan = person("dan", "+447700900004")
+        var r = CallRounds.mark(round(), "ana", RoundMark.REACHED)
+        r = CallRounds.add(r, listOf(ben.copy(name = "Ben again"), dan, dan, person("eve", " ")))
+        // Ben stays as he was, Dan joins once and waits; nobody without a number; the message and Ana's mark stay.
+        assertEquals(listOf("ana", "ben", "cat", "dan"), r.people.map { it.key })
+        assertEquals("BEN", r.people[1].name)
+        assertEquals(RoundMark.REACHED, r.people[0].mark)
+        assertEquals(RoundMark.WAITING, r.people.last().mark)
+        assertEquals(listOf("+447700900004"), r.people.last().numbers)
+        assertEquals("The funeral is on Friday", r.message)
+        // Called after those already waiting.
+        val told = CallRounds.mark(CallRounds.mark(r, "ben", RoundMark.REACHED), "cat", RoundMark.REACHED)
+        assertEquals("dan", CallRounds.next(told)?.key)
+        // Never past the limit.
+        val full = CallRounds.add(r, (1..80).map { person("p$it", "+4477009$it") })
+        assertEquals(CallRounds.MAX_PEOPLE, full.people.size)
+        assertEquals(r, CallRounds.add(r, emptyList()))
+    }
+
     @Test fun next_is_the_first_not_called_then_those_to_try_again() {
         var r = round()
         assertEquals("ana", CallRounds.next(r)?.key)

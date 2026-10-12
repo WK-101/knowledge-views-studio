@@ -53,8 +53,9 @@ fun rememberLabelRows(vm: AppViewModel): Map<String, Long> {
  * The one "who" picker: the same choices in the same order wherever Parley asks who (a Situation's "Who may ring",
  * off hours, auto-answer, Your car): [none] first when the place has a "leave it" answer ("As it is", "Nobody"), then
  * Everyone · Contacts · Favourites · Your Circle · A label… as [place] allows. A label is chosen in a dialog of its
- * own, so the menu never grows past seven items however many labels there are. Where it decides who rings, the row
- * says plainly that Android's own Do Not Disturb follows Favourites only.
+ * own, so the menu never grows past seven items however many labels there are. [more], when given, is one last item
+ * of the place's own ("Choose people…" for a call round) that runs [onMore] instead of picking a [Who]. Where it
+ * decides who rings, the row says plainly that Android's own Do Not Disturb follows Favourites only.
  */
 @Composable
 fun WhoRow(
@@ -65,11 +66,13 @@ fun WhoRow(
     place: WhoPlace,
     labels: Collection<String>,
     none: String? = null,
+    more: String? = null,
+    onMore: () -> Unit = {},
     onPick: (Who?) -> Unit,
 ) {
     val choices = WhoRules.choicesFor(place)
     val labelName = who?.label?.takeIf { who.choice == WhoChoice.LABEL && it.isNotBlank() }
-    val options = listOfNotNull(none) + choices.map { c -> whoName(Who(c, labelName.takeIf { c == WhoChoice.LABEL })) }
+    val options = listOfNotNull(none) + choices.map { c -> whoName(Who(c, labelName.takeIf { c == WhoChoice.LABEL })) } + listOfNotNull(more)
     val offset = if (none != null) 1 else 0
     val selected = who?.let { w -> choices.indexOf(w.choice).takeIf { it >= 0 }?.plus(offset) } ?: 0
     // Only where it decides who rings.
@@ -79,6 +82,7 @@ fun WhoRow(
     MenuRow(title, options, selected, icon, text) { i ->
         val c = choices.getOrNull(i - offset)
         when {
+            more != null && i == options.lastIndex -> onMore()
             c == null -> onPick(null)
             c == WhoChoice.LABEL -> picking = true
             else -> onPick(Who(c))

@@ -6,7 +6,16 @@
     <string name="round_message_label">What to tell them</string>
     <string name="round_message_hint">The funeral is on Friday at 11</string>
     <string name="round_who">Who to call</string>
-    <string name="round_who_chosen_sub">Chosen in Contacts</string>
+    <string name="round_who_chosen_sub">Chosen one by one</string>
+    <string name="round_choose_people">Choose people…</string>
+    <string name="round_choose_people_title">Choose who to call</string>
+    <plurals name="round_choose_n">
+        <item quantity="one">Choose %1$d person</item>
+        <item quantity="other">Choose %1$d people</item>
+    </plurals>
+    <string name="round_change_people">Change who\'s chosen</string>
+    <string name="round_add_people">Add people</string>
+    <string name="round_add_people_sub">They join at the end of who\'s waiting</string>
     <string name="round_choose_in_contacts">Or select people in Contacts and choose Start a call round.</string>
     <plurals name="round_people_count">
         <item quantity="one">%1$d person</item>

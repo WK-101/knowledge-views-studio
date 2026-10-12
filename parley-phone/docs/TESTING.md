@@ -448,7 +448,7 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Daily housekeeping run (or `adb shell cmd jobscheduler run -f app.parley <job id>`): one "Time for a backup?" notification, shown as "Backup" only on the lock screen and not mirrored to a watch; no second one within 30 days. Tapping it opens Backup. With notifications off nothing is sent (and the cards still show).
 
 **Birthday slots (C4)**
-- [ ] A contact without a birthday or anniversary shows "Add birthday?" / "Add anniversary?" chips above its About card. Pick a date (with or without year): the page shows the date, Google Contacts (or another contacts app) shows it, and Recently deleted has the edit to undo.
+- [ ] A contact without a birthday or anniversary shows no Dates rows and no "Add birthday?" chips (6.9, §53.5); a date added with Edit shows on the page and in Google Contacts (or another contacts app), and Recently deleted has the edit to undo.
 - [ ] A contact that has both shows no chips.
 
 **Onboarding (U1)**
@@ -1339,7 +1339,7 @@ Design: [CONTACT_PAGE_DESIGN.md](CONTACT_PAGE_DESIGN.md). Check in light, dark a
 4. **Number actions.** Tap a number: it calls (through the pre-call peek when on). The chat icon messages it. The apps icon (only when an app reaches that number) opens "Message or call on…" for that number. Long-press: Copy, Set as default, Message or call on…, Edit before calling, Choose SIM (dual SIM).
 5. **Apps without a saved number.** A contact whose Signal (or Telegram) account is on a number not saved in the contact: that app gets its own row with Message / Voice / Video buttons; long-press a button makes it the usual way. Typed-in handles (Matrix…) show as rows in the same group.
 6. **Stay in touch.** For someone outside the Circle with no promises and few calls there is no Stay in touch group; "Add to your Circle" is the first row of "Settings for this contact". Add them: a Stay in touch group appears at the top with the rhythm and the "Due" chip; the next date isn't repeated there.
-7. **About.** Dates, the "Add birthday" / "Add anniversary" chips, websites, relations, the contact's note and "Note for calls" are one group titled "About <first name>". The yearly-reminder button on a life event still works.
+7. **About.** Dates (only those the contact has; no "Add birthday" chips since 6.9), websites, relations, the contact's note and "Note for calls" are one group titled "About <first name>". The yearly-reminder button on a life event still works.
 8. **Timeline.** The latest three entries show in one group with their dates (no month headings); "Show all (N)" opens the full timeline.
 9. **Settings for this contact.** Folded by default at the bottom. Unfold it: Add to your Circle (outside the Circle), Send to voicemail, talk-time reminder, call time limit, ringtone, call-screen picture, "Saved in" chips (tap one: Edit this copy, Move to…, Unlink), who changed it last, "Deletes itself on…" for a temporary contact (tap: change it), and "Contact page sections", which opens Settings › Contacts › Contact page sections.
 10. **Folding and order.** Fold "Contact info": the whole group folds and its header shows "2 numbers · 1 address…"; reopen the app and another contact: still folded. In Settings › Contact page sections move Email below Timeline: Email is a group of its own there and Contact info keeps the rest. Hide "Message or call on…": its rows go. Reset: back to the joined groups.
@@ -1402,7 +1402,7 @@ Design: [CONTACT_MODEL.md](CONTACT_MODEL.md) ("Labels of a private contact", "Ri
 5. **Label ringtone and policies.** Give "Family" a ringtone and a SIM; put the private contact in it. Call from its number: the Family tone plays (Parley's ringer). Call it from Parley without a remembered SIM: the Family SIM is used. Add it to your Circle: "Family"'s rhythm is offered. A label block rule on "Family" declines it. Turn on "Allow through Do Not Disturb": the switch's summary says the private member can't ring through, and it isn't starred.
 6. **Own ringtone.** Private contact › Settings for this contact › Ringtone › pick one. Call from it (screen locked too): that tone plays with the usual vibration; "Why did my phone ring?" names the contact's tone. In silent or vibrate mode, or Do Not Disturb, Parley plays nothing, as for every tone.
 7. **Send to voicemail.** Turn it on: a call from it doesn't ring and goes to voicemail; no missed-call notification, and nothing appears in Blocking & screening's log. Turn it off: it rings again.
-8. **Dates.** A private contact without a birthday: "Add birthday" on its page saves the date (vault unlocked); another contacts app sees nothing.
+8. **Dates.** A private contact without a birthday: Edit › add a birthday saves the date (vault unlocked) and the page shows it; another contacts app sees nothing.
 9. **Call time.** Settings for this contact › Call time limit › 10 minutes a day. Talk 10 minutes: the next call rings silently (with "silence over allowance" on) and the in-call screen names the limit. Settings › Call time lists the limit with the contact's name (hidden in discreet mode: "this contact"). A backup's Call time section has no entry for it; the private section does.
 10. **Multi-select.** Select two device contacts and one private contact. Star: all three are Favourites. Delete automatically… › 1 week: all three are in Temporary contacts. Share, Export to .vcf, Copy as text and Merge act on the two device contacts and say "1 private contact left out"; with only private contacts selected, Copy as text, Export and Merge aren't offered. Move to private moves only the device ones; Make visible to other apps asks for the unlock, then makes the private one visible with its star and labels. Delete removes all three.
 11. **Make visible keeps it all.** A private contact with a label, a ringtone and Send to voicemail: Make visible: the address book has the label, the ringtone and Send to voicemail. Make private again: all three are kept.
@@ -2707,11 +2707,11 @@ Automated: `RescueCallsTest` (a short wait rings on time from Parley's own timer
 ## 42. Owner corrections (6.2)
 
 ### 42.1 Private contacts and labels
-Automated: `ContactLabelsTest` (the label chips once each in name order with shared ones marked, what "Add to label" offers a device contact by account and a private one by title, the city scope with and without private contacts) and `PrivateListingTest` (the whole list waits for the private rows, 10,000 + 300 rows in one pass, timed) (core:common); `PrivateLockAndListingTest` (the private listing arrives whole, timed for 120 entries; Lock private contacts forgets opened details and refuses to open or save until the next unlock; "Who's in…" finds private contacts by address and note while shown and unlocked, never with Hide private contacts on or after a duress unlock) (core:data, Robolectric); `PrivateLockedFlowsTest` (saving and opening a private contact while locked asks for the unlock instead of failing, a cancelled unlock keeps the editor open with every edit, Lock private contacts shows an open private page locked, a device and a private contact's labels on their page, readable while locked, and Add to label) (app).
+Automated: `ContactLabelsTest` (the label chips once each in name order with shared ones marked, what "Add to label" offers a device contact by account and a private one by title, the city scope with and without private contacts) and `PrivateListingTest` (the whole list waits for the private rows, 10,000 + 300 rows in one pass, timed) (core:common); `PrivateLockAndListingTest` (the private listing arrives whole, timed for 120 entries; Lock private contacts forgets opened details and refuses to open or save until the next unlock; "Who's in…" finds private contacts by address and note while shown and unlocked, never with Hide private contacts on or after a duress unlock) (core:data, Robolectric); `PrivateLockedFlowsTest` (saving and opening a private contact while locked asks for the unlock instead of failing, a cancelled unlock keeps the editor open with every edit, Lock private contacts shows an open private page locked, a device and a private contact's labels on their page, readable while locked) (app).
 A phone with a screen lock, a few device contacts in labels (one label shared, if you use shared labels), and 20 or more private contacts, some in labels, one with an address in Lisbon and one with "Lisbon" in its note.
-1. **Labels on the page.** Open a device contact in Family and Work: under the name, two chips "Family" and "Work"; a shared label's chip has the people icon and TalkBack reads "Book club, shared label". Tap one: its label page opens. Back, tap "Add to label": the labels it isn't in, one per name; pick one, "Added to …", and its chip appears.
-2. **Private and locked.** Open a private contact in Friends while private contacts are locked: the Friends chip shows with the name and numbers, before any unlock. Add to label offers every label except shared ones (private contacts are never shared).
-3. **Read-only account.** Open a contact kept only by a read-only account (a messaging app's or a directory's): its labels (if any) show; Add to label says no label can hold it yet instead of failing.
+1. **Labels on the page.** Open a device contact in Family and Work: under the name, two chips "Family" and "Work"; a shared label's chip has the people icon and TalkBack reads "Book club, shared label". Tap one: its label page opens. (Since 6.9 labels are added in the editor; the page has no "Add to label" chip, §53.5.)
+2. **Private and locked.** Open a private contact in Friends while private contacts are locked: the Friends chip shows with the name and numbers, before any unlock.
+3. **Read-only account.** Open a contact kept only by a read-only account (a messaging app's or a directory's): its labels (if any) show; with none, no label row shows.
 4. **Wide window.** On a tablet or an unfolded phone with Contacts beside the contact page, and in landscape: the same chips under the name, wrapping onto a second line when there are many; large fonts, dark theme, AMOLED and right to left all read well.
 5. **List appears whole.** Force-stop Parley, then open Contacts: a short progress indicator, then the whole list at once with private contacts in their places. Nothing pops in or moves a second later. Scroll to a letter with private contacts: they are there from the first frame. With Hide private contacts on, the list is the address book's alone (and the last screenful shows at once on a cold start, as before).
 6. **Lock them all.** Unlock private contacts (open one and tap "Unlock to see all details"). The Contacts top bar now has an open-lock icon "Lock private contacts" (next to Labels; distinct from the app lock's closed lock). Tap it: "Private contacts locked", the icon goes, and every private contact's page shows "Unlock to see all details" again, even inside the phone's own 5-minute window. Private names and numbers stay listed. A search over private details says to unlock again.
@@ -3731,3 +3731,37 @@ Automated: `DigestCallTest` (app: the digest's Call for someone quieter than usu
 2. A label with "Allow through Do Not Disturb": in the Contacts app, unstar one of its members that Parley starred. On the label's page, Add everyone to Favourites (they're starred again), then switch "Allow through Do Not Disturb" off: they stay a favourite. Undo the add instead: they're unstarred and the Do Not Disturb record is as before.
 3. Check-in: let one go unanswered (the notice shows), then set a new check-in: the old notice goes. Let another go unanswered, set one more and answer it ("I'm fine"): no notice is left.
 4. Error handling (`catching` everywhere): leave a screen while it loads (Contacts, a contact's page, Recents, a label's chapter) and back out of the call screen during a call: nothing reports "failed" or shows an error afterwards; photos too large to decode still fall back to the monogram.
+
+## 53. Looking back (6.9)
+
+### 53.1 Call round: Choose people…
+Automated: `CallRoundsTest` (core/common), `PeoplePickerSheet` shared with a label's Add people.
+1. Tools › Call round. Tap **Who to call**: Nobody to call yet · Favourites · Your Circle · A label… · **Choose people…** (five items).
+2. **Choose people…** opens a sheet "Choose who to call": search by name or number, tick several; the button reads "Choose 3 people". Only contacts with a number are listed. Choose: the row reads "3 people · Chosen one by one".
+3. Tap that row: the sheet opens with the same three ticked; untick one and choose: "2 people". **Clear** goes back to the menu.
+4. **Private contacts.** With private contacts shown, they are in the sheet with the lock badge and can be chosen; start the round: they are in it. Hide private contacts (or Lock private contacts / a duress unlock): the sheet doesn't list them, and the round hides their rows as before.
+
+### 53.2 Call round: Add people while it runs
+1. With a round under way, under **Everyone in the round**: **Add people** ("They join at the end of who's waiting"). It lists only people with a number who aren't in the round yet (private ones only while shown).
+2. Add two: they appear at the end, Not called yet; nobody's mark changes; the score reads "… of N told" with the new total; Next still offers the first not called yet.
+3. A round of 50 people has no Add people row.
+
+### 53.3 Birthdays & dates with private contacts
+Automated: `PrivateEventsTest` (app: listed while shown, none while hidden, locked or under duress; the widget and reminders don't read them), `PrivateDatesTest` (core/common).
+1. Give a private contact a birthday (Edit, vault unlocked). Tools › Birthdays & dates: the private contact is listed under Today / This week / This month / Later with the lock badge; Call and Message work; tapping opens their page.
+2. A private contact saved before 6.8: unlock private contacts once; its dates appear (the caller-ID copy is seeded on unlock).
+3. **Hidden.** Turn on Hide private contacts: their rows go at once. Lock private contacts: gone too; unlock: back. After a duress unlock: not listed.
+4. **Never outside.** The Circle widget, the birthday reminder notification and the lock screen never show a private contact's date.
+
+### 53.4 Contacts' add button
+Automated: `FloatingButtonsTest.the_menu_keeps_the_buttons_shape_open_and_closed`.
+1. Contacts: tap the add button. It keeps its rounded-square shape (16 dp corners, no circle); its colour deepens and the icon turns into ✕.
+2. Three items rise above it: New contact, Scan QR code, Add several numbers. Each is a tile with the same 16 dp corners and height as the button, the same width as each other, icons in a column and labels left-aligned (right-aligned in Arabic/Hebrew, growing from the button's corner), on the card surface colour with a light shadow. Light, dark and AMOLED themes; large font (labels wrap to two lines, never cut).
+3. Each item opens its screen and the menu closes; ✕, Back or switching tab closes it. With Remove animations on, it opens and closes without motion. TalkBack: "Add a contact, menu closed, button"; the items read as buttons.
+4. On a tablet (list and detail side by side) the button in the list pane behaves the same.
+
+### 53.5 Contact page: no "add" chips
+Automated: `ContactPageNoAddsTest` (app).
+1. Open a contact with no labels and no dates: no "Add to label" chip under the name, no "Add birthday?" / "Add anniversary?" chips, and no empty Dates rows.
+2. Edit the contact: Labels and Important dates can still be added there. Save: the label chip shows under the name and the date in About; remove them again in Edit: they disappear from the page, leaving no gap.
+3. The same on a private contact (unlocked and locked) and on My card.

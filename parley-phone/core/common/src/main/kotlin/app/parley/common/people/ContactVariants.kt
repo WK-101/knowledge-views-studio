@@ -70,9 +70,9 @@ enum class ContactCapability(
 
     // Kept by Parley for a private contact, sealed in its vault entry (the address book keeps them for a device one):
     // label membership (the labels themselves stay the address book's), the ringtone and "send to voicemail" (applied
-    // by Parley's own call screening and ringer), call time limits (by its Parley key), the page's date chips, and
-    // "Recently deleted" (a sealed copy for 30 days instead of History & undo's plain one).
-    LABELS, RINGTONE, SEND_TO_VOICEMAIL, CALL_TIME, QUICK_DATES, RECENTLY_DELETED,
+    // by Parley's own call screening and ringer), call time limits (by its Parley key), and "Recently deleted" (a
+    // sealed copy for 30 days instead of History & undo's plain one).
+    LABELS, RINGTONE, SEND_TO_VOICEMAIL, CALL_TIME, RECENTLY_DELETED,
 
     // ---- Device contacts only
     SHARE_VCARD_FILE("A vCard file is handed to another app, which could keep it"),

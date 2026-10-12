@@ -322,6 +322,10 @@ hiding) stays on an unlocked private contact's page.
   the lock screen" set to "Name and notes"; under "Name", "Initials" or "Incoming call" the call's lock-screen form drops
   it. A private contact's (6.8) shows only while `PrivateDates.mayShow` and never on the lock screen, under any of
   these settings (`CallUi.occasionPrivate`); it appears once the phone is unlocked.
+- **Birthdays & dates** (6.9) lists private contacts' dates beside the address book's, from the same caller-ID copy
+  (`PrivateEvents`), with the lock badge, only while `PrivateDates.mayShow`; hiding or locking them, or a duress unlock,
+  takes them off the screen at once. The Circle widget and the reminders' notifications keep to the address book's
+  dates: no private contact's date reaches the lock screen, a widget or a notification.
 - While a call rings, at most three lines show under the caller, safety lines first ("This number never calls you",
   the fresh-number line, the sales-line tag, why it rang through): a safety line is never pushed out by who-lines.
 
