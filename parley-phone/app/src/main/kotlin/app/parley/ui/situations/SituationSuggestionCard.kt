@@ -69,7 +69,10 @@ fun SituationSuggestionCard(vm: AppViewModel, open: (Destination) -> Unit, modif
         modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
-        Column(Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.m, bottom = Spacing.xs), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Column(
+            Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.m, bottom = Spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(situationIcon(kindOf(s)), null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                 Spacer(Modifier.width(Spacing.m))

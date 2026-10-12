@@ -5,6 +5,7 @@ import app.parley.common.CallType
 import app.parley.common.Schedule
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.RingOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,10 +29,17 @@ class SituationSuggestionsTest {
     private val ordinary = (1..35).map { call(daysAgo(it, 14), CallType.OUTGOING, 60) }
     private val list = Situations.builtIns()
 
-    private fun suggest(calls: List<CallEntry>, rings: List<RingFacts> = emptyList(), marks: SuggestionMarks = SuggestionMarks(), carsKnown: Boolean = false, situations: List<Situation> = list) =
+    private fun suggest(
+        calls: List<CallEntry>,
+        rings: List<RingFacts> = emptyList(),
+        marks: SuggestionMarks = SuggestionMarks(),
+        carsKnown: Boolean = false,
+        situations: List<Situation> = list,
+    ) =
         SituationSuggestions.suggest(ordinary + calls, rings, situations, carsKnown, marks, now, zone)
 
-    private fun carRing(days: Int, name: String) = RingFacts(daysAgo(days, 8, 10), outcome = app.parley.common.calls.RingOutcome.ANSWERED, answeredRoute = AnswerRoute.BLUETOOTH, answeredDevice = name)
+    private fun carRing(days: Int, name: String) =
+        RingFacts(daysAgo(days, 8, 10), outcome = RingOutcome.ANSWERED, answeredRoute = AnswerRoute.BLUETOOTH, answeredDevice = name)
 
     @Test fun nothing_without_a_pattern() {
         assertNull(suggest(emptyList()))

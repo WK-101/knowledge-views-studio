@@ -124,11 +124,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
         ModeChooser(choices.checkIn) { checkIn ->
             update(choices.copy(checkIn = checkIn, whenChoice = if (checkIn) CheckIns.whenFor(choices.whenChoice) else choices.whenChoice))
         }
-        Text(
-            stringResource(if (choices.checkIn) R.string.checkin_intro else R.string.rescue_intro), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
-        )
+        ModeNote(if (choices.checkIn) R.string.checkin_intro else R.string.rescue_intro, intro = true)
         pending?.let { p ->
             Banner(
                 pendingText(context, p, helpers), modifier = Modifier.padding(horizontal = Spacing.listInset, vertical = Spacing.s),
@@ -145,8 +141,7 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
             update(choices.copy(number = null))
         }
         WhenGroup(context, choices, onTime = { timeOpen = true }) { update(choices.copy(whenChoice = it)) }
-        // A check-in offers the helper shown as chosen (the first, until another is picked).
-        val helper = if (choices.checkIn) (helpers.firstOrNull { it.number == choices.helper } ?: helpers.firstOrNull())?.number else null
+        val helper = offeredHelper(choices, helpers)
         if (choices.checkIn) {
             HelperGroup(helpers, helper, onAdd = { open(FamilyRoutes.Helpers) }) { update(choices.copy(helper = it)) }
         }
@@ -154,31 +149,13 @@ fun RescueCallScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
             releaseSound(context, choices.clip)
             update(choices.copy(clip = null, clipName = null))
         }
-        val ready = CheckIns.ready(choices.checkIn, choices.name, choices.number, helper)
-        val checkInName = stringResource(R.string.checkin_caller_default)
-        Button(
-            onClick = {
-                scope.launch {
-                    val set = if (!choices.checkIn) choices else choices.copy(helper = helper, name = choices.name.ifBlank { checkInName })
-                    val outcome = RescueCalls.set(context, set)
-                    notice = if (outcome == RescueCalls.Outcome.REAL_CALL) R.string.rescue_real_call else null
-                }
-            },
-            enabled = ready,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.l).heightIn(min = 56.dp),
-        ) {
-            val label = when {
-                choices.checkIn -> R.string.checkin_set
-                choices.whenChoice == RescueWhen.NOW -> R.string.rescue_ring_now
-                else -> R.string.rescue_set
+        SetButton(choices, helper) { set ->
+            scope.launch {
+                val outcome = RescueCalls.set(context, set)
+                notice = if (outcome == RescueCalls.Outcome.REAL_CALL) R.string.rescue_real_call else null
             }
-            Text(stringResource(label))
         }
-        Text(
-            stringResource(if (choices.checkIn) R.string.checkin_facts else R.string.rescue_facts), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl),
-        )
+        ModeNote(if (choices.checkIn) R.string.checkin_facts else R.string.rescue_facts, intro = false)
     }
     if (picking) {
         RescueContactPicker(vm, onDismiss = { picking = false }) { c ->
@@ -296,6 +273,43 @@ private fun pendingText(context: Context, p: RescueRequest, helpers: List<CheckI
     }
     val name = p.name.ifBlank { p.number?.let(Bidi::ltr) ?: context.getString(R.string.rescue_pending_nobody) }
     return context.getString(if (late) R.string.rescue_pending_late else R.string.rescue_pending, name, at)
+}
+
+/** A check-in offers the helper shown as chosen (the first, until another is picked); a rescue call none. */
+private fun offeredHelper(choices: RescueCalls.Choices, helpers: List<CheckInHelper>): String? =
+    if (!choices.checkIn) null else (helpers.firstOrNull { it.number == choices.helper } ?: helpers.firstOrNull())?.number
+
+/** The mode's words: what it does (above), or what it never does (below the button). */
+@Composable
+private fun ModeNote(text: Int, intro: Boolean) {
+    Text(
+        stringResource(text),
+        style = if (intro) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = if (intro) {
+            Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s)
+        } else {
+            Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl)
+        },
+    )
+}
+
+/** Ring now, Set the call or Set the check-in: a check-in with no name typed rings as "Check-in", offering [helper]. */
+@Composable
+private fun SetButton(choices: RescueCalls.Choices, helper: String?, onSet: (RescueCalls.Choices) -> Unit) {
+    val checkInName = stringResource(R.string.checkin_caller_default)
+    Button(
+        onClick = { onSet(if (!choices.checkIn) choices else choices.copy(helper = helper, name = choices.name.ifBlank { checkInName })) },
+        enabled = CheckIns.ready(choices.checkIn, choices.name, choices.number, helper),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.l).heightIn(min = 56.dp),
+    ) {
+        val label = when {
+            choices.checkIn -> R.string.checkin_set
+            choices.whenChoice == RescueWhen.NOW -> R.string.rescue_ring_now
+            else -> R.string.rescue_set
+        }
+        Text(stringResource(label))
+    }
 }
 
 /** Rescue call · Check-in: one screen, two modes. Each button is a radio for TalkBack. */

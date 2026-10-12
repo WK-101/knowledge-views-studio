@@ -120,7 +120,8 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, TAG_SITUATION, TAG_CHECK_IN, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, TAG_SITUATION, TAG_CHECK_IN, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP,
+        TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
