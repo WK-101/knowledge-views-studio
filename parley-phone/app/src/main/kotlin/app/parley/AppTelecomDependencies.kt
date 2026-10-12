@@ -59,6 +59,7 @@ import app.parley.common.memory.NumberMemory
 import app.parley.common.people.ArchivedCard
 import app.parley.common.people.CallerCard
 import app.parley.common.people.ContactRef
+import app.parley.common.people.PrivateDates
 import app.parley.common.who.WhoChoice
 import app.parley.common.people.NameOrder
 import app.parley.common.spam.RangeProposal
@@ -207,6 +208,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // Its vibration, auto-answer and labels are in the same caller-ID copy (readable while the phone is locked).
             val choices = callerChoices(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
             val who = whoFacts(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
+            // Its birthday today, from the same copy, while private contacts may show (not locked with "Lock private
+            // contacts"); the call screen keeps it off the lock screen.
+            val datesShown = PrivateDates.mayShow(c.privacy.now(), c.vault.lock.lockedByPerson.value)
+            val occasion = if (datesShown) catching { privateOccasionOf(id) }.getOrNull() else null
             CallerDisplay(
                 // "Show names as" last name first, as for the address book's contacts above.
                 NameOrder.shown(info.name, info.alternativeName, c.settings.settings.value.showNamesLastFirst),
@@ -218,6 +223,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 // Its own ringtone reaches Parley's ringer through screening already.
                 // Reached only while its name may show (discreet mode and a duress session returned above).
                 networkNameUnder = networkNamesOn(),
+                occasion = occasion, occasionPrivate = true,
             )
         } ?: found.archived?.let { archivedCaller(it, last) }
     }
@@ -385,6 +391,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
      */
     private fun occasionOf(contactId: Long): Occasion? {
         val dates = c.contacts.events(contactId).map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }
+        return Occasions.today(dates, LocalDate.now(), IcuCalendars)
+    }
+
+    /** Today's birthday or anniversary of private contact [vaultId], from the dates its caller-ID copy keeps. */
+    private suspend fun privateOccasionOf(vaultId: Long): Occasion? {
+        val dates = c.vault.summary(vaultId)?.dates.orEmpty().map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }
         return Occasions.today(dates, LocalDate.now(), IcuCalendars)
     }
 

@@ -256,7 +256,7 @@
     <string name="set_secure_screen_kw">screenshot, recents, secure, flag secure</string>
     <string name="set_hide_vault_title">Hide private contacts</string>
     <string name="set_hide_vault_summary">Private contacts and their calls disappear from lists and search</string>
-    <string name="set_hide_vault_kw">vault, discreet, discreet mode, private, hidden</string>
+    <string name="set_hide_vault_kw">vault, discreet, discreet mode, private, hidden, show private contacts, unhide, lock and hide</string>
     <string name="set_private_history_title">Private call history</string>
     <string name="set_private_history_summary">Calls with private contacts are moved out of the system call log</string>
     <string name="set_private_history_kw">vault, private calls, call log</string>

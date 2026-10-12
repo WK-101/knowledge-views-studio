@@ -26,8 +26,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The app's one snackbar. The screen on show draws it inside its own Scaffold ([ScreenSnackbarHost], which every
- * [ParleyScaffold] has), so it sits above that screen's navigation bar and floating button, and the button moves
- * up for it. Messages outlive the composable that sent them ([scope] belongs to the app's root).
+ * [ParleyScaffold] has), so it sits above that screen's navigation bar and floating button; the button never moves
+ * for it. A button placed by hand needs [clearOfFab] on the host. Messages outlive the composable that sent them ([scope] belongs to the app's root).
  */
 @Stable
 class ParleySnackbar(val state: SnackbarHostState, private val scope: CoroutineScope) {

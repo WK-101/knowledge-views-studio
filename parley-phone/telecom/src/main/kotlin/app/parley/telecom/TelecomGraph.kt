@@ -70,6 +70,8 @@ data class CallerDisplay(
     val networkNameUnder: Boolean = false,
     /** Their birthday or anniversary is today: one quiet line, on the lock screen only where notes may show. */
     val occasion: Occasion? = null,
+    /** [occasion] is a private contact's: it never shows on the lock screen, whatever "Caller on the lock screen" says. */
+    val occasionPrivate: Boolean = false,
     /**
      * A Circle member: "Anything to remember?" offers the next catch-up, and auto-answer and the drive profile answer
      * Your Circle ([app.parley.common.who.Who]).

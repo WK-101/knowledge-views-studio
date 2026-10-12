@@ -27,9 +27,9 @@ Parley whenever the phone is on, including while it is locked.
 
 | Data | Key | Authentication | Why |
 |---|---|---|---|
-| Private contacts: name, numbers, caller card | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen |
+| Private contacts: name, numbers, caller card, dates (6.8) | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen; the dates let a birthday today reach Next up and the call screen without unlocking, shown only by the rule below |
 | Private call history (number, name, video, the app of an internet call) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
-| Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark; never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
+| Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark, dates; never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
 | The Contacts list's first screen kept for a cold start (name, sort name, photo URI, star, first number, header; private rows only when they were listed and not locked) | Small-records key (`RecordCrypto`) | None | Drawn before the lists load; checked against discreet mode, duress and "Lock private contacts" before it is drawn, and rewritten without private rows the moment they are locked or a duress unlock happens |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
@@ -299,23 +299,29 @@ while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackof
   the history that warning reads: a spoofed call outside the window is still warned about. The window goes when its To
   call line is done or settled.
 
-**Switching discreet mode from Parley.** Besides Settings › Privacy and the Quick Settings tile, Contacts ⋮ has
-**Hide private contacts** as a ticked item (`DiscreetSwitch`, the tile's rules): ticking it hides them and locks their
-details at once; unticking it while the app lock is on asks for Parley's unlock first (`DiscreetRevealActivity`). The
-tick shows the switch as the user left it, and during a duress unlock a change touches only what is shown, never the
-stored switch, so nothing shows that the hiding hides.
+**Switching discreet mode from Parley.** Besides Settings › Privacy & security and the Quick Settings tile, the
+Contacts top bar's lock, while private contacts are unlocked, is **Lock and hide private contacts** (6.8,
+`DiscreetSwitch.lockAndHide`): one tap locks their details ("Lock private contacts") and turns discreet mode on. Showing
+them again is the Settings switch (its snackbar leads there) or the tile, which asks for Parley's unlock first while the
+app lock is on (`DiscreetRevealActivity`). Settings shows the switch as the user left it, and during a duress unlock a
+change touches only what is shown, never the stored switch, so nothing shows that the hiding hides. Lock only (without
+hiding) stays on an unlocked private contact's page.
 
 ### Next up, catch-ups and the call screen's lines (6.7)
 
 - **Next up** (the strip at the top of Recents) reads what Parley already keeps: To call, device contacts' dates, the
   Circle and Chapters. It stores nothing of its own. Its "might enjoy hearing from you" line is a relationship insight
-  (the hours someone usually answers), so a duress unlock removes it with the others; private contacts never appear on
-  it (their dates and rhythm stay in their sealed entries).
+  (the hours someone usually answers), so a duress unlock removes it with the others. Private contacts appear on it
+  (6.8: their To call items and callbacks, a birthday today from their caller-ID copy's dates, a Circle catch-up) only
+  while `PrivateDates.mayShow`: private contacts shown, not locked with "Lock private contacts", no duress unlock. Hiding
+  or locking them, or a duress unlock, removes their lines at once (the strip filters them before its sources are read
+  again). Next up is in Recents only: no widget or notification carries it.
 - **Next catch-up** is a `PromisedTime` with `told = false` on the person's To call item: sealed like every To call
   item, never said back on the call screen or as "You said you'd call", and settled by the next call with them.
 - **Birthday today** on the call screen follows the notes' rule on the lock screen: it shows there only with "Caller on
   the lock screen" set to "Name and notes"; under "Name", "Initials" or "Incoming call" the call's lock-screen form drops
-  it. It is never shown for a private contact.
+  it. A private contact's (6.8) shows only while `PrivateDates.mayShow` and never on the lock screen, under any of
+  these settings (`CallUi.occasionPrivate`); it appears once the phone is unlocked.
 - While a call rings, at most three lines show under the caller, safety lines first ("This number never calls you",
   the fresh-number line, the sales-line tag, why it rang through): a safety line is never pushed out by who-lines.
 

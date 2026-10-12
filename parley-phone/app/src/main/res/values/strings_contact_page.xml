@@ -172,4 +172,7 @@
     <string name="pl_lock">Lock private contacts</string>
     <string name="pl_unlocked_sub">Their details show until you lock them or a few minutes pass</string>
     <string name="pl_locked">Private contacts locked</string>
+    <!-- Contacts' top bar: locks private contacts' details and hides them from every list; Settings shows them again. -->
+    <string name="pl_lock_hide">Lock and hide private contacts</string>
+    <string name="pl_locked_hidden">Private contacts locked and hidden. Show them again from Settings.</string>
 </resources>
