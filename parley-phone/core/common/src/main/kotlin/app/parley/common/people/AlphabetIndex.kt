@@ -141,6 +141,15 @@ object AlphabetIndex {
     }
 
     /**
+     * The usable height of a list [viewport] pixels tall for the index: the bottom [reserve] (the floating button's
+     * area) is left free, so the index ends above the button and the two never compete for a touch.
+     */
+    fun usable(viewport: Float, reserve: Float): Float = (viewport - reserve).coerceAtLeast(0f)
+
+    /** The index's height when it starts [top] pixels down a list whose [usable] height is [usableHeight]. */
+    fun railHeight(usableHeight: Float, top: Float): Float = (usableHeight - top).coerceAtLeast(0f)
+
+    /**
      * What leads the Contacts list, in order, above its alphabetical part: the chips row, the "private details locked"
      * card, My card, the favourites and the Circle. The index's targets count every one of them shown.
      */

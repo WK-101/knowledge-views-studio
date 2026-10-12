@@ -58,4 +58,16 @@ class CallerLinesTest {
         assertNull(call().forLockScreen(LockScreenCaller.NAME, "Incoming call").occasion)
         assertNull(call().forLockScreen(LockScreenCaller.INITIALS, "Incoming call").occasion)
     }
+
+    @Test fun a_private_contacts_birthday_shows_unlocked_and_never_on_the_lock_screen() {
+        val private = call().copy(contactId = null, occasion = Occasion.BIRTHDAY, occasionPrivate = true)
+        // Unlocked: the line shows, as for any contact.
+        assertTrue(CallerLine.OCCASION in callerLinesFor(private, ended = false, locked = false))
+        // Locked: gone under every mode, even "Name and notes", and for a conference participant too.
+        LockScreenCaller.entries.forEach { mode -> assertNull("$mode", private.forLockScreen(mode, "Incoming call").occasion) }
+        val conference = call().copy(isConference = true, occasion = null, children = listOf(private))
+        assertNull(conference.forLockScreen(LockScreenCaller.NAME_AND_NOTES, "Incoming call").children.single().occasion)
+        // A device contact's line keeps its own rule.
+        assertEquals(Occasion.BIRTHDAY, call().forLockScreen(LockScreenCaller.NAME_AND_NOTES, "Incoming call").occasion)
+    }
 }

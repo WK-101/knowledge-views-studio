@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -38,7 +39,8 @@ import java.time.LocalDate
 
 /**
  * Next up over the real stores: a birthday today and a Circle member due at the hours they usually answer each get a
- * line, and a duress unlock takes the Circle's line away (a relationship insight) while the birthday stays.
+ * line, and a duress unlock takes the Circle's line away (a relationship insight) while the birthday stays. A private
+ * contact's birthday shows while private contacts may show, and goes when they are hidden, locked or under duress.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -49,6 +51,7 @@ class NextUpModelTest {
     private val number = "+1 202 555 0142"
 
     @Before fun setUp() {
+        VaultCrypto.lockedByPerson = false
         FakeAndroidKeyStore.install()
         FakeContactsProvider.install()
         shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
@@ -60,6 +63,7 @@ class NextUpModelTest {
 
     @After fun tearDown() {
         Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.NORMAL, false))
+        VaultCrypto.lockedByPerson = false
         scope.cancel()
         c.scope.cancel()
     }
@@ -67,7 +71,7 @@ class NextUpModelTest {
     private fun model(calls: List<CallEntry>): NextUpModel {
         val flow = MutableStateFlow<List<CallEntry>?>(calls)
         val toCall = ToCallModel(c, scope, flow, MutableStateFlow(emptySet()))
-        return NextUpModel(scope, toCall, c.toCall.state, flow, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, "US")
+        return NextUpModel(scope, toCall, c.toCall.state, flow, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, "US", c.vault)
     }
 
     private suspend fun kinds(m: NextUpModel, until: (Set<NextUpKind>) -> Boolean): Set<NextUpKind> =
@@ -101,6 +105,54 @@ class NextUpModelTest {
         Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.DURESS, false))
         val after = kinds(m) { NextUpKind.GOOD_TIME !in it }
         assertTrue("$after", NextUpKind.GOOD_TIME !in after && NextUpKind.OCCASION in after)
+    }
+
+    private suspend fun privateBirthday(m: NextUpModel, shown: Boolean): Boolean {
+        val found = withTimeoutOrNull(TIMEOUT_MS) {
+            m.items.first { items -> items.any { it is NextUpItem.Dated && it.person.private } == shown }
+        }
+        return found != null
+    }
+
+    @Test fun a_private_birthday_shows_while_private_contacts_show_and_goes_when_hidden_locked_or_under_duress() = runBlocking {
+        val today = LocalDate.now()
+        val cleo = c.vault.save(
+            null,
+            ContactDetails(
+                given = "Cleo", phones = listOf(DataItem(null, number, Phone.TYPE_MOBILE)),
+                events = listOf(EventItem(date = "1988-%02d-%02d".format(today.monthValue, today.dayOfMonth), type = Event.TYPE_BIRTHDAY)),
+            ),
+        )
+        val m = model(emptyList())
+        assertTrue("shown", privateBirthday(m, shown = true))
+        val line = m.items.value.filterIsInstance<NextUpItem.Dated>().single { it.person.private }
+        // It opens the private page (its navigation id) and calls its number.
+        assertEquals(-cleo, line.person.contactId)
+        assertEquals("Cleo", line.person.name)
+
+        // Hide private contacts: gone at once.
+        c.settings.update { it.copy(hideVault = true) }
+        assertTrue("hidden", privateBirthday(m, shown = false))
+        c.settings.update { it.copy(hideVault = false) }
+        assertTrue("shown again", privateBirthday(m, shown = true))
+
+        // Lock private contacts: gone too, until the next unlock.
+        c.vault.lockAll()
+        assertTrue("locked", privateBirthday(m, shown = false))
+        c.vault.unlockedByPerson()
+        assertTrue("unlocked", privateBirthday(m, shown = true))
+
+        // A duress unlock: gone.
+        Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.DURESS, false))
+        assertTrue("duress", privateBirthday(m, shown = false))
+    }
+
+    @Test fun the_dates_live_in_the_caller_id_copy_so_they_need_no_unlock() = runBlocking {
+        val id = c.vault.save(null, ContactDetails(given = "Dee", events = listOf(EventItem(date = "--03-14", type = Event.TYPE_ANNIVERSARY))))
+        // Read from the listing (the caller-ID copy), not the sealed details.
+        val dates = c.vault.summary(id)!!.dates
+        assertEquals(listOf("--03-14"), dates.map { it.date })
+        assertEquals(Event.TYPE_ANNIVERSARY, dates.single().type)
     }
 
     private companion object {

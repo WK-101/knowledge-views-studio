@@ -130,6 +130,7 @@ URI, the star, the first number and the section header, for 60 rows and 40 favou
 | What | Where | Readable while the vault is locked? |
 |---|---|---|
 | Name, numbers, number labels, job/company line, "who is this" line, note for calls without its agenda items, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
+| Dates (birthday, anniversary…: date, type, label, calendar) (6.8) | Also in the caller-ID copy (`CallerIdCopy.C_DATES`), besides the sealed details; entries saved earlier get them on the next unlock (`VaultRepository.migrateDates`) or when their page opens | Yes: a birthday today shows on Next up and on the call screen while private contacts may show (`PrivateDates.mayShow`), never on the lock screen |
 | The note for calls whole, with its agenda items (6.2) | Vault details, main part, only: the caller-ID copy keeps the note without them (`Agenda.withoutItems`). If the detail key is ever lost, "Keep what's left" keeps the note but not the items. Copies written before 6.2 still hold the items until the contact is next saved; the call path strips them as it reads | No: items show and are ticked after unlock |
 | Label membership (group id + title per label), own ringtone, "send to voicemail", vibration pattern and auto-answer (4.4) | The same caller-ID copy, the only place they are kept (`VaultRepository.updateCallerChoices`; read through `PrivateLabelStore`) | Yes: the call path applies them while the phone is locked, and they change without unlocking |
 | Every other field (emails, addresses with their RFC 9554 parts, dates with the calendar they follow, relations, websites and profiles, notes, handles, custom fields, the language, phonetic middle name, second surname and generation…), the usual app | Vault details, main part (auth-bound detail key) | No: the page asks to unlock, in place |
@@ -361,13 +362,19 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   editor, and every other way of saving a private contact (keypad, a number's page, QR codes, add several, a chat,
   import), asks for the unlock instead and then saves with the edits kept; a cancelled unlock saves nothing and says
   nothing (6.2).
-- **Lock private contacts** (6.2): the Contacts top bar's open lock, a row on an unlocked private contact's page, and
-  hiding them from the Quick Settings tile lock every private contact's details again at once
+- **Lock private contacts** (6.2): a row on an unlocked private contact's page, the Contacts top bar's open lock
+  (which also hides them since 6.8: "Lock and hide private contacts", below) and hiding them from the Quick Settings
+  tile lock every private contact's details again at once
   (`VaultRepository.lockAll`): opened details are forgotten and `VaultCrypto.lockedByPerson` refuses to open or seal
   any until the next unlock in Parley, even inside the key's own 5-minute window. Names and numbers stay listed (the
   caller-ID copy needs no unlock); "Hide private contacts" is what takes them out of sight. Kept in
   `no_backup/vault_locked`, so Parley being closed or stopped by Android doesn't undo it; the next successful unlock in
   Parley removes it. It is not the app lock.
+- **Lock and hide private contacts** (6.8): the Contacts top bar's lock, shown while private contacts are unlocked,
+  locks them as above and turns "Hide private contacts" on in one tap (`DiscreetSwitch.lockAndHide`), so they leave
+  every list too. Its snackbar's Settings opens Settings › Privacy & security at "Hide private contacts" (also found by
+  searching "show private contacts" or "unhide"), where turning the switch off shows them again; the Quick Settings tile
+  works as before. The Contacts ⋮ menu no longer has its own "Hide private contacts" tick.
 - Parley's lists wait for the private listing (`VaultRepository.listing`, null until opened, caller-ID copies opened
   by a few workers at once) before their first showing, so private contacts never pop in after the others (6.2).
 - Caller ID, the private call history, missed-call notifications and the lock screen use the same caller-ID copy as

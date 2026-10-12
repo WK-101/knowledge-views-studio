@@ -61,6 +61,7 @@ import app.parley.common.ux.ListSections
 import app.parley.security.AppLock
 import app.parley.ui.AlphabetIndexDefaults
 import app.parley.ui.AlphabetIndexRail
+import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.Avatar
 import app.parley.ui.Banner
 import app.parley.ui.Destination
@@ -162,7 +163,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val laneEnd = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp
 
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+        // The add button floats over the list's bottom end: the last row (the count) scrolls clear of it.
+        LazyColumn(state = state, modifier = Modifier.fillMaxSize(), contentPadding = ParleyFabDefaults.listPadding()) {
             item(key = "groups") { chips() }
             if (lockedShown) item(key = "private-locked") { PrivateSearchLocked(vm) }
             if (showMe) item(key = "me") { MeCardRow(vm, open) }

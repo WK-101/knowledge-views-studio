@@ -73,27 +73,25 @@ class VaultTileService : TileService() {
 }
 
 /**
- * "Hide private contacts" (discreet mode) switched from inside Parley, Contacts ⋮, under the tile's rules: hiding is
- * always allowed and closes their details too; showing them again asks for Parley's unlock first while the app lock
- * is on ([DiscreetRevealActivity]). Parley itself stays open (the tile locks it as well: it's used from outside).
+ * "Hide private contacts" (discreet mode) switched from inside Parley, under the tile's rules: hiding is always allowed
+ * and closes their details too; showing them again is Settings › Privacy & security's switch, or the tile, which asks
+ * for Parley's unlock first while the app lock is on ([DiscreetRevealActivity]). Parley itself stays open (the tile
+ * locks it as well: it's used from outside).
  */
 object DiscreetSwitch {
     /** The switch as the user left it (after a duress unlock: as it was before), as the Privacy page shows it. */
     fun shown(s: AppSettings): Boolean = s.duress?.hideVault ?: s.hideVault
 
-    /** Turns it on when off, else off (with the unlock while the app lock is on). */
-    fun flip(context: Context, c: DataContainer) {
-        val s = c.settings.settings.value
-        if (shown(s) && s.appLock) {
-            context.startOrSay(Intent(context, DiscreetRevealActivity::class.java), context.getString(R.string.blk_no_app))
-            return
-        }
-        val hide = !shown(s)
+    /**
+     * Contacts' "Lock and hide private contacts": their details lock at once and the switch turns on (whatever it was),
+     * so they leave every list too. Showing them again is the switch's other side (Settings › Privacy & security, the
+     * tile), with the unlock it asks for.
+     */
+    fun lockAndHide(context: Context, c: DataContainer) {
+        c.vault.lockAll()
         c.scope.launch {
             // While a duress unlock hides things this changes only what is shown, never the stored switch.
-            c.settings.update { it.copy(hideVault = hide) }
-            // Hidden means locked too, as with "Lock private contacts".
-            if (hide) c.vault.lockAll()
+            c.settings.update { it.copy(hideVault = true) }
             TileService.requestListeningState(context.applicationContext, ComponentName(context.applicationContext, VaultTileService::class.java))
         }
     }

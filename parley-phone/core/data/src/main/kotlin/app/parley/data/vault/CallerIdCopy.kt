@@ -4,6 +4,7 @@ import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateLabels
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
+import app.parley.data.EventItem
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -47,12 +48,40 @@ internal object CallerIdCopy {
     const val C_ARCHIVED = "arch"
 
     /**
+     * Its dates (birthday, anniversary…: date, type, label, calendar), so a birthday today reaches Next up and the call
+     * screen without unlocking, like the name. Shown only while private contacts may show (docs/SECURITY_MODEL.md).
+     * Present, even empty, on every copy saved since it was kept; a copy without it is seeded ([VaultRepository]).
+     */
+    const val C_DATES = "dt"
+
+    /** Writes [events] (the blank ones left out) as the copy's dates. */
+    fun putDates(o: JSONObject, events: List<EventItem>) {
+        o.put(C_DATES, JSONArray(events.filter { it.date.isNotBlank() }.map { e ->
+            JSONObject().put("d", e.date).put("t", e.type).apply {
+                e.label?.takeIf { it.isNotBlank() }?.let { put("l", it) }
+                e.calendar?.let { put("c", it) }
+            }
+        }))
+    }
+
+    /** The copy's dates; empty when it keeps none (or none yet: [hasDates]). */
+    fun datesOf(o: JSONObject): List<EventItem> {
+        val a = o.optJSONArray(C_DATES) ?: return emptyList()
+        return (0 until a.length()).mapNotNull { i ->
+            a.optJSONObject(i)?.let { EventItem(date = it.optString("d"), type = it.optInt("t", 3), label = it.optString("l").ifEmpty { null }, calendar = it.optString("c").ifEmpty { null }) }
+        }.filter { it.date.isNotBlank() }
+    }
+
+    /** Whether the copy keeps the dates (saved or seeded since they were kept there). */
+    fun hasDates(o: JSONObject): Boolean = o.has(C_DATES)
+
+    /**
      * What a list row needs of the copy ([summary]), and nothing of the caller card (the note for calls, the "who is
      * this" line, title, pronouns): all a kept listing ([PrivateSummaryCache]) holds.
      */
     private val SUMMARY_KEYS = listOf(
         "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_NEVER_CALLS, C_SEEDED, C_NAME_ALT,
-        C_REGION, C_COMPANY, C_ARCHIVED,
+        C_REGION, C_COMPANY, C_ARCHIVED, C_DATES,
     )
 
     /** Copy [o] cut down to what [summary] reads. */
@@ -74,6 +103,7 @@ internal object CallerIdCopy {
             company = o.optString(C_COMPANY),
             createdAt = createdAt,
             archivedAt = o.optLong(C_ARCHIVED, 0L).takeIf { it > 0 },
+            dates = datesOf(o),
         )
     }
 
@@ -98,8 +128,8 @@ internal object CallerIdCopy {
     }
 
     /**
-     * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, and the
-     * caller card's job title and company, "who is this" line and note for calls, so re-sealing loses none of them.
+     * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, the caller
+     * card's job title and company, "who is this" line and note for calls, and the dates, so re-sealing loses none.
      */
     fun rebuilt(id: Long, o: JSONObject): ContactDetails {
         val nums = o.optJSONArray("numbers") ?: JSONArray()
@@ -113,6 +143,7 @@ internal object CallerIdCopy {
             phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
             title = fallbackTitle, company = company,
             context = o.optString("ctx"), pinnedNote = o.optString("note"), pronouns = o.optString(C_PRONOUNS),
+            events = datesOf(o),
         )
     }
 }
