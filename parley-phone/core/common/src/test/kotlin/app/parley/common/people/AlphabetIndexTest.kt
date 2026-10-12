@@ -145,4 +145,17 @@ class AlphabetIndexTest {
         assertEquals(AlphabetIndex.LETTER_DP, AlphabetIndex.letterDp(100f, 1f), 0.001f)
         assertEquals(AlphabetIndex.LETTER_DP * 2, AlphabetIndex.letterDp(100f, 2f), 0.001f)
     }
+
+    @Test fun the_index_ends_above_the_floating_button_and_waits_when_too_little_is_left() {
+        // An 800 px list with an 88 px button area: the index starting 40 px down is 672 px, ending where the area starts.
+        val usable = AlphabetIndex.usable(800f, 88f)
+        assertEquals(712f, usable, 0f)
+        assertEquals(672f, AlphabetIndex.railHeight(usable, 40f), 0f)
+        assertEquals(0f, AlphabetIndex.railHeight(AlphabetIndex.usable(60f, 88f), 40f), 0f)
+        // Room for an index below the first header counts only above the button's area.
+        val roomy = AlphabetIndex.placement(firstVisible = 0, start = 2, startTop = 500f, viewport = 800f, header = 40f, minHeight = 200f)
+        val tight = AlphabetIndex.placement(firstVisible = 0, start = 2, startTop = 500f, viewport = usable, header = 40f, minHeight = 200f)
+        assertTrue(roomy.shown)
+        assertFalse(tight.shown)
+    }
 }

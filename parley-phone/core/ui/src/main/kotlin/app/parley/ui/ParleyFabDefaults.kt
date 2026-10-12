@@ -5,7 +5,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -39,6 +41,12 @@ import androidx.compose.ui.unit.lerp
  * ([ParleyShapes.fab]), the primary container colour, Material's elevation, at the bottom end [Margin] from the edge
  * and from the navigation bar (the Scaffold's own FAB place, or a pane's bottom end beside a detail pane). Only the
  * icon and the action change between screens; nothing hides it on scroll, and an extended label folds to the icon.
+ *
+ * The button never moves for what is around it: everything else anchored to the same edges gives way. Its area is
+ * [Reserve] tall at the bottom of the list or pane; the A–Z index ends above it, a list under it ends with
+ * [listPadding] so its last row scrolls clear, and a snackbar sits above it (the Scaffold does that for its own
+ * button; [clearOfFab] for one placed by hand). The bars below (navigation bar, the Situation and return-to-call chips)
+ * push the whole area up with them.
  */
 object ParleyFabDefaults {
     /** Material's standard FAB. */
@@ -53,9 +61,22 @@ object ParleyFabDefaults {
     /** From the end edge and from the bar or pane bottom below, as Scaffold places its floating button. */
     val Margin: Dp = Spacing.l
 
-    /** Room a row along the bottom leaves at its end so the button never covers it. */
+    /**
+     * The button's area, measured up from the bottom of the list or pane it floats over: the button and a [Margin] above
+     * and below. Room a row along the bottom leaves at its end, the A–Z index leaves under it and a list leaves after its
+     * last row, so nothing ever sits under the button or competes with it for a touch.
+     */
     val Reserve: Dp = Size + Margin * 2
+
+    /** Bottom content padding for a list a floating button floats over ([extra] on top): its last row scrolls clear. */
+    fun listPadding(extra: Dp = 0.dp): PaddingValues = PaddingValues(bottom = Reserve + extra)
 }
+
+/**
+ * Keeps an element anchored to the bottom (a snackbar, a hint) above the floating button's area when [fab] shows one
+ * placed by hand (in a pane, over the docked keypad), where the Scaffold doesn't lift it.
+ */
+fun Modifier.clearOfFab(fab: Boolean = true): Modifier = if (fab) padding(bottom = ParleyFabDefaults.Reserve) else this
 
 /** How every floating button comes and goes (a quick spring from small, the same for all of them). */
 @Composable

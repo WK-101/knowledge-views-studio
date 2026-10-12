@@ -146,6 +146,8 @@ data class CallUi(
     val simulated: Boolean = false,
     /** Their birthday or anniversary is today ("Birthday today"), from the caller lookup. */
     val occasion: Occasion? = null,
+    /** [occasion] is a private contact's: the lock screen never shows it ([forLockScreen]). */
+    val occasionPrivate: Boolean = false,
     /** A Circle member: "Anything to remember?" offers the next catch-up. */
     val inCircle: Boolean = false,
 ) {
@@ -222,6 +224,8 @@ data class CallUi(
  * mode have already taken out what they hide, so this never shows more than they allow.
  */
 fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
+    // A private contact's birthday stays off the lock screen under every mode (it shows once the phone is unlocked).
+    if (hasPrivateOccasion()) return withoutPrivateOccasions().forLockScreen(mode, placeholder)
     if (lockMasked || isEmergency || mode.showsNotes) return this
     if (mode == LockScreenCaller.NAME) return withoutNotes()
     val kids = children.map { it.forLockScreen(mode, placeholder) }
@@ -262,6 +266,15 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
  * hand back with the answer.
  */
 data class SimTip(val simId: String, val simLabel: String, val name: String, val numbers: List<String>, val keys: List<String>)
+
+private fun CallUi.hasPrivateOccasion(): Boolean = (occasionPrivate && occasion != null) || children.any { it.hasPrivateOccasion() }
+
+/** This call (and each conference participant) without a private contact's birthday line. */
+private fun CallUi.withoutPrivateOccasions(): CallUi = copy(
+    occasion = occasion.takeUnless { occasionPrivate },
+    occasionPrivate = false,
+    children = children.map { it.withoutPrivateOccasions() },
+)
 
 /**
  * Under [LockScreenCaller.NAME]: the name stays, the things a stranger ringing the locked phone shouldn't read go (the
