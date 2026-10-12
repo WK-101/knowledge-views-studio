@@ -495,7 +495,7 @@ class CircleRepository(
 
         override suspend fun importCounting(values: Map<String, String>): Int {
             values[X_CONFIG]?.let { v -> updateConfig { CircleConfig.decode(v) } }
-            if (values.keys.none { it == X_MEMBERS || it == X_INTERACTIONS || it == X_YEARLY || it == X_FINE }) return 0
+            if (values.keys.none { it in PEOPLE_KEYS }) return 0
             val contacts = contactsNow()
             val byKey = contacts.associateBy { it.lookupKey }
             val archived = archivedKeys(values)
@@ -590,5 +590,8 @@ class CircleRepository(
 
         /** "They're fine" for people outside the Circle; older versions ignore it. */
         private const val X_FINE = "${BackupExtras.PREFIX}circle.fine"
+
+        /** The sections about people (matched to contacts on restore). */
+        private val PEOPLE_KEYS = setOf(X_MEMBERS, X_INTERACTIONS, X_YEARLY, X_FINE)
     }
 }

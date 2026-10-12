@@ -67,7 +67,8 @@ internal fun CaseFollowUpRow(vm: AppViewModel, case: CaseFile) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FollowUpPicker(day: Long?, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
-    val state = rememberDatePickerState(initialSelectedDateMillis = day?.let { LocalDate.ofEpochDay(it).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() })
+    val initial = day?.let { LocalDate.ofEpochDay(it).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+    val state = rememberDatePickerState(initialSelectedDateMillis = initial)
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {

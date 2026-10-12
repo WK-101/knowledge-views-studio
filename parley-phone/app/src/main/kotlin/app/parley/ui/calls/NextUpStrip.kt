@@ -145,7 +145,11 @@ private fun NextUpRow(vm: AppViewModel, item: NextUpItem, open: (Destination) ->
         )
         is NextUpItem.CaseDue -> Line(
             Icons.Rounded.FolderOpen,
-            if (item.overdue) stringResource(R.string.next_up_case_overdue, item.name, followUpDate(item.day)) else stringResource(R.string.next_up_case_today, item.name),
+            if (item.overdue) {
+                stringResource(R.string.next_up_case_overdue, item.name, followUpDate(item.day))
+            } else {
+                stringResource(R.string.next_up_case_today, item.name)
+            },
             emptyList(), onClickLabel = null, onClick = { open(HistoryRoutes.Case(item.caseId)) }, trailing = fold,
         )
         is NextUpItem.RoundLeft -> Line(

@@ -316,7 +316,10 @@ private fun PersonRow(vm: AppViewModel, person: RoundPerson) {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.round_more_for, person.name)) }
                     DropdownMenu(menu, { menu = false }) {
                         listOf(RoundMark.REACHED, RoundMark.NO_ANSWER, RoundMark.LATER).forEach { m ->
-                            DropdownMenuItem({ Text(markText(m)) }, onClick = { menu = false; if (m == RoundMark.NO_ANSWER) markNoAnswer(vm, person) else ui.mark(person.key, m) })
+                            DropdownMenuItem({ Text(markText(m)) }, onClick = {
+                                menu = false
+                                if (m == RoundMark.NO_ANSWER) markNoAnswer(vm, person) else ui.mark(person.key, m)
+                            })
                         }
                         if (person.mark == RoundMark.NO_ANSWER) {
                             DropdownMenuItem({ Text(stringResource(R.string.round_add_to_call)) }, onClick = { menu = false; addToCall(vm, person.number) })
