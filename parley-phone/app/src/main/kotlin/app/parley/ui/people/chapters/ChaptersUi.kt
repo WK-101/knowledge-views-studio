@@ -58,8 +58,12 @@ class ChaptersUi(
         extras().updateChapters { it - title }
     }
 
-    /** "Keep": the chapter goes, the label stays, and its notification with it. */
+    /**
+     * "Keep": the chapter goes, the label stays, and its notification with it. A Chapter's Circle rhythm was for while it
+     * ran: kept without an end, the label stops filling the Circle.
+     */
     fun keep(title: String) {
+        extras().updatePolicies { m -> m[title]?.let { p -> m + (title to p.copy(circleFromLabel = false)) } ?: m }
         remove(title)
         cancelNotice()
     }

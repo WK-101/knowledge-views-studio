@@ -12,7 +12,9 @@ import kotlinx.serialization.builtins.serializer
  * [allowThroughDnd]: members are starred so Android's "starred contacts" Do Not Disturb exception lets them ring
  * (which contacts Parley starred, and for which labels, is kept apart in [DndStars]); [vibration]: the members'
  * haptic caller ID ([app.parley.common.calls.CallerHaptics] spec) when they have none of their own; [autoAnswer]:
- * members' calls are answered automatically when "For chosen people and labels" is on.
+ * members' calls are answered automatically when "For chosen people and labels" is on; [circleFromLabel]: "Keep in touch
+ * with everyone here": every member is in the Circle through the label at [rhythmDays] (off: the rhythm is only offered
+ * when a member joins). Older versions ignore the field, so a restored backup there keeps the suggestion only.
  */
 @Serializable
 data class LabelPolicy(
@@ -21,8 +23,12 @@ data class LabelPolicy(
     val allowThroughDnd: Boolean = false,
     val vibration: String? = null,
     val autoAnswer: Boolean = false,
+    val circleFromLabel: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = simId == null && rhythmDays == null && !allowThroughDnd && vibration == null && !autoAnswer
+    val isEmpty: Boolean get() = simId == null && rhythmDays == null && !allowThroughDnd && vibration == null && !autoAnswer && !circleFromLabel
+
+    /** The label puts its members in the Circle now (switched on, with a rhythm). */
+    val feedsCircle: Boolean get() = circleFromLabel && rhythmDays != null
 }
 
 /**
@@ -78,7 +84,8 @@ object CallerChoices {
 }
 
 object LabelPolicies {
-    val RHYTHM_CHOICES = listOf(7, 14, 30, 90, 180)
+    /** Every 3 days is for a Chapter carrying a rhythm while it runs ("Hospital stay"). */
+    val RHYTHM_CHOICES = listOf(3, 7, 14, 30, 90, 180)
 
     private val json = Codecs.stored
     private val serializer = MapSerializer(String.serializer(), LabelPolicy.serializer())

@@ -81,6 +81,9 @@ object CapabilityText {
         "promise_time" to (R.string.label_promise_time to R.string.discover_promise_time_summary),
         "next_up" to (R.string.next_up_label to R.string.discover_next_up_summary),
         "callback_watch" to (R.string.callback_title to R.string.discover_callback_watch_summary),
+        "seasons" to (R.string.circle_season_title to R.string.discover_seasons_summary),
+        "quieter" to (R.string.help_quieter_title to R.string.discover_quieter_summary),
+        "label_circle" to (R.string.help_label_circle_title to R.string.discover_label_circle_summary),
         "call_round" to (R.string.round_title to R.string.discover_call_round_summary),
     )
 

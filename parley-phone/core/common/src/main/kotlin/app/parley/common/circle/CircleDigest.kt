@@ -20,10 +20,11 @@ object CircleDigest {
     /** The serendipity pick is someone you haven't been in touch with for over a year. */
     const val QUIET_DAYS = 365
 
-    enum class Reason { DUE, DATE, QUIET, YEARLY }
+    /** [DRIFT]: quieter than usual ([Drift]), in the serendipity place instead of [QUIET]. */
+    enum class Reason { DUE, DATE, QUIET, YEARLY, DRIFT }
 
-    /** [label] and [years]: the life event of a [Reason.YEARLY] pick. */
-    data class Pick(val lookupKey: String, val reason: Reason, val label: String? = null, val years: Int? = null)
+    /** [label] and [years]: the life event of a [Reason.YEARLY] pick; [drift]: what a [Reason.DRIFT] pick found. */
+    data class Pick(val lookupKey: String, val reason: Reason, val label: String? = null, val years: Int? = null, val drift: Drift.Candidate? = null)
 
     /** An upcoming date of someone you know ([daysUntil] 0 = today). */
     data class UpcomingDate(val lookupKey: String, val daysUntil: Int)
@@ -51,7 +52,8 @@ object CircleDigest {
      * fills a free place. Each person appears once.
      *
      * [quiet]: everyone you were once in touch with; [seed] varies the serendipity pick from week to week (the
-     * week number), so it isn't always the same longest-silent person.
+     * week number), so it isn't always the same longest-silent person. [drift]: someone quieter than usual takes the
+     * serendipity place instead (at most one a week; callers pass none while insights are hidden).
      */
     fun pick(
         members: List<CirclePlanner.Member>,
@@ -61,6 +63,7 @@ object CircleDigest {
         quiet: List<Quiet> = members.mapNotNull { m -> m.last?.let { Quiet(m.lookupKey, it) } },
         yearly: List<YearlyEvents.Upcoming> = emptyList(),
         seed: Long = now / (7 * DAY),
+        drift: Drift.Candidate? = null,
     ): List<Pick> {
         val out = ArrayList<Pick>()
         val used = HashSet<String>()
@@ -77,20 +80,24 @@ object CircleDigest {
             return if (i < 0) null else dateQueue.removeAt(i)
         }
         nextDate()?.let { out += it; used += it.lookupKey }
-        val snoozed = members.filter { it.snoozedUntil != null && now < it.snoozedUntil }.map { it.lookupKey }.toSet()
-        val eligible = quiet.filter { q -> q.lookupKey !in used && q.lookupKey != lastQuiet && q.lookupKey !in snoozed && now - q.last >= QUIET_DAYS * DAY }
-            .distinctBy { it.lookupKey }.sortedBy { it.lookupKey }
-        if (eligible.isNotEmpty()) {
-            val q = eligible[Math.floorMod(seed, eligible.size.toLong()).toInt()]
-            out += Pick(q.lookupKey, Reason.QUIET)
-            used += q.lookupKey
-        }
+        val drifting = drift?.takeIf { it.lookupKey !in used }?.also { out += Pick(it.lookupKey, Reason.DRIFT, drift = it); used += it.lookupKey }
+        if (drifting == null) serendipity(members, quiet, used, lastQuiet, now, seed)?.let { out += it; used += it.lookupKey }
         while (out.size < MAX_PEOPLE) {
             val p = nextDate() ?: break
             out += p
             used += p.lookupKey
         }
         return out.take(MAX_PEOPLE)
+    }
+
+    /** Someone you haven't been in touch with for over a year, not snoozed, not [used], not last week's. */
+    @Suppress("LongParameterList") // What pick() already has at hand; a holder class would only rename them.
+    private fun serendipity(members: List<CirclePlanner.Member>, quiet: List<Quiet>, used: Set<String>, lastQuiet: String?, now: Long, seed: Long): Pick? {
+        val snoozed = members.filter { it.snoozedUntil != null && now < it.snoozedUntil }.map { it.lookupKey }.toSet()
+        val eligible = quiet.filter { q -> q.lookupKey !in used && q.lookupKey != lastQuiet && q.lookupKey !in snoozed && now - q.last >= QUIET_DAYS * DAY }
+            .distinctBy { it.lookupKey }.sortedBy { it.lookupKey }
+        if (eligible.isEmpty()) return null
+        return Pick(eligible[Math.floorMod(seed, eligible.size.toLong()).toInt()].lookupKey, Reason.QUIET)
     }
 
     /**

@@ -338,7 +338,9 @@ in History & undo, private names in notifications and on the call screen. And, b
   the year in review), a natural rhythm's learned gap (it reads "Natural rhythm"), a good time to call, and the Circle's
   suggestions with their call counts; the Circle header's reach and talk-time share (its Due/Soon/Fine counts stay, as
   every row's chip does), how you two keep in touch on a contact's page and in the pre-call peek, and "your turn" in the
-  weekly digest (it says "might enjoy hearing from you" as before). A rhythm you set yourself still shows.
+  weekly digest (it says "might enjoy hearing from you" as before), and "quieter than usual" in the weekly digest (no
+  line, no pick, no actions). A rhythm you set yourself still shows, and so does a season ("Every 3 days · until 30
+  Nov") or a label behind it ("In your Circle via Family"): they are choices, not insights.
 - **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
   call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
   read (`NumberMemory.concealNotes`), not only where the notes are.

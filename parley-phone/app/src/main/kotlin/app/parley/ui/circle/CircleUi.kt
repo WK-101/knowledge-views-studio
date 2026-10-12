@@ -6,7 +6,9 @@ import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.suspendRunCatching
 import app.parley.common.calls.CatchUp
+import app.parley.common.circle.CircleFeeds
 import app.parley.common.circle.CircleGlance
+import app.parley.common.circle.CircleRhythm
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.CircleStatus
 import app.parley.common.circle.CircleSuggestions
@@ -35,6 +37,8 @@ data class CircleRow(
     val rhythm: KeepRhythm,
     val last: LastContact?,
     val status: CircleStatus,
+    /** The label or season behind [days] ("via Family", "until 30 Nov"). */
+    val now: CircleRhythm = CircleRhythm(days),
 )
 
 /** One "Suggested for your Circle" entry. */
@@ -46,38 +50,49 @@ data class CircleSuggestion(val contact: ContactSummary, val calls: Int, val day
  * [app.parley.AppViewModel] (`vm.circle`).
  */
 class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List<ContactSummary>?>) {
-    /** Circle members, most urgent first; null while loading. */
+    /** Who labels keep in the Circle ("Keep in touch with everyone here"), read again when labels or contacts change. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val feeds = combine(c.extras.policies, c.extras.chapters, contacts) { p, ch, _ -> p to ch }
+        .mapLatest { catching { c.extras.circleFeeds() }.getOrDefault(emptyMap()) }
+
+    /** Circle members (their own rhythm, or through a label), most urgent first; null while loading. */
     val rows: StateFlow<List<CircleRow>?> = combine(
-        contacts, c.meta.allMeta(), c.circle.interactions.latest, c.history.index,
+        contacts, combine(c.meta.allMeta(), feeds) { m, f -> m to f }, c.circle.interactions.latest, c.history.index,
         c.toCall.state.onStart { suspendRunCatching { c.toCall.load() } },
-    ) { list, metas, latest, idx, toCall ->
+    ) { list, (metas, fed), latest, idx, toCall ->
         list ?: return@combine null
         val iso = c.directory.countryIso
         val now = System.currentTimeMillis()
         val byKey = list.associateBy { it.lookupKey }
-        val members = metas.mapNotNull { m ->
-            val every = m.reachOutDays ?: return@mapNotNull null
-            val contact = byKey[m.lookupKey] ?: return@mapNotNull null
-            val rhythm = KeepRhythm.decode(m.rhythm)
+        val rowsByKey = metas.associateBy { it.lookupKey }
+        val keys = metas.filter { it.reachOutDays != null }.map { it.lookupKey } + fed.keys
+        val members = keys.distinct().mapNotNull { key ->
+            val m = rowsByKey[key]
+            val contact = byKey[key] ?: return@mapNotNull null
+            val rhythm = KeepRhythm.decode(m?.rhythm)
+            val eff = CircleFeeds.effective(m?.reachOutDays, rhythm, fed[key].orEmpty(), now) ?: return@mapNotNull null
             val call = idx?.calls(
-                personKey = "c:${m.lookupKey}",
+                personKey = "c:$key",
             )?.firstOrNull { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.date
-            val last = Interactions.lastContact(call, latest[m.lookupKey])
+            val last = Interactions.lastContact(call, latest[key])
             // A next catch-up set after a call keeps them quiet until that day, as in Next up and the reminders.
             val catchUp = CatchUp.of(toCall, contact.phones.map { PhoneIdentity.key(it.number, iso) })
             val quiet = CatchUp.quietUntil(rhythm.snoozedUntil, catchUp)
-            Triple(contact, rhythm, last) to CirclePlanner.Member(m.lookupKey, rhythm.days(every), last?.time, quiet)
+            Triple(contact, rhythm, last) to (CirclePlanner.Member(key, eff.days, last?.time, quiet) to eff)
         }
-        val order = CirclePlanner.sort(members.map { it.second }, now).map { it.lookupKey }.withIndex().associate { it.value to it.index }
-        members.map { (info, m) -> CircleRow(info.first, m.days, info.second, info.third, CirclePlanner.status(m, now)) }
+        val order = CirclePlanner.sort(members.map { it.second.first }, now).map { it.lookupKey }.withIndex().associate { it.value to it.index }
+        members.map { (info, pm) ->
+            val (m, eff) = pm
+            CircleRow(info.first, m.days, info.second, info.third, CirclePlanner.status(m, now), eff)
+        }
             .sortedBy { order[it.contact.lookupKey] ?: Int.MAX_VALUE }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** The contacts you call most (last year) who aren't in the Circle, with the rhythm their history suggests. */
-    val suggestions: StateFlow<List<CircleSuggestion>> = combine(contacts, c.meta.allMeta(), c.history.index) { list, metas, idx ->
+    val suggestions: StateFlow<List<CircleSuggestion>> = combine(contacts, c.meta.allMeta(), c.history.index, feeds) { list, metas, idx, fed ->
         if (list == null || idx == null) return@combine emptyList()
         val byKey = list.associateBy { it.lookupKey }
-        val inCircle = metas.filter { it.reachOutDays != null }.map { it.lookupKey }.toSet()
+        val inCircle = metas.filter { it.reachOutDays != null }.map { it.lookupKey }.toSet() + fed.keys
         val candidates = idx.topByCount(Period.lastDays(365, System.currentTimeMillis()), 40).mapNotNull { t ->
             val key = t.person.lookupKey ?: return@mapNotNull null
             if (key !in byKey) return@mapNotNull null

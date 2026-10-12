@@ -25,6 +25,7 @@ import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.storage
 import app.parley.common.suspendRunCatching
+import app.parley.common.circle.LabelFeed
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
@@ -281,6 +282,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             pinnedNote = d.pinnedNote.ifBlank { null }, preferredMessenger = d.messengerPrefs.ifBlank { null },
         )
     }
+
+    /** The labels keeping them in the Circle ("In your Circle via Family"), read again when labels or contacts change. */
+    val circleFeeds: StateFlow<List<LabelFeed>> = combine(lookupKey, c.extras.policies, c.extras.chapters, c.contacts.contacts) { k, _, _, _ -> k }
+        .mapLatest { k -> suspendRunCatching { c.circle.feedsFor(k) }.getOrDefault(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
 
     /** When they delete themselves: the temporary-contacts table for a device contact, the vault entry for a private one. */
     private val temporary = combine(lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.temporaryFlow(k) }, loaded) { t, l ->

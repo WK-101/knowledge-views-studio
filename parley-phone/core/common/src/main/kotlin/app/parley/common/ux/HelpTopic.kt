@@ -54,6 +54,15 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** Next up: the strip at the top of Recents, which grew out of To call's. */
     NEXT_UP(CapabilityTarget.Screen(AppScreen.TO_CALL), explainsFeature = true),
+
+    /** Seasons: "For a while…" on each Circle member's rhythm (or a Chapter's on its label), so no one place to open. */
+    SEASONS(null, explainsFeature = true),
+
+    /** Quieter than usual: a line in the weekly digest, so there is no place of its own. */
+    QUIETER(null, explainsFeature = true),
+
+    /** A label fills your Circle or your Favourites: on each label's page. */
+    LABEL_CIRCLE(CapabilityTarget.Screen(AppScreen.LABELS), explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */

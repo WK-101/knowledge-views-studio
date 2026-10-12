@@ -43,6 +43,9 @@ object HelpText {
         HelpTopic.PROMISE_TIME -> HelpTexts(R.string.label_promise_time, R.string.help_promise_time_body, R.string.label_to_call)
         HelpTopic.NEXT_UP -> HelpTexts(R.string.next_up_label, R.string.help_next_up_body, R.string.label_to_call)
         HelpTopic.CALLBACK_WATCH -> HelpTexts(R.string.callback_title, R.string.help_callback_watch_body, R.string.label_to_call)
+        HelpTopic.SEASONS -> HelpTexts(R.string.circle_season_title, R.string.help_seasons_body, null)
+        HelpTopic.QUIETER -> HelpTexts(R.string.help_quieter_title, R.string.help_quieter_body, null)
+        HelpTopic.LABEL_CIRCLE -> HelpTexts(R.string.help_label_circle_title, R.string.help_label_circle_body, R.string.label_labels)
     }
 }
 

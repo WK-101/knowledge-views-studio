@@ -11,6 +11,11 @@ import android.content.Context
 import app.parley.common.CallType
 import app.parley.common.catching
 import app.parley.common.circle.CircleConfig
+import app.parley.common.circle.CircleFeeds
+import app.parley.common.circle.CircleRhythm
+import app.parley.common.circle.Drift
+import app.parley.common.circle.LabelFeed
+import app.parley.common.circle.Seasons
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
@@ -63,6 +68,8 @@ class CircleRepository(
     private val db: RoomDatabase? = null,
     /** A backup's archived keys → the same archived people's keys here (archived contacts are restored first). */
     private val archivedKeys: suspend (Map<String, String>) -> Map<String, String> = { emptyMap() },
+    /** Lookup key → the labels that keep them in the Circle ("Keep in touch with everyone here"), read now. */
+    private val labelFeeds: suspend () -> Map<String, List<LabelFeed>> = { emptyMap() },
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -92,18 +99,44 @@ class CircleRepository(
 
     // --- Membership ---
 
-    /** A Circle member: a contact_meta row with a rhythm. */
-    data class Member(val meta: ContactMetaEntity, val rhythm: KeepRhythm) {
+    /**
+     * A Circle member: a contact_meta row with a rhythm of their own, or someone a label keeps in the Circle ([feeds];
+     * their row may not exist, then [meta] is an empty one). Each person is one member, whatever the labels.
+     */
+    data class Member(val meta: ContactMetaEntity, val rhythm: KeepRhythm, val feeds: List<LabelFeed> = emptyList()) {
         val lookupKey: String get() = meta.lookupKey
-        val everyDays: Int get() = meta.reachOutDays ?: 30
-        val days: Int get() = rhythm.days(everyDays)
+        val own: Boolean get() = meta.reachOutDays != null
+        val everyDays: Int get() = meta.reachOutDays ?: feeds.minOfOrNull { it.days } ?: 30
+
+        /** The gap that counts at [now], and the label or season behind it. */
+        fun rhythmAt(now: Long): CircleRhythm = CircleFeeds.effective(meta.reachOutDays, rhythm, feeds, now) ?: CircleRhythm(everyDays)
+
+        val days: Int get() = rhythmAt(System.currentTimeMillis()).days
     }
+
+    private suspend fun feedsNow(): Map<String, List<LabelFeed>> = catching { labelFeeds() }.getOrDefault(emptyMap())
 
     suspend fun members(): List<Member> = withContext(Dispatchers.IO) {
-        meta.allMetaNow().filter { it.reachOutDays != null }.map { Member(it, KeepRhythm.decode(it.rhythm)) }
+        val feeds = feedsNow()
+        val now = System.currentTimeMillis()
+        val rows = meta.allMetaNow()
+        val byKey = rows.associateBy { it.lookupKey }
+        val own = rows.filter { it.reachOutDays != null }.map { Member(it, KeepRhythm.decode(it.rhythm), feeds[it.lookupKey].orEmpty()) }
+        val ownKeys = own.map { it.lookupKey }.toSet()
+        val fed = feeds.filterKeys { it !in ownKeys }.mapNotNull { (k, f) ->
+            val row = byKey[k] ?: ContactMetaEntity(k)
+            Member(row, KeepRhythm.decode(row.rhythm), f).takeIf { CircleFeeds.effective(null, it.rhythm, f, now) != null }
+        }
+        own + fed
     }
 
-    suspend fun isMember(lookupKey: String): Boolean = lookupKey.isNotEmpty() && withContext(Dispatchers.IO) { meta.meta(lookupKey)?.reachOutDays != null }
+    suspend fun isMember(lookupKey: String): Boolean = lookupKey.isNotEmpty() && withContext(Dispatchers.IO) {
+        meta.meta(lookupKey)?.reachOutDays != null || feedsFor(lookupKey).isNotEmpty()
+    }
+
+    /** The labels that keep [lookupKey] in the Circle now (their rhythm counts as [CircleFeeds.effective] says). */
+    suspend fun feedsFor(lookupKey: String, now: Long = System.currentTimeMillis()): List<LabelFeed> =
+        if (lookupKey.isEmpty()) emptyList() else feedsNow()[lookupKey].orEmpty().filter { it.runs(now) }
 
     /** Adds [lookupKey] to the Circle (or changes its rhythm). [natural]: learn the gap from history. */
     suspend fun setRhythm(lookupKey: String, contactId: Long?, everyDays: Int?, natural: Boolean = false) = withContext(Dispatchers.IO) {
@@ -111,12 +144,13 @@ class CircleRepository(
         val times = if (everyDays != null && natural) contactTimes(lookupKey) else emptyList()
         editMeta(lookupKey, create = true) { m ->
             val old = KeepRhythm.decode(m.rhythm)
+            // "They're fine" stays; a running season stays over a changed usual rhythm, and goes with the membership.
             val rhythm = when {
-                everyDays == null -> KeepRhythm()
+                everyDays == null -> KeepRhythm(fineUntil = old.fineUntil)
                 natural -> NaturalRhythm.relearn(
                     old.copy(mode = RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault(),
                 )
-                else -> KeepRhythm()
+                else -> KeepRhythm(seasonDays = old.seasonDays, seasonUntil = old.seasonUntil, fineUntil = old.fineUntil)
             }
             m.copy(contactId = contactId ?: m.contactId, reachOutDays = everyDays, lastNudgedAt = null, rhythm = rhythm.encode())
         }
@@ -132,13 +166,58 @@ class CircleRepository(
         }
     }
 
-    /** "Not now": the next reminder about [lookupKey] waits one more full gap. */
+    /**
+     * "Not now": the next reminder about [lookupKey] waits one more full gap. Someone in the Circle through a label
+     * gets a row for it, holding only the snooze.
+     */
     suspend fun snooze(lookupKey: String, now: Long = System.currentTimeMillis()) {
-        editMeta(lookupKey, create = false) { m ->
+        val feeds = feedsNow()[lookupKey].orEmpty()
+        editMeta(lookupKey, create = feeds.isNotEmpty()) { m ->
             val r = KeepRhythm.decode(m.rhythm)
-            val days = r.days(m.reachOutDays ?: return@editMeta null)
+            val days = CircleFeeds.effective(m.reachOutDays, r, feeds, now)?.days ?: return@editMeta null
             m.copy(rhythm = r.copy(snoozedUntil = CirclePlanner.snooze(now, days)).encode())
         }
+    }
+
+    /** "For a while…": [days] instead of the usual gap until [until] (null [days]: end the season now). Members only. */
+    suspend fun setSeason(lookupKey: String, days: Int?, until: Long?) {
+        editMeta(lookupKey, create = false) { m ->
+            if (m.reachOutDays == null) return@editMeta null
+            m.copy(rhythm = Seasons.set(KeepRhythm.decode(m.rhythm), days, until).encode())
+        }
+    }
+
+    /** Members whose own season is over and not yet said in a digest, for the "back to every 2 weeks" line. */
+    suspend fun endedSeasons(now: Long = System.currentTimeMillis()): List<Member> = members().filter { it.own && it.rhythm.seasonEnded(now) }
+
+    /** The ended seasons of [keys] were said: they're cleared (only if still over, so a new one set meanwhile stays). */
+    suspend fun clearEndedSeasons(keys: Collection<String>, now: Long = System.currentTimeMillis()) {
+        keys.forEach { k ->
+            editMeta(k, create = false) { m ->
+                val r = KeepRhythm.decode(m.rhythm)
+                if (r.seasonEnded(now)) m.copy(rhythm = r.endSeason().encode()) else null
+            }
+        }
+    }
+
+    /** "They're fine": nothing about [lookupKey] being quieter than usual for a year. */
+    suspend fun markFine(lookupKey: String, contactId: Long?, now: Long = System.currentTimeMillis()) {
+        if (lookupKey.isEmpty()) return
+        editMeta(lookupKey, create = true) { m ->
+            m.copy(contactId = m.contactId ?: contactId, rhythm = KeepRhythm.decode(m.rhythm).copy(fineUntil = Drift.fineUntil(now)).encode())
+        }
+    }
+
+    /** Who is in a season ("For a while…", or a running Chapter's) or marked "They're fine": never "quieter than usual". */
+    suspend fun notDrifting(now: Long = System.currentTimeMillis()): Set<String> = withContext(Dispatchers.IO) {
+        val fine = meta.allMetaNow().filter { KeepRhythm.decode(it.rhythm).isFine(now) }.map { it.lookupKey }
+        val seasons = members().filter { it.rhythmAt(now).until != null }.map { it.lookupKey }
+        (fine + seasons).toSet()
+    }
+
+    /** An "as due" reminder about [lookupKey] went out (the row is made for someone in the Circle through a label). */
+    suspend fun nudged(lookupKey: String, now: Long) {
+        editMeta(lookupKey, create = true) { m -> m.copy(lastNudgedAt = now) }
     }
 
     /** Monthly re-learning of natural rhythms; returns the members, updated. */
@@ -151,12 +230,12 @@ class CircleRepository(
             tx {
                 val row = meta.meta(mem.lookupKey)?.takeIf { it.reachOutDays != null } ?: return@tx mem
                 val current = KeepRhythm.decode(row.rhythm)
-                if (!current.needsRelearn(now)) return@tx Member(row, current)
+                if (!current.needsRelearn(now)) return@tx Member(row, current, mem.feeds)
                 val next = NaturalRhythm.relearn(current, times, now, ZoneId.systemDefault())
                 val updated = row.copy(rhythm = next.encode())
                 // Only the rhythm column: the rest of the row (a note that can't be opened right now) stays as stored.
                 meta.setMetaRhythm(mem.lookupKey, updated.rhythm)
-                Member(updated, next)
+                Member(updated, next, mem.feeds)
             }
         }
     }
@@ -379,8 +458,9 @@ class CircleRepository(
                 return o.put("n", c.displayName).put("p", JSONArray(c.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }.distinct()))
             }
             val members = JSONArray()
-            // Private contacts' Circle data goes only in the private-contacts section (BackupRepository.vaultBlob).
-            members().filterNot { ContactRef.isPrivateKey(it.lookupKey) }.forEach { m ->
+            // Private contacts' Circle data goes only in the private-contacts section (BackupRepository.vaultBlob). Who
+            // is in through a label isn't stored: the label's policy travels instead.
+            members().filter { it.own && !ContactRef.isPrivateKey(it.lookupKey) }.forEach { m ->
                 members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL))
             }
             out[X_MEMBERS] = members.toString()

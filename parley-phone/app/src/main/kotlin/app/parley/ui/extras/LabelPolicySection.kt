@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -49,14 +52,17 @@ import app.parley.ui.contact.VibrationRow
 import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 
 /**
  * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
- * their own), the keep-in-touch rhythm offered when a member joins the Circle, and "Allow through Do Not
- * Disturb". Android only lets starred contacts through, so that works by starring the members, which also puts them
+ * their own), "Keep in touch with everyone here" (a rhythm, and a switch that puts every member in the Circle with it),
+ * "Add everyone to Favourites", and "Allow through Do Not Disturb". Android only lets starred contacts through, so
+ * that works by starring the members, which also puts them
  * in Favourites: the confirmation lists exactly who will be starred before anything changes.
  */
 @Composable
@@ -64,17 +70,27 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    val policies by vm.c.extras.policies.collectAsStateWithLifecycle()
+    val extras = vm.c.extras
+    val circle = vm.c.circle
+    val policies by extras.policies.collectAsStateWithLifecycle()
+    val chapters by extras.chapters.collectAsStateWithLifecycle()
+    val dndStars by extras.dndStars.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val p = policies[title] ?: LabelPolicy()
     var pickSim by rememberSaveable { mutableStateOf(false) }
     var pickRhythm by rememberSaveable { mutableStateOf(false) }
+    // The switch was turned on before a rhythm was chosen: the pick turns it on.
+    var feedAfterPick by rememberSaveable { mutableStateOf(false) }
+    var confirmFavourites by rememberSaveable { mutableStateOf(false) }
     var explainDnd by rememberSaveable { mutableStateOf(false) }
     var pickVibration by rememberSaveable { mutableStateOf(false) }
     val callCfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     // Only the members not starred yet: "Star N new members" confirms with the same list.
     var starNewOnly by rememberSaveable { mutableStateOf(false) }
-    val circleKeys by produceState(emptySet<String>(), members, p.rhythmDays) { value = vm.c.circle.members().map { it.lookupKey }.toSet() }
+    val circleKeys by produceState(emptySet<String>(), members, p) { value = circle.members().map { it.lookupKey }.toSet() }
+    // "Add everyone to Favourites": who isn't a favourite you chose yet (not starred, or starred only for a label's
+    // Do Not Disturb, which then becomes your own star).
+    val toFavourite = members.filter { !it.starred || (it.id > 0 && it.lookupKey in dndStars) }
     val outside = members.filter { it.lookupKey !in circleKeys }
     // Only address-book contacts can be let through Do Not Disturb (Android decides, and never sees private ones).
     val unstarred = members.filter { !it.starred && it.id > 0 }
@@ -99,23 +115,58 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 },
             )
         }
+        // "Keep in touch with everyone here": the rhythm, and the switch that puts everyone here in the Circle with it
+        // (off: today's suggestion when someone joins). Never on by itself; switching it off takes out only those
+        // who were in through this label.
+        val running = chapters[title]?.let { System.currentTimeMillis() < it.endsAt } == true
         ParleyListItem(
             modifier = Modifier.clickable { pickRhythm = true },
             leadingContent = { Icon(Icons.Rounded.Handshake, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_rhythm)) },
             supportingContent = {
-                Text(p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_not_set))
+                val every = p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) }
+                Text(
+                    when {
+                        every == null -> stringResource(R.string.label_not_set)
+                        p.circleFromLabel && running -> stringResource(R.string.label_policy_circle_chapter, every)
+                        p.circleFromLabel -> stringResource(R.string.label_policy_circle_on, every)
+                        else -> stringResource(R.string.label_policy_circle_off, every)
+                    },
+                )
+            },
+            trailingContent = {
+                val label = stringResource(R.string.label_policy_circle_switch)
+                // The switch alone toggles (the row opens the rhythm), at a full touch target.
+                Box(
+                    Modifier.toggleable(p.feedsCircle, role = Role.Switch) { on ->
+                        when {
+                            !on -> extras.updatePolicy(title) { it.copy(circleFromLabel = false) }
+                            p.rhythmDays == null -> { feedAfterPick = true; pickRhythm = true }
+                            else -> extras.updatePolicy(title) { it.copy(circleFromLabel = true) }
+                        }
+                    }.semantics { contentDescription = label }.sizeIn(minWidth = 48.dp, minHeight = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Not a SwitchRow: the row opens the rhythm, and only the switch beside it puts everyone in the Circle.
+                    @Suppress("DesignSystemComponent")
+                    Switch(p.feedsCircle, onCheckedChange = null)
+                }
             },
         )
         val days = p.rhythmDays
-        if (days != null && outside.isNotEmpty()) {
+        if (days != null && !p.circleFromLabel && outside.isNotEmpty()) {
             TextButton({
                 scope.launch {
-                    outside.forEach { m -> vm.c.circle.setRhythm(m.lookupKey, m.id, days) }
+                    outside.forEach { m -> circle.setRhythm(m.lookupKey, m.id, days) }
                     vm.toast(res.getQuantityString(R.plurals.label_policy_added, outside.size, outside.size))
                 }
             }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.label_policy_add_members, outside.size, outside.size)) }
         }
+        if (toFavourite.isNotEmpty()) ParleyListItem(
+            modifier = Modifier.clickable { confirmFavourites = true },
+            leadingContent = { Icon(Icons.Rounded.Star, null) },
+            headlineContent = { Text(stringResource(R.string.label_policy_favourites)) },
+        )
         ParleyListItem(
             modifier = Modifier.toggleable(p.allowThroughDnd, role = Role.Switch) { on ->
                 if (on) explainDnd = true
@@ -142,13 +193,13 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         VibrationRow(p.vibration, title) { pickVibration = true }
         if (callCfg.autoAnswerChosen) {
             AutoAnswerRow(p.autoAnswer, stringResource(R.string.label_policy_auto_answer_summary)) { v ->
-                vm.c.extras.updatePolicy(title) { it.copy(autoAnswer = v) }
+                extras.updatePolicy(title) { it.copy(autoAnswer = v) }
             }
         }
     }
     if (pickVibration) VibrationPatternDialog(
         current = p.vibration, name = title, seedKey = "label:$title",
-        onPick = { spec -> pickVibration = false; vm.c.extras.updatePolicy(title) { it.copy(vibration = spec) } },
+        onPick = { spec -> pickVibration = false; extras.updatePolicy(title) { it.copy(vibration = spec) } },
         onDismiss = { pickVibration = false },
     )
 
@@ -161,8 +212,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 val choices = listOf<Pair<String?, String>>(null to stringResource(R.string.label_policy_sim_none)) + sims.map { it.id to it.label }
                 choices.forEach { (id, label) ->
                     ParleyListItem(
-                        modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false },
-                        leadingContent = { RadioButton(p.simId == id, { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false }) },
+                        modifier = Modifier.clickable { extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false },
+                        leadingContent = { RadioButton(p.simId == id, { extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false }) },
                         headlineContent = { Text(label) },
                     )
                 }
@@ -171,7 +222,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         confirmButton = { TextButton({ pickSim = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
     if (pickRhythm) ParleyDialog(
-        onDismissRequest = { pickRhythm = false },
+        onDismissRequest = { pickRhythm = false; feedAfterPick = false },
         title = { Text(stringResource(R.string.label_policy_rhythm)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -181,17 +232,56 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 )
                 (listOf<Int?>(null) + LabelPolicies.RHYTHM_CHOICES).forEach { d ->
                     val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_not_set)
+                    val pick = {
+                        val feed = feedAfterPick && d != null
+                        extras.updatePolicy(title) { it.copy(rhythmDays = d, circleFromLabel = (it.circleFromLabel || feed) && d != null) }
+                        feedAfterPick = false
+                        pickRhythm = false
+                    }
                     ParleyListItem(
-                        modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false },
-                        leadingContent = {
-                            RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false })
-                        },
+                        modifier = Modifier.clickable(onClick = pick),
+                        leadingContent = { RadioButton(p.rhythmDays == d, pick) },
                         headlineContent = { Text(label) },
                     )
                 }
             }
         },
-        confirmButton = { TextButton({ pickRhythm = false }) { Text(stringResource(R.string.dc_cancel)) } },
+        confirmButton = { TextButton({ pickRhythm = false; feedAfterPick = false }) { Text(stringResource(R.string.dc_cancel)) } },
+    )
+    if (confirmFavourites) ConfirmDialog(
+        title = stringResource(R.string.label_policy_favourites_title, title),
+        text = null,
+        confirmLabel = pluralStringResource(R.plurals.label_policy_favourites_confirm, toFavourite.size, toFavourite.size),
+        onConfirm = {
+            confirmFavourites = false
+            val who = toFavourite
+            scope.launch {
+                val done = extras.addToFavourites(who)
+                if (done.count > 0) {
+                    vm.offerUndo(res.getQuantityString(R.plurals.label_policy_favourites_done, done.count, done.count)) { extras.undoFavourites(done) }
+                }
+            }
+        },
+        onDismiss = { confirmFavourites = false },
+        dismissLabel = stringResource(R.string.dc_cancel),
+        icon = Icons.Rounded.Star,
+        content = {
+            // Exactly who, before anything changes.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    pluralStringResource(R.plurals.label_policy_favourites_preview, toFavourite.size, toFavourite.size),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                toFavourite.forEach { m ->
+                    ParleyListItem(
+                        leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
+                        headlineContent = { Text(m.displayName) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+                Text(stringResource(R.string.label_policy_favourites_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            }
+        },
     )
     if (explainDnd) ConfirmDialog(
         title = stringResource(R.string.label_policy_dnd_title, title),
@@ -206,11 +296,11 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             starNewOnly = false
             scope.launch {
                 if (newOnly) {
-                    vm.c.extras.starForDnd(title, unstarred)
+                    extras.starForDnd(title, unstarred)
                 } else {
-                    vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
+                    extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
                     // Every member: those Parley starred for another label are recorded under this one too.
-                    vm.c.extras.starForDnd(title, members)
+                    extras.starForDnd(title, members)
                     openDndSettings(context)
                 }
             }

@@ -197,6 +197,12 @@ private contact is in a label, or exists.
 - The one "who" picker (6.7) reads them the same way: Your Circle in off hours and Situations (`CallScreener`, by the
   contact's key, `parley-private:<id>` for a private one), and Your Circle and labels for auto-answer and Your car
   (`AppTelecomDependencies`). A private contact in your Circle rings, and is answered, as a listed one would be.
+- A label that keeps everyone in the Circle (6.8, `LabelPolicy.circleFromLabel`, "Keep in touch with everyone here")
+  reads them the same way (`ExtrasStore.circleFeeds`): a private member is in the Circle through the label under
+  `parley-private:<id>`, shown with the lock badge while private contacts are shown and nowhere while they are hidden
+  or after a duress unlock. Membership is own rhythm ∪ label-fed, worked out and never stored: switching the label off
+  takes out only who was in through it, and a person's own rhythm always wins. "Add everyone to Favourites" on the
+  label stars a private member with Parley's own star, as starring by hand does.
 - Make private turns the contact's group rows into memberships; Make visible turns the memberships back into group
   rows (in a group of that label its account can hold) and removes the rows of labels it left while private.
 
@@ -273,7 +279,7 @@ in discreet mode. **Save on this contact** writes the name into the Relation row
 | Note for calls | Yes | Read-only | Yes (kept sealed; still shown on the call screen while locked) |
 | Timeline, full timeline screen | Yes | Call list only | Yes (private call history + moments + call notes + dates) |
 | Call insights | Yes | No | Yes (from the private call history; "Keep forever" belongs to the phone's history only) |
-| Circle: add, rhythm, Stay in touch, promises, Log interaction | Yes | No | Yes |
+| Circle: add, rhythm, For a while (a season), Stay in touch, promises, Log interaction, in the Circle via a label | Yes | No | Yes |
 | Circle list | Yes | No | Yes (with the lock badge). Reminder notifications still never name private contacts |
 | Call-screen picture | Yes | No | Yes (page and editor) |
 | Save and share the photo, call-screen picture and QR codes (5.3.1) | Yes | — | Yes, after the private contacts' unlock; never in discreet mode; a shared copy is deleted when the share returns (EDITOR_DESIGN.md "Save and share") |

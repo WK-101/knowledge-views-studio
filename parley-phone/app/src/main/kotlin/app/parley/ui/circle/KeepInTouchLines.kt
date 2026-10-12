@@ -84,7 +84,8 @@ fun rememberKeepInTouch(
                 history.firstOrNull { it.durationSec > 0 && it.type.isAnsweredKind() }?.date,
                 interactions.firstOrNull()?.let { it.time to it.type },
             )
-            CirclePlanner.status(CirclePlanner.Member(lookupKey, rhythm.days(every), last?.time, CatchUp.quietUntil(rhythm.snoozedUntil, catchUpAt)), now) ==
+            val quiet = CatchUp.quietUntil(rhythm.snoozedUntil, catchUpAt)
+            CirclePlanner.status(CirclePlanner.Member(lookupKey, rhythm.days(every, now), last?.time, quiet), now) ==
                 CircleStatus.DUE
         } ?: false
         val facts = KeepInTouch.facts(touches, due, firstMover, now, ZoneId.systemDefault())
