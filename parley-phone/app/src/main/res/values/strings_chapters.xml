@@ -21,6 +21,12 @@
     <string name="chapter_change_end">Change the end</string>
     <string name="chapter_end_now">End now</string>
     <string name="chapter_remove_end">No end</string>
+    <string name="chapter_no_end_title">No end for “%1$s”?</string>
+    <plurals name="chapter_no_end_circle">
+        <item quantity="one">“%1$s” keeps everyone in it in your Circle, every %2$d day. With no end, they stay there for good, unless you turn this off.</item>
+        <item quantity="other">“%1$s” keeps everyone in it in your Circle, every %2$d days. With no end, they stay there for good, unless you turn this off.</item>
+    </plurals>
+    <string name="chapter_no_end_keep_circle">Keep them in your Circle</string>
     <string name="chapter_owner_only">Only the phone that started this shared label can give it an end.</string>
     <string name="chapter_set_title">When does this chapter end?</string>
     <string name="chapter_on_date">On a date</string>

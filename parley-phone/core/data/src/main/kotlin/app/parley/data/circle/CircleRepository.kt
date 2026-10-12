@@ -464,6 +464,14 @@ class CircleRepository(
                 members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL))
             }
             out[X_MEMBERS] = members.toString()
+            // "They're fine" for people outside the Circle lives on rows with no rhythm of their own; a member's rides
+            // with their rhythm above. Only marks still running go.
+            val now = System.currentTimeMillis()
+            val fine = JSONArray()
+            withContext(Dispatchers.IO) { meta.allMetaNow() }.filter { it.reachOutDays == null && !ContactRef.isPrivateKey(it.lookupKey) }.forEach { row ->
+                KeepRhythm.decode(row.rhythm).fineUntil?.takeIf { it > now }?.let { until -> fine.put(person(row.lookupKey).put("f", until)) }
+            }
+            out[X_FINE] = fine.toString()
             val items = JSONArray()
             for (i in interactions.all()) {
                 if (ContactRef.isPrivateKey(i.lookupKey)) continue
@@ -487,7 +495,7 @@ class CircleRepository(
 
         override suspend fun importCounting(values: Map<String, String>): Int {
             values[X_CONFIG]?.let { v -> updateConfig { CircleConfig.decode(v) } }
-            if (values.keys.none { it == X_MEMBERS || it == X_INTERACTIONS || it == X_YEARLY }) return 0
+            if (values.keys.none { it == X_MEMBERS || it == X_INTERACTIONS || it == X_YEARLY || it == X_FINE }) return 0
             val contacts = contactsNow()
             val byKey = contacts.associateBy { it.lookupKey }
             val archived = archivedKeys(values)
@@ -542,6 +550,19 @@ class CircleRepository(
                         }
                     }
                 }
+                values[X_FINE]?.let { json ->
+                    val a = catching { JSONArray(json) }.getOrNull() ?: return@let
+                    for (i in 0 until a.length()) {
+                        val o = a.optJSONObject(i) ?: continue
+                        val until = o.optLong("f").takeIf { it > 0 } ?: continue
+                        val c = resolve(o) ?: continue
+                        // The later of the two marks stands; a member's rhythm keeps everything else it has.
+                        editMeta(c.lookupKey, create = true) { m ->
+                            val r = KeepRhythm.decode(m.rhythm)
+                            if ((r.fineUntil ?: 0) >= until) null else m.copy(contactId = m.contactId ?: c.id, rhythm = r.copy(fineUntil = until).encode())
+                        }
+                    }
+                }
                 values[X_YEARLY]?.let { json ->
                     val a = catching { JSONArray(json) }.getOrNull() ?: return@let
                     for (i in 0 until a.length()) {
@@ -566,5 +587,8 @@ class CircleRepository(
         private const val X_MEMBERS = "${BackupExtras.PREFIX}circle.members"
         private const val X_INTERACTIONS = "${BackupExtras.PREFIX}circle.interactions"
         private const val X_YEARLY = "${BackupExtras.PREFIX}circle.yearly"
+
+        /** "They're fine" for people outside the Circle; older versions ignore it. */
+        private const val X_FINE = "${BackupExtras.PREFIX}circle.fine"
     }
 }

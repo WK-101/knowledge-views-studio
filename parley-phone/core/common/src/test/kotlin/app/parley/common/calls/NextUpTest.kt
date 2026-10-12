@@ -40,6 +40,14 @@ class NextUpTest {
         assertEquals(listOf(NextUpKind.TO_CALL, NextUpKind.OCCASION), lines.map { it.kind })
     }
 
+    @Test fun a_call_round_and_a_case_to_follow_up_rank_between_calls_owed_and_good_times() {
+        val round = NextUpLine(NextUpKind.CALL_ROUND, NextUp.CALL_ROUND_ID)
+        val case = NextUpLine(NextUpKind.CASE_DUE, "c1")
+        val lines = NextUp.lines(ToCallCount(0, 0), emptySet(), listOf(good("marco", "k9"), case, chapter("Exams"), round, round))
+        // The round once, first; the case before the Circle's suggestion.
+        assertEquals(listOf(NextUpKind.CALL_ROUND, NextUpKind.CASE_DUE, NextUpKind.GOOD_TIME), lines.map { it.kind })
+    }
+
     @Test fun items_only_for_later_keep_a_way_into_the_list_last() {
         val lines = NextUp.lines(ToCallCount(0, 2), setOf("k1"), listOf(chapter("Exams")))
         assertEquals(listOf(NextUpKind.CHAPTER, NextUpKind.LATER), lines.map { it.kind })

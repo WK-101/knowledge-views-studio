@@ -103,6 +103,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
                 )
             }
             item(key = "status") { CaseStatusRow(vm, case) }
+            item(key = "follow-up") { CaseFollowUpRow(vm, case) }
             if (timeline != null) summary(timeline)
             if (queue != null) item(key = "queue") { QueueMemorySection(vm, case.numbers.firstOrNull(), queue) }
             references(vm, case) { st.adding = true }

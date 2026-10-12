@@ -274,4 +274,32 @@ class CaseFilesTest {
         assertEquals(CaseStatus.OPEN, old.cases.single().status)
         assertTrue(old.autoStart)
     }
+
+    @Test fun follow_up_by_is_due_on_its_day_and_after_for_open_cases_only() {
+        var s = CaseFiles.setMode(CaseState(), "Bank", listOf(bank), false, CaseMode.ON, 1, region, "a")
+        s = CaseFiles.setMode(s, "Clinic", listOf(clinic), false, CaseMode.ON, 1, region, "b")
+        s = CaseFiles.setFollowUp(s, "a", 100)
+        s = CaseFiles.setFollowUp(s, "b", 98)
+        assertTrue(CaseFiles.followUpsDue(s, 97).isEmpty())
+        assertEquals(listOf("b"), CaseFiles.followUpsDue(s, 99).map { it.id })
+        // The longest overdue first; today's counts.
+        assertEquals(listOf("b", "a"), CaseFiles.followUpsDue(s, 100).map { it.id })
+        // Resolved, cleared or stopped: no longer due.
+        assertEquals(listOf("a"), CaseFiles.followUpsDue(CaseFiles.setStatus(s, "b", CaseStatus.RESOLVED, 5), 100).map { it.id })
+        assertEquals(listOf("b"), CaseFiles.followUpsDue(CaseFiles.setFollowUp(s, "a", null), 100).map { it.id })
+        val stopped = CaseFiles.stop(s, "a")
+        assertNull(CaseFiles.byId(stopped, "a")!!.followUpBy)
+        assertEquals(stopped, CaseFiles.setFollowUp(stopped, "a", 120))
+    }
+
+    @Test fun follow_up_by_reads_leniently_and_merges_this_phones_first() {
+        // Written before the field existed: none. A value this version can't read is no reason to lose the case.
+        val old = CaseFiles.decode("""{"cases":[{"id":"a","name":"Bank","numbers":["$bank"]}]}""")
+        assertNull(old.cases.single().followUpBy)
+        val withDay = CaseFiles.setFollowUp(old, "a", 100)
+        assertEquals(100L, CaseFiles.decode(CaseFiles.encode(withDay)).cases.single().followUpBy)
+        // A restore keeps this phone's day, and takes the backup's only when this phone has none.
+        assertEquals(100L, CaseFiles.merge(withDay, CaseFiles.setFollowUp(old, "a", 90), region).cases.single().followUpBy)
+        assertEquals(90L, CaseFiles.merge(old, CaseFiles.setFollowUp(old, "a", 90), region).cases.single().followUpBy)
+    }
 }

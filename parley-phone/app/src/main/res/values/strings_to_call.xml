@@ -98,6 +98,8 @@
     <!-- %1$s: a Chapter's label, "Exams"; %2$s: a weekday, "Friday" -->
     <string name="next_up_chapter_today">%1$s ends today</string>
     <string name="next_up_chapter_tomorrow">%1$s ends tomorrow</string>
+    <string name="next_up_case_today">Follow up with %1$s today</string>
+    <string name="next_up_case_overdue">Follow up with %1$s: it was due %2$s</string>
     <string name="next_up_chapter_on">%1$s ends on %2$s</string>
     <!-- "Open with them" on a contact's page: what is open with this person (To call, To talk about, promises) -->
     <string name="open_with_them">Open with them</string>
