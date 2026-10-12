@@ -112,6 +112,12 @@
     <string name="case_status_line">Status: %1$s</string>
     <string name="case_status_line_since">Status: %1$s, since %2$s</string>
 
+    <!-- "Follow up by": a day to chase the case by; Next up says so from that day until it is resolved. -->
+    <string name="case_follow_up">Follow up by</string>
+    <string name="case_follow_up_none">No date. Pick one and Next up reminds you on the day.</string>
+    <string name="case_follow_up_pick">Pick a date</string>
+    <string name="case_follow_up_clear">Clear the date</string>
+
     <!-- Tools › Case files: every case kept, the newest activity first. -->
     <string name="case_list_explain">For banks, insurers and other services: your calls with them, hold times and reference numbers, in one place. Stays on this phone.</string>
     <string name="case_list_empty">No case files yet</string>

@@ -9,7 +9,12 @@ import app.parley.common.people.PrivateDates
 import app.parley.data.vault.VaultRepository
 import app.parley.data.vault.VaultSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.CallRound
+import app.parley.common.calls.CallRounds
 import app.parley.common.calls.CatchUp
+import app.parley.common.cases.CaseFiles
+import app.parley.data.calls.CallRoundStore
+import app.parley.data.cases.CaseFileStore
 import app.parley.common.calls.NextUp
 import app.parley.common.calls.NextUpKind
 import app.parley.common.calls.NextUpLine
@@ -35,6 +40,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
@@ -57,6 +64,14 @@ sealed interface NextUpItem {
     data class GoodHours(override val line: NextUpLine, val person: Person, val window: GoodTime.Window) : NextUpItem
 
     data class ChapterEnds(override val line: NextUpLine, val title: String, val lastDay: LocalDate) : NextUpItem
+
+    /** A case file to follow up: its "Follow up by" [day] is today, or [overdue]. [private]: a private contact's. */
+    data class CaseDue(
+        override val line: NextUpLine, val caseId: String, val name: String, val day: LocalDate, val overdue: Boolean, val private: Boolean,
+    ) : NextUpItem
+
+    /** A call round under way: [left] of [total] still to tell, [next] the one to call now. */
+    data class RoundLeft(override val line: NextUpLine, val left: Int, val total: Int, val next: String) : NextUpItem
 }
 
 /** A contact a line is about: who to open ([ContactRef.navId]: negative for a private contact), and the number its Call uses. */
@@ -70,12 +85,16 @@ private val NextUpItem.private: Boolean
     get() = when (this) {
         is NextUpItem.Dated -> person.private
         is NextUpItem.GoodHours -> person.private
+        is NextUpItem.CaseDue -> private
         else -> false
     }
 
 /**
- * Next up, the strip at the top of Recents ([NextUp]): the To call list's count ([ToCallModel]) with today's birthdays and
- * anniversaries, a Circle member due in their good hours and a Chapter ending this week. The slower sources are read
+ * Next up, the strip at the top of Recents ([NextUp]): the To call list's count ([ToCallModel]) with a call round under
+ * way, today's birthdays and anniversaries, case files to follow up, a Circle member due in their good hours and a
+ * Chapter ending this week. The round's line goes under duress (its message is never shown there) and leaves out
+ * private contacts while they may not show; case files follow their own rules ([CaseFileStore.shown]: none under
+ * duress, none of a private contact's while those are hidden or locked). The slower sources are read
  * again every [REFRESH_MS], when the contacts or the calls change, and when the privacy view does (a duress unlock
  * hides the Circle's line, a relationship insight). Private contacts' birthdays (their caller-ID copy's dates) and
  * Circle catch-ups join while private contacts may show ([PrivateDates.mayShow]); hiding or locking them, or a duress
@@ -94,6 +113,8 @@ class NextUpModel(
     privacy: StateFlow<PrivacyView>,
     private val countryIso: String,
     vault: VaultRepository,
+    private val cases: CaseFileStore,
+    private val round: CallRoundStore,
 ) {
     /** Private contacts may show here now: shown, not locked with "Lock private contacts", no duress unlock hiding them. */
     private val privateOpen: Flow<Boolean> = combine(privacy, vault.lock.lockedByPerson) { p, locked -> PrivateDates.mayShow(p, locked) }
@@ -126,8 +147,37 @@ class NextUpModel(
             .mapLatest { (s, ch, state) -> read(s, ch, state) }
             .flowOn(Dispatchers.IO)
 
+    /** Case files whose "Follow up by" day has come, as they may show now; read again with the [ticks] for a new day. */
+    private val casesDue: Flow<List<NextUpItem>> = flow {
+        catching { cases.load() }
+        emitAll(combine(cases.shown, ticks) { s, _ -> s })
+    }.mapLatest { s ->
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone).toEpochDay()
+        CaseFiles.followUpsDue(s, today).map { c ->
+            val day = LocalDate.ofEpochDay(c.followUpBy ?: today)
+            NextUpItem.CaseDue(NextUpLine(NextUpKind.CASE_DUE, c.id), c.id, c.name, day, day.toEpochDay() < today, cases.isPrivateNow(c))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /** The call round's line while it has people left to tell; none under duress, and no private contact while they may not show. */
+    private val roundLine: Flow<List<NextUpItem>> = flow {
+        catching { round.load() }
+        emitAll(combine(round.state, privacy, privateOpen) { r, p, open -> if (p.notesShown) CallRounds.shown(r, open) else CallRound() })
+    }.map { r ->
+        val next = CallRounds.next(r)
+        if (!r.active || next == null) {
+            emptyList()
+        } else {
+            listOf(NextUpItem.RoundLeft(NextUpLine(NextUpKind.CALL_ROUND, NextUp.CALL_ROUND_ID), CallRounds.left(r), r.people.size, next.name))
+        }
+    }
+
+    private val more: Flow<List<NextUpItem>> = combine(casesDue, roundLine) { c, r -> r + c }
+
     /** The lines, at most [NextUp.MAX_LINES], best first; empty when nothing is due. */
-    val items: StateFlow<List<NextUpItem>> = combine(toCall.rows, candidates, privateOpen) { rows, all, open ->
+    val items: StateFlow<List<NextUpItem>> = combine(toCall.rows, candidates, more, privateOpen) { rows, read, extra, open ->
+        val all = read + extra
         // Private lines go the moment private contacts may not show, not at the next read.
         val found = if (open) all else all.filterNot { it.private }
         val now = System.currentTimeMillis()

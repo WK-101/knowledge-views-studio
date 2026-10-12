@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.extras.LabelPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -141,5 +142,19 @@ class ChaptersTest {
         // The identity key can't be read right now: neither told nor skipped; the next check asks again.
         assertFalse(Chapters.decisionKnown(shared = true, owner = null))
         assertFalse(Chapters.decidesHere(shared = true, owner = null))
+    }
+
+    @Test fun no_end_asks_about_the_circle_only_for_a_label_that_feeds_it_and_a_no_keeps_the_rest() {
+        val feeding = LabelPolicy(rhythmDays = 14, circleFromLabel = true, allowThroughDnd = true)
+        val policies = mapOf("Exams" to feeding, "Trip" to LabelPolicy(rhythmDays = 7))
+        assertTrue(Chapters.noEndAsksAboutCircle(policies, "Exams"))
+        // A rhythm only offered, or no policy at all: nothing to ask.
+        assertFalse(Chapters.noEndAsksAboutCircle(policies, "Trip"))
+        assertFalse(Chapters.noEndAsksAboutCircle(policies, "Work"))
+
+        val stopped = Chapters.stopFeedingCircle(policies, "Exams")
+        assertEquals(feeding.copy(circleFromLabel = false), stopped["Exams"])
+        assertEquals(policies["Trip"], stopped["Trip"])
+        assertEquals(policies, Chapters.stopFeedingCircle(policies, "Work"))
     }
 }

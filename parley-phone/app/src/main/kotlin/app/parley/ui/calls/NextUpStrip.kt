@@ -17,6 +17,8 @@ import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.PhoneCallback
 import androidx.compose.material.icons.rounded.Schedule
@@ -52,7 +54,9 @@ import app.parley.ui.ParleyShapes
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.activityViewModel
+import app.parley.ui.cases.followUpDate
 import app.parley.ui.common.CoachMark
+import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.home.RecentsViewModel
 import app.parley.ui.people.PeopleRoutes
 import java.time.LocalDate
@@ -64,7 +68,8 @@ import java.util.Locale
 /**
  * Next up, the quiet strip at the top of Recents: at most three "now" lines ([NextUp]), each with its one action. Calls
  * owed now ("3 to call", with the names) open the To call list; a birthday or anniversary today and a Circle member in
- * their good hours open the contact and offer Call; a Chapter ending this week opens its label. Folded, it keeps the
+ * their good hours open the contact and offer Call; a call round under way opens the round, a case file to follow up
+ * opens the case, and a Chapter ending this week opens its label. Folded, it keeps the
  * first line only; it never shows a badge, and nothing at all when nothing is due.
  */
 @Composable
@@ -137,6 +142,19 @@ private fun NextUpRow(vm: AppViewModel, item: NextUpItem, open: (Destination) ->
         is NextUpItem.ChapterEnds -> Line(
             Icons.Rounded.HourglassBottom, chapterText(context, item.title, item.lastDay), emptyList(),
             onClickLabel = null, onClick = { open(PeopleRoutes.Label(item.title)) }, trailing = fold,
+        )
+        is NextUpItem.CaseDue -> Line(
+            Icons.Rounded.FolderOpen,
+            if (item.overdue) {
+                stringResource(R.string.next_up_case_overdue, item.name, followUpDate(item.day))
+            } else {
+                stringResource(R.string.next_up_case_today, item.name)
+            },
+            emptyList(), onClickLabel = null, onClick = { open(HistoryRoutes.Case(item.caseId)) }, trailing = fold,
+        )
+        is NextUpItem.RoundLeft -> Line(
+            Icons.Rounded.Groups, stringResource(R.string.next_up_round, item.left, item.total, item.next), emptyList(),
+            onClickLabel = null, onClick = { open(CallRoundRoutes.Round) }, trailing = fold,
         )
     }
 }

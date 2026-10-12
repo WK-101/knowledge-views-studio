@@ -53,8 +53,18 @@ class ChaptersUi(
         }
     }
 
-    /** Takes the end away (the label stays as it is). */
-    fun remove(title: String) {
+    /**
+     * The rhythm (in days) [title] keeps its people in the Circle at, when "No end" should ask whether that goes on
+     * ([Chapters.noEndAsksAboutCircle]); null when there is nothing to ask.
+     */
+    fun noEndCircleDays(title: String): Int? {
+        val policies = extras().policies.value
+        return policies[title]?.rhythmDays?.takeIf { Chapters.noEndAsksAboutCircle(policies, title) }
+    }
+
+    /** Takes the end away (the label stays as it is); [keepCircle] false also stops it keeping its people in the Circle. */
+    fun remove(title: String, keepCircle: Boolean = true) {
+        if (!keepCircle) extras().updatePolicies { Chapters.stopFeedingCircle(it, title) }
         extras().updateChapters { it - title }
     }
 
@@ -63,8 +73,7 @@ class ChaptersUi(
      * ran: kept without an end, the label stops filling the Circle.
      */
     fun keep(title: String) {
-        extras().updatePolicies { m -> m[title]?.let { p -> m + (title to p.copy(circleFromLabel = false)) } ?: m }
-        remove(title)
+        remove(title, keepCircle = false)
         cancelNotice()
     }
 

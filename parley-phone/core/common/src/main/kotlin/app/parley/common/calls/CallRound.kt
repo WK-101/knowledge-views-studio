@@ -153,6 +153,16 @@ object CallRounds {
     /** [key] taken out of the round (nobody left ends it). */
     fun remove(r: CallRound, key: String): CallRound = r.copy(people = r.people.filterNot { it.key == key })
 
+    /**
+     * The number "Add to To call" puts on the list for [key]: offered only once they didn't answer, never on its own
+     * (To call keeps it by number, so a private contact's item holds no name). Null otherwise.
+     */
+    fun toCallNumber(r: CallRound, key: String): String? =
+        r.people.firstOrNull { it.key == key && it.mark == RoundMark.NO_ANSWER }?.number?.takeIf { it.isNotBlank() }
+
+    /** How many in [r] are still to be told (not reached yet); 0 when it is done or there is none. */
+    fun left(r: CallRound): Int = r.people.count { it.mark != RoundMark.REACHED }
+
     fun score(r: CallRound): RoundScore = RoundScore(
         reached = r.people.count { it.mark == RoundMark.REACHED },
         noAnswer = r.people.count { it.mark == RoundMark.NO_ANSWER },

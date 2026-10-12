@@ -7,7 +7,12 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import app.parley.common.calls.CallRounds
 import app.parley.common.calls.NextUpKind
+import app.parley.common.calls.RoundMark
+import app.parley.common.calls.RoundPerson
+import app.parley.common.cases.CaseFiles
+import app.parley.common.cases.CaseMode
 import app.parley.common.security.DuressMachine
 import app.parley.common.security.PinVerdict
 import app.parley.data.ContactDetails
@@ -41,6 +46,7 @@ import java.time.LocalDate
  * Next up over the real stores: a birthday today and a Circle member due at the hours they usually answer each get a
  * line, and a duress unlock takes the Circle's line away (a relationship insight) while the birthday stays. A private
  * contact's birthday shows while private contacts may show, and goes when they are hidden, locked or under duress.
+ * Case files due for a follow-up and an unfinished call round get their lines, and go under duress.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
@@ -71,7 +77,7 @@ class NextUpModelTest {
     private fun model(calls: List<CallEntry>): NextUpModel {
         val flow = MutableStateFlow<List<CallEntry>?>(calls)
         val toCall = ToCallModel(c, scope, flow, MutableStateFlow(emptySet())).also { it.start() }
-        return NextUpModel(scope, toCall, c.toCall.state, flow, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, "US", c.vault)
+        return NextUpModel(scope, toCall, c.toCall.state, flow, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, "US", c.vault, c.cases, c.callRound)
     }
 
     private suspend fun kinds(m: NextUpModel, until: (Set<NextUpKind>) -> Boolean): Set<NextUpKind> =
@@ -153,6 +159,35 @@ class NextUpModelTest {
         val dates = c.vault.summary(id)!!.dates
         assertEquals(listOf("--03-14"), dates.map { it.date })
         assertEquals(Event.TYPE_ANNIVERSARY, dates.single().type)
+    }
+
+    @Test fun a_case_to_follow_up_and_an_unfinished_round_show_and_duress_hides_both() = runBlocking {
+        val today = LocalDate.now().toEpochDay()
+        c.cases.update {
+            var s = CaseFiles.setMode(it, "Northwind Energy", listOf("+1 202 555 0100"), false, CaseMode.ON, 1, "US", "late")
+            s = CaseFiles.setMode(s, "Council", listOf("+1 202 555 0101"), false, CaseMode.ON, 1, "US", "today")
+            s = CaseFiles.setMode(s, "Clinic", listOf("+1 202 555 0102"), false, CaseMode.ON, 1, "US", "later")
+            s = CaseFiles.setFollowUp(s, "late", today - 2)
+            s = CaseFiles.setFollowUp(s, "today", today)
+            CaseFiles.setFollowUp(s, "later", today + 3)
+        }
+        val people = listOf(RoundPerson("a", "Ana", "+1 202 555 0111"), RoundPerson("s", "Sam", "+1 202 555 0112"), RoundPerson("b", "Bo", "+1 202 555 0113"))
+        c.callRound.update { CallRounds.mark(CallRounds.start("The party moved to Sunday", people, 1L)!!, "a", RoundMark.REACHED) }
+        val m = model(emptyList())
+        val shown = withTimeoutOrNull(TIMEOUT_MS) {
+            m.items.first { items -> items.count { it is NextUpItem.CaseDue } == 2 && items.any { it is NextUpItem.RoundLeft } }
+        } ?: m.items.value
+        // The round first, then the most overdue case; three lines at most.
+        assertEquals(listOf(NextUpKind.CALL_ROUND, NextUpKind.CASE_DUE, NextUpKind.CASE_DUE), shown.map { it.line.kind })
+        val round = shown[0] as NextUpItem.RoundLeft
+        assertEquals(Triple(2, 3, "Sam"), Triple(round.left, round.total, round.next))
+        val cases = shown.filterIsInstance<NextUpItem.CaseDue>()
+        assertEquals(listOf("late" to true, "today" to false), cases.map { it.caseId to it.overdue })
+
+        // A duress unlock: case files and the round (its message is never shown there) go.
+        Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.DURESS, false))
+        val after = kinds(m) { NextUpKind.CASE_DUE !in it && NextUpKind.CALL_ROUND !in it }
+        assertTrue("$after", NextUpKind.CASE_DUE !in after && NextUpKind.CALL_ROUND !in after)
     }
 
     private companion object {

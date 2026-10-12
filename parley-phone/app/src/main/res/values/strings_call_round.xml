@@ -31,6 +31,11 @@
     <string name="round_later">Later</string>
     <string name="round_waiting">Not called yet</string>
     <string name="round_take_out">Take out of the round</string>
+    <!-- After "No answer": a snackbar offers to put them on To call (never done by itself). -->
+    <string name="round_no_answer_from">No answer from %1$s</string>
+    <string name="round_add_to_call">Add to To call</string>
+    <!-- Next up's line for an unfinished round: "Call round: 3 of 8 left · Next: Sam". -->
+    <string name="next_up_round">Call round: %1$d of %2$d left · Next: %3$s</string>
     <string name="round_everyone">Everyone in the round</string>
     <string name="round_score">%1$d of %2$d told</string>
     <plurals name="round_score_no_answer">
