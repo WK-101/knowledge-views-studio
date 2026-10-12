@@ -2,6 +2,11 @@ package app.parley.ui.calls
 
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
+import app.parley.common.PhoneEntry
+import app.parley.common.people.ContactRef
+import app.parley.common.people.PrivateDates
+import app.parley.data.vault.VaultRepository
+import app.parley.data.vault.VaultSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.CatchUp
 import app.parley.common.calls.NextUp
@@ -54,17 +59,30 @@ sealed interface NextUpItem {
     data class ChapterEnds(override val line: NextUpLine, val title: String, val lastDay: LocalDate) : NextUpItem
 }
 
-/** A contact a line is about: who to open, and the number its Call uses. */
-data class Person(val contactId: Long, val name: String, val number: String?)
+/** A contact a line is about: who to open ([ContactRef.navId]: negative for a private contact), and the number its Call uses. */
+data class Person(val contactId: Long, val name: String, val number: String?) {
+    /** A private contact: the line goes the moment private contacts may not show. */
+    val private: Boolean get() = contactId < 0
+}
+
+/** Whether this line is about a private contact. */
+private val NextUpItem.private: Boolean
+    get() = when (this) {
+        is NextUpItem.Dated -> person.private
+        is NextUpItem.GoodHours -> person.private
+        else -> false
+    }
 
 /**
  * Next up, the strip at the top of Recents ([NextUp]): the To call list's count ([ToCallModel]) with today's birthdays and
  * anniversaries, a Circle member due in their good hours and a Chapter ending this week. The slower sources are read
  * again every [REFRESH_MS], when the contacts or the calls change, and when the privacy view does (a duress unlock
- * hides the Circle's line, a relationship insight). Device contacts only: a private contact's dates and rhythm stay in
- * its sealed entry.
+ * hides the Circle's line, a relationship insight). Private contacts' birthdays (their caller-ID copy's dates) and
+ * Circle catch-ups join while private contacts may show ([PrivateDates.mayShow]); hiding or locking them, or a duress
+ * unlock, takes their lines away at once, before the slower sources are read again.
  */
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@Suppress("LongParameterList") // One store per kind of line it reads, passed in so tests use the real ones.
 class NextUpModel(
     scope: CoroutineScope,
     toCall: ToCallModel,
@@ -75,7 +93,15 @@ class NextUpModel(
     chapters: StateFlow<Map<String, Chapter>>,
     privacy: StateFlow<PrivacyView>,
     private val countryIso: String,
+    vault: VaultRepository,
 ) {
+    /** Private contacts may show here now: shown, not locked with "Lock private contacts", no duress unlock hiding them. */
+    private val privateOpen: Flow<Boolean> = combine(privacy, vault.lock.lockedByPerson) { p, locked -> PrivateDates.mayShow(p, locked) }
+
+    /** The listed private contacts while they may show, else none. */
+    private val privatePeople: Flow<List<VaultSummary>> =
+        combine(privateOpen, vault.contacts) { open, list -> if (open) list.filterNot { it.archived } else emptyList() }
+
     private val ticks: Flow<Long> = flow {
         while (true) {
             emit(System.currentTimeMillis())
@@ -83,17 +109,27 @@ class NextUpModel(
         }
     }
 
-    private data class Sources(val calls: List<CallEntry>?, val contacts: List<ContactSummary>?, val insights: Boolean, val tick: Long)
+    private data class Sources(
+        val calls: List<CallEntry>?,
+        val contacts: List<ContactSummary>?,
+        val insights: Boolean,
+        val tick: Long,
+        val privates: List<VaultSummary> = emptyList(),
+    )
 
     private val candidates: Flow<List<NextUpItem>> =
-        combine(calls.debounce(CALLS_DEBOUNCE_MS), contacts.contacts, privacy, ticks) { cl, ct, p, t -> Sources(cl, ct, p.insightsShown, t) }
+        combine(calls.debounce(CALLS_DEBOUNCE_MS), contacts.contacts, privacy, privatePeople, ticks) { cl, ct, p, pv, t ->
+            Sources(cl, ct, p.insightsShown, t, pv)
+        }
             .combine(chapters) { s, ch -> s to ch }
             .combine(toCallState) { (s, ch), state -> Triple(s, ch, state) }
             .mapLatest { (s, ch, state) -> read(s, ch, state) }
             .flowOn(Dispatchers.IO)
 
     /** The lines, at most [NextUp.MAX_LINES], best first; empty when nothing is due. */
-    val items: StateFlow<List<NextUpItem>> = combine(toCall.rows, candidates) { rows, found ->
+    val items: StateFlow<List<NextUpItem>> = combine(toCall.rows, candidates, privateOpen) { rows, all, open ->
+        // Private lines go the moment private contacts may not show, not at the next read.
+        val found = if (open) all else all.filterNot { it.private }
         val now = System.currentTimeMillis()
         val count = ToCall.count(rows.map { it.entry }, now)
         val keys = rows.map { it.entry.key }.toSet()
@@ -111,12 +147,15 @@ class NextUpModel(
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
 
     private suspend fun read(s: Sources, chapters: Map<String, Chapter>, state: ToCallState): List<NextUpItem> {
-        val people = s.contacts ?: return emptyList()
+        val device = s.contacts ?: return emptyList()
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault()
-        val byId = people.associateBy { it.id }
+        val byId = device.associateBy { it.id }
+        // Private contacts as rows of their own, under their navigation id and Parley key (the Circle keeps them so).
+        val people = device + s.privates.map { v -> asPerson(v) }
+        val today = LocalDate.now(zone)
         val out = ArrayList<NextUpItem>()
-        out += occasions(byId, LocalDate.now(zone))
+        out += (occasions(byId, today) + privateOccasions(s.privates, today)).sortedBy { it.occasion.ordinal }
         // The Circle's line is a relationship insight: a duress unlock hides it.
         if (s.insights && s.calls != null) out += goodHours(people, s.calls, state, now)
         chapters.filterValues { NextUp.chapterEndingSoon(it.endsAt, now) }.entries.sortedBy { it.value.endsAt }.forEach { (title, ch) ->
@@ -126,13 +165,26 @@ class NextUpModel(
     }
 
     /** Today's birthdays first, then anniversaries; the dead are never called out. */
-    private suspend fun occasions(byId: Map<Long, ContactSummary>, today: LocalDate): List<NextUpItem> {
+    private suspend fun occasions(byId: Map<Long, ContactSummary>, today: LocalDate): List<NextUpItem.Dated> {
         val events = suspendRunCatching { contacts.events() }.getOrDefault(emptyList()).filter { it.contactId in byId }
         return events.groupBy { it.contactId }.mapNotNull { (id, list) ->
             val occasion = Occasions.today(list.map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }, today, IcuCalendars) ?: return@mapNotNull null
             val ct = byId.getValue(id)
             NextUpItem.Dated(NextUpLine(NextUpKind.OCCASION, ct.lookupKey), Person(id, ct.displayName, ct.primaryNumber), occasion)
         }.sortedBy { it.occasion.ordinal }
+    }
+
+    /** Private contacts' birthdays and anniversaries today, from the dates their caller-ID copy keeps. */
+    private fun privateOccasions(privates: List<VaultSummary>, today: LocalDate): List<NextUpItem.Dated> = privates.mapNotNull { v ->
+        val occasion = Occasions.today(v.dates.map { Occasions.Dated(it.type, it.label, it.date, it.calendar) }, today, IcuCalendars) ?: return@mapNotNull null
+        val ref = ContactRef.Private(v.id)
+        NextUpItem.Dated(NextUpLine(NextUpKind.OCCASION, ref.parleyKey("")), Person(ref.navId, v.name, v.numbers.firstOrNull()), occasion)
+    }
+
+    /** A private contact as the Circle and the good hours read a contact. */
+    private fun asPerson(v: VaultSummary): ContactSummary {
+        val ref = ContactRef.Private(v.id)
+        return ContactSummary(ref.navId, ref.parleyKey(""), v.name, null, v.starred, v.numbers.map { PhoneEntry(it, PHONE_TYPE_MOBILE, null) })
     }
 
     /**
@@ -166,5 +218,8 @@ class NextUpModel(
         const val REFRESH_MS = 15 * 60_000L
         const val CALLS_DEBOUNCE_MS = 2_000L
         const val STOP_AFTER_MS = 5_000L
+
+        /** A private contact's numbers carry no type in its listing: read as mobile, as elsewhere. */
+        const val PHONE_TYPE_MOBILE = 2
     }
 }

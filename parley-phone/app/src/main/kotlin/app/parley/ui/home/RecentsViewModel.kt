@@ -243,7 +243,7 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
 
     /** Next up: the To call strip with today's dates, a Circle member in their good hours and Chapters ending. */
     val nextUp: NextUpModel by lazy {
-        NextUpModel(viewModelScope, toCall, c.toCall.state, allCalls, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, countryIso)
+        NextUpModel(viewModelScope, toCall, c.toCall.state, allCalls, c.contacts, c.circle, c.extras.chapters, c.privacy.flow, countryIso, c.vault)
     }
 
     /**

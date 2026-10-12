@@ -108,6 +108,8 @@ class ParleyApp : Application() {
                 suspendRunCatching { container.vault.upgradeDetailKey() }
                 // Entries from before the caller-ID copy kept the star, labels, ringtone and voicemail get them now.
                 suspendRunCatching { container.vault.migrateCallerChoices() }
+                // And their dates, for a birthday today on Next up and the call screen (CallerIdCopy.C_DATES).
+                suspendRunCatching { container.vault.migrateDates() }
                 // Entries sealed as one blob are split, so their pages open only the small part (VaultCrypto.sealDetailParts).
                 suspendRunCatching { container.vault.splitDetails() }
             }
