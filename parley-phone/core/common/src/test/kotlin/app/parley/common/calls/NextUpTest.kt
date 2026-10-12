@@ -48,6 +48,17 @@ class NextUpTest {
         assertEquals(listOf(NextUpKind.CALL_ROUND, NextUpKind.CASE_DUE, NextUpKind.GOOD_TIME), lines.map { it.kind })
     }
 
+    @Test fun many_cases_due_take_one_line_and_leave_room_for_the_rest() {
+        val cases = (1..5).map { NextUpLine(NextUpKind.CASE_DUE, "c$it") }
+        val candidates = cases + good("marco", "k9")
+        val lines = NextUp.lines(ToCallCount(0, 2), emptySet(), candidates)
+        // The first (longest overdue) case only, then the Circle's suggestion and the way into To call.
+        assertEquals(listOf(NextUpKind.CASE_DUE, NextUpKind.GOOD_TIME, NextUpKind.LATER), lines.map { it.kind })
+        assertEquals("c1", lines.first().id)
+        assertEquals(4, NextUp.moreCases(candidates))
+        assertEquals(0, NextUp.moreCases(listOf(cases.first())))
+    }
+
     @Test fun items_only_for_later_keep_a_way_into_the_list_last() {
         val lines = NextUp.lines(ToCallCount(0, 2), setOf("k1"), listOf(chapter("Exams")))
         assertEquals(listOf(NextUpKind.CHAPTER, NextUpKind.LATER), lines.map { it.kind })

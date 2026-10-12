@@ -175,14 +175,14 @@ class NextUpModelTest {
         c.callRound.update { CallRounds.mark(CallRounds.start("The party moved to Sunday", people, 1L)!!, "a", RoundMark.REACHED) }
         val m = model(emptyList())
         val shown = withTimeoutOrNull(TIMEOUT_MS) {
-            m.items.first { items -> items.count { it is NextUpItem.CaseDue } == 2 && items.any { it is NextUpItem.RoundLeft } }
+            m.items.first { items -> items.any { it is NextUpItem.CaseDue && it.more == 1 } && items.any { it is NextUpItem.RoundLeft } }
         } ?: m.items.value
-        // The round first, then the most overdue case; three lines at most.
-        assertEquals(listOf(NextUpKind.CALL_ROUND, NextUpKind.CASE_DUE, NextUpKind.CASE_DUE), shown.map { it.line.kind })
+        // The round first, then the most overdue case as the one case line, saying one more is due.
+        assertEquals(listOf(NextUpKind.CALL_ROUND, NextUpKind.CASE_DUE), shown.map { it.line.kind })
         val round = shown[0] as NextUpItem.RoundLeft
         assertEquals(Triple(2, 3, "Sam"), Triple(round.left, round.total, round.next))
         val cases = shown.filterIsInstance<NextUpItem.CaseDue>()
-        assertEquals(listOf("late" to true, "today" to false), cases.map { it.caseId to it.overdue })
+        assertEquals(listOf(Triple("late", true, 1)), cases.map { Triple(it.caseId, it.overdue, it.more) })
 
         // A duress unlock: case files and the round (its message is never shown there) go.
         Concealment.move(DuressMachine.pinEntered(Concealment.state.value, PinVerdict.DURESS, false))

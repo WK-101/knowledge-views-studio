@@ -226,6 +226,9 @@ class FavoritesWidgetConfigActivity : LockedActivity() {
         // The settings can be skipped: a launcher that asks when placing (Android 10 and 11 always do) takes a
         // cancelled result as "don't add the widget", so Back must still answer OK. The widget then calls.
         setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
+        // While a widget is being placed the system sends it no update, so it is drawn now (as it shows until Done):
+        // Back, or Parley's lock, then never leaves an empty widget behind.
+        if (savedInstanceState == null) PeopleWidget.drawOnPlacing(applicationContext)
         setContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
             val loaded by container.settings.loaded.collectAsStateWithLifecycle()

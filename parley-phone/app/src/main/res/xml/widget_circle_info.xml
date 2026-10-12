@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The Circle widget placed before the People widget: kept so those keep working, drawn as a People widget in
-     Circle mode. Parley takes its entry out of the widget list once none is placed. -->
+     Circle mode. Hidden from the widget list (hide_from_picker, Android 13 on; older versions still list it). Never
+     disabled at runtime: Android removes the placed widgets of a disabled provider. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/circle_widget_description"
     android:initialLayout="@layout/widget_circle"
@@ -13,4 +14,5 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="hide_from_picker" />

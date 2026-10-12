@@ -50,6 +50,10 @@ object NextUp {
     const val CALL_ROUND_ID = "call-round"
     const val LATER_ID = "later"
 
+    /** How many cases due there are beyond the one line Next up gives them, among [candidates]. */
+    fun moreCases(candidates: List<NextUpLine>): Int =
+        (candidates.filter { it.kind == NextUpKind.CASE_DUE }.distinctBy { it.id }.size - 1).coerceAtLeast(0)
+
     /**
      * The lines to show. [toCallKeys] are the line keys of every To call item and owed missed call (due or later): a
      * person already on the list isn't offered again as a good time to call (a catch-up date you set waits there), nor
@@ -64,6 +68,11 @@ object NextUp {
             .filterNot { it.kind == NextUpKind.GOOD_TIME && (it.id in occasionIds || it.lineKeys.any(toCallKeys::contains)) }
             .distinctBy { it.kind to it.id }
             .sortedBy { it.kind.ordinal }
+            .let { ranked ->
+                // One case file line (the longest overdue; the app says how many more): cases never push the rest out.
+                val firstCase = ranked.firstOrNull { it.kind == NextUpKind.CASE_DUE }
+                ranked.filter { it.kind != NextUpKind.CASE_DUE || it === firstCase }
+            }
         if (toCall.due == 0 && toCall.later > 0) out += NextUpLine(NextUpKind.LATER, LATER_ID)
         return out.take(MAX_LINES)
     }

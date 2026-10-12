@@ -39,6 +39,7 @@ import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 
 class ParleyApp : Application() {
     lateinit var container: DataContainer
@@ -151,12 +152,15 @@ class ParleyApp : Application() {
         )
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
         // off the main thread.
+        // Each start traces under its own cookie: two overlapping warm-ups (as in tests, where an earlier
+        // application's scope still runs) are two sections, not one begun twice.
+        val warmCookie = nextWarmCookie()
         container.scope.launch(Dispatchers.IO) {
-            Trace.beginAsyncSection(TRACE_WARM, 0)
+            Trace.beginAsyncSection(TRACE_WARM, warmCookie)
             try {
                 BlockingSetup.warm(this@ParleyApp, container)
             } finally {
-                Trace.endAsyncSection(TRACE_WARM, 0)
+                Trace.endAsyncSection(TRACE_WARM, warmCookie)
             }
             // A private contact's call the last process couldn't take out of the system call log goes first.
             catching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
@@ -197,5 +201,12 @@ class ParleyApp : Application() {
 }
 
 private const val TRACE_WARM = "Parley.warmCallPath"
+
+/** The warm-up trace sections' cookies, one per application start. */
+private val warmCookies = AtomicInteger()
+
+internal fun nextWarmCookie(): Int = warmCookies.incrementAndGet()
+
+internal const val TRACE_WARM_SECTION = TRACE_WARM
 
 val Context.container: DataContainer get() = (applicationContext as ParleyApp).container
