@@ -93,6 +93,9 @@ object RescueCall {
     private var ringSince = 0L
     private var answeredAt = 0L
 
+    /** Told once how the call up now ended: answered or not (a check-in's "I'm fine"). */
+    private var onEnd: ((answered: Boolean) -> Unit)? = null
+
     private val telecomInCall: (Context) -> Boolean = { c ->
         runCatching { c.getSystemService(TelecomManager::class.java)?.isInCall == true }.getOrDefault(false)
     }
@@ -114,12 +117,15 @@ object RescueCall {
     /**
      * Rings the rescue call from [who]. False, and nothing happens, while a real call is up. One already up is
      * replaced. The call screen opens through the full-screen notification, like a real call's (a heads-up while the
-     * phone is in use); directly when Android doesn't allow the full-screen alert.
+     * phone is in use); directly when Android doesn't allow the full-screen alert. [onEnd] hears once whether it was
+     * answered, when it ends, gives way to a real call or is replaced.
      */
-    fun start(context: Context, who: RescueCaller): Boolean {
+    fun start(context: Context, who: RescueCaller, onEnd: ((answered: Boolean) -> Unit)? = null): Boolean {
         val app = context.applicationContext
         if (!mayRing(app)) return false
+        report()
         stopAll(app)
+        this.onEnd = onEnd
         appContext = app
         caller = who
         val call = ringingUi(ID_PREFIX + (++counter), who, app)
@@ -152,6 +158,7 @@ object RescueCall {
         val s = _state.value ?: return
         val c = s.call ?: return
         val app = appContext
+        report()
         stopAll(app)
         val ended = c.copy(state = CallState.DISCONNECTED)
         _state.value = RescueState(null, ended, s.audio)
@@ -204,8 +211,16 @@ object RescueCall {
     /** A real call arrived: the rescue call goes at once, with no "Call ended", so the real call's screen takes over. */
     fun yieldToRealCall() {
         if (_state.value == null) return
+        report()
         stopAll(appContext)
         _state.value = null
+    }
+
+    /** Tells [onEnd], once, whether the call up now was answered. */
+    private fun report() {
+        val f = onEnd ?: return
+        onEnd = null
+        if (_state.value?.call != null) f(answeredAt > 0)
     }
 
     /** Ends the ringing, the sound, the notifications and the watch (the state is left to the caller). */
@@ -324,6 +339,7 @@ object RescueCall {
         stopAll(appContext)
         _state.value = null
         caller = null
+        onEnd = null
         proximity = null
         systemInCall = telecomInCall
     }

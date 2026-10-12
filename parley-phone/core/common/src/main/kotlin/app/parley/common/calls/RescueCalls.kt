@@ -19,9 +19,12 @@ enum class RescueWhen(val minutes: Int) {
 /**
  * One rescue call waiting to ring: who it shows ([name], and [number] when it is someone saved, looked up again as it
  * rings so it shows as their real call would) and when ([atMillis], wall clock). [id] tells it apart from an earlier
- * one, so a late alarm for a cancelled or replaced call rings nothing.
+ * one, so a late alarm for a cancelled or replaced call rings nothing. [helper] is a check-in's helper's number
+ * ([CheckIns]): set, an unanswered call offers to text or call them; null, it is a plain rescue call.
  */
-data class RescueRequest(val id: String, val name: String, val number: String?, val atMillis: Long)
+data class RescueRequest(val id: String, val name: String, val number: String?, val atMillis: Long, val helper: String? = null) {
+    val checkIn: Boolean get() = helper != null
+}
 
 /**
  * Rescue call: a believable incoming call on Parley's own call screen, to leave a situation. Nothing here is a real

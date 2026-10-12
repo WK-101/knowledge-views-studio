@@ -23,5 +23,5 @@ fun NavGraphBuilder.situationGraph(nav: NavController) {
     val back: () -> Unit = { nav.popBackStack() }
     val open: (Destination) -> Unit = { nav.navigate(it) }
     composable<SituationRoutes.Edit> { SituationEditScreen(appVm(), it.toRoute<SituationRoutes.Edit>().id, back, open) }
-    composable<SituationRoutes.RescueCall> { RescueCallScreen(appVm(), back) }
+    composable<SituationRoutes.RescueCall> { RescueCallScreen(appVm(), back, open) }
 }

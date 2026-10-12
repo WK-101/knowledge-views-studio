@@ -83,6 +83,10 @@ object NotificationIds {
     const val TAG_SITUATION = "situation"
     const val SITUATION_ID = 0
 
+    /** A check-in that went unanswered, offering to text or call a helper. */
+    const val TAG_CHECK_IN = "check_in"
+    const val CHECK_IN_ID = 0
+
     /** Once: the notes folder export that kept a folder up to date was replaced by Export contacts. */
     const val TAG_FOLDER_EXPORT = "folder_export"
     const val FOLDER_EXPORT_ID = 0
@@ -116,7 +120,8 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, TAG_SITUATION, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, TAG_JOBS, TAG_FOLDER_EXPORT, TAG_CHAPTERS, TAG_SITUATION, TAG_CHECK_IN, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP,
+        TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
@@ -157,6 +162,11 @@ object NotificationRequests {
 
     /** The alarm of a second rescue call waiting beside the first ([app.parley.common.calls.RescuePlan.Slot]). */
     const val RESCUE_ALARM_SECOND = 235
+
+    /** A check-in that went unanswered: opens Rescue call's screen, texts the helper, calls the helper. */
+    const val CHECK_IN_OPEN = 236
+    const val CHECK_IN_TEXT = 237
+    const val CHECK_IN_CALL = 238
 
     const val MISSED_OPEN = 300
     const val MISSED_CLEAR = 301
@@ -208,7 +218,8 @@ object NotificationRequests {
         NotificationIds.Range("call.dismiss", CALL_DISMISS, 100),
         NotificationIds.Range("call.ask-decline", CALL_ASK_DECLINE, 20),
         NotificationIds.Range("pip", PIP_MUTE, 3),
-        NotificationIds.Range("rescue", RESCUE_OPEN, 5),
+        NotificationIds.Range("rescue", RESCUE_OPEN, 6),
+        NotificationIds.Range("check-in", CHECK_IN_OPEN, 3),
         NotificationIds.Range("missed", MISSED_OPEN, 3),
         NotificationIds.Range("missed.dismiss", MISSED_DISMISS, MissedCalls.MAX_CHILDREN),
         NotificationIds.Range("missed.call-back", MISSED_CALL_BACK, MissedCalls.MAX_CHILDREN),
@@ -260,6 +271,9 @@ object NotificationChannels {
     /** "Meeting is on": silent and ongoing while a Situation lets only some people ring. */
     const val SITUATION = "situation_on_v1"
 
+    /** A check-in went unanswered: it alerts, since someone asked to be reminded to reach their helper. */
+    const val CHECK_IN = "check_in_v1"
+
     /**
      * The channel group "Reminders" (Settings › Reminders lists the same kinds). Only the group is new: the channels
      * keep their ids, so whatever someone set for them stays. Missed calls stay with calls, temporary contacts with
@@ -275,6 +289,6 @@ object NotificationChannels {
     val all: List<String> = listOf(
         INCOMING_CALLS, ONGOING_CALLS, SILENCED_CALLS, MISSED_CALLS, SCREEN_BLOCKED, SCREEN_REPORTED, SCREEN_LIKELY_SPAM,
         SCREEN_BUSY_REPLY, PLAN, REMINDERS, HOUSEKEEPING, BACKUPS, PRIVATE_NAMES, TO_CALL,
-        CONTACTS_SAFETY, BACKUP_REMINDER, JOBS, SITUATION,
+        CONTACTS_SAFETY, BACKUP_REMINDER, JOBS, SITUATION, CHECK_IN,
     )
 }

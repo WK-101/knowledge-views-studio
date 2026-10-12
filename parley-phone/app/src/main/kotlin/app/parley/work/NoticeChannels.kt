@@ -34,6 +34,10 @@ object NoticeChannels {
         NotificationChannels.SITUATION to Spec(
             R.string.label_situation_on, NotificationManager.IMPORTANCE_LOW, badge = false, description = R.string.sit_notice_channel_desc,
         ),
+        // Someone set it so they would be reminded to reach their helper: it alerts.
+        NotificationChannels.CHECK_IN to Spec(
+            R.string.checkin_channel, NotificationManager.IMPORTANCE_HIGH, badge = false, description = R.string.checkin_channel_desc,
+        ),
     )
 
     /** Creates (or updates) the channel [id] (and its group for a reminder channel). */

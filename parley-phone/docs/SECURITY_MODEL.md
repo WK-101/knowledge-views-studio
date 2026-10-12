@@ -34,7 +34,7 @@ Parley whenever the phone is on, including while it is locked.
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
-| Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots, who a rescue call shows (name, number, sound) | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
+| Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots, who a rescue call shows (name, number, sound) and a check-in's helper (number) | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
 | Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`), a software key wrapped by a Keystore key; hints and the archive's per-number tally: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
@@ -352,6 +352,11 @@ in History & undo, private names in notifications and on the call screen. And, b
   choices; what is chosen during the hiding isn't remembered. A call that was waiting still rings at its time, with the
   caller and sound it was set with: nothing set during the hiding replaces or cancels it. A call set for later during
   the hiding waits beside it, and is the only one the screen shows and can cancel then; each rings as it was set.
+  A check-in (Rescue call's second mode) is hidden the same way and still rings; unanswered, its notice offers the
+  helper, a private one by number only. The lock screen's version says only "Check-in", with "Text helper" and
+  "Call helper". Nothing is sent or dialled without a tap: Text opens the messages app with the words ready.
+- **Situation suggestions**: no card shows. They are worked out on the phone from the calls and the Bluetooth device
+  calls were answered on (both already kept); only when a card was last answered and the kinds refused are stored.
 - **Case files**: none shows, and a backup made during the hiding carries none (their notes, promises and reference
   numbers). Tools › Case files is empty and offers no "Stop keeping case files for all", and a case's status can't be
   set (its page shows nothing).

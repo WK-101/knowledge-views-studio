@@ -12,6 +12,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import app.parley.common.NotificationRequests
 import app.parley.common.calls.CallerHaptics
+import app.parley.common.calls.CheckIns
 import app.parley.common.calls.RescuePlan
 import app.parley.common.calls.RescueRequest
 import app.parley.common.calls.RescueWhen
@@ -64,6 +65,9 @@ import java.util.UUID
  * remembered. A call that was waiting still rings at its time (someone may be counting on it) and is never shown,
  * replaced or cancelled while hiding: a call set then for later waits beside it ([RescuePlan.Slot]), and the screen
  * shows and cancels only that one. Each call rings as it was set, with its own sound.
+ *
+ * Check-in is the same call in its second mode ([CheckIns]): it keeps the helper's number with the call waiting
+ * (sealed), and when the call ends unanswered, or can't ring, [CheckInNotice] offers one tap to text or call them.
  */
 object RescueCalls {
     private const val PREFS = "rescue_call"
@@ -72,6 +76,10 @@ object RescueCalls {
     private const val K_NAME = "pending_name"
     private const val K_NUMBER = "pending_number"
     private const val K_BOOT = "pending_boot"
+
+    /** A check-in: the helper's number (sealed), and that it is one (kept even when the number couldn't be sealed). */
+    private const val K_HELPER = "pending_helper"
+    private const val K_CHECK_IN = "pending_check_in"
 
     /** The sound a call waiting rings with, kept with it; [K_OWN_CLIP] says it was (a call set before then has none). */
     private const val K_PENDING_CLIP = "pending_clip"
@@ -82,19 +90,24 @@ object RescueCalls {
     private const val K_LAST_MINUTE = "last_minute"
     private const val K_CLIP = "clip"
     private const val K_CLIP_NAME = "clip_name"
+    private const val K_LAST_CHECK_IN = "last_check_in"
+    private const val K_LAST_HELPER = "last_helper"
 
     /** The second call's keys are the first's with this in front. */
     private const val SECOND_PREFIX = "second_"
 
     /** What says who calls, or what is heard: sealed at rest. */
-    private val SEALED = listOf(K_NAME, K_NUMBER, K_PENDING_CLIP).flatMap { listOf(it, SECOND_PREFIX + it) } +
-        listOf(K_LAST_NAME, K_LAST_NUMBER, K_CLIP, K_CLIP_NAME)
+    private val SEALED = listOf(K_NAME, K_NUMBER, K_PENDING_CLIP, K_HELPER).flatMap { listOf(it, SECOND_PREFIX + it) } +
+        listOf(K_LAST_NAME, K_LAST_NUMBER, K_CLIP, K_CLIP_NAME, K_LAST_HELPER)
     internal const val EXTRA_ID = "rescue_id"
 
     /** A wake lock is held at most this much past the time, should ringing take a moment. */
     private const val AWAKE_GRACE_MS = 60_000L
 
-    /** The screen's choices: who calls (a name, and the saved person's number), when, and the sound once answered. */
+    /**
+     * The screen's choices: who calls (a name, and the saved person's number), when, and the sound once answered; and
+     * whether it is a check-in, with the helper (their number) it offers when unanswered.
+     */
     data class Choices(
         val name: String = "",
         val number: String? = null,
@@ -102,6 +115,8 @@ object RescueCalls {
         val minuteOfDay: Int = DEFAULT_MINUTE,
         val clip: String? = null,
         val clipName: String? = null,
+        val checkIn: Boolean = false,
+        val helper: String? = null,
     )
 
     /** What setting it up did. */
@@ -160,6 +175,14 @@ object RescueCalls {
     @VisibleForTesting
     internal var hiding: () -> Boolean = { Privacy.duressOnly().hiding }
 
+    /** Who a check-in offers ([CheckIns.helperFor]), as it may be named now; tests replace it. */
+    @VisibleForTesting
+    internal var helperFor: suspend (Context, String) -> CheckInHelper? = { app, chosen -> withContext(Dispatchers.IO) { offered(app.container, chosen) } }
+
+    /** Shows that a check-in went unanswered; tests replace it. */
+    @VisibleForTesting
+    internal var notice: (Context, CheckInHelper?) -> Unit = CheckInNotice::post
+
     /** Seals a value with the small-records key; null when it can't be sealed right now. Tests replace it. */
     @VisibleForTesting
     internal var seal: (Context, String) -> String? = { app, text -> RecordCrypto.get(app).let { c -> c.sealText(text)?.takeIf(c::isSealed) } }
@@ -206,7 +229,9 @@ object RescueCalls {
         val p = prefs(app)
         all.forEach { w ->
             val r = p.getString(w.key(K_ID), null)?.let {
-                RescueRequest(it, p.opened(app, w.key(K_NAME)).orEmpty(), p.opened(app, w.key(K_NUMBER)), p.getLong(w.key(K_AT), 0))
+                // A check-in whose helper couldn't be sealed offers the first helper.
+                val helper = if (p.getBoolean(w.key(K_CHECK_IN), false)) p.opened(app, w.key(K_HELPER)).orEmpty() else null
+                RescueRequest(it, p.opened(app, w.key(K_NAME)).orEmpty(), p.opened(app, w.key(K_NUMBER)), p.getLong(w.key(K_AT), 0), helper)
             }
             when {
                 r == null -> Unit
@@ -276,6 +301,8 @@ object RescueCalls {
             minuteOfDay = p.getInt(K_LAST_MINUTE, DEFAULT_MINUTE),
             clip = p.opened(app, K_CLIP),
             clipName = p.opened(app, K_CLIP_NAME),
+            checkIn = p.getBoolean(K_LAST_CHECK_IN, false),
+            helper = p.opened(app, K_LAST_HELPER),
         )
     }
 
@@ -290,6 +317,8 @@ object RescueCalls {
             putInt(K_LAST_MINUTE, c.minuteOfDay)
             putSealed(app, K_CLIP, c.clip)
             putSealed(app, K_CLIP_NAME, c.clipName)
+            putBoolean(K_LAST_CHECK_IN, c.checkIn)
+            putSealed(app, K_LAST_HELPER, c.helper)
         }
     }
 
@@ -300,8 +329,9 @@ object RescueCalls {
      * Rings now, or sets the call to ring later, replacing what [RescuePlan.replaces] says: outside a duress session
      * every call waiting, while hiding only one set later while hiding (the hidden call keeps waiting as it was).
      */
-    suspend fun set(context: Context, c: Choices, nowMillis: Long = clock()): Outcome {
+    suspend fun set(context: Context, choices: Choices, nowMillis: Long = clock()): Outcome {
         val app = context.applicationContext
+        val c = if (choices.checkIn) choices.copy(whenChoice = CheckIns.whenFor(choices.whenChoice)) else choices
         val now = c.whenChoice == RescueWhen.NOW
         val hidingNow = hiding()
         withContext(io) {
@@ -310,7 +340,8 @@ object RescueCalls {
             RescuePlan.replaces(hidingNow, now).forEach { cancel(app, of(it)) }
         }
         val name = RescuePlan.shownName(c.name, null).orEmpty()
-        val request = RescueRequest(UUID.randomUUID().toString(), name, c.number, RescuePlan.fireAt(c.whenChoice, nowMillis, c.minuteOfDay))
+        val helper = if (c.checkIn) c.helper.orEmpty() else null
+        val request = RescueRequest(UUID.randomUUID().toString(), name, c.number, RescuePlan.fireAt(c.whenChoice, nowMillis, c.minuteOfDay), helper)
         if (now) return if (ring(app, request, c.clip)) Outcome.RINGING else Outcome.REAL_CALL
         val w = of(RescuePlan.slotFor(hidingNow))
         withContext(io) { store(app, w, request, c.clip) }
@@ -355,17 +386,54 @@ object RescueCalls {
                     }
                 }
                 RescuePlan.Due.EARLY -> p?.let { setAlarm(app, w, it) }
-                RescuePlan.Due.STALE -> clear(app, w)
+                RescuePlan.Due.STALE -> {
+                    clear(app, w)
+                    // A check-in that couldn't ring in time was never answered either.
+                    p?.helper?.let { unanswered(app, it) }
+                }
                 RescuePlan.Due.GONE -> Unit
             }
             Unit
         }
     }
 
-    /** Rings [request] now with [clip] (the sound chosen with it); false when a real call is up (it always wins, and nothing rings). */
+    /**
+     * Rings [request] now with [clip] (the sound chosen with it); false when a real call is up (it always wins, and
+     * nothing rings). A check-in that ends unanswered, or that a real call keeps from ringing, offers its helper.
+     */
     private suspend fun ring(app: Context, request: RescueRequest, clip: String?): Boolean {
         val who = lookUp(app, request, clip)
-        return withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who) }
+        val helper = request.helper
+        val onEnd: ((Boolean) -> Unit)? = helper?.let { h -> { answered -> if (CheckIns.asksForHelp(answered)) scope.launch { unanswered(app, h) } } }
+        val rang = withContext(Dispatchers.Main.immediate) { RescueCall.start(app, who, onEnd) }
+        if (!rang && helper != null) unanswered(app, helper)
+        return rang
+    }
+
+    /** A check-in wasn't answered: offers its helper ([chosen], or the first when that one is gone). */
+    private suspend fun unanswered(app: Context, chosen: String) {
+        val helper = suspendRunCatching { helperFor(app, chosen) }.getOrNull()
+        withContext(Dispatchers.Main.immediate) { notice(app, helper) }
+    }
+
+    /**
+     * The helper offered: [chosen] if still a helper, else the first; a number no longer a helper is still offered
+     * (it was chosen). A private helper shows as their number while private contacts are hidden or a duress unlock hides
+     * things.
+     */
+    private suspend fun offered(c: DataContainer, chosen: String): CheckInHelper? {
+        val helpers = catching { c.familySafety.helpers() }.getOrNull().orEmpty()
+        if (chosen.isNotBlank() && helpers.none { it.number == chosen }) return CheckInHelper(chosen, chosen)
+        val h = CheckIns.helperFor(helpers, chosen) ?: return null
+        val hide = c.privacy.now().privateHidden || hiding()
+        return CheckInHelper(CheckIns.shownName(h, hide), h.number)
+    }
+
+    /** The helpers a check-in can offer, as the screen may name them (off the main thread). */
+    suspend fun helpers(context: Context): List<CheckInHelper> = withContext(Dispatchers.IO) {
+        val c = context.applicationContext.container
+        val hide = c.privacy.now().privateHidden || hiding()
+        catching { c.familySafety.helpers() }.getOrNull().orEmpty().map { CheckInHelper(CheckIns.shownName(it, hide), it.number) }
     }
 
     /**
@@ -405,6 +473,8 @@ object RescueCalls {
             putSealed(app, w.key(K_NUMBER), r.number)
             putSealed(app, w.key(K_PENDING_CLIP), clip)
             putBoolean(w.key(K_OWN_CLIP), true)
+            putBoolean(w.key(K_CHECK_IN), r.checkIn)
+            putSealed(app, w.key(K_HELPER), r.helper)
             putInt(w.key(K_BOOT), bootCount(app))
         }
         w.clip = clip
@@ -416,7 +486,7 @@ object RescueCalls {
         w.timer = null
         releaseWakeLock(w)
         prefs(app).edit {
-            listOf(K_ID, K_AT, K_NAME, K_NUMBER, K_PENDING_CLIP, K_OWN_CLIP, K_BOOT).forEach { remove(w.key(it)) }
+            listOf(K_ID, K_AT, K_NAME, K_NUMBER, K_PENDING_CLIP, K_OWN_CLIP, K_BOOT, K_CHECK_IN, K_HELPER).forEach { remove(w.key(it)) }
         }
         w.clip = null
         w.request.value = null
