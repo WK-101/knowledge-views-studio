@@ -311,8 +311,7 @@ fun HomeScreen(
                     // as a navigation bar's destinations should: Contacts → Recents → Contacts comes back where it was.
                     val tabStates = rememberSaveableStateHolder()
                     val through = fadeThrough()
-                    AnimatedContent(tab, transitionSpec = { through }, label = "tab") { t ->
-                      tabStates.SaveableStateProvider(t.name) {
+                    val tabContent: @Composable (StartTab) -> Unit = { t ->
                         when (t) {
                             StartTab.FAVORITES -> Centred(window.contentMaxDp) { FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" }) }
                             StartTab.RECENTS -> HomeListDetail(vm, t, window, open, backEnabled = paneBack && !(layout.keypadDocked && dockOpen)) { o ->
@@ -325,8 +324,8 @@ fun HomeScreen(
                             StartTab.KEYPAD -> Centred(window.keypadMaxDp) { KeypadTab(vm, open, keypadQuery.takeIf { searching }) }
                             StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
                         }
-                      }
                     }
+                    AnimatedContent(tab, transitionSpec = { through }, label = "tab") { t -> tabStates.SaveableStateProvider(t.name) { tabContent(t) } }
                 }
             }
         }

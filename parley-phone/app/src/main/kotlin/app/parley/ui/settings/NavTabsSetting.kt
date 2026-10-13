@@ -112,7 +112,7 @@ fun NavTabsEditor(
                     }
                     Switch(shown, onCheckedChange = null, enabled = !shown || tabs.canHide(t), modifier = Modifier.padding(end = Spacing.s))
                 }
-                if (i < order.size - 1) HorizontalDivider(Modifier.padding(start = 64.dp, end = Spacing.l), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                if (i < order.size - 1) HorizontalDivider(Modifier.padding(start = 64.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
     }

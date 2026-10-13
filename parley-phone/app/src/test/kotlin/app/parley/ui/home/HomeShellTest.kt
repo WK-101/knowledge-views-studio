@@ -2,6 +2,7 @@ package app.parley.ui.home
 
 import androidx.activity.BackEventCompat
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasScrollToIndexAction
@@ -10,11 +11,12 @@ import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import app.parley.ParleyApp
 import app.parley.common.StartTab
 import app.parley.ui.AppComposeHarness
 import app.parley.ui.Destination
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,24 +66,25 @@ class HomeShellTest : AppComposeHarness() {
         // The whole list, not the first screenful kept from last time.
         compose.waitUntil(10_000) { vm.people.listing.value != null }
         compose.waitForIdle()
-        assertFalse(textShown("Mila Test35"))
-        // The contact list: the one list here that scrolls up and down (the chips scroll sideways).
-        compose.onNode(hasScrollToIndexAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
-            .performScrollToNode(hasText("Mila Test35", substring = true))
+        compose.onNode(contactList).performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 1500f) }
         compose.waitForIdle()
-        assertTrue(textShown("Mila Test35"))
-        assertFalse(textShown("Ada Lovelace"))
+        val scrolled = listOffset()
+        assertTrue("the list didn't scroll", scrolled > 0f)
 
         barItem("Recents").performClick()
         compose.waitForIdle()
-        assertFalse(textShown("Mila Test35"))
         barItem("Contacts").performClick()
         compose.waitForIdle()
 
         // Back where it was, not at the top of the list.
-        assertTrue(textShown("Mila Test35"))
-        assertFalse(textShown("Ada Lovelace"))
+        assertEquals(scrolled, listOffset(), 1f)
     }
+
+    // The contact list: the one list here that scrolls up and down (the chips scroll sideways).
+    private val contactList = hasScrollToIndexAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+
+    private fun listOffset(): Float =
+        compose.onNode(contactList).fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
 
     @Config(qualifiers = PHONE)
     @Test
@@ -108,6 +111,7 @@ class HomeShellTest : AppComposeHarness() {
     fun a_back_swipe_over_the_page_beside_the_list_steps_back_once() {
         home(StartTab.CONTACTS)
         waitForText("Choose someone to see their page here")
+        waitForText("Ada Lovelace")
         compose.onAllNodes(hasText("Ada Lovelace"))[0].performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty() }
 

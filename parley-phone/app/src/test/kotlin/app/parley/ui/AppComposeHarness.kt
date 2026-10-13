@@ -69,15 +69,15 @@ abstract class AppComposeHarness {
         )
         val c = app.container
         runBlocking {
-            val ada = c.contacts.save(null, ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, "+44 20 7946 0000", Phone.TYPE_MOBILE))), null, null, false)!!
+            val ada = c.contacts.save(null, person("Ada", "Lovelace", "+44 20 7946 0000"), null, null, false)!!
             adaId = ada.contactId
             c.contacts.setStarred(ada.contactId, true)
-            val bob = c.contacts.save(null, ContactDetails(given = "Bob", family = "Babbage", phones = listOf(DataItem(null, "+44 20 7946 0001", Phone.TYPE_MOBILE))), null, null, false)!!
+            val bob = c.contacts.save(null, person("Bob", "Babbage", "+44 20 7946 0001"), null, null, false)!!
             c.contacts.setStarred(bob.contactId, true)
             c.vault.save(null, ContactDetails(given = "Grace", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE))))
             repeat(extraContacts) { i ->
                 val n = "%02d".format(i + 1)
-                c.contacts.save(null, ContactDetails(given = "Mila", family = "Test$n", phones = listOf(DataItem(null, "+44 20 7946 1$n", Phone.TYPE_MOBILE))), null, null, false)
+                c.contacts.save(null, person("Mila", "Test$n", "+44 20 7946 1$n"), null, null, false)
             }
         }
         app.contentResolver.insert(
@@ -93,6 +93,9 @@ abstract class AppComposeHarness {
         scenario = ActivityScenario.launch(ComponentActivity::class.java)
         scenario.onActivity { activity = it }
     }
+
+    private fun person(given: String, family: String, number: String) =
+        ContactDetails(given = given, family = family, phones = listOf(DataItem(null, number, Phone.TYPE_MOBILE)))
 
     @After fun tearDownApp() {
         scenario.close()

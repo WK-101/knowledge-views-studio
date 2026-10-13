@@ -222,7 +222,8 @@ private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query:
                                     val to = order.indexOfFirst { "f" + it.id == target.key }
                                     if (from >= 0 && to >= 0) {
                                         // Keep the tile under the finger after it moves to its new cell.
-                                        reorder.movedTo(dragOffset + Offset((me.offset.x - target.offset.x).toFloat(), (me.offset.y - target.offset.y).toFloat()))
+                                        val shift = Offset((me.offset.x - target.offset.x).toFloat(), (me.offset.y - target.offset.y).toFloat())
+                                        reorder.movedTo(dragOffset + shift)
                                         order = ReorderMath.moved(order, from, to)
                                     }
                                 },
