@@ -561,6 +561,13 @@ under the `PrivateCallLog` tag, see TESTING.md §35.1), against 2.5–7.5 s befo
 watches the call log itself can still see the row in that moment, and an OEM call-log backup that runs in it can copy
 it. If Parley's process is killed during the call and isn't started again, the row stays until Parley next runs.
 
+**Who can read the call log.** Settings › Privacy › Who can see your contacts also lists the apps that can read your
+call history (`ContactsAudit.appsWithAccess(READ_CALL_LOG)`), the same way as those that can read contacts, each linked
+to its Android permission page. It uses the launcher `<queries>` entry the contacts list already uses (never
+`QUERY_ALL_PACKAGES`, no new permission), so apps without a home-screen icon aren't listed, as the page says. Parley
+only lists them; it can't change another app's permission. Names Android stores with calls are visible to those apps;
+Parley takes them out for archived contacts (`CallLogNames`), and private contacts' calls leave the log altogether.
+
 **Calls apps log over the internet.** From Android 14 an app (WhatsApp, Signal…) may log its own calls in the system
 call log, and One UI 9 does. Parley tells them apart by the row's phone account (`InternetCalls`, `TelephonyPackages`):
 they show with the app's name, Call back opens the app (Call by phone dials only when chosen), and the phone network's
