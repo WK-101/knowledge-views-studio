@@ -68,8 +68,8 @@ internal fun NavController.backOnce(): Boolean {
 /** Navigates to [to] unless that same page was just opened and is still coming in; true when it navigated. */
 internal fun NavController.openOnce(to: Destination): Boolean {
     val here = currentBackStackEntry
-    val last = lastOpened[this]
-    if (here != null && last != null && last.first == here.id && last.second == to && !here.settled()) return false
+    val comingIn = here != null && !here.settled() && lastOpened[this] == (here.id to to)
+    if (comingIn) return false
     navigate(to)
     currentBackStackEntry?.let { lastOpened[this] = it.id to to }
     return true

@@ -115,7 +115,9 @@ class NavigationGuardTest {
         assertEquals("Unguarded back/open lambdas in $raw; use nav.parleyBack() / nav.parleyOpen()", emptyList<String>(), raw)
         // The host's page transitions come from the theme's motion, not Compose's defaults.
         val root = sources.single { it.first.name == "ParleyRoot.kt" }.second
-        for (spec in listOf("navEnter()", "navExit()", "navPopEnter()", "navPopExit()")) assertTrue("ParleyRoot doesn't read ParleyMotion.$spec", "ParleyMotion.$spec" in root)
+        for (spec in listOf("navEnter()", "navExit()", "navPopEnter()", "navPopExit()")) {
+            assertTrue("ParleyRoot doesn't read ParleyMotion.$spec", "ParleyMotion.$spec" in root)
+        }
         assertFalse("ParleyRoot slides pages with a default spec", "slideInHorizontally" in root || "slideOutHorizontally" in root)
     }
 }
