@@ -66,7 +66,11 @@
   async function call(req, signal) {
     const body = await sealText(JSON.stringify(Object.assign({ ts: Date.now(), nonce: nonce() }, req)));
     const res = await fetch("api", { method: "POST", headers: { "Content-Type": "text/plain" }, body, signal });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.text()).slice(0, 120); } catch (_e) { /* ignore */ }
+      throw new Error("HTTP " + res.status + (detail ? " — " + detail : ""));
+    }
     return JSON.parse(await openText(await res.text()));
   }
 

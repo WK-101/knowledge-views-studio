@@ -20,7 +20,6 @@ import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.sslConnector
 import io.ktor.server.netty.Netty
-import io.ktor.server.request.host
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
@@ -47,7 +46,17 @@ class WebServer(
     private val changeHub: ChangeHub,
 ) {
     @Volatile private var engine: ApplicationEngine? = null
-    private val seenNonces = ConcurrentHashMap<String, Long>()
+    // Replay guard: a bounded, FIFO-evicting set of seen nonces. Deliberately clock-INDEPENDENT — an earlier
+    // timestamp window rejected valid requests whenever the phone and the browser's device clocks differed.
+    // TLS + the per-device key already authenticate each request; this only blocks an exact in-session replay.
+    private val seenNonces: MutableSet<String> = java.util.Collections.synchronizedSet(
+        java.util.Collections.newSetFromMap(
+            object : LinkedHashMap<String, Boolean>(NONCE_INIT, NONCE_LOAD, false) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>): Boolean =
+                    size > NONCE_MAX
+            },
+        ),
+    )
     private val aeadCache = ConcurrentHashMap<String, ByteArray>() // keyB64 → derived AEAD key
 
     fun start() {
@@ -85,10 +94,15 @@ class WebServer(
 
     @Suppress("TooGenericExceptionCaught") // an edge endpoint must map any failure to a status, never crash
     private suspend fun io.ktor.server.application.ApplicationCall.handleApi() {
-        if (!RequestGuard.hostAllowed(request.host()) ||
-            !RequestGuard.originAllowed(request.headers["Host"], request.headers["Origin"])
-        ) {
-            respond(HttpStatusCode.Forbidden, "forbidden")
+        // Derive host + origin from the raw headers (not request.host(), whose port handling varies by
+        // engine) so the DNS-rebinding / same-origin guards are deterministic.
+        val hostHeader = request.headers["Host"]
+        if (!RequestGuard.hostAllowed(hostHeader)) {
+            respond(HttpStatusCode.Forbidden, "forbidden_host:${hostHeader ?: "none"}")
+            return
+        }
+        if (!RequestGuard.originAllowed(hostHeader, request.headers["Origin"])) {
+            respond(HttpStatusCode.Forbidden, "forbidden_origin:${request.headers["Origin"] ?: "none"}")
             return
         }
         val body = runCatching { receiveText() }.getOrNull()
@@ -108,7 +122,7 @@ class WebServer(
             respond(HttpStatusCode.BadRequest, "malformed"); return
         }
 
-        if (!freshAndUnseen(req.ts, req.nonce)) { respond(HttpStatusCode.Forbidden, "replay"); return }
+        if (!freshAndUnseen(req.nonce)) { respond(HttpStatusCode.Forbidden, "replay"); return }
 
         // A read-only client (a share link) may read and long-poll, never mutate.
         if (client.readOnly && req.kind == KIND_MUTATE) {
@@ -162,17 +176,7 @@ class WebServer(
     private fun decodeVersions(json: String): Map<String, Long> =
         runCatching { BridgeCodec.decodeString<Map<String, Long>>(json) }.getOrDefault(emptyMap())
 
-    private fun freshAndUnseen(ts: Long, nonce: String): Boolean {
-        val now = System.currentTimeMillis()
-        if (kotlin.math.abs(now - ts) > REPLAY_WINDOW_MS) return false
-        pruneNonces(now)
-        return seenNonces.putIfAbsent(nonce, now) == null
-    }
-
-    private fun pruneNonces(now: Long) {
-        if (seenNonces.size < NONCE_PRUNE_AT) return
-        seenNonces.entries.removeAll { now - it.value > REPLAY_WINDOW_MS }
-    }
+    private fun freshAndUnseen(nonce: String): Boolean = nonce.isNotBlank() && seenNonces.add(nonce)
 
     // ---- static SPA (served from resources/web/) -----------------------------------------------------
 
@@ -213,11 +217,9 @@ class WebServer(
 
     private companion object {
         const val TAG = "WebServer"
-        // 5 min tolerates clock skew between the phone and the browser's device (both are usually NTP-synced,
-        // but a wrong phone clock would otherwise 403 every request). The nonce cache still blocks replays
-        // within the window.
-        const val REPLAY_WINDOW_MS = 300_000L
-        const val NONCE_PRUNE_AT = 256
+        const val NONCE_MAX = 4096 // bound the replay-guard set; FIFO eviction drops the oldest
+        const val NONCE_INIT = 512
+        const val NONCE_LOAD = 0.75f
         const val STOP_GRACE_MS = 300L
         const val STOP_TIMEOUT_MS = 1000L
         const val AWAIT_MS = 25_000L
