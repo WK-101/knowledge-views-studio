@@ -64,6 +64,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
 
 /**
  * Archiving from the app: one contact from its page, the members a chapter brought (ChapterUi), and the Archived list
@@ -258,12 +261,13 @@ fun ArchivedScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val privates = privateArchived(vm)
     val unarchiving = rememberUnarchiving(vm)
 
-    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_archived), onBack = back) }) { p ->
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_archived), onBack = back, scrollBehavior = barTint) }) { p ->
         if (cards.isEmpty() && privates.isEmpty()) {
             EmptyState(Icons.Rounded.Archive, stringResource(R.string.archive_empty_title), stringResource(R.string.archive_empty_text), Modifier.padding(p))
             return@ParleyScaffold
         }
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Text(
                     stringResource(R.string.archive_intro),

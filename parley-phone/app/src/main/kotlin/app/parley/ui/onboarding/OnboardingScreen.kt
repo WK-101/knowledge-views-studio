@@ -8,7 +8,15 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +63,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,7 +74,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -89,6 +104,8 @@ import app.parley.ui.discover.ComingFromGroups
 import app.parley.ui.discover.importerRoute
 import app.parley.ui.calls.rememberDialerRoleRequest
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyMotion
+import app.parley.ui.Spacing
 
 /**
  * First run, in short steps: what Parley promises, the default phone app (with a word about Android's
@@ -105,7 +122,16 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
     var stepIndex by rememberSaveable { mutableIntStateOf(0) }
     val step = OnboardingStep.at(stepIndex)
     fun go(to: OnboardingStep?) { to?.let { stepIndex = it.ordinal } }
-    BackHandler(enabled = step.previous != null) { go(step.previous) }
+    // Back steps back with a gesture preview: the step drifts towards the side it will leave by.
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    PredictiveBackHandler(enabled = step.previous != null) { events ->
+        try {
+            events.collect { backProgress = it.progress }
+            go(step.previous)
+        } finally {
+            backProgress = 0f
+        }
+    }
     // "Someone else" in the basics: Simple mode's setup opens once the first run ends.
     var simpleSetupNext by rememberSaveable { mutableStateOf(false) }
     // "From another phone with Parley?" on the welcome: the basics are skipped (the restore brings the old phone's
@@ -132,17 +158,14 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
     }
 
     Surface(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            when (step) {
+        OnboardingSteps(step, backProgress) { shown ->
+            when (shown) {
                 OnboardingStep.WELCOME -> WelcomeStep(onRestore = { restoring = true; advance() }) { restoring = false; advance() }
                 OnboardingStep.DEFAULT_APP -> DefaultDialerStep(vm) { advance() }
                 OnboardingStep.PERMISSIONS -> PermissionsStep(vm) { advance() }
                 OnboardingStep.BASICS -> BasicsStep(vm) { choice ->
                     simpleSetupNext = Basics.opensSimpleSetup(choice)
-                    go(step.next)
+                    go(shown.next)
                 }
                 OnboardingStep.COMING_FROM -> ComingFromStep(
                     onImport = { importer ->
@@ -156,6 +179,59 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
         }
     }
 }
+
+/**
+ * One onboarding step at a time, moving on a shared horizontal axis: forward comes in from the end side, Back from
+ * the start side (mirrored right to left). Each step has its own scroll, so a step always opens at its top rather
+ * than at the offset the previous step was scrolled to. [backProgress] (0–1) previews a Back gesture.
+ */
+@Composable
+internal fun OnboardingSteps(
+    step: OnboardingStep,
+    backProgress: Float = 0f,
+    content: @Composable ColumnScope.(OnboardingStep) -> Unit,
+) {
+    val still = ParleyMotion.reducedMotion()
+    val slide = ParleyMotion.spatial<IntOffset>()
+    val fade = ParleyMotion.effects<Float>()
+    val endSign = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 1 else -1
+    val nudge = with(LocalDensity.current) { Spacing.xl.toPx() }
+    AnimatedContent(
+        targetState = step,
+        transitionSpec = {
+            if (still) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                val towards = endSign * if (targetState.ordinal > initialState.ordinal) 1 else -1
+                (slideInHorizontally(slide) { w -> towards * w / SHARED_AXIS_FRACTION } + fadeIn(fade)) togetherWith
+                    (slideOutHorizontally(slide) { w -> -towards * w / SHARED_AXIS_FRACTION } + fadeOut(fade))
+            }
+        },
+        label = "onboarding step",
+    ) { shown ->
+        Column(
+            Modifier.fillMaxSize()
+                .graphicsLayer {
+                    if (shown == step) {
+                        translationX = endSign * nudge * backProgress
+                        alpha = 1f - BACK_FADE * backProgress
+                    }
+                }
+                .statusBarsPadding().navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(Spacing.xl)
+                .testTag(ONBOARDING_SCROLL_TAG),
+            verticalArrangement = Arrangement.spacedBy(Spacing.l),
+        ) {
+            content(shown)
+        }
+    }
+}
+
+/** How far a step slides (a fifth of the width), as Material's shared-axis pattern does, with a fade over it. */
+private const val SHARED_AXIS_FRACTION = 5
+private const val BACK_FADE = 0.2f
+internal const val ONBOARDING_SCROLL_TAG = "onboarding_step"
 
 @Composable
 private fun ColumnScope.WelcomeStep(onRestore: () -> Unit, next: () -> Unit) {
@@ -242,7 +318,7 @@ private fun RestrictedSettingsCard(emphasise: Boolean, openAppInfo: () -> Unit) 
             containerColor = if (emphasise) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
         ),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Shield, null)
                 Spacer(Modifier.width(12.dp))
@@ -326,7 +402,7 @@ private fun ColumnScope.PermissionsStep(vm: AppViewModel, done: () -> Unit) {
                 leadingContent = { Icon(r.icon, null, tint = MaterialTheme.colorScheme.primary) },
                 headlineContent = { Text(title) },
                 supportingContent = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                         Text(stringResource(r.reason))
                         Text(
                             if (!on && i in refused) stringResource(
@@ -365,7 +441,7 @@ private fun ColumnScope.ComingFromStep(onImport: (ComingFrom.Importer) -> Unit, 
         val inset = 16.dp.roundToPx()
         val p = m.measure(c.copy(maxWidth = c.maxWidth + 2 * inset, minWidth = c.minWidth))
         layout(c.maxWidth, p.height) { p.place(-inset, 0) }
-    }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    }, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         ComingFromGroups(onImport)
     }
     Spacer(Modifier.weight(1f))

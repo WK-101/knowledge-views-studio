@@ -40,6 +40,10 @@ import androidx.compose.foundation.layout.Arrangement
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /**
  * Coverage replay: "current rules would have blocked 14 of 22 unknown calls", with each past call's
@@ -60,12 +64,13 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
         result = catching { vm.c.screener.dryRun(calls.orEmpty(), days) }.getOrNull()
         loading = false
     }
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.blk_dry_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.blk_dry_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
-                Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.padding(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     listOf(1, 7, 30).forEach { d ->
                         FilterChip(
                             days == d,
@@ -74,8 +79,8 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                         )
                     }
                 }
-                Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Column(Modifier.padding(16.dp)) {
+                Card(Modifier.fillMaxWidth().padding(Spacing.l)) {
+                    Column(Modifier.padding(Spacing.l)) {
                         Text(
                             when {
                                 loading -> stringResource(R.string.blk_dry_loading)
@@ -111,7 +116,7 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                             )
                         },
                     )
-                    if (open) TraceList(r.result.trace, Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
+                    if (open) TraceList(r.result.trace, Modifier.padding(start = 56.dp, end = Spacing.l, bottom = Spacing.s))
                 }
             }
         }

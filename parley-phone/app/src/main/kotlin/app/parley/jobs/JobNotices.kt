@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.IntentRoutes
@@ -52,6 +53,8 @@ object JobNotices {
             .setContentTitle(job.label)
             .setContentText(text)
             .setProgress(job.total.coerceAtLeast(0), job.done.coerceAtLeast(0), fraction == null)
+            // Android 16 draws its own progress bar for this style; older versions keep the plain one above.
+            .apply { if (Build.VERSION.SDK_INT >= PROGRESS_STYLE_SDK) setStyle(progressStyle(job)) }
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -59,6 +62,19 @@ object JobNotices {
             .setPublicVersion(publicVersion(context, R.string.job_public_running))
             .setContentIntent(openParley(context))
             .build()
+    }
+
+    /**
+     * Android 16's progress style for [job]: one segment the length of the job, filled as far as it got, or a moving
+     * bar while the size isn't known. It only styles the notification; it never asks to be promoted.
+     */
+    fun progressStyle(job: UserJobs.Running): NotificationCompat.ProgressStyle {
+        val known = job.fraction != null && job.total > 0
+        val length = if (known) job.total else 1
+        return NotificationCompat.ProgressStyle()
+            .addProgressSegment(NotificationCompat.ProgressStyle.Segment(length))
+            .setProgress(if (known) job.done.coerceIn(0, length) else 0)
+            .setProgressIndeterminate(!known)
     }
 
     /**
@@ -107,4 +123,5 @@ object JobNotices {
     }
 
     private const val PERCENT = 100
+    private const val PROGRESS_STYLE_SDK = 36
 }
