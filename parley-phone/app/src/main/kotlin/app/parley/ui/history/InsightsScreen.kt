@@ -74,6 +74,10 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 private enum class InsightPeriod(@StringRes val label: Int) {
     WEEK(R.string.hist_insight_week),
@@ -100,8 +104,9 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val sims by vm.sims.collectAsStateWithLifecycle()
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.label_call_insights), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_call_insights), onBack = back, scrollBehavior = barTint)
     }) { p ->
         val idx = index
         if (idx == null) {
@@ -124,17 +129,17 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
 
         // Tools › Call quality lands on its card (after the period chips, the totals and the People card).
         if (quality) LaunchedEffect(Unit) { listState.scrollToItem(QUALITY_ITEM) }
-        LazyColumn(Modifier.padding(p), state = listState) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), state = listState, contentPadding = scaffoldBottom(p)) {
             item {
                 Row(
-                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.m, vertical = Spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
                 ) {
                     InsightPeriod.entries.forEach { c -> FilterChip(choice == c, { choice = c }, { Text(stringResource(c.label)) }) }
                 }
             }
             item {
-                Column(Modifier.padding(16.dp)) {
+                Column(Modifier.padding(Spacing.l)) {
                     StatGrid(totals)
                     Spacer(Modifier.height(16.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -153,7 +158,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp),
+                            modifier = Modifier.padding(top = Spacing.s),
                         )
                     }
                 }
@@ -164,7 +169,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item(key = "quality") { QualityCard(vm, idx, open) }
             if (weeks.size > 1) {
                 item { Section(stringResource(R.string.hist_talk_per_week)) }
-                item { WeeklyBars(weeks, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                item { WeeklyBars(weeks, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) }
             }
             if (byTime.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_most_talk)) }
@@ -220,7 +225,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 item {
                     Text(
                         stringResource(R.string.hist_unreturned_none),
-                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -243,7 +248,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item {
                 Text(
                     if (!idx.contactsKnown) stringResource(R.string.hist_insights_footer_no_contacts) else stringResource(R.string.hist_insights_footer),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(Spacing.l),
                 )
             }
         }
@@ -304,7 +309,7 @@ private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
                 if (hOut > 0) drawRoundRect(outColor, Offset(x, size.height - hIn - hOut), Size(bw, hOut), r)
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = Spacing.xs)) {
             Text(fmt.format(weeks.first().weekStart), style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.weight(1f))
             Text(

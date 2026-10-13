@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -56,6 +55,10 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.InfoDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /**
  * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
@@ -86,10 +89,11 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
     fun labelTitle(name: String) = res.getString(R.string.ct_label_title, name)
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.ct_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.ct_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item { Section(stringResource(R.string.label_talk_time_reminders)) }
             item {
                 Help(stringResource(R.string.ct_reminders_help))
@@ -246,7 +250,7 @@ private fun Help(text: String) {
         text,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
     )
 }
 
