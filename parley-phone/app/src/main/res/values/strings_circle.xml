@@ -168,6 +168,7 @@
     <string name="circle_time_there">%1$s there</string>
     <string name="circle_widget_date_soon">A date coming up</string>
     <string name="circle_widget_empty">Nothing coming up. Add people to your Circle from a contact\'s page.</string>
+    <string name="circle_widget_empty_short">Nothing coming up</string>
     <string name="circle_widget_tomorrow">Tomorrow</string>
     <string name="circle_yearly_label">Remembered yearly</string>
     <string name="circle_yearly_off">No longer remembered yearly</string>
@@ -176,10 +177,6 @@
     <string name="circle_yearly_stop">Stop remembering yearly</string>
     <string name="action_call">Call</string>
     <string name="label_coming_up">Coming up</string>
-    <string name="circle_widget_description">Upcoming dates and people from your Circle, with a Call button. With the app lock on, only counts show while the phone is locked.</string>
-    <string name="circle_widget_preview_line_0">Might enjoy hearing from you</string>
-    <string name="circle_widget_preview_line_1">Birthday in 3 days</string>
-    <string name="circle_widget_preview_date_0">Marco · Tomorrow · Anniversary</string>
     <string name="set_circle_memory_prompt_title">Anything to remember? after calls</string>
     <string name="set_circle_memory_prompt_summary">A note and a follow-up reminder after calls with your contacts</string>
     <string name="set_circle_memory_prompt_kw">note, notes, remember, promise, follow up, after call, post-call, memory</string>

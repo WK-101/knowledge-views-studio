@@ -86,6 +86,7 @@ object CapabilityText {
         "label_circle" to (R.string.help_label_circle_title to R.string.discover_label_circle_summary),
         "your_year" to (R.string.circle_year_review to R.string.discover_your_year_summary),
         "call_round" to (R.string.round_title to R.string.discover_call_round_summary),
+        "situations_widget" to (R.string.discover_situations_widget_title to R.string.discover_situations_widget_summary),
     )
 
     /** Title and summary of [c]; a row without texts fails loudly in the catalog test, never silently on screen. */

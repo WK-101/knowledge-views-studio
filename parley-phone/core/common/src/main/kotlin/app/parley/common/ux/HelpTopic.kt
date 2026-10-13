@@ -66,6 +66,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** Your year: opened from the People card in Call insights, and once from the digest in early January. */
     YOUR_YEAR(CapabilityTarget.Screen(AppScreen.CALL_INSIGHTS), explainsFeature = true),
+
+    /** The Situations widget: added from the launcher's widget list, so the page leads to the Situations it toggles. */
+    SITUATIONS_WIDGET(CapabilityTarget.Setting("situations"), explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */

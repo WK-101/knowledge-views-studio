@@ -40,4 +40,14 @@ class WhatsNewTest {
         assertNull(WhatsNew.lastSeenRelease(null, 0))
         assertEquals(CapabilityCatalog.headline("6.4.0", max = 5), WhatsNew.named(null, 0, "6.4.0"))
     }
+
+    @Test fun an_update_from_a_release_with_the_circle_widget_says_where_it_went() {
+        assertTrue(WhatsNew.mentionsCircleWidget("6.9.0", 41, "7.0.0"))
+        assertTrue(WhatsNew.mentionsCircleWidget(null, 30, "7.0.0-debug"))
+        // Nothing recorded: taken as the release before this one.
+        assertTrue(WhatsNew.mentionsCircleWidget(null, 0, "7.0.0"))
+        // Already on 7.0 (or later): said once is enough; before 7.0 there was nothing to say.
+        assertTrue(!WhatsNew.mentionsCircleWidget("7.0.0", 42, "7.1.0"))
+        assertTrue(!WhatsNew.mentionsCircleWidget("6.8.0", 40, "6.9.0"))
+    }
 }

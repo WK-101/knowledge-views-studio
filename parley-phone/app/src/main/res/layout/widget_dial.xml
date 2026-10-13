@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Direct dial: the photo takes the height left (at most 64 dp), so a small cell shrinks it rather than cutting it
+     off; the name goes when there is no height for it (DialWidget). No background: it sits on the wallpaper like an
+     app icon. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -9,16 +12,20 @@
 
     <ImageView
         android:id="@+id/widget_photo"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:adjustViewBounds="true"
         android:contentDescription="@null"
-        android:scaleType="centerCrop" />
+        android:maxWidth="64dp"
+        android:maxHeight="64dp"
+        android:scaleType="fitCenter" />
 
     <TextView
         android:id="@+id/widget_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:maxLines="1"
         android:shadowColor="#99000000"

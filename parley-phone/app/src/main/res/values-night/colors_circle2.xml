@@ -6,4 +6,6 @@
     <color name="c2_widget_text_dim">#FFC6C5D0</color>
     <color name="c2_widget_accent">#FFB6C4FF</color>
     <color name="c2_widget_call_bg">#FF26407F</color>
+    <color name="widget_chip_on_bg">#FFB6C4FF</color>
+    <color name="widget_chip_on_text">#FF0E2B6B</color>
 </resources>

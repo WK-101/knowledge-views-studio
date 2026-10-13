@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: the widgets take the system's colours (from the wallpaper), as other widgets on the home screen do. -->
+<resources>
+    <color name="c2_widget_bg">@android:color/system_neutral1_50</color>
+    <color name="c2_widget_text">@android:color/system_neutral1_900</color>
+    <color name="c2_widget_text_dim">@android:color/system_neutral2_700</color>
+    <color name="c2_widget_accent">@android:color/system_accent1_600</color>
+    <color name="c2_widget_call_bg">@android:color/system_accent1_100</color>
+    <color name="widget_chip_on_bg">@android:color/system_accent1_600</color>
+    <color name="widget_chip_on_text">@android:color/system_accent1_0</color>
+</resources>
