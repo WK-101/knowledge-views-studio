@@ -42,6 +42,9 @@ data class VerdictSummary(val text: String, val kind: String?, val blocked: Bool
 /** Blocked calls kept at most (the newest ones). */
 private const val BLOCKED_KEEP = 5_000
 
+/** SQLite binds at most 999 values in one statement on older phones; key lists are cleared in chunks below that. */
+internal const val KEY_CHUNK = 500
+
 class BlockRepository(private val context: Context, db: AppDatabase, scope: CoroutineScope) {
     // Screened callers' names are sealed at rest.
     private val dao: BlockDao = SealedBlockDao(db.blockDao(), RecordCrypto.get(context))
@@ -173,6 +176,14 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun addRing(number: String, startedAt: Long, ringMs: Long, answered: Boolean) =
         dao.addRing(CallRingEntity(numberKey = ringKey(number), startedAt = startedAt, ringMs = ringMs, answered = answered))
+
+    /**
+     * Forgets the ring lengths of [numbers] (they became private contacts' numbers: kept nowhere in the clear), in every
+     * key form for [regions].
+     */
+    suspend fun forgetRings(numbers: Collection<String>, regions: Collection<String?>) {
+        PhoneIdentity.lookupKeysIn(numbers, regions).chunked(KEY_CHUNK).forEach { dao.deleteRings(it) }
+    }
 
     /** Ring lengths recorded since [since] (personal reputation reads them in the daily run). */
     suspend fun ringsSince(since: Long): List<CallRingEntity> = dao.rings(since).first()

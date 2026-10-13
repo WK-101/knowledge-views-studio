@@ -75,6 +75,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import app.parley.data.history.callLogNames
+import app.parley.data.history.scrub
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -804,7 +806,11 @@ class BackupRepository(
         val existing = callLog.rowSignatures()
         var n = 0
         opened.reader.callLog { seq ->
-            seq.filter { CallLogRepository.signature(it.number, it.date, it.duration, it.type) !in existing }.chunked(200).forEach { n += callLog.insert(it) }
+            // Archived and private people's names stay out of Android's call log (CallLogNames).
+            val names = callLogNames(contacts, vault)
+            seq.filter { CallLogRepository.signature(it.number, it.date, it.duration, it.type) !in existing }.chunked(200).forEach {
+                n += callLog.insert(runBlocking { names.scrub(it) })
+            }
         }
         return n
     }

@@ -1,5 +1,7 @@
 package app.parley
 
+import app.parley.ui.NoKeyboardLearning
+import app.parley.common.security.WindowShield
 import app.parley.common.catching
 import app.parley.security.SharedUris
 import app.parley.security.LockedActivity
@@ -71,7 +73,16 @@ class MainActivity : LockedActivity() {
             }
             val locked by AppLock.locked.collectAsStateWithLifecycle()
             val settingsLoaded by vm.c.settings.loaded.collectAsStateWithLifecycle()
-            LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded) { protectWindow() }
+            // Private contacts on screen keep Parley out of the recents thumbnails too, app lock or not (WindowShield).
+            val privacy by container.privacy.flow.collectAsStateWithLifecycle()
+            val privateRows by container.vault.listing.collectAsStateWithLifecycle()
+            val detailsOpen by container.vault.lock.unlocked.collectAsStateWithLifecycle()
+            // Until the listing is read it may hold private contacts: kept out of recents meanwhile.
+            val exposed = WindowShield.privateExposed(privacy, privateRows?.isNotEmpty() ?: true, detailsOpen)
+            LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded, exposed) {
+                privateOnScreen = exposed
+                protectWindow()
+            }
             // Missed calls count as seen only once the list could actually be seen: never behind the lock.
             val showsUnlocked = settingsLoaded && !(locked && settings.appLock)
             LaunchedEffect(missedSeenPending, showsUnlocked) {
@@ -89,7 +100,9 @@ class MainActivity : LockedActivity() {
                         AppLock.authenticate(this@MainActivity) { ok -> if (ok) lockEmergencyNumber = null }
                     }
                 } else {
-                    ParleyRoot(vm)
+                    // While private contacts can be on screen, nothing typed in Parley teaches the keyboard (a private
+                    // name searched for or written must not come back as a suggestion in another app).
+                    NoKeyboardLearning(exposed) { ParleyRoot(vm) }
                     PinConfirmHost()
                     // A private-name request's "Allow…": only once Parley shows unlocked.
                     approvePrivateName?.let { pkg ->
@@ -99,6 +112,11 @@ class MainActivity : LockedActivity() {
             }
         }
     }
+
+    /** Private contacts can be on screen ([WindowShield.privateExposed]): read by the window protection at every pause. */
+    @Volatile private var privateOnScreen = false
+
+    override val privateExposed: Boolean get() = privateOnScreen
 
     /** Missed calls were opened from Parley's notification: marked seen once the screen shows unlocked. */
     private var missedSeenPending by mutableStateOf(false)

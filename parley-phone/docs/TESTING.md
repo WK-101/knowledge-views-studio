@@ -3833,3 +3833,41 @@ Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its s
 1. **Back out of a new People widget.** Place a People widget and press Back on its settings: the widget stays and shows your Favourites at once (no blank or "loading" widget). Long-press it › settings (Android 12+): change it to Your Circle, Done: it redraws.
 2. **Old Circle widget after the update.** With a Circle widget placed on 6.8, update: it keeps working. Remove it and add it back from the widget list on Android 10–12 (it is still listed there); on Android 13+ the list offers only People. No placed widget ever disappears after opening Parley.
 3. **Many cases due.** Set "Follow up by" to today on three case files and have a Circle member due in their good hours: Next up shows one case line, "Follow up with … (+2 more)", and the Circle line still shows.
+
+## 54. Polish and proof (7.0)
+
+### 54.5 Security pressure: backups
+
+Automated: `BackupPressureTest` (every bit flip and every cut of a backup refused; a header moved onto another backup, older or unknown versions, weak or oversized KDF settings, a 1024-bit bundle key, hostile entry names, duplicate, unlisted, missing and changed entries, a zip bomb, an oversized section and 400 randomly damaged archives all refused with an exception; nonces never repeat) (core:common).
+
+1. **A damaged backup.** Copy a backup to a computer, change one byte near the end with a hex editor, copy it back and restore it: Parley says the backup is damaged and restores nothing. Cut the file in half: the same.
+2. **Wrong passphrase.** Restore a good backup with a wrong passphrase, then with one letter's case changed: "Wrong passphrase" both times, nothing restored, Parley doesn't close.
+
+### 54.6 Security pressure: recents and the keyboard
+
+Automated: `WindowShieldTest` (core:common), `KeyboardPrivacyTest` (core:ui).
+
+1. **Recents with private contacts showing.** App lock off, "Hide screen content" off, at least one private contact, private contacts shown. Open a private contact's page, go Home, open Recents: Parley's card is blank (Android 13+: no picture; 10–12: black). Turn on "Hide private contacts", open Parley, go Home, Recents: Parley's picture shows again as usual. With no private contacts at all, Recents always shows Parley's picture.
+2. **The keyboard doesn't learn private names.** With Gboard, add a private contact named "Zorblax Quentin", save. Open a messaging app and type "Zorb": Gboard doesn't suggest "Zorblax". Do the same with a contact saved to the phone: Gboard may suggest it (it reads the address book anyway).
+
+### 54.7 Security pressure: private numbers kept nowhere plain
+
+Automated: `CallLogNamesTest` (`private_lines_are_cleared_under_every_key_a_store_may_hold`) (core:common).
+
+1. **Ring lengths.** A private contact calls and you let it ring out. With `adb shell run-as app.parley.debug sqlite3 databases/parley.db "select numberKey from call_rings"` (debug build), the private contact's number is not listed; an unknown caller's is.
+2. **Existing rows.** On a phone updated from 6.9 where a private contact rang before, open Parley once (full start): the same query no longer lists that number.
+
+### 54.8 Archived and private people's names leave Android's call log (OG-1)
+
+Automated: `CallLogNamesTest` (core:common).
+
+1. **Archive.** Call a contact, then archive them. Open Google's Phone app (or any call-log viewer): the old calls show the number, not the name. In Parley, Recents still names them as archived.
+2. **Undo a call delete.** Archive a contact, delete one of their calls in Recents and tap Undo: the call is back in Android's call log without the name.
+3. **CSV import.** Import a CSV with a name column for a number no contact has: the calls appear without the name in other apps; a number a phone contact owns keeps the name.
+4. **Daily upkeep.** Make a phone contact private (calls with them stay in the system log when "Private call history" is off). After the next daily upkeep (or `adb shell cmd jobscheduler run -f app.parley.debug <job id>`), other apps show those calls without the name.
+
+### 54.9 Security pressure: crash mid-write
+
+Automated: `DurableFilesTest.concurrent_writes_of_one_file_never_tear_it` and the power-cut tests (core:common).
+
+1. **Kill during a write.** Archive a contact and, as the toast appears, `adb shell am kill app.parley.debug`. Open Parley: the contact is either archived whole or still in the address book, never missing from both.

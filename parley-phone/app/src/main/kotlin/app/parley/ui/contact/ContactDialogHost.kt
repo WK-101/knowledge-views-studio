@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.NoKeyboardLearning
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -66,8 +67,14 @@ import app.parley.ui.vault.ExpiryDialog
  * menu and its group sheets are drawn by the top bar ([ContactBarActions]), where the menu is anchored.
  */
 @Composable
-@Suppress("CyclomaticComplexMethod") // One branch per dialog.
 internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, original: OriginalPhotos.Original?) {
+    // What is typed about a private contact (a note, a moment, a reminder) never reaches the keyboard's memory.
+    NoKeyboardLearning(ctx.isPrivate) { DialogFor(ctx, dialog, original) }
+}
+
+@Composable
+@Suppress("CyclomaticComplexMethod") // One branch per dialog.
+private fun DialogFor(ctx: ContactPageContext, dialog: ContactDialog, original: OriginalPhotos.Original?) {
     val d = ctx.d
     val close = { ctx.show(ContactDialog.None) }
     when (dialog) {

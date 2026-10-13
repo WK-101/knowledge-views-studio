@@ -41,8 +41,11 @@ abstract class LockedActivity : ComponentActivity() {
     /** The settings, once loaded; null before (nothing personal shows until then). */
     protected fun loadedSettings(): AppSettings? = container.settings.takeIf { it.loaded.value }?.settings?.value
 
+    /** Whether private contacts can be on this window now ([app.parley.common.security.WindowShield.privateExposed]). */
+    protected open val privateExposed: Boolean get() = false
+
     protected fun protectWindow(leaving: Boolean = false) {
-        loadedSettings()?.let { AppLock.protectWindow(this, it, leaving) }
+        loadedSettings()?.let { AppLock.protectWindow(this, it, leaving, privateExposed) }
     }
 
     override fun onStart() {

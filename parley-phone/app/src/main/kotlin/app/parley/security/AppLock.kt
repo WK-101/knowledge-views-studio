@@ -1,5 +1,6 @@
 package app.parley.security
 
+import app.parley.common.security.WindowShield
 import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.text.KeyboardOptions
@@ -349,14 +350,14 @@ object AppLock {
     }
 
     /**
-     * What the window may show outside Parley: with the app lock on, the recents thumbnail is blank (Android 13+
-     * skips it; before that FLAG_SECURE blanks it while locked or [leaving]), and "Hide screen content" keeps
-     * FLAG_SECURE on all the time.
+     * What the window may show outside Parley ([WindowShield]): with the app lock on, or while private contacts are on
+     * screen ([privateExposed]), the recents thumbnail is blank (Android 13+ skips it; before that FLAG_SECURE blanks
+     * it while locked or [leaving]), and "Hide screen content" keeps FLAG_SECURE on all the time.
      */
-    fun protectWindow(activity: Activity, settings: AppSettings, leaving: Boolean = false) {
-        if (Build.VERSION.SDK_INT >= 33) activity.setRecentsScreenshotEnabled(!settings.appLock)
-        val hideWhileLocked = settings.appLock && (locked.value || (leaving && Build.VERSION.SDK_INT < 33))
-        applySecureFlag(activity, settings.secureScreen || hideWhileLocked)
+    fun protectWindow(activity: Activity, settings: AppSettings, leaving: Boolean = false, privateExposed: Boolean = false) {
+        val w = WindowShield.window(Build.VERSION.SDK_INT, settings.appLock, locked.value, settings.secureScreen, privateExposed, leaving)
+        if (Build.VERSION.SDK_INT >= WindowShield.RECENTS_SWITCH_SDK) activity.setRecentsScreenshotEnabled(w.recentsScreenshot)
+        applySecureFlag(activity, w.secure)
     }
 
     fun applySecureFlag(activity: Activity, secure: Boolean) {

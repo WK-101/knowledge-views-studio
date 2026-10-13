@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.NoKeyboardLearning
 import app.parley.common.people.NumberOrigin
 import app.parley.common.catching
 import app.parley.ui.Spacing
@@ -408,7 +409,8 @@ fun ContactEditScreen(
             }
             return@ParleyScaffold
         }
-        EditorBody(vm, editor, form, d, args, padding, done)
+        // A private contact's name, numbers and notes never reach the keyboard's memory (even the first one).
+        NoKeyboardLearning(editor.isVault) { EditorBody(vm, editor, form, d, args, padding, done) }
     }
     EditorDialogs(editor, confirmDiscard, { confirmDiscard = it }, done)
 }

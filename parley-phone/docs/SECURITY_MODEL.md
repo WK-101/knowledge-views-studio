@@ -46,9 +46,11 @@ Parley whenever the phone is on, including while it is locked.
 | The rule-pack signing key (`blocking/share.key`) | Small-records key; a plain key from an older version is sealed at its next use (the same key, so its fingerprint doesn't change); a new key made while the Keystore can't seal waits in memory | None | Signing rule packs and templates family members pin |
 | Private contacts' call-screen pictures (`call_backgrounds/<hash>.sealed`) | Vault caller-ID key, opened in memory by the vault photo provider for Parley's own screens; plain ones from older versions are sealed by the re-sealing pass. A device contact's stays a plain JPEG, as its photo in the address book is | None | Shown behind an incoming call on the lock screen |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
+| Ring lengths (`call_rings`) and the call-time ledger (`call_usage`), by plain line key | File-based encryption only; never a private contact's number (7.0: not recorded, and earlier rows cleared at the next full start) | — | Read on the ring path for numbers nobody saved; a private contact's calls count in allowances without their number |
 
 Every file Parley replaces goes through one helper (`DurableFiles`): the new content is written to `<name>.tmp`, synced
-to the disk, renamed over the old file in one step, and the folder is synced. A power cut at any moment leaves the old
+to the disk, renamed over the old file in one step, and the folder is synced. Two writes of one file take turns (7.0),
+so one can't truncate the other's `.tmp` as it is renamed into place. A power cut at any moment leaves the old
 file or the new one, never an empty one; a failed write keeps the old file and is logged. This matters most for the
 wrapped key files below (an empty one would make everything sealed with it unreadable for good), the PIN record and an
 archived contact's files, which are synced before the contact leaves the address book. A detekt rule (`RawRename`) keeps
@@ -125,6 +127,10 @@ numbers. A document that can't be opened is never overwritten and warns about no
   backup's settings are not ticked by default, whoever signed it. A restore while a duress unlock hides things goes
   through the same rule as the settings screens: the safety switches change only what shows until the next lock, and
   private-name approvals are not restored at all.
+- **Pressure tested (7.0).** Every bit flip and every cut of a backup, a header moved onto another backup, unknown
+  versions, weak or oversized KDF settings, hostile entry names (zip slip), duplicates, zip bombs and randomly damaged
+  archives are refused with an exception (`BackupPressureTest`; docs/audit/SECURITY_PRESSURE_7_0.md). An empty
+  passphrase is a wrong one.
 - **What a backup holds, and what stays on this phone.** Every store is listed in `PersistentStores` with its policy
   (backed up, backed up with the private contacts, kept on this phone with a reason, or a secret that never leaves).
   Since 5.7 a backup also carries **family safety** (safe words, helpers, expected-call windows), the audio files of
@@ -576,6 +582,21 @@ see your contacts" says so on Android 17 and later.
   (no exact-alarm permission, so Android may run it up to a few minutes late, longer in battery saver or Doze). The
   guarantee is therefore "counts within minutes of the delay passing, at the latest at the next screen-on", not to the
   second. A tap then opens Parley to unlock it.
+- **Recents and screenshots (7.0).** Android keeps a picture of Parley's last screen for the recents overview, on its
+  own storage and outside Parley's keys. That picture is blank while the app lock is on and also while private
+  contacts can be on Parley's screen (some exist and show, or details were just opened), app lock or not
+  (`WindowShield`): Android 13+ skips it, older versions get FLAG_SECURE as Parley leaves. "Hide screen content" keeps
+  FLAG_SECURE on all the time.
+- **The keyboard (7.0).** While private contacts can show, in the editor of a private contact and in every dialog on a
+  private contact's page, Parley asks the keyboard not to learn what is typed (`NoKeyboardLearning`,
+  IME_FLAG_NO_PERSONALIZED_LEARNING), as for safe words: a private name must never come back as a suggestion in another
+  app or reach the keyboard's sync. Keyboards that ignore the flag can't be forced.
+- **Android's call log names (7.0).** Android caches a name on each call in its call log, which every app with call-log
+  access reads. Archiving a contact takes that name (and its label, lookup link and photo) off their old calls, and the
+  daily upkeep does the same for every archived and private number no address-book contact owns; the calls stay.
+  When Parley puts calls back into the call log (undoing a delete, restoring with the archive off, importing a CSV) it
+  writes a name only when an address-book contact owns the number now (`CallLogNames`, failing closed). Moving a
+  private contact back to the phone writes its calls back with the name, as that person is visible again.
 - **Shared files.** Files handed to other apps from the cache (contact cards, a scanned Secure QR's card, voicemail
   audio, rule exports, transfer files) are deleted once they are an hour old, at start and by the upkeep, like
   exports: never younger, so an app that opens a shared file late (an e-mail draft) still finds it. A scanned
