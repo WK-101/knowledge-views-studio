@@ -15,11 +15,28 @@ class FavoritesWidgetPlanTest {
 
     @Test fun the_grid_follows_the_widget_size() {
         assertEquals(FavoritesWidgetPlan.Grid(4, 2), FavoritesWidgetPlan.grid(0, 0))
-        assertEquals(FavoritesWidgetPlan.Grid(1, 1), FavoritesWidgetPlan.grid(40, 40))
+        assertEquals(FavoritesWidgetPlan.Grid(1, 1, title = false, names = false), FavoritesWidgetPlan.grid(40, 40))
         assertEquals(FavoritesWidgetPlan.Grid(4, 2), FavoritesWidgetPlan.grid(300, 200))
         assertEquals(FavoritesWidgetPlan.Grid(5, 3), FavoritesWidgetPlan.grid(360, 280))
         // Tablets: capped.
         assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, FavoritesWidgetPlan.MAX_ROWS), FavoritesWidgetPlan.grid(2000, 2000))
+    }
+
+    @Test fun small_widgets_get_a_layout_of_their_own_never_a_cut_off_one() {
+        // 1×1 in portrait: one face with its name, no title.
+        assertEquals(FavoritesWidgetPlan.Grid(1, 1, title = false, names = true), FavoritesWidgetPlan.grid(57, 102))
+        // 1×1 in landscape and 2×1: one row; faces only where a name wouldn't fit under them.
+        assertEquals(FavoritesWidgetPlan.Grid(2, 1, title = false, names = false), FavoritesWidgetPlan.grid(127, 51))
+        assertEquals(FavoritesWidgetPlan.Grid(2, 1, title = false, names = true), FavoritesWidgetPlan.grid(130, 102))
+        // 2×2: a few faces under the title.
+        assertEquals(FavoritesWidgetPlan.Grid(2, 2), FavoritesWidgetPlan.grid(130, 220))
+        // Whatever the size, the grid fits inside it.
+        for (w in 40..600 step 7) for (h in 40..600 step 7) {
+            val g = FavoritesWidgetPlan.grid(w, h)
+            val cellH = if (g.names) FavoritesWidgetPlan.CELL_HEIGHT_DP else FavoritesWidgetPlan.FACE_DP
+            val used = (if (g.title) FavoritesWidgetPlan.TITLE_DP else 0) + g.rows * cellH + FavoritesWidgetPlan.PADDING_DP
+            assertTrue("$w×$h: $g", g.rows == 1 && !g.names || used <= h)
+        }
     }
 
     @Test fun before_android_12_portrait_and_landscape_each_get_their_own_size() {
@@ -30,7 +47,10 @@ class FavoritesWidgetPlanTest {
         assertEquals(FavoritesWidgetPlan.Size(520, 110), l.landscape)
         // Never both maximums: portrait doesn't get landscape's 7 columns, landscape doesn't get portrait's rows.
         assertEquals(FavoritesWidgetPlan.Grid(4, 2), FavoritesWidgetPlan.grid(l.portrait.widthDp, l.portrait.heightDp))
-        assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, 1), FavoritesWidgetPlan.grid(l.landscape.widthDp, l.landscape.heightDp))
+        assertEquals(
+            FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, 1, title = false),
+            FavoritesWidgetPlan.grid(l.landscape.widthDp, l.landscape.heightDp),
+        )
         assertEquals(FavoritesWidgetPlan.Grid(FavoritesWidgetPlan.MAX_COLUMNS, 2), FavoritesWidgetPlan.grid(520, 190))
     }
 

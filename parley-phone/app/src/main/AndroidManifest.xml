@@ -389,20 +389,6 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
-        <!-- The Circle widget placed before the People widget (resizable RemoteViews): kept for those, hidden from the
-             widget list (Android 13 on), never disabled (that would remove them). -->
-        <receiver
-            android:name=".shortcuts.CircleWidget"
-            android:exported="false"
-            android:label="@string/label_circle">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_circle_info" />
-        </receiver>
-
         <!-- The People widget (once the Favourites widget, so placed ones keep working) and its settings: Favourites or
              your Circle, and what a tap does. -->
         <activity
@@ -422,6 +408,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_favorites_info" />
+        </receiver>
+
+        <!-- The Situations widget: turns a Situation on or off through the same switch as the app and the tile. Not
+             exported: its taps are Parley's own PendingIntents. -->
+        <receiver
+            android:name=".situations.SituationsWidget"
+            android:exported="false"
+            android:label="@string/sit_widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_situations_info" />
         </receiver>
 
         <!-- Shares the encrypted "move to a new phone" backup file. -->

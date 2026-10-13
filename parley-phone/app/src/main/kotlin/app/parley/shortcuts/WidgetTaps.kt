@@ -24,6 +24,8 @@ internal object WidgetTaps {
         CIRCLE_CALL("circle/call"),
         CIRCLE_DATE("circle/date"),
         CIRCLE_REVEAL("circle/reveal"),
+        SITUATIONS_APP("situations/app"),
+        SITUATION_TOGGLE("situations/toggle"),
     }
 
     private const val SCHEME = "parley-widget"
@@ -39,8 +41,8 @@ internal object WidgetTaps {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    fun broadcast(context: Context, kind: Kind, widgetId: Int, intent: Intent): PendingIntent = PendingIntent.getBroadcast(
-        context, key(kind, widgetId).hashCode(), mark(intent, kind, widgetId),
+    fun broadcast(context: Context, kind: Kind, widgetId: Int, intent: Intent, place: Int = 0): PendingIntent = PendingIntent.getBroadcast(
+        context, key(kind, widgetId, place).hashCode(), mark(intent, kind, widgetId, place),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 }

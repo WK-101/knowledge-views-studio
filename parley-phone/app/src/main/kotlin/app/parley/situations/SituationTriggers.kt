@@ -81,7 +81,7 @@ object SituationTriggers {
     fun install(context: Context, c: DataContainer) {
         val app = context.applicationContext
         c.situations.onChange = {
-            refreshTile(app)
+            refreshShown(app)
             SituationNotice.update(app, c.situations)
             if (!workerRunning) schedule(app, c)
         }
@@ -194,15 +194,17 @@ object SituationTriggers {
             c.situations.reconcile()
         } finally {
             workerRunning = false
-            refreshTile(context)
+            refreshShown(context)
             // The change listener may not be wired yet in a process the job started: the notice follows here too.
             SituationNotice.update(context.applicationContext, c.situations)
             schedule(context, c, fromWorker = true)
         }
     }
 
-    fun refreshTile(context: Context) {
+    /** The Quick Settings tile and the home-screen widgets show the Situation on now again. */
+    fun refreshShown(context: Context) {
         catching { TileService.requestListeningState(context, ComponentName(context, SituationTileService::class.java)) }
+        SituationsWidget.update(context)
     }
 
     /** A Situation's name: the one given to it, else a built-in one's own. */
@@ -234,7 +236,7 @@ class SituationClockReceiver : BroadcastReceiver() {
             try {
                 catching { c.situations.reconcile() }
                 SituationTriggers.schedule(app, c)
-                SituationTriggers.refreshTile(app)
+                SituationTriggers.refreshShown(app)
             } finally {
                 done.finish()
             }
