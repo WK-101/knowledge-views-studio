@@ -75,7 +75,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import app.parley.data.history.insertNamed
+import app.parley.data.history.restoreNamed
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -801,15 +801,7 @@ class BackupRepository(
         }
     }
 
-    private fun restoreCallLog(opened: OpenedBackup): Int {
-        val existing = callLog.rowSignatures()
-        var n = 0
-        opened.reader.callLog { seq ->
-            seq.filter { CallLogRepository.signature(it.number, it.date, it.duration, it.type) !in existing }.chunked(200)
-                .forEach { n += callLog.insertNamed(it, contacts, vault) }
-        }
-        return n
-    }
+    private fun restoreCallLog(opened: OpenedBackup): Int = opened.reader.callLog { seq -> callLog.restoreNamed(seq, contacts, vault) }
 
     /** Label titles on this phone (the way label references are keyed; group row ids differ between phones). */
     private fun labelTitlesHere(): Set<String> = catching { contacts.groups().map { LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())

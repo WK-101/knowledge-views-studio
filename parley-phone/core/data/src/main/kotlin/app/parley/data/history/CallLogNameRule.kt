@@ -33,8 +33,15 @@ suspend fun forgetHiddenCallLogNames(callLog: CallLogRepository, contacts: Conta
 }
 
 /**
- * [CallLogRepository.insert] (a restore) with only the names Android's call log may keep: archived and private people's
- * calls go back without theirs ([CallLogNames]). Blocking: for readers that stream a backup section on an IO thread.
+ * Restores a backup's call-log section ([records]) into Android's call log, skipping calls it already has, with only the
+ * names it may keep: archived and private people's calls go back without theirs ([CallLogNames]). Blocking: for
+ * readers that stream a backup section on an IO thread. Returns how many rows were written.
  */
-fun CallLogRepository.insertNamed(records: List<CallLogRecord>, contacts: ContactsRepository, vault: VaultRepository): Int =
-    insert(runBlocking { callLogNames(contacts, vault).scrub(records) })
+fun CallLogRepository.restoreNamed(records: Sequence<CallLogRecord>, contacts: ContactsRepository, vault: VaultRepository): Int {
+    val existing = rowSignatures()
+    val names = callLogNames(contacts, vault)
+    return records.filter { CallLogRepository.signature(it.number, it.date, it.duration, it.type) !in existing }.chunked(RESTORE_CHUNK)
+        .sumOf { insert(runBlocking { names.scrub(it) }) }
+}
+
+private const val RESTORE_CHUNK = 200
