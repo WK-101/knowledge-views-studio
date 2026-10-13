@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Situations widget: the one on now and a tap to turn each on or off. Resizable from one cell (a single toggle)
+     up; 2×1 by default (a row of chips). Redrawn by the app whenever a Situation changes, so no updatePeriodMillis.
+     minWidth/minHeight are the default size before Android 12; targetCell* from 12 on. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/sit_widget_description"
+    android:initialLayout="@layout/widget_situations"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:previewLayout="@layout/widget_situations_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

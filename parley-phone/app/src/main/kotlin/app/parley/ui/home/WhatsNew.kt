@@ -93,6 +93,13 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp),
                 )
             }
+            // The Circle widget went with the update to 7.0 (Android removed any placed one): say where it went.
+            if (remember(ux.whatsNewSeenName, ux.whatsNewSeen) { WhatsNew.mentionsCircleWidget(ux.whatsNewSeenName, ux.whatsNewSeen, versionName) }) {
+                Text(
+                    stringResource(R.string.home_whats_new_circle_widget),
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp),
+                )
+            }
             Text(stringResource(R.string.discover_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             if (offerLayout) {
                 Text(

@@ -259,6 +259,11 @@ object CapabilityCatalog {
         // Situations took the drive profile's featured place: since 6.0 the car is part of the Driving Situation.
         setting("situations", CALLS, "Situations", "Driving, a meeting or night: one tap sets who may ring, and puts it back", "situations",
             "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top().listedIn(LISTED_6_4),
+        // The widget is added from the launcher: its help page says how, and leads to the Situations it turns on.
+        help(
+            "situations_widget", CALLS, "Situations on your home screen", "A widget that turns Night, a meeting or driving on and off",
+            HelpTopic.SITUATIONS_WIDGET, "widget", "home screen", "toggle", "night", "meeting", "driving", since = "7.0",
+        ),
         // The drive profile lives inside Driving only: this row opens the Driving Situation, where Your car is.
         screen("drive_profile", CALLS, "Your car", "Inside the Driving situation: announce callers, answer the people you choose", AppScreen.DRIVE_PROFILE,
             "car", "driving", "bluetooth", "android auto", "announce", since = "4.7"),

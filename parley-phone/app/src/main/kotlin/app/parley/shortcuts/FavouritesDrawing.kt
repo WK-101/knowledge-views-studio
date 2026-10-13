@@ -7,9 +7,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.foundation.layout.Column
@@ -30,7 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.os.BundleCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.parley.IntentRoutes
@@ -38,7 +35,6 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
-import app.parley.common.catching
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoritesWidgetPlan
 import app.parley.common.people.PeopleWidgetPlan
@@ -66,8 +62,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  *
  * - The launcher draws it, so only phone contacts are in it: private contacts never are ([FavoritesWidgetPlan]).
  * - With the app lock on, a locked phone shows only how many favourites there are.
- * - Resizable: the grid has as many columns and rows as fit, drawn for each size the widget takes (portrait and
- *   landscape, or the sizes Android 12+ lists). Light and dark follow the system. No network.
+ * - Resizable down to one cell: the grid has as many columns and rows as fit, drawn for each size the widget takes
+ *   ([WidgetSizing]); small sizes drop the title, then the names ([FavoritesWidgetPlan.grid]). Light and dark follow the
+ *   system (and its colours on Android 12+). No network.
  * - Every tap has its own PendingIntent ([WidgetTaps]), so one widget's redraw never changes whom another one calls.
  */
 internal object FavouritesDrawing {
@@ -97,33 +94,8 @@ internal object FavouritesDrawing {
     @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
     fun views(
         ctx: Context, id: Int, manager: AppWidgetManager, favourites: List<ContactSummary>, look: PeopleWidget.Look, photos: HashMap<Long, Bitmap>,
-    ): RemoteViews {
-        val options = manager.getAppWidgetOptions(id)
-        fun dp(key: String) = options?.getInt(key, 0) ?: 0
-        val layouts = FavoritesWidgetPlan.layouts(
-            dp(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH), dp(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT),
-            dp(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH), dp(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT),
-            listedSizes(options),
-        )
-        fun at(size: FavoritesWidgetPlan.Size) =
-            sized(ctx, id, FavoritesWidgetPlan.grid(size.widthDp, size.heightDp), favourites, look, photos)
-        return when (layouts) {
-            is FavoritesWidgetPlan.Layouts.Listed -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                RemoteViews(layouts.sizes.associate { SizeF(it.widthDp.toFloat(), it.heightDp.toFloat()) to at(it) })
-            } else {
-                at(layouts.sizes.first())
-            }
-            is FavoritesWidgetPlan.Layouts.ByOrientation -> RemoteViews(at(layouts.landscape), at(layouts.portrait))
-        }
-    }
-
-    /** The sizes Android 12 and later list for the widget (null before, or when the launcher gives none). */
-    private fun listedSizes(options: Bundle?): List<FavoritesWidgetPlan.Size>? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || options == null) return null
-        val sizes = catching {
-            BundleCompat.getParcelableArrayList(options, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
-        }.getOrNull() ?: return null
-        return sizes.map { FavoritesWidgetPlan.Size(it.width.toInt(), it.height.toInt()) }
+    ): RemoteViews = WidgetSizing.responsive(manager, id) { size ->
+        sized(ctx, id, FavoritesWidgetPlan.grid(size.widthDp, size.heightDp), favourites, look, photos)
     }
 
     /** One drawing of widget [id] with [grid], as [look] says. */
@@ -134,23 +106,27 @@ internal object FavouritesDrawing {
         val v = RemoteViews(ctx.packageName, R.layout.widget_favorites)
         v.removeAllViews(R.id.fav_grid)
         v.setViewVisibility(R.id.fav_message, View.GONE)
+        v.setViewVisibility(R.id.fav_grid, View.VISIBLE)
+        // Small sizes drop the title first (one cell high, or one across), then the names (read out still).
+        v.setViewVisibility(R.id.fav_title, if (grid.title) View.VISIBLE else View.GONE)
         v.setOnClickPendingIntent(R.id.fav_title, openApp(ctx, id))
         when (val shown = FavoritesWidgetPlan.shown(favourites, grid, look.locked)) {
             is FavoritesWidgetPlan.Shown.Locked -> {
                 // App lock on and the phone or Parley locked: a count only, never names or photos.
                 val res = ctx.resources
-                v.setTextViewText(
-                    R.id.fav_message,
-                    res.getQuantityString(R.plurals.fav_widget_count, shown.count, shown.count) + "\n" + res.getString(R.string.circle_widget_tap_reveal),
-                )
+                val count = res.getQuantityString(R.plurals.fav_widget_count, shown.count, shown.count)
+                // Too small for both lines: the count alone, the tap still reveals.
+                v.setTextViewText(R.id.fav_message, if (grid.title) count + "\n" + res.getString(R.string.circle_widget_tap_reveal) else count)
                 v.setViewVisibility(R.id.fav_message, View.VISIBLE)
-                val reveal = if (look.unlockInParley) openApp(ctx, id) else PeopleWidget.reveal(ctx, WidgetTaps.Kind.FAVOURITES_REVEAL, id, look)
+                v.setViewVisibility(R.id.fav_grid, View.GONE)
+                val reveal = if (look.unlockInParley) openApp(ctx, id) else PeopleWidget.reveal(ctx, WidgetTaps.Kind.FAVOURITES_REVEAL, id)
                 v.setOnClickPendingIntent(R.id.fav_root, reveal)
                 v.setOnClickPendingIntent(R.id.fav_message, reveal)
             }
             FavoritesWidgetPlan.Shown.Empty -> {
-                v.setTextViewText(R.id.fav_message, ctx.getString(R.string.fav_widget_empty))
+                v.setTextViewText(R.id.fav_message, ctx.getString(if (grid.title) R.string.fav_widget_empty else R.string.fav_widget_empty_short))
                 v.setViewVisibility(R.id.fav_message, View.VISIBLE)
+                v.setViewVisibility(R.id.fav_grid, View.GONE)
                 v.setOnClickPendingIntent(R.id.fav_root, openApp(ctx, id))
                 v.setOnClickPendingIntent(R.id.fav_message, openApp(ctx, id))
             }
@@ -158,7 +134,7 @@ internal object FavouritesDrawing {
                 val tap = PeopleWidget.tap(ctx, id)
                 shown.tiles.chunked(grid.columns).forEachIndexed { r, row ->
                     val line = RemoteViews(ctx.packageName, R.layout.widget_favorites_row)
-                    row.forEachIndexed { col, t -> line.addView(R.id.fav_row, cell(ctx, id, r * grid.columns + col, t, tap, photos)) }
+                    row.forEachIndexed { col, t -> line.addView(R.id.fav_row, cell(ctx, id, r * grid.columns + col, t, tap, photos, grid.names)) }
                     // Empty places keep the columns lined up on the last row.
                     repeat(grid.columns - row.size) {
                         val gap = RemoteViews(ctx.packageName, R.layout.widget_favorites_cell)
@@ -174,10 +150,11 @@ internal object FavouritesDrawing {
 
     @Suppress("LongParameterList") // RemoteViews are built from plain values: no state object to pass instead.
     private fun cell(
-        ctx: Context, id: Int, index: Int, t: FavoritesWidgetPlan.Tile, tap: FavoritesWidgetPlan.Tap, photos: HashMap<Long, Bitmap>,
+        ctx: Context, id: Int, index: Int, t: FavoritesWidgetPlan.Tile, tap: FavoritesWidgetPlan.Tap, photos: HashMap<Long, Bitmap>, named: Boolean,
     ): RemoteViews {
         val cell = RemoteViews(ctx.packageName, R.layout.widget_favorites_cell)
         cell.setTextViewText(R.id.fav_cell_name, t.name)
+        cell.setViewVisibility(R.id.fav_cell_name, if (named) View.VISIBLE else View.GONE)
         val photo = photos.getOrPut(t.contactId) {
             t.photoUri?.let { uri ->
                 // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
