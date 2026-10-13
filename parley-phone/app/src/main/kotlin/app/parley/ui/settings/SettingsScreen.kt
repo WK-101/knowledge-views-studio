@@ -135,14 +135,16 @@ val SettingsCategory.icon: ImageVector
     }
 
 /**
- * Categories in groups, so the list reads in chunks rather than as one long pile. Reminders, a page of its own for
- * every reminder Parley sends, sits with Notifications. Blocking & spam opens the Blocking & screening screen itself.
+ * Categories in groups, so the list reads in chunks rather than as one long pile. What a phone app's settings are
+ * opened for most (calls, blocking, contacts) comes first; how it looks, set once, after Notifications. Reminders, a
+ * page of its own for every reminder Parley sends, sits with Notifications. Blocking & spam opens the Blocking &
+ * screening screen itself.
  */
-private val categoryGroups = listOf(
-    listOf(SettingsCategory.APPEARANCE, SettingsCategory.LAYOUT),
+internal val categoryGroups = listOf(
     listOf(SettingsCategory.CALLS, SettingsCategory.BLOCKING),
     listOf(SettingsCategory.CONTACTS, SettingsCategory.HISTORY),
     listOf(SettingsCategory.PRIVACY, SettingsCategory.BACKUP, null, SettingsCategory.NOTIFICATIONS),
+    listOf(SettingsCategory.APPEARANCE, SettingsCategory.LAYOUT),
     listOf(SettingsCategory.ABOUT),
 )
 

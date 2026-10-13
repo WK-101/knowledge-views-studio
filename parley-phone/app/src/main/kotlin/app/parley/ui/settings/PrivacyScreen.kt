@@ -24,7 +24,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
@@ -39,6 +38,10 @@ import app.parley.ui.calltime.NotificationHealthCard
 import app.parley.ui.people.PrivacyLinks
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 private val reasons = mapOf(
     "android.permission.CALL_PHONE" to R.string.set_perm_call_phone,
@@ -67,17 +70,18 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
         context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions?.toList().orEmpty()
     }
     val hasInternet = "android.permission.INTERNET" in requested
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(settingTitle("privacy_dashboard"), onBack = back)
+        ParleyTopBar(settingTitle("privacy_dashboard"), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Card(
-                    Modifier.padding(16.dp),
+                    Modifier.padding(Spacing.l),
                     colors = CardDefaults.cardColors(containerColor = if (hasInternet) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer),
                 ) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.WifiOff, null, Modifier.padding(end = 16.dp))
+                    Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.WifiOff, null, Modifier.padding(end = Spacing.l))
                         Column {
                             Text(stringResource(if (hasInternet) R.string.set_privacy_internet_present else R.string.set_no_internet), style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -91,7 +95,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 Text(
                     stringResource(R.string.set_privacy_no_analytics),
-                    Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
+                    Modifier.padding(horizontal = Spacing.l), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             item { NotificationHealthCard(vm) }
