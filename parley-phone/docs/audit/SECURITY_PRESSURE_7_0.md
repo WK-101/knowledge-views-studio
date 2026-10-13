@@ -150,6 +150,7 @@ on for `parley.db` only (small, few deletes), or accept.
 | Cold-start caches (`PrivateSummaryCache`, the list head): sealed, private rows dropped at lock or duress | Pass |
 | Search, Recall, Next up, widgets, shortcuts, Direct Share, the system contact picker | Pass: widgets, shortcuts and pickers read only the address book (`ContactCapability.HOME_SCREEN_SHORTCUT` off for private contacts); no Direct Share targets; Android's picker never sees private contacts |
 | Notifications and their public versions; duress | Pass (`DuressWalkTest`, round 3 fixes) |
+| Situations widget (7.0) | Pass: home screen only (`widgetCategory="home_screen"`, never on the lock screen); it names Situations, which hold no contact and no duress rule covers (Rescue call never appears); a toggle reaches a non-exported receiver only through Parley's own immutable, explicit PendingIntent, and changes nothing unless the phone is unlocked (an unknown keyguard state counts as locked). With the app lock on it still toggles on an unlocked phone, as the Quick Settings tile does: **Accepted**, by design (a Situation's name such as "Hospital visit" shows to whoever holds the unlocked phone; the owner chose the tile's rule for it) |
 | Clipboard | Pass: `Clipboard.copy` marks clips sensitive |
 | Recents thumbnail | **Fixed** (SP-2) |
 | Keyboard learning | **Fixed** (SP-3); in-call note field: SP-11 |
