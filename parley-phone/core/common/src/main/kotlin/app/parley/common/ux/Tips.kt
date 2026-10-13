@@ -151,6 +151,21 @@ object WhatsNew {
         32 to "6.2", 33 to "6.2", 34 to "6.2", 35 to "6.3",
     )
 
+    /** The release whose update took the separate Circle widget away (the People widget's Circle mode replaces it). */
+    private const val CIRCLE_WIDGET_GONE = "7.0"
+
+    /**
+     * Whether the update card says the Circle widget is now the People widget: an update from a release that still had
+     * it (or one too old to tell) to one without it. Parley can't know whether one was placed (Android removes it with
+     * the update and tells the app nothing), so every such update says it once, on the card.
+     */
+    fun mentionsCircleWidget(seenName: String?, seenVersion: Int, currentName: String): Boolean {
+        val gone = CapabilityCatalog.releaseOrder(CIRCLE_WIDGET_GONE) ?: return false
+        val now = CapabilityCatalog.releaseOrder(currentName) ?: return false
+        val from = lastSeenRelease(seenName, seenVersion)?.let(CapabilityCatalog::releaseOrder) ?: (now - 1)
+        return from < gone && now >= gone
+    }
+
     /**
      * The rows an update card names: what Tools started showing since the release seen last ([CapabilityCatalog.visibleSince]).
      * A fresh install never gets here (it has the introduction instead).

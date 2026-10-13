@@ -84,6 +84,17 @@
     <!-- %1$s its name. -->
     <string name="sit_tile_on_cd">%1$s is on. Tap for the next situation.</string>
 
+    <!-- The home-screen widget: the one on now, and a tap to turn each on or off. -->
+    <string name="sit_widget_title">Situations</string>
+    <string name="sit_widget_description">Turn Night, Meeting, Driving or your own Situations on and off from the home screen.</string>
+    <string name="sit_widget_none">No Situation</string>
+    <!-- %1$s its name. -->
+    <string name="sit_widget_on">%1$s is on</string>
+    <!-- %1$s its name. -->
+    <string name="sit_widget_on_cd">%1$s is on. Tap to turn it off.</string>
+    <!-- %1$s its name. -->
+    <string name="sit_widget_off_cd">%1$s is off. Tap to turn it on.</string>
+
     <!-- Switching one on by hand asks how long, each time. %1$s its name. -->
     <string name="sit_end_title">How long should %1$s stay on?</string>
     <string name="sit_end_hour">For 1 hour</string>

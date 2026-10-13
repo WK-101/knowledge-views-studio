@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Favourites widget (RemoteViews, no Glance): a title, then rows of people added at run time. -->
+<!-- The People widget in Favourites mode (RemoteViews, no Glance): a title, then rows of people added at run time.
+     Small sizes hide the title. The background follows the system's widget corners and colours on Android 12+. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fav_root"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_circle_bg"
-    android:orientation="vertical"
-    android:padding="12dp">
+    style="@style/ParleyWidget"
+    android:orientation="vertical">
 
     <TextView
         android:id="@+id/fav_title"
@@ -22,12 +20,17 @@
     <TextView
         android:id="@+id/fav_message"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
         android:paddingStart="4dp"
         android:paddingEnd="4dp"
+        android:autoSizeMaxTextSize="14sp"
+        android:autoSizeMinTextSize="9sp"
+        android:autoSizeTextType="uniform"
+        android:ellipsize="end"
+        android:maxLines="3"
         android:textColor="@color/c2_widget_text"
-        android:textSize="14sp"
         android:visibility="gone" />
 
     <LinearLayout

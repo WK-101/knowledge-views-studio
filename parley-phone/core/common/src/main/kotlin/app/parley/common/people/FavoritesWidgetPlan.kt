@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.ContactSummary
+import app.parley.common.widgets.WidgetShape
 
 /**
  * What the Favourites widget shows: a grid of favourites in the order of the Favourites tab, as many as fit its size.
@@ -14,7 +15,8 @@ object FavoritesWidgetPlan {
     /** One person in the grid. [number]: what a tap calls (null: the tap opens their page instead). */
     data class Tile(val contactId: Long, val name: String, val number: String?, val photoUri: String?)
 
-    data class Grid(val columns: Int, val rows: Int) {
+    /** [title]: the "Favourites" line shows; [names]: each face has its name under it (else the name is only read out). */
+    data class Grid(val columns: Int, val rows: Int, val title: Boolean = true, val names: Boolean = true) {
         val capacity: Int get() = columns * rows
     }
 
@@ -29,10 +31,15 @@ object FavoritesWidgetPlan {
         data class Tiles(val tiles: List<Tile>, val more: Int) : Shown
     }
 
-    /** About one person per 72 dp across and 80 dp down (photo, name and a margin), after the title line. */
-    const val CELL_WIDTH_DP = 72
-    const val CELL_HEIGHT_DP = 80
-    const val TITLE_DP = 28
+    /**
+     * About one person per 64 dp across and 72 dp down (photo, name and a margin), after the title line and inside the
+     * widget's padding; a face alone needs about 48 dp either way.
+     */
+    const val CELL_WIDTH_DP = 64
+    const val CELL_HEIGHT_DP = 72
+    const val FACE_DP = 48
+    const val TITLE_DP = 24
+    const val PADDING_DP = 16
     const val MAX_COLUMNS = 6
     const val MAX_ROWS = 5
 
@@ -63,11 +70,21 @@ object FavoritesWidgetPlan {
         return Layouts.ByOrientation(portrait = Size(minWidth, maxHeight), landscape = Size(maxWidth, minHeight))
     }
 
-    /** The grid for a widget [widthDp]×[heightDp] (unknown sizes, 0 or less, give a 4×2 grid). */
+    /**
+     * The grid for a widget [widthDp]×[heightDp] (an unknown size, 0 or less, gives a 4×2 grid). Small sizes get a
+     * layout of their own ([WidgetShape]): one cell across shows one person; one cell high shows one row; the title
+     * and the names go before anything would be cut off.
+     */
     fun grid(widthDp: Int, heightDp: Int): Grid {
-        val columns = if (widthDp > 0) (widthDp / CELL_WIDTH_DP).coerceIn(1, MAX_COLUMNS) else 4
-        val rows = if (heightDp > 0) ((heightDp - TITLE_DP) / CELL_HEIGHT_DP).coerceIn(1, MAX_ROWS) else 2
-        return Grid(columns, rows)
+        if (widthDp <= 0 || heightDp <= 0) return Grid(4, 2)
+        val shape = WidgetShape.of(widthDp, heightDp)
+        val inside = heightDp - PADDING_DP
+        val title = shape == WidgetShape.BLOCK && inside >= TITLE_DP + CELL_HEIGHT_DP
+        val room = if (title) inside - TITLE_DP else inside
+        val names = room >= CELL_HEIGHT_DP
+        val columns = if (shape == WidgetShape.TILE) 1 else (widthDp / if (names) CELL_WIDTH_DP else FACE_DP).coerceIn(1, MAX_COLUMNS)
+        val rows = if (shape == WidgetShape.BLOCK) (room / if (names) CELL_HEIGHT_DP else FACE_DP).coerceIn(1, MAX_ROWS) else 1
+        return Grid(columns, rows, title, names)
     }
 
     /**

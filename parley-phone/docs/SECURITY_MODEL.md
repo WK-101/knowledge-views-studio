@@ -334,7 +334,7 @@ hiding) stays on an unlocked private contact's page.
   these settings (`CallUi.occasionPrivate`); it appears once the phone is unlocked.
 - **Birthdays & dates** (6.9) lists private contacts' dates beside the address book's, from the same caller-ID copy
   (`PrivateEvents`), with the lock badge, only while `PrivateDates.mayShow`; hiding or locking them, or a duress unlock,
-  takes them off the screen at once. The Circle widget and the reminders' notifications keep to the address book's
+  takes them off the screen at once. The People widget and the reminders' notifications keep to the address book's
   dates: no private contact's date reaches the lock screen, a widget or a notification.
 - While a call rings, at most three lines show under the caller, safety lines first ("This number never calls you",
   the fresh-number line, the sales-line tag, why it rang through): a safety line is never pushed out by who-lines.
@@ -574,8 +574,8 @@ see your contacts" says so on Android 17 and later.
 - **Fresh-number line.** "New number, added 3 days ago" names nobody and says only where the number came from, so,
   like "This number never calls you", it stays on the lock screen. **Call their older number** asks for the unlock,
   and the older number is never shown on the call screen, only dialled.
-- **Widgets.** The People widget (Favourites or Circle, chosen when it's placed; Circle widgets placed before 6.9 draw
-  the same way) reads only phone contacts, so private contacts are never in it, whether or not they show in Parley.
+- **Widgets.** The People widget (Favourites or Circle, chosen when it's placed; the separate Circle widget is gone
+  since 7.0) reads only phone contacts, so private contacts are never in it, whether or not they show in Parley.
   With the app lock on, it shows counts instead of names while the phone
   **or Parley** is locked, not only while the phone is locked. They redraw when Parley locks, when the phone is
   unlocked, and when Parley's lock delay runs out after you leave it: a one-time background job set for that moment
@@ -597,6 +597,12 @@ see your contacts" says so on Android 17 and later.
   When Parley puts calls back into the call log (undoing a delete, restoring with the archive off, importing a CSV) it
   writes a name only when an address-book contact owns the number now (`CallLogNames`, failing closed). Moving a
   private contact back to the phone writes its calls back with the name, as that person is visible again.
+- **Situations widget.** It shows the Situations' names and which one is on, with the app lock on too and after a
+  duress unlock, like the Quick Settings tile: no Situation is private and no duress rule hides them (Rescue call, which
+  a duress unlock does hide, is never on it). A tap switches through the same controller as the app and the tile, and
+  only while the phone is unlocked: from a locked phone it changes nothing. Its taps are Parley's own PendingIntents to a
+  receiver that isn't exported. It keeps on this phone only how often each Situation was turned on (`situation_widgets`),
+  so its one-cell toggle can offer the one used most.
 - **Shared files.** Files handed to other apps from the cache (contact cards, a scanned Secure QR's card, voicemail
   audio, rule exports, transfer files) are deleted once they are an hour old, at start and by the upkeep, like
   exports: never younger, so an app that opens a shared file late (an e-mail draft) still finds it. A scanned
