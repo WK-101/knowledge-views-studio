@@ -1,5 +1,6 @@
 package app.parley.telecom.ui
 
+import app.parley.ui.ParleyMenuItem
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,7 +27,6 @@ import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import app.parley.common.calls.PostCallActions
@@ -251,9 +251,9 @@ private fun SaveAction(onNew: () -> Unit, onAdd: () -> Unit, onPrivately: () -> 
             Text(stringResource(R.string.tc_save))
         }
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            MenuItem(Icons.Rounded.PersonAdd, stringResource(R.string.postcall_new_contact)) { open = false; onNew() }
-            MenuItem(Icons.Rounded.PersonSearch, stringResource(R.string.postcall_add_to_contact)) { open = false; onAdd() }
-            MenuItem(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { open = false; onPrivately() }
+            ParleyMenuItem(stringResource(R.string.postcall_new_contact), Icons.Rounded.PersonAdd) { open = false; onNew() }
+            ParleyMenuItem(stringResource(R.string.postcall_add_to_contact), Icons.Rounded.PersonSearch) { open = false; onAdd() }
+            ParleyMenuItem(stringResource(R.string.postcall_save_privately), Icons.Rounded.Lock) { open = false; onPrivately() }
         }
     }
 }
@@ -271,15 +271,10 @@ private fun MoreAction(actions: List<PostCallActions.Action>, onAction: (PostCal
         DropdownMenu(open, onDismissRequest = { open = false }) {
             actions.forEach { a ->
                 val (icon, text) = postCallLabel(a)
-                MenuItem(icon, text) { open = false; onAction(a) }
+                ParleyMenuItem(text, icon) { open = false; onAction(a) }
             }
         }
     }
-}
-
-@Composable
-private fun MenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
-    DropdownMenuItem(text = { Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
 }
 
 @Composable

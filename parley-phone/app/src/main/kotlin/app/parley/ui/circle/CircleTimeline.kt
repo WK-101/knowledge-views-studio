@@ -1,5 +1,7 @@
 package app.parley.ui.circle
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.calls.ExpectedCallHints
 import android.app.Application
 import android.provider.ContactsContract
@@ -7,7 +9,6 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -18,15 +19,11 @@ import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableDates
@@ -319,7 +316,6 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
 private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Interaction) -> Unit, onDelete: (Interaction) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
-    var menu by remember { mutableStateOf(false) }
     val sep = stringResource(R.string.main_separator)
     val headline = CircleText.type(res, e.type) + (e.channel?.let { sep + CircleText.channel(res, it) } ?: "")
     ParleyListItem(
@@ -334,20 +330,9 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
             }
         },
         trailingContent = if (item == null) null else ({
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
-                DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.action_edit)) },
-                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                        onClick = { menu = false; onEdit(item) },
-                    )
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.action_delete)) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menu = false; onDelete(item) },
-                    )
-                }
+            OverflowMenu(label = stringResource(R.string.label_more_for, headline)) { close ->
+                ParleyMenuItem(stringResource(R.string.action_edit), Icons.Rounded.Edit) { close(); onEdit(item) }
+                ParleyMenuItem(stringResource(R.string.action_delete), Icons.Rounded.Delete, destructive = true) { close(); onDelete(item) }
             }
         }),
     )

@@ -5,10 +5,11 @@ package app.parley.ui.calls
 
 import app.parley.ui.parleyBack
 import app.parley.ui.parleyOpen
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.ui.PrivateMarked
 import android.content.Context
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,10 +22,8 @@ import androidx.compose.material.icons.rounded.AlarmAdd
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PhoneCallback
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -195,48 +194,45 @@ private fun RowMenu(model: ToCallModel, r: ToCallRow, title: String, onUndoable:
     val e = r.entry
     var open by remember { mutableStateOf(false) }
     var times by remember { mutableStateOf(false) }
-    Box {
-        IconButton({ open = true; times = false }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_for, title)) }
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.to_call_later_menu)) },
-                leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
-                onClick = { times = !times },
-            )
-            if (times) {
-                RemindTimes.choices().forEach { (choice, at) ->
-                    DropdownMenuItem(
-                        text = { Text(RemindTimes.label(context, choice, at)) },
-                        onClick = { open = false; model.snooze(e, at) },
-                        modifier = Modifier.padding(start = Spacing.xl),
-                    )
-                }
-            }
-            if (ToCall.offersTheirEvening(e.zone, ZoneId.systemDefault(), System.currentTimeMillis())) {
+    // Opening the menu starts with the times folded away.
+    OverflowMenu(open, { open = it; times = false }, label = stringResource(R.string.label_more_for, title)) { close ->
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.to_call_later_menu)) },
+            leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
+            onClick = { times = !times },
+        )
+        if (times) {
+            RemindTimes.choices().forEach { (choice, at) ->
                 DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(stringResource(R.string.to_call_their_evening))
-                            Text(
-                                stringResource(R.string.to_call_their_evening_body),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    trailingIcon = { Checkbox(e.theirEvening, onCheckedChange = null) },
-                    onClick = { open = false; model.setTheirEvening(e, !e.theirEvening) },
+                    text = { Text(RemindTimes.label(context, choice, at)) },
+                    onClick = { open = false; model.snooze(e, at) },
+                    modifier = Modifier.padding(start = Spacing.xl),
                 )
             }
+        }
+        if (ToCall.offersTheirEvening(e.zone, ZoneId.systemDefault(), System.currentTimeMillis())) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.dc_done)) },
-                leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
-                onClick = { open = false; onUndoable(R.string.to_call_done_undo, model.done(e)) },
+                text = {
+                    Column {
+                        Text(stringResource(R.string.to_call_their_evening))
+                        Text(
+                            stringResource(R.string.to_call_their_evening_body),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                trailingIcon = { Checkbox(e.theirEvening, onCheckedChange = null) },
+                onClick = { open = false; model.setTheirEvening(e, !e.theirEvening) },
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_remove_button)) },
-                leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                onClick = { open = false; onUndoable(R.string.to_call_removed_undo, model.done(e)) },
-            )
+        }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.dc_done)) },
+            leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
+            onClick = { open = false; onUndoable(R.string.to_call_done_undo, model.done(e)) },
+        )
+        ParleyMenuItem(stringResource(R.string.action_remove_button), Icons.Rounded.Delete, destructive = true) {
+            close()
+            onUndoable(R.string.to_call_removed_undo, model.done(e))
         }
     }
 }

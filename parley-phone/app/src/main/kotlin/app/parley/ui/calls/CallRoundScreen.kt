@@ -4,6 +4,8 @@
 package app.parley.ui.calls
 
 import app.parley.ui.parleyBack
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,11 +21,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -361,7 +360,6 @@ private fun NextCard(vm: AppViewModel, next: RoundPerson) {
 @Composable
 private fun PersonRow(vm: AppViewModel, person: RoundPerson) {
     val ui = vm.callRound
-    var menu by remember { mutableStateOf(false) }
     ParleyListItem(
         leadingContent = { PrivateMarked(person.private) { Avatar(person.name, null, avatarSize()) } },
         headlineContent = { Text(person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -371,23 +369,17 @@ private fun PersonRow(vm: AppViewModel, person: RoundPerson) {
                 IconButton({ vm.requestCall(person.number, person.name) }) {
                     Icon(Icons.Rounded.Call, stringResource(R.string.round_call_named, person.name), tint = MaterialTheme.colorScheme.primary)
                 }
-                Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.round_more_for, person.name)) }
-                    DropdownMenu(menu, { menu = false }) {
-                        listOf(RoundMark.REACHED, RoundMark.NO_ANSWER, RoundMark.LATER).forEach { m ->
-                            DropdownMenuItem({ Text(markText(m)) }, onClick = {
-                                menu = false
-                                if (m == RoundMark.NO_ANSWER) markNoAnswer(vm, person) else ui.mark(person.key, m)
-                            })
+                OverflowMenu(label = stringResource(R.string.round_more_for, person.name)) { close ->
+                    listOf(RoundMark.REACHED, RoundMark.NO_ANSWER, RoundMark.LATER).forEach { m ->
+                        ParleyMenuItem(markText(m)) {
+                            close()
+                            if (m == RoundMark.NO_ANSWER) markNoAnswer(vm, person) else ui.mark(person.key, m)
                         }
-                        if (person.mark == RoundMark.NO_ANSWER) {
-                            DropdownMenuItem({ Text(stringResource(R.string.round_add_to_call)) }, onClick = { menu = false; addToCall(vm, person.number) })
-                        }
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.round_take_out)) },
-                            onClick = { menu = false; ui.remove(person.key) },
-                        )
                     }
+                    if (person.mark == RoundMark.NO_ANSWER) {
+                        ParleyMenuItem(stringResource(R.string.round_add_to_call)) { close(); addToCall(vm, person.number) }
+                    }
+                    ParleyMenuItem(stringResource(R.string.round_take_out)) { close(); ui.remove(person.key) }
                 }
             }
         },

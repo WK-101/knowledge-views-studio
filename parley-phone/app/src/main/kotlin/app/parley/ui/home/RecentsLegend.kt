@@ -1,5 +1,7 @@
 package app.parley.ui.home
 
+import app.parley.ui.Spacing
+import app.parley.ui.ListSectionHeader
 import app.parley.ui.Avatar
 import app.parley.ui.PrivateMarked
 import app.parley.ui.calls.NetworkNameTag
@@ -36,8 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -362,10 +362,7 @@ fun RecentsLegendHost() {
             val style = LocalRecentsStyle.current
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 RecentsLegend.sections(style).forEachIndexed { i, (section, entries) ->
-                    Text(
-                        stringResource(section.title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = if (i == 0) 0.dp else 16.dp, bottom = 4.dp).semantics { heading() },
-                    )
+                    ListSectionHeader(stringResource(section.title), inset = 0.dp, top = if (i == 0) 0.dp else Spacing.l, bottom = Spacing.xs)
                     entries.forEach { LegendRow(it) }
                 }
                 Text(

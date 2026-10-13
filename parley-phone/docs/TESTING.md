@@ -3888,6 +3888,24 @@ Automated: `ControlsSwapTest` (each call state has its phase; answering leaves o
 4. **Press.** Press and hold Mute, End call, Answer and Reply: each squares off (End call also widens) while held, and springs back on release, as before.
 5. **Remove animations** on: answering and hanging up change the controls at once.
 
+### 54.16 Parts that open in place
+Automated: `KitExpandAndMenuTest` (a header is a heading with "Expanded"/"Collapsed" and "Unfold"/"Fold"; its body opens and closes) (app); `HandBuiltExpandable` in `ParleyRulesTest` (tools/detekt-rules).
+1. **One look.** Open Blocking & screening, a label's page (Settings for this label), any Settings page's Advanced, a contact page with a folded section, Tools › Coming from another app and Voicemail: every chevron points down while closed and turns half a turn as it opens; the part grows open and shrinks closed with the same spring.
+2. **TalkBack.** Each header is one stop: its title (and summary), "Collapsed" or "Expanded", "double-tap to unfold" (Advanced: "to show advanced settings"); swipe by headings and it is among them. Double-tap: it says "Expanded".
+3. **Remove animations on.** The chevron and the part change at once, with nothing half-drawn.
+
+### 54.17 One ⋮ name and the kit's menus
+Automated: `OverflowNamesTest` (every top bar's ⋮ is the kit's, named "More options") and `KitExpandAndMenuTest` (the kit's ⋮ opens its items) (app); `HandBuiltOverflow` in `ParleyRulesTest` (tools/detekt-rules).
+1. **Top bars.** With TalkBack, focus the ⋮ on Home, a number's call history, History & undo, Case files, a case, Labels, a label, a contact's page, and the Contacts and Recents selection bars: each is announced "More options".
+2. **Rows.** A row's ⋮ names the row: "More for Ana" on a label's member, a label, a menu shortcut, a To call line, a Circle timeline entry, a result in Recall.
+3. **Menus look the same.** Every drop-down's items have the same height and icon column; the call screen's More and the post-call card's Save keep their labelled buttons.
+
+### 54.18 Destructive actions last, set apart
+Automated: `KitExpandAndMenuTest` (a destructive item comes after a line, in a drop-down and in a sheet; no line without one) (app).
+1. **Drop-downs.** Contact page ⋮: Delete is last, after a line, in red. The same for Recents ⋮ › Clear call history (before Tools and Settings), a number's call history ⋮ › Delete calls, a label's ⋮ › Delete label, Contacts selection ⋮ › Delete, a temporary contact's Delete now, a To call line's Remove.
+2. **Sheets.** Long-press a call in Recents (or its sheet): Delete from history is the last row, after a line, in red.
+3. **Still guarded.** Each still asks or offers Undo as before; dark, AMOLED and high-contrast themes keep the red readable.
+
 ### 54.19 Lists run edge to edge
 Automated: `ScaffoldBodyTest` (app, Robolectric: a list built with `scaffoldBody`/`scaffoldBottom` draws under a 48 dp navigation bar and its last row scrolls clear above it).
 1. Gesture navigation, a long list: Call insights, Backup & restore, Version history (a contact's ⋮), Birthdays & dates, Blocking › Templates, Spam lists, Test a call, Speed dial, Privacy dashboard, Who can see your contacts, Archived contacts, Sync between your phones, Import call history, Export, Who's in…, Talk-time reminders, Find & merge duplicates, Contact health check, SIMs and a SIM's plan, Import from SIM. Scroll: rows pass under the transparent navigation bar (no blank band above it), and at the end the last row stops clear of the bar and the gesture handle.

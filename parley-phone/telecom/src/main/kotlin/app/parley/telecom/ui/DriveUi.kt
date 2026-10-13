@@ -1,5 +1,6 @@
 package app.parley.telecom.ui
 
+import app.parley.ui.ListSectionHeader
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.parley.common.catching
@@ -65,10 +64,7 @@ internal fun DriveStatusLine(call: CallUi?, keypadOpen: Boolean) {
 @Composable
 internal fun DrivingReplies(call: CallUi, onSent: () -> Unit) {
     if (!call.driving) return
-    Text(
-        stringResource(R.string.drive_replies_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s).semantics { heading() },
-    )
+    ListSectionHeader(stringResource(R.string.drive_replies_title), inset = Spacing.xl, top = Spacing.s, bottom = Spacing.s)
     stringArrayResource(R.array.drive_replies).forEach { msg ->
         ParleyListItem(
             headlineContent = { Text(msg) },
