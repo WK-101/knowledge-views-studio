@@ -184,7 +184,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             // Archived and private people's names leave Android's call log (other apps read it); calls stay.
             step("call log names") {
                 val numbers = c.archive.all().flatMap { it.numbers } + catching { c.vault.allNumbers() }.getOrDefault(emptyList())
-                forgetHiddenCallLogNames(c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext))
+                forgetHiddenCallLogNames(c.appContext, c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext))
             }
             // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
             //    setting, except numbers kept forever)

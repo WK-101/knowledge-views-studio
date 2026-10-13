@@ -2,6 +2,8 @@ package app.parley.ui
 
 import android.app.Application
 import android.content.ComponentName
+import android.os.Looper
+import androidx.lifecycle.Lifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Text
@@ -25,6 +27,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
+import java.time.Duration
 
 /**
  * Back and open from a page are taken once: a quick second Back while the first pop animates doesn't pop the page
@@ -90,6 +93,25 @@ class NavigationGuardTest {
         compose.waitForIdle()
         assertEquals(listOf("Home", "Settings"), routes())
         // Once that page has settled, Back works again.
+        assertTrue(onMain { nav.backOnce() })
+        compose.waitForIdle()
+        assertEquals(listOf("Home"), routes())
+    }
+
+    @Test fun back_still_works_on_a_page_that_never_settles() {
+        onMain { nav.navigate(Routes.Settings) }
+        compose.waitForIdle()
+        onMain { nav.navigate(Routes.Temporary) }
+        compose.waitForIdle()
+        // Paused (a system prompt over Parley): no page reaches RESUMED, as when a result calls Back meanwhile.
+        scenario.moveToState(Lifecycle.State.STARTED)
+        assertTrue(onMain { nav.backOnce() })
+        compose.waitForIdle()
+        assertEquals(listOf("Home", "Settings"), routes())
+        // A second tap right away is still the one dropped...
+        assertFalse(onMain { nav.backOnce() })
+        // ...but once a page transition's time has passed, Back is taken although the page never settled.
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(GUARD_MS + 1))
         assertTrue(onMain { nav.backOnce() })
         compose.waitForIdle()
         assertEquals(listOf("Home"), routes())

@@ -3990,3 +3990,7 @@ Automated: `SettingsOrderTest` (app: Calls and Blocking first, Appearance and La
 2. Settings search still finds "theme", "navigation bar", "speed dial", "voicemail" and "pure black", and each opens its page at the row.
 3. Android 16: export all contacts and leave Parley while it runs. The ongoing "Exporting…" notification shows Android 16's progress bar, filling as it goes (a moving bar while the size isn't known yet); it is never promoted to a Live Update or a status chip. Lock the screen: the lock screen shows only that Parley is working. On Android 15 and older the plain progress bar shows, as before.
 
+### 54.23 Review fixes
+Automated: `NavigationGuardTest.back_still_works_on_a_page_that_never_settles` (app); `CallLogNamesTest.a_number_is_hidden_only_when_a_lookup_says_no_visible_contact_owns_it` (core:common).
+1. **Back is never dead.** Open Settings › Calls, tap Back, and at once pull down the notification shade (or let a permission prompt or the fingerprint sheet come up) before the page has settled. Close it and tap the top bar's Back: it goes back. A quick double tap of Back still lands on Settings, not Home.
+2. **Visible names stay in the call log.** Save a number as a phone contact "Ana" and the same number on an archived contact. Revoke Parley's Contacts permission, then run the daily upkeep (`adb shell cmd jobscheduler run -f app.parley.debug <job id>`): Google's Phone app still names those calls "Ana". Grant the permission again and run the upkeep: calls with numbers only the archived contact had lose the name; "Ana"'s keep it.

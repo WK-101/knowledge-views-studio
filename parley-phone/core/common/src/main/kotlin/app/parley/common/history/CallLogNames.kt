@@ -25,6 +25,17 @@ class CallLogNames(private val visible: suspend (String) -> Boolean) {
 
     companion object {
         /**
+         * Of [numbers] (archived or private people's), the ones whose call-log names may be taken off: those no contact
+         * everyone can see owns ([owned]). Without contacts access ([canRead] false) or when a lookup fails, nothing is
+         * known about who owns a number, so it is left alone: a visible contact's name is never cleared for want of an
+         * answer. Each number is looked up once.
+         */
+        suspend fun hidden(numbers: Collection<String>, canRead: Boolean, owned: suspend (String) -> Boolean): List<String> {
+            if (!canRead) return emptyList()
+            return numbers.filter { it.isNotBlank() }.distinct().filter { n -> catching { !owned(n) }.getOrDefault(false) }
+        }
+
+        /**
          * The call-log rows ([rows]: id, number, whether a name is cached) whose cached name must go: the call is with
          * one of [hidden] (archived or private people's numbers that no visible contact owns), by caller-ID rules.
          */

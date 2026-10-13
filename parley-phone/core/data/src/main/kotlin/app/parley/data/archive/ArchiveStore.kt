@@ -189,7 +189,7 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
         c.contacts.refresh()
         // Android's call log keeps the name on every old call with them, for any app that reads it: taken off.
         _cards.value.firstOrNull { it.id == id }?.numbers?.let { numbers ->
-            catching { forgetHiddenCallLogNames(c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext)) }
+            catching { forgetHiddenCallLogNames(c.appContext, c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext)) }
         }
         Archived(id, purged.synced, purged.messengerCopies)
     }
