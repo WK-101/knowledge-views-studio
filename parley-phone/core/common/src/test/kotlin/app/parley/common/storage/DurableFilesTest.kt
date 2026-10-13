@@ -27,6 +27,30 @@ class DurableFilesTest {
         DurableFiles.report = { _, _ -> }
     }
 
+    @Test fun concurrent_writes_of_one_file_never_tear_it() {
+        // Each body writes slowly in pieces, so without turns one write truncates the shared .tmp while another renames
+        // it into place (a torn file, or a rename of a .tmp already gone).
+        val target = File(tmp.root, "records.keys")
+        val failures = java.util.concurrent.atomic.AtomicInteger()
+        DurableFiles.report = { _, _ -> failures.incrementAndGet() }
+        val payloads = (0 until 8).map { i -> ByteArray(4096) { i.toByte() } }
+        val threads = payloads.map { p ->
+            Thread {
+                repeat(25) {
+                    DurableFiles.write(target) { out ->
+                        p.toList().chunked(512).forEach { piece -> out.write(piece.toByteArray()); Thread.yield() }
+                    }
+                }
+            }
+        }
+        threads.forEach(Thread::start)
+        threads.forEach(Thread::join)
+        assertEquals("every write succeeded", 0, failures.get())
+        val bytes = target.readBytes()
+        assertTrue("the file is one whole write, never a mix", payloads.any { it.contentEquals(bytes) })
+        assertFalse(File(tmp.root, "records.keys" + DurableFiles.TMP_SUFFIX).exists())
+    }
+
     @Test fun writes_and_replaces_on_the_real_disk() {
         val f = File(tmp.root, "a/b/state.json")
         assertTrue(DurableFiles.writeText(f, "one"))

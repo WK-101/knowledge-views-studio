@@ -111,6 +111,13 @@ object PhoneIdentity {
         listOfNotNull(key(raw, region), previousE164(raw, region), legacyKey(raw)).filter { it.isNotEmpty() }.distinct()
 
     /**
+     * Every key rows about any of [numbers] may be stored under, in any of [regions] ([lookupKeys] for each pair): what
+     * a store keyed by line clears when those numbers must no longer be kept there (they became a private contact's).
+     */
+    fun lookupKeysIn(numbers: Collection<String>, regions: Collection<String?>): Set<String> =
+        numbers.filter { it.isNotBlank() }.flatMapTo(LinkedHashSet()) { n -> regions.distinct().flatMap { lookupKeys(n, it) } }
+
+    /**
      * [key], then the key an older version stored the line under when it differs ([previousE164]: an Argentine "15"
      * mobile, a Slovak or Ivorian number). For stores keyed by [key] that were written before 5.4: read with every
      * form, so their rows still attach.

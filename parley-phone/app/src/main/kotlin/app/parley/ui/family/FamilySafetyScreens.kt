@@ -1,9 +1,9 @@
 package app.parley.ui.family
 
+import app.parley.ui.NoKeyboardLearning
 import app.parley.ui.ListSectionHeader
 import android.content.Context
 import android.text.format.DateUtils
-import android.view.inputmethod.EditorInfo
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,12 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -355,25 +352,6 @@ private fun HelperPicker(contacts: List<ContactSummary>, onDismiss: () -> Unit, 
             confirmButton = { TextButton({ numbersOf = null }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
-}
-
-/**
- * Text fields in [content] ask the keyboard not to learn what is typed (IME_FLAG_NO_PERSONALIZED_LEARNING), so a secret
- * never reaches its dictionary, suggestions or sync. Compose has no keyboard option for it, so the request is wrapped.
- */
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-private fun NoKeyboardLearning(content: @Composable () -> Unit) {
-    InterceptPlatformTextInput(
-        interceptor = { request, next ->
-            next.startInputMethod(
-                PlatformTextInputMethodRequest { info: EditorInfo ->
-                    request.createInputConnection(info).also { info.imeOptions = info.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
-                },
-            )
-        },
-        content = content,
-    )
 }
 
 /** "Tue 6 Oct, 08:00 – 20:00" in the user's locale. */

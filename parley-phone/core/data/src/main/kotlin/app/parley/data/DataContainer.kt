@@ -527,8 +527,10 @@ class DataContainer(context: Context) {
 
     /**
      * A number that becomes a private contact's (saved privately, moved to private, a private contact gaining it, a
-     * deleted one put back) keeps nothing from when it was unknown: the network's names for it go. Every private
-     * number once when the app starts (what a call-only process, or a moment without the key, left), then each new one.
+     * deleted one put back) keeps nothing from when it was unknown: the network's names for it go, and so do the plain
+     * line keys of its ring lengths and of the call-time ledger (a private number is kept nowhere in the clear). Every
+     * private number once when the app starts (what a call-only process, or a moment without the key, left), then each
+     * new one.
      */
     private suspend fun forgetNetworkNamesOfPrivateNumbers() {
         var known = emptySet<String>()
@@ -539,6 +541,9 @@ class DataContainer(context: Context) {
             if (added.isEmpty()) return@collect
             val regions = simRegions()
             added.forEach { n -> catching { networkNames.forget(n, regions) } }
+            val home = PhoneEnv.countryIso(appContext)
+            catching { blocks.forgetRings(added, regions + home) }
+            catching { callUsage.forgetLines(added, regions + home) }
         }
     }
 }

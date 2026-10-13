@@ -97,17 +97,28 @@ object DurableFiles {
     /** As [write], but throws: for callers that must not go on (an archive written before the contact is purged). */
     fun writeOrThrow(target: File, bytes: ByteArray) = writeOrThrow(target) { it.write(bytes) }
 
+    /**
+     * Two writes of one file share its `.tmp`: one could truncate it while the other renames it into place, leaving a
+     * torn file (and a crash then, a damaged one). So writes of the same file take turns, by a lock picked from the
+     * path (striped: bounded memory, and two different files rarely wait for each other).
+     */
+    private val stripes = Array(LOCK_STRIPES) { Any() }
+
+    private fun lockFor(target: File): Any = stripes[target.absolutePath.hashCode() and (LOCK_STRIPES - 1)]
+
     @Suppress("TooGenericExceptionCaught", "ThrowsCount") // Clean up whatever went wrong, then rethrow it.
     fun writeOrThrow(target: File, body: (OutputStream) -> Unit) {
         val dir = target.absoluteFile.parentFile ?: throw IOException("No folder for ${target.name}")
         if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) throw IOException("Can't create ${dir.name}")
         val tmp = File(dir, target.name + TMP_SUFFIX)
-        try {
-            disk.writeSynced(tmp, body)
-            disk.rename(tmp, target, replace = true)
-        } catch (e: Throwable) {
-            tmp.delete()
-            throw e
+        synchronized(lockFor(target)) {
+            try {
+                disk.writeSynced(tmp, body)
+                disk.rename(tmp, target, replace = true)
+            } catch (e: Throwable) {
+                tmp.delete()
+                throw e
+            }
         }
         syncDir(dir)
     }
@@ -154,4 +165,5 @@ object DurableFiles {
     }
 
     private const val BUFFER = 64 * 1024
+    private const val LOCK_STRIPES = 64
 }

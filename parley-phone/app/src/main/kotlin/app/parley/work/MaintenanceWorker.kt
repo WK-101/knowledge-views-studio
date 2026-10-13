@@ -1,5 +1,7 @@
 package app.parley.work
 
+import app.parley.data.PhoneEnv
+import app.parley.data.history.forgetHiddenCallLogNames
 import app.parley.common.catching
 import android.content.Context
 import android.content.Intent
@@ -178,6 +180,11 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
                 catching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n); c.callQuality.forget(n) } }
+            }
+            // Archived and private people's names leave Android's call log (other apps read it); calls stay.
+            step("call log names") {
+                val numbers = c.archive.all().flatMap { it.numbers } + catching { c.vault.allNumbers() }.getOrDefault(emptyList())
+                forgetHiddenCallLogNames(c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext))
             }
             // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
             //    setting, except numbers kept forever)
