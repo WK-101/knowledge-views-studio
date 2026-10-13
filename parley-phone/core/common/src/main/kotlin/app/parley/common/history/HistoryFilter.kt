@@ -48,7 +48,7 @@ enum class TypeGroup(val types: Set<CallType>) {
 }
 
 /**
- * A Recents filter (SIM + call types + period + duration), optionally saved under a [name] and shown as a
+ * A Recents filter (SIM + call types + period or a range of days + duration), optionally saved under a [name] and shown as a
  * chip. An empty filter matches everything.
  */
 @Serializable
@@ -63,25 +63,44 @@ data class HistoryFilter(
     val minDurationSec: Long? = null,
     /** Maximum talk time in seconds (inclusive); null = no maximum. */
     val maxDurationSec: Long? = null,
+    /**
+     * A chosen range of days (epoch days in the phone's time zone, both inclusive); null ends are open. Kept as two
+     * fields instead of a [FilterPeriod] value: an older Parley skips keys it doesn't know but fails on an enum value
+     * it doesn't know, so a saved range reads there as "any time" rather than losing every saved filter.
+     */
+    val fromDay: Long? = null,
+    val toDay: Long? = null,
 ) {
+    /** True when the filter has a chosen range of days (it then stands in for [period]). */
+    val hasRange: Boolean get() = fromDay != null || toDay != null
+
     /** True when the filter doesn't restrict anything (the name doesn't count). */
     val isEmpty: Boolean get() = sameCriteria(HistoryFilter())
 
     /** Equal ignoring the name: "Apply" is only enabled when this is false against the active filter. */
     fun sameCriteria(o: HistoryFilter): Boolean =
-        types == o.types && simId == o.simId && period == o.period && minDurationSec == o.minDurationSec && maxDurationSec == o.maxDurationSec
+        types == o.types && simId == o.simId && period == o.period && minDurationSec == o.minDurationSec && maxDurationSec == o.maxDurationSec &&
+            fromDay == o.fromDay && toDay == o.toDay
+
+    /** This filter over the days [from]..[to] (inclusive, either may be open) instead of a fixed period. */
+    fun withRange(from: Long?, to: Long?): HistoryFilter {
+        val (a, b) = if (from != null && to != null && from > to) to to from else from to to
+        return copy(period = FilterPeriod.ANY, fromDay = a, toDay = b)
+    }
 
     /** A predicate for many calls: resolves "now" once. */
     fun matcher(now: Long, zone: ZoneId): (CallEntry) -> Boolean {
         if (isEmpty) return { true }
-        val since = period.since(now, zone)
+        fun startOf(day: Long) = LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
+        val since = maxOf(period.since(now, zone), fromDay?.let(::startOf) ?: Long.MIN_VALUE)
+        val until = toDay?.let { startOf(it + 1) } ?: Long.MAX_VALUE
         val allowed = types.flatMap { it.types }.toSet()
+        val talk = (minDurationSec ?: Long.MIN_VALUE)..(maxDurationSec ?: Long.MAX_VALUE)
         return { e ->
             (allowed.isEmpty() || e.type in allowed) &&
                 (simId == null || e.accountId == simId) &&
-                e.date >= since &&
-                (minDurationSec == null || e.durationSec >= minDurationSec) &&
-                (maxDurationSec == null || e.durationSec <= maxDurationSec)
+                e.date >= since && e.date < until &&
+                e.durationSec in talk
         }
     }
 

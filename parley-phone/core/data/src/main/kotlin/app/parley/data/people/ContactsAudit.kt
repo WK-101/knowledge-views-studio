@@ -11,7 +11,7 @@ import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** An app that holds the Contacts permission. */
+/** An app that holds the permission an audit asked about (Contacts, or Call log). */
 data class ContactsAccessApp(
     val packageName: String,
     val label: String,
@@ -21,8 +21,9 @@ data class ContactsAccessApp(
 )
 
 /**
- * "Who can see your contacts": lists launcher-visible apps that hold READ_CONTACTS. Parley can only list them
- * and link to Android's settings; it can't change another app's permission.
+ * "Who can see your contacts": lists launcher-visible apps that hold READ_CONTACTS, and those that hold
+ * READ_CALL_LOG (call history shows who you talk to and when, with the names Android stored). Parley can only list
+ * them and link to Android's settings; it can't change another app's permission.
  *
  * Package visibility: the manifest declares a `<queries>` entry for launcher activities (and a few named
  * packages), never QUERY_ALL_PACKAGES, so apps without a launcher icon aren't listed.
@@ -30,7 +31,8 @@ data class ContactsAccessApp(
 class ContactsAudit(private val context: Context) {
     private val pm = context.packageManager
 
-    suspend fun appsWithAccess(): List<ContactsAccessApp> = withContext(Dispatchers.IO) {
+    /** Launcher apps other than Parley that hold [permission] ([Manifest.permission.READ_CONTACTS] by default). */
+    suspend fun appsWithAccess(permission: String = Manifest.permission.READ_CONTACTS): List<ContactsAccessApp> = withContext(Dispatchers.IO) {
         val launcher = try {
             @Suppress("DEPRECATION") // The flags overload is deprecated only from Android 13.
             pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
@@ -40,7 +42,7 @@ class ContactsAudit(private val context: Context) {
         launcher.mapNotNull { it.activityInfo?.applicationInfo }
             .distinctBy { it.packageName }
             .filter { it.packageName != context.packageName }
-            .filter { pm.checkPermission(Manifest.permission.READ_CONTACTS, it.packageName) == PackageManager.PERMISSION_GRANTED }
+            .filter { pm.checkPermission(permission, it.packageName) == PackageManager.PERMISSION_GRANTED }
             .map { ai ->
                 ContactsAccessApp(
                     packageName = ai.packageName,

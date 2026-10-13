@@ -234,6 +234,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
         item(key = "to-call") { NextUpStrip(vm, open) }
         // Unknown: a quiet "3 unknown callers today" under the chips.
         if (filter == RecentFilter.UNKNOWN) item(key = "unknown-today") { UnknownCallersHeader(recents.unknownToday.collectAsStateWithLifecycle().value) }
+        // Any filter on: what the shown calls add up to, as one quiet line.
+        item(key = "filter-totals") { recents.totals.collectAsStateWithLifecycle().value?.let { FilterTotalsLine(it) } }
         item(key = "archive-notes") { ArchiveNotices(vm, open) }
         val list = groups
         val rows = model?.rows.orEmpty()

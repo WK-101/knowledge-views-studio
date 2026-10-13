@@ -107,7 +107,7 @@
         <package android:name="io.element.android.x" />
         <package android:name="com.wire" />
         <package android:name="org.briarproject.briar.android" />
-        <!-- "Who can see your contacts": launcher apps only (never QUERY_ALL_PACKAGES). -->
+        <!-- "Who can see your contacts" (and who can read your call history): launcher apps only (never QUERY_ALL_PACKAGES). -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />

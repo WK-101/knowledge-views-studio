@@ -256,8 +256,8 @@ Each gap is checked the same way: is it useful to Parley's users, and does it fi
 | # | Question | Recommended answer |
 |---|---|---|
 | O1 | Fix OG-1 (archived people's names left in Android's call log, and written back by restore, undo and CSV import) in 7.0? | **Yes.** It is a promise Parley already makes, and the fix only removes data |
-| O2 | Add a custom date range (OG-2) and a totals line for filtered views (OG-3)? | **Yes, in 7.1.** Store the range as two new fields, never a new enum value |
-| O3 | Show "Apps that can read your call history" next to "Who can see your contacts" (NX-2)? | **Yes, in 7.1.** Same screen, no new row |
+| O2 | Add a custom date range (OG-2) and a totals line for filtered views (OG-3)? | **Yes, in 7.1.** Store the range as two new fields, never a new enum value. *Accepted as recommended (7.1).* |
+| O3 | Show "Apps that can read your call history" next to "Who can see your contacts" (NX-2)? | **Yes, in 7.1.** Same screen, no new row. *Accepted as recommended (7.1).* |
 | O4 | Build the call record (NX-1), including blocked and silenced attempts and a fingerprint on every page? | **Yes, in 7.2.** No signature for now; the wording says "a record from your phone", never "evidence" |
 | O5 | Should Keep forever on a number also keep its blocked attempts beyond 365 days? | **Yes.** It is what someone collecting a harassment record expects |
 | O6 | Offer "N days after your last call" and "When this case is closed" for temporary contacts (NX-3)? | **Yes, in 7.1.** These are choices in the existing picker. *Accepted as recommended (7.1).* |

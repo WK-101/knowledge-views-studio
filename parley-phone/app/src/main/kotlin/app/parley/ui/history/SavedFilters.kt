@@ -23,6 +23,9 @@ import app.parley.common.ux.CompactChips
 import app.parley.ui.ParleyShapes
 import app.parley.ui.home.CompactFilterChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -166,6 +169,8 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf(active) }
     var name by rememberSaveable { mutableStateOf(active.name) }
+    var pickingDays by rememberSaveable { mutableStateOf(false) }
+    if (pickingDays) FilterDaysDialog(draft.fromDay, draft.toDay, onPicked = { from, to -> draft = draft.withRange(from, to) }) { pickingDays = false }
 
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
@@ -189,9 +194,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                 }
             }
             Label(stringResource(R.string.label_when))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterPeriod.entries.forEach { p -> FilterChip(draft.period == p, { draft = draft.copy(period = p) }, { Text(stringResource(HistoryText.period(p))) }) }
-            }
+            PeriodChips(draft, onChange = { draft = it }, onCustom = { pickingDays = true })
             Label(stringResource(R.string.label_talk_time))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 durations.forEach { (label, range) ->
@@ -243,6 +246,62 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
         }
     }
 }
+
+/** The When chips: the fixed periods, then Custom… for a range of days of your own ("all calls in March"). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PeriodChips(draft: HistoryFilter, onChange: (HistoryFilter) -> Unit, onCustom: () -> Unit) {
+    val res = LocalResources.current
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterPeriod.entries.forEach { p ->
+            FilterChip(
+                !draft.hasRange && draft.period == p, { onChange(draft.copy(period = p, fromDay = null, toDay = null)) },
+                { Text(stringResource(HistoryText.period(p))) },
+            )
+        }
+        // With a range chosen, the chip names it.
+        FilterChip(
+            draft.hasRange, onCustom,
+            { Text(if (draft.hasRange) HistoryText.days(res, draft.fromDay, draft.toDay) else stringResource(R.string.hist_filter_custom)) },
+        )
+    }
+}
+
+/**
+ * The calendar for a filter's own range of days. The picker works in UTC midnights; the filter keeps plain days
+ * (epoch days), read in the phone's time zone when matching.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterDaysDialog(fromDay: Long?, toDay: Long?, onPicked: (Long?, Long?) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = fromDay?.let { it * DAY_MS },
+        initialSelectedEndDateMillis = toDay?.let { it * DAY_MS },
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                {
+                    val from = state.selectedStartDateMillis?.let { Math.floorDiv(it, DAY_MS) }
+                    // One day tapped is a range of that day.
+                    onPicked(from, state.selectedEndDateMillis?.let { Math.floorDiv(it, DAY_MS) } ?: from)
+                    onDismiss()
+                },
+                enabled = state.selectedStartDateMillis != null,
+            ) { Text(stringResource(R.string.dc_ok)) }
+        },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+    ) {
+        DateRangePicker(
+            state,
+            title = { Text(stringResource(R.string.hist_filter_days_title), Modifier.padding(start = 24.dp, end = 12.dp, top = 16.dp)) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private const val DAY_MS = 24 * 60 * 60 * 1000L
 
 @Composable
 private fun Label(text: String) {

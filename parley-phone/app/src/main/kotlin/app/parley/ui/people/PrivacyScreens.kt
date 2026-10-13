@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import app.parley.common.catching
 import app.parley.security.SensitiveScreen
 import app.parley.ui.Destination
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Android
@@ -79,15 +81,48 @@ private object Wording {
     val PICK = R.string.who_pick
 }
 
-/** Settings › Privacy › "Who can see your contacts". */
+/**
+ * One "who can see" list: a spinner while it loads, [none] when no app holds the permission, else a row per app that
+ * opens its Android settings. [keyPrefix] keeps the keys of the two lists on one screen apart.
+ */
+private fun LazyListScope.accessApps(
+    apps: List<ContactsAccessApp>?, keyPrefix: String, @StringRes none: Int, @StringRes readsAll: Int, scopesTip: Boolean,
+    appSettings: (String) -> Unit,
+) {
+    if (apps == null) item(key = "$keyPrefix-loading") { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
+    else if (apps.isEmpty()) item(key = "$keyPrefix-none") { ParleyListItem(headlineContent = { Text(stringResource(none)) }) }
+    else items(apps, key = { "$keyPrefix:" + it.packageName }) { a ->
+        ParleyListItem(
+            modifier = Modifier.clickable { appSettings(a.packageName) },
+            leadingContent = { AppIcon(a.packageName) },
+            headlineContent = { Text(a.label) },
+            supportingContent = {
+                Text(
+                    listOfNotNull(
+                        stringResource(readsAll),
+                        a.note,
+                        if (a.system) stringResource(R.string.who_system) else null,
+                        if (scopesTip) stringResource(R.string.who_scopes_tip) else null,
+                    ).joinToString(" · "),
+                )
+            },
+            trailingContent = { TextButton({ appSettings(a.packageName) }) { Text(stringResource(R.string.who_change)) } },
+        )
+    }
+}
+
+/** Settings › Privacy › "Who can see your contacts" (and which apps can read your call history). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    val apps by produceState<List<ContactsAccessApp>?>(null) { value = vm.c.people.audit.appsWithAccess() }
-    val graphene = remember { vm.c.people.audit.isGrapheneOs() }
+    val audit = remember { vm.c.people.audit }
+    val apps by produceState<List<ContactsAccessApp>?>(null) { value = audit.appsWithAccess() }
+    // Call history says who you talk to and when, often more than the address book does.
+    val callApps by produceState<List<ContactsAccessApp>?>(null) { value = audit.appsWithAccess(Manifest.permission.READ_CALL_LOG) }
+    val graphene = remember { audit.isGrapheneOs() }
     fun appSettings(pkg: String) = catching {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
     }.onFailure { vm.toast(res.getString(R.string.who_settings_failed)) }
@@ -126,27 +161,17 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             item {
                 Text(stringResource(Wording.APPS), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs), style = MaterialTheme.typography.bodyMedium)
             }
-            val list = apps
-            if (list == null) item { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
-            else if (list.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }
-            else items(list, key = { it.packageName }) { a ->
-                ParleyListItem(
-                    modifier = Modifier.clickable { appSettings(a.packageName) },
-                    leadingContent = { AppIcon(a.packageName) },
-                    headlineContent = { Text(a.label) },
-                    supportingContent = {
-                        Text(
-                            listOfNotNull(
-                                stringResource(R.string.who_can_read_all),
-                                a.note,
-                                if (a.system) stringResource(R.string.who_system) else null,
-                                if (graphene) stringResource(R.string.who_scopes_tip) else null,
-                            ).joinToString(" · "),
-                        )
-                    },
-                    trailingContent = { TextButton({ appSettings(a.packageName) }) { Text(stringResource(R.string.who_change)) } },
+            accessApps(apps, "contacts", R.string.who_no_apps, R.string.who_can_read_all, graphene, ::appSettings)
+
+            item { Section(stringResource(R.string.who_calls_section)) }
+            item {
+                Text(
+                    stringResource(R.string.who_calls_apps), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
+            // Contact Scopes don't cover the call log, so no scopes tip here.
+            accessApps(callApps, "calls", R.string.who_calls_none, R.string.who_calls_read_all, scopesTip = false, ::appSettings)
             item {
                 ParleyListItem(
                     leadingContent = { Icon(Icons.Rounded.Android, null) },

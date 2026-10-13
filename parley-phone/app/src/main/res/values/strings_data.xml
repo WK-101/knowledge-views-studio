@@ -324,6 +324,16 @@
     <string name="action_apply">Apply</string>
     <string name="hist_filter_saved">Saved chips</string>
     <string name="hist_filter_deleted">Filter “%1$s” deleted</string>
+    <!-- The filter's own range of days, chosen on a calendar ("3 Mar 2026 – 31 Mar 2026"). -->
+    <string name="hist_filter_custom">Custom…</string>
+    <string name="hist_filter_days_title">Choose the days</string>
+    <string name="hist_filter_days">%1$s – %2$s</string>
+    <string name="hist_filter_from">From %1$s</string>
+    <!-- Part of the quiet line under the chips while a filter is on: "23 calls · 3 h 12 min · 4 missed". -->
+    <plurals name="hist_totals_missed">
+        <item quantity="one">%1$d missed</item>
+        <item quantity="other">%1$d missed</item>
+    </plurals>
     <string name="label_not_answered">Not answered</string>
     <string name="hist_dur_under_1">Under 1 min</string>
     <string name="hist_dur_1_plus">1 min or more</string>
@@ -1157,7 +1167,7 @@
     <string name="export_account_title">Export contacts from</string>
     <string name="privacy_section">Your contacts and other apps</string>
     <string name="privacy_who_can_see">Who can see your contacts</string>
-    <string name="privacy_who_can_see_summary">Which apps can read your contacts, and what Parley can do about it</string>
+    <string name="privacy_who_can_see_summary">Which apps can read your contacts and calls, and what Parley can do about it</string>
 
     <!-- People: who can see your contacts -->
     <string name="who_header">Android doesn\'t let any contacts app decide what other apps see. Any app you\'ve allowed “Contacts” can read every contact on this phone, from every account. Here is what Parley can do.</string>
@@ -1175,6 +1185,10 @@
     <string name="who_system">Part of the system</string>
     <string name="who_scopes_tip">Tip: use Contact Scopes for this app</string>
     <string name="who_change">Change in Settings</string>
+    <string name="who_calls_section">Apps that can read your call history</string>
+    <string name="who_calls_apps">Your call history shows who you talk to, when and for how long. These apps can read every call on this phone, with the name Android stored for each caller. Parley takes those names out for archived and private contacts. Tap to change their permission in Android Settings.</string>
+    <string name="who_calls_none">No other app on your home screen can read your call history</string>
+    <string name="who_calls_read_all">Can read all calls</string>
     <string name="who_unused">Apps you haven\'t used for a while</string>
     <string name="who_unused_text">Android can remove permissions from apps you haven\'t used for a few months. Check that “Pause app activity if unused” is on in each app\'s settings. Apps without a home-screen icon aren\'t listed here: Parley doesn\'t ask to see every installed app.</string>
     <string name="who_messengers">WhatsApp and other messengers</string>
