@@ -185,7 +185,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
 @Composable
 private fun ContactTopBar(ctx: ContactPageContext?, docked: Boolean, barColor: Color, back: (() -> Unit)?, actions: @Composable () -> Unit) {
     ParleyTopBar(
-        title = { AnimatedVisibility(docked && ctx != null, enter = fadeIn(), exit = fadeOut()) { ctx?.let { DockedTitle(it) } } },
+        title = {
+            AnimatedVisibility(docked && ctx != null, enter = fadeIn(ParleyMotion.effects()), exit = fadeOut(ParleyMotion.fastEffects())) {
+                ctx?.let { DockedTitle(it) }
+            }
+        },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
         navigationIcon = { back?.let { BackButton(it) } },
         actions = { actions() },

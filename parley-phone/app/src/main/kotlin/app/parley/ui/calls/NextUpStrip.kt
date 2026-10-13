@@ -1,5 +1,6 @@
 package app.parley.ui.calls
 
+import app.parley.ui.ParleyMotion
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.animation.animateContentSize
@@ -86,7 +87,7 @@ fun NextUpStrip(vm: AppViewModel, open: (Destination) -> Unit) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = ParleyShapes.card,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs).animateContentSize()
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs).animateContentSize(ParleyMotion.spatial())
                 .semantics { paneTitle = label },
         ) {
             Column {

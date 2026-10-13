@@ -231,7 +231,10 @@ private fun PillSegment(
 
 // ---------------------------------------------------------------- Docked keypad fold
 
-/** The spring the docked keypad folds and unfolds with (Material 3 Expressive's default spatial spring). */
+/**
+ * The spring the docked keypad folds and unfolds with, close to Material 3 Expressive's default spatial spring. It is
+ * its own spring, not ParleyMotion's: the fold animates from gesture coroutines, outside composition.
+ */
 private fun foldSpring() = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
 
 /**

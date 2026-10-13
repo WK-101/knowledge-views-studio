@@ -352,7 +352,7 @@ private fun BoxScope.IndexBubble(letter: String?, visible: Boolean, touchY: () -
             IntOffset(-(lanePx + gapPx).roundToInt(), FastScroll.bubbleTop(touchY(), bottom(), bubblePx).roundToInt())
         },
         enter = scaleIn(ParleyMotion.fastSpatial(), transformOrigin = corner) + fadeIn(ParleyMotion.fastEffects()),
-        exit = scaleOut(ParleyMotion.fastEffects(), transformOrigin = corner) + fadeOut(ParleyMotion.fastEffects()),
+        exit = scaleOut(ParleyMotion.fastSpatial(), transformOrigin = corner) + fadeOut(ParleyMotion.fastEffects()),
     ) {
         Surface(
             shape = ParleyShapes.bubble,

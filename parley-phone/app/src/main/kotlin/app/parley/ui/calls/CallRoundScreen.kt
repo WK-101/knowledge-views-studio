@@ -3,6 +3,7 @@
 
 package app.parley.ui.calls
 
+import app.parley.ui.parleyBack
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.clickable
@@ -86,7 +87,7 @@ object CallRoundRoutes {
 
 /** The call round (from Tools, and from Contacts' selection: "Start a call round"). */
 fun NavGraphBuilder.callRoundGraph(nav: NavController) {
-    composable<CallRoundRoutes.Round> { CallRoundScreen(appVm(), back = { nav.popBackStack() }) }
+    composable<CallRoundRoutes.Round> { CallRoundScreen(appVm(), back = nav.parleyBack()) }
 }
 
 /**

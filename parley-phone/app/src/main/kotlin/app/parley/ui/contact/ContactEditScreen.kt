@@ -464,7 +464,8 @@ private fun EditorTopBar(editor: EditorViewModel, args: EditorScreenArgs, scroll
             // Save stays in the bar while the form scrolls; it's ready once there is something to save (new)
             // or something changed (existing), and says so by filling in.
             Button(onClick = editor::save, enabled = editor.canSave, modifier = Modifier.padding(end = 8.dp).heightIn(min = 40.dp)) {
-                AnimatedContent(editor.saving, label = "save") { busy ->
+                val swap = ParleyMotion.swap()
+                AnimatedContent(editor.saving, transitionSpec = { swap }, label = "save") { busy ->
                     if (busy) {
                         val desc = stringResource(R.string.editor_saving)
                         CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
@@ -1338,8 +1339,8 @@ private fun NameFields(
     val lines = nameLines(expanded, showParts)
     fun pos(key: String) = formFieldShape(lines.indexOf(key).coerceAtLeast(0), lines.size)
     val gap = Modifier.padding(top = FormTokens.segmentGap)
-    val enter = expandVertically(spec) + fadeIn()
-    val exit = shrinkVertically(spec) + fadeOut()
+    val enter = expandVertically(spec) + fadeIn(ParleyMotion.effects())
+    val exit = shrinkVertically(spec) + fadeOut(ParleyMotion.fastEffects())
     Column {
         AnimatedVisibility(expanded, enter = enter, exit = exit) {
             val below = Modifier.padding(bottom = FormTokens.segmentGap)

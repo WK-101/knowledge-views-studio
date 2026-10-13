@@ -3,6 +3,8 @@
 
 package app.parley.ui.contact
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.compose.runtime.remember
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -45,8 +47,8 @@ internal fun NavController.afterEdit(savedId: Long?, showInPane: (Long) -> Boole
 
 /** Contacts: a contact's page, the editor, private contacts, the picker, duplicates, versions and the page's sections. */
 fun NavGraphBuilder.contactGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<Routes.Contact> {
         CompositionLocalProvider(LocalNavAnimScope provides this) {
             ContactDetailScreen(appVm(), it.toRoute<Routes.Contact>().id, back = back, open = open)

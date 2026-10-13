@@ -19,8 +19,6 @@ import android.view.Display
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +48,8 @@ import app.parley.telecom.TelecomGraph
 import app.parley.telecom.forLockScreen
 import app.parley.telecom.live
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.ThemeLook
 import app.parley.ui.startOrSay
 import app.parley.ui.systemMessage
 import kotlinx.coroutines.delay
@@ -69,7 +69,6 @@ class InCallActivity : ComponentActivity() {
     private var askDeclineFor by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setShowWhenLocked(true)
         setTurnScreenOn(true)
@@ -78,7 +77,7 @@ class InCallActivity : ComponentActivity() {
         // replay an old "answer" action onto a different, newer call.
         if (savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0) handleIntent(intent)
         val deps = TelecomGraph.dependencies
-        setContent {
+        setParleyContent {
             val look by deps.appearance.collectAsStateWithLifecycle()
             val shownNow = collectShown()
             val (calls, audio, ended) = shownNow
@@ -128,7 +127,7 @@ class InCallActivity : ComponentActivity() {
             val shownCalls = remember(calls, locked, look.lockScreen) { calls.map(::shown) }
             val shownEnded = remember(ended, locked, look.lockScreen) { ended?.let(::shown) }
             if (look.speakCallerName) SpeakCallerName(ringingCall?.id, spokenName(ringingCall, shownCalls))
-            ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
+            ParleyTheme(look.themeLook) {
                 if (inPip) PipCallCard(shownCalls, audio, shownEnded, look.callBackground) else InCallScreen(
                     calls = shownCalls,
                     audio = audio,
@@ -479,3 +478,5 @@ class InCallActivity : ComponentActivity() {
             Intent(context, InCallActivity::class.java).putExtra(EXTRA_DIALPAD, dialpad)
     }
 }
+
+private val InCallAppearance.themeLook get() = ThemeLook(themeMode, amoled, dynamicColor, density)

@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -32,6 +30,8 @@ import app.parley.telecom.ui.RemindTimes
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import app.parley.ui.Spacing
 import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.systemMessage
@@ -47,7 +47,6 @@ import kotlinx.coroutines.withContext
 class RemindMeActivity : LockedActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val number = intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() } ?: return finish()
         val accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID)
@@ -57,8 +56,8 @@ class RemindMeActivity : LockedActivity() {
         lifecycleScope.launch {
             val settings = container.settings.current()
             if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            setContent {
-                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+            setParleyContent {
+                ParleyTheme(settings.themeLook) {
                     ProvideAppKit {
                         ParleySheet(
                             onDismissRequest = { finish() },

@@ -3,6 +3,7 @@
 
 package app.parley.ui.drive
 
+import app.parley.ui.parleyBack
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -16,6 +17,6 @@ object DriveRoutes {
 }
 
 fun NavGraphBuilder.driveGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
+    val back: () -> Unit = nav.parleyBack()
     composable<DriveRoutes.Profile> { DriveProfileScreen(appVm(), back) }
 }

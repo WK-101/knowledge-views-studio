@@ -1,10 +1,9 @@
 package app.parley.ui.calltime
 
+import app.parley.ui.ParleyMotion
 import android.content.Context
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -57,7 +56,7 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
     val live = calls.filter { it.isLive }
     val call = live.firstOrNull { it.state == CallState.ACTIVE } ?: live.firstOrNull()
     val visible = call != null || pending != null
-    AnimatedVisibility(visible, modifier = modifier, enter = expandVertically(), exit = shrinkVertically()) {
+    AnimatedVisibility(visible, modifier = modifier, enter = ParleyMotion.expandIn(), exit = ParleyMotion.collapseOut()) {
         val now by produceState(SystemClock.elapsedRealtime()) {
             while (true) {
                 value = SystemClock.elapsedRealtime()

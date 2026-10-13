@@ -6,8 +6,6 @@ import android.os.Bundle
 import android.text.format.DateFormat
 import android.text.format.DateUtils
 import android.view.WindowManager
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -42,6 +40,8 @@ import app.parley.telecom.ui.RemindTimes
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import app.parley.ui.Spacing
 import app.parley.ui.SwitchRow
 import app.parley.ui.common.ProvideAppKit
@@ -62,7 +62,6 @@ import java.util.TimeZone
 class CallPromiseActivity : LockedActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val number = intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() } ?: return finish()
         val accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID)
@@ -76,8 +75,8 @@ class CallPromiseActivity : LockedActivity() {
             val mine = ZoneId.systemDefault()
             val theirs = CallPromises.theirZone(this@CallPromiseActivity, number, accountId)
             val options = PromiseTimes.options(now, mine, theirs, CallPromises.freeAt(container, now))
-            setContent {
-                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+            setParleyContent {
+                ParleyTheme(settings.themeLook) {
                     ProvideAppKit {
                         ParleySheet(
                             onDismissRequest = { finish() },

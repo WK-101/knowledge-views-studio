@@ -14,10 +14,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import android.net.Uri
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -59,8 +55,6 @@ import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.CrashReportHost
 import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.common.JobResultsHost
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 
 /**
  * The app's root: the shared components' words and the one snackbar every screen shows (see [ParleySnackbar]),
@@ -171,17 +165,21 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
         LocalAvatarStyle provides avatarStyle, LocalCoachMarks provides coachMarks,
         LocalRecentsStyle provides recentsStyle, LocalAppViewModel provides vm,
     ) {
-    val rtlSign = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
+    // Read here: the host's transition lambdas aren't composable. Forward pages come in from the end side.
+    val navEnter = ParleyMotion.navEnter()
+    val navExit = ParleyMotion.navExit()
+    val navPopEnter = ParleyMotion.navPopEnter()
+    val navPopExit = ParleyMotion.navPopExit()
+    val openFromHome = remember(nav) { nav.parleyOpen() }
     Box(Modifier.fillMaxSize()) {
       SharedTransitionLayout {
        CompositionLocalProvider(LocalSharedScope provides this) {
         NavHost(
             nav, startDestination = Routes.Home,
-            // Forward screens come in from the end side: the right, or the left in Arabic and Urdu.
-            enterTransition = { slideInHorizontally { w -> w / 6 * rtlSign } + fadeIn() },
-            exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() },
-            popExitTransition = { slideOutHorizontally { w -> w / 6 * rtlSign } + fadeOut() },
+            enterTransition = { navEnter },
+            exitTransition = { navExit },
+            popEnterTransition = { navPopEnter },
+            popExitTransition = { navPopExit },
         ) {
             composable<Routes.Home> {
               CompositionLocalProvider(LocalNavAnimScope provides this) {
@@ -190,7 +188,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                     tabRequest = tabRequest,
                     onTabRequestHandled = { tabRequest = null },
                     initialTab = HomeLayout(settings.navTabs, settings.surfaces).startTab(settings.startTab),
-                    open = { route -> nav.navigate(route) },
+                    open = openFromHome,
                 )
               }
             }

@@ -21,8 +21,6 @@ import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +30,8 @@ import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,7 +70,6 @@ class PickerActivity : LockedActivity() {
     override val hidesOverlays = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val kind = PickKind.from(intent)
         val multiple = intent.getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
@@ -78,12 +77,12 @@ class PickerActivity : LockedActivity() {
         val c = container
         // Another app chose the contact to join: its name is shown, and the join waits for an explicit confirmation.
         if (joinTarget != null) lifecycleScope.launch { joinTargetName = withContext(Dispatchers.IO) { nameOf(joinTarget) } }
-        setContent {
+        setParleyContent {
             val s by c.settings.settings.collectAsStateWithLifecycle()
             val locked by AppLock.locked.collectAsStateWithLifecycle()
             LaunchedEffect(s.secureScreen) { AppLock.applySecureFlag(this@PickerActivity, s.secureScreen) }
             val loaded by c.settings.loaded.collectAsStateWithLifecycle()
-            ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+            ParleyTheme(s.themeLook) {
                 if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
                     LockScreen { AppLock.authenticate(this@PickerActivity) }
