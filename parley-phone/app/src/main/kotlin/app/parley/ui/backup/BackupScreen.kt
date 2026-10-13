@@ -44,6 +44,10 @@ import android.content.Context
 import android.content.res.Resources
 import app.parley.data.backup.BackupRepository
 import app.parley.data.backup.BackupOutcome
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,10 +93,11 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.label_backup_restore), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_backup_restore), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             // Overdue reminder (also in Settings); "Not now" snoozes it.
             item { BackupReminderBanner(vm) }
             // Setup checker: one line saying what most needs doing (or that all is well), with its fix.
@@ -134,7 +139,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             // What a backup holds, and what stays here on purpose (and why), so a move to a new phone holds no surprise.
             item { Section(stringResource(R.string.bkp_kept_here_title)) }
             item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     Text(stringResource(R.string.bkp_holds_text), style = MaterialTheme.typography.bodyMedium)
                     Text(stringResource(R.string.bkp_kept_here_text), style = MaterialTheme.typography.bodyMedium)
                 }

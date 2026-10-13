@@ -58,6 +58,10 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 @Composable
 private fun simWarningText(w: SimWarning): String = when (w.issue) {
@@ -171,22 +175,24 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
         picked = list.indices.filter { !existing.matches(recordOf(list[it])) }.toSet()
     }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
         ParleyTopBar(
             stringResource(R.string.sim_import_title),
             onBack = back,
+            scrollBehavior = barTint,
             actions = {
                 Button(
-                    { chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp),
+                    { chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = Spacing.s),
                 ) { Text(stringResource(R.string.sim_import_n, picked.size)) }
             },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
-            item { Text(stringResource(R.string.sim_import_intro), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium) }
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
+            item { Text(stringResource(R.string.sim_import_intro), Modifier.padding(Spacing.l), style = MaterialTheme.typography.bodyMedium) }
             val cs = cards
-            if (cs == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
-            else if (cs.isEmpty()) item { Text(stringResource(R.string.sim_none_read), Modifier.padding(16.dp)) }
+            if (cs == null) item { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
+            else if (cs.isEmpty()) item { Text(stringResource(R.string.sim_none_read), Modifier.padding(Spacing.l)) }
             else if (cs.size > 1) {
                 item { Section(stringResource(R.string.label_sim)) }
                 cs.forEach { c ->
@@ -200,10 +206,10 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
             val list = entries
-            if (cs?.isNotEmpty() == true && list == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
+            if (cs?.isNotEmpty() == true && list == null) item { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
             if (list != null) {
                 item { Section(pluralStringResource(R.plurals.sim_entries, list.size, list.size)) }
-                if (list.isEmpty()) item { Text(stringResource(R.string.sim_empty), Modifier.padding(16.dp)) }
+                if (list.isEmpty()) item { Text(stringResource(R.string.sim_empty), Modifier.padding(Spacing.l)) }
                 itemsIndexed(list) { i, e ->
                     val have = existing.matches(recordOf(e))
                     ParleyListItem(

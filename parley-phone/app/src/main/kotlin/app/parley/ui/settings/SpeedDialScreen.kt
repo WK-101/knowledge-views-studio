@@ -29,6 +29,9 @@ import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,10 +40,11 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
     val entries by vm.c.prefs.speedDials.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf<Int?>(null) }
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(settingTitle("speed_dial"), onBack = back)
+        ParleyTopBar(settingTitle("speed_dial"), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             items((2..9).toList()) { key ->
                 val e = entries.firstOrNull { it.key == key }
                 ParleyListItem(

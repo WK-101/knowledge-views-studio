@@ -48,6 +48,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +76,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                 Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p),
                 action = stringResource(R.string.dc_done), onAction = back,
             )
-            else -> LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p, horizontal = Spacing.l, top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                 item {
                     Text(
                         stringResource(R.string.dup_explainer),
@@ -82,7 +85,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                 }
                 items(list, key = { it.first().id }) { g ->
                     Card {
-                        Column(Modifier.padding(vertical = 8.dp)) {
+                        Column(Modifier.padding(vertical = Spacing.s)) {
                             g.forEach { c ->
                                 PersonRow(
                                     c.displayName, c.photoUri,
@@ -90,7 +93,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 )
                             }
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.m), horizontalArrangement = Arrangement.End) {
                                 TextButton({ dismissed += g.first().id }) { Text(stringResource(R.string.dup_not)) }
                                 Button({
                                     backupFirst.ask(g.size, 1) {

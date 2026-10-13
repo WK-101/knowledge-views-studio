@@ -39,6 +39,23 @@ class CapabilityCatalogTest {
         assertTrue("the hub starts shorter than the catalog", Job.entries.sumOf { CapabilityCatalog.featured(it).size } < rows.size * 2 / 3)
     }
 
+    /** A row sits under the job it does: rows that save a contact are "Never lose a contact", whatever they start from. */
+    @Test fun each_row_sits_under_its_job() {
+        fun job(key: String) = rows.single { it.key == key }.job
+        listOf("scan_qr", "bulk_add", "paste_details").forEach { k -> assertEquals(k, Job.NEVER_LOSE, job(k)) }
+        // "Message without saving" keeps only rows that message (or answer) without saving anyone.
+        assertEquals(listOf("message_number", "messaged", "my_card", "introduce", "quick_replies"), CapabilityCatalog.forJob(Job.MESSAGE).map { it.key })
+        assertTrue(CapabilityCatalog.forJob(Job.KNOW_WHO).none { it.key == "scan_qr" })
+        // Searching for "add from QR" lands on the row in its new place.
+        assertEquals(listOf("scan_qr"), CapabilitySearch.search("qr scan", rows).map { it.key })
+    }
+
+    @Test fun calls_that_work_better_folds_to_four() {
+        // The largest job shows four rows and folds the rest under "More", like the others.
+        assertEquals(listOf("situations", "rescue_call", "speed_dial", "simple_mode"), CapabilityCatalog.featured(Job.BETTER_CALLS).map { it.key })
+        assertTrue(CapabilityCatalog.more(Job.BETTER_CALLS).size > CapabilityCatalog.featured(Job.BETTER_CALLS).size)
+    }
+
     @Test fun actions_run_in_place_and_still_lead_somewhere() {
         assertEquals(CapabilityAction.LOCK_NOW, rows.single { it.key == "lock_now" }.action)
         assertEquals(CapabilityAction.EXPECTING_CALL, rows.single { it.key == "expecting" }.action)

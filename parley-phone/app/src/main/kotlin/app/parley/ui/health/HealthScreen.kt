@@ -56,6 +56,9 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.Spacing
 
 private val titles = mapOf(
     HealthKind.NO_COUNTRY_CODE to R.string.health_no_country,
@@ -97,7 +100,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             content = {
                 Column {
                     Text(stringResource(R.string.health_stale_confirm_text))
-                    LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
+                    LazyColumn(Modifier.padding(top = Spacing.s).heightIn(max = 320.dp)) {
                         items(list.size) { k ->
                             val (_, name, where) = list[k]
                             ParleyListItem(headlineContent = { Text(name) }, supportingContent = { Text(where) })
@@ -120,7 +123,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     }) { p ->
         val list = issues
         if (list == null) {
-            CircularProgressIndicator(Modifier.padding(p).padding(32.dp))
+            CircularProgressIndicator(Modifier.padding(p).padding(Spacing.xxl))
             return@ParleyScaffold
         }
         if (nothingFound(list, dead)) {
@@ -134,7 +137,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             }
             return@ParleyScaffold
         }
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             // Contacts that went missing come first: the cards wait here until answered.
             item { SyncWatchdogCards(vm, open) }
             item { AccountDiagnosticsSection(vm) }
@@ -147,10 +150,10 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                     when (kind) {
                         HealthKind.NO_COUNTRY_CODE, HealthKind.TITLE_IS_COMPANY -> Button(
                             onClick = { scope.launch { val n = scanner.fix(group); vm.toast(res.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
-                            modifier = Modifier.padding(horizontal = 16.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.l),
                         ) { Text(stringResource(R.string.health_fix_all, group.size)) }
                         HealthKind.SHARED_NUMBER -> TextButton(
-                            { open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp),
+                            { open(Routes.Duplicates) }, Modifier.padding(horizontal = Spacing.s),
                         ) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> StaleActions(
                             onAutoDelete = {
@@ -171,7 +174,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         HealthKind.EMPTY -> TextButton({
                             val ids = group.map { it.contactId }
                             backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) { vm.deleteContacts(ids); round++ }
-                        }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_delete_all, group.size)) }
+                        }, Modifier.padding(horizontal = Spacing.s)) { Text(stringResource(R.string.health_delete_all, group.size)) }
                         HealthKind.NUMBER_AS_NAME -> Unit
                     }
                 }
@@ -213,7 +216,7 @@ private fun nothingFound(issues: List<HealthIssue>, dead: List<NumberSignals.Dea
 /** The "not called in over 2 years" group's two ways: delete in 30 days (after a list), or archive them. */
 @Composable
 private fun StaleActions(onAutoDelete: () -> Unit, onArchive: () -> Unit) {
-    Row(Modifier.padding(horizontal = 8.dp)) {
+    Row(Modifier.padding(horizontal = Spacing.s)) {
         TextButton(onAutoDelete) { Text(stringResource(R.string.health_auto_delete)) }
         TextButton(onArchive) { Text(stringResource(R.string.health_archive_all)) }
     }

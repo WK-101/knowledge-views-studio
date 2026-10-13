@@ -3833,3 +3833,31 @@ Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its s
 1. **Back out of a new People widget.** Place a People widget and press Back on its settings: the widget stays and shows your Favourites at once (no blank or "loading" widget). Long-press it › settings (Android 12+): change it to Your Circle, Done: it redraws.
 2. **Old Circle widget after the update.** With a Circle widget placed on 6.8, update: it keeps working. Remove it and add it back from the widget list on Android 10–12 (it is still listed there); on Android 13+ the list offers only People. No placed widget ever disappears after opening Parley.
 3. **Many cases due.** Set "Follow up by" to today on three case files and have a Circle member due in their good hours: Next up shows one case line, "Follow up with … (+2 more)", and the Circle line still shows.
+
+## 54. Polish and proof (7.0)
+
+### 54.19 Lists run edge to edge
+Automated: `ScaffoldBodyTest` (app, Robolectric: a list built with `scaffoldBody`/`scaffoldBottom` draws under a 48 dp navigation bar and its last row scrolls clear above it).
+1. Gesture navigation, a long list: Call insights, Backup & restore, Version history (a contact's ⋮), Birthdays & dates, Blocking › Templates, Spam lists, Test a call, Speed dial, Privacy dashboard, Who can see your contacts, Archived contacts, Sync between your phones, Import call history, Export, Who's in…, Talk-time reminders, Find & merge duplicates, Contact health check, SIMs and a SIM's plan, Import from SIM. Scroll: rows pass under the transparent navigation bar (no blank band above it), and at the end the last row stops clear of the bar and the gesture handle.
+2. On each, as soon as a row scrolls under the top bar, the bar takes its tinted "on scroll" colour; back at the top it clears.
+3. Three-button navigation, landscape and a tablet: the same, the last row above the buttons; nothing hides under a side navigation bar.
+4. Large font (200 %): the last row is still reachable and readable.
+
+### 54.20 Onboarding moves between steps
+Automated: `OnboardingStepsTest` (app, Robolectric: a step opens at its top after the previous one was scrolled, and so does a step you go back to).
+1. Clear Parley's data and open it. Continue on each step: the next step slides in from the end side (the right; the left in Arabic or Hebrew) with a short fade; Back slides it in from the start side.
+2. Scroll the permissions page to its end, then Continue: Set up the basics starts at its top. Go back: the permissions page also starts at its top.
+3. Swipe back slowly from a step after the first: the step drifts towards the side and fades a little; let go to go back one step, or cancel and it settles. On the welcome Back leaves as before.
+4. Remove animations on: steps change at once, with no slide.
+
+### 54.21 Tools: rows under the job they do
+Automated: `CapabilityCatalogTest.each_row_sits_under_its_job`, `calls_that_work_better_folds_to_four` (core:common); `CapabilityRoutesTest` (app).
+1. Tools › Never lose a contact shows **Scan a contact's QR code** up front; under its "more" are **Add several numbers** and **Make a contact from pasted text**. Know who's calling no longer lists the QR row, and Message without saving lists only Message a number without saving it, Messaged numbers, Send my details, Introduce myself… and Reply when you can't answer.
+2. Tools › Calls that work better shows four rows: Situations, Rescue call, Speed dial and Simple mode; "n more" opens the rest (Answer automatically, Your car, Add a helper, Talk-time, Plan minutes, Calling abroad, Phone menus, Call quality, RTT, Voicemail, Case files, No more pocket calls, Remind me of missed calls).
+3. Search "qr", "paste" and "several": each finds its row in the new group and opens the same screen as before.
+
+### 54.22 Settings order and job progress
+Automated: `SettingsOrderTest` (app: Calls and Blocking first, Appearance and Layout after Notifications, every category once; every setting still in a searched category), `SettingsSearchTest` (core:common), `JobProgressStyleTest` (app).
+1. Settings: after Tools come Calls, Blocking & spam; Contacts, Recents & history; Privacy & security, Backup & sync, Reminders, Notifications & device; Appearance, Layout & gestures; About.
+2. Settings search still finds "theme", "navigation bar", "speed dial", "voicemail" and "pure black", and each opens its page at the row.
+3. Android 16: export all contacts and leave Parley while it runs. The ongoing "Exporting…" notification shows Android 16's progress bar, filling as it goes (a moving bar while the size isn't known yet); it is never promoted to a Live Update or a status chip. Lock the screen: the lock screen shows only that Parley is working. On Android 15 and older the plain progress bar shows, as before.

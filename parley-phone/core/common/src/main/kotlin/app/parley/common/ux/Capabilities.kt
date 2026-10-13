@@ -146,6 +146,13 @@ object CapabilityCatalog {
             "import", "switch", "iphone", "icloud", "samsung", "google", "vcf", "move", since = "4.6").top(),
         setting("import_export", LOSE, "Import & export contacts", "vCard and CSV files, the SIM card, one account", "import_file",
             "import", "export", "vcf", "vcard", "csv", "sim", "spreadsheet").top(),
+        // Rows that save someone you met belong here, whatever they start from (a QR code, a list, pasted text).
+        screen("scan_qr", LOSE, "Scan a contact's QR code", "From a photo, without camera access", AppScreen.SCAN_QR,
+            "qr", "scan", "business card").top(),
+        screen("bulk_add", LOSE, "Add several numbers", "Paste a list and save it at once, privately or for a few days", AppScreen.BULK_ADD,
+            "bulk", "paste", "list"),
+        screen("paste_details", LOSE, "Make a contact from pasted text", "Paste a signature or profile, tick what to keep", AppScreen.NEW_CONTACT,
+            "paste", "signature", "business card", "copy", "clipboard", since = "4.6"),
         screen("health", LOSE, "Contact health check", "Numbers without a country code or that no longer work, stale contacts", AppScreen.HEALTH_CHECK,
             "tidy", "clean up", "fix", "dead number", "radar", "disconnected").top(),
         // Recall: the question "who called in March?" starts in Recents, so the row opens Recents' search.
@@ -208,8 +215,6 @@ object CapabilityCatalog {
             "haptic", "vibrate", "pattern"),
         setting("unknown_ringtone", WHO, "A different ringtone for unknown callers", "Hear at once that it isn't one of your contacts", "unknown_ringtone",
             "ringtone", "sound", "unknown"),
-        screen("scan_qr", WHO, "Scan a contact's QR code", "From a photo, without camera access", AppScreen.SCAN_QR,
-            "qr", "scan", "business card").top(),
         setting("safe_word", WHO, "Family safe word", "A question only your family can answer, for calls that say they're family", "family_safe_word",
             "scam", "impostor", "voice clone", since = "4.5"),
         // The checklist from the call screen's More, to read before a call; its target is where spam is stopped.
@@ -240,22 +245,19 @@ object CapabilityCatalog {
             "whatsapp", "signal", "telegram", "chat", "unsaved").top(),
         screen("messaged", MSG, "Messaged numbers", "The chats you opened from Parley; delete them or stop keeping them", AppScreen.MESSAGED_NUMBERS,
             "record", "history", "whatsapp").top(),
-        screen("bulk_add", MSG, "Add several numbers", "Paste a list and save it at once, privately or for a few days", AppScreen.BULK_ADD,
-            "bulk", "paste", "list"),
         // One row for My card: sending it, and the signed card that stays current ("A card that stays current" was a second row).
         screen("my_card", MSG, "Send my details", "Your card as a QR code or vCard, kept current for people you shared it with", AppScreen.MY_CARD,
             "my card", "share", "vcard", "qr", "signed", "update", "new number", "changed my number", "shared with", "a card that stays current"),
         // Hidden from the selection menu: one chat at a time, which few people need.
         screen("introduce", MSG, "Introduce myself…", "Send your details to several people, one chat at a time", AppScreen.INTRODUCE,
             "introduce", "new number", "announce", "whatsapp", "signal"),
-        screen("paste_details", MSG, "Make a contact from pasted text", "Paste a signature or profile, tick what to keep", AppScreen.NEW_CONTACT,
-            "paste", "signature", "business card", "copy", "clipboard", since = "4.6"),
         setting("quick_replies", MSG, "Reply when you can't answer", "A short message when you decline a call", "quick_replies",
             "sms", "decline", "busy"),
 
-        // Calls that work better
+        // Calls that work better: the largest job, so only four rows show before "More" (Situations, Rescue call,
+        // Speed dial and Simple mode); Your car is inside Situations' Driving.
         setting("auto_answer", CALLS, "Answer automatically", "With a headset, in the car or for people you choose", "auto_answer",
-            "headset", "bluetooth", "car", "hands-free").top(),
+            "headset", "bluetooth", "car", "hands-free"),
         // Situations took the drive profile's featured place: since 6.0 the car is part of the Driving Situation.
         setting("situations", CALLS, "Situations", "Driving, a meeting or night: one tap sets who may ring, and puts it back", "situations",
             "driving", "meeting", "night", "mode", "do not disturb", "quiet", since = "6.0").top().listedIn(LISTED_6_4),
@@ -281,9 +283,9 @@ object CapabilityCatalog {
         screen("case_files", CALLS, "Case files", "Banks and other services: calls, hold times and reference numbers", AppScreen.CASE_FILES,
             "case", "complaint", "reference", "claim", "hold", "insurance", since = "6.1").listedIn(LISTED_6_4),
         screen("rescue_call", CALLS, "Rescue call", "A call that looks real, to help you leave", AppScreen.RESCUE_CALL,
-            "fake call", "excuse", "escape", "leave", "safety", "date", since = "6.2"),
+            "fake call", "excuse", "escape", "leave", "safety", "date", since = "6.2").top(),
         screen("speed_dial", CALLS, "Speed dial", "Hold 2 to 9 on the keypad to call someone", AppScreen.SPEED_DIAL,
-            "speed dial", "shortcut", "one touch", "keypad"),
+            "speed dial", "shortcut", "one touch", "keypad").top(),
         setting("pocket_guard", CALLS, "No more pocket calls", "Favourites and widgets ask first while the phone is covered", "pocket_guard",
             "pocket", "accidental", "butt dial"),
         setting("missed_realert", CALLS, "Remind me of missed calls", "Alert again every few minutes until you've seen them", "missed_realert",

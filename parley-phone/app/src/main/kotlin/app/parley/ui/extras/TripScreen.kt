@@ -59,6 +59,10 @@ import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.Spacing
+import androidx.compose.material3.TopAppBarDefaults
 
 /**
  * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
@@ -90,10 +94,11 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.label_whos_in), onBack = back)
+        ParleyTopBar(stringResource(R.string.label_whos_in), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p, extra = Spacing.xl)) {
             item(key = "field") {
                 OutlinedTextField(
                     city, { city = it },
@@ -105,17 +110,17 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
                 Text(
                     stringResource(R.string.trip_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.l),
                 )
             }
             if (choices.isNotEmpty()) item(key = "choices") {
                 Row(
-                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Spacing.l, vertical = Spacing.s),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
                 ) {
                     choices.forEach { c ->
                         FilterChip(TripMatch.normalize(c) == TripMatch.normalize(city), { city = c; keyboard?.hide() }, label = { Text(c) })
@@ -123,13 +128,13 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                 }
             }
             when {
-                data == null -> item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
+                data == null -> item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(Spacing.l)) }
                 city.isBlank() -> item(key = "empty") {
                     EmptyState(
                         Icons.Rounded.TravelExplore,
                         stringResource(R.string.trip_empty_title),
                         stringResource(R.string.trip_empty_body),
-                        Modifier.padding(top = 16.dp),
+                        Modifier.padding(top = Spacing.l),
                     )
                 }
                 hits.isEmpty() -> item(key = "none") {
@@ -137,7 +142,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                         Icons.Rounded.TravelExplore,
                         stringResource(R.string.trip_none, city.trim()),
                         stringResource(R.string.trip_none_body),
-                        Modifier.padding(top = 16.dp),
+                        Modifier.padding(top = Spacing.l),
                     )
                 }
                 else -> {
@@ -147,7 +152,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                         Text(
                             if (more > 0) pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
                             else stringResource(R.string.trip_summary, city.trim(), names),
-                            style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(Spacing.l),
                         )
                     }
                     items(hits, key = { it.person.id }) { h ->
