@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The People widget (once the Favourites widget, whose placed widgets it keeps): resizable, refreshed by the app on
-     changes (no updatePeriodMillis). Home screen only, so the locked drawing is what shows right after unlocking, until
-     Parley redraws it. Its settings (Favourites or your Circle, and what a tap does) are asked when it's placed (Back
-     keeps the widget, showing Favourites) and opened again from the launcher (reconfigurable). -->
+<!-- The People widget (once the Favourites widget, whose placed widgets it keeps): resizable from one cell up, drawn
+     for each size it may show at (smaller sizes drop the title, then the names; one cell shows one person), refreshed
+     by the app on changes (no updatePeriodMillis). Home screen only, so the locked drawing is what shows right after
+     unlocking, until Parley redraws it. Its settings (Favourites or your Circle, and what a tap does) are asked when
+     it's placed (Back keeps the widget, showing Favourites) and opened again from the launcher (reconfigurable).
+     minWidth/minHeight are the default size before Android 12 (about 2×2); targetCell* from 12 on. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="app.parley.shortcuts.FavoritesWidgetConfigActivity"
     android:description="@string/people_widget_description"
     android:initialLayout="@layout/widget_favorites"
-    android:minWidth="180dp"
+    android:minWidth="110dp"
     android:minHeight="110dp"
-    android:minResizeWidth="80dp"
-    android:minResizeHeight="80dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
     android:previewLayout="@layout/widget_favorites_preview"
     android:resizeMode="horizontal|vertical"
-    android:targetCellWidth="4"
+    android:targetCellWidth="2"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"

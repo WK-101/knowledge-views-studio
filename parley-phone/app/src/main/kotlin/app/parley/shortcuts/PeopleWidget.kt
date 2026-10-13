@@ -37,11 +37,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The home-screen widgets' shared life: placed, resized, revealed and removed. Two providers stay registered, because a
- * placed widget belongs to its provider for good: [FavoritesWidget] is the People widget in the widget list (Favourites
- * or Circle, chosen when placed), and [CircleWidget] keeps drawing the Circle widgets placed before there was one.
+ * The People widget's life: placed, resized, revealed and removed. Its component name is the Favourites widget's, so
+ * the ones already placed keep working (a placed widget belongs to its provider for good).
  */
-abstract class PeopleWidgetProvider : AppWidgetProvider() {
+class FavoritesWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         if (ids.isNotEmpty()) PeopleWidget.placed(context)
         refreshAsync(context)
@@ -55,7 +54,7 @@ abstract class PeopleWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         // "Tap to show" on the locked drawing: drawn again, with names only if the phone is unlocked now. The old
-        // actions still come from drawings made before the widgets were one.
+        // action still comes from drawings made before the widget was the People widget.
         if (intent.action in PeopleWidget.REVEAL_ACTIONS) refreshAsync(context) else super.onReceive(context, intent)
     }
 
@@ -71,17 +70,9 @@ abstract class PeopleWidgetProvider : AppWidgetProvider() {
     }
 }
 
-/** The People widget (its component name is the Favourites widget's, so the ones already placed keep working). */
-class FavoritesWidget : PeopleWidgetProvider()
-
 /**
- * Circle widgets placed before the People widget. Its entry is hidden from the widget list (Android 13 on), never
- * disabled: Android removes every placed widget of a disabled provider.
- */
-class CircleWidget : PeopleWidgetProvider()
-
-/**
- * Draws every People widget in its mode ([PeopleWidgetPlan]) and keeps them current. Plain RemoteViews (no Glance):
+ * Draws every People widget in its mode ([PeopleWidgetPlan]) and keeps them current. Plain RemoteViews (no Glance),
+ * drawn for each size the launcher may show ([WidgetSizing]):
  * Favourites is a grid ([FavouritesDrawing]), the Circle its digest's people and dates ([CircleDrawing]).
  *
  * - Only phone contacts are ever read: private contacts never are in a widget, whoever is allowed to see them in Parley.
@@ -92,7 +83,7 @@ class CircleWidget : PeopleWidgetProvider()
  */
 object PeopleWidget {
     const val ACTION_REVEAL = "app.parley.action.PEOPLE_WIDGET_REVEAL"
-    val REVEAL_ACTIONS = setOf(ACTION_REVEAL, "app.parley.action.FAVORITES_WIDGET_REVEAL", "app.parley.action.CIRCLE_WIDGET_REVEAL")
+    val REVEAL_ACTIONS = setOf(ACTION_REVEAL, "app.parley.action.FAVORITES_WIDGET_REVEAL")
 
     /** The modes of the widgets placed now; null until first asked. */
     private val modes = MutableStateFlow<Set<Mode>?>(null)
@@ -112,8 +103,7 @@ object PeopleWidget {
         catching { FavoritesWidgetPlan.Tap.valueOf(prefs(context).getString(tapKey(id), null).orEmpty()) }.getOrDefault(FavoritesWidgetPlan.Tap.CALL)
 
     /** What widget [id] shows. */
-    fun mode(context: Context, id: Int): Mode =
-        PeopleWidgetPlan.mode(prefs(context).getString(modeKey(id), null), legacyCircle = id in ids(context, CircleWidget::class.java))
+    fun mode(context: Context, id: Int): Mode = PeopleWidgetPlan.mode(prefs(context).getString(modeKey(id), null))
 
     /** The People widget's settings, chosen when placed or later (Done). */
     fun choose(context: Context, id: Int, mode: Mode, tap: FavoritesWidgetPlan.Tap) {
@@ -138,13 +128,12 @@ object PeopleWidget {
         p.apply()
     }
 
-    private fun ids(context: Context, provider: Class<*>): IntArray =
-        catching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, provider)) }.getOrDefault(IntArray(0))
+    private fun ids(context: Context): IntArray = catching {
+        AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, FavoritesWidget::class.java))
+    }.getOrDefault(IntArray(0))
 
-    /** Every placed widget with its mode and the provider it belongs to. */
-    private fun placedNow(context: Context): List<Triple<Int, Mode, Class<*>>> =
-        ids(context, FavoritesWidget::class.java).map { Triple(it, mode(context, it), FavoritesWidget::class.java) } +
-            ids(context, CircleWidget::class.java).map { Triple(it, Mode.CIRCLE, CircleWidget::class.java) }
+    /** Every placed widget with its mode. */
+    private fun placedNow(context: Context): List<Pair<Int, Mode>> = ids(context).map { it to mode(context, it) }
 
     /** Widgets were placed or removed: what the app follows changes. */
     internal fun placed(context: Context) {
@@ -178,8 +167,8 @@ object PeopleWidget {
         val manager = AppWidgetManager.getInstance(ctx)
         // Photos are decoded once per refresh, whichever widgets show them.
         val photos = HashMap<Long, Bitmap>()
-        placed.forEach { (id, mode, provider) ->
-            val look = Look(locked, !deviceLocked, provider)
+        val look = Look(locked, !deviceLocked)
+        placed.forEach { (id, mode) ->
             catching {
                 val views = when (mode) {
                     Mode.FAVOURITES -> FavouritesDrawing.views(ctx, id, manager, favourites, look, photos)
@@ -191,14 +180,11 @@ object PeopleWidget {
         shownLocked = locked
     }
 
-    /**
-     * How a widget is drawn now: [locked] (counts only); [unlockInParley]: only Parley is locked, so a tap opens it to
-     * unlock; [provider]: the widget's own provider, which a "tap to show" goes to.
-     */
-    internal class Look(val locked: Boolean, val unlockInParley: Boolean, val provider: Class<*>)
+    /** How a widget is drawn now: [locked] (counts only); [unlockInParley]: only Parley is locked, so a tap opens it to unlock. */
+    internal class Look(val locked: Boolean, val unlockInParley: Boolean)
 
-    internal fun reveal(ctx: Context, kind: WidgetTaps.Kind, id: Int, look: Look): PendingIntent =
-        WidgetTaps.broadcast(ctx, kind, id, Intent(ctx, look.provider).setAction(ACTION_REVEAL))
+    internal fun reveal(ctx: Context, kind: WidgetTaps.Kind, id: Int): PendingIntent =
+        WidgetTaps.broadcast(ctx, kind, id, Intent(ctx, FavoritesWidget::class.java).setAction(ACTION_REVEAL))
 
     /**
      * Keeps the widgets current while Parley runs, following only what the placed widgets show, and redraws them when
