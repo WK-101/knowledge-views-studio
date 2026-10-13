@@ -123,7 +123,9 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             }
 
             item { Section(stringResource(R.string.who_apps_section)) }
-            item { Text(stringResource(Wording.APPS), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs), style = MaterialTheme.typography.bodyMedium) }
+            item {
+                Text(stringResource(Wording.APPS), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs), style = MaterialTheme.typography.bodyMedium)
+            }
             val list = apps
             if (list == null) item { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
             else if (list.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }

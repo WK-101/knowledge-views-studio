@@ -55,7 +55,8 @@ class ScaffoldBodyTest {
     @After fun tearDown() = scenario.close()
 
     @OptIn(ExperimentalMaterial3Api::class)
-    @Test fun the_list_runs_under_the_navigation_bar_and_its_last_row_clears_it() {
+    @Test
+    fun the_list_runs_under_the_navigation_bar_and_its_last_row_clears_it() {
         scenario.onActivity {
             it.setContent {
                 MaterialTheme {

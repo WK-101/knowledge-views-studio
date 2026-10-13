@@ -3,7 +3,6 @@ package app.parley.ui.contact
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,7 +32,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -76,7 +74,11 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                 Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p),
                 action = stringResource(R.string.dc_done), onAction = back,
             )
-            else -> LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p, horizontal = Spacing.l, top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+            else -> LazyColumn(
+                Modifier.scaffoldBody(p),
+                contentPadding = scaffoldBottom(p, horizontal = Spacing.l, top = Spacing.l),
+                verticalArrangement = Arrangement.spacedBy(Spacing.m),
+            ) {
                 item {
                     Text(
                         stringResource(R.string.dup_explainer),

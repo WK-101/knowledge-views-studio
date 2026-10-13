@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel

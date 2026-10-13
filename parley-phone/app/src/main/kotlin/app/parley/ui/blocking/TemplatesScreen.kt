@@ -254,7 +254,8 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
     var dry by remember { mutableStateOf<DryRun?>(null) }
     var dryBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = Spacing.l, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+    val rowPadding = Modifier.padding(horizontal = Spacing.l, vertical = 10.dp)
+    Column(Modifier.fillMaxWidth().clickable { open = !open }.then(rowPadding), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if (installed) {

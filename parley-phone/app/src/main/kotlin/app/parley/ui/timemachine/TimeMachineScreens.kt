@@ -30,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.common.backup.ContactVersion
 import app.parley.common.backup.SnapshotDiff
@@ -108,9 +107,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     }
     var chosen by remember { mutableStateOf<ContactVersion?>(null) }
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.label_version_history), onBack = back, scrollBehavior = barTint)
-    }) { p ->
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_version_history), onBack = back, scrollBehavior = barTint) }) { p ->
         val list = versions
         when {
             list == null -> CircularProgressIndicator(Modifier.padding(p).padding(Spacing.xxl))
