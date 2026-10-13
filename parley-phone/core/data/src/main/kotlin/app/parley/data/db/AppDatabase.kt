@@ -623,6 +623,10 @@ interface VaultDao {
     @Query("UPDATE vault_contacts SET expiresAt = :expiresAt WHERE id = :id")
     suspend fun setExpiry(id: Long, expiresAt: Long?)
 
+    /** Moves an entry's date from [from] to [to], unless it changed meanwhile (kept for good, or a new date chosen). */
+    @Query("UPDATE vault_contacts SET expiresAt = :to WHERE id = :id AND expiresAt = :from")
+    suspend fun moveExpiry(id: Long, from: Long, to: Long): Int
+
     /** Only the caller-ID copy: a star, a label, a ringtone set without unlocking never rewrites the sealed details. */
     @Query("UPDATE vault_contacts SET callerIdBlob = :blob WHERE id = :id")
     suspend fun setCallerIdBlob(id: Long, blob: ByteArray)

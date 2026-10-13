@@ -930,6 +930,15 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /**
+     * The daily upkeep's move of a temporary entry's date from [from] to [to] ([app.parley.data.people.TemporaryRules]):
+     * applied only if the date is still [from], so a choice made meanwhile ("Keep permanently", a new date) is never
+     * undone by a date worked out from the older one. False when nothing was moved.
+     */
+    suspend fun moveExpiry(id: Long, from: Long, to: Long): Boolean = withContext(Dispatchers.IO) {
+        keysLock.withLock { dao.moveExpiry(id, from, to) > 0 }
+    }
+
+    /**
      * Only the expiry column, and with [purgeHistory] (null: unchanged) the call-history choice and with [rule] (null:
      * unchanged; no expiry clears it) how the date moves, which the caller-ID copy keeps: the sealed details are never
      * re-sealed, so this works while the vault is locked or its detail key is lost, and a re-seal or a save running

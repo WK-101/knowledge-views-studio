@@ -78,6 +78,21 @@ class TemporaryRulesTest {
         assertFalse(ContactRef.privateKey(id) in DueTemporaries.dueKeys(c, now))
     }
 
+    @Test fun the_upkeep_never_undoes_keep_permanently_chosen_while_it_ran() = runBlocking {
+        val now = System.currentTimeMillis()
+        val id = privateTemporary(TemporaryClock.LAST_CALL, savedAt = now - 10 * day)
+        val read = c.vault.summary(id)!!.expiresAt!!
+        // "Keep permanently" lands between the upkeep reading the date and moving it.
+        c.vault.setExpiry(id, null)
+        assertFalse(c.vault.moveExpiry(id, read, now + 6 * day))
+        assertEquals(null, c.vault.summary(id)!!.expiresAt)
+        // A new date chosen meanwhile stays too.
+        c.vault.setExpiry(id, now + 30 * day)
+        assertFalse(c.vault.moveExpiry(id, read, now + 6 * day))
+        assertEquals(now + 30 * day, c.vault.summary(id)!!.expiresAt)
+        assertTrue(c.vault.moveExpiry(id, now + 30 * day, now + 31 * day))
+    }
+
     @Test fun a_call_after_the_question_keeps_it_from_being_deleted() = runBlocking {
         val now = System.currentTimeMillis()
         val id = privateTemporary(TemporaryClock.LAST_CALL, savedAt = now - 10 * day)

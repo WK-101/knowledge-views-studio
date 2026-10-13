@@ -43,7 +43,8 @@ object TemporaryRules {
             val stored = v.expiresAt ?: continue
             val last = if (v.rule.clock == TemporaryClock.LAST_CALL) lastPrivateCall(c, v.id) else null
             val at = TemporaryRule.follow(stored, v.rule, last, caseOf(v.numbers), now)
-            if (at != stored) catching { c.vault.setExpiry(v.id, at) }
+            // Only if the date is still the one read: "Keep permanently" or a new date chosen meanwhile wins.
+            if (at != stored) catching { c.vault.moveExpiry(v.id, stored, at) }
         }
     }
 
