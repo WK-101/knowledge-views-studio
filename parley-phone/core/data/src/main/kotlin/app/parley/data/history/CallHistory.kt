@@ -590,6 +590,27 @@ class CallHistory(
         out.toList()
     }
 
+    /** The system call-log rows holding the same calls as [entries] (by [HistoryMerge.key]), read by their times. */
+    private fun providerIdsOf(entries: List<CallEntry>): List<Long> {
+        if (entries.isEmpty()) return emptyList()
+        val wanted = entries.mapTo(HashSet()) { HistoryMerge.key(it) }
+        val out = ArrayList<Long>()
+        entries.map { it.date }.distinct().chunked(500).forEach { dates ->
+            catching {
+                cr.query(
+                    Calls.CONTENT_URI, arrayOf(Calls._ID, Calls.NUMBER, Calls.DATE, Calls.TYPE, Calls.NUMBER_PRESENTATION),
+                    "${Calls.DATE} IN (${dates.joinToString(",")})", null, null,
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        val rec = CallLogRecord(c.getString(1), c.getLong(2), 0, c.getInt(3), c.getInt(4), null, null, null, isNew = false, isRead = true)
+                        if (HistoryMerge.key(rec.toEntry(0)) in wanted) out += c.getLong(0)
+                    }
+                }
+            }.onFailure { Log.w(TAG, "Couldn't read the call log", it) }
+        }
+        return out
+    }
+
     private fun readProvider(since: Long?): List<CallLogRecord> {
         val out = ArrayList<CallLogRecord>()
         try {
@@ -691,7 +712,10 @@ class CallHistory(
                     TrashedCallEntity(batchId = batch, deletedAt = now, blob = crypto.seal(encode(rec).toByteArray()))
                 },
             )
-            val providerIds = list.map { it.id }.filter { it < ARCHIVE_ID_BASE }
+            // A call shown from the archive can still be in the system log: the list merged a log read a moment before
+            // the call reached it (the log's reload waits for a quiet moment, the archive's sync may not). Its log row
+            // goes too, or the next sync would bring the call straight back.
+            val providerIds = (list.map { it.id }.filter { it < ARCHIVE_ID_BASE } + providerIdsOf(list.filter { isArchived(it) })).distinct()
             providerIds.chunked(500).forEach { chunk ->
                 catching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }
             }

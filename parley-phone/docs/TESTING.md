@@ -4071,3 +4071,8 @@ Automated: `TemporaryRulesTest.a_call_after_the_question_keeps_it_from_being_del
 3. Make such a contact visible to other apps, and back: the rule and the date go with it.
 4. Back up, clear Parley's data and restore: the contact still deletes itself 7 days after the last call (or when its case is resolved). Restore that backup on Parley 7.0: the contact is temporary with its date as a fixed one.
 
+### 55.12 Review fixes
+Automated: `StaleArchiveDeleteTest` (core:data), `TemporaryRulesTest.the_upkeep_never_undoes_keep_permanently_chosen_while_it_ran` (app); `RecentsViewModelTest.delete_removes_the_rows_calls_from_the_call_log` no longer depends on which of the call log and the archive loads first.
+1. With the call-history archive on, receive a missed call and, within a second of it appearing in Recents, delete its row. Wait a few seconds (or pull to refresh): it does not come back. Undo puts it back once, not twice.
+2. A private "from your last call" temporary contact kept permanently stays kept after the next daily upkeep (the race with the upkeep itself is covered by the automated test).
+
