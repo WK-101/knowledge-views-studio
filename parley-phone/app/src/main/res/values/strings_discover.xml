@@ -82,7 +82,7 @@
     <string name="discover_privacy_dashboard_summary">What Parley can see, and why</string>
     <string name="discover_private_contacts_summary">Kept only in Parley, encrypted, hidden from other apps</string>
     <string name="discover_temporary_summary">Contacts that delete themselves after a time you choose</string>
-    <string name="discover_who_can_see_summary">Which apps can read your address book</string>
+    <string name="discover_who_can_see_summary">Which apps can read your address book and calls</string>
     <string name="label_app_lock">App lock</string>
     <string name="discover_app_lock_summary">Your fingerprint, face or screen lock to open Parley</string>
     <string name="discover_message_number_summary">Type it on the keypad, then Message or call on…</string>

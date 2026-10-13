@@ -15,6 +15,10 @@ import app.parley.common.history.RowProblem
 import app.parley.common.history.RowProblemKind
 import app.parley.common.history.TypeGroup
 import app.parley.common.CallType
+import app.parley.common.history.CallTotals
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /** Localised texts for the call-history enums and reports produced by core:common. */
 object HistoryText {
@@ -102,6 +106,26 @@ object HistoryText {
         return res.getString(R.string.format_dot_pair, used, left)
     }
 
+    /** A filter's own range of days: "3 Mar 2026 – 31 Mar 2026", "From 3 Mar 2026", "Until 31 Mar 2026". */
+    fun days(res: Resources, fromDay: Long?, toDay: Long?): String {
+        val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        fun day(d: Long) = LocalDate.ofEpochDay(d).format(fmt)
+        return when {
+            fromDay != null && toDay != null && fromDay == toDay -> day(fromDay)
+            fromDay != null && toDay != null -> res.getString(R.string.hist_filter_days, day(fromDay), day(toDay))
+            fromDay != null -> res.getString(R.string.hist_filter_from, day(fromDay))
+            toDay != null -> res.getString(R.string.label_until, day(toDay))
+            else -> res.getString(R.string.hist_period_any)
+        }
+    }
+
+    /** "23 calls · 3 h 12 min · 4 missed" for the calls a filter shows; the missed part only when there are some. */
+    fun totals(res: Resources, t: CallTotals): String {
+        val calls = res.getQuantityString(R.plurals.hist_n_calls, t.total, t.total)
+        val talk = res.getString(R.string.format_dot_pair, calls, HistoryFormat.talk(t.talkSec))
+        return if (t.missed == 0) talk else res.getString(R.string.format_dot_pair, talk, res.getQuantityString(R.plurals.hist_totals_missed, t.missed, t.missed))
+    }
+
     /** Short description for a chip without a name, e.g. "Missed · SIM 2 · Last 7 days". */
     fun describe(res: Resources, f: HistoryFilter, simLabel: (String) -> String = { it }): String {
         fun fmt(s: Long) = if (s % 60 == 0L && s > 0) res.getString(R.string.label_minutes_short, s / 60) else res.getString(R.string.label_seconds_short, s)
@@ -112,7 +136,7 @@ object HistoryText {
                 f.types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.dc_list_separator)) { res.getString(typeGroup(it)) },
             )
             f.simId?.let { add(simLabel(it)) }
-            if (f.period != FilterPeriod.ANY) add(res.getString(period(f.period)))
+            if (f.hasRange) add(days(res, f.fromDay, f.toDay)) else if (f.period != FilterPeriod.ANY) add(res.getString(period(f.period)))
             when {
                 min != null && max != null -> add(res.getString(R.string.hist_duration_between, fmt(min), fmt(max)))
                 min != null -> add(res.getString(R.string.hist_duration_at_least, fmt(min)))

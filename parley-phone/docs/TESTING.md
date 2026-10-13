@@ -3995,3 +3995,35 @@ Automated: `NavigationGuardTest.back_still_works_on_a_page_that_never_settles` (
 1. **Back is never dead.** Open Settings › Calls, tap Back, and at once pull down the notification shade (or let a permission prompt or the fingerprint sheet come up) before the page has settled. Close it and tap the top bar's Back: it goes back. A quick double tap of Back still lands on Settings, not Home.
 2. **Visible names stay in the call log.** Save a number as a phone contact "Ana" and the same number on an archived contact. Revoke Parley's Contacts permission, then run the daily upkeep (`adb shell cmd jobscheduler run -f app.parley.debug <job id>`): Google's Phone app still names those calls "Ana". Grant the permission again and run the upkeep: calls with numbers only the archived contact had lose the name; "Ana"'s keep it.
 3. **Call screen in Recents.** App lock off. Take a call from a private contact, press Home and open Recents: the call screen's card is blank (Android 13+; before, it shows blank as it leaves). Turn on discreet mode, or unlock with the duress PIN, and call again: still blank. A call from a phone contact or an unknown number shows its usual thumbnail.
+
+## 55. Clearer records (7.1)
+
+### 55.1 A range of days in the Recents filter
+Automated: `HistoryFilterRangeTest` (core:common: both end days whole, the phone's time zone, open and swapped ends, the range replaces the period); `RecentsViewModelTest.a_range_of_days_keeps_only_those_days` (app, Robolectric).
+1. Recents › Filter: under When, after the fixed periods, a **Custom…** chip. Tap it: a calendar opens titled "Choose the days". Pick 1 March and 31 March, OK: the chip now reads "1 Mar 2026 – 31 Mar 2026" and is selected; no fixed period is.
+2. Apply: only calls from 1 March 00:00 to 31 March 23:59 show, and the Filter chip describes the range. Tap a single day and OK: that one day.
+3. Tap Last 7 days: the custom range goes and the chip reads "Custom…" again.
+4. Name it "March" and Save chip: the saved chip keeps the range after closing and reopening Parley. Export… (Recents ⋮) exports only March's calls.
+5. Large font, landscape and dark mode: the calendar fits and scrolls; TalkBack reads the chip's range.
+
+### 55.2 Saved ranges and older versions
+Automated: `HistoryFilterRangeTest.a_range_survives_the_codec`, `filters_saved_before_ranges_still_read`, `an_older_version_reads_a_saved_range_as_any_time` (core:common).
+1. Saved chips made before this version (a type, a SIM, Last 7 days) still show and filter as before.
+2. Save a "March" range chip and another chip, take a backup and restore it on this version: both chips come back, March with its days.
+3. If a 7.0 build is at hand: restore that backup there. Every saved chip comes back; March filters as "Any time" (the range is skipped, nothing is lost).
+
+### 55.3 Totals for a filtered view
+Automated: `RecentsViewModelTest.totals_show_only_while_something_is_filtered`, `totals_count_private_calls_only_while_they_may_show` (app, Robolectric).
+1. Recents with no chip, filter or search: no totals line.
+2. Tap Missed, or apply a filter, or a saved chip, or type a search: one quiet line under the chips, e.g. "23 calls · 3 h 12 min · 4 missed". The missed part is left out when there are none; the talk time is the calls' total ("0 min" when none connected).
+3. Combine a saved chip with a search ("bank" + This month): the line adds up exactly the rows shown. Show all: the line goes.
+4. A private contact's calls in the filtered view count while private contacts show. Lock the app and unlock with the duress PIN, or turn on discreet mode: their calls leave the list and the totals drop by them.
+5. A filter that leaves nothing shows the "Nothing here" state without a totals line.
+
+### 55.4 Apps that can read your call history
+Automated: `ContactsAuditTest` (core:data, Robolectric: the contacts list and the call-log list each name the home-screen apps holding their permission, never Parley).
+1. Install a call-log app (Logger, say) and allow it Call log. Settings › Privacy › Who can see your contacts: after the contacts apps, a section **Apps that can read your call history** lists it, with "Can read all calls", the same icon and "Change in Settings". Google's Phone app shows "Phone"; a system app "Part of the system".
+2. The line above says that call history shows who you talk to and when, that the names Android stored with calls are visible too, and that Parley takes them out for archived and private contacts.
+3. Tap the app: its Android app page opens. Remove its Call log permission and come back to the page: it is gone from the list.
+4. With no other app allowed Call log: "No other app on your home screen can read your call history".
+5. GrapheneOS: the Contact Scopes tip shows on the contacts list only. No new row in Settings; searching "call log" finds Who can see your contacts.

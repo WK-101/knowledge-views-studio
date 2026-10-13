@@ -398,6 +398,9 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   another app can query.
 - Your year (6.9) counts private contacts, their calls (the private call history) and their logged moments only while
   they may show (`vm.everyone` lists them and `PrivacyView.privateShown`); hidden, it reads as if they weren't there.
+- Recents' totals line under a filter ("23 calls · 3 h 12 min · 4 missed", 7.1) adds up the rows Recents shows, so a
+  private contact's calls count only while Recents lists them (`PrivacyView.privateHidden`); locked, discreet or
+  under duress the totals are those of the other calls.
 - Labels, the ringtone, "send to voicemail" and the star are sealed with the caller-ID key like the name; nothing of
   them is written to the address book, logs or notifications. A private caller sent to voicemail is never logged as a
   blocked call when Parley is the phone app (see "Ringtone and Send to voicemail"); a label's "Allow through Do Not
