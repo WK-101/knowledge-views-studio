@@ -1,6 +1,7 @@
 package app.parley.telecom.ui
 
-import androidx.compose.foundation.layout.Box
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,14 +13,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -131,15 +128,10 @@ private fun MenuRowCard(call: CallUi, p: MenuPath, st: MenuRowState, locked: Boo
                     if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (sending != null) StopButton() else ReplayButton(call, p, label.takeUnless { locked })
-                Box {
-                    IconButton(onClick = { st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.menu_more)) }
-                    DropdownMenu(expanded = st.menu, onDismissRequest = { st.menu = false }) {
-                        // Saving shows the keys and names the shortcut: only once the phone is unlocked.
-                        if (!locked) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_save_shortcut)) }, onClick = { st.menu = false; st.saving = true })
-                        }
-                        DropdownMenuItem(text = { Text(stringResource(R.string.menu_dont_remember)) }, onClick = { st.menu = false; st.askStop = true })
-                    }
+                OverflowMenu(st.menu, { st.menu = it }, label = stringResource(R.string.menu_more)) { close ->
+                    // Saving shows the keys and names the shortcut: only once the phone is unlocked.
+                    if (!locked) ParleyMenuItem(stringResource(R.string.menu_save_shortcut)) { close(); st.saving = true }
+                    ParleyMenuItem(stringResource(R.string.menu_dont_remember)) { close(); st.askStop = true }
                 }
             }
             if (sending != null) {

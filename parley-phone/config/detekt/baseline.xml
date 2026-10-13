@@ -247,6 +247,10 @@
     <ID>ForbiddenImport:BlockingScreen.kt$import app.parley.data.db.BlockedCallEntity</ID>
     <ID>ForbiddenImport:CircleContact.kt$import app.parley.data.db.ContactMetaEntity</ID>
     <ID>ForbiddenImport:CircleTimeline.kt$import app.parley.data.db.CallNoteEntity</ID>
+    <ID>HandBuiltExpandable:CapabilitiesScreen.kt$ExpandLess</ID>
+    <ID>HandBuiltExpandable:CombinedSurfaces.kt$ExpandLess</ID>
+    <ID>HandBuiltExpandable:ContactEditScreen.kt$ExpandLess</ID>
+    <ID>HandBuiltExpandable:NextUpStrip.kt$ExpandLess</ID>
     <ID>Indentation:KeypadTab.kt$ </ID>
     <ID>Indentation:ParleyRoot.kt$ </ID>
     <ID>Indentation:RecentsTab.kt$ </ID>

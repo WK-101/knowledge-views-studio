@@ -1,11 +1,11 @@
 package app.parley.ui.home
 
+import app.parley.ui.OverflowMenu
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
@@ -32,12 +32,10 @@ import app.parley.ui.SelectionTopBar
 import app.parley.ui.startOrSay
 import app.parley.ui.vault.ExpiryDialog
 import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -87,7 +85,6 @@ fun SelectionBar(vm: AppViewModel) {
     val selection by vm.selection.collectAsStateWithLifecycle()
     val all by vm.people.filtered.collectAsStateWithLifecycle()
     val chosen = all.orEmpty().filter { it.id in selection }
-    var menu by remember { mutableStateOf(false) }
     var menuGroup by remember { mutableStateOf<MenuEntry.Group<SelectionMenu.Action>?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmPrivate by remember { mutableStateOf(false) }
@@ -193,11 +190,8 @@ fun SelectionBar(vm: AppViewModel) {
         IconButton({
             scope.launch { bulk.star(ids, !allStarred) }
         }) { Icon(if (allStarred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (allStarred) R.string.sel_unstar else R.string.sel_star)) }
-        Box {
-            IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
-            DropdownMenu(menu, { menu = false }) {
-                MenuItems(menuEntries, { selectionMenuLabel(it) }, close = { menu = false }, onGroup = { menuGroup = it }, onAction = ::runMenu)
-            }
+        OverflowMenu { close ->
+            MenuItems(menuEntries, { selectionMenuLabel(it) }, close = close, onGroup = { menuGroup = it }, onAction = ::runMenu)
         }
     }
     menuGroup?.let { g -> MenuGroupSheet(g, { selectionMenuLabel(it) }, onDismiss = { menuGroup = null }, onAction = ::runMenu) }
@@ -324,6 +318,7 @@ private fun selectionMenuLabel(a: SelectionMenu.Action): MenuLabel = MenuLabel(
         },
     ),
     selectionMenuIcon(a),
+    isDestructive = a == SelectionMenu.Action.DELETE,
 )
 
 /** The icon of a selection ⋮ action: never repeated within the menu or one of its sheets (a test holds them to that). */

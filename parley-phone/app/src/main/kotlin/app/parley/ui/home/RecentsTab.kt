@@ -670,7 +670,7 @@ private fun recentMenuLabel(a: RecentMenu.Action, blockedCall: Boolean): MenuLab
     RecentMenu.Action.REMIND_TO_CALL -> MenuLabel(stringResource(R.string.to_call_remind_me_to_call), Icons.Rounded.AlarmAdd)
     RecentMenu.Action.BLOCK -> MenuLabel(stringResource(R.string.recents_block_number), Icons.Rounded.Block)
     RecentMenu.Action.UNBLOCK -> MenuLabel(stringResource(R.string.recents_unblock_number), Icons.Rounded.RemoveModerator)
-    RecentMenu.Action.DELETE_FROM_HISTORY -> MenuLabel(stringResource(R.string.recents_delete_from_history), Icons.Rounded.Delete)
+    RecentMenu.Action.DELETE_FROM_HISTORY -> MenuLabel(stringResource(R.string.recents_delete_from_history), Icons.Rounded.Delete, isDestructive = true)
     // The screening actions, with the words they have everywhere.
     else -> recentScreeningLabel(a, blockedCall) ?: MenuLabel(stringResource(R.string.menu_group_why), Icons.Rounded.Info)
 }

@@ -1,8 +1,8 @@
 package app.parley.telecom.ui
 
+import app.parley.ui.ExpandableBody
 import androidx.compose.material.icons.rounded.NotificationsOff
 import app.parley.common.BlockAction
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,7 +49,6 @@ import app.parley.telecom.R
 import app.parley.telecom.ReputationText
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.Bidi
-import app.parley.ui.ParleyMotion
 import app.parley.ui.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,9 +81,7 @@ internal fun ReputationLine(call: CallUi, ended: Boolean, compact: Boolean) {
                 textAlign = TextAlign.Center,
             )
         }
-        AnimatedVisibility(open, enter = ParleyMotion.expandIn(), exit = ParleyMotion.collapseOut()) {
-            ReputationReasons(reasons)
-        }
+        ExpandableBody(open) { ReputationReasons(reasons) }
     }
 }
 

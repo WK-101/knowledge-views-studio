@@ -1,40 +1,27 @@
 package app.parley.ui.contact
 
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ExpandableBody
 import android.content.res.Resources
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.ui.ParleyTooltip
@@ -44,8 +31,6 @@ import app.parley.common.people.PageBlock
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.Spacing
-import app.parley.ui.ParleyShapes
-import app.parley.ui.ParleyMotion
 
 /**
  * The sections a contact's page has, collected in code order with their title, the summary shown while
@@ -109,12 +94,8 @@ fun LazyListScope.foldableSections(
             val sep = stringResource(R.string.main_separator)
             val summary = members.map { it.summary }.filter { it.isNotBlank() }.joinToString(sep)
             Column {
-                FoldHeader(titleOf(b), summary, folded) { onFold(b, !folded) }
-                AnimatedVisibility(
-                    !folded,
-                    enter = ParleyMotion.expandIn(),
-                    exit = ParleyMotion.collapseOut(),
-                ) { BlockBody(members) }
+                ExpandableHeader(titleOf(b), expanded = !folded, onToggle = { onFold(b, !folded) }, summary = summary)
+                ExpandableBody(!folded) { BlockBody(members) }
             }
         }
     }
@@ -129,41 +110,6 @@ private fun BlockBody(members: List<PageSections.Entry>) {
         if (rows.isNotEmpty()) SegmentedGroup { rows.forEach { it() } }
         members.forEach { e -> e.body?.invoke() }
         members.forEach { e -> e.after?.invoke() }
-    }
-}
-
-/** The header of a foldable section: its title, a summary while folded ("124 entries"), and a turning chevron. */
-@Composable
-fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> Unit) {
-    val turn by animateFloatAsState(if (folded) 0f else 180f, ParleyMotion.spatial(), label = "chevron")
-    val state = stringResource(if (folded) R.string.label_folded else R.string.action_open)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(ParleyShapes.tile)
-            .clickable(
-                role = Role.Button, onClickLabel = stringResource(if (folded) R.string.action_unfold else R.string.action_fold),
-                onClick = onToggle,
-            )
-            .heightIn(min = 48.dp)
-            .semantics(mergeDescendants = true) {
-                heading()
-                stateDescription = state
-            }
-            .padding(start = 16.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(
-            if (folded && summary.isNotBlank()) stringResource(R.string.main_separator) + summary else "",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-        )
-        Icon(
-            Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(8.dp).graphicsLayer { rotationZ = turn },
-        )
     }
 }
 

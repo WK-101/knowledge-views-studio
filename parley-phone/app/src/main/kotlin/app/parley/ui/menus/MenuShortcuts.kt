@@ -1,15 +1,12 @@
 package app.parley.ui.menus
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -70,7 +67,6 @@ private fun ShortcutRow(vm: AppViewModel, sc: MenuShortcut, who: String, photoUr
     val context = LocalContext.current
     val res = LocalResources.current
     val dial = MenuMemory.dialString(sc.number, sc.steps)
-    var menu by remember { mutableStateOf(false) }
     val summary = stringResource(
         R.string.menus_shortcut_summary, Bidi.ltr(Format.number(sc.number, vm.countryIso)), Bidi.ltr(MenuMemory.label(sc.steps)),
     )
@@ -79,18 +75,15 @@ private fun ShortcutRow(vm: AppViewModel, sc: MenuShortcut, who: String, photoUr
         supportingContent = { Text(summary, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         leadingContent = { Icon(Icons.Rounded.Dialpad, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
-            Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_for, sc.name)) }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.menus_rename)) }, onClick = { menu = false; onRename() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.detail_add_home)) }, onClick = {
-                        menu = false
-                        if (!Shortcuts.pinMenu(context, sc.id, sc.name, dial, who, photoUri)) {
-                            vm.toast(res.getString(R.string.menus_home_unavailable))
-                        }
-                    })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.action_delete)) }, onClick = { menu = false; onDelete() })
+            OverflowMenu(label = stringResource(R.string.label_more_for, sc.name)) { close ->
+                ParleyMenuItem(stringResource(R.string.menus_rename)) { close(); onRename() }
+                ParleyMenuItem(stringResource(R.string.detail_add_home)) {
+                    close()
+                    if (!Shortcuts.pinMenu(context, sc.id, sc.name, dial, who, photoUri)) {
+                        vm.toast(res.getString(R.string.menus_home_unavailable))
+                    }
                 }
+                ParleyMenuItem(stringResource(R.string.action_delete), destructive = true) { close(); onDelete() }
             }
         },
         colors = rowColors(),

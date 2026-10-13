@@ -37,6 +37,8 @@ class ParleyRuleSetProvider : RuleSetProvider {
             SuppressWithoutReason(config),
             RawRename(config),
             RawPrivacySwitch(config),
+            HandBuiltOverflow(config),
+            HandBuiltExpandable(config),
         ),
     )
 }

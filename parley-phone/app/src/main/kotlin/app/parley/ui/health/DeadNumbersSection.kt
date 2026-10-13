@@ -1,26 +1,20 @@
 package app.parley.ui.health
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.EditNote
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -84,51 +78,31 @@ private fun DeadNumberMenu(vm: AppViewModel, d: NumberSignals.DeadNumber, shown:
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    var expanded by remember { mutableStateOf(false) }
     val editor = (ContactRef.ofNavId(d.navId) as? ContactRef.Private)?.let { Routes.edit(vault = it.vaultId) } ?: Routes.edit(id = d.navId)
-    Box {
-        IconButton({ expanded = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.health_out_of_service_more, d.name, shown)) }
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.health_out_of_service_try)) },
-                leadingIcon = { Icon(Icons.Rounded.Call, null) },
-                onClick = { expanded = false; vm.requestCall(d.number, d.name) },
+    OverflowMenu(label = stringResource(R.string.health_out_of_service_more, d.name, shown)) { close ->
+        ParleyMenuItem(stringResource(R.string.health_out_of_service_try), Icons.Rounded.Call) { close(); vm.requestCall(d.number, d.name) }
+        ParleyMenuItem(stringResource(R.string.health_out_of_service_edit), Icons.Rounded.Edit) { close(); open(editor) }
+        ParleyMenuItem(stringResource(R.string.health_out_of_service_to_note), Icons.Rounded.EditNote) {
+            close()
+            val since = DateUtils.formatDateTime(
+                context, d.finding.firstFailureAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_NO_MONTH_DAY or DateUtils.FORMAT_SHOW_YEAR,
             )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.health_out_of_service_edit)) },
-                leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                onClick = { expanded = false; open(editor) },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.health_out_of_service_to_note)) },
-                leadingIcon = { Icon(Icons.Rounded.EditNote, null) },
-                onClick = {
-                    expanded = false
-                    val since = DateUtils.formatDateTime(
-                        context, d.finding.firstFailureAt, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_NO_MONTH_DAY or DateUtils.FORMAT_SHOW_YEAR,
-                    )
-                    val line = res.getString(R.string.health_out_of_service_note, d.number, since)
-                    scope.launch {
-                        val undo = catching { NumberSignals.moveToNote(vm.c, d, line) }.getOrNull()
-                        if (undo == null) {
-                            // Kept by an account Parley can't change this way: the editor shows what can be done.
-                            vm.toast(res.getString(R.string.health_out_of_service_not_moved))
-                            open(editor)
-                        } else {
-                            vm.offerUndo(res.getString(R.string.health_out_of_service_moved, d.name), undo)
-                        }
-                    }
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_dismiss)) },
-                leadingIcon = { Icon(Icons.Rounded.Close, null) },
-                onClick = {
-                    expanded = false
-                    NumberSignals.dismissDead(vm.c, d.lineKey)
-                    vm.offerUndo(res.getString(R.string.health_out_of_service_dismissed)) { vm.c.numberAdvice.undismissDead(d.lineKey) }
-                },
-            )
+            val line = res.getString(R.string.health_out_of_service_note, d.number, since)
+            scope.launch {
+                val undo = catching { NumberSignals.moveToNote(vm.c, d, line) }.getOrNull()
+                if (undo == null) {
+                    // Kept by an account Parley can't change this way: the editor shows what can be done.
+                    vm.toast(res.getString(R.string.health_out_of_service_not_moved))
+                    open(editor)
+                } else {
+                    vm.offerUndo(res.getString(R.string.health_out_of_service_moved, d.name), undo)
+                }
+            }
+        }
+        ParleyMenuItem(stringResource(R.string.action_dismiss), Icons.Rounded.Close) {
+            close()
+            NumberSignals.dismissDead(vm.c, d.lineKey)
+            vm.offerUndo(res.getString(R.string.health_out_of_service_dismissed)) { vm.c.numberAdvice.undismissDead(d.lineKey) }
         }
     }
 }

@@ -1,6 +1,7 @@
 package app.parley.ui.family
 
 import app.parley.ui.NoKeyboardLearning
+import app.parley.ui.ListSectionHeader
 import android.content.Context
 import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
@@ -404,10 +405,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs),
                 )
                 if (upcoming.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.label_coming_up), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = Spacing.m, bottom = Spacing.xs),
-                    )
+                    ListSectionHeader(stringResource(R.string.label_coming_up), inset = 0.dp, top = Spacing.m, bottom = Spacing.xs)
                     upcoming.forEach { w ->
                         ParleyListItem(
                             colors = rowColors(),

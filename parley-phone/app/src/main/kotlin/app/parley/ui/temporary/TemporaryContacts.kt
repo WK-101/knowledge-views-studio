@@ -1,5 +1,8 @@
 package app.parley.ui.temporary
 
+import app.parley.security.VaultUnlockDeclined
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import android.content.res.Resources
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
@@ -25,12 +28,9 @@ import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreTime
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,7 +70,6 @@ import app.parley.common.people.TemporaryDue
 import app.parley.common.ux.Tips
 import app.parley.data.TemporaryContacts
 import app.parley.data.vault.VaultCrypto
-import app.parley.security.VaultUnlockDeclined
 import app.parley.security.withVaultUnlock
 import app.parley.ui.Avatar
 import app.parley.ui.ConfirmDialog
@@ -360,7 +359,6 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
 
 @Composable
 private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Unit, onExtend: () -> Unit, onKeep: () -> Unit, onDelete: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
     ParleyListItem(
         modifier = Modifier.clickable(onClick = onOpen),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -384,23 +382,10 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
         trailingContent = {
             Row {
                 IconButton(onExtend) { Icon(Icons.Rounded.MoreTime, stringResource(R.string.temp_keep_longer, t.name)) }
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.temp_more_actions, t.name)) }
-                DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.temp_extend)) },
-                        leadingIcon = { Icon(Icons.Rounded.MoreTime, null) },
-                        onClick = { menu = false; onExtend() },
-                    )
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.action_keep_permanently)) },
-                        leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
-                        onClick = { menu = false; onKeep() },
-                    )
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.temp_delete_now)) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                        onClick = { menu = false; onDelete() },
-                    )
+                OverflowMenu(label = stringResource(R.string.temp_more_actions, t.name)) { close ->
+                    ParleyMenuItem(stringResource(R.string.temp_extend), Icons.Rounded.MoreTime) { close(); onExtend() }
+                    ParleyMenuItem(stringResource(R.string.action_keep_permanently), Icons.Rounded.PushPin) { close(); onKeep() }
+                    ParleyMenuItem(stringResource(R.string.temp_delete_now), Icons.Rounded.Delete, destructive = true) { close(); onDelete() }
                 }
             }
         },

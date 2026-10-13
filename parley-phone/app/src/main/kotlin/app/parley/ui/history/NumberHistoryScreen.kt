@@ -1,5 +1,10 @@
 package app.parley.ui.history
 
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.NetworkNameSeen
 import app.parley.ui.calls.NetworkNameTag
@@ -15,7 +20,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.produceState
 import app.parley.ui.Clipboard
 import app.parley.ui.Destination
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -26,8 +30,6 @@ import androidx.compose.material.icons.rounded.Sms
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Section
 import app.parley.ui.contact.ActionTile
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -47,7 +49,6 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -160,7 +161,6 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val networkName = NetworkName.latest(networkNames)?.name
     val networkUnder = NetworkName.underSaved(savedName, NetworkName.latest(kept)?.name, NetworkName.Gate(enabled = namesOn))
     val title = contact?.displayName ?: archivedName ?: networkName ?: Format.number(number, vm.countryIso)
-    var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }
     var remindToCall by remember { mutableStateOf(false) }
@@ -181,38 +181,29 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     }
 
     // [inPane]: beside Recents on a big screen, where there is nothing to go back to and Home shows the snackbar.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(snackbarHost = { if (!inPane) ScreenSnackbarHost() }, topBar = {
         ParleyTopBar(
             stringResource(R.string.label_call_history),
             onBack = back.takeUnless { inPane },
+            scrollBehavior = barTint,
             actions = {
-                Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
-                    DropdownMenu(menu, { menu = false }) {
-                        // To call by hand (the same fixed times as Remind me after a call).
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.to_call_remind_me_to_call)) },
-                            leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
-                            onClick = { menu = false; remindToCall = true },
-                        )
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.hist_export_menu)) },
-                            leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
-                            onClick = { menu = false; exporting = true },
-                            enabled = history.isNotEmpty(),
-                        )
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.hist_delete_calls_menu)) },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                            onClick = { menu = false; rangeDelete = true },
-                            enabled = history.isNotEmpty(),
-                        )
+                OverflowMenu { close ->
+                    // To call by hand (the same fixed times as Remind me after a call).
+                    ParleyMenuItem(stringResource(R.string.to_call_remind_me_to_call), Icons.Rounded.AlarmAdd) { close(); remindToCall = true }
+                    ParleyMenuItem(stringResource(R.string.hist_export_menu), Icons.Rounded.FileDownload, enabled = history.isNotEmpty()) {
+                        close()
+                        exporting = true
+                    }
+                    ParleyMenuItem(stringResource(R.string.hist_delete_calls_menu), Icons.Rounded.Delete, destructive = true, enabled = history.isNotEmpty()) {
+                        close()
+                        rangeDelete = true
                     }
                 }
             },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(title, contact?.photoUri, 96.dp)

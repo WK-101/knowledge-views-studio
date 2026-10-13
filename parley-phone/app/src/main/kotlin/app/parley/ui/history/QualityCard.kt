@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.ListSectionHeader
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -78,10 +79,7 @@ fun QualityCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit
     val r = d.report
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        Text(
-            stringResource(R.string.label_call_quality), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = Spacing.l, top = Spacing.m, end = Spacing.l).semantics { heading() },
-        )
+        ListSectionHeader(stringResource(R.string.label_call_quality), inset = Spacing.l, top = Spacing.m, bottom = 0.dp)
         Text(
             stringResource(R.string.quality_explainer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),

@@ -11,9 +11,10 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,11 +24,16 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.ux.MenuEntry
 import app.parley.common.ux.MenuGroup
+import app.parley.ui.DestructiveDivider
 import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyMenuItem
 import app.parley.ui.ParleySheet
 
-/** What a menu shows for one action: its words and icon. */
-data class MenuLabel(val text: String, val icon: ImageVector)
+/**
+ * What a menu shows for one action: its words and icon. [isDestructive] marks the one action that deletes or clears
+ * (Delete, Delete from history): the menu builders put it last, and menus set it apart with a line and the error colour.
+ */
+data class MenuLabel(val text: String, val icon: ImageVector, val isDestructive: Boolean = false)
 
 /** The words of a [MenuGroup]'s entry ("Share…") and the title of its sheet. */
 @Composable
@@ -50,7 +56,8 @@ internal val MenuGroup.icon: ImageVector
 
 /**
  * The items of a ⋮ menu built by one of [app.parley.common.ux.ContactMenu]'s siblings: an action runs ([onAction]),
- * a group opens its sheet ([onGroup]). Call inside a DropdownMenu; the menu closes before either.
+ * a group opens its sheet ([onGroup]). Call inside a DropdownMenu; the menu closes before either. A destructive
+ * action (its label's [MenuLabel.isDestructive]) comes after a line, in the error colour.
  */
 @Composable
 fun <A> MenuItems(
@@ -62,13 +69,13 @@ fun <A> MenuItems(
 ) {
     entries.forEach { e ->
         val l = e.label(label)
-        DropdownMenuItem({ Text(l.text) }, leadingIcon = { Icon(l.icon, null) }, onClick = {
+        ParleyMenuItem(l.text, l.icon, destructive = l.isDestructive) {
             close()
             when (e) {
                 is MenuEntry.Action -> onAction(e.action)
                 is MenuEntry.Group -> onGroup(e)
             }
-        })
+        }
     }
 }
 
@@ -107,7 +114,15 @@ private fun <A> MenuEntry<A>.label(label: @Composable (A) -> MenuLabel): MenuLab
     is MenuEntry.Group -> MenuLabel(group.title(), group.icon)
 }
 
+/** A sheet's row; a destructive one is set apart by a line and drawn in the error colour, as in a drop-down. */
 @Composable
 private fun SheetRow(l: MenuLabel, onClick: () -> Unit) {
-    ParleyListItem(headlineContent = { Text(l.text) }, leadingContent = { Icon(l.icon, null) }, modifier = Modifier.clickable(onClick = onClick))
+    if (l.isDestructive) DestructiveDivider()
+    val colors = if (l.isDestructive) {
+        val error = MaterialTheme.colorScheme.error
+        ListItemDefaults.colors(headlineColor = error, leadingIconColor = error)
+    } else ListItemDefaults.colors()
+    ParleyListItem(
+        headlineContent = { Text(l.text) }, leadingContent = { Icon(l.icon, null) }, modifier = Modifier.clickable(onClick = onClick), colors = colors,
+    )
 }

@@ -1,12 +1,13 @@
 package app.parley.ui.home
 
+import androidx.compose.material3.TopAppBar
+import app.parley.ui.OverflowMenu
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,9 +16,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,7 +24,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
@@ -93,10 +91,7 @@ fun HomeHeader(
                         IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, searchHint) }
                     }
                     actions()
-                    Box {
-                        IconButton({ menuOpen = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
-                        DropdownMenu(menuOpen, { menuOpen = false }) { menu { menuOpen = false } }
-                    }
+                    OverflowMenu(menuOpen, { menuOpen = it }) { close -> menu(close) }
                 },
                 scrollBehavior = scrollBehavior,
             )

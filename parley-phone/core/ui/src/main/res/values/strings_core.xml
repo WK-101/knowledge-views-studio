@@ -10,6 +10,13 @@
     <string name="ui_change">Change</string>
     <string name="ui_close">Close</string>
     <string name="ui_copied">Copied</string>
+    <!-- A part that opens in place: its state and what a double tap does, for TalkBack. -->
+    <string name="ui_expanded">Expanded</string>
+    <string name="ui_collapsed">Collapsed</string>
+    <string name="ui_unfold">Unfold</string>
+    <string name="ui_fold">Fold</string>
+    <!-- The ⋮ button of every top bar. -->
+    <string name="ui_more_options">More options</string>
     <!-- TalkBack name of the lock on a private contact's photo in lists. -->
     <string name="ui_private_contact">Private contact</string>
     <!-- The A–Z index beside alphabetical lists: its TalkBack name and actions. -->

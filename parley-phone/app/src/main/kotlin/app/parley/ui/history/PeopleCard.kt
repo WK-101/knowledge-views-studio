@@ -1,11 +1,12 @@
 package app.parley.ui.history
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
+import app.parley.ui.Spacing
 import app.parley.common.catching
 import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -14,9 +15,6 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingFlat
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,11 +22,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -47,8 +43,6 @@ import app.parley.ui.PersonRow
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.ListSectionHeader
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 
 /** Everything the People card shows, worked out once per history change. */
 private data class PeopleData(
@@ -100,26 +94,16 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
     val d = data ?: return
     if (d.reach == null && d.loops.isEmpty() && d.review == null) return
     val context = LocalContext.current
-    var menu by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.circle_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f).semantics { heading() },
-            )
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
-                DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem(
-                        { Text(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) },
-                        onClick = { menu = false; vm.c.circle.updateConfig { it.copy(firstMover = !it.firstMover) } },
-                    )
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.circle_hide_people_card)) },
-                        onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } },
-                    )
+        val title = stringResource(R.string.circle_people_title)
+        ListSectionHeader(title, top = Spacing.xs, bottom = 0.dp) {
+            OverflowMenu(label = stringResource(R.string.label_more_for, title)) { close ->
+                ParleyMenuItem(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) {
+                    close()
+                    vm.c.circle.updateConfig { it.copy(firstMover = !it.firstMover) }
                 }
+                ParleyMenuItem(stringResource(R.string.circle_hide_people_card)) { close(); vm.c.circle.updateConfig { it.copy(peopleCard = false) } }
             }
         }
         d.reach?.let { r ->
