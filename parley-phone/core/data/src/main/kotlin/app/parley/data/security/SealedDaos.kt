@@ -18,19 +18,23 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
  * [MetaDao] with pinned notes, Parley-only relations, call-note texts and journal payloads sealed at rest ([RecordCrypto]). Everything above
  * it sees plain values; the table rows hold sealed ones. Plain rows from older versions read as they are until
- * [RecordSealing] re-seals them.
+ * [RecordSealing] re-seals them. Call notes are stored under their line's keyed fingerprint ([LineKeys]) with the line
+ * key sealed beside it, and looked up by every key form keyed: callers pass and get plain line keys.
  *
  * A sealed note that can't be opened right now (a Keystore hiccup, or a lost key) reads as no note, but is never
  * replaced by one of the whole-row writes ([setMeta], [setPersonalMeta]) that pass that "no note" back: the stored
  * ciphertext stays until the note is explicitly set ([setPinnedNote]).
  */
-class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) : MetaDao by dao {
+class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto, private val lines: LineKeys) : MetaDao by dao {
     /**
      * After a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). Except
      * those written since (shown as written for as long as the hiding lasts), and a note typed over a hidden one,
@@ -98,7 +102,29 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
         require(crypto.isSealed(sealed))
         dao.meta(key)?.let { dao.setMeta(it.copy(pinnedNote = sealed)) }
     }
-    private fun CallNoteEntity.opened() = if (crypto.isSealed(text)) copy(text = crypto.openText(text).orEmpty()) else this
+
+    /** The note as callers see it: its text opened, and its line key instead of the fingerprint it is stored under. */
+    private fun CallNoteEntity.opened(): CallNoteEntity {
+        val plain = if (crypto.isSealed(text)) crypto.openText(text).orEmpty() else text
+        // A sealed line key that can't be opened right now leaves the fingerprint, which matches no line.
+        val key = if (LineKeys.isKeyed(numberKey)) crypto.openText(sealedKey) ?: numberKey else numberKey
+        return copy(numberKey = key, text = plain, sealedKey = null)
+    }
+
+    /** [n] as stored: keyed, with its line key sealed; plain when either key can't be used now (keyed later). */
+    private fun CallNoteEntity.keyed(): CallNoteEntity {
+        if (LineKeys.isKeyed(numberKey)) return this
+        val keyed = lines.keyed(numberKey) ?: return this
+        if (keyed == numberKey) return this
+        val sealed = crypto.sealText(numberKey)
+        return if (crypto.isSealed(sealed)) copy(numberKey = keyed, sealedKey = sealed) else this
+    }
+
+    private suspend fun formsOf(keys: List<String>) = withContext(Dispatchers.IO) { lines.forms(keys) }
+
+    /** Every form a note about [keys] may be stored under, worked out off the main thread (the key may need the Keystore). */
+    private fun notesOf(keys: List<String>, read: (List<String>) -> Flow<List<CallNoteEntity>>): Flow<List<CallNoteEntity>> =
+        flow { emitAll(read(lines.forms(keys))) }.flowOn(Dispatchers.IO)
 
     private fun CallNoteEntity.visible() = !hidden || Concealment.writtenWhileHiding(callNoteToken(id))
 
@@ -144,22 +170,25 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     override suspend fun setParleyRelations(key: String, relations: String?) = dao.setParleyRelations(key, crypto.sealText(relations))
 
-    override suspend fun addCallNote(n: CallNoteEntity): Long =
-        dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty())).also { if (hidden && it > 0) Concealment.markWritten(callNoteToken(it)) }
+    override suspend fun addCallNote(n: CallNoteEntity): Long {
+        val stored = withContext(Dispatchers.IO) { n.keyed() }.copy(text = crypto.sealText(n.text).orEmpty())
+        return dao.addCallNote(stored).also { if (hidden && it > 0) Concealment.markWritten(callNoteToken(it)) }
+    }
 
-    override fun callNotes(key: String): Flow<List<CallNoteEntity>> = combine(dao.callNotes(key), hiding) { l, _ -> l.shown() }
+    override fun callNotes(key: String): Flow<List<CallNoteEntity>> = callNotesAny(listOf(key))
 
-    override fun callNotesAny(keys: List<String>): Flow<List<CallNoteEntity>> = combine(dao.callNotesAny(keys), hiding) { l, _ -> l.shown() }
+    override fun callNotesAny(keys: List<String>): Flow<List<CallNoteEntity>> =
+        combine(notesOf(keys, dao::callNotesAny), hiding) { l, _ -> l.shown() }
 
     override suspend fun allCallNotesNow(): List<CallNoteEntity> = dao.allCallNotesNow().shown()
 
     /** Sealed texts can't be compared in SQL (each has its own nonce): compared after opening. */
     override suspend fun countCallNote(key: String, callDate: Long, text: String): Int =
-        dao.callNotesNow(listOf(key)).count { it.callDate == callDate && it.opened().text == text }
+        dao.callNotesNow(formsOf(listOf(key))).count { it.callDate == callDate && it.opened().text == text }
 
     override fun allCallNotes(): Flow<List<CallNoteEntity>> = combine(dao.allCallNotes(), hiding) { l, _ -> l.shown() }
 
-    override suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity> = dao.callNotesNow(keys).shown()
+    override suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity> = dao.callNotesNow(formsOf(keys)).shown()
 
     override suspend fun callNote(id: Long): CallNoteEntity? = dao.callNote(id)?.takeIf { it.visible() }?.opened()
 

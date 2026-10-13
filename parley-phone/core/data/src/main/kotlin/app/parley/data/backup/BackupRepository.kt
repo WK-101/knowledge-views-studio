@@ -65,7 +65,6 @@ import app.parley.data.SettingsRepository
 import app.parley.data.applyInBatches
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.BlockedCallEntity
-import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.security.Privacy
 import app.parley.data.vault.PrivateCall
@@ -117,7 +116,24 @@ data class RestoreOptions(
     val speedDial: Boolean = true,
     val settings: Boolean = false,
     val vault: Boolean = true,
-)
+) {
+    /** Whether any part is chosen (with none, there is nothing to restore). */
+    val anyPart: Boolean get() = contacts || callLog || blocking || speedDial || vault || settings
+
+    companion object {
+        /**
+         * What a backup's restore starts with: every data part for one this phone or another of yours signed; nothing
+         * for one whose signature can't vouch for it (unsigned, an unknown or unconfirmed phone, altered), since anyone
+         * who once saw one of your backups can make such a file. The user can still tick what they mean to restore.
+         * Settings are never ticked to begin with.
+         */
+        fun forOrigin(origin: ArchiveOrigin): RestoreOptions = when (origin) {
+            ArchiveOrigin.THIS_PHONE, ArchiveOrigin.OTHER_PHONE -> RestoreOptions()
+            ArchiveOrigin.UNKNOWN_SIGNER, ArchiveOrigin.UNCONFIRMED_PHONE, ArchiveOrigin.UNSIGNED, ArchiveOrigin.BAD_SIGNATURE ->
+                RestoreOptions(contacts = false, callLog = false, blocking = false, speedDial = false, vault = false, settings = false)
+        }
+    }
+}
 
 data class RestoreReport(
     val added: Int = 0,
@@ -338,7 +354,7 @@ class BackupRepository(
                     section.end()
                 }
                 writer.writeBlocking(blocking())
-                writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
+                writer.writeSpeedDial(prefsRepo.speedDials.first().filter { it.number.isNotEmpty() }.map { SpeedDialRecord(it.key, it.number, it.label) })
                 writer.writeNumberSims(prefsRepo.numberSims.first().map { NumberSimRecord(it.matchKey, it.phoneAccountId) })
                 writer.writeSettings(settings.exportMap() + extrasMap(failedSections))
                 val v = vaultBlob()
@@ -707,7 +723,7 @@ class BackupRepository(
         if (o.blocking) features(RestorePart.BLOCKING)
         if (o.speedDial) part(context.getString(R.string.data_rst_part_speed_dial)) {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
-            opened.reader.numberSims()?.forEach { db.prefsDao().setSim(NumberSimEntity(it.matchKey, it.phoneAccountId)) }
+            opened.reader.numberSims()?.forEach { prefsRepo.restoreSim(it.matchKey, it.phoneAccountId) }
         }
         if (o.settings) part(context.getString(R.string.data_rst_part_settings)) {
             opened.reader.settings()?.let { all ->

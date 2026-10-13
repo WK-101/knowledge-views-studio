@@ -37,7 +37,7 @@ ContactVariants(storage, expiresAt) (what it is)
 - **Temporary until the job's done.** A temporary date can count from the save (a fixed date, as always), from the
   **last call** ("7 days after your last call": every connected call, and every chat started from Parley for a visible
   one, moves it on), or wait **until the case file is resolved** (offered on the contact page while a case file for its
-  numbers is open). The rule is stored with the entry (`temporary_contacts.slideDays` / `untilCase`, schema v12; the
+  numbers is open). The rule is stored with the entry (`temporary_contacts.slideDays` / `untilCase`, schema v13; the
   caller-ID copy's `slide` / `case` for a private one) and travels in backups; older versions ignore it and keep the
   date as a fixed one. The daily upkeep moves the date on first (`TemporaryRules.follow`, rules in `TemporaryRule`),
   never earlier; everything after that is unchanged: due, "Ask before deleting", Keep 7 more days and the undo. While
@@ -150,7 +150,7 @@ URI, the star, the first number and the section header, for 60 rows and 40 favou
 | Photo | Vault photo file, sealed with the caller-ID key | Yes (the call screen shows it) |
 | Circle rhythm, relation links, yearly dates, logged moments, call-screen picture | Parley's own stores under `parley-private:<id>` (moments' notes sealed as for every contact) | Parley only; the page shows them after unlock |
 | The signed card it is linked to and an update waiting (4.6) | `card_links` under `parley-private:<id>`, sealed with the small-records key | Parley only; the page offers the update after unlock, Apply asks for it |
-| Calls | Private call history (when "Private call history" is on); a call an app made over the internet (WhatsApp…) keeps that app, sealed with the number (6.5) | As before |
+| Calls | Private call history (when "Private call history" is on); a call an app made over the internet (WhatsApp…) keeps that app, sealed with the number (6.5); since 7.1 each call's time, length and direction are sealed with it too, and a call note's or a remembered SIM's line is stored only as a keyed fingerprint (`LineKeys`) | As before |
 | Own call time limit, talk-time reminder, "never limit" | Call-time settings under `parley-private:<id>`, **without a name** (lists show it from the vault) | Parley only |
 | A deleted private contact | `no_backup/vault_trash`: the entry exactly as stored (details still under the detail key), its photo, private calls and Parley data, the whole file sealed with the caller-ID key, 30 days (`PrivateTrash`) | Counted without opening; listed only after the vault's unlock |
 | What number memory remembers about a deleted private contact, or a number in a private contact's notes | The number-memory index (`no_backup/number_memory`): keyed hashes of the numbers and sealed hints, rebuilt from the stores above | Never shown then: the line appears only while the vault is unlocked, and never in discreet mode |

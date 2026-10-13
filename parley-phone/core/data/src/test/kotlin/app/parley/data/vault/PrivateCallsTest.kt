@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.parley.data.StartGate
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
+import app.parley.data.security.LineKeys
 import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -109,5 +111,51 @@ class PrivateCallsTest {
         vault.restorePrivateCalls(kept)
         assertEquals(before, vault.privateCallsNow().sortedBy { it.date })
         assertEquals(sealed, db.vaultDao().allPrivateCalls().associate { it.id to it.blob.toList() })
+    }
+
+    /** A call's time, length and direction are sealed with it: the row keeps its entry and a keyed fingerprint only. */
+    @Test fun aCallsTimeIsSealedWithIt() = runBlocking {
+        assertTrue(vault.storePrivateCall(6, "+44 7700 900001", "Ana", 1_700_000_000_000L, 42, CallLog.Calls.OUTGOING_TYPE))
+        // The same call again (a sweep retried): stored once.
+        assertTrue(vault.storePrivateCall(6, "+44 7700 900001", "Ana", 1_700_000_000_000L, 42, CallLog.Calls.OUTGOING_TYPE))
+        vault.storePrivateCall(6, "+44 7700 900001", "Ana", 1_700_000_500_000L, 7, CallLog.Calls.INCOMING_TYPE)
+        val rows = db.vaultDao().allPrivateCalls()
+        assertEquals(2, rows.size)
+        for (r in rows) {
+            assertEquals(listOf(0L, 0L, 0L), listOf(r.date, r.durationSec, r.type.toLong()))
+            assertTrue(r.dedupeKey!!.startsWith(LineKeys.PREFIX))
+            assertFalse(r.dedupeKey!!.contains("1700000"))
+        }
+        val calls = vault.privateCallsOf(6)
+        assertEquals("newest first", listOf(1_700_000_500_000L, 1_700_000_000_000L), calls.map { it.date })
+        assertEquals(listOf(7L, 42L), calls.map { it.durationSec })
+        assertEquals(listOf(CallLog.Calls.INCOMING_TYPE, CallLog.Calls.OUTGOING_TYPE), calls.map { it.type })
+
+        // What "Recently deleted" keeps of each row has its time, read from the seal.
+        val seal = PrivateCallSeal(context)
+        assertEquals(setOf(1_700_000_000_000L, 1_700_000_500_000L), rows.map { seal.facts(it).date }.toSet())
+        assertEquals(setOf(42L, 7L), rows.map { seal.facts(it).durationSec }.toSet())
+    }
+
+    /** Rows stored with their time beside the seal (older versions) are sealed whole once listed; a second copy goes. */
+    @Test fun olderRowsAreSealedWholeOnce() = runBlocking {
+        val now = System.currentTimeMillis()
+        vault.storePrivateCall(8, "+44 7700 900003", "Cy", now, 30, CallLog.Calls.INCOMING_TYPE)
+        val plain = JSONObject().put("n", "+44 7700 900003").put("name", "Cy").toString().toByteArray()
+        // The same call stored plainly beside the seal before (no fingerprint), and an older one.
+        val old = VaultCrypto.sealCallerId(plain)
+        db.vaultDao().addPrivateCall(PrivateCallEntity(vaultId = 8, blob = old, date = now, durationSec = 30, type = CallLog.Calls.INCOMING_TYPE))
+        db.vaultDao().addPrivateCall(
+            PrivateCallEntity(vaultId = 8, blob = VaultCrypto.sealCallerId(plain), date = now - 60_000, durationSec = 5, type = CallLog.Calls.MISSED_TYPE),
+        )
+        gate.open()
+        withTimeout(10_000) {
+            while (db.vaultDao().allPrivateCalls().any { it.date != 0L }) delay(20)
+        }
+        val rows = db.vaultDao().allPrivateCalls()
+        assertEquals("the second copy went", 2, rows.size)
+        assertTrue(rows.all { it.durationSec == 0L && it.dedupeKey!!.startsWith(LineKeys.PREFIX) })
+        assertEquals(listOf(now, now - 60_000), vault.privateCallsOf(8).map { it.date })
+        assertEquals(listOf(30L, 5L), vault.privateCallsOf(8).map { it.durationSec })
     }
 }

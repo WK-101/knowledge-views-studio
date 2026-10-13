@@ -28,7 +28,7 @@ Parley whenever the phone is on, including while it is locked.
 | Data | Key | Authentication | Why |
 |---|---|---|---|
 | Private contacts: name, numbers, caller card, dates (6.8) | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen; the dates let a birthday today reach Next up and the call screen without unlocking, shown only by the rule below |
-| Private call history (number, name, video, the app of an internet call) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
+| Private call history (number, name, video, the app of an internet call, and since 7.1 the call's time, length and direction) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's. Beside the seal a row keeps only its entry and a keyed fingerprint of "entry, time, direction" that stops one call being stored twice; calls are ordered after opening | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key, or with their time beside the seal, are sealed whole once, when first listed, and stay readable until then |
 | Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark, dates, a temporary contact's rule (days after the last call, or until its case file is resolved); never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
 | The Contacts list's first screen kept for a cold start (name, sort name, photo URI, star, first number, header; private rows only when they were listed and not locked) | Small-records key (`RecordCrypto`) | None | Drawn before the lists load; checked against discreet mode, duress and "Lock private contacts" before it is drawn, and rewritten without private rows the moment they are locked or a duress unlock happens |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
@@ -45,8 +45,14 @@ Parley whenever the phone is on, including while it is locked.
 | The family shield's index (`shared_labels/shield-index.sealed`: each shielded label's title, mode, hashing key and verdict hashes) | Sealed as the labels' states are, and used only while those states are the ones on disk (their names, sizes and times are stamped in it) | None | A process started for a ringing call reads one small file, not every label's whole state |
 | The rule-pack signing key (`blocking/share.key`) | Small-records key; a plain key from an older version is sealed at its next use (the same key, so its fingerprint doesn't change); a new key made while the Keystore can't seal waits in memory | None | Signing rule packs and templates family members pin |
 | Private contacts' call-screen pictures (`call_backgrounds/<hash>.sealed`) | Vault caller-ID key, opened in memory by the vault photo provider for Parley's own screens; plain ones from older versions are sealed by the re-sealing pass. A device contact's stays a plain JPEG, as its photo in the address book is | None | Shown behind an incoming call on the lock screen |
-| Settings, rules, speed dial | File-based encryption only | — | Not personal content |
+| Call notes' and remembered SIMs' lines (`call_notes.numberKey`, `number_sim.matchKey`) | Keyed fingerprint (`LineKeys`, HMAC-SHA-256 under a software key wrapped by a Keystore key, `lines.keys`), stable for the install; the line key itself sealed beside it with the small-records key. Lookups key every form of a number the same way, so a note or SIM stored under an older form still matches. Backups carry the plain line keys inside their encryption and are keyed again on restore, so they move between phones (7.1) | None | A SIM is looked up as a locked phone places a call; rows stored plain before (or while the key couldn't be used) are keyed by the re-sealing pass, and keyed again from their sealed copy if the Keystore loses the key |
+| Speed dial numbers | Small-records key (7.1); plain ones from older versions are sealed by the re-sealing pass | None | Dialled from the keypad |
+| Settings, rules | File-based encryption only | — | Not personal content |
 | Ring lengths (`call_rings`) and the call-time ledger (`call_usage`), by plain line key | File-based encryption only; never a private contact's number (7.0: not recorded, and earlier rows cleared at the next full start) | — | Read on the ring path for numbers nobody saved; a private contact's calls count in allowances without their number |
+
+Deleted rows of Parley's database (`parley.db`) are overwritten, not left in its free pages until reused: SQLite's
+`secure_delete` is on for the connection that writes (7.1, `SecureDelete`). The call-history database leaves it off:
+everything in it is sealed or a keyed fingerprint, and its daily prune deletes in bulk.
 
 Every file Parley replaces goes through one helper (`DurableFiles`): the new content is written to `<name>.tmp`, synced
 to the disk, renamed over the old file in one step, and the folder is synced. Two writes of one file take turns (7.0),
@@ -63,8 +69,8 @@ whenever a store it came from, a privacy rule (discreet mode, a duress unlock, "
 listing changes; the contacts' notes shared by the screens following them, for five seconds after the last one stops.
 Decoded photos are dropped as soon as Parley goes out of sight.
 
-Wrapped software keys (archive, small records, private calls, private list rows, number memory) sit in no-backup storage
-(`history.keys`, `records.keys`, `vault_calls.keys`, `vault_summaries.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of
+Wrapped software keys (archive, small records, private calls, private list rows, number memory, line fingerprints) sit in no-backup storage
+(`history.keys`, `records.keys`, `vault_calls.keys`, `vault_summaries.keys`, `memory.keys`, `lines.keys`), each wrapped by its own Keystore key, so a copy of
 the files alone still can't open anything. They exist because work that runs often would otherwise need one Keystore
 operation per row: a daily number-memory rebuild hashed about 25,000 numbers with a Keystore HMAC key, and listing the
 private call history opened every call through the Keystore after each change, and a cold start opened every private
@@ -120,7 +126,9 @@ numbers. A document that can't be opened is never overwritten and warns about no
 - **Signatures.** Each backup is signed (ECDSA P-256) by a key in this phone's Keystore. The backup key bundle, which
   only the passphrase or recovery key can unlock, vouches for that key. A restore shows "Made on this phone" or "Made
   on another phone of yours", and warns when the backup is unsigned, signed by an unknown phone, or altered. Without
-  this, anyone who saw one backup could write a new one that "opens with your passphrase".
+  this, anyone who saw one backup could write a new one that "opens with your passphrase". Since 7.1 such a backup
+  also starts with none of its parts ticked (contacts, call history, blocking, speed dial, private contacts): the user
+  ticks each part they mean to restore.
 - **Safety settings are never restored silently.** App lock and its delay, discreet mode, "Hide screen content",
   private call history, "Caller on the lock screen", supervised call time and the apps allowed to show private names
   wait until the user confirms it's them: with the Parley PIN when one is set, never the phone's fingerprint then. A

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 12,
-    "identityHash": "3ffb6ced18d37da5eb2fc4b502c5e064",
+    "identityHash": "fa1ce74ffeb298c435e7f8f37bf92ae7",
     "entities": [
       {
         "tableName": "block_rules",
@@ -250,7 +250,7 @@
       },
       {
         "tableName": "number_sim",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`matchKey` TEXT NOT NULL, `phoneAccountId` TEXT NOT NULL, PRIMARY KEY(`matchKey`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`matchKey` TEXT NOT NULL, `phoneAccountId` TEXT NOT NULL, `sealedKey` TEXT, PRIMARY KEY(`matchKey`))",
         "fields": [
           {
             "fieldPath": "matchKey",
@@ -263,6 +263,11 @@
             "columnName": "phoneAccountId",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "sealedKey",
+            "columnName": "sealedKey",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -377,7 +382,7 @@
       },
       {
         "tableName": "temporary_contacts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lookupKey` TEXT NOT NULL, `contactId` INTEGER NOT NULL, `expiresAt` INTEGER NOT NULL, `purgeHistory` INTEGER NOT NULL, `rawIds` TEXT, `name` TEXT, `keepAsked` INTEGER NOT NULL DEFAULT 0, `slideDays` INTEGER, `untilCase` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`lookupKey`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`lookupKey` TEXT NOT NULL, `contactId` INTEGER NOT NULL, `expiresAt` INTEGER NOT NULL, `purgeHistory` INTEGER NOT NULL, `rawIds` TEXT, `name` TEXT, `keepAsked` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`lookupKey`))",
         "fields": [
           {
             "fieldPath": "lookupKey",
@@ -416,18 +421,6 @@
           {
             "fieldPath": "keepAsked",
             "columnName": "keepAsked",
-            "affinity": "INTEGER",
-            "notNull": true,
-            "defaultValue": "0"
-          },
-          {
-            "fieldPath": "slideDays",
-            "columnName": "slideDays",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "untilCase",
-            "columnName": "untilCase",
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
@@ -666,7 +659,7 @@
       },
       {
         "tableName": "call_notes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `numberKey` TEXT NOT NULL, `callDate` INTEGER NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `numberKey` TEXT NOT NULL, `callDate` INTEGER NOT NULL, `text` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `sealedKey` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -697,6 +690,11 @@
             "columnName": "createdAt",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "sealedKey",
+            "columnName": "sealedKey",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -928,7 +926,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3ffb6ced18d37da5eb2fc4b502c5e064')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fa1ce74ffeb298c435e7f8f37bf92ae7')"
     ]
   }
 }

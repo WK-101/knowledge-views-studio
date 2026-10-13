@@ -24,6 +24,7 @@ import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calltime.CallingRepository
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.CallNoteEntity
+import app.parley.data.security.LineKeys
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.TemporaryContactEntity
 import app.parley.data.people.TemporaryRules
@@ -81,7 +82,11 @@ class ContactNotesBackup(
             metas.put(o)
         }
         val notes = JSONArray()
-        meta.allCallNotesNow().forEach { n -> notes.put(JSONObject().put("k", n.numberKey).put("d", n.callDate).put("t", n.text).put("c", n.createdAt)) }
+        // Plain line keys, inside the backup's encryption: this phone's fingerprints would mean nothing on another one. A note
+        // whose sealed line key can't be opened right now is left out rather than written under its fingerprint.
+        meta.allCallNotesNow().filterNot { LineKeys.isKeyed(it.numberKey) }.forEach { n ->
+            notes.put(JSONObject().put("k", n.numberKey).put("d", n.callDate).put("t", n.text).put("c", n.createdAt))
+        }
         val temps = JSONArray()
         meta.allTemporary().forEach { t ->
             val o = refs.ref(t.lookupKey).toJson().put("exp", t.expiresAt).put("purge", t.purgeHistory).put("asked", t.keepAsked)
@@ -148,6 +153,7 @@ class ContactNotesBackup(
             }
             for (o in notes) {
                 val key = o.optString("k").ifEmpty { continue }
+                if (LineKeys.isKeyed(key)) continue
                 val date = o.optLong("d")
                 val text = o.optString("t").ifEmpty { continue }
                 if (meta.countCallNote(key, date, text) == 0) meta.addCallNote(

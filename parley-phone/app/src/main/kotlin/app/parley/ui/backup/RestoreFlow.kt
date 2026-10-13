@@ -134,7 +134,8 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         )
         is Step.Options -> {
             var mode by remember { mutableStateOf(RestoreMode.MERGE) }
-            var o by remember { mutableStateOf(RestoreOptions()) }
+            // A backup its signature can't vouch for starts with nothing ticked: restoring it is a choice, part by part.
+            var o by remember { mutableStateOf(RestoreOptions.forOrigin(s.opened.origin)) }
             val c = s.opened.counts
             ConfirmDialog(
                 title = stringResource(R.string.rst_backup_from, Format.fullDate(context, s.opened.createdAt)),
@@ -147,9 +148,16 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 },
                 onDismiss = onDone,
                 dismissLabel = stringResource(R.string.dc_cancel),
+                confirmEnabled = o.anyPart,
                 content = {
                     Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                         OriginNote(s.opened.origin)
+                        if (!RestoreOptions.forOrigin(s.opened.origin).anyPart) {
+                            Text(
+                                stringResource(R.string.rst_origin_unticked), style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
                         Text(stringResource(R.string.rst_how), style = MaterialTheme.typography.titleSmall)
                         listOf(
                             RestoreMode.MERGE to stringResource(R.string.rst_mode_merge),

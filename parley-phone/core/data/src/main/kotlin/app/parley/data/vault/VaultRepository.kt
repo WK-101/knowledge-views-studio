@@ -264,9 +264,17 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun countNow(): Int = withContext(Dispatchers.IO) { dao.count() }
 
     val privateCalls: StateFlow<List<PrivateCall>> = dao.privateCalls()
-        .map { list -> list.mapNotNull { callSeal.opened(it) }.also { callSeal.resealOlder(list, scope, dao::resealPrivateCall) } }
+        .map { list -> list.openedCalls().also { callSeal.resealOlder(list, scope, ::sealCallWhole) } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, gate?.sharing ?: SharingStarted.Eagerly, emptyList())
+
+    /** The calls that open, newest first (their times are sealed, so they are ordered after opening). */
+    private fun List<PrivateCallEntity>.openedCalls(): List<PrivateCall> = mapNotNull { callSeal.opened(it) }.sortedByDescending { it.date }
+
+    /** Stores a call sealed whole; a second copy of a call already stored that way goes. */
+    private suspend fun sealCallWhole(id: Long, was: ByteArray, sealed: ByteArray, key: String) {
+        if (dao.sealPrivateCallWhole(id, was, sealed, key) == 0) dao.dropDuplicatePrivateCall(id, was, key)
+    }
 
     private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
 
@@ -534,7 +542,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         keysLock.withLock {
             val e = dao.get(id) ?: return@withLock null
             val photo = photoFile(id).takeIf { it.isFile }?.readBytes()
-            val calls = dao.privateCallsOf(id).map { SealedCall(it.blob, it.date, it.durationSec, it.type) }
+            val calls = dao.privateCallsOf(id).map(callSeal::facts)
             SealedEntry(e.callerIdBlob, e.detailBlob, e.expiresAt, e.createdAt, photo, calls)
         }
     }
@@ -553,12 +561,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     VaultContactEntity(callerIdBlob = s.callerIdBlob, detailBlob = s.detailBlob, expiresAt = expiresAt, createdAt = s.createdAt),
                 )
                 dao.addNumbers(numberRows(newId, numbers, region))
-                s.calls.forEach { c ->
-                    val key = PrivateCallEntity.dedupeKey(newId, c.date, c.type)
-                    dao.addPrivateCall(
-                        PrivateCallEntity(vaultId = newId, blob = c.blob, date = c.date, durationSec = c.durationSec, type = c.type, dedupeKey = key),
-                    )
-                }
+                s.calls.forEach { c -> dao.addPrivateCall(callSeal.row(newId, c)) }
                 newId
             }
         }
@@ -1078,19 +1081,11 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun storePrivateCall(
         vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int, video: Boolean = false, app: String? = null,
     ): Boolean = withContext(Dispatchers.IO) {
-        // Rows from before the dedupe key have none: count those by their columns.
+        // Rows not sealed whole yet (from before the dedupe key, or kept with their time beside the seal) are found by
+        // their columns; a call already sealed whole has the same fingerprint, which the insert ignores.
         if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
-        val blob = callSeal.seal(privateCallPlain(number, name, video, app))
-        dao.addPrivateCall(
-            PrivateCallEntity(
-                vaultId = vaultId,
-                blob = blob,
-                date = date,
-                durationSec = durationSec,
-                type = type,
-                dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type),
-            ),
-        )
+        val plain = PrivateCallSeal.withFacts(privateCallPlain(number, name, video, app), date, durationSec, type)
+        dao.addPrivateCall(callSeal.row(vaultId, plain, date, durationSec, type))
         true
     }
 
@@ -1110,7 +1105,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun restorePrivateCalls(rows: List<PrivateCallEntity>) = withContext(Dispatchers.IO) { rows.forEach { dao.addPrivateCall(it) } }
 
     /** Every private call, read straight from the database (not the listing, which starts with the full app). */
-    suspend fun privateCallsNow(): List<PrivateCall> = withContext(Dispatchers.IO) { dao.allPrivateCalls().mapNotNull { callSeal.opened(it) } }
+    suspend fun privateCallsNow(): List<PrivateCall> = withContext(Dispatchers.IO) { dao.allPrivateCalls().openedCalls() }
 
     suspend fun expired(now: Long) = withContext(Dispatchers.IO) { dao.expired(now).map { it.id } }
 
@@ -1168,7 +1163,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /** The private calls of entry [vaultId], read straight from the database (backup). */
-    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) { dao.privateCallsOf(vaultId).mapNotNull(callSeal::opened) }
+    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) { dao.privateCallsOf(vaultId).openedCalls() }
 
     /** How many private calls entry [vaultId] holds, whether or not each can be opened now. */
     suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.privateCallCount(vaultId) }

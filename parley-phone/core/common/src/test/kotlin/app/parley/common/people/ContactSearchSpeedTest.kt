@@ -12,8 +12,9 @@ import org.junit.Test
  * search over every field with its hints, and the nickname renaming and sort), over 5,000 contacts with every kind of
  * field. Wall-clock bounds would fail on a loaded CI machine, so the checks are relative to the machine: the time grows
  * in proportion with the contacts (a search that re-reads or re-folds per keystroke, or compares every pair, doesn't),
- * and only a very generous absolute bound catches a search that is plainly broken. The medians are printed for
- * docs/PERFORMANCE_BENCHMARKS.md.
+ * and only a very generous absolute bound catches a search that is plainly broken. Both sizes are timed in turn in each
+ * round and the median ratio is judged, so load on a shared machine slows both sides alike. The medians are printed
+ * for docs/PERFORMANCE_BENCHMARKS.md.
  */
 class ContactSearchSpeedTest {
     private val cities = listOf("Lisboa", "Porto", "Madrid", "Paris", "Berlin", "London", "Toronto", "Zürich")
@@ -48,31 +49,46 @@ class ContactSearchSpeedTest {
     }
     private val order = Comparator<String> { a, b -> a.compareTo(b, ignoreCase = true) }
 
-    /** The slowest query's median time in µs over [entries], as the list runs it (with nicknames shown and a label filter). */
-    private fun slowestUs(entries: List<ContactListSearch.Entry>): Long {
-        val filter = LabelFilter(labels = setOf("Work"))
-        fun timeUs(q: String): Long {
-            val t = System.nanoTime()
-            ContactListSearch.run(entries, ContactSearch.Query(q), filter, extras, emptySet(), preferNickname = true, order = order)
-            return (System.nanoTime() - t) / 1_000
-        }
-        // Warm up the JIT, as in a running app after a few keystrokes.
-        repeat(3) { queries.forEach(::timeUs) }
-        // Each query's median over a few rounds: one GC pause on a busy test machine isn't the search's speed.
-        return queries.maxOf { q -> List(ROUNDS) { timeUs(q) }.sorted()[ROUNDS / 2] }
+    /** One query's time in µs over [entries], as the list runs it (with nicknames shown and a label filter). */
+    private fun timeUs(entries: List<ContactListSearch.Entry>, q: String): Long {
+        val t = System.nanoTime()
+        ContactListSearch.run(entries, ContactSearch.Query(q), LabelFilter(labels = setOf("Work")), extras, emptySet(), preferNickname = true, order = order)
+        return (System.nanoTime() - t) / 1_000
     }
+
+    /** Every query once over [entries]: one round's total in µs. */
+    private fun roundUs(entries: List<ContactListSearch.Entry>): Long = queries.sumOf { timeUs(entries, it) }
+
+    private fun List<Long>.median(): Long = sorted()[size / 2]
 
     @Test fun the_list_search_grows_in_proportion_with_the_contacts() {
         val start = System.nanoTime()
         val all = (1..COUNT).map { entry(it, synthetic(it)) }
         val buildMs = (System.nanoTime() - start) / 1_000_000
         val quarter = all.take(COUNT / 4)
-        val small = slowestUs(quarter)
-        val full = slowestUs(all)
-        println("Contacts list search: $COUNT contacts prepared in $buildMs ms; slowest query median ${full / 1000.0} ms (${COUNT / 4}: ${small / 1000.0} ms)")
+        // Warm up the JIT, as in a running app after a few keystrokes.
+        repeat(3) { roundUs(quarter); roundUs(all) }
+        // The two sizes are timed in turn, round after round, so a busy machine slows both alike; each round gives a
+        // ratio, and the median ratio is the one judged (one GC pause or a burst of other work isn't the search's speed).
+        val small = ArrayList<Long>()
+        val full = ArrayList<Long>()
+        val ratios = ArrayList<Double>()
+        repeat(ROUNDS) {
+            val s = roundUs(quarter)
+            val f = roundUs(all)
+            small += s
+            full += f
+            ratios += f.toDouble() / maxOf(s, FLOOR_US)
+        }
+        val ratio = ratios.sorted()[ROUNDS / 2]
+        println(
+            "Contacts list search: $COUNT contacts prepared in $buildMs ms; ${queries.size} queries take ${full.median() / 1000.0} ms " +
+                "(${COUNT / 4}: ${small.median() / 1000.0} ms), median ratio ${"%.1f".format(ratio)}",
+        )
         // Four times the contacts: about four times the time. Quadratic work would be sixteen.
-        assertTrue("$COUNT contacts took ${full}µs, ${COUNT / 4} took ${small}µs", full <= maxOf(small, 1_000L) * 10)
-        assertTrue("slowest query took ${full / 1000} ms over $COUNT contacts", full < 2_000_000)
+        assertTrue("$COUNT contacts took ${ratio}x the time of ${COUNT / 4} (rounds: $ratios)", ratio <= MAX_RATIO)
+        // Only a plainly broken search fails this, however loaded the machine: two seconds per query on average.
+        assertTrue("${queries.size} queries took ${full.median() / 1000} ms over $COUNT contacts", full.median() < queries.size * 2_000_000L)
     }
 
     @Test fun results_are_those_the_list_shows() {
@@ -91,6 +107,10 @@ class ContactSearchSpeedTest {
 
     private companion object {
         const val COUNT = 5_000
-        const val ROUNDS = 7
+        const val ROUNDS = 9
+        const val MAX_RATIO = 10.0
+
+        /** A round over the quarter shorter than this is timer noise; ratios are taken against at least this. */
+        const val FLOOR_US = 5_000L
     }
 }

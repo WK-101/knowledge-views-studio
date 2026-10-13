@@ -10,6 +10,8 @@ import app.parley.common.backup.RestoreMode
 import app.parley.common.backup.Unlock
 import app.parley.common.circle.InteractionType
 import app.parley.data.DataContainer
+import app.parley.data.security.LineKeys
+import app.parley.data.security.RecordCrypto
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import java.io.File
@@ -19,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -86,6 +89,14 @@ class GoldenBackupsTest {
         assertTrue(s.screening.blockHidden)
         assertEquals("Prefers mornings", c.meta.meta(ada.lookupKey)?.pinnedNote)
         assertEquals("Asked about the engine", c.meta.allCallNotesNow().single().text)
+        // The old file's plain line keys and numbers are keyed and sealed with this phone's keys as they come in, and
+        // still found by the line key.
+        val line = c.meta.allCallNotesNow().single().numberKey
+        assertFalse("$version: a plain line key", LineKeys.isKeyed(line))
+        assertTrue("$version: keyed in the table", LineKeys.isKeyed(c.db.metaDao().allCallNotesNow().single().numberKey))
+        assertEquals("Asked about the engine", c.meta.callNotesNow(listOf(line)).single().text)
+        val slot = c.db.prefsDao().speedDial(2)!!.number
+        assertTrue("$version: speed dial sealed", RecordCrypto.get(app).isSealed(slot))
         val met = c.circle.interactions.interactionsFor(ada.lookupKey).single()
         assertEquals("Tea at the Royal Society", met.note)
         assertEquals(InteractionType.MEET, met.type)
