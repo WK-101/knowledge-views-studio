@@ -71,6 +71,7 @@ import app.parley.ui.MatchStyle
 import app.parley.ui.common.Format
 import app.parley.ui.highlight
 import app.parley.ui.ParleyListItem
+import app.parley.ui.PreviewedBackHandler
 
 internal val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -130,14 +131,14 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     fun press(c: Char) {
         unfold()
         insert(c.toString())
-        if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
         tones.play(c, settings.dialpadTones)
     }
 
     // On-screen keys start their tone on touch and hold it until release (DialTones).
     fun keyDown(c: Char): Int {
         insert(c.toString())
-        if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.VirtualKey)
         return tones.start(c, settings.dialpadTones)
     }
 
@@ -183,6 +184,15 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     fold.onSettle = { open -> latestDock?.let { if (it.expanded != open) it.onExpandedChange(open) } }
     // The home screen's state (Back, dial intents, typing on a hardware keypad) moves the fold too.
     LaunchedEffect(dock?.expanded) { dock?.let { if (fold.target != it.expanded) fold.animateTo(it.expanded) } }
+    // Back folds the unfolded keypad, and the keypad follows the back swipe down until it is let go.
+    PreviewedBackHandler(
+        enabled = dock != null && dock.expanded && dock.backFolds,
+        onProgress = fold::preview,
+        onCancel = { fold.animateTo(true) },
+    ) {
+        fold.animateTo(false)
+        latestDock?.onExpandedChange(false)
+    }
     val panelShown = dock == null || fold.value > 0f || fold.dragging
 
     // The SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment.

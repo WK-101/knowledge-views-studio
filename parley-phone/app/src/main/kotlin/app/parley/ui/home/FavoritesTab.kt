@@ -42,17 +42,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -60,7 +55,6 @@ import app.parley.R
 import app.parley.common.ux.Tips
 import app.parley.ui.common.tipPending
 import app.parley.ui.common.CoachMark
-import app.parley.common.ContactSummary
 import app.parley.common.StartTab
 import app.parley.common.TextSearch
 import app.parley.common.calls.CallSource
@@ -68,6 +62,11 @@ import app.parley.common.homeLayout
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.ui.Avatar
+import app.parley.ui.ReorderMath
+import app.parley.ui.rememberReorderState
+import app.parley.ui.reorderActions
+import app.parley.ui.reorderable
+import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.circle.CircleTab
@@ -125,8 +124,7 @@ private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query:
     // Local copy while dragging; written back (by lookup key) when the drag ends.
     var order by remember { mutableStateOf(favorites) }
     LaunchedEffect(favorites) { order = favorites }
-    var dragKey by remember { mutableStateOf<String?>(null) }
-    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    val reorder = rememberReorderState<String>()
     val state = rememberLazyGridState()
     // Search from the header filters favourites and frequent contacts (reordering pauses while searching).
     val q = query.trim()
@@ -193,7 +191,7 @@ private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query:
             Text(stringResource(R.string.fav_reorder_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
         }
         itemsIndexed(shownFavorites, key = { _, c -> "f" + c.id }) { i, c ->
-            val dragging = dragKey == c.lookupKey
+            val dragging = reorder.isLifted(c.lookupKey)
             val moveEarlier = stringResource(R.string.fav_move_earlier)
             val moveLater = stringResource(R.string.fav_move_later)
             val placement = ParleyMotion.fastSpatial<IntOffset>()
@@ -201,24 +199,19 @@ private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query:
             if (reordering) {
                 Tile(
                     c.displayName, c.photoUri, onClick = {}, onLong = {}, reorder = true,
-                    modifier = base.zIndex(if (dragging) 1f else 0f)
-                        .graphicsLayer { if (dragging) { translationX = dragOffset.x; translationY = dragOffset.y; scaleX = 1.08f; scaleY = 1.08f } }
-                        .semantics {
-                            customActions = listOfNotNull(
-                                if (i > 0) CustomAccessibilityAction(moveEarlier) { order = order.moved(i, i - 1); commit(); true } else null,
-                                if (i < order.size - 1) CustomAccessibilityAction(moveLater) { order = order.moved(i, i + 1); commit(); true } else null,
-                            )
-                        }
+                    modifier = base.reorderable(reorder, c.lookupKey, grow = true, rowBackground = false)
+                        .reorderActions(moveEarlier, moveLater, i, order.size) { to -> order = ReorderMath.moved(order, i, to); commit() }
                         .pointerInput(c.lookupKey) {
                             detectDragGestures(
-                                onDragStart = { dragKey = c.lookupKey; dragOffset = Offset.Zero },
-                                onDragEnd = { dragKey = null; dragOffset = Offset.Zero; commit() },
-                                onDragCancel = { dragKey = null; dragOffset = Offset.Zero; order = favorites },
+                                onDragStart = { reorder.lift(c.lookupKey) },
+                                onDragEnd = { reorder.drop(); commit() },
+                                onDragCancel = { reorder.drop(); order = favorites },
                                 onDrag = { change, amount ->
                                     change.consume()
-                                    dragOffset += amount
+                                    reorder.dragBy(amount)
                                     val from = order.indexOfFirst { it.lookupKey == c.lookupKey }
                                     val me = state.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "f" + c.id } ?: return@detectDragGestures
+                                    val dragOffset = reorder.offset
                                     val center = Offset(me.offset.x + me.size.width / 2f + dragOffset.x, me.offset.y + me.size.height / 2f + dragOffset.y)
                                     val target = state.layoutInfo.visibleItemsInfo.firstOrNull { info ->
                                         val k = info.key as? String ?: return@firstOrNull false
@@ -229,15 +222,17 @@ private fun FavouriteTiles(vm: AppViewModel, open: (Destination) -> Unit, query:
                                     val to = order.indexOfFirst { "f" + it.id == target.key }
                                     if (from >= 0 && to >= 0) {
                                         // Keep the tile under the finger after it moves to its new cell.
-                                        dragOffset += Offset((me.offset.x - target.offset.x).toFloat(), (me.offset.y - target.offset.y).toFloat())
-                                        order = order.moved(from, to)
+                                        val shift = Offset((me.offset.x - target.offset.x).toFloat(), (me.offset.y - target.offset.y).toFloat())
+                                        reorder.movedTo(dragOffset + shift)
+                                        order = ReorderMath.moved(order, from, to)
                                     }
                                 },
                             )
                         },
                 )
             } else {
-                Tile(c.displayName, c.photoUri, modifier = base, isPrivate = c.id < 0, due = c.lookupKey in due, onClick = {
+                // The photo and name fly into the contact's page, as from Contacts.
+                Tile(c.displayName, c.photoUri, modifier = base, isPrivate = c.id < 0, due = c.lookupKey in due, sharedId = c.id, onClick = {
                     c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
@@ -267,11 +262,6 @@ private val FavoriteSort.labelRes: Int
         FavoriteSort.MOST_CALLED -> R.string.label_most_called
     }
 
-private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary> {
-    if (from !in indices || to !in indices) return this
-    return toMutableList().also { it.add(to, it.removeAt(from)) }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun Tile(
@@ -285,6 +275,8 @@ internal fun Tile(
     isPrivate: Boolean = false,
     /** In the Circle and due a catch-up: a small dot on the photo (the Circle side of the switch says more). */
     due: Boolean = false,
+    /** The contact whose page the photo and name fly into (one tile per contact on a screen; none in Contacts' grid). */
+    sharedId: Long? = null,
 ) {
     Column(
         modifier.fillMaxWidth().clip(ParleyShapes.card)
@@ -300,13 +292,16 @@ internal fun Tile(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            Avatar(name, photo, 72.dp)
+            Avatar(name, photo, 72.dp, if (sharedId != null) Modifier.shared("avatar-$sharedId") else Modifier)
             if (isPrivate) PrivateBadge(Modifier.align(Alignment.BottomEnd))
             if (due) DueDot(Modifier.align(Alignment.TopEnd))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
             if (reorder) Icon(Icons.Rounded.DragIndicator, null)
-            Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            Text(
+                name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                modifier = if (sharedId != null) Modifier.shared("name-$sharedId", bounds = true) else Modifier,
+            )
         }
     }
 }

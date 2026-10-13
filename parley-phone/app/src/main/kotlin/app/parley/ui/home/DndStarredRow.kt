@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.ui.Avatar
+import app.parley.ui.avatarSize
 import app.parley.ui.Destination
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
@@ -86,7 +87,7 @@ private fun DndStarredSheet(vm: AppViewModel, open: (Destination) -> Unit, onDis
                 val makeSpoken = stringResource(R.string.fav_dnd_make_a11y, c.displayName)
                 ParleyListItem(
                     headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    leadingContent = { Avatar(c.displayName, c.photoUri, 40.dp) },
+                    leadingContent = { Avatar(c.displayName, c.photoUri, avatarSize()) },
                     trailingContent = {
                         TextButton(
                             {

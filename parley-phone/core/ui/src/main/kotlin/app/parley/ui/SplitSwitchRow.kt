@@ -49,7 +49,7 @@ fun SplitSwitchRow(
         VerticalDivider(Modifier.height(32.dp))
         Box(
             Modifier.heightIn(min = 56.dp)
-                .toggleable(value, role = Role.Switch, onValueChange = onChange)
+                .toggleable(value, role = Role.Switch, onValueChange = rememberToggleHaptic(onChange))
                 .semantics { contentDescription = switchLabel }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,

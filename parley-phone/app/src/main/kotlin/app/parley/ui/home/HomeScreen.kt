@@ -4,9 +4,6 @@ import app.parley.ui.people.ContactsLockButton
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -33,7 +30,6 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ScreenSnackbarHost
@@ -55,10 +51,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -89,6 +85,10 @@ import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.PreviewedBackHandler
+import app.parley.ui.ParleyMotion
+import app.parley.ui.rememberBackPreview
 import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
@@ -192,9 +192,11 @@ fun HomeScreen(
     LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
     // Back closes the page beside a list only once nothing more pressing (a selection, a search) is waiting for it.
     val paneBack = selection.isEmpty() && recentsSelection.isEmpty() && !searching
-    // Back folds the docked keypad first.
-    BackHandler(enabled = tab == StartTab.RECENTS && layout.keypadDocked && dockOpen && !searching) { dockOpen = false }
-    BackHandler(enabled = searching) { closeSearch() }
+    // Back folds the docked keypad first (the keypad follows the back swipe: KeypadTab), once a selection is gone.
+    val dockBack = recentsSelection.isEmpty()
+    // The search field shrinks with the back swipe, then the search closes.
+    val searchBack = rememberBackPreview()
+    PreviewedBackHandler(enabled = searching, preview = searchBack) { closeSearch() }
 
     val barTabs = layout.barTabs(tab)
     // With a single tab left there is nothing to switch between: no bar and no rail.
@@ -254,6 +256,7 @@ fun HomeScreen(
                     },
                     onSearch = { on -> if (on) searching = true else closeSearch() },
                     scrollBehavior = scroll,
+                    backPreview = searchBack,
                     actions = { TabActions(vm, tab, settings.appLock, open) },
                     menu = { close -> TabMenu(vm, tab, settings.appLock, open, close) },
                 )
@@ -304,11 +307,15 @@ fun HomeScreen(
                     SituationSuggestionCard(vm, open)
                 }
                 Box(Modifier.weight(1f).fillMaxSize()) {
-                    AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
+                    // Each tab keeps its own saved state (its list's scroll position above all) while another is open,
+                    // as a navigation bar's destinations should: Contacts → Recents → Contacts comes back where it was.
+                    val tabStates = rememberSaveableStateHolder()
+                    val through = ParleyMotion.fadeThrough()
+                    val tabContent: @Composable (StartTab) -> Unit = { t ->
                         when (t) {
                             StartTab.FAVORITES -> Centred(window.contentMaxDp) { FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" }) }
                             StartTab.RECENTS -> HomeListDetail(vm, t, window, open, backEnabled = paneBack && !(layout.keypadDocked && dockOpen)) { o ->
-                                if (layout.keypadDocked) CallsSurface(vm, o, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, o)
+                                if (layout.keypadDocked) CallsSurface(vm, o, searching, dockOpen, dockBack) { dockOpen = it } else RecentsTab(vm, o)
                             }
                             StartTab.CONTACTS -> HomeListDetail(
                                 vm, t, window, open, backEnabled = paneBack,
@@ -318,6 +325,7 @@ fun HomeScreen(
                             StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
                         }
                     }
+                    AnimatedContent(tab, transitionSpec = { through }, label = "tab") { t -> tabStates.SaveableStateProvider(t.name) { tabContent(t) } }
                 }
             }
         }
@@ -352,11 +360,6 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
     }
 }
 
-@Composable
-private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
-    DropdownMenuItem({ Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
-}
-
 /**
  * "More options": at most seven items, the tab's own first, then Tools (the one hub: everything Parley does, by what
  * you want done) and Settings. Settings pages aren't repeated here.
@@ -369,38 +372,38 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     when (tab) {
         StartTab.RECENTS -> {
             // Right after a spam call: the rules that decide which calls ring.
-            MenuItem(stringResource(R.string.label_blocking_screening), Icons.Rounded.Block) { go(Routes.Blocking) }
-            MenuItem(stringResource(R.string.label_call_insights), Icons.Rounded.Insights) { go(HistoryRoutes.Insights()) }
+            ParleyMenuItem(stringResource(R.string.label_blocking_screening), Icons.Rounded.Block) { go(Routes.Blocking) }
+            ParleyMenuItem(stringResource(R.string.label_call_insights), Icons.Rounded.Insights) { go(HistoryRoutes.Insights()) }
             // Layout, style, what a tap does and the colours' legend, in one dialog.
             RecentsLayoutMenuItem(close)
             RecentsExportMenuItem(close)
             ClearHistoryMenuItem(close)
         }
         StartTab.CONTACTS -> {
-            MenuItem(stringResource(R.string.action_select_all), Icons.Rounded.SelectAll) {
+            ParleyMenuItem(stringResource(R.string.action_select_all), Icons.Rounded.SelectAll) {
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             // Name, recently added, most called or company: kept in the list, remembered. ("Add several" is on the add button.)
-            MenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
-            MenuItem(stringResource(R.string.action_find_merge_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
+            ParleyMenuItem(stringResource(R.string.cs_sort_menu), Icons.AutoMirrored.Rounded.Sort) { close(); vm.people.sortSheet.value = true }
+            ParleyMenuItem(stringResource(R.string.action_find_merge_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from their own header (Reorder), not from here. Hiding
             // private contacts is the top bar's lock (Lock and hide); Settings shows them again.
             // A contact deleted, edited or merged by mistake: History & undo's Contacts tab, kept for 30 days.
-            MenuItem(stringResource(R.string.cs_menu_recently_deleted), Icons.Rounded.RestoreFromTrash) { go(Routes.Journal(HistoryTab.CONTACTS.key)) }
+            ParleyMenuItem(stringResource(R.string.cs_menu_recently_deleted), Icons.Rounded.RestoreFromTrash) { go(Routes.Journal(HistoryTab.CONTACTS.key)) }
             // Archived contacts are out of the list: this is where they are, once there are some.
             val archived = vm.c.archive.cards.collectAsStateWithLifecycle().value
             // Archived private contacts count only while private contacts may show.
             val privateArchived = app.parley.ui.people.archive.privateArchived(vm)
             if (archived.isNotEmpty() || privateArchived.isNotEmpty()) {
-                MenuItem(stringResource(R.string.label_archived), Icons.Rounded.Archive) { go(PeopleRoutes.Archived) }
+                ParleyMenuItem(stringResource(R.string.label_archived), Icons.Rounded.Archive) { go(PeopleRoutes.Archived) }
             }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
             // Contacts › Circle: its own setting, and a link to how keep-in-touch reminders arrive (on Reminders).
             // Lands on the Circle's own group of Settings › Contacts (its "Log this?" row, not folded under Advanced).
-            MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "log_prompts")) }
+            ParleyMenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "log_prompts")) }
         }
         // "Who's in…" is the Contacts search's city chip now, not an item of these menus.
         StartTab.FAVORITES -> Unit
@@ -408,8 +411,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE) {
         HorizontalDivider()
     }
-    MenuItem(stringResource(R.string.label_tools), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
-    MenuItem(stringResource(R.string.label_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
+    ParleyMenuItem(stringResource(R.string.label_tools), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
+    ParleyMenuItem(stringResource(R.string.label_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
 }
 
 /**

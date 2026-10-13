@@ -43,7 +43,6 @@
     <!-- Favourites in Contacts -->
     <string name="home_fav_empty">Star someone on their page to see them here.</string>
     <string name="home_reorder_title">Reorder favourites</string>
-    <string name="home_unfolded">Unfolded</string>
 
     <!-- What's new -->
     <string name="home_whats_new_layout">New, if you like: fewer tabs. The keypad can sit in Recents, and your favourites at the top of Contacts. Nothing changes unless you choose it.</string>

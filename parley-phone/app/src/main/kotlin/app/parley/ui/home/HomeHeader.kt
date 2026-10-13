@@ -3,10 +3,9 @@ package app.parley.ui.home
 import androidx.compose.material3.TopAppBar
 import app.parley.ui.OverflowMenu
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
@@ -41,7 +40,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import app.parley.R
 import app.parley.common.catching
 import app.parley.common.ux.Tips
@@ -50,6 +49,10 @@ import app.parley.ui.common.CoachMarkAnchor
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.BackButton
 import app.parley.ui.ParleyShapes
+import app.parley.ui.BackPreview
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
+import app.parley.ui.backPreview
 
 /**
  * The header of every home tab: the tab's title, its own actions, a search icon that turns the bar into a search
@@ -68,19 +71,25 @@ fun HomeHeader(
     onQuery: (String) -> Unit,
     onSearch: (Boolean) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    /** The back swipe that closes the search, which the field follows. */
+    backPreview: BackPreview? = null,
     actions: @Composable RowScope.() -> Unit = {},
     menu: @Composable ColumnScope.(close: () -> Unit) -> Unit,
 ) {
+    val slide = ParleyMotion.spatial<IntOffset>()
+    val fadeIn = fadeIn(ParleyMotion.effects())
+    val fadeOut = fadeOut(ParleyMotion.fastEffects())
     AnimatedContent(
         searching,
         transitionSpec = {
-            if (targetState) (fadeIn() + slideInHorizontally { it / 8 }) togetherWith fadeOut()
-            else fadeIn() togetherWith (fadeOut() + slideOutHorizontally { it / 8 })
+            // The search comes in from the end side and leaves towards it: the right, or the left in Arabic and Urdu.
+            if (targetState) (fadeIn + slideIntoContainer(SlideDirection.Start, slide) { it / 8 }) togetherWith fadeOut
+            else fadeIn togetherWith (fadeOut + slideOutOfContainer(SlideDirection.End, slide) { it / 8 })
         },
         label = "home-header",
     ) { s ->
         if (s) {
-            SearchBarHeader(query, searchHint, onQuery, onClose = { onSearch(false) }, scrollBehavior = scrollBehavior)
+            SearchBarHeader(query, searchHint, onQuery, onClose = { onSearch(false) }, scrollBehavior = scrollBehavior, backPreview = backPreview)
         } else {
             var menuOpen by rememberSaveable { mutableStateOf(false) }
             ParleyTopBar(
@@ -101,7 +110,9 @@ fun HomeHeader(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Unit, onClose: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) {
+private fun SearchBarHeader(
+    query: String, hint: String, onQuery: (String) -> Unit, onClose: () -> Unit, scrollBehavior: TopAppBarScrollBehavior, backPreview: BackPreview?,
+) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { catching { focus.requestFocus() } }
@@ -128,7 +139,9 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 ),
-                modifier = Modifier.fillMaxWidth().padding(end = 8.dp).focusRequester(focus),
+                modifier = Modifier.fillMaxWidth().padding(end = Spacing.s)
+                    .then(if (backPreview != null) Modifier.backPreview(backPreview, rounded = false) else Modifier)
+                    .focusRequester(focus),
             )
         },
         scrollBehavior = scrollBehavior,

@@ -167,7 +167,7 @@
     <ID>CyclomaticComplexMethod:ReachApps.kt$MessengerMimes$fun kind(mime: String): ReachKind?</ID>
     <ID>CyclomaticComplexMethod:ReachSheet.kt$@Composable private fun NumberReach(number: String, accountId: String?, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ReachSheet.kt$@Composable private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -&gt; Unit, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, /** The saved contact whose page this row's avatar and name fly into (one row per contact on the list). */ sharedId: Long? = null, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
     <ID>CyclomaticComplexMethod:RecordDetails.kt$RecordDetails$fun toDetails(record: ContactRecord): ContactDetails</ID>
     <ID>CyclomaticComplexMethod:RelationText.kt$RelationText$private fun labelRes(t: RelationType): Int?</ID>
@@ -228,7 +228,7 @@
     <ID>DesignSystemComponent:BulkAddScreen.kt$Switch(tempPrivate, onCheckedChange = null)</ID>
     <ID>DesignSystemComponent:LabelPolicySection.kt$Switch(p.allowThroughDnd, onCheckedChange = null)</ID>
     <ID>DesignSystemComponent:ListsUpdaterSection.kt$Switch(on, modifier = Modifier.semantics { contentDescription = pk.name }, onCheckedChange = { v -&gt; scope.launch { busy = pk.id if (v) report( pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id), ) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id) subs = ListsUpdaterClient.subscriptions(context) busy = null } }, enabled = busy == null)</ID>
-    <ID>DesignSystemComponent:NavTabsSetting.kt$Switch(shown, onCheckedChange = null, enabled = !shown || tabs.canHide(t), modifier = Modifier.padding(end = 8.dp))</ID>
+    <ID>DesignSystemComponent:NavTabsSetting.kt$Switch(shown, onCheckedChange = null, enabled = !shown || tabs.canHide(t), modifier = Modifier.padding(end = Spacing.s))</ID>
     <ID>DesignSystemComponent:OnboardingScreen.kt$Switch( checked = on, onCheckedChange = { if (on) appInfo(context) else ask(listOf(i)) }, modifier = Modifier.semantics { contentDescription = title }, )</ID>
     <ID>DesignSystemComponent:RestoreFlow.kt$Switch(useRecovery, onCheckedChange = null)</ID>
     <ID>DesignSystemComponent:SpamListsScreen.kt$Switch( pk.enabled, modifier = Modifier.semantics { contentDescription = name }, onCheckedChange = { v -&gt; scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }, )</ID>
@@ -248,7 +248,6 @@
     <ID>ForbiddenImport:CircleContact.kt$import app.parley.data.db.ContactMetaEntity</ID>
     <ID>ForbiddenImport:CircleTimeline.kt$import app.parley.data.db.CallNoteEntity</ID>
     <ID>HandBuiltExpandable:CapabilitiesScreen.kt$ExpandLess</ID>
-    <ID>HandBuiltExpandable:CombinedSurfaces.kt$ExpandLess</ID>
     <ID>HandBuiltExpandable:ContactEditScreen.kt$ExpandLess</ID>
     <ID>HandBuiltExpandable:NextUpStrip.kt$ExpandLess</ID>
     <ID>Indentation:KeypadTab.kt$ </ID>
@@ -295,7 +294,7 @@
     <ID>LongMethod:QrScanScreen.kt$@Composable fun QrScanScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:ReachSheet.kt$@Composable private fun NumberReach(number: String, accountId: String?, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>LongMethod:ReachSheet.kt$@Composable private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -&gt; Unit, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
-    <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
+    <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, /** The saved contact whose page this row's avatar and name fly into (one row per contact on the list). */ sharedId: Long? = null, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
     <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
     <ID>LongMethod:RelationText.kt$RelationText$private fun labelRes(t: RelationType): Int?</ID>
     <ID>LongMethod:RestoreFlow.kt$@Composable fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -&gt; Unit)</ID>

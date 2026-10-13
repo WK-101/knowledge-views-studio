@@ -2,12 +2,8 @@ package app.parley.ui.home
 
 import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
@@ -29,8 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,29 +34,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -86,26 +71,41 @@ import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ReorderMath
+import app.parley.ui.avatarSize
+import app.parley.ui.rememberReorderState
+import app.parley.ui.reorderActions
+import app.parley.ui.reorderHandle
+import app.parley.ui.reorderable
 
 /**
  * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
- * (tab switches and rotation keep it); [idle] is what the results area shows while nothing is typed.
+ * (tab switches and rotation keep it); [idle] is what the results area shows while nothing is typed. [backFolds]:
+ * Back folds the unfolded keypad (not while something more pressing, like a selection, waits for Back).
  */
-class KeypadDock(val expanded: Boolean, val onExpandedChange: (Boolean) -> Unit, val idle: @Composable () -> Unit)
+class KeypadDock(
+    val expanded: Boolean,
+    val onExpandedChange: (Boolean) -> Unit,
+    val backFolds: Boolean = true,
+    val idle: @Composable () -> Unit,
+)
 
 /**
  * Recents with the keypad docked at the bottom ("Calls layout: Combined"). Typing replaces the calls with the
  * keypad's matches in place; the header search searches the calls as on the Recents tab (the keypad folds away).
  */
 @Composable
-fun CallsSurface(vm: AppViewModel, open: (Destination) -> Unit, searching: Boolean, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
+fun CallsSurface(
+    vm: AppViewModel, open: (Destination) -> Unit, searching: Boolean, expanded: Boolean, backFolds: Boolean, onExpandedChange: (Boolean) -> Unit,
+) {
     if (searching) {
         RecentsTab(vm, open)
         return
     }
     KeypadTab(
         vm, open,
-        dock = KeypadDock(expanded, onExpandedChange) {
+        dock = KeypadDock(expanded, onExpandedChange, backFolds) {
             // Room under the last call for the keypad button while the keypad is folded.
             RecentsTab(vm, open, bottomPadding = if (expanded) 0.dp else ParleyFabDefaults.Reserve)
         },
@@ -208,25 +208,18 @@ private fun RecentGroup.stripItem(vm: AppViewModel, open: (Destination) -> Unit)
     onLong = { contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(number)) },
 )
 
-/** The folding header: "Favourites (n)", Reorder, and a chevron. TalkBack reads it as a heading with its state. */
+/**
+ * The folding header: "Favourites (n)" with the kit's chevron (a heading with its state for TalkBack), and Reorder
+ * beside it.
+ */
 @Composable
 private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, onReorder: (() -> Unit)?) {
-    val state = stringResource(if (collapsed) R.string.label_folded else R.string.home_unfolded)
-    val action = stringResource(if (collapsed) R.string.action_unfold else R.string.action_fold)
-    Row(
-        Modifier.fillMaxWidth()
-            .clickable(onClickLabel = action, onClick = onToggle)
-            .semantics { heading(); stateDescription = state }
-            .padding(start = 24.dp, end = 4.dp)
-            .heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        ExpandableHeader(
             if (count > 0) stringResource(R.string.format_text_count, title, count) else title,
-            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f),
+            expanded = !collapsed, onToggle = onToggle, modifier = Modifier.weight(1f),
         )
-        if (onReorder != null) TextButton(onReorder) { Text(stringResource(R.string.fav_reorder)) }
-        Icon(if (collapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null, modifier = Modifier.padding(12.dp))
+        if (onReorder != null) TextButton(onReorder, Modifier.padding(end = Spacing.xs)) { Text(stringResource(R.string.fav_reorder)) }
     }
 }
 
@@ -285,16 +278,14 @@ private fun AvatarStrip(items: List<StripItem>) {
 fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     var order by remember { mutableStateOf(favorites) }
-    var dragging by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(favorites) { if (dragging == null) order = favorites }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    var rowHeight by remember { mutableIntStateOf(1) }
+    val reorder = rememberReorderState<String>()
+    LaunchedEffect(favorites) { if (reorder.lifted == null) order = favorites }
     fun commit() = vm.people.setFavoriteOrder(order.map { it.lookupKey })
     val moveEarlier = stringResource(R.string.fav_move_earlier)
     val moveLater = stringResource(R.string.fav_move_later)
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.home_reorder_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -304,55 +295,33 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
             }
             Text(
                 stringResource(R.string.fav_reorder_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.xs),
             )
-            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = Spacing.l)) {
                 order.forEachIndexed { i, c ->
                     androidx.compose.runtime.key(c.lookupKey) {
-                        val lifted = dragging == c.lookupKey
                         Row(
                             Modifier.fillMaxWidth()
-                                .zIndex(if (lifted) 1f else 0f)
-                                .graphicsLayer { translationY = if (lifted) dragOffset else 0f }
-                                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
-                                .onSizeChanged { rowHeight = it.height }
+                                .reorderable(reorder, c.lookupKey)
                                 .heightIn(min = 56.dp)
-                                .semantics {
-                                    customActions = listOfNotNull(
-                                        if (i > 0) CustomAccessibilityAction(moveEarlier) { order = order.movedTo(i, i - 1); commit(); true } else null,
-                                        if (i < order.size - 1) CustomAccessibilityAction(moveLater) { order = order.movedTo(i, i + 1); commit(); true } else null,
-                                    )
-                                }
-                                .padding(horizontal = 12.dp),
+                                .reorderActions(moveEarlier, moveLater, i, order.size) { to -> order = ReorderMath.moved(order, i, to); commit() }
+                                .padding(horizontal = Spacing.m),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
                                 Icons.Rounded.DragHandle, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(40.dp).padding(8.dp)
-                                    .pointerInput(Unit) { detectTapGestures { } }
-                                    .pointerInput(c.lookupKey) {
-                                        detectVerticalDragGestures(
-                                            onDragStart = { dragging = c.lookupKey; dragOffset = 0f },
-                                            onDragEnd = { dragging = null; dragOffset = 0f; commit() },
-                                            onDragCancel = { dragging = null; dragOffset = 0f; order = favorites },
-                                        ) { change, dy ->
-                                            change.consume()
-                                            dragOffset += dy
-                                            val from = order.indexOfFirst { it.lookupKey == c.lookupKey }
-                                            val step = rowHeight.toFloat()
-                                            if (dragOffset > step / 2 && from < order.size - 1) {
-                                                order = order.movedTo(from, from + 1)
-                                                dragOffset -= step
-                                            } else if (dragOffset < -step / 2 && from > 0) {
-                                                order = order.movedTo(from, from - 1)
-                                                dragOffset += step
-                                            }
-                                        }
-                                    },
+                                modifier = Modifier.size(40.dp).padding(Spacing.s)
+                                    .reorderHandle(
+                                        reorder, c.lookupKey, index = { order.indexOfFirst { it.lookupKey == c.lookupKey } }, count = { order.size },
+                                        move = { from, to -> order = ReorderMath.moved(order, from, to) },
+                                        onDrop = ::commit,
+                                        onCancel = { order = favorites },
+                                    ),
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Avatar(c.displayName, c.photoUri, 40.dp)
-                            Spacer(Modifier.width(16.dp))
+                            Spacer(Modifier.width(Spacing.s))
+                            // A list row: its photo follows the list density, as in Contacts.
+                            Avatar(c.displayName, c.photoUri, avatarSize())
+                            Spacer(Modifier.width(Spacing.l))
                             Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         }
                     }
@@ -360,9 +329,4 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
             }
         }
     }
-}
-
-private fun List<ContactSummary>.movedTo(from: Int, to: Int): List<ContactSummary> {
-    if (from !in indices || to !in indices) return this
-    return toMutableList().also { it.add(to, it.removeAt(from)) }
 }

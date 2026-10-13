@@ -34,6 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,7 +63,7 @@ private fun RowIcon(icon: ImageVector?) {
 
 /**
  * A setting that is on or off. The whole row is one switch for TalkBack (one focus stop, "switch, on"); the
- * [Switch] inside only shows the state.
+ * [Switch] inside only shows the state. Turning it on or off ticks, as the system's own switches do.
  */
 @Composable
 fun SwitchRow(
@@ -71,8 +74,9 @@ fun SwitchRow(
     enabled: Boolean = true,
     onChange: (Boolean) -> Unit,
 ) {
+    val toggle = rememberToggleHaptic(onChange)
     ListItem(
-        modifier = Modifier.toggleable(value, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        modifier = Modifier.toggleable(value, enabled = enabled, role = Role.Switch, onValueChange = toggle),
         headlineContent = { Text(title) },
         supportingContent = sub?.let { { Text(it) } },
         leadingContent = icon?.let { { RowIcon(it) } },
@@ -284,4 +288,20 @@ fun PersonRow(
         supportingContent = supportingContent,
         trailingContent = trailingContent,
     )
+}
+
+/**
+ * [onChange] with the system's switch tick: a firmer one turning on, a lighter one turning off (Android 14+ switches
+ * do the same).
+ */
+@Composable
+fun rememberToggleHaptic(onChange: (Boolean) -> Unit): (Boolean) -> Unit {
+    val haptics = LocalHapticFeedback.current
+    val latest by rememberUpdatedState(onChange)
+    return remember(haptics) {
+        { on ->
+            haptics.performHapticFeedback(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+            latest(on)
+        }
+    }
 }
