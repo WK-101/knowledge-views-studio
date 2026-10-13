@@ -262,8 +262,8 @@
     <string name="set_private_history_kw">vault, private calls, call log</string>
     <string name="set_privacy_dashboard_summary">What Parley can access and why</string>
     <string name="set_privacy_dashboard_kw">permissions, data, internet, tracking</string>
-    <string name="set_who_can_see_summary">Which apps can read your contacts</string>
-    <string name="set_who_can_see_kw">apps, access, contact scopes, grapheneos</string>
+    <string name="set_who_can_see_summary">Which apps can read your contacts and calls</string>
+    <string name="set_who_can_see_kw">apps, access, contact scopes, grapheneos, call log, call history</string>
     <string name="set_private_directory_summary">Off by default. A phone app you approve (for example Google Phone, also in the car) can show who is calling</string>
     <string name="set_private_directory_kw">directory, car, work profile, android auto, caller id, dialer, private names</string>
     <string name="set_app_permissions_title">App permissions (system)</string>

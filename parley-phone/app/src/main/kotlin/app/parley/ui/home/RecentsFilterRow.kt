@@ -53,6 +53,9 @@ import app.parley.ui.Spacing
 import app.parley.ui.history.SavedFilterChips
 import app.parley.ui.history.activeFilterChipLabel
 import app.parley.ui.history.savedFilterChipCount
+import app.parley.ui.history.HistoryText
+import app.parley.common.history.CallTotals
+import androidx.compose.ui.platform.LocalResources
 
 /** An icon chip's touch target, and so its width in the row while it shows no name. */
 private val ChipTarget = 48.dp
@@ -268,3 +271,14 @@ private val RecentFilter.callClass: CallClass?
         // Who called, not how: icons of their own (below).
         RecentFilter.UNKNOWN, RecentFilter.CONTACTS -> null
     }
+
+/** "23 calls · 3 h 12 min · 4 missed" under the chips while a filter, a chip or a search narrows the calls. */
+@Composable
+internal fun FilterTotalsLine(t: CallTotals) {
+    if (t.isEmpty) return
+    val res = LocalResources.current
+    Text(
+        HistoryText.totals(res, t), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.listInset, vertical = Spacing.xs),
+    )
+}

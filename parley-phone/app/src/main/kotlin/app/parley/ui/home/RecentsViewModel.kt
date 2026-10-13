@@ -20,6 +20,7 @@ import app.parley.common.calls.RecentsCallers
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.catching
+import app.parley.common.history.CallTotals
 import app.parley.common.history.HistoryFilter
 import app.parley.common.people.Archive
 import app.parley.common.people.ArchivedCard
@@ -193,6 +194,17 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
                 if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g
             }
         }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+
+    /**
+     * Totals for the calls a filter shows ("23 calls · 3 h 12 min · 4 missed"), or null while nothing is filtered: the
+     * line only answers a question asked by filtering. Counted from the shown rows, so private calls count only while
+     * they may show, and the whole history once it has loaded.
+     */
+    val totals: StateFlow<CallTotals?> = combine(groups, filter, c.history.activeFilter, query.debounce(80)) { list, chip, saved, q ->
+        val narrowed = chip != RecentFilter.ALL || !saved.isEmpty || q.isNotBlank()
+        if (list == null || !narrowed) null
+        else CallTotals.of(list.asSequence().flatMap { it.calls }.distinctBy { it.id }.asIterable())
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /**

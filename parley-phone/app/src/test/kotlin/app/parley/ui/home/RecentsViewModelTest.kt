@@ -279,6 +279,50 @@ class RecentsViewModelTest {
         assertEquals(5, vm.groupsWhen("every call") { it.size == 5 }.size)
     }
 
+    @Test fun a_range_of_days_keeps_only_those_days() {
+        t.call("+44 20 7946 0001", today, Calls.INCOMING_TYPE, 5)
+        t.call("+44 20 7946 0002", today - 3 * DAY, Calls.INCOMING_TYPE, 5)
+        t.call("+44 20 7946 0003", today - 10 * DAY, Calls.INCOMING_TYPE, 5)
+        val vm = recents()
+        vm.groupsWhen { it.size == 3 }
+        val day = today / DAY
+        t.c.history.activeFilter.value = HistoryFilter().withRange(day - 5, day - 1)
+        assertEquals(listOf("+44 20 7946 0002"), vm.groupsWhen("the range") { it.size == 1 }.map { it.number })
+    }
+
+    // ---------------------------------------------------------------- totals line
+
+    @Test fun totals_show_only_while_something_is_filtered() {
+        typedCalls()
+        val vm = recents()
+        t.keep(vm.totals)
+        vm.groupsWhen { it.size == 5 }
+        assertNull(vm.totals.value)
+        vm.filter.value = RecentFilter.MISSED
+        t.until("the totals") { vm.totals.value?.total == 2 }
+        assertEquals(1, vm.totals.value!!.missed)
+        vm.filter.value = RecentFilter.ALL
+        t.c.history.activeFilter.value = HistoryFilter(types = setOf(TypeGroup.INCOMING, TypeGroup.OUTGOING))
+        t.until("the talk time") { vm.totals.value?.talkSec == 40L }
+        assertEquals(2, vm.totals.value!!.total)
+        vm.showAll()
+        t.until("no totals") { vm.totals.value == null }
+    }
+
+    @Test fun totals_count_private_calls_only_while_they_may_show() {
+        val v = t.privateContact("Grace", "+44 20 7946 0009")
+        runBlocking { t.c.vault.storePrivateCall(v, "+44 20 7946 0009", "Grace", today, 50, Calls.INCOMING_TYPE) }
+        t.call("+44 20 7946 0001", today - MINUTE, Calls.INCOMING_TYPE, 10)
+        val vm = recents()
+        t.keep(vm.totals)
+        vm.groupsWhen("both calls") { it.size == 2 }
+        t.c.history.activeFilter.value = HistoryFilter(types = setOf(TypeGroup.INCOMING))
+        t.until("both calls counted") { vm.totals.value?.talkSec == 60L }
+        runBlocking { t.c.settings.update { it.copy(hideVault = true) } }
+        t.until("the private call left out") { vm.totals.value?.talkSec == 10L }
+        assertEquals(1, vm.totals.value!!.total)
+    }
+
     // ---------------------------------------------------------------- selection and delete
 
     @Test fun rows_are_selected_and_cleared() {
