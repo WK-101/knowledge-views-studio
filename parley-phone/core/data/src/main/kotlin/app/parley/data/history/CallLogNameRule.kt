@@ -1,10 +1,12 @@
 package app.parley.data.history
 
+import android.Manifest
+import android.content.Context
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.history.CallLogNames
-import app.parley.common.catching
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactsRepository
+import app.parley.data.Permissions
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -27,8 +29,11 @@ suspend fun CallLogNames.scrub(records: List<CallLogRecord>): List<CallLogRecord
  * ([CallLogRepository.clearCachedNames]): at archive time, and in the daily upkeep for what an older version, a contact
  * made private or a call the phone named meanwhile left.
  */
-suspend fun forgetHiddenCallLogNames(callLog: CallLogRepository, contacts: ContactsRepository, numbers: Collection<String>, region: String?): Int {
-    val hidden = withContext(Dispatchers.IO) { numbers.filter { it.isNotBlank() }.distinct().filter { catching { contacts.lookup(it) }.getOrNull() == null } }
+suspend fun forgetHiddenCallLogNames(
+    context: Context, callLog: CallLogRepository, contacts: ContactsRepository, numbers: Collection<String>, region: String?,
+): Int {
+    val canRead = Permissions.has(context, Manifest.permission.READ_CONTACTS)
+    val hidden = withContext(Dispatchers.IO) { CallLogNames.hidden(numbers, canRead) { contacts.lookup(it) != null } }
     return callLog.clearCachedNames(hidden, region)
 }
 

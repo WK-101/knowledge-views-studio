@@ -33,6 +33,7 @@ import app.parley.common.calls.CallWaiting
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.RingKeys
 import app.parley.common.catching
+import app.parley.common.security.WindowShield
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallActionReceiver
 import app.parley.telecom.CallManager
@@ -84,8 +85,8 @@ class InCallActivity : ComponentActivity() {
             val declineBlock = shownNow.declineBlock
             val rescue = shownNow.rescue
             var keypad by remember { mutableStateOf(showDialpad) }
-            // "Hide screen content" covers the call screen too.
-            LaunchedEffect(look.secureScreen, look.loaded) { applySecure(look) }
+            // "Hide screen content" covers the call screen too, and so does a private contact on the line.
+            WindowProtection(calls, ended, look)
             // The PiP actions (mute state) and whether leaving may enter PiP follow the calls.
             LaunchedEffect(calls, audio.muted) { updatePip() }
             // An outgoing call that didn't go through keeps the screen (reason and Retry) until dismissed. CallManager
@@ -292,9 +293,32 @@ class InCallActivity : ComponentActivity() {
         window.attributes = lp
     }
 
-    /** Like AppLock.applySecureFlag. Until the stored settings are read, the screen stays secure. */
-    private fun applySecure(look: InCallAppearance) {
-        if (!look.loaded || look.secureScreen) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+    /**
+     * A private contact on the line keeps the call screen out of recents' thumbnails (WindowShield), even while
+     * discreet mode or a duress unlock shows only the number; other calls are left as they were.
+     */
+    @Composable
+    private fun WindowProtection(calls: List<CallUi>, ended: CallUi?, look: InCallAppearance) {
+        val lines = remember(calls, ended) { callLines(calls, ended) }
+        var onCall by remember { mutableStateOf(false) }
+        LaunchedEffect(lines) { onCall = anyPrivateLine(lines, TelecomGraph.dependencies::privateLine) }
+        LaunchedEffect(look.secureScreen, look.loaded, onCall) {
+            privateOnCall = onCall
+            applySecure(look)
+        }
+    }
+
+    /** A private contact's number is on one of the calls shown ([anyPrivateLine]): read by [applySecure] at every pause. */
+    @Volatile private var privateOnCall = false
+
+    /**
+     * Like AppLock.protectWindow ([WindowShield.callWindow]): until the stored settings are read the screen stays
+     * secure; "Hide screen content" keeps it so; a private contact on the line keeps it out of recents' thumbnails.
+     */
+    private fun applySecure(look: InCallAppearance, leaving: Boolean = false) {
+        val w = WindowShield.callWindow(Build.VERSION.SDK_INT, look.loaded, look.secureScreen, privateOnCall, leaving)
+        if (Build.VERSION.SDK_INT >= WindowShield.RECENTS_SWITCH_SDK) setRecentsScreenshotEnabled(w.recentsScreenshot)
+        if (w.secure) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
@@ -450,6 +474,8 @@ class InCallActivity : ComponentActivity() {
 
     override fun onPause() {
         CallManager.setUiVisible(false)
+        // Before Android 13 only FLAG_SECURE blanks the recents thumbnail, set before it is taken.
+        applySecure(TelecomGraph.dependencies.appearance.value, leaving = true)
         super.onPause()
     }
 

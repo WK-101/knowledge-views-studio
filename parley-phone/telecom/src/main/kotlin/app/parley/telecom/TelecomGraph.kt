@@ -362,6 +362,12 @@ interface UiHooks {
     /** Vibrate on connect, disconnect, swap, merge and limit warnings. */
     fun callHaptics(): Boolean = true
 
+    /**
+     * Whether [number] is a private contact's, whatever may show now (discreet mode and a duress unlock included): the
+     * call screen keeps out of recents' thumbnails then. True when that can't be told.
+     */
+    suspend fun privateLine(number: String, accountId: String?): Boolean = false
+
     /** The buzz when a call connects (only with [callHaptics] on). */
     fun connectHaptic(): Boolean = true
 

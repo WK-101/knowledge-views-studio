@@ -32,4 +32,12 @@ object WindowShield {
         val hideNow = (appLock && locked) || (blankRecents && leaving && sdk < RECENTS_SWITCH_SDK)
         return Window(recentsScreenshot = !blankRecents, secure = secureScreen || hideNow)
     }
+
+    /**
+     * The call screen's window (a task of its own, with no app lock): blank in recents while [privateOnCall], a private
+     * contact's number is on one of its calls, whether its name shows or discreet mode or a duress unlock hides it.
+     * Until the settings are read ([loaded] false) it stays secure.
+     */
+    fun callWindow(sdk: Int, loaded: Boolean, secureScreen: Boolean, privateOnCall: Boolean, leaving: Boolean): Window =
+        window(sdk, appLock = false, locked = false, secureScreen = !loaded || secureScreen, privateExposed = privateOnCall, leaving = leaving)
 }

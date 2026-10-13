@@ -813,8 +813,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     /** Whether [number] is a private contact's; true when that can't be told now (nothing private is written then). */
-    private suspend fun privateLine(number: String, accountId: String?): Boolean =
+    override suspend fun privateLine(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
         c.numberOwners.privateIn(number, c.numberOwners.region(accountId)).let { it.isFailure || it.getOrNull() != null }
+    }
 
     override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }
 

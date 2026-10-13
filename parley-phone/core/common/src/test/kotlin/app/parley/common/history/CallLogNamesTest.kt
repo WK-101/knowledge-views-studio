@@ -36,6 +36,24 @@ class CallLogNamesTest {
         assertEquals(2, lookups)
     }
 
+    @Test fun a_number_is_hidden_only_when_a_lookup_says_no_visible_contact_owns_it() = now {
+        var lookups = 0
+        val owned: suspend (String) -> Boolean = { n ->
+            lookups++
+            when {
+                n.endsWith("9") -> error("provider unavailable")
+                else -> n.endsWith("1")
+            }
+        }
+        val numbers = listOf("+447700900001", "+447700900002", "+447700900002", " ", "+447700900009")
+        // Owned by a visible contact, or unknown because the lookup failed: left alone.
+        assertEquals(listOf("+447700900002"), CallLogNames.hidden(numbers, canRead = true, owned))
+        assertEquals(3, lookups)
+        // Without contacts access nobody can be told visible: no name is taken off at all.
+        assertTrue(CallLogNames.hidden(numbers, canRead = false, owned).isEmpty())
+        assertEquals(3, lookups)
+    }
+
     @Test fun only_named_calls_with_hidden_numbers_are_cleared_whatever_their_format() {
         val rows = listOf(
             Triple(1L, "07700 900002", true), // national format of the archived number

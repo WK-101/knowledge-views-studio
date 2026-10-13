@@ -587,6 +587,10 @@ see your contacts" says so on Android 17 and later.
   contacts can be on Parley's screen (some exist and show, or details were just opened), app lock or not
   (`WindowShield`): Android 13+ skips it, older versions get FLAG_SECURE as Parley leaves. "Hide screen content" keeps
   FLAG_SECURE on all the time.
+  The call screen, a task of its own, does the same while a private contact's number is on one of its calls (a
+  conference's people and the call just ended included), whether its name shows or discreet mode or a duress unlock
+  shows only the number (`WindowShield.callWindow`; a check that fails counts as private). Other calls keep their
+  thumbnail.
 - **The keyboard (7.0).** While private contacts can show, in the editor of a private contact and in every dialog on a
   private contact's page, Parley asks the keyboard not to learn what is typed (`NoKeyboardLearning`,
   IME_FLAG_NO_PERSONALIZED_LEARNING), as for safe words: a private name must never come back as a suggestion in another
@@ -594,6 +598,8 @@ see your contacts" says so on Android 17 and later.
 - **Android's call log names (7.0).** Android caches a name on each call in its call log, which every app with call-log
   access reads. Archiving a contact takes that name (and its label, lookup link and photo) off their old calls, and the
   daily upkeep does the same for every archived and private number no address-book contact owns; the calls stay.
+  Taking names off needs an answer: without the Contacts permission, or when a lookup fails, nothing is cleared, so a
+  visible contact's name is never taken off for want of one.
   When Parley puts calls back into the call log (undoing a delete, restoring with the archive off, importing a CSV) it
   writes a name only when an address-book contact owns the number now (`CallLogNames`, failing closed). Moving a
   private contact back to the phone writes its calls back with the name, as that person is visible again.
