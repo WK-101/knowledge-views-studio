@@ -196,8 +196,16 @@ private fun SegmentedGroupScope.variantRows(ctx: ContactPageContext) {
         item {
             val context = LocalContext.current
             val resources = LocalResources.current
+            val rule = temp.rule
+            val slide = rule.slideDays
+            val line = when {
+                rule.untilCase -> resources.getString(R.string.detail_deletes_with_case)
+                // "Deletes itself 7 days after your last call (now 19 Oct)": the date the last call has set so far.
+                slide != null -> resources.getQuantityString(R.plurals.detail_deletes_after_last_call, slide, slide, Format.fullDate(context, temp.expiresAt))
+                else -> resources.getString(R.string.detail_deletes_on, Format.fullDate(context, temp.expiresAt))
+            }
             GroupDataRow(
-                Icons.Rounded.Timer, true, resources.getString(R.string.detail_deletes_on, Format.fullDate(context, temp.expiresAt)),
+                Icons.Rounded.Timer, true, line,
                 resources.getString(R.string.editor_change_expiry), onClick = { ctx.show(ContactDialog.Expiry) },
             )
         }

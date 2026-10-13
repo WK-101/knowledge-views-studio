@@ -66,7 +66,9 @@ import app.parley.R
 import app.parley.common.StartTab
 import app.parley.common.catching
 import app.parley.common.people.ContactRef
+import app.parley.common.people.TemporaryClock
 import app.parley.common.people.TemporaryDue
+import app.parley.common.people.TemporaryRule
 import app.parley.common.ux.Tips
 import app.parley.data.TemporaryContacts
 import app.parley.data.vault.VaultCrypto
@@ -104,6 +106,8 @@ data class TemporaryItem(
     /** Private contact (null for a phone one). */
     val vaultId: Long?,
     val purgeHistory: Boolean,
+    /** How its date moves: fixed, from the last call, or until its case file is resolved. */
+    val rule: TemporaryRule = TemporaryRule.FIXED,
 ) {
     val key: String get() = vaultId?.let { "v$it" } ?: "c$lookupKey"
 
@@ -166,8 +170,9 @@ object TemporaryContactActions {
     /** [saveUnlocking] of a temporary contact for [number]. */
     suspend fun save(
         vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean, activity: ComponentActivity?,
+        clock: TemporaryClock = TemporaryClock.FIXED,
     ): TemporaryContacts.Saved? = saveUnlocking(activity) {
-        TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
+        TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory, clock = clock)
     }
 
     /**
@@ -189,11 +194,17 @@ object TemporaryContactActions {
             }
         }
 
-    /** Visible ones go through [app.parley.data.people.TemporaryContactStore]; private ones are vault entries with an expiry. */
+    /**
+     * Visible ones go through [app.parley.data.people.TemporaryContactStore]; private ones are vault entries with an
+     * expiry. Either keeps how its date moves: one that counts from the last call goes on doing so from the new date.
+     */
     suspend fun extend(vm: AppViewModel, item: TemporaryItem, days: Int) {
+        val at = System.currentTimeMillis() + days * DAY_MS
+        val c = vm.c
         when {
-            item.vaultId != null -> vm.c.vault.setExpiry(item.vaultId, System.currentTimeMillis() + days * DAY_MS)
-            item.contactId != null -> vm.c.temporaries.mark(item.contactId, days, item.purgeHistory)
+            item.vaultId != null -> c.vault.setExpiry(item.vaultId, at)
+            item.lookupKey != null -> c.temporaries.extendTo(item.lookupKey, at)
+            item.contactId != null -> c.temporaries.mark(item.contactId, days, item.purgeHistory)
         }
     }
 
@@ -251,12 +262,23 @@ fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
             val c = byKey[t.lookupKey] ?: byId[t.contactId]
             TemporaryItem(
                 c?.displayName ?: t.name ?: fallback, c?.phones?.firstOrNull()?.number, t.expiresAt, c?.id ?: t.contactId, t.lookupKey, null, t.purgeHistory,
+                t.rule,
             )
         }
         val private = vault.filter { it.expiresAt != null }.map { v ->
-            TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, v.purgeHistory)
+            TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, v.purgeHistory, v.rule)
         }
         (phone + private).sortedBy { it.expiresAt }
+    }
+}
+
+/** "3 days left · 7 days after your last call", or "When the case file is resolved": what a row says of its date. */
+fun dateLine(res: Resources, expiresAt: Long, rule: TemporaryRule, now: Long = System.currentTimeMillis()): String {
+    val slide = rule.slideDays
+    return when {
+        rule.untilCase -> res.getString(R.string.temp_until_case)
+        slide != null -> timeLeft(res, expiresAt, now) + " · " + res.getQuantityString(R.plurals.temp_after_last_call, slide, slide)
+        else -> timeLeft(res, expiresAt, now)
     }
 }
 
@@ -376,7 +398,9 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
         },
         supportingContent = {
             Text(
-                listOfNotNull(timeLeft(LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "),
+                listOfNotNull(
+                    dateLine(LocalResources.current, t.expiresAt, t.rule), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) },
+                ).joinToString(" · "),
             )
         },
         trailingContent = {
@@ -448,18 +472,24 @@ private fun DurationDialog(title: String, onDismiss: () -> Unit, onPick: (Int) -
  * history goes too.
  */
 @Composable
-fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> Unit, onSave: (name: String, days: Int, deleteHistory: Boolean, visible: Boolean) -> Unit) {
+fun SaveTemporaryDialog(
+    number: String,
+    suggestedName: String,
+    onDismiss: () -> Unit,
+    onSave: (name: String, days: Int, deleteHistory: Boolean, visible: Boolean, clock: TemporaryClock) -> Unit,
+) {
     var name by rememberSaveable { mutableStateOf(suggestedName) }
     var days by rememberSaveable { mutableStateOf<Int?>(TemporaryContacts.DEFAULT_DAYS) }
     var custom by rememberSaveable { mutableStateOf("") }
     var deleteHistory by rememberSaveable { mutableStateOf(true) }
     var visible by rememberSaveable { mutableStateOf(false) }
+    var fromLastCall by rememberSaveable { mutableStateOf(false) }
     val chosen = days ?: custom.toIntOrNull()?.takeIf { it in 1..3650 }
     ConfirmDialog(
         title = stringResource(R.string.action_save_temporary_contact),
         text = null,
         confirmLabel = if (visible) stringResource(R.string.action_save) else stringResource(R.string.action_save_privately),
-        onConfirm = { chosen?.let { onSave(name, it, deleteHistory, visible) } },
+        onConfirm = { chosen?.let { onSave(name, it, deleteHistory, visible, if (fromLastCall) TemporaryClock.LAST_CALL else TemporaryClock.FIXED) } },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.dc_cancel),
         icon = Icons.Rounded.AutoDelete,
@@ -476,6 +506,19 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
                 )
                 Text(stringResource(R.string.temp_delete_after), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
                 DurationPicker(days, custom, { days = it }, { custom = it; days = null })
+                Row(
+                    Modifier.fillMaxWidth().toggleable(fromLastCall, role = Role.Checkbox) { fromLastCall = it }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(fromLastCall, onCheckedChange = null)
+                    Column(Modifier.padding(start = 12.dp)) {
+                        Text(stringResource(R.string.temp_from_last_call))
+                        Text(
+                            stringResource(R.string.temp_from_last_call_sub), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Row(
                     Modifier.fillMaxWidth().toggleable(deleteHistory, role = Role.Checkbox) { deleteHistory = it }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,

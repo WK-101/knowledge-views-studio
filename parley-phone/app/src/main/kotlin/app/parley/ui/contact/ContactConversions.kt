@@ -50,8 +50,10 @@ class ContactConversions(private val c: DataContainer) {
         )
         val moved = c.vaultMoves.moveIn(contactId, shown, carryInteractions = false)
         val id = moved.vaultId
-        // A temporary contact stays temporary, with the same date and call-history choice.
-        if (temporary != null) c.vault.save(id, shown, expiresAt = temporary.expiresAt, purgeHistory = temporary.purgeHistory)
+        // A temporary contact stays temporary, with the same date, call-history choice and way its date moves.
+        if (temporary != null) {
+            c.vault.save(id, shown, expiresAt = temporary.expiresAt, purgeHistory = temporary.purgeHistory, rule = temporary.rule)
+        }
         if (key != null) {
             // The relations Parley wrote on other contacts for this one ("Child: Sam" on Ana) would keep its name in
             // the address book: taken back where still as Parley left them, and forgotten from Parley's record.
@@ -136,7 +138,9 @@ class ContactConversions(private val c: DataContainer) {
             c.contactKeys.rekeyLater(privateKey, moved.rawIds.ifEmpty { withContext(Dispatchers.IO) { c.contacts.rawIds(newId) } }, newId)
         }
         // Only the raw contacts this move inserted: Android may have joined them with someone else's copies.
-        summary?.expiresAt?.let { at -> c.temporaries.markAt(newId, at, summary.purgeHistory, summary.name, rawIds = moved.rawIds.ifEmpty { null }) }
+        summary?.expiresAt?.let { at ->
+            c.temporaries.markAt(newId, at, summary.purgeHistory, summary.name, rawIds = moved.rawIds.ifEmpty { null }, rule = summary.rule)
+        }
         MadeVisible.Done(newId, moved.redirectedTo)
     }
 

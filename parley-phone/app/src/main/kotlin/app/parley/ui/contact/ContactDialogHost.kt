@@ -26,6 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import app.parley.common.catching
+import app.parley.common.cases.CaseFiles
+import app.parley.common.cases.CaseState
+import app.parley.common.people.TemporaryRule
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -70,6 +76,22 @@ import app.parley.ui.vault.ExpiryDialog
 internal fun ContactDialogHost(ctx: ContactPageContext, dialog: ContactDialog, original: OriginalPhotos.Original?) {
     // What is typed about a private contact (a note, a moment, a reminder) never reaches the keyboard's memory.
     NoKeyboardLearning(ctx.isPrivate) { DialogFor(ctx, dialog, original) }
+}
+
+/**
+ * "Delete automatically after…" for this contact: counted from the last call if you like, and "When the case file is
+ * resolved" while one is open for its numbers (what the page may show of it: none during a duress unlock).
+ */
+@Composable
+private fun PageExpiryDialog(ctx: ContactPageContext, close: () -> Unit) {
+    LaunchedEffect(Unit) { catching { ctx.vm.cases.load() } }
+    val cases by ctx.vm.cases.shown.collectAsStateWithLifecycle(CaseState())
+    val numbers = ctx.d.phones.map { it.value }.filter { it.isNotBlank() }
+    val openCase = remember(cases, numbers) { TemporaryRule.offersCase(CaseFiles.find(cases, numbers, ctx.vm.countryIso)) }
+    ExpiryDialog(onDismiss = close, lastCall = true, case = openCase) { days, clock ->
+        close()
+        ctx.page.setExpiry(days, clock)
+    }
 }
 
 @Composable
@@ -128,10 +150,7 @@ private fun DialogFor(ctx: ContactPageContext, dialog: ContactDialog, original: 
                 ctx.vm.c.people.relationMirrors.correct(dialog.ownerKey, d.lookupKey, computed, corrected)
             }
         }
-        ContactDialog.Expiry -> ExpiryDialog(onDismiss = close) { days ->
-            close()
-            ctx.page.setExpiry(days)
-        }
+        ContactDialog.Expiry -> PageExpiryDialog(ctx, close)
         ContactDialog.Photo -> d.photoUri?.let { uri ->
             val export = contactPhotoImage(ctx.vm, d.displayName, original, uri, ctx.contactId.takeUnless { ctx.isPrivate }, ctx.isPrivate)
             original?.let { OriginalPhotoViewer(ctx.vm, it, export, close) }

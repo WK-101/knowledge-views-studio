@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -155,6 +156,12 @@ class MessagingStore(
 
     fun lastMessaged(number: String): LastMessaged? = MessagedRecord.find(entries, number, region())?.toUi()
 
+    /** When a chat with [number] was last started from Parley, once the record is read (null: none, or not read in time). */
+    suspend fun lastMessagedAt(number: String): Long? {
+        withTimeoutOrNull(LOAD_WAIT_MS) { loaded.await() } ?: return null
+        return lastMessaged(number)?.at
+    }
+
     /** Per-item delete. */
     suspend fun forget(number: String) = update { MessagedRecord.forget(it, number, region()) }
 
@@ -275,6 +282,7 @@ class MessagingStore(
 
     private companion object {
         const val K_LAYOUT = "keypad_layout"
+        const val LOAD_WAIT_MS = 5_000L
         const val K_MY_NAME = "my_name"
         const val K_MY_NUMBER = "my_number"
         const val K_LAST_APP = "last_app"

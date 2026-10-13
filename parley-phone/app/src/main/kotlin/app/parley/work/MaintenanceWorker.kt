@@ -27,6 +27,7 @@ import app.parley.blocking.SpamListWorker
 import app.parley.common.people.TemporaryDue
 import app.parley.data.people.NumberPassportSweep
 import app.parley.data.people.TemporaryContactStore
+import app.parley.data.people.TemporaryRules
 import app.parley.ui.common.ImageExport
 import app.parley.ui.contact.ContactCamera
 import app.parley.ui.history.ExportFiles
@@ -162,6 +163,9 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             step("number passport") { NumberPassportSweep.run(c); true }
             // Values stored plain while the records key couldn't be used are sealed once it can.
             step("record sealing") { if (!c.recordSealing.done) c.recordSealing.runIfNeeded() }
+            // Dates that count from the last call or wait for a case file move on first, so nobody is asked about a
+            // contact whose job is still going.
+            step("temporary dates") { TemporaryRules.follow(c, now) }
             // 1-2. Temporary contacts whose time is up: with "Ask before deleting temporary contacts" (the default)
             //      nothing is deleted here; one notification asks (DueTemporaries). Off, they go at once, as before.
             val notices = if (TemporaryDue.deletesWithoutAsking(settings.askBeforeDeletingTemporary)) {

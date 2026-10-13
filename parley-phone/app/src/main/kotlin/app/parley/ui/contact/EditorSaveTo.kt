@@ -55,6 +55,7 @@ import app.parley.R
 import app.parley.common.people.ExpiryChange
 import app.parley.common.people.MeCards
 import app.parley.common.people.TemporaryChoice
+import app.parley.common.people.TemporaryClock
 import app.parley.data.AccountRef
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
@@ -239,9 +240,14 @@ private fun DestinationChip(s: EditorSaveTo, label: (AccountRef) -> String, onAc
 @Composable
 private fun TemporaryChip(t: TemporaryChoice, onChange: (TemporaryChoice) -> Unit) {
     var custom by rememberSaveable { mutableStateOf(false) }
-    val text = pluralStringResource(R.plurals.temp_n_days, t.days, t.days)
+    val text = if (t.clock == TemporaryClock.LAST_CALL) {
+        pluralStringResource(R.plurals.temp_after_last_call, t.days, t.days)
+    } else {
+        pluralStringResource(R.plurals.temp_n_days, t.days, t.days)
+    }
     MenuChip(Icons.Rounded.AutoDelete, text, stringResource(R.string.editor_change_expiry)) { close ->
         DurationItems(t.days, onPick = { d -> close(); onChange(t.copy(days = d)) }, onCustom = { close(); custom = true })
+        LastCallItem(t.clock == TemporaryClock.LAST_CALL) { on -> onChange(t.copy(clock = if (on) TemporaryClock.LAST_CALL else TemporaryClock.FIXED)) }
         HorizontalDivider()
         DropdownMenuItem(
             text = { Text(stringResource(R.string.temp_visible)) },
@@ -263,17 +269,17 @@ private fun TemporaryChip(t: TemporaryChoice, onChange: (TemporaryChoice) -> Uni
  */
 @Composable
 private fun ExpiryChip(expiresAt: Long?, pick: ExpiryChange?, onPick: (ExpiryChange?) -> Unit) {
-    val res = LocalResources.current
     var custom by rememberSaveable { mutableStateOf(false) }
-    val text = when {
-        pick is ExpiryChange.After -> pluralStringResource(R.plurals.editor_temp_after, pick.days, pick.days)
-        pick == ExpiryChange.Keep && expiresAt != null -> stringResource(R.string.action_keep_permanently)
-        expiresAt != null -> timeLeft(res, expiresAt)
-        else -> stringResource(R.string.editor_make_temporary)
-    }
+    val text = expiryText(expiresAt, pick)
     val icon = if (pick == ExpiryChange.Keep && expiresAt != null) Icons.Rounded.PushPin else Icons.Rounded.AutoDelete
     MenuChip(icon, text, stringResource(R.string.editor_change_expiry)) { close ->
-        DurationItems((pick as? ExpiryChange.After)?.days, onPick = { d -> close(); onPick(ExpiryChange.After(d)) }, onCustom = { close(); custom = true })
+        val after = pick as? ExpiryChange.After
+        val clock = after?.clock ?: TemporaryClock.FIXED
+        DurationItems(after?.days, onPick = { d -> close(); onPick(ExpiryChange.After(d, clock)) }, onCustom = { close(); custom = true })
+        // Once a time is picked: whether it counts from the last call.
+        if (pick is ExpiryChange.After) {
+            LastCallItem(pick.clock == TemporaryClock.LAST_CALL) { on -> onPick(pick.copy(clock = if (on) TemporaryClock.LAST_CALL else TemporaryClock.FIXED)) }
+        }
         if (expiresAt != null || pick is ExpiryChange.After) {
             HorizontalDivider()
             DropdownMenuItem(
@@ -287,9 +293,37 @@ private fun ExpiryChip(expiresAt: Long?, pick: ExpiryChange?, onPick: (ExpiryCha
     if (custom) {
         CustomDaysDialog((pick as? ExpiryChange.After)?.days ?: TemporaryChoice.DEFAULT_DAYS, onDismiss = { custom = false }) { d ->
             custom = false
-            onPick(ExpiryChange.After(d))
+            onPick(ExpiryChange.After(d, (pick as? ExpiryChange.After)?.clock ?: TemporaryClock.FIXED))
         }
     }
+}
+
+/** The expiry chip's text: the new choice, "Keep permanently", the time left, or "Make temporary". */
+@Composable
+private fun expiryText(expiresAt: Long?, pick: ExpiryChange?): String = when {
+    pick is ExpiryChange.After && pick.clock == TemporaryClock.LAST_CALL -> pluralStringResource(R.plurals.temp_after_last_call, pick.days, pick.days)
+    pick is ExpiryChange.After -> pluralStringResource(R.plurals.editor_temp_after, pick.days, pick.days)
+    pick == ExpiryChange.Keep && expiresAt != null -> stringResource(R.string.action_keep_permanently)
+    expiresAt != null -> timeLeft(LocalResources.current, expiresAt)
+    else -> stringResource(R.string.editor_make_temporary)
+}
+
+/** "Count from your last call": the days run from the newest call or chat rather than from the save. */
+@Composable
+private fun LastCallItem(checked: Boolean, onChange: (Boolean) -> Unit) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(stringResource(R.string.temp_from_last_call))
+                Text(
+                    stringResource(R.string.temp_from_last_call_sub), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        trailingIcon = { Checkbox(checked, onCheckedChange = null) },
+        onClick = { onChange(!checked) },
+    )
 }
 
 /** 1 day, 7 days, 30 days (the current one ticked), then "Custom…". */

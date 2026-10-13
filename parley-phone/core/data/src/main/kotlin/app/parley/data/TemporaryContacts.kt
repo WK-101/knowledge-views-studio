@@ -2,6 +2,8 @@ package app.parley.data
 
 import android.net.Uri
 import android.provider.ContactsContract
+import app.parley.common.people.TemporaryClock
+import app.parley.common.people.TemporaryRule
 
 /**
  * Temporary contacts: a name and a number that delete themselves (and, by default, their call history) after a
@@ -32,17 +34,19 @@ object TemporaryContacts {
         private: Boolean = true,
         purgeHistory: Boolean = true,
         now: Long = System.currentTimeMillis(),
+        clock: TemporaryClock = TemporaryClock.FIXED,
     ): Saved? {
         val details = ContactDetails(
             given = name.trim().ifEmpty { number },
             phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)),
         )
-        return saveDetails(c, details, days, private, purgeHistory, now = now)
+        return saveDetails(c, details, days, private, purgeHistory, now = now, clock = clock)
     }
 
     /**
      * Saves a whole contact as temporary (the contact editor's "Save to: Temporary"). A private one's [photo] is
-     * left to the caller, which encrypts it for the vault; a visible one gets it with the contact.
+     * left to the caller, which encrypts it for the vault; a visible one gets it with the contact. [clock]: the days
+     * count from now (a fixed date) or from the last call ([TemporaryRule]).
      */
     suspend fun saveDetails(
         c: DataContainer,
@@ -52,17 +56,19 @@ object TemporaryContacts {
         purgeHistory: Boolean = true,
         photo: Uri? = null,
         now: Long = System.currentTimeMillis(),
+        clock: TemporaryClock = TemporaryClock.FIXED,
     ): Saved? {
-        val expiresAt = now + days * 86_400_000L
+        val expiresAt = TemporaryRule.firstExpiry(clock, days, now)
+        val rule = TemporaryRule.of(clock, days)
         if (private) {
-            val id = c.vault.save(null, details, expiresAt = expiresAt, purgeHistory = purgeHistory)
+            val id = c.vault.save(null, details, expiresAt = expiresAt, purgeHistory = purgeHistory, rule = rule)
             // Vault numbers are never kept in the "last messaged" record.
             details.phones.forEach { p -> if (p.value.isNotBlank()) c.messaging.forget(p.value) }
             return Saved(id, private = true)
         }
         // Kept on this phone only (never synced to an account): it's meant to disappear. The store records the raw
         // contact it created, and only that one is ever deleted (see app.parley.data.people.TemporaryContactStore).
-        val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory, photo) ?: return null
+        val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory, photo, rule) ?: return null
         return Saved(saved.contactId, private = false, rawId = saved.rawId)
     }
 }

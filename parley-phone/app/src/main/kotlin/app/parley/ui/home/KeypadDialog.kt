@@ -71,12 +71,14 @@ internal fun KeypadDialogHost(
             number = Format.number(dialog.number, vm.countryIso),
             suggestedName = TemporaryContact.suggestedName(dialog.number, null, vm.countryIso.uppercase()),
             onDismiss = close,
-        ) { name, days, deleteHistory, visible ->
+        ) { name, days, deleteHistory, visible, clock ->
             val n = dialog.number
             scope.launch {
                 // Private contacts locked: their unlock first; cancelled, the dialog stays with what was typed.
                 val saved = try {
-                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) { keypad.saveTemporaryNow(n, name, days, deleteHistory, visible) }
+                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) {
+                        keypad.saveTemporaryNow(n, name, days, deleteHistory, visible, clock)
+                    }
                 } catch (_: VaultUnlockDeclined) {
                     return@launch
                 }

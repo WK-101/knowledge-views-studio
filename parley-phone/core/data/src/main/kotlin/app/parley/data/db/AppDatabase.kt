@@ -154,7 +154,13 @@ data class TemporaryContactEntity(
     val name: String? = null,
     /** "Keep this contact?" was already asked after an edit (v4). */
     @ColumnInfo(defaultValue = "0") val keepAsked: Boolean = false,
-)
+    /** It deletes itself this many days after the last call, not on a fixed date ([app.parley.common.people.TemporaryRule], v13). */
+    val slideDays: Int? = null,
+    /** It waits for its case file to be closed ([app.parley.common.people.TemporaryRule], v13). */
+    @ColumnInfo(defaultValue = "0") val untilCase: Boolean = false,
+) {
+    val rule: app.parley.common.people.TemporaryRule get() = app.parley.common.people.TemporaryRule.stored(slideDays, untilCase)
+}
 
 /** Parley-only information about a contact that has no ContactsContract home. */
 @Entity(tableName = "contact_meta")
@@ -838,7 +844,7 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -858,10 +864,12 @@ interface PrefsDao {
     // v12 (manual, [Migrations.V11_TO_12]): call_notes and number_sim gain a nullable sealedKey column, the sealed line key
     //     beside its keyed fingerprint. The rows are keyed afterwards, in the app (RecordSealing): that needs the
     //     Keystore, which a schema migration must not wait for.
+    // v13: temporary contacts can count from the last call (a nullable column) or wait for their case file (a column
+    //     defaulting to 0). Additive.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8), AutoMigration(from = 8, to = 9),
-        AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 9, to = 10), AutoMigration(from = 12, to = 13),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

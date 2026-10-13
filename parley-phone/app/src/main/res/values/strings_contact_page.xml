@@ -137,6 +137,8 @@
     <string name="detail_message_number_on">Message %1$s on %2$s</string>
     <string name="detail_text_number">Text message to %1$s</string>
     <string name="contact_variant_temporary_short">Temporary · %1$s</string>
+    <string name="contact_variant_temporary_case_short">Temporary · until the case is resolved</string>
+    <string name="contact_variant_temporary_case">Temporary · deletes itself when its case file is resolved</string>
     <string name="label_profiles">Profiles</string>
     <!-- A profile's row: the button opens it in the service's app, or in the browser. %1$s: the service. -->
     <string name="detail_open_profile">Open on %1$s</string>
