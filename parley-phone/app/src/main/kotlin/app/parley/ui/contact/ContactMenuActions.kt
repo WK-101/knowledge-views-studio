@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.OverflowMenu
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.AlarmAdd
@@ -13,14 +14,12 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RemoveModerator
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -55,7 +54,6 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
     IconButton({ ctx.open(if (ctx.isPrivate) Routes.edit(vault = -contactId) else Routes.edit(id = contactId)) }) {
         Icon(Icons.Rounded.Edit, stringResource(R.string.action_edit))
     }
-    IconButton({ ctx.show(ContactDialog.Menu) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
     val entries = ContactMenu.build(
         ContactMenu.Facts(
             canShareFile = ctx.can(ContactCapability.SHARE_VCARD_FILE),
@@ -77,7 +75,7 @@ internal fun ContactBarActions(ctx: ContactPageContext, dialog: ContactDialog, b
     val run: (ContactMenu.Action) -> Unit = { a -> runContactMenu(ctx, a) }
     val label: @Composable (ContactMenu.Action) -> MenuLabel = { contactMenuLabel(it) }
     val close = { if (dialog == ContactDialog.Menu) ctx.show(ContactDialog.None) }
-    DropdownMenu(dialog == ContactDialog.Menu, close) {
+    OverflowMenu(dialog == ContactDialog.Menu, { if (it) ctx.show(ContactDialog.Menu) else close() }) { _ ->
         MenuItems(entries, label, close = close, onGroup = { ctx.show(ContactDialog.MenuSheet(it.group)) }, onAction = run)
     }
     if (dialog is ContactDialog.MenuSheet) {
@@ -118,7 +116,8 @@ private fun runContactMenu(ctx: ContactPageContext, a: ContactMenu.Action) {
 
 /** The words and icon of a contact page ⋮ action. */
 @Composable
-private fun contactMenuLabel(a: ContactMenu.Action): MenuLabel = MenuLabel(stringResource(contactMenuText(a)), contactMenuIcon(a))
+private fun contactMenuLabel(a: ContactMenu.Action): MenuLabel =
+    MenuLabel(stringResource(contactMenuText(a)), contactMenuIcon(a), isDestructive = a == ContactMenu.Action.DELETE)
 
 @Suppress("CyclomaticComplexMethod") // One label per action.
 private fun contactMenuText(a: ContactMenu.Action): Int = when (a) {

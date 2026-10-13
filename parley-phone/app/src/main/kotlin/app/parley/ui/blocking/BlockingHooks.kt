@@ -1,5 +1,7 @@
 package app.parley.ui.blocking
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowButton
 import app.parley.common.catching
 import app.parley.ui.Bidi
 import androidx.compose.runtime.mutableStateOf
@@ -22,7 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.HourglassTop
@@ -31,7 +32,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -187,7 +187,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>, onActions: 
             enabled = chosen.isNotEmpty(),
         ) { Icon(Icons.Rounded.Delete, stringResource(R.string.recents_delete_selected_cd)) }
         chosen.singleOrNull()?.let { g ->
-            IconButton({ onActions(g) }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
+            OverflowButton({ onActions(g) })
         }
     }
     if (confirming) {
@@ -270,9 +270,8 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
 /** Label page overflow item. Put it inside the label page's DropdownMenu. */
 @Composable
 fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
-    DropdownMenuItem(
-        { Text(stringResource(R.string.blk_label_menu)) },
-        leadingIcon = { Icon(Icons.Rounded.Shield, null) },
-        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(LabelRefs.key(title))) },
-    )
+    ParleyMenuItem(stringResource(R.string.blk_label_menu), Icons.Rounded.Shield) {
+        closeMenu()
+        BlockingDialogs.show(BlockingDialog.LabelRule(LabelRefs.key(title)))
+    }
 }

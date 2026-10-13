@@ -1,7 +1,10 @@
 package app.parley.ui.history
 
 import app.parley.ui.Destination
+import app.parley.ui.ListSectionHeader
 import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.Spacing
 import app.parley.ui.activityViewModel
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +13,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -36,12 +37,8 @@ import app.parley.ui.home.showRecentsLegend
 import app.parley.common.AppSettings
 import app.parley.common.RecentTap
 import app.parley.common.ux.RecentsStyle
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,23 +64,19 @@ private val clearRequested = MutableStateFlow(false)
  */
 @Composable
 fun RecentsLayoutMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem(
-        { Text(stringResource(R.string.recents_view_menu)) },
-        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.ViewList, null) },
-        onClick = {
-            closeMenu()
-            layoutRequested.value = true
-        },
-    )
+    ParleyMenuItem(stringResource(R.string.recents_view_menu), Icons.AutoMirrored.Rounded.ViewList) {
+        closeMenu()
+        layoutRequested.value = true
+    }
 }
 
-/** Recents ⋮ › "Clear call history…". */
+/** Recents ⋮ › "Clear call history…": the menu's destructive item, last of Recents' own and set apart. */
 @Composable
 fun ClearHistoryMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem({ Text(stringResource(R.string.clear_history_menu)) }, leadingIcon = { Icon(Icons.Rounded.DeleteSweep, null) }, onClick = {
+    ParleyMenuItem(stringResource(R.string.clear_history_menu), Icons.Rounded.DeleteSweep, destructive = true) {
         closeMenu()
         clearRequested.value = true
-    })
+    }
 }
 
 /** Shows the layout picker and "Clear call history" when asked from the Recents ⋮ menu. */
@@ -146,10 +139,7 @@ internal fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 
 @Composable
 private fun ViewSection(title: String) {
-    Text(
-        title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp).semantics { heading() },
-    )
+    ListSectionHeader(title, inset = 0.dp, top = Spacing.m, bottom = Spacing.xs)
 }
 
 @Composable

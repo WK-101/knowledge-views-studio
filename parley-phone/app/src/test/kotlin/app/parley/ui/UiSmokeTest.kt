@@ -297,7 +297,7 @@ class UiSmokeTest {
     @Test fun contact_page_menu_opens_its_dialog_and_cancel_closes_it() {
         show(Look.LIGHT) { ContactDetailScreen(it, adaId, back = {}, open = noRoute) }
         shows("Ada Lovelace")
-        compose.onNodeWithContentDescription("More").performClick()
+        compose.onNodeWithContentDescription("More options").performClick()
         compose.onAllNodesWithText("Delete")[0].performClick()
         shows("Delete Ada Lovelace?")
         compose.onNodeWithText("Cancel").performClick()

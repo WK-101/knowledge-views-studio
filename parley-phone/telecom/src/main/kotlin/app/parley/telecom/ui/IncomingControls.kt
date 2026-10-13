@@ -237,6 +237,7 @@ private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: (
 }
 
 /** More on the incoming screen, with the follow-ups ([DeclineFollowUpItems]), "Send to another number" and "Block & decline". */
+@Suppress("HandBuiltOverflow") // A labelled call-screen action, sized and spoken like its neighbours, not a bar's ⋮.
 @Composable
 private fun BlockAndDeclineMenu(call: CallUi, onBlockAndDecline: (() -> Unit)?, onDeflect: (() -> Unit)?) {
     var open by remember { mutableStateOf(false) }

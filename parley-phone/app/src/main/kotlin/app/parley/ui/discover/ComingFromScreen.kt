@@ -1,8 +1,8 @@
 package app.parley.ui.discover
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
+import app.parley.ui.ExpandableStyle
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ExpandableBody
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneIphone
@@ -25,18 +24,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.ux.ComingFrom
-import app.parley.ui.ParleyListItem
-import app.parley.ui.ParleyMotion
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
@@ -74,17 +67,9 @@ fun ComingFromGroups(onImport: (ComingFrom.Importer) -> Unit) {
 
 @Composable
 private fun SourceRow(s: ComingFrom.Source, expanded: Boolean, onToggle: () -> Unit, onImport: () -> Unit) {
-    val turn by animateFloatAsState(if (expanded) 180f else 0f, ParleyMotion.fastSpatial(), label = "expand")
-    val stateText = stringResource(if (expanded) R.string.blk_expanded else R.string.blk_collapsed)
     Column {
-        ParleyListItem(
-            modifier = Modifier.clickable(role = Role.Button, onClick = onToggle).semantics { stateDescription = stateText },
-            leadingContent = { Icon(s.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            headlineContent = { Text(stringResource(s.title)) },
-            trailingContent = { Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn)) },
-            colors = rowColors(),
-        )
-        AnimatedVisibility(expanded, enter = ParleyMotion.expandIn(), exit = ParleyMotion.collapseOut()) {
+        ExpandableHeader(stringResource(s.title), expanded, onToggle, icon = s.icon, style = ExpandableStyle.Row, colors = rowColors())
+        ExpandableBody(expanded) {
             Column(
                 Modifier.padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.l),
                 verticalArrangement = Arrangement.spacedBy(Spacing.s),

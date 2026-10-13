@@ -130,6 +130,16 @@ parley:
     active: true
     includes: ['**/app/src/main/**', '**/telecom/src/main/**']
     lists: ['ContactsTab.kt', 'FavoritesTab.kt', 'RecentsTab.kt', 'CircleTab.kt', 'ToCallScreen.kt', 'RecentsLegend.kt', 'KeypadTab.kt']
+  # A hand-built ⋮ (the MoreVert icon) outside core/ui: OverflowMenu or OverflowButton gives one name and one look.
+  # Sites that predate it are listed in baseline.xml until their screens move to the kit.
+  HandBuiltOverflow:
+    active: true
+    excludes: ['**/core/ui/**', '**/test/**', '**/tools/**']
+  # A hand-built open/closed chevron outside core/ui: ExpandableHeader, ExpandChevron and ExpandableBody instead.
+  # Sites that predate it are listed in baseline.xml until their screens move to the kit.
+  HandBuiltExpandable:
+    active: true
+    excludes: ['**/core/ui/**', '**/test/**', '**/tools/**']
   # Every @Suppress says why in a // comment on its line or just above it.
   SuppressWithoutReason:
     active: true

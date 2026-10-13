@@ -2,7 +2,6 @@ package app.parley.ui.home
 
 import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -26,8 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,7 +45,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,6 +71,7 @@ import app.parley.ui.ParleyFabDefaults
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.ExpandableHeader
 import app.parley.ui.ReorderMath
 import app.parley.ui.avatarSize
 import app.parley.ui.rememberReorderState
@@ -211,25 +208,18 @@ private fun RecentGroup.stripItem(vm: AppViewModel, open: (Destination) -> Unit)
     onLong = { contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(number)) },
 )
 
-/** The folding header: "Favourites (n)", Reorder, and a chevron. TalkBack reads it as a heading with its state. */
+/**
+ * The folding header: "Favourites (n)" with the kit's chevron (a heading with its state for TalkBack), and Reorder
+ * beside it.
+ */
 @Composable
 private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, onReorder: (() -> Unit)?) {
-    val state = stringResource(if (collapsed) R.string.label_folded else R.string.home_unfolded)
-    val action = stringResource(if (collapsed) R.string.action_unfold else R.string.action_fold)
-    Row(
-        Modifier.fillMaxWidth()
-            .clickable(onClickLabel = action, onClick = onToggle)
-            .semantics { heading(); stateDescription = state }
-            .padding(start = 24.dp, end = 4.dp)
-            .heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        ExpandableHeader(
             if (count > 0) stringResource(R.string.format_text_count, title, count) else title,
-            style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f),
+            expanded = !collapsed, onToggle = onToggle, modifier = Modifier.weight(1f),
         )
-        if (onReorder != null) TextButton(onReorder) { Text(stringResource(R.string.fav_reorder)) }
-        Icon(if (collapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null, modifier = Modifier.padding(12.dp))
+        if (onReorder != null) TextButton(onReorder, Modifier.padding(end = Spacing.xs)) { Text(stringResource(R.string.fav_reorder)) }
     }
 }
 

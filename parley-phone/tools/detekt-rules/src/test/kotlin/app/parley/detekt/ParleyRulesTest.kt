@@ -158,4 +158,32 @@ class ParleyRulesTest {
         """.trimIndent()
         assertEquals(listOf(1), lint(RawRename(), code).map { it.location.source.line })
     }
+
+    @Test fun a_hand_built_overflow_button_is_reported_and_the_kit_menu_is_not() {
+        val code = """
+            import androidx.compose.material.icons.rounded.MoreVert
+            fun Bar() {
+                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                OverflowMenu { close -> ParleyMenuItem("Merge") { close() } }
+                OverflowButton({ open() })
+                Icon(Icons.Rounded.MoreHoriz, null)
+            }
+        """
+        assertEquals(listOf(3), lint(HandBuiltOverflow(), code).map { it.location.source.line })
+    }
+
+    @Test fun a_hand_built_chevron_is_reported_and_a_drop_down_arrow_is_not() {
+        val code = """
+            import androidx.compose.material.icons.rounded.ExpandLess
+            fun Fold(open: Boolean, turn: Float) {
+                Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+                Icon(Icons.Rounded.ExpandMore, null, Modifier.rotate(turn))
+                Icon(Icons.Rounded.ExpandMore, null, Modifier.graphicsLayer { rotationZ = turn })
+                OutlinedTextField(value, {}, trailingIcon = { Icon(Icons.Rounded.ExpandMore, null) })
+                ExpandableHeader("Advanced", open, {})
+                ExpandChevron(open)
+            }
+        """
+        assertEquals(listOf(3, 4, 5), lint(HandBuiltExpandable(), code).map { it.location.source.line })
+    }
 }
