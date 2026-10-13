@@ -1,5 +1,7 @@
 package app.parley.ui.blocking
 
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -103,7 +105,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     ParleyScaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
         ParleyTopBar(stringResource(R.string.label_blocking_screening), onBack = back, scrollBehavior = barScroll)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             // The setups first, with the one you're on named and what the last week looked like.
             // A Situation on now that sets who may ring says so first, with Turn off.
             item(key = "situation") { SituationOverrideBanner(vm, SituationArea.SCREENING) }

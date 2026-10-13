@@ -7,6 +7,8 @@ What Parley does for people who use TalkBack, Switch Access, Voice Access, large
 | Rule | How |
 |---|---|
 | Every control has a name | Icon-only buttons take their name from the icon's content description; rows read their headline. Names are unique on a screen, so Voice Access ("tap Ringtone") and Switch Access menus can tell them apart. |
+| Parts that open in place say their state | core/ui's `ExpandableHeader` is one stop: a heading with "Expanded" or "Collapsed" and what a double tap does ("Unfold", "Show advanced settings"); its chevron (`ExpandChevron`) is decorative. The `HandBuiltExpandable` detekt rule keeps hand-built chevrons out. |
+| One name for ⋮ | Every top bar's ⋮ is core/ui's `OverflowMenu` and reads "More options"; a row's ⋮ names the row ("More for Ana"). The `HandBuiltOverflow` detekt rule and `OverflowNamesTest` keep it so. |
 | Toggles say their state | `Role.Switch` with a stable name and a state ("Mute, on"), never a name that changes with the state. |
 | Section titles are headings | `ListSectionHeader`, `GroupHeader`, sheet titles, Settings groups, the contact page's sections and Blocking & screening's sections carry `heading()`, so TalkBack's heading navigation jumps between them. |
 | Targets are at least 48 dp | Material components keep the minimum interactive size; Parley's own controls are 48 dp or more (call grid 64 dp, End call 72 dp, answer circles 80 dp, quiet actions 56 dp, filter chips 48 dp targets, keypad keys at least 66 dp tall). |

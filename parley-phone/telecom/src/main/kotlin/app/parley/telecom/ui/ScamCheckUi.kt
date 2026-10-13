@@ -3,6 +3,7 @@
 
 package app.parley.telecom.ui
 
+import app.parley.ui.ListSectionHeader
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -28,8 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.NameReply
 import app.parley.common.calls.ScamCheck
 import app.parley.common.catching
@@ -117,10 +116,7 @@ private fun signTexts(sign: ScamCheck.Sign): Triple<ImageVector, Int, Int> = whe
 
 @Composable
 private fun Heading(text: String) {
-    Text(
-        text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s).semantics { heading() },
-    )
+    ListSectionHeader(text, inset = Spacing.xl, top = Spacing.s, bottom = Spacing.s)
 }
 
 @Composable

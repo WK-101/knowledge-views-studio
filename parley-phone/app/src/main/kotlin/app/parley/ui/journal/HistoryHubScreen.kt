@@ -1,18 +1,14 @@
 package app.parley.ui.journal
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.ui.Destination
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -55,21 +51,13 @@ enum class HistoryTab(val key: String) {
 @Composable
 fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, open: (Destination) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(initial.ordinal) }
-    var menu by remember { mutableStateOf(false) }
     var storage by rememberSaveable { mutableStateOf(false) }
     // Bumped after a clear, so the tabs that load once (calls, snapshots) read their store again.
     var cleared by remember { mutableIntStateOf(0) }
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.label_history_undo), onBack = back, actions = {
-            Box {
-                IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
-                DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem(
-                        { Text(stringResource(R.string.jr_storage_menu)) },
-                        leadingIcon = { Icon(Icons.Rounded.DeleteSweep, null) },
-                        onClick = { menu = false; storage = true },
-                    )
-                }
+            OverflowMenu { close ->
+                ParleyMenuItem(stringResource(R.string.jr_storage_menu), Icons.Rounded.DeleteSweep) { close(); storage = true }
             }
         })
     }) { p ->

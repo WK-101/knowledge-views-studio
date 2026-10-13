@@ -1,5 +1,6 @@
 package app.parley.messaging
 
+import app.parley.ui.OverflowMenu
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import app.parley.common.catching
@@ -12,7 +13,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -28,18 +28,15 @@ import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -203,10 +200,7 @@ private fun MessageAppItem(
         leadingContent = { AppBadge(label, packageName = packageName) },
         trailingContent = when {
             menu != null && enabled -> ({
-                Box {
-                    IconButton({ open = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.msg_more_actions_for, label)) }
-                    DropdownMenu(open, { open = false }) { menu { open = false } }
-                }
+                OverflowMenu(open, { open = it }, label = stringResource(R.string.msg_more_actions_for, label)) { close -> menu(close) }
             })
             usual -> ({ UsualTag() })
             else -> null
