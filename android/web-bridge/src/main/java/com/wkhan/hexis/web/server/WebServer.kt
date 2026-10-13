@@ -85,7 +85,9 @@ class WebServer(
 
     @Suppress("TooGenericExceptionCaught") // an edge endpoint must map any failure to a status, never crash
     private suspend fun io.ktor.server.application.ApplicationCall.handleApi() {
-        if (!hostAllowed() || !originAllowed()) {
+        if (!RequestGuard.hostAllowed(request.host()) ||
+            !RequestGuard.originAllowed(request.headers["Host"], request.headers["Origin"])
+        ) {
             respond(HttpStatusCode.Forbidden, "forbidden")
             return
         }
@@ -172,24 +174,6 @@ class WebServer(
         seenNonces.entries.removeAll { now - it.value > REPLAY_WINDOW_MS }
     }
 
-    private fun io.ktor.server.application.ApplicationCall.hostAllowed(): Boolean {
-        // Reject a Host that isn't a raw IP / localhost / *.local — the rebinding attacker's Host survives
-        // the rebind, so this blocks a public page from driving our server via a rebound hostname.
-        val host = request.host().substringBefore(':').lowercase()
-        return host == "localhost" ||
-            host.endsWith(".local") ||
-            host.matches(Regex("""^\d{1,3}(\.\d{1,3}){3}$""")) ||
-            host.contains(':') // IPv6 literal
-    }
-
-    private fun io.ktor.server.application.ApplicationCall.originAllowed(): Boolean {
-        // A same-origin SPA fetch sends no Origin (same-origin GET/POST) or an Origin equal to our own host.
-        val origin = request.headers["Origin"] ?: return true
-        val host = request.host()
-        return origin.endsWith("://$host") || origin.endsWith("//$host") ||
-            origin.substringAfter("://", "").substringBefore('/') == host
-    }
-
     // ---- static SPA (served from resources/web/) -----------------------------------------------------
 
     @Suppress("TooGenericExceptionCaught")
@@ -229,7 +213,10 @@ class WebServer(
 
     private companion object {
         const val TAG = "WebServer"
-        const val REPLAY_WINDOW_MS = 60_000L
+        // 5 min tolerates clock skew between the phone and the browser's device (both are usually NTP-synced,
+        // but a wrong phone clock would otherwise 403 every request). The nonce cache still blocks replays
+        // within the window.
+        const val REPLAY_WINDOW_MS = 300_000L
         const val NONCE_PRUNE_AT = 256
         const val STOP_GRACE_MS = 300L
         const val STOP_TIMEOUT_MS = 1000L
