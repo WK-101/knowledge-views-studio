@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.history.ColumnMapping
@@ -55,6 +54,10 @@ import kotlinx.coroutines.CancellationException
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /** Import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,36 +101,37 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.action_import_call_history), onBack = back)
+        ParleyTopBar(stringResource(R.string.action_import_call_history), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Text(
                     stringResource(R.string.hist_import_explain),
-                    Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
+                    Modifier.padding(Spacing.l), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             if (!isDefault) item {
-                Text(stringResource(R.string.hist_import_need_default), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.hist_import_need_default), Modifier.padding(horizontal = Spacing.l), color = MaterialTheme.colorScheme.error)
             }
             item {
                 OutlinedButton(
                     { picker.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*")) },
-                    Modifier.padding(16.dp),
+                    Modifier.padding(Spacing.l),
                 ) {
                     Icon(Icons.Rounded.FileOpen, null)
                     Text("  " + if (uri == null) stringResource(R.string.hist_import_choose) else stringResource(R.string.hist_import_choose_another))
                 }
             }
             if (importing) item { JobProgress(vm, UserJobs.Kind.IMPORT) }
-            busy?.let { b -> item { Column(Modifier.padding(16.dp)) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(b) } } }
-            error?.let { e -> item { Text(e, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
+            busy?.let { b -> item { Column(Modifier.padding(Spacing.l)) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(b) } } }
+            error?.let { e -> item { Text(e, Modifier.padding(Spacing.l), color = MaterialTheme.colorScheme.error) } }
             val pl = plan
             if (pl != null) {
                 item {
-                    Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Column(Modifier.padding(16.dp)) {
+                    Card(Modifier.fillMaxWidth().padding(Spacing.l)) {
+                        Column(Modifier.padding(Spacing.l)) {
                             Text(
                                 stringResource(R.string.hist_import_dry_run, stringResource(HistoryText.source(pl.source))),
                                 style = MaterialTheme.typography.titleMedium,
@@ -177,7 +181,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         }
                     }
                     item {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
+                        Box(Modifier.fillMaxWidth().padding(Spacing.l), contentAlignment = Alignment.CenterEnd) {
                             Button(
                                 onClick = {
                                     // An app job: leaving this screen doesn't stop the import half way.
@@ -211,7 +215,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         item {
                             Text(
                                 stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(LocalResources.current, pr)),
-                                Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                                Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xxs),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -219,7 +223,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     if (pl.problems.size > 50) item {
                         Text(
                             stringResource(R.string.label_and_more, pl.problems.size - 50),
-                            Modifier.padding(16.dp),
+                            Modifier.padding(Spacing.l),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

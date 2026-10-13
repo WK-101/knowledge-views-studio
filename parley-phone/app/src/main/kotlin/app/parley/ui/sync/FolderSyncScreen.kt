@@ -63,6 +63,10 @@ import androidx.compose.material.icons.rounded.Groups
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.sync.shared.SharedLabelRoutes
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,13 +99,14 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
             FolderSyncNotice.update(context, sync.status.value, post = false)
         }
     }
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.sync_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.sync_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p), state = listState) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), state = listState, contentPadding = scaffoldBottom(p)) {
             item {
-                Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Column(Modifier.padding(16.dp)) {
+                Card(Modifier.fillMaxWidth().padding(Spacing.l)) {
+                    Column(Modifier.padding(Spacing.l)) {
                         Text(stringResource(R.string.sync_card_title), style = MaterialTheme.typography.titleMedium)
                         Text(
                             stringResource(R.string.sync_card_text),
@@ -158,14 +163,14 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> 
 @Composable
 private fun SyncActions(st: SyncStatus, running: Boolean, onRun: (allowMassDelete: Boolean) -> Unit, onStop: () -> Unit) {
     if (st.pendingDeletions > 0 && !running) {
-        OutlinedButton({ onRun(true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        OutlinedButton({ onRun(true) }, Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs)) {
             Text(pluralStringResource(R.plurals.sync_apply_deletions, st.pendingDeletions, st.pendingDeletions))
         }
     }
     val canSync = st.folderUri != null && st.mode != SyncMode.UNSET && !running
-    Button({ onRun(false) }, enabled = canSync, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.action_sync_now)) }
-    if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
-    if (st.folderUri != null) TextButton(onStop, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
+    Button({ onRun(false) }, enabled = canSync, modifier = Modifier.padding(horizontal = Spacing.l)) { Text(stringResource(R.string.action_sync_now)) }
+    if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(Spacing.l))
+    if (st.folderUri != null) TextButton(onStop, Modifier.padding(horizontal = Spacing.s)) { Text(stringResource(R.string.sync_stop)) }
 }
 
 /** The shared sync passphrase: the folder's existing one (checked), or a new one that must be Strong. */
@@ -197,8 +202,8 @@ private fun SyncPassphraseDialog(sync: FolderSync, existing: Boolean, onReady: (
         content = {
             Column {
                 PassField(stringResource(R.string.bkp_pass_title), pass) { pass = it; error = null }
-                if (!existing && pass.isNotEmpty()) StrengthMeter(estimate.score, strengthName(estimate.score), modifier = Modifier.padding(top = 8.dp))
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                if (!existing && pass.isNotEmpty()) StrengthMeter(estimate.score, strengthName(estimate.score), modifier = Modifier.padding(top = Spacing.s))
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = Spacing.s)) }
             }
         },
     )
@@ -219,7 +224,7 @@ private fun PlainFilesConsent(onUse: () -> Unit, onDismiss: () -> Unit) {
         content = {
             Row(Modifier.fillMaxWidth().toggleable(understood, role = Role.Checkbox) { understood = it }, verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(understood, onCheckedChange = null)
-                Text(stringResource(R.string.sync_plain_check), modifier = Modifier.padding(start = 8.dp))
+                Text(stringResource(R.string.sync_plain_check), modifier = Modifier.padding(start = Spacing.s))
             }
         },
     )
@@ -235,7 +240,7 @@ private fun SyncModeRows(mode: SyncMode, plainLeft: Int, onEncrypted: () -> Unit
         SyncMode.UNSET -> {
             Text(
                 stringResource(R.string.sync_mode_title), style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
             )
             ParleyListItem(
                 modifier = Modifier.clickable(onClick = onEncrypted),

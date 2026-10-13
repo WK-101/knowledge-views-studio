@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,6 +61,10 @@ import app.parley.ui.common.JobProgress
 import app.parley.ui.settings.exportMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /** Opens the system's "Save as" for a name and type chosen at launch (the format decides both). */
 private class SaveAs : ActivityResultContract<Format, Uri?>() {
@@ -148,8 +151,9 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
         }
     }
 
-    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.export_title), onBack = back) }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.export_title), onBack = back, scrollBehavior = barTint) }) { p ->
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item { JobProgress(vm, UserJobs.Kind.EXPORT) }
             item { Section(stringResource(R.string.export_format)) }
             item { FormatChoice(format) { format = it } }
@@ -170,14 +174,14 @@ fun ExportScreen(vm: AppViewModel, initial: String?, back: () -> Unit) {
                         if (sealed) secrets.hold()
                         saveAs.launch(format)
                     }
-                }, enabled = !running && passOk, modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                }, enabled = !running && passOk, modifier = Modifier.fillMaxWidth().padding(Spacing.l)) {
                     Text(stringResource(R.string.export_save))
                 }
             }
             if (format.csv != null) item {
                 Text(
                     stringResource(R.string.set_csv_format_formula_note), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
                 )
             }
         }
@@ -245,7 +249,7 @@ private fun PrivateChoice(on: Boolean, warn: Boolean, onChange: (Boolean) -> Uni
 
 @Composable
 private fun PassphraseFields(pass: String, repeat: String, onPass: (String) -> Unit, onRepeat: (String) -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         PassField(stringResource(R.string.export_pass), pass, onPass)
         if (pass.isNotEmpty()) {
             val estimate = remember(pass) { PassphraseStrength.estimate(pass) }

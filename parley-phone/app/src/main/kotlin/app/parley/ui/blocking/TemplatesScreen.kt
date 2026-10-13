@@ -81,6 +81,10 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.InfoDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /**
  * Blocking › Templates (v3): curated offline rule sets that install and uninstall as a group, each previewed
@@ -150,17 +154,19 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
     }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
         ParleyTopBar(
             settingTitle("templates"),
             onBack = back,
+            scrollBehavior = barTint,
             actions = { IconButton({ pickFile.launch(arrayOf("*/*")) }) { Icon(Icons.Rounded.FileOpen, stringResource(R.string.blk_tpl_open_file)) } },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
-                Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Card(Modifier.fillMaxWidth().padding(Spacing.l)) {
+                    Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(stringResource(R.string.blk_tpl_header), style = MaterialTheme.typography.titleMedium)
                         Text(
                             stringResource(R.string.blk_tpl_header_body),
@@ -248,7 +254,8 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
     var dry by remember { mutableStateOf<DryRun?>(null) }
     var dryBusy by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val rowPadding = Modifier.padding(horizontal = Spacing.l, vertical = 10.dp)
+    Column(Modifier.fillMaxWidth().clickable { open = !open }.then(rowPadding), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
             if (installed) {
@@ -298,7 +305,7 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                     }, enabled = !dryBusy) { Text(stringResource(if (dryBusy) R.string.blk_tpl_dry_busy else R.string.blk_tpl_dry_button)) }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs), verticalAlignment = Alignment.CenterVertically) {
                 val removed = res.getString(R.string.blk_tpl_removed, name)
                 if (installed) {
                     // Undo puts back the group as it was: the same rules (on or off, with their hits), the list's choices.
@@ -337,13 +344,13 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
                     r == null -> Text(stringResource(R.string.blk_preparing))
                     !r.second -> Text(stringResource(R.string.blk_tpl_qr_too_large))
                     r.first != null -> Image(
-                        r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(8.dp),
+                        r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(Spacing.s),
                     )
                 }
-                actions?.let { ImageActionButtons(it, Modifier.padding(top = 8.dp)) }
+                actions?.let { ImageActionButtons(it, Modifier.padding(top = Spacing.s)) }
                 Text(
                     stringResource(R.string.blk_tpl_qr_help, remember { vm.c.lists.shareFingerprint() }),
-                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = Spacing.s),
                 )
             }
         },

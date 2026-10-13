@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
 
 /** [turning]: the age or years reached next time, counted in the date's own calendar ([AltCalendars.Due.turning]). */
 data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate, val turning: Int? = null)
@@ -84,7 +86,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             return@ParleyScaffold
         }
         val deceased = items.orEmpty().filter { LifeEvents.isDeath(it.event.type, it.event.label) }.map { it.event.contactId }.toSet()
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             val groups = items.orEmpty().groupBy {
                 when {
                     it.days == 0L -> R.string.label_today

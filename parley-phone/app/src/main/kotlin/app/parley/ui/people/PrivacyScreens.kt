@@ -67,6 +67,9 @@ import app.parley.ui.settings.settingTitle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.startOrSay
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.Spacing
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -94,22 +97,22 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         ParleyTopBar(stringResource(R.string.privacy_who_can_see), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             item {
-                Card(Modifier.padding(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.Info, null, Modifier.padding(end = 16.dp))
+                Card(Modifier.padding(Spacing.l), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Row(Modifier.padding(Spacing.l), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Info, null, Modifier.padding(end = Spacing.l))
                         Text(stringResource(Wording.HEADER), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
             if (graphene) item {
-                Card(Modifier.padding(horizontal = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                    Column(Modifier.padding(16.dp)) {
+                Card(Modifier.padding(horizontal = Spacing.l), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Column(Modifier.padding(Spacing.l)) {
                         Text(stringResource(R.string.who_graphene), style = MaterialTheme.typography.titleMedium)
                         Text(
                             stringResource(R.string.who_graphene_text),
-                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp),
+                            style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = Spacing.xs),
                         )
                         TextButton({
                             val scopes = Intent(Intent.ACTION_VIEW, Uri.parse("https://grapheneos.org/usage#contact-scopes"))
@@ -120,9 +123,11 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             }
 
             item { Section(stringResource(R.string.who_apps_section)) }
-            item { Text(stringResource(Wording.APPS), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium) }
+            item {
+                Text(stringResource(Wording.APPS), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs), style = MaterialTheme.typography.bodyMedium)
+            }
             val list = apps
-            if (list == null) item { CircularProgressIndicator(Modifier.padding(24.dp)) }
+            if (list == null) item { CircularProgressIndicator(Modifier.padding(Spacing.xl)) }
             else if (list.isEmpty()) item { ParleyListItem(headlineContent = { Text(stringResource(R.string.who_no_apps)) }) }
             else items(list, key = { it.packageName }) { a ->
                 ParleyListItem(
@@ -164,10 +169,10 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                 SwitchRow(stringResource(R.string.who_save_private), stringResource(R.string.who_save_private_summary), s.privateByDefault) { v ->
                     vm.people.update { it.copy(privateByDefault = v) }
                 }
-                Text(stringResource(Wording.PRIVATE), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Wording.PRIVATE), Modifier.padding(horizontal = Spacing.l), style = MaterialTheme.typography.bodyMedium)
                 Text(
                     stringResource(R.string.who_what_stops),
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
+                    Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s), style = MaterialTheme.typography.bodySmall,
                 )
                 LinkRow(stringResource(R.string.who_move_private), stringResource(R.string.who_move_private_summary)) {
                     vm.navigate(NavEvent.Tab(StartTab.CONTACTS))
@@ -265,7 +270,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         ParleyTopBar(stringResource(R.string.pn_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             item {
                 SwitchRow(
                     settingTitle("private_directory"),
@@ -274,7 +279,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 ) { on -> PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
                 Text(
                     stringResource(R.string.pn_directory_text),
-                    Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
+                    Modifier.padding(horizontal = Spacing.l), style = MaterialTheme.typography.bodyMedium,
                 )
             }
             if (st.directory || st.approvals.isNotEmpty()) {
@@ -294,7 +299,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 )
             }
             if (st.log.isNotEmpty()) item {
-                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.action_clear_log)) }
+                TextButton({ access.clearLog() }, Modifier.padding(horizontal = Spacing.s)) { Text(stringResource(R.string.action_clear_log)) }
             }
         }
     }

@@ -70,6 +70,10 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.InfoDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /**
  * Spam lists: add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
@@ -111,14 +115,15 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(settingTitle("spam_lists"), onBack = back)
+        ParleyTopBar(settingTitle("spam_lists"), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 val sum = vm.c.lists.summarize(state, now)
-                Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Card(Modifier.fillMaxWidth().padding(Spacing.l)) {
+                    Column(Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             if (sum.lists == 0) stringResource(R.string.blk_no_lists) else
                                 listOfNotNull(
@@ -132,7 +137,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             stringResource(R.string.blk_lists_intro),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                             OutlinedButton(
                                 { pickFile.launch(arrayOf("*/*")) }, enabled = !busy,
                             ) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_list_file)) }
@@ -309,11 +314,11 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
             },
             trailingContent = { PackSwitch(vm, pk, name) },
         )
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(horizontal = Spacing.l), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
             TextButton({ open = !open }) { Text(stringResource(if (open) R.string.blk_less else R.string.blk_options)) }
         }
         if (open) {
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (pk.publisher.isNotBlank() || pk.licence.isNotBlank()) Text(listOf(pk.publisher, pk.licence).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                 pk.fingerprint?.let { Text(stringResource(R.string.blk_publisher_key, it), style = MaterialTheme.typography.bodySmall) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
