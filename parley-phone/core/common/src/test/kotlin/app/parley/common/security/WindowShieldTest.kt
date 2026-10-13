@@ -41,4 +41,21 @@ class WindowShieldTest {
         }
         assertTrue(WindowShield.window(34, false, false, secureScreen = true, privateExposed = false, leaving = false).secure)
     }
+
+    @Test fun the_call_screen_is_blank_in_recents_only_with_a_private_contact_on_the_line() {
+        for (sdk in listOf(29, 33, 36)) {
+            for (leaving in listOf(false, true)) {
+                // A normal call: as before, the thumbnail allowed and the window secure only with "Hide screen content".
+                val normal = WindowShield.callWindow(sdk, loaded = true, secureScreen = false, privateOnCall = false, leaving = leaving)
+                assertEquals(WindowShield.Window(true, false), normal)
+                assertTrue(WindowShield.callWindow(sdk, loaded = true, secureScreen = true, privateOnCall = false, leaving = leaving).secure)
+                // A private contact on the line: no thumbnail (Android 13+), FLAG_SECURE as it leaves before that.
+                val w = WindowShield.callWindow(sdk, loaded = true, secureScreen = false, privateOnCall = true, leaving = leaving)
+                assertFalse(w.recentsScreenshot)
+                assertEquals(leaving && sdk < WindowShield.RECENTS_SWITCH_SDK, w.secure)
+            }
+            // Settings not read yet: secure, as before.
+            assertTrue(WindowShield.callWindow(sdk, loaded = false, secureScreen = false, privateOnCall = false, leaving = false).secure)
+        }
+    }
 }

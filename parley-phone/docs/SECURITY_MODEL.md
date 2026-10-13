@@ -587,6 +587,10 @@ see your contacts" says so on Android 17 and later.
   contacts can be on Parley's screen (some exist and show, or details were just opened), app lock or not
   (`WindowShield`): Android 13+ skips it, older versions get FLAG_SECURE as Parley leaves. "Hide screen content" keeps
   FLAG_SECURE on all the time.
+  The call screen, a task of its own, does the same while a private contact's number is on one of its calls (a
+  conference's people and the call just ended included), whether its name shows or discreet mode or a duress unlock
+  shows only the number (`WindowShield.callWindow`; a check that fails counts as private). Other calls keep their
+  thumbnail.
 - **The keyboard (7.0).** While private contacts can show, in the editor of a private contact and in every dialog on a
   private contact's page, Parley asks the keyboard not to learn what is typed (`NoKeyboardLearning`,
   IME_FLAG_NO_PERSONALIZED_LEARNING), as for safe words: a private name must never come back as a suggestion in another
