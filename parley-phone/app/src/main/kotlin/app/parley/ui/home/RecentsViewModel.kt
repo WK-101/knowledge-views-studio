@@ -169,13 +169,19 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         if (hidden) emptyMap() else list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap()
     }
 
-    /** [allCalls] with the filter chips of the call history applied (SIM, type, period, duration). */
+    /**
+     * [allCalls] with the filter chips of the call history applied (SIM, type, period, duration), and whether one was:
+     * the two travel together, so nothing reads a filter beside calls it wasn't applied to yet.
+     */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
-        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(clock(), ZoneId.systemDefault()))
+        (if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(clock(), ZoneId.systemDefault()))) to !f.isEmpty
     }
 
     // The call-list layout travels with the calls, so Recents regroups when it changes.
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
+
+    /** The rows shown, and whether a chip, a call-history filter or a search narrowed them (built together). */
+    private class Shown(val groups: List<RecentGroup>?, val narrowed: Boolean)
 
     /** Archived contacts by line: out of the address book, still named in Recents. */
     private val archivedIndex = c.archive.cards.map { Archive.index(it, countryIso) }
@@ -186,24 +192,29 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
         Triple(v, a, n)
     }
 
-    val groups: StateFlow<List<RecentGroup>?> = combine(
+    private val shown: StateFlow<Shown> = combine(
         callsAndLayout, directory.numberIndex, filter, query.debounce(80), savedElsewhere,
-    ) { (calls, layout), index, filter, q, (vaults, archived, network) ->
-        calls?.let {
+    ) { (filtered, layout), index, filter, q, (vaults, archived, network) ->
+        val (calls, saved) = filtered
+        val list = calls?.let {
             group(it, index, filter, q, layout, vaults.keys, archived, network).map { g ->
                 if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g
             }
         }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+        Shown(list, filter != RecentFilter.ALL || saved || q.isNotBlank())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), Shown(null, false))
+
+    val groups: StateFlow<List<RecentGroup>?> = shown.map { it.groups }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /**
      * Totals for the calls a filter shows ("23 calls · 3 h 12 min · 4 missed"), or null while nothing is filtered: the
      * line only answers a question asked by filtering. Counted from the shown rows, so private calls count only while
-     * they may show, and the whole history once it has loaded.
+     * they may show, and the whole history once it has loaded. Read from the rows together with the filters they were
+     * built with: a filter just chosen never meets the rows from before it (the unfiltered totals for a moment).
      */
-    val totals: StateFlow<CallTotals?> = combine(groups, filter, c.history.activeFilter, query.debounce(80)) { list, chip, saved, q ->
-        val narrowed = chip != RecentFilter.ALL || !saved.isEmpty || q.isNotBlank()
-        if (list == null || !narrowed) null
+    val totals: StateFlow<CallTotals?> = shown.map { s ->
+        val list = s.groups
+        if (list == null || !s.narrowed) null
         else CallTotals.of(list.asSequence().flatMap { it.calls }.distinctBy { it.id }.asIterable())
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
