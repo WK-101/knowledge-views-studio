@@ -13,6 +13,7 @@ import app.parley.common.catching
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
 import app.parley.data.DataContainer
+import app.parley.common.people.TemporaryClock
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.Romanizer
 import app.parley.data.vault.VaultSummary
@@ -160,8 +161,14 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
      * [saveTemporary] as a call: throws [app.parley.data.vault.VaultCrypto.LockedException] when a private one needs the
      * private contacts unlocked first (the keypad asks, then saves again).
      */
-    suspend fun saveTemporaryNow(number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): TemporaryContacts.Saved? =
-        TemporaryContacts.save(c, name, number, days, private = !visible, purgeHistory = deleteHistory)
+    suspend fun saveTemporaryNow(
+        number: String,
+        name: String,
+        days: Int,
+        deleteHistory: Boolean,
+        visible: Boolean,
+        clock: TemporaryClock = TemporaryClock.FIXED,
+    ): TemporaryContacts.Saved? = TemporaryContacts.save(c, name, number, days, private = !visible, purgeHistory = deleteHistory, clock = clock)
 
     private companion object {
         const val STOP_AFTER_MS = 5_000L

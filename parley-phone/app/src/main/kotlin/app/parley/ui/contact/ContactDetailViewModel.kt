@@ -24,6 +24,9 @@ import app.parley.common.people.ContactVariants
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
+import app.parley.common.people.TemporaryChoice
+import app.parley.common.people.TemporaryClock
+import app.parley.common.people.TemporaryRule
 import app.parley.common.people.storage
 import app.parley.common.circle.LabelFeed
 import app.parley.data.ContactDetails
@@ -100,7 +103,7 @@ data class ContactDetailUiState(
     val prefs: MessengerPrefs get() = MessengerPrefs.decode(meta?.preferredMessenger)
     val storage: ContactStorage get() = ref?.storage ?: ContactStorage.DEVICE
     val isPrivate: Boolean get() = storage == ContactStorage.PRIVATE
-    val variants: ContactVariants get() = ContactVariants(storage, temporary?.expiresAt)
+    val variants: ContactVariants get() = ContactVariants(storage, temporary?.expiresAt, temporary?.untilCase == true)
 }
 
 /** [ContactDetailViewModel.numberAdvice]: numbers that seem out of service, and a SIM to suggest. */
@@ -169,8 +172,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         val otherFields: List<OtherFields.Field>,
         val ref: ContactRef,
         val access: PrivateAccess = PrivateAccess.OPEN,
-        /** A private contact's expiry and call-history choice (a device contact's is in [TemporaryContactEntity]). */
-        val privateExpiry: Pair<Long, Boolean>? = null,
+        /** A private contact's expiry (a device contact's is in [TemporaryContactEntity]), with its own fields. */
+        val privateExpiry: TemporaryContactEntity? = null,
     )
 
     private val loaded: StateFlow<Loaded?> = ref.filterNotNull().flatMapLatest { r ->
@@ -216,7 +219,12 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 emit(Loaded(null, emptyList(), emptyList(), r))
                 return@transformLatest
             }
-            val expiry = summary.expiresAt?.let { it to summary.purgeHistory }
+            val expiry = summary.expiresAt?.let {
+                TemporaryContactEntity(
+                    ContactRef.privateKey(r.vaultId), r.navId, it, summary.purgeHistory,
+                    slideDays = summary.rule.slideDays, untilCase = summary.rule.untilCase,
+                )
+            }
             // The photo's file is looked at off the main thread (this runs in viewModelScope; StrictMode flags it there).
             val photo = withContext(Dispatchers.IO) { c.vault.photoUri(r.vaultId) }
             fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = photo)
@@ -287,8 +295,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     /** When they delete themselves: the temporary-contacts table for a device contact, the vault entry for a private one. */
     private val temporary = combine(lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.temporaryFlow(k) }, loaded) { t, l ->
-        val (at, purge) = l?.privateExpiry ?: return@combine t.takeIf { l?.ref !is ContactRef.Private }
-        TemporaryContactEntity(l.details?.lookupKey.orEmpty(), l.ref.navId, at, purge)
+        val private = l?.privateExpiry ?: return@combine t.takeIf { l?.ref !is ContactRef.Private }
+        private.copy(lookupKey = l.details?.lookupKey.orEmpty(), contactId = l.ref.navId)
     }
 
     // Logged interactions for the timeline and the Stay in touch card.
@@ -539,27 +547,32 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     fun setSimFor(number: String, simId: String?) = launch { c.prefs.setSimFor(number, simId) }
 
-    /** "Delete after…" (null: keep them). */
-    fun setExpiry(days: Int?) = launch {
+    /** "Delete after…" (null: keep them), counted as [clock] says. */
+    fun setExpiry(days: Int?, clock: TemporaryClock = TemporaryClock.FIXED) = launch {
         val d = current ?: return@launch
         val v = vaultId
         when {
             // A private contact's expiry is its vault entry's own; its call history goes with it, as for others.
             v != null && days == null -> c.vault.setExpiry(v, null)
             v != null -> {
-                val at = System.currentTimeMillis() + days!! * app.parley.common.people.TemporaryChoice.DAY_MS
+                val at = TemporaryRule.firstExpiry(clock, days!!, System.currentTimeMillis())
                 // A new date keeps a temporary contact's call-history choice; only one made temporary now takes the
                 // default. The sealed details aren't re-sealed for this (nor over a lost detail key).
                 val already = c.vault.summary(v)?.expiresAt != null
-                c.vault.setExpiry(v, at, app.parley.common.people.TemporaryChoice.purgeOnNewDate(already))
+                c.vault.setExpiry(v, at, TemporaryChoice.purgeOnNewDate(already), TemporaryRule.of(clock, days))
             }
             days == null -> c.temporaries.clear(d.lookupKey)
-            else -> c.temporaries.mark(id, days, purgeHistory = c.temporaries.forKey(d.lookupKey)?.purgeHistory ?: true)
+            else -> c.temporaries.mark(id, days, purgeHistory = c.temporaries.forKey(d.lookupKey)?.purgeHistory ?: true, clock = clock)
         }
         reload()
+        val res = c.appContext.resources
         messages.trySend(
-            if (days == null) c.appContext.getString(R.string.detail_kept)
-            else c.appContext.resources.getQuantityString(R.plurals.detail_deletes_in_days, days, days),
+            when {
+                days == null -> res.getString(R.string.detail_kept)
+                clock == TemporaryClock.CASE_CLOSED -> res.getString(R.string.detail_deletes_with_case)
+                clock == TemporaryClock.LAST_CALL -> res.getQuantityString(R.plurals.detail_deletes_days_after_call, days, days)
+                else -> res.getQuantityString(R.plurals.detail_deletes_in_days, days, days)
+            },
         )
     }
 

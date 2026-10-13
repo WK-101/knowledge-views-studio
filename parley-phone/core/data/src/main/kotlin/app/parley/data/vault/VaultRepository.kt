@@ -15,6 +15,7 @@ import app.parley.common.people.CallerCard
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
+import app.parley.common.people.TemporaryRule
 import app.parley.common.record.ContactRecord
 import app.parley.common.storage.DurableFiles
 import app.parley.data.CallerInfo
@@ -108,6 +109,8 @@ data class VaultSummary(
      * Shown only while private contacts may show; empty for an entry not seeded yet ([VaultDates.migrate]).
      */
     val dates: List<EventItem> = emptyList(),
+    /** A temporary one's rule: a fixed date, days after the last call, or until its case is closed. */
+    val rule: TemporaryRule = TemporaryRule.FIXED,
 ) {
     /** Archived: kept in the vault, out of the lists. */
     val archived: Boolean get() = archivedAt != null
@@ -568,7 +571,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /**
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
-     * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
+     * keeps the current choice) removes its call history when it expires; [rule] (null keeps the current one) how its
+     * date moves ([TemporaryRule]). [record]: the lossless image of the phone
      * contact it came from ("Move to private"); it is sealed with the details (photo included) so moving back out
      * restores every field. Editing an entry later keeps the stored record (see [storedRecord]). [interactions]: the
      * contact's logged interactions ([app.parley.common.circle.Interactions.encodeCarried]), sealed with the details
@@ -582,6 +586,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         d: ContactDetails,
         expiresAt: Long? = null,
         purgeHistory: Boolean? = null,
+        rule: TemporaryRule? = null,
         record: ContactRecord? = null,
         recordOf: String? = null,
         interactions: String? = null,
@@ -596,6 +601,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val existing = id?.let { dao.get(it) }
             val existingSummary = existing?.let { summarize(it) }
             val purge = purgeHistory ?: existingSummary?.purgeHistory ?: false
+            val dateRule = rule ?: existingSummary?.rule ?: TemporaryRule.FIXED
             val groups = catching { labelGroups() }.getOrDefault(emptyList())
             // [loaded]: the editor's starting point. Only what the editor changed is taken from it; the rest stays as the
             // entry has it now (a star or a label changed from the list while the editor was open).
@@ -631,6 +637,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 // When it was last saved, so the newest of two entries sharing a number wins.
                 .put("u", System.currentTimeMillis())
                 .apply { if (purge) put("purge", true) }
+                .also { CallerIdCopy.putRule(it, dateRule) }
                 // In Favourites while the vault is locked, like the name in Contacts.
                 .apply { if (shown.starred) put(C_STAR, true) }
                 // Labels, ringtone and "send to voicemail": applied to calls while the phone is locked.
@@ -922,20 +929,30 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /**
-     * Only the expiry column, and with [purgeHistory] (null: unchanged) the call-history choice, which the caller-ID
-     * copy keeps: the sealed details are never re-sealed, so this works while the vault is locked or its detail key is
+     * Only the expiry column, and with [purgeHistory] (null: unchanged) the call-history choice and with [rule] (null:
+     * unchanged; no expiry clears it) how the date moves, which the caller-ID copy keeps: the sealed details are never re-sealed, so this works while the vault is locked or its detail key is
      * lost, and a re-seal or a save running meanwhile is never undone by an older copy of the row.
      */
-    suspend fun setExpiry(id: Long, expiresAt: Long?, purgeHistory: Boolean? = null) = withContext(Dispatchers.IO) {
+    suspend fun setExpiry(id: Long, expiresAt: Long?, purgeHistory: Boolean? = null, rule: TemporaryRule? = null) = withContext(Dispatchers.IO) {
         keysLock.withLock {
             dao.setExpiry(id, expiresAt)
-            if (purgeHistory == null) return@withLock
+            // Kept for good: no rule is left to move a date it no longer has.
+            val newRule = if (expiresAt == null) TemporaryRule.FIXED else rule
+            if (purgeHistory == null && newRule == null) return@withLock
             val e = dao.callerRow(id) ?: return@withLock
             val o = catching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock
-            if (o.optBoolean("purge", false) == purgeHistory) return@withLock
-            if (purgeHistory) o.put("purge", true) else o.remove("purge")
+            val samePurge = purgeHistory == null || o.optBoolean("purge", false) == purgeHistory
+            val sameRule = newRule == null || CallerIdCopy.ruleOf(o) == newRule
+            if (samePurge && sameRule) return@withLock
+            if (purgeHistory != null) if (purgeHistory) o.put("purge", true) else o.remove("purge")
+            newRule?.let { CallerIdCopy.putRule(o, it) }
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
         }
+    }
+
+    /** When entry [id] last had a connected call (a missed or zero-length one doesn't count), or null. */
+    suspend fun lastConnectedCall(id: Long): Long? = withContext(Dispatchers.IO) {
+        dao.privateCallsOf(id).filter { it.durationSec > 0 }.maxOfOrNull { it.date }
     }
 
     /** Deletes a private contact with its fingerprints and private calls, all or nothing; then its photo. */

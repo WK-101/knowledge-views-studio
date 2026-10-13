@@ -187,8 +187,9 @@ class SaveContactUseCase(private val c: DataContainer) {
         val already = existing?.let { c.vault.summary(it)?.expiresAt } != null
         val id = c.vault.save(
             existing, cleaned,
-            expiresAt = after?.let { System.currentTimeMillis() + it.days * TemporaryChoice.DAY_MS },
+            expiresAt = after?.expiresAt(System.currentTimeMillis()),
             purgeHistory = if (after != null) TemporaryChoice.purgeOnNewDate(already) else null,
+            rule = after?.rule,
             loaded = r.vaultLoaded.takeIf { existing != null },
         )
         if (r.expiry == ExpiryChange.Keep) c.vault.setExpiry(id, null)
@@ -318,7 +319,9 @@ class SaveContactUseCase(private val c: DataContainer) {
         val details = if (t.private) e.copy(handles = e.handles.filter { it.value.isNotBlank() }) else e
         val avatar = if (t.private) null else avatarFile(r) { null }
         val saved = try {
-            TemporaryContacts.saveDetails(c, details, t.days, t.private, t.purgeHistory, photo = avatar?.let(Uri::fromFile) ?: r.photo.takeUnless { t.private })
+            TemporaryContacts.saveDetails(
+                c, details, t.days, t.private, t.purgeHistory, photo = avatar?.let(Uri::fromFile) ?: r.photo.takeUnless { t.private }, clock = t.clock,
+            )
         } finally {
             avatar?.delete()
         } ?: return null
@@ -348,7 +351,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             }
             is ExpiryChange.After -> {
                 val purge = before?.let { c.temporaries.forKey(it) }?.purgeHistory ?: true
-                c.temporaries.mark(id, e.days, purge)
+                c.temporaries.mark(id, e.days, purge, e.clock)
             }
         }
     }

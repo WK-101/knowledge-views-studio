@@ -260,7 +260,7 @@ Each gap is checked the same way: is it useful to Parley's users, and does it fi
 | O3 | Show "Apps that can read your call history" next to "Who can see your contacts" (NX-2)? | **Yes, in 7.1.** Same screen, no new row |
 | O4 | Build the call record (NX-1), including blocked and silenced attempts and a fingerprint on every page? | **Yes, in 7.2.** No signature for now; the wording says "a record from your phone", never "evidence" |
 | O5 | Should Keep forever on a number also keep its blocked attempts beyond 365 days? | **Yes.** It is what someone collecting a harassment record expects |
-| O6 | Offer "N days after your last call" and "When this case is closed" for temporary contacts (NX-3)? | **Yes, in 7.1.** These are choices in the existing picker |
+| O6 | Offer "N days after your last call" and "When this case is closed" for temporary contacts (NX-3)? | **Yes, in 7.1.** These are choices in the existing picker. *Accepted as recommended (7.1).* |
 | O7 | Build In memory (NX-4), including copying voicemails into Parley's sealed storage and backups? | **Yes, in 7.3**, offered once when a date of death is saved, never automatic. Show its size in the backup |
 | O8 | Add "Talk time per person" with per-call rounding to Export… (NX-5)? | **Yes, in 7.2** |
 | O9 | Add a pinned "Call back" shortcut (NX-6) instead of supporting OpenContacts' voice-command SDK? | **Yes** to the shortcut, always with confirmation; **no** to the SDK |

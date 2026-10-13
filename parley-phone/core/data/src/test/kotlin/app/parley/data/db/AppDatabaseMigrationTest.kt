@@ -97,6 +97,29 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * 11 → 12: a temporary contact saved before keeps its date and stays a fixed one (no last-call days, not waiting
+     * for a case), and the new columns take a rule.
+     */
+    @Test fun elevenToTwelveKeepsTemporaryContactsFixed() {
+        helper.createDatabase(NAME, 11).use { db ->
+            db.execSQL(
+                "INSERT INTO temporary_contacts (lookupKey, contactId, expiresAt, purgeHistory, rawIds, name, keepAsked) " +
+                    "VALUES ('plumber', 4, 9000, 1, '12', 'Plumber', 0)",
+            )
+        }
+        helper.runMigrationsAndValidate(NAME, 12, true, *Migrations.ALL).use { db ->
+            db.query("SELECT expiresAt, rawIds, slideDays, untilCase FROM temporary_contacts WHERE lookupKey = 'plumber'").use { c ->
+                c.moveToFirst()
+                assertEquals(9000L, c.getLong(0))
+                assertEquals("12", c.getString(1))
+                assertTrue(c.isNull(2))
+                assertEquals(0, c.getInt(3))
+            }
+            db.execSQL("UPDATE temporary_contacts SET slideDays = 7, untilCase = 1 WHERE lookupKey = 'plumber'")
+        }
+    }
+
     /** The app opens the migrated file through Room itself (the generated auto-migrations, no fallback). */
     @Test fun roomOpensAVersionOneFileWithTheShippedMigrations() = runBlocking {
         helper.createDatabase(NAME, 1).use { db ->
@@ -197,7 +220,7 @@ class AppDatabaseMigrationTest {
 
     private companion object {
         const val NAME = "migration-test.db"
-        const val LATEST = 11
+        const val LATEST = 12
     }
 }
 

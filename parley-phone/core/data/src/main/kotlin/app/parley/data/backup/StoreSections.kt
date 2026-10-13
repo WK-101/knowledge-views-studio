@@ -26,6 +26,7 @@ import app.parley.data.db.AppDatabase
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.TemporaryContactEntity
+import app.parley.data.people.TemporaryRules
 import app.parley.data.history.HistoryPrefs
 import org.json.JSONArray
 import org.json.JSONObject
@@ -84,6 +85,7 @@ class ContactNotesBackup(
         val temps = JSONArray()
         meta.allTemporary().forEach { t ->
             val o = refs.ref(t.lookupKey).toJson().put("exp", t.expiresAt).put("purge", t.purgeHistory).put("asked", t.keepAsked)
+            TemporaryRules.put(o, t.rule)
             t.name?.let { if (!o.has("n")) o.put("n", it) }
             temps.put(o)
         }
@@ -110,10 +112,12 @@ class ContactNotesBackup(
         }
         val temps = values[K_TEMPORARY]?.let { JSONArray(it).objects() }.orEmpty().mapNotNull { o ->
             val c = refs.resolve(o.toPersonRef()) ?: run { unmatched++; return@mapNotNull null }
+            val rule = TemporaryRules.read(o)
             TemporaryContactEntity(
                 c.lookupKey, c.id, o.optLong("exp"), o.optBoolean("purge", true),
                 rawIds = catching { TemporaryExpiry.encodeIds(rawIds(c.id)) }.getOrNull()?.ifEmpty { null },
                 name = o.optString("n").ifEmpty { c.displayName }, keepAsked = o.optBoolean("asked", false),
+                slideDays = rule.slideDays, untilCase = rule.untilCase,
             )
         }
         val notes = values[K_CALL_NOTES]?.let { JSONArray(it).objects() }.orEmpty()

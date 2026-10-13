@@ -29,7 +29,7 @@ Parley whenever the phone is on, including while it is locked.
 |---|---|---|---|
 | Private contacts: name, numbers, caller card, dates (6.8) | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen; the dates let a birthday today reach Next up and the call screen without unlocking, shown only by the rule below |
 | Private call history (number, name, video, the app of an internet call) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
-| Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark, dates; never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
+| Private contacts' list rows kept for a cold start (name, sort name, numbers, star, labels, ringtone and call choices, company, region, the archived mark, dates, a temporary contact's rule (days after the last call, or until its case file is resolved); never the caller card's note, "who is this" line, title or pronouns) | Private-rows key (`PrivateSummaryCache`): software AES key wrapped by a Keystore key; the whole list one sealed file | None | Lists the vault at a cold start with one Keystore operation instead of one per contact; each row is checked against the caller-ID copy it came from, so it can be stale on disk but is never shown stale |
 | The Contacts list's first screen kept for a cold start (name, sort name, photo URI, star, first number, header; private rows only when they were listed and not locked) | Small-records key (`RecordCrypto`) | None | Drawn before the lists load; checked against discreet mode, duress and "Lock private contacts" before it is drawn, and rewritten without private rows the moment they are locked or a duress unlock happens |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
@@ -545,7 +545,9 @@ call-log numbers that may be private, decided on every form caller ID matches on
 stored, the last digits; `VaultNumberKeys.Prefilter`), so no call caller ID recognises is ever skipped.
 
 Private calls are never pruned automatically: "Trim Android's call log" applies to the phone's call log and the archive,
-not to them. They go when deleted, with their contact, or when a temporary private contact expires.
+not to them. They go when deleted, with their contact, or when a temporary private contact expires. A temporary private
+contact that counts from its last call (7.1) has the daily upkeep read only the date and length of its own private
+calls (never opened); nothing else is kept about it, and chats with private contacts are still never recorded.
 
 **What remains:** the moment between Telecom's insert and Parley's delete. The delete runs on the change notice, so
 the expected window is well under a second (one call-log query and one delete; debug builds log the measured time

@@ -58,11 +58,20 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
                     VariantChip.Private -> VariantChipView(
                         Icons.Rounded.Lock, stringResource(R.string.label_private), stringResource(R.string.contact_variant_private),
                     ) { onClick(chip) }
-                    is VariantChip.Temporary -> VariantChipView(
-                        Icons.Rounded.Timer,
-                        stringResource(R.string.contact_variant_temporary_short, timeLeft(res, chip.expiresAt)),
-                        stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt)),
-                    ) { onClick(chip) }
+                    // Waiting for its case file, its date only holds it until then: the chip says what it waits for.
+                    is VariantChip.Temporary -> if (chip.untilCase) {
+                        VariantChipView(
+                            Icons.Rounded.Timer,
+                            stringResource(R.string.contact_variant_temporary_case_short),
+                            stringResource(R.string.contact_variant_temporary_case),
+                        ) { onClick(chip) }
+                    } else {
+                        VariantChipView(
+                            Icons.Rounded.Timer,
+                            stringResource(R.string.contact_variant_temporary_short, timeLeft(res, chip.expiresAt)),
+                            stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt)),
+                        ) { onClick(chip) }
+                    }
                 }
             }
         }

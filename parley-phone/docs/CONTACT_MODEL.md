@@ -34,6 +34,17 @@ ContactVariants(storage, expiresAt) (what it is)
   names (Delete / Keep 7 more days / Keep permanently, `DueTemporaries`, rules in `TemporaryDue`), Temporary contacts
   shows the same choice, and an unanswered one stays, with a reminder every 3 days. Off, expiry deletes as before.
   While due, a private one isn't named by caller ID (expired vault entries never match, F15).
+- **Temporary until the job's done.** A temporary date can count from the save (a fixed date, as always), from the
+  **last call** ("7 days after your last call": every connected call, and every chat started from Parley for a visible
+  one, moves it on), or wait **until the case file is resolved** (offered on the contact page while a case file for its
+  numbers is open). The rule is stored with the entry (`temporary_contacts.slideDays` / `untilCase`, schema v12; the
+  caller-ID copy's `slide` / `case` for a private one) and travels in backups; older versions ignore it and keep the
+  date as a fixed one. The daily upkeep moves the date on first (`TemporaryRules.follow`, rules in `TemporaryRule`),
+  never earlier; everything after that is unchanged: due, "Ask before deleting", Keep 7 more days and the undo. While
+  the case is open (or case files can't be read) the date is held 2 days ahead, so the contact is asked about within
+  a day or two of the case being resolved, stopped or removed. Delete from the notification re-checks first: a call
+  since the question keeps the contact. "Keep permanently" clears the rule; Extend keeps it. Private contacts follow
+  the same rules (their calls are Parley's own, by entry; chats with them are never recorded, so only calls count).
 - **Variants combine.** A private contact can be temporary and so can a device contact. Future variants (a work-profile
   contact, a SIM contact: read-only) fit the same shape: another storage, or another attribute.
 

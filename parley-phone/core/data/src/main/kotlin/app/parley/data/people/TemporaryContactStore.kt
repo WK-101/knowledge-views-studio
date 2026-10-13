@@ -4,7 +4,9 @@ import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
 import app.parley.common.catching
+import app.parley.common.people.TemporaryClock
 import app.parley.common.people.TemporaryExpiry
+import app.parley.common.people.TemporaryRule
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
 import app.parley.data.DataContainer
@@ -54,6 +56,7 @@ class TemporaryContactStore(private val c: DataContainer) {
         expiresAt: Long,
         purgeHistory: Boolean = true,
         photo: Uri? = null,
+        rule: TemporaryRule = TemporaryRule.FIXED,
     ): ContactsRepository.SaveResult? = mutex.withLock {
         val saved = c.contacts.save(null, details, null, photo, false) ?: return@withLock null
         val raw = saved.rawId
@@ -72,6 +75,7 @@ class TemporaryContactStore(private val c: DataContainer) {
                 TemporaryContactEntity(
                     recordKey, saved.contactId, expiresAt, purgeHistory,
                     rawIds = raw?.let { TemporaryExpiry.encodeIds(listOf(it)) }, name = details.composedName.ifBlank { null },
+                    slideDays = rule.slideDays, untilCase = rule.untilCase,
                 ),
             )
         }
@@ -79,10 +83,10 @@ class TemporaryContactStore(private val c: DataContainer) {
     }
 
     /**
-     * Makes an existing contact delete itself after [days] days ([days] null: keep it, clearing the flag). All of
-     * its current raw contacts are recorded, since the user chose this whole contact.
+     * Makes an existing contact delete itself after [days] days ([days] null: keep it, clearing the flag), counted as
+     * [clock] says. All of its current raw contacts are recorded, since the user chose this whole contact.
      */
-    suspend fun mark(contactId: Long, days: Int?, purgeHistory: Boolean = true) = withContext(Dispatchers.IO) {
+    suspend fun mark(contactId: Long, days: Int?, purgeHistory: Boolean = true, clock: TemporaryClock = TemporaryClock.FIXED) = withContext(Dispatchers.IO) {
         val key = c.contacts.lookupKeyOf(contactId) ?: return@withContext
         mutex.withLock {
             if (days == null) {
@@ -90,10 +94,12 @@ class TemporaryContactStore(private val c: DataContainer) {
                 return@withLock
             }
             val name = c.contacts.contacts.value?.firstOrNull { it.id == contactId }?.displayName
+            val rule = TemporaryRule.of(clock, days)
             c.meta.setTemporary(
                 TemporaryContactEntity(
-                    key, contactId, System.currentTimeMillis() + days * DAY, purgeHistory,
+                    key, contactId, TemporaryRule.firstExpiry(clock, days, System.currentTimeMillis()), purgeHistory,
                     rawIds = TemporaryExpiry.encodeIds(c.contacts.rawIds(contactId)), name = name,
+                    slideDays = rule.slideDays, untilCase = rule.untilCase,
                 ),
             )
         }
@@ -105,12 +111,22 @@ class TemporaryContactStore(private val c: DataContainer) {
      * have joined them with someone else's copies, which must never be deleted); null records all of its current raw
      * contacts, like [mark]. A key that can't be read yet records the entry by its raw contact, like [createPhone].
      */
-    suspend fun markAt(contactId: Long, expiresAt: Long, purgeHistory: Boolean, name: String?, rawIds: Collection<Long>? = null) = withContext(Dispatchers.IO) {
+    suspend fun markAt(
+        contactId: Long,
+        expiresAt: Long,
+        purgeHistory: Boolean,
+        name: String?,
+        rawIds: Collection<Long>? = null,
+        rule: TemporaryRule = TemporaryRule.FIXED,
+    ) = withContext(Dispatchers.IO) {
         val ids = rawIds?.distinct() ?: c.contacts.rawIds(contactId)
         val key = c.contacts.lookupKeyOf(contactId)?.takeIf { it.isNotEmpty() } ?: ids.firstOrNull()?.let(TemporaryExpiry::pendingKey) ?: return@withContext
         mutex.withLock {
             c.meta.setTemporary(
-                TemporaryContactEntity(key, contactId, expiresAt, purgeHistory, rawIds = TemporaryExpiry.encodeIds(ids), name = name),
+                TemporaryContactEntity(
+                    key, contactId, expiresAt, purgeHistory, rawIds = TemporaryExpiry.encodeIds(ids), name = name,
+                    slideDays = rule.slideDays, untilCase = rule.untilCase,
+                ),
             )
         }
     }
@@ -174,6 +190,37 @@ class TemporaryContactStore(private val c: DataContainer) {
         c.meta.setTemporary(t.copy(expiresAt = expiresAt))
     }
 
+    /**
+     * Moves on the dates of those that count from the last call or wait for their case file ([TemporaryRule.follow]):
+     * never earlier, and a fixed date is never touched. [lastContact]: the newest connected call or chat with any of
+     * the numbers given; [caseOf]: where the case file kept for them stands.
+     */
+    suspend fun followRules(
+        now: Long,
+        lastContact: suspend (List<String>) -> Long?,
+        caseOf: suspend (List<String>) -> TemporaryRule.CaseNow,
+    ) = withContext(Dispatchers.IO) {
+        for (t in c.meta.allTemporary()) {
+            val rule = t.rule
+            if (rule.clock == TemporaryClock.FIXED) continue
+            val raws = TemporaryExpiry.decodeIds(t.rawIds)
+                ?: c.contacts.resolve(t.lookupKey, t.contactId)?.let { c.contacts.rawIds(it).toSet() }.orEmpty()
+            val numbers = numbersOf(raws)
+            val at = TemporaryRule.follow(
+                t.expiresAt, rule,
+                lastContact = if (rule.clock == TemporaryClock.LAST_CALL) lastContact(numbers) else null,
+                case = if (rule.clock == TemporaryClock.CASE_CLOSED) caseOf(numbers) else TemporaryRule.CaseNow.UNKNOWN,
+                now = now,
+            )
+            if (at == t.expiresAt) continue
+            mutex.withLock {
+                // Read again: a choice made meanwhile (kept, a new date) wins.
+                val current = c.meta.temporary(t.lookupKey) ?: return@withLock
+                if (current.rule == rule) c.meta.setTemporary(current.copy(expiresAt = maxOf(current.expiresAt, at)))
+            }
+        }
+    }
+
     /** The temporary contacts whose time is up at [now], by lookup key, with their names when known. */
     suspend fun due(now: Long = System.currentTimeMillis()): List<TemporaryContactEntity> = withContext(Dispatchers.IO) { c.meta.expiredContacts(now) }
 
@@ -226,7 +273,6 @@ class TemporaryContactStore(private val c: DataContainer) {
     }
 
     companion object {
-        private const val DAY = 86_400_000L
         private const val KEY_TRIES = 5
         private const val KEY_RETRY_MS = 200L
     }

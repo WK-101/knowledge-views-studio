@@ -423,6 +423,13 @@
     <string name="temp_also_history">Also delete its call history</string>
     <string name="temp_visible">Save visible to other apps</string>
     <string name="action_save_privately">Save privately</string>
+    <string name="temp_from_last_call">Count from your last call</string>
+    <string name="temp_from_last_call_sub">Each call or chat moves the date on</string>
+    <string name="temp_until_case">When the case file is resolved</string>
+    <plurals name="temp_after_last_call">
+        <item quantity="one">%1$d day after your last call</item>
+        <item quantity="other">%1$d days after your last call</item>
+    </plurals>
 
     <!-- Private contact (vault) page -->
     <string name="label_couldnt_move">Couldn\'t move: %1$s</string>

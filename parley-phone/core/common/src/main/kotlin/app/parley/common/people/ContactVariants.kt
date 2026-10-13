@@ -12,14 +12,14 @@ val ContactRef.storage: ContactStorage get() = if (this is ContactRef.Private) C
  * The variants of one contact: where it is kept, and whether (and when) it deletes itself. Variants combine: a
  * private contact can be temporary, and so can a device contact. More can follow (work profile, SIM: read-only).
  */
-data class ContactVariants(val storage: ContactStorage, val expiresAt: Long? = null) {
+data class ContactVariants(val storage: ContactStorage, val expiresAt: Long? = null, val untilCase: Boolean = false) {
     val isPrivate: Boolean get() = storage == ContactStorage.PRIVATE
     val isTemporary: Boolean get() = expiresAt != null
 
     /** The small status chips the page header shows, in this order; an ordinary device contact shows none. */
     val chips: List<VariantChip> get() = listOfNotNull(
         VariantChip.Private.takeIf { isPrivate },
-        expiresAt?.let { VariantChip.Temporary(it) },
+        expiresAt?.let { VariantChip.Temporary(it, untilCase) },
     )
 
     /** The conversions offered from "Settings for this contact", in this order. */
@@ -34,8 +34,8 @@ sealed interface VariantChip {
     /** "Private · hidden from other apps". */
     data object Private : VariantChip
 
-    /** "Temporary · deletes itself on …". */
-    data class Temporary(val expiresAt: Long) : VariantChip
+    /** "Temporary · deletes itself on …", or "… when its case is closed" ([untilCase]: the date only holds it till then). */
+    data class Temporary(val expiresAt: Long, val untilCase: Boolean = false) : VariantChip
 }
 
 /** Moving between variants without losing anything (docs/CONTACT_MODEL.md, "Conversions"). */

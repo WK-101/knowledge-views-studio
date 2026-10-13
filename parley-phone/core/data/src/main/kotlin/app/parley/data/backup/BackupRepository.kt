@@ -69,6 +69,7 @@ import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.security.Privacy
 import app.parley.data.vault.PrivateCall
+import app.parley.data.people.TemporaryRules
 import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
@@ -507,6 +508,7 @@ class BackupRepository(
             val d = catching { vault.details(v.id) }.getOrNull() ?: continue
             val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
             if (v.purgeHistory) o.put("purgeHistory", true)
+            if (v.expiresAt != null) TemporaryRules.put(o, v.rule)
             putLabels(o, v)
             // The lossless phone-contact image of a moved contact, with the hash that tells whether the details
             // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older
@@ -887,6 +889,7 @@ class BackupRepository(
             val id = vault.save(
                 null, d.copy(photoUri = null), expiresAt,
                 purgeHistory = if (expiresAt != null) o.optBoolean("purgeHistory", false) else null,
+                rule = if (expiresAt != null) TemporaryRules.read(o) else null,
                 record = record, recordOf = o.optString("recordOf").takeIf { record != null && it.isNotEmpty() },
                 interactions = o.optString("interactions").takeIf { it.isNotEmpty() },
             )

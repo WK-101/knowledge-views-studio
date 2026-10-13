@@ -18,6 +18,8 @@ import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.IntentRoutes
 import app.parley.data.StatePrefs
+import app.parley.data.people.TemporaryRules
+import app.parley.common.catching
 import kotlinx.coroutines.launch
 
 /**
@@ -65,6 +67,8 @@ object DueTemporaries {
         val ctx = c.appContext
         val prefs = StatePrefs.open(ctx, PREFS)
         val asked = prefs.getStringSet(K_ASKED, emptySet()).orEmpty()
+        // A call since the question moves a "from the last call" date on: that contact is no longer due, so not deleted.
+        if (decision == TemporaryDue.Decision.DELETE) catching { TemporaryRules.follow(c, now) }
         val targets = TemporaryDue.targets(keys ?: asked, dueKeys(c, now))
         val device = targets.filter { ContactRef.vaultIdOf(it) == null }.toSet()
         val private = targets.mapNotNull { ContactRef.vaultIdOf(it) }.toSet()

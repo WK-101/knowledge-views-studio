@@ -234,7 +234,7 @@ fun SelectionBar(vm: AppViewModel) {
         ArchiveSelectionDialog(vm, ids, onDismiss = { confirmArchive = false }, onArchived = { vm.selection.value = emptySet() })
     }
     if (askExpiry) {
-        ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
+        ExpiryDialog(onDismiss = { askExpiry = false }) { days, _ ->
             askExpiry = false
             scope.launch {
                 bulk.setExpiry(ids, days)

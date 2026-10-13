@@ -359,6 +359,11 @@
     <string name="detail_gone">This contact no longer exists.</string>
     <string name="detail_view_photo">View photo</string>
     <string name="detail_deletes_on">Deletes itself on %1$s</string>
+    <plurals name="detail_deletes_after_last_call">
+        <item quantity="one">Deletes itself %1$d day after your last call (now %2$s)</item>
+        <item quantity="other">Deletes itself %1$d days after your last call (now %2$s)</item>
+    </plurals>
+    <string name="detail_deletes_with_case">Deletes itself when the case file is resolved</string>
     <string name="label_sms">SMS</string>
     <string name="detail_choose_message">Choose how to message</string>
     <string name="label_video">Video</string>
@@ -390,6 +395,10 @@
     <plurals name="detail_deletes_in_days">
         <item quantity="one">Contact deletes itself in %d day</item>
         <item quantity="other">Contact deletes itself in %d days</item>
+    </plurals>
+    <plurals name="detail_deletes_days_after_call">
+        <item quantity="one">Contact deletes itself %d day after your last call</item>
+        <item quantity="other">Contact deletes itself %d days after your last call</item>
     </plurals>
     <string name="action_delete_named_q">Delete %1$s?</string>
     <string name="detail_delete_body">This removes the contact from every account it is saved in. You can restore it from History &amp; undo for 30 days.</string>

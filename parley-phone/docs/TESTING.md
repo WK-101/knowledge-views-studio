@@ -3995,3 +3995,28 @@ Automated: `NavigationGuardTest.back_still_works_on_a_page_that_never_settles` (
 1. **Back is never dead.** Open Settings › Calls, tap Back, and at once pull down the notification shade (or let a permission prompt or the fingerprint sheet come up) before the page has settled. Close it and tap the top bar's Back: it goes back. A quick double tap of Back still lands on Settings, not Home.
 2. **Visible names stay in the call log.** Save a number as a phone contact "Ana" and the same number on an archived contact. Revoke Parley's Contacts permission, then run the daily upkeep (`adb shell cmd jobscheduler run -f app.parley.debug <job id>`): Google's Phone app still names those calls "Ana". Grant the permission again and run the upkeep: calls with numbers only the archived contact had lose the name; "Ana"'s keep it.
 3. **Call screen in Recents.** App lock off. Take a call from a private contact, press Home and open Recents: the call screen's card is blank (Android 13+; before, it shows blank as it leaves). Turn on discreet mode, or unlock with the duress PIN, and call again: still blank. A call from a phone contact or an unknown number shows its usual thumbnail.
+
+## 55. Clearer records (7.1)
+
+### 55.9 Temporary until the last call
+Automated: `TemporaryRuleTest` (core:common); `TemporaryRulesTest` (app, Robolectric: a connected private call moves the date on and a missed one doesn't; a visible contact's date follows its numbers; the rule survives an edit and a new date, not Keep permanently); `AppDatabaseMigrationTest.elevenToTwelveKeepsTemporaryContactsFixed` (core:data).
+1. Keypad: type a number › Save temporary contact. Pick 1 day and tick **Count from your last call** ("Each call or chat moves the date on"), save privately. Do the same for a second number with the box unticked.
+2. Open the first contact's page: "Settings for this contact" reads "Deletes itself 1 day after your last call (now <tomorrow>)". Call the number and talk for a few seconds; the next day (or run the daily upkeep: `adb shell cmd jobscheduler run -f app.parley.debug <job id>`) the date moves to a day after that call. A missed call doesn't move it.
+3. Contacts › ⋮ › Temporary contacts: the row reads "… left · 1 day after your last call". Let a day pass without a call: it becomes due and you are asked (notification and card) exactly as for the fixed one; nothing is deleted without an answer.
+4. Editor: a new contact, Save to › Temporary: the time menu has **Count from your last call**; the chip then reads "7 days after your last call". On an existing contact, pick a time in the expiry chip, then tick the box; save and check the page's line.
+5. A visible temporary contact (Save visible to other apps): start a chat with it from Parley; after the upkeep its date counts from the chat.
+
+### 55.10 Temporary until the case file is resolved
+Automated: `TemporaryRulesTest.a_case_holds_the_date_until_it_is_resolved` (app); `TemporaryRuleTest.where_a_case_stands` (core:common).
+1. On a contact with an open case file (⋮ › Keep a case file), tap Delete automatically: the dialog lists **When the case file is resolved** (and **Count from your last call** above the times). On a contact without a case file, or whose case is resolved, it isn't offered.
+2. Pick it: the header chip reads "Temporary · until the case is resolved" and the settings line "Deletes itself when the case file is resolved"; Temporary contacts shows "When the case file is resolved". Run the upkeep a few times over several days: it is never due.
+3. Set the case to Resolved (or Stop keeping it). Within a day or two the contact is due and asked about as usual.
+4. During a duress unlock the contact page offers no case choice (case files are hidden), and nothing is deleted because case files couldn't be read.
+
+### 55.11 Safety, private contacts and backups
+Automated: `TemporaryRulesTest.a_call_after_the_question_keeps_it_from_being_deleted`, `backups_carry_the_rule_and_older_ones_read_as_a_fixed_date` (app).
+1. Let a "from your last call" contact become due. Before answering the notification, call it; then tap Delete in the notification: it stays, with its new date. "Keep 7 more days" gives it a later date and it keeps counting from the last call afterwards; Keep permanently clears the rule.
+2. Private contacts: with private contacts shown, everything above works the same for a private temporary contact (its own calls move it on). Turn on discreet mode: it disappears from Temporary contacts, and the due notification names nobody, as before.
+3. Make such a contact visible to other apps, and back: the rule and the date go with it.
+4. Back up, clear Parley's data and restore: the contact still deletes itself 7 days after the last call (or when its case is resolved). Restore that backup on Parley 7.0: the contact is temporary with its date as a fixed one.
+

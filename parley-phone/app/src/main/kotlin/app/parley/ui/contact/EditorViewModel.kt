@@ -22,6 +22,7 @@ import app.parley.common.people.MeCards
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RowKeys
 import app.parley.common.people.TemporaryChoice
+import app.parley.common.people.TemporaryClock
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoFrame
@@ -636,6 +637,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_TEMP_DAYS to temporary.days,
             K_TEMP_PRIVATE to temporary.private,
             K_TEMP_PURGE to temporary.purgeHistory,
+            K_TEMP_CLOCK to temporary.clock.name,
+            K_EXPIRY_CLOCK to (expiryPick as? ExpiryChange.After)?.clock?.name,
             K_EXPIRY to when (val p = expiryPick) {
                 null -> EXPIRY_NONE
                 ExpiryChange.Keep -> EXPIRY_KEEP
@@ -703,11 +706,12 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         temporaryNew = b.getBoolean(K_TEMPORARY)
         temporary = TemporaryChoice(
             b.getInt(K_TEMP_DAYS, TemporaryChoice.DEFAULT_DAYS), b.getBoolean(K_TEMP_PRIVATE, true), b.getBoolean(K_TEMP_PURGE, true),
+            clockOf(b.getString(K_TEMP_CLOCK)),
         )
         expiryPick = when (val e = b.getInt(K_EXPIRY, EXPIRY_NONE)) {
             EXPIRY_NONE -> null
             EXPIRY_KEEP -> ExpiryChange.Keep
-            else -> ExpiryChange.After(e)
+            else -> ExpiryChange.After(e, clockOf(b.getString(K_EXPIRY_CLOCK)))
         }
         if (background == BackgroundChange.None) {
             background = when (val bg = b.getString(K_BACKGROUND)) {
@@ -810,6 +814,11 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_TEMP_DAYS = "tempDays"
         const val K_TEMP_PRIVATE = "tempPrivate"
         const val K_TEMP_PURGE = "tempPurge"
+        const val K_TEMP_CLOCK = "tempClock"
+        const val K_EXPIRY_CLOCK = "expiryClock"
+
+        /** A saved clock name; anything unknown is a fixed date. */
+        fun clockOf(name: String?): TemporaryClock = TemporaryClock.entries.firstOrNull { it.name == name } ?: TemporaryClock.FIXED
         const val K_EXPIRY = "expiry"
         const val EXPIRY_NONE = -1
         const val EXPIRY_KEEP = 0

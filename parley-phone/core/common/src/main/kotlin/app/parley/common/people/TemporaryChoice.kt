@@ -3,14 +3,18 @@ package app.parley.common.people
 /**
  * The editor's temporary-contact choices, the same ones "Save temporary contact" on the keypad offers: how long
  * (1, 7 or 30 days, or a custom number of days), whether it stays private in Parley (the default) or is visible to
- * other apps, and whether its call history goes with it (the default).
+ * other apps, and whether its call history goes with it (the default). [clock]: the days count from the save (the
+ * default) or from the last call ([TemporaryRule]).
  */
 data class TemporaryChoice(
     val days: Int = DEFAULT_DAYS,
     val private: Boolean = true,
     val purgeHistory: Boolean = true,
+    val clock: TemporaryClock = TemporaryClock.FIXED,
 ) {
-    fun expiresAt(now: Long): Long = now + days * DAY_MS
+    fun expiresAt(now: Long): Long = TemporaryRule.firstExpiry(clock, days, now)
+
+    val rule: TemporaryRule get() = TemporaryRule.of(clock, days)
 
     companion object {
         const val DEFAULT_DAYS = 7
@@ -37,8 +41,12 @@ sealed interface ExpiryChange {
     /** Keep it permanently: the expiry goes. */
     data object Keep : ExpiryChange
 
-    /** Delete it [days] days from the save. */
-    data class After(val days: Int) : ExpiryChange
+    /** Delete it [days] days from the save, or from the last call or when its case closes ([clock]). */
+    data class After(val days: Int, val clock: TemporaryClock = TemporaryClock.FIXED) : ExpiryChange {
+        val rule: TemporaryRule get() = TemporaryRule.of(clock, days)
+
+        fun expiresAt(now: Long): Long = TemporaryRule.firstExpiry(clock, days, now)
+    }
 
     companion object {
         /**

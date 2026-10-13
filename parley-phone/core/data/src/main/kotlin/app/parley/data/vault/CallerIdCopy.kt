@@ -2,6 +2,7 @@ package app.parley.data.vault
 
 import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateLabels
+import app.parley.common.people.TemporaryRule
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
@@ -54,6 +55,20 @@ internal object CallerIdCopy {
      */
     const val C_DATES = "dt"
 
+    /** A temporary private contact's rule ([TemporaryRule]): days after the last call, or "until its case is closed". */
+    const val C_SLIDE = "slide"
+    const val C_UNTIL_CASE = "case"
+
+    /** Writes [rule]; a fixed date (or none) leaves neither key. */
+    fun putRule(o: JSONObject, rule: TemporaryRule) {
+        if (rule.slideDays != null) o.put(C_SLIDE, rule.slideDays) else o.remove(C_SLIDE)
+        if (rule.untilCase) o.put(C_UNTIL_CASE, true) else o.remove(C_UNTIL_CASE)
+    }
+
+    /** The copy's rule, read leniently: anything unreadable is a fixed date. */
+    fun ruleOf(o: JSONObject): TemporaryRule =
+        TemporaryRule.stored(o.optInt(C_SLIDE, 0).takeIf { it > 0 }, o.optBoolean(C_UNTIL_CASE, false))
+
     /** Writes [events] (the blank ones left out) as the copy's dates. */
     fun putDates(o: JSONObject, events: List<EventItem>) {
         o.put(C_DATES, JSONArray(events.filter { it.date.isNotBlank() }.map { e ->
@@ -84,7 +99,7 @@ internal object CallerIdCopy {
      */
     private val SUMMARY_KEYS = listOf(
         "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_NEVER_CALLS, C_SEEDED, C_NAME_ALT,
-        C_REGION, C_COMPANY, C_ARCHIVED, C_DATES,
+        C_REGION, C_COMPANY, C_ARCHIVED, C_DATES, C_SLIDE, C_UNTIL_CASE,
     )
 
     /** Copy [o] cut down to what [summary] reads. */
@@ -107,6 +122,7 @@ internal object CallerIdCopy {
             createdAt = createdAt,
             archivedAt = o.optLong(C_ARCHIVED, 0L).takeIf { it > 0 },
             dates = datesOf(o),
+            rule = ruleOf(o),
         )
     }
 
