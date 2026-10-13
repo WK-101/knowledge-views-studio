@@ -102,6 +102,7 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto, 
         require(crypto.isSealed(sealed))
         dao.meta(key)?.let { dao.setMeta(it.copy(pinnedNote = sealed)) }
     }
+
     /** The note as callers see it: its text opened, and its line key instead of the fingerprint it is stored under. */
     private fun CallNoteEntity.opened(): CallNoteEntity {
         val plain = if (crypto.isSealed(text)) crypto.openText(text).orEmpty() else text

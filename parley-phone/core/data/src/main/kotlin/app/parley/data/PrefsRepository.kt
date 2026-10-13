@@ -87,27 +87,32 @@ class PrefsRepository(
      * replaced. False while something is left (a key couldn't be used).
      */
     override suspend fun resealPlain(): Boolean = withContext(Dispatchers.IO) {
-        var left = 0
-        for (e in dao.speedDialsNow()) {
-            if (e.number.isEmpty() || crypto.isSealed(e.number)) continue
-            val sealed = crypto.sealText(e.number)
-            if (sealed != null && crypto.isSealed(sealed)) dao.sealSpeedDial(e.key, e.number, sealed) else left++
-        }
-        for (e in dao.allSimsNow()) {
-            val wasKeyed = LineKeys.isKeyed(e.matchKey)
-            val key = (if (wasKeyed) crypto.openText(e.sealedKey) else e.matchKey) ?: continue
-            if (key.isEmpty()) continue
-            val row = stored(key, e.phoneAccountId)
-            if (row.matchKey == e.matchKey) {
-                if (!wasKeyed) left++
-                continue
-            }
-            db.withTransaction {
-                // A choice already stored under the keyed form is newer: it stays.
-                dao.addSimIfAbsent(row)
-                dao.clearSim(e.matchKey)
-            }
-        }
+        val left = dao.speedDialsNow().count { !sealSpeedDial(it) } + dao.allSimsNow().count { !keySim(it) }
         left == 0
+    }
+
+    /** Seals [e]'s number if it is plain; false when it stays plain for now. */
+    private suspend fun sealSpeedDial(e: SpeedDialEntity): Boolean {
+        if (e.number.isEmpty() || crypto.isSealed(e.number)) return true
+        val sealed = crypto.sealText(e.number)
+        if (sealed == null || !crypto.isSealed(sealed)) return false
+        dao.sealSpeedDial(e.key, e.number, sealed)
+        return true
+    }
+
+    /** Keys [e] if it is plain or keyed with a replaced key; false when it stays plain for now. */
+    private suspend fun keySim(e: NumberSimEntity): Boolean {
+        val wasKeyed = LineKeys.isKeyed(e.matchKey)
+        // A sealed key that can't be opened is left as it is.
+        val key = (if (wasKeyed) crypto.openText(e.sealedKey) else e.matchKey).orEmpty()
+        if (key.isEmpty()) return true
+        val row = stored(key, e.phoneAccountId)
+        if (row.matchKey == e.matchKey) return wasKeyed
+        db.withTransaction {
+            // A choice already stored under the keyed form is newer: it stays.
+            dao.addSimIfAbsent(row)
+            dao.clearSim(e.matchKey)
+        }
+        return true
     }
 }

@@ -874,7 +874,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(*Migrations.ALL)
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(Migrations.V10_TO_11, Migrations.V11_TO_12)
                 .addCallback(SecureDelete)
                 .build()
     }

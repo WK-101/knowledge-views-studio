@@ -94,6 +94,15 @@ internal class PrivateCallSeal(context: Context) {
 
     @Volatile private var resealing = false
 
+    /** [e] sealed whole with its fingerprint, or null when it can't be opened or this key can't be used now. */
+    private fun sealedWhole(e: PrivateCallEntity): Pair<ByteArray, String>? {
+        val plain = catching { open(e.blob) }.getOrNull() ?: return null
+        val f = facts(e)
+        val key = dedupeKey(e.vaultId, f.date, f.type) ?: return null
+        val sealed = catching { crypto.seal(withFacts(plain, f.date, f.durationSec, f.type)) }.getOrNull() ?: return null
+        return sealed to key
+    }
+
     /**
      * Calls not sealed whole yet (sealed with the caller-ID key before private calls had their own, or stored with their
      * time beside the seal) are sealed whole, once, in the background: each is opened and sealed again with its time,
@@ -107,11 +116,7 @@ internal class PrivateCallSeal(context: Context) {
         scope.launch(Dispatchers.IO) {
             try {
                 for (e in rows.filterNot(::isSealedWhole)) {
-                    val plain = catching { open(e.blob) }.getOrNull() ?: continue
-                    val f = facts(e)
-                    val key = dedupeKey(e.vaultId, f.date, f.type) ?: continue
-                    val sealed = catching { crypto.seal(withFacts(plain, f.date, f.durationSec, f.type)) }.getOrNull() ?: continue
-                    write(e.id, e.blob, sealed, key)
+                    sealedWhole(e)?.let { (sealed, key) -> write(e.id, e.blob, sealed, key) }
                 }
             } finally {
                 resealing = false

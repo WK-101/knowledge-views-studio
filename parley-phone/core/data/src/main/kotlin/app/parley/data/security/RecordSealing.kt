@@ -6,6 +6,7 @@ import app.parley.common.catching
 import app.parley.data.StatePrefs
 import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
+import app.parley.data.db.CallNoteEntity
 
 /**
  * Seals the small records that older versions stored plain: pinned notes, call notes (and the line each is about, keyed
@@ -86,25 +87,22 @@ class RecordSealing(
      * copy that can't be opened is left as it is.
      */
     private suspend fun keyCallNotes(t: Tally) {
-        val meta = db.metaDao()
-        for (n in meta.allCallNotesNow()) {
-            val wasKeyed = LineKeys.isKeyed(n.numberKey)
-            val plain = (if (wasKeyed) crypto.openText(n.sealedKey) else n.numberKey) ?: continue
-            if (plain.isEmpty()) continue
-            val keyed = lines.keyed(plain)
-            if (keyed == null) {
-                t.left++
-                continue
-            }
-            if (keyed == n.numberKey) continue
-            val sealed = if (wasKeyed) n.sealedKey else crypto.sealText(plain)
-            if (sealed == null || !crypto.isSealed(sealed)) {
-                t.left++
-                continue
-            }
-            meta.keyCallNote(n.id, n.numberKey, keyed, sealed)
-            t.sealed++
+        for (n in db.metaDao().allCallNotesNow()) keyCallNote(n, t)
+    }
+
+    private suspend fun keyCallNote(n: CallNoteEntity, t: Tally) {
+        val wasKeyed = LineKeys.isKeyed(n.numberKey)
+        val plain = (if (wasKeyed) crypto.openText(n.sealedKey) else n.numberKey).orEmpty()
+        if (plain.isEmpty()) return
+        val keyed = lines.keyed(plain)
+        if (keyed == n.numberKey) return
+        val sealed = if (wasKeyed) n.sealedKey else crypto.sealText(plain)
+        if (keyed == null || sealed == null || !crypto.isSealed(sealed)) {
+            t.left++
+            return
         }
+        db.metaDao().keyCallNote(n.id, n.numberKey, keyed, sealed)
+        t.sealed++
     }
 
     /** The stores that seal their own values; returns how many still hold something plain or unwritten. */

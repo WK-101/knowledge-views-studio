@@ -56,11 +56,11 @@ class LineKeysTest {
 
     /** Whether any stored text of [table] holds the number's digits. */
     private fun plainIn(table: String): Boolean = db.openHelper.readableDatabase.query("SELECT * FROM $table").use { c ->
-        var found = false
-        while (c.moveToNext()) for (i in 0 until c.columnCount) {
-            if (c.getType(i) == android.database.Cursor.FIELD_TYPE_STRING && c.getString(i).contains(digits)) found = true
+        val texts = ArrayList<String>()
+        while (c.moveToNext()) {
+            texts += (0 until c.columnCount).filter { c.getType(it) == android.database.Cursor.FIELD_TYPE_STRING }.map(c::getString)
         }
-        found
+        texts.any { it.contains(digits) }
     }
 
     @Test fun a_call_note_is_stored_under_a_fingerprint_and_found_by_every_key_form() = runBlocking {
