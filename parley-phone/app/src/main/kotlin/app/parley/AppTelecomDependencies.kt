@@ -426,11 +426,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         if (c.calling.config.value.rules.none { it.hasQuota }) return
         c.scope.launch(Dispatchers.IO) {
             val found = number?.let { catching { c.contacts.lookup(it) }.getOrNull() }
+            // A private contact's call counts without its number: the sealed private history says whose it was.
+            val line = number?.takeUnless { privateLine(it, accountId) }
             catching {
                 c.callUsage.record(
                     CallUsageEntity(
                         startedAt = connectTimeMillis, durationSec = durationSec, incoming = incoming,
-                        lineKey = number?.let { PhoneIdentity.key(it, PhoneEnv.countryIso(app, accountId)) }?.ifEmpty { null },
+                        lineKey = line?.let { PhoneIdentity.key(it, PhoneEnv.countryIso(app, accountId)) }?.ifEmpty { null },
                         contactKey = found?.lookupKey?.takeIf { !found.work }, accountId = accountId,
                     ),
                 )
@@ -802,8 +804,17 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {
         if (number.isNullOrBlank()) return
-        c.scope.launch { catching { c.blocks.addRing(number, startedAt, ringMillis, answered) } }
+        c.scope.launch {
+            // Ring lengths are for numbers nobody saved (one-ring scams, spam guesses), kept by plain line key: never a
+            // private contact's number.
+            if (privateLine(number, null)) return@launch
+            catching { c.blocks.addRing(number, startedAt, ringMillis, answered) }
+        }
     }
+
+    /** Whether [number] is a private contact's; true when that can't be told now (nothing private is written then). */
+    private suspend fun privateLine(number: String, accountId: String?): Boolean =
+        c.numberOwners.privateIn(number, c.numberOwners.region(accountId)).let { it.isFailure || it.getOrNull() != null }
 
     override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }
 

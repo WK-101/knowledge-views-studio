@@ -60,8 +60,9 @@ files stay the source.
   before the purge (`DurableFiles`), and written sealed or not at all: while the Keystore can't seal, archiving is
   refused and nothing changes.
 - **Honest about where it goes.** Leaving the address book means leaving the account the contact is saved in (Google,
-  say), so the person also goes from the user's other phones and computers: the confirmation says so, and that old
-  calls in Android's call log may still show the name. The relation rows Parley wrote on other contacts for this one
+  say), so the person also goes from the user's other phones and computers: the confirmation says so. Their name also
+  leaves their old calls in Android's call log (7.0, `CallLogNames`; the calls stay, Parley still names them), right
+  away and again in the daily upkeep, and Parley never writes it back there. The relation rows Parley wrote on other contacts for this one
   ("Child: Sam" on Ana) are taken back where still as Parley left them (`RelationMirrors.takeBack`), so the name doesn't
   stay in the address book; the archived record keeps its own relations, and Unarchive writes the other side again
   when "Add relations to both contacts" is on.

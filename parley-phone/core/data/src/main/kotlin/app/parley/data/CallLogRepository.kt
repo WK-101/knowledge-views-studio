@@ -10,6 +10,7 @@ import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.catching
+import app.parley.common.history.CallLogNames
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -203,6 +204,29 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
             }
         }.toTypedArray()
         catching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+    }
+
+    /**
+     * Takes the names Android's call log keeps (cached name, number label and type, lookup link, photo) off every call
+     * with one of [numbers] (archived or private people's, CallLogNames): any app that reads the call log would
+     * otherwise still see who they were. The calls themselves stay. Returns how many rows were cleared.
+     */
+    suspend fun clearCachedNames(numbers: Collection<String>, region: String?): Int = withContext(Dispatchers.IO) {
+        if (numbers.isEmpty()) return@withContext 0
+        val rows = ArrayList<Triple<Long, String?, Boolean>>()
+        cr.query(Calls.CONTENT_URI, arrayOf(Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.CACHED_LOOKUP_URI), null, null, null)?.use { c ->
+            while (c.moveToNext()) rows += Triple(c.getLong(0), c.getString(1), !c.getString(2).isNullOrEmpty() || !c.getString(3).isNullOrEmpty())
+        }
+        val ids = CallLogNames.rowsToClear(rows, numbers, region)
+        val blank = ContentValues().apply {
+            putNull(Calls.CACHED_NAME)
+            putNull(Calls.CACHED_NUMBER_LABEL)
+            put(Calls.CACHED_NUMBER_TYPE, 0)
+            putNull(Calls.CACHED_LOOKUP_URI)
+            put(Calls.CACHED_PHOTO_ID, 0)
+            putNull(Calls.CACHED_PHOTO_URI)
+        }
+        ids.chunked(500).sumOf { chunk -> cr.update(Calls.CONTENT_URI, blank, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }
     }
 
     suspend fun delete(ids: Collection<Long>) = withContext(Dispatchers.IO) {

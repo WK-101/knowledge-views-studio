@@ -1,5 +1,6 @@
 package app.parley.data.archive
 
+import app.parley.data.history.forgetHiddenCallLogNames
 import app.parley.common.people.NumberOrigin
 import android.util.Base64
 import android.util.Log
@@ -186,6 +187,10 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
             c.meta.clearTemporary(archivedKey)
         }
         c.contacts.refresh()
+        // Android's call log keeps the name on every old call with them, for any app that reads it: taken off.
+        _cards.value.firstOrNull { it.id == id }?.numbers?.let { numbers ->
+            catching { forgetHiddenCallLogNames(c.callLog, c.contacts, numbers, PhoneEnv.countryIso(c.appContext)) }
+        }
         Archived(id, purged.synced, purged.messengerCopies)
     }
 

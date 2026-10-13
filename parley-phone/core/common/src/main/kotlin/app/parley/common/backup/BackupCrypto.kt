@@ -304,7 +304,8 @@ object BackupCrypto {
             rsaOpenOrNull(pk, ct)?.also { bundle = b; privateKey = pk }
         }
         val dek: ByteArray? = when (unlock) {
-            is Unlock.Passphrase -> openPassphraseWrap(header, unlock.passphrase)
+            // No key comes from an empty passphrase: it is a wrong one, not a programming error to crash on.
+            is Unlock.Passphrase -> if (unlock.passphrase.isEmpty()) null else openPassphraseWrap(header, unlock.passphrase)
                 ?: viaBundles(bundleUnlocker(unlock.passphrase, policy))
             is Unlock.Recovery -> {
                 val kek = Hkdf.sha256(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")

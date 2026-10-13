@@ -314,6 +314,10 @@ interface UsageDao {
 
     @Query("SELECT COUNT(*) FROM call_usage")
     suspend fun count(): Int
+
+    /** Keeps these lines' calls counted but no longer says whose they were (a number that became a private contact's). */
+    @Query("UPDATE call_usage SET lineKey = NULL WHERE lineKey IN (:keys)")
+    suspend fun forgetLines(keys: List<String>)
 }
 
 @Dao
@@ -756,6 +760,10 @@ interface BlockDao {
 
     @Query("DELETE FROM call_rings WHERE startedAt < :before")
     suspend fun pruneRings(before: Long)
+
+    /** Drops the rings of these line keys (a number that became a private contact's). */
+    @Query("DELETE FROM call_rings WHERE numberKey IN (:keys)")
+    suspend fun deleteRings(keys: List<String>)
 }
 
 @Dao

@@ -822,7 +822,8 @@ class CallHistory(
         val from = trashed.minOf { it.date } - 1000
         val present = readProvider(from).filter { it.date <= trashed.maxOf { r -> r.date } + 1000 }
         val rows = HistoryMerge.missing(trashed, present) { HistoryMerge.key(it.toEntry(0)) }
-        val values = rows.map { it.toValues() }.toTypedArray()
+        // Back without a name an archived or private person had (CallLogNames); the trashed copy keeps it for the archive.
+        val values = callLogNames(contacts, vault).scrub(rows).map { it.toValues() }.toTypedArray()
         val n = if (values.isEmpty()) 0 else catching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
         if (prefs.current().archiveEnabled) mutex.withLock {
             val iso = countryIso
@@ -864,7 +865,10 @@ class CallHistory(
     /** Writes a planned import into the system call log (NEW=0, IS_READ=1) and archives it. Returns rows written. */
     suspend fun runImport(plan: ImportPlan): Int = withContext(Dispatchers.IO + NonCancellable) {
         var n = 0
-        plan.toInsert.chunked(200).forEach { chunk ->
+        // A CSV can name anyone: only a name a visible contact owns goes into Android's call log (CallLogNames).
+        val names = callLogNames(contacts, vault)
+        plan.toInsert.chunked(200).forEach { rows ->
+            val chunk = rows.map { it.copy(name = names.keep(it.number, it.name)) }
             val values = chunk.map { call ->
                 ContentValues().apply {
                     call.providerValues().forEach { (k, v) ->
@@ -940,13 +944,16 @@ class CallHistory(
     private inner class ProviderRestore : CallHistoryBackup.Restore {
         private var have: HashSet<String>? = null
 
+        /** One per restore: each number is looked up once. */
+        private val names = callLogNames(contacts, vault)
+
         override suspend fun add(lines: List<CallHistoryLine>): Int = withContext(Dispatchers.IO + NonCancellable) {
             keepForever(lines)
             val calls = lines.mapNotNull { it.call }
             if (calls.isEmpty()) return@withContext 0
             // The whole log is read once per restore, not once per chunk.
             val known = have ?: readProvider(null).mapTo(HashSet()) { HistoryMerge.key(it.toEntry(0)) }.also { have = it }
-            val values = calls.filter { known.add(HistoryMerge.key(it.toEntry(0))) }.map { it.toValues() }
+            val values = names.scrub(calls.filter { known.add(HistoryMerge.key(it.toEntry(0))) }).map { it.toValues() }
             values.chunked(200).sumOf { chunk -> catching { cr.bulkInsert(Calls.CONTENT_URI, chunk.toTypedArray()) }.getOrDefault(0) }
         }
 
