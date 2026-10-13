@@ -202,7 +202,8 @@ class RecentsViewModel(private val c: DataContainer, private val clock: () -> Lo
      * they may show, and the whole history once it has loaded.
      */
     val totals: StateFlow<CallTotals?> = combine(groups, filter, c.history.activeFilter, query.debounce(80)) { list, chip, saved, q ->
-        if (list == null || (chip == RecentFilter.ALL && saved.isEmpty && q.isBlank())) null
+        val narrowed = chip != RecentFilter.ALL || !saved.isEmpty || q.isNotBlank()
+        if (list == null || !narrowed) null
         else CallTotals.of(list.asSequence().flatMap { it.calls }.distinctBy { it.id }.asIterable())
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 

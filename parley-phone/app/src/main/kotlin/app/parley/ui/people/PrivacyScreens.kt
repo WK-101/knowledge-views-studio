@@ -165,7 +165,10 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
 
             item { Section(stringResource(R.string.who_calls_section)) }
             item {
-                Text(stringResource(R.string.who_calls_apps), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.who_calls_apps), Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             // Contact Scopes don't cover the call log, so no scopes tip here.
             accessApps(callApps, "calls", R.string.who_calls_none, R.string.who_calls_read_all, scopesTip = false, ::appSettings)

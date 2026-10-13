@@ -170,7 +170,6 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
     var draft by remember { mutableStateOf(active) }
     var name by rememberSaveable { mutableStateOf(active.name) }
     var pickingDays by rememberSaveable { mutableStateOf(false) }
-    val res = LocalResources.current
     if (pickingDays) FilterDaysDialog(draft.fromDay, draft.toDay, onPicked = { from, to -> draft = draft.withRange(from, to) }) { pickingDays = false }
 
     ParleySheet(onDismissRequest = onDismiss) {
@@ -195,16 +194,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                 }
             }
             Label(stringResource(R.string.label_when))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterPeriod.entries.forEach { p ->
-                    FilterChip(!draft.hasRange && draft.period == p, { draft = draft.copy(period = p, fromDay = null, toDay = null) }, { Text(stringResource(HistoryText.period(p))) })
-                }
-                // A range of days of your own ("all calls in March"); the chip then names the range.
-                FilterChip(
-                    draft.hasRange, { pickingDays = true },
-                    { Text(if (draft.hasRange) HistoryText.days(res, draft.fromDay, draft.toDay) else stringResource(R.string.hist_filter_custom)) },
-                )
-            }
+            PeriodChips(draft, onChange = { draft = it }, onCustom = { pickingDays = true })
             Label(stringResource(R.string.label_talk_time))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 durations.forEach { (label, range) ->
@@ -254,6 +244,26 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                 }
             }
         }
+    }
+}
+
+/** The When chips: the fixed periods, then Custom… for a range of days of your own ("all calls in March"). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PeriodChips(draft: HistoryFilter, onChange: (HistoryFilter) -> Unit, onCustom: () -> Unit) {
+    val res = LocalResources.current
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterPeriod.entries.forEach { p ->
+            FilterChip(
+                !draft.hasRange && draft.period == p, { onChange(draft.copy(period = p, fromDay = null, toDay = null)) },
+                { Text(stringResource(HistoryText.period(p))) },
+            )
+        }
+        // With a range chosen, the chip names it.
+        FilterChip(
+            draft.hasRange, onCustom,
+            { Text(if (draft.hasRange) HistoryText.days(res, draft.fromDay, draft.toDay) else stringResource(R.string.hist_filter_custom)) },
+        )
     }
 }
 

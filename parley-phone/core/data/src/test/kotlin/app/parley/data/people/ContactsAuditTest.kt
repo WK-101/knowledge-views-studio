@@ -33,7 +33,8 @@ class ContactsAuditTest {
             },
         )
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        pm.addResolveInfoForIntent(launcher, ResolveInfo().apply { activityInfo = ActivityInfo().apply { packageName = pkg; name = "$pkg.Main"; applicationInfo = ai } })
+        val main = ActivityInfo().apply { packageName = pkg; name = "$pkg.Main"; applicationInfo = ai }
+        pm.addResolveInfoForIntent(launcher, ResolveInfo().apply { activityInfo = main })
     }
 
     @Before fun apps() {

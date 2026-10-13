@@ -95,12 +95,12 @@ data class HistoryFilter(
         val since = maxOf(period.since(now, zone), fromDay?.let(::startOf) ?: Long.MIN_VALUE)
         val until = toDay?.let { startOf(it + 1) } ?: Long.MAX_VALUE
         val allowed = types.flatMap { it.types }.toSet()
+        val talk = (minDurationSec ?: Long.MIN_VALUE)..(maxDurationSec ?: Long.MAX_VALUE)
         return { e ->
             (allowed.isEmpty() || e.type in allowed) &&
                 (simId == null || e.accountId == simId) &&
                 e.date >= since && e.date < until &&
-                (minDurationSec == null || e.durationSec >= minDurationSec) &&
-                (maxDurationSec == null || e.durationSec <= maxDurationSec)
+                e.durationSec in talk
         }
     }
 

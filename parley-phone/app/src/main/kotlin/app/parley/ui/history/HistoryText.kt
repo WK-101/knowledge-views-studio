@@ -123,7 +123,8 @@ object HistoryText {
     fun totals(res: Resources, t: CallTotals): String {
         val calls = res.getQuantityString(R.plurals.hist_n_calls, t.total, t.total)
         val talk = res.getString(R.string.format_dot_pair, calls, HistoryFormat.talk(t.talkSec))
-        return if (t.missed == 0) talk else res.getString(R.string.format_dot_pair, talk, res.getQuantityString(R.plurals.hist_totals_missed, t.missed, t.missed))
+        if (t.missed == 0) return talk
+        return res.getString(R.string.format_dot_pair, talk, res.getQuantityString(R.plurals.hist_totals_missed, t.missed, t.missed))
     }
 
     /** Short description for a chip without a name, e.g. "Missed · SIM 2 · Last 7 days". */

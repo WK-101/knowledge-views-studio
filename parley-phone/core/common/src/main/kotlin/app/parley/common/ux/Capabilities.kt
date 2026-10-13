@@ -230,7 +230,7 @@ object CapabilityCatalog {
             "vault", "hidden", "discreet", "encrypted").top(),
         screen("temporary", PRIVATE, "Temporary contacts", "Contacts that delete themselves after a time you choose", AppScreen.TEMPORARY,
             "temporary", "expire", "self-destruct").top(),
-        screen("who_can_see", PRIVATE, "Who can see your contacts", "Which apps can read your address book", AppScreen.WHO_CAN_SEE,
+        screen("who_can_see", PRIVATE, "Who can see your contacts", "Which apps can read your address book and calls", AppScreen.WHO_CAN_SEE,
             "apps", "access", "contact scopes"),
         // Shown while the app lock is off; Lock now takes its place while it's on.
         setting("app_lock", PRIVATE, "App lock", "Your fingerprint, face or screen lock to open Parley", "app_lock",
