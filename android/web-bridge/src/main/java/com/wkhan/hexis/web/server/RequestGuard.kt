@@ -20,14 +20,15 @@ object RequestGuard {
 
     /**
      * Same-origin check. A same-origin GET sends no Origin → allowed. Otherwise the Origin's authority must
-     * equal the Host header's authority — compared **with the port**, because we serve on a non-default port
-     * and the browser's Origin always carries it (comparing against a port-stripped host was the bug: it
-     * rejected every legitimate same-origin `/api` call with 403).
+     * match our own. Takes [host] + [port] from Ktor's `request.host()`/`request.port()` (which abstract over
+     * HTTP/1.1's `Host` header and HTTP/2's `:authority` pseudo-header) — NOT the raw `Host` header, which is
+     * absent under HTTP/2 (Netty negotiates it over TLS) and produced a false 403 on every call. Accepts the
+     * authority with or without the explicit port so it holds whichever way the browser forms the Origin.
      */
-    fun originAllowed(hostHeader: String?, origin: String?): Boolean {
+    fun originAllowed(host: String?, port: Int, origin: String?): Boolean {
         if (origin == null) return true
-        if (hostHeader.isNullOrBlank()) return false
+        if (host.isNullOrBlank()) return false
         val authority = origin.substringAfter("://", "").substringBefore('/')
-        return authority.equals(hostHeader, ignoreCase = true)
+        return authority.equals("$host:$port", ignoreCase = true) || authority.equals(host, ignoreCase = true)
     }
 }

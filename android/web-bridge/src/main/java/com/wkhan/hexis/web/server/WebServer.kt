@@ -20,6 +20,8 @@ import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.sslConnector
 import io.ktor.server.netty.Netty
+import io.ktor.server.request.host
+import io.ktor.server.request.port
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
@@ -94,14 +96,16 @@ class WebServer(
 
     @Suppress("TooGenericExceptionCaught") // an edge endpoint must map any failure to a status, never crash
     private suspend fun io.ktor.server.application.ApplicationCall.handleApi() {
-        // Derive host + origin from the raw headers (not request.host(), whose port handling varies by
-        // engine) so the DNS-rebinding / same-origin guards are deterministic.
-        val hostHeader = request.headers["Host"]
-        if (!RequestGuard.hostAllowed(hostHeader)) {
-            respond(HttpStatusCode.Forbidden, "forbidden_host:${hostHeader ?: "none"}")
+        // Use Ktor's request.host()/port() — they resolve the authority from HTTP/1.1's Host header AND
+        // HTTP/2's :authority pseudo-header (Netty negotiates HTTP/2 over TLS, where there is no Host header,
+        // so reading the raw header returned null and 403'd every call).
+        val host = request.host()
+        val port = request.port()
+        if (!RequestGuard.hostAllowed(host)) {
+            respond(HttpStatusCode.Forbidden, "forbidden_host:${host.ifBlank { "none" }}")
             return
         }
-        if (!RequestGuard.originAllowed(hostHeader, request.headers["Origin"])) {
+        if (!RequestGuard.originAllowed(host, port, request.headers["Origin"])) {
             respond(HttpStatusCode.Forbidden, "forbidden_origin:${request.headers["Origin"] ?: "none"}")
             return
         }

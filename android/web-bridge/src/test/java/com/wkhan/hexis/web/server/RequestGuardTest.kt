@@ -10,23 +10,23 @@ class RequestGuardTest {
     // ---- origin (the regression) --------------------------------------------------------------------
 
     @Test fun sameOrigin_withPort_isAllowed() {
-        // The exact on-device case: non-default port in both Host and Origin.
-        assertTrue(RequestGuard.originAllowed("192.168.1.50:8787", "https://192.168.1.50:8787"))
-        assertTrue(RequestGuard.originAllowed("localhost:8080", "http://localhost:8080"))
+        // The on-device case: non-default port, host+port from request.host()/port().
+        assertTrue(RequestGuard.originAllowed("192.168.1.50", 8787, "https://192.168.1.50:8787"))
+        assertTrue(RequestGuard.originAllowed("localhost", 8080, "http://localhost:8080"))
     }
 
     @Test fun noOrigin_isAllowed() {
-        assertTrue(RequestGuard.originAllowed("192.168.1.50:8787", null)) // same-origin GET
+        assertTrue(RequestGuard.originAllowed("192.168.1.50", 8787, null)) // same-origin GET
     }
 
     @Test fun crossOrigin_isRejected() {
-        assertFalse(RequestGuard.originAllowed("192.168.1.50:8787", "https://evil.example.com"))
+        assertFalse(RequestGuard.originAllowed("192.168.1.50", 8787, "https://evil.example.com"))
         // Same host, different port is a different origin.
-        assertFalse(RequestGuard.originAllowed("192.168.1.50:8787", "https://192.168.1.50:9999"))
+        assertFalse(RequestGuard.originAllowed("192.168.1.50", 8787, "https://192.168.1.50:9999"))
     }
 
-    @Test fun missingHostHeader_withOrigin_isRejected() {
-        assertFalse(RequestGuard.originAllowed(null, "https://192.168.1.50:8787"))
+    @Test fun missingHost_withOrigin_isRejected() {
+        assertFalse(RequestGuard.originAllowed(null, 8787, "https://192.168.1.50:8787"))
     }
 
     // ---- host (DNS-rebinding guard) -----------------------------------------------------------------
