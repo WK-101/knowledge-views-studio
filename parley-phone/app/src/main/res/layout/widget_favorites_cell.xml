@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One person in the Favourites widget: photo or monogram, and name. The whole cell is the target. -->
+<!-- One person in the People widget's Favourites grid: photo or monogram, and name (gone at small sizes, still read
+     out). The photo takes the height left, at most 56 dp, so a small widget shrinks it instead of cutting it off. The
+     whole cell is the target. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/fav_cell"
     android:layout_width="0dp"
@@ -7,22 +9,25 @@
     android:layout_weight="1"
     android:background="?android:attr/selectableItemBackground"
     android:gravity="center"
-    android:minHeight="48dp"
     android:orientation="vertical"
     android:padding="2dp">
 
     <ImageView
         android:id="@+id/fav_cell_photo"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:adjustViewBounds="true"
         android:contentDescription="@null"
-        android:scaleType="centerCrop" />
+        android:maxWidth="56dp"
+        android:maxHeight="56dp"
+        android:scaleType="fitCenter" />
 
     <TextView
         android:id="@+id/fav_cell_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"

@@ -17,6 +17,8 @@ import app.parley.common.calls.CatchUp
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.people.LifeEvents
+import app.parley.common.people.PeopleWidgetPlan
+import app.parley.common.widgets.WidgetShape
 import app.parley.data.DataContainer
 import app.parley.data.EventItem
 import app.parley.ui.circle.CircleText
@@ -27,10 +29,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
 /**
- * The People widget in Circle mode (and the Circle widgets placed before it, [CircleWidget]): upcoming dates in the
- * next 14 days and up to three people from the Circle digest, each with a Call button (through the shortcut
- * trampoline, so the pocket guard applies). Only system contacts are read: private contacts are never in it. With the
- * app lock on and the phone or Parley locked, counts only. Resizable: smaller sizes show fewer rows.
+ * The People widget in Circle mode: upcoming dates in the next 14 days and up to three people from the Circle digest,
+ * each with a Call button (through the shortcut trampoline, so the pocket guard applies). Only system contacts are
+ * read: private contacts are never in it. With the app lock on and the phone or Parley locked, counts only. Resizable
+ * down to one cell: smaller sizes show fewer rows, then no title, and one cell shows the first person due with a Call
+ * tap ([PeopleWidgetPlan.circleFit]).
  */
 internal object CircleDrawing {
     /** One row: a person or a date. */
@@ -40,8 +43,6 @@ internal object CircleDrawing {
 
     /** Dates this many days ahead. */
     const val DATE_DAYS = 14
-
-    private const val MAX_DATES = 3
 
     /** Within the few seconds a widget broadcast may take; past that the widget shows what it has. */
     private const val INDEX_WAIT_MS = 8_000L
@@ -103,17 +104,54 @@ internal object CircleDrawing {
     )
     private val dateIds = intArrayOf(R.id.circle_date_0, R.id.circle_date_1, R.id.circle_date_2)
 
-    /** Widget [id] drawn as [look] says. */
-    fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, look: PeopleWidget.Look): RemoteViews {
+    /** Widget [id] drawn as [look] says, for each size it may show at ([WidgetSizing]). */
+    fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, look: PeopleWidget.Look): RemoteViews =
+        WidgetSizing.responsive(manager, id) { size ->
+            val fit = PeopleWidgetPlan.circleFit(size.widthDp, size.heightDp, content.people.size, content.dates.size)
+            if (fit.compact) compact(ctx, id, content, look, size.heightDp) else sized(ctx, id, content, look, fit)
+        }
+
+    private fun openCircle(ctx: Context, id: Int): PendingIntent = WidgetTaps.activity(
+        ctx, WidgetTaps.Kind.CIRCLE_APP, id, 0,
+        IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    )
+
+    /** While locked: a tap re-draws the widget (names return once the phone is unlocked), or opens Parley to unlock it. */
+    private fun revealTap(ctx: Context, id: Int, look: PeopleWidget.Look): PendingIntent =
+        if (look.unlockInParley) openCircle(ctx, id) else PeopleWidget.reveal(ctx, WidgetTaps.Kind.CIRCLE_REVEAL, id)
+
+    /**
+     * One cell: the first person due with a Call tap on the icon, else "Circle" and a tap that opens it. Locked, only
+     * "Circle" shows.
+     */
+    private fun compact(ctx: Context, id: Int, content: Content, look: PeopleWidget.Look, heightDp: Int): RemoteViews {
+        val v = RemoteViews(ctx.packageName, R.layout.widget_compact)
+        v.setViewVisibility(R.id.compact_label, if (WidgetShape.labelFits(heightDp)) View.VISIBLE else View.GONE)
+        val first = content.people.firstOrNull()?.takeUnless { look.locked }
+        val title = ctx.getString(R.string.label_circle)
+        val open = if (look.locked) revealTap(ctx, id, look) else openCircle(ctx, id)
+        v.setOnClickPendingIntent(R.id.compact_root, open)
+        v.setOnClickPendingIntent(R.id.compact_label, open)
+        if (first?.phone != null) {
+            v.setImageViewResource(R.id.compact_icon, R.drawable.ic_widget_call)
+            v.setTextViewText(R.id.compact_label, first.name)
+            v.setContentDescription(R.id.compact_icon, ctx.getString(R.string.action_call_named, first.name))
+            val callIntent = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, first.phone, first.contactId, first.name)
+            v.setOnClickPendingIntent(R.id.compact_icon, WidgetTaps.activity(ctx, WidgetTaps.Kind.CIRCLE_CALL, id, 0, callIntent))
+        } else {
+            v.setImageViewResource(R.id.compact_icon, R.drawable.ic_widget_circle)
+            v.setTextViewText(R.id.compact_label, first?.name ?: title)
+            v.setContentDescription(R.id.compact_icon, title)
+            v.setOnClickPendingIntent(R.id.compact_icon, open)
+        }
+        return v
+    }
+
+    private fun sized(ctx: Context, id: Int, content: Content, look: PeopleWidget.Look, fit: PeopleWidgetPlan.CircleFit): RemoteViews {
         val v = RemoteViews(ctx.packageName, R.layout.widget_circle)
-        val open = WidgetTaps.activity(
-            ctx, WidgetTaps.Kind.CIRCLE_APP, id, 0,
-            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        val open = openCircle(ctx, id)
         v.setOnClickPendingIntent(R.id.circle_root, open)
-        // Smaller widgets show fewer rows: about 44 dp per person, 20 dp per date, after the title.
-        val height = manager.getAppWidgetOptions(id)?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)?.takeIf { it > 0 } ?: 180
-        var room = height - 40
+        v.setViewVisibility(R.id.circle_title, if (fit.title) View.VISIBLE else View.GONE)
         personIds.forEach { v.setViewVisibility(it[0], View.GONE) }
         dateIds.forEach { v.setViewVisibility(it, View.GONE) }
         v.setViewVisibility(R.id.circle_dates_title, View.GONE)
@@ -125,23 +163,19 @@ internal object CircleDrawing {
                 res.getQuantityString(R.plurals.circle_widget_count_people, content.people.size, content.people.size),
                 res.getQuantityString(R.plurals.circle_widget_count_dates, content.dates.size, content.dates.size),
             ).joinToString("\n")
-            v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.circle_widget_tap_reveal))
+            v.setTextViewText(R.id.circle_message, if (fit.title) text + "\n" + res.getString(R.string.circle_widget_tap_reveal) else text)
             v.setViewVisibility(R.id.circle_message, View.VISIBLE)
-            // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too, and is
-            // what a tap does when only Parley is locked.
-            val reveal = if (look.unlockInParley) open else PeopleWidget.reveal(ctx, WidgetTaps.Kind.CIRCLE_REVEAL, id, look)
+            val reveal = revealTap(ctx, id, look)
             v.setOnClickPendingIntent(R.id.circle_root, reveal)
             v.setOnClickPendingIntent(R.id.circle_message, reveal)
             return v
         }
         if (content.people.isEmpty() && content.dates.isEmpty()) {
-            v.setTextViewText(R.id.circle_message, ctx.getString(R.string.circle_widget_empty))
+            v.setTextViewText(R.id.circle_message, ctx.getString(if (fit.title) R.string.circle_widget_empty else R.string.circle_widget_empty_short))
             v.setViewVisibility(R.id.circle_message, View.VISIBLE)
             return v
         }
-        content.people.take(personIds.size).forEachIndexed { i, p ->
-            if (room < 40) return@forEachIndexed
-            room -= 44
+        content.people.take(fit.people).forEachIndexed { i, p ->
             val ids = personIds[i]
             val row = ids[0]
             val name = ids[1]
@@ -160,13 +194,10 @@ internal object CircleDrawing {
                 v.setViewVisibility(call, View.GONE)
             }
         }
-        val dates = content.dates.take(MAX_DATES)
-        if (dates.isNotEmpty() && room >= 40) {
+        val dates = content.dates.take(fit.dates)
+        if (dates.isNotEmpty()) {
             v.setViewVisibility(R.id.circle_dates_title, View.VISIBLE)
-            room -= 24
             dates.forEachIndexed { i, d ->
-                if (room < 18) return@forEachIndexed
-                room -= 20
                 v.setViewVisibility(dateIds[i], View.VISIBLE)
                 v.setTextViewText(dateIds[i], ctx.getString(R.string.circle_widget_date_row, d.name, d.line))
                 v.setOnClickPendingIntent(dateIds[i], contactIntent(ctx, d.contactId, WidgetTaps.Kind.CIRCLE_DATE, id, i))
