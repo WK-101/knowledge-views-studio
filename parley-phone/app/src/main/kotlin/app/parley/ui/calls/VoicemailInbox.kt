@@ -1,7 +1,11 @@
 package app.parley.ui.calls
 
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.startOrSay
+import androidx.compose.ui.semantics.stateDescription
+import app.parley.ui.kitStrings
+import app.parley.ui.ExpandableBody
 import android.content.Intent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -83,9 +87,7 @@ import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
-import app.parley.ui.startOrSay
 import kotlinx.coroutines.launch
-import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyListItem
 
@@ -239,9 +241,11 @@ private fun VoicemailRow(
     val context = LocalContext.current
     val contact = remember(v.number) { vm.contactFor(v.number) }
     val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.label_private_number)
+    val openState = if (expanded) kitStrings().expanded else kitStrings().collapsed
     Column {
         ParleyListItem(
-            modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle),
+            modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle)
+                .semantics { stateDescription = openState },
             colors = if (expanded) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) else ListItemDefaults.colors(),
             leadingContent = {
                 Box {
@@ -272,7 +276,7 @@ private fun VoicemailRow(
                 }
             },
         )
-        AnimatedVisibility(expanded) {
+        ExpandableBody(expanded) {
             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
                 if (v.hasAudio) {
                     val duration = (playing?.durationMs?.takeIf { it > 0 } ?: (v.durationSec * 1000)).coerceAtLeast(1)

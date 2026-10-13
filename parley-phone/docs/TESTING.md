@@ -3833,3 +3833,24 @@ Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its s
 1. **Back out of a new People widget.** Place a People widget and press Back on its settings: the widget stays and shows your Favourites at once (no blank or "loading" widget). Long-press it › settings (Android 12+): change it to Your Circle, Done: it redraws.
 2. **Old Circle widget after the update.** With a Circle widget placed on 6.8, update: it keeps working. Remove it and add it back from the widget list on Android 10–12 (it is still listed there); on Android 13+ the list offers only People. No placed widget ever disappears after opening Parley.
 3. **Many cases due.** Set "Follow up by" to today on three case files and have a Circle member due in their good hours: Next up shows one case line, "Follow up with … (+2 more)", and the Circle line still shows.
+
+## 54. Polish and proof (7.0)
+
+### 54.16 Parts that open in place
+Automated: `KitExpandAndMenuTest` (a header is a heading with "Expanded"/"Collapsed" and "Unfold"/"Fold"; its body opens and closes) (app); `HandBuiltExpandable` in `ParleyRulesTest` (tools/detekt-rules).
+1. **One look.** Open Blocking & screening, a label's page (Settings for this label), any Settings page's Advanced, a contact page with a folded section, Tools › Coming from another app and Voicemail: every chevron points down while closed and turns half a turn as it opens; the part grows open and shrinks closed with the same spring.
+2. **TalkBack.** Each header is one stop: its title (and summary), "Collapsed" or "Expanded", "double-tap to unfold" (Advanced: "to show advanced settings"); swipe by headings and it is among them. Double-tap: it says "Expanded".
+3. **Remove animations on.** The chevron and the part change at once, with nothing half-drawn.
+
+### 54.17 One ⋮ name and the kit's menus
+Automated: `OverflowNamesTest` (every top bar's ⋮ is the kit's, named "More options") and `KitExpandAndMenuTest` (the kit's ⋮ opens its items) (app); `HandBuiltOverflow` in `ParleyRulesTest` (tools/detekt-rules).
+1. **Top bars.** With TalkBack, focus the ⋮ on Home, a number's call history, History & undo, Case files, a case, Labels, a label, a contact's page, and the Contacts and Recents selection bars: each is announced "More options".
+2. **Rows.** A row's ⋮ names the row: "More for Ana" on a label's member, a label, a menu shortcut, a To call line, a Circle timeline entry, a result in Recall.
+3. **Menus look the same.** Every drop-down's items have the same height and icon column; the call screen's More and the post-call card's Save keep their labelled buttons.
+
+### 54.18 Destructive actions last, set apart
+Automated: `KitExpandAndMenuTest` (a destructive item comes after a line, in a drop-down and in a sheet; no line without one) (app).
+1. **Drop-downs.** Contact page ⋮: Delete is last, after a line, in red. The same for Recents ⋮ › Clear call history (before Tools and Settings), a number's call history ⋮ › Delete calls, a label's ⋮ › Delete label, Contacts selection ⋮ › Delete, a temporary contact's Delete now, a To call line's Remove.
+2. **Sheets.** Long-press a call in Recents (or its sheet): Delete from history is the last row, after a line, in red.
+3. **Still guarded.** Each still asks or offers Undo as before; dark, AMOLED and high-contrast themes keep the red readable.
+

@@ -1,5 +1,10 @@
 package app.parley.ui.people
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
+import app.parley.ui.ExpandableStyle
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ExpandableBody
 import app.parley.common.people.AlphabetIndex
 import app.parley.ui.AlphabetIndexDefaults
 import app.parley.ui.AlphabetIndexRail
@@ -15,15 +20,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,12 +38,9 @@ import androidx.compose.material.icons.automirrored.rounded.MergeType
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,7 +124,6 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     var creating by rememberSaveable { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
     var deleting by rememberSaveable { mutableStateOf<String?>(null) }
-    var menu by remember { mutableStateOf(false) }
     val chapters by vm.chapters.chapters.collectAsStateWithLifecycle()
     val now = remember(chapters) { System.currentTimeMillis() }
 
@@ -149,15 +144,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             navigationIcon = { BackButton(back) },
             actions = {
                 IconButton({ creating = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.lbl_new)) }
-                Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
-                    DropdownMenu(menu, { menu = false }) {
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.lbl_merge_labels)) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) },
-                            onClick = { menu = false; merging = true },
-                        )
-                    }
+                OverflowMenu { close ->
+                    ParleyMenuItem(stringResource(R.string.lbl_merge_labels), Icons.AutoMirrored.Rounded.MergeType) { close(); merging = true }
                 }
             },
         )
@@ -198,7 +186,6 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 )
             }
             items(list, key = { it.title }) { l ->
-                var rowMenu by remember { mutableStateOf(false) }
                 ParleyListItem(
                     modifier = Modifier.clickable {
                         if (merging) picked = if (l.title in picked) picked - l.title else picked + l.title else open(PeopleRoutes.label(l.title))
@@ -217,20 +204,9 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         }
                     },
                     trailingContent = if (merging) null else ({
-                        Box {
-                            IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_for, l.title)) }
-                            DropdownMenu(rowMenu, { rowMenu = false }) {
-                                DropdownMenuItem(
-                                    { Text(stringResource(R.string.lbl_rename)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                                    onClick = { rowMenu = false; renaming = l.title },
-                                )
-                                DropdownMenuItem(
-                                    { Text(stringResource(R.string.lbl_delete)) },
-                                    leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                                    onClick = { rowMenu = false; deleting = l.title },
-                                )
-                            }
+                        OverflowMenu(label = stringResource(R.string.label_more_for, l.title)) { close ->
+                            ParleyMenuItem(stringResource(R.string.lbl_rename), Icons.Rounded.Edit) { close(); renaming = l.title }
+                            ParleyMenuItem(stringResource(R.string.lbl_delete), Icons.Rounded.Delete, destructive = true) { close(); deleting = l.title }
                         }
                     }),
                 )
@@ -429,7 +405,6 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
         }
     }
-    var menu by remember { mutableStateOf(false) }
     val sharedStates by vm.c.sharedLabels.states.collectAsStateWithLifecycle()
     val sharedTitles = sharedStates.map { it.title }
     LaunchedEffect(Unit) { vm.c.sharedLabels.load() }
@@ -481,29 +456,15 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     }
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.action_message_all)) }
                 IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
-                Box {
-                    IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more)) }
-                    DropdownMenu(menu, { menu = false }) {
-                        // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
-                        LabelBlockingMenuItem(current) { menu = false }
-                        // A family phonebook: this label kept the same on other people's phones.
-                        if (sharedTitles.none { it == current }) {
-                            DropdownMenuItem(
-                                { Text(stringResource(R.string.shl_share_menu)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) },
-                                onClick = { menu = false; open(SharedLabelRoutes.Share(current)) },
-                            )
-                        }
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.lbl_rename)) },
-                            leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                            onClick = { menu = false; renaming = true },
-                        )
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.lbl_delete)) },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                            onClick = { menu = false; confirmDelete = true },
-                        )
+                OverflowMenu { close ->
+                    // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
+                    LabelBlockingMenuItem(current, close)
+                    // A family phonebook: this label kept the same on other people's phones.
+                    if (sharedTitles.none { it == current }) {
+                        ParleyMenuItem(stringResource(R.string.shl_share_menu), Icons.Rounded.Share) { close(); open(SharedLabelRoutes.Share(current)) }
                     }
+                    ParleyMenuItem(stringResource(R.string.lbl_rename), Icons.Rounded.Edit) { close(); renaming = true }
+                    ParleyMenuItem(stringResource(R.string.lbl_delete), Icons.Rounded.Delete, destructive = true) { close(); confirmDelete = true }
                 }
             },
             scrollBehavior = barTint,
@@ -542,17 +503,13 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     }
                 }
                 items(members, key = { it.id }) { c ->
-                    var rowMenu by remember { mutableStateOf(false) }
                     // No selection here: the row's actions are its trailing ⋮, never a long-press. Its own lane beside the index.
                     Box(Modifier.padding(end = if (indexed) AlphabetIndexDefaults.RowEndPadding else 0.dp)) {
                         ContactRow(c, menu = {
-                            Box {
-                                IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
-                                DropdownMenu(rowMenu, { rowMenu = false }) {
-                                    DropdownMenuItem({ Text(stringResource(R.string.lbl_remove_from, current)) }, onClick = {
-                                        rowMenu = false
-                                        scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
-                                    })
+                            OverflowMenu(label = stringResource(R.string.label_more_for, c.displayName)) { close ->
+                                ParleyMenuItem(stringResource(R.string.lbl_remove_from, current)) {
+                                    close()
+                                    scope.launch { vm.c.people.labels.removeMembers(current, listOf(c.id)); vm.c.contacts.refresh() }
                                 }
                             }
                         }) { open(Routes.contact(c.id)) }
@@ -641,15 +598,11 @@ private suspend fun deleteLabelWithUndo(vm: AppViewModel, title: String) {
 /** "Settings for this label": a heading that opens the label's settings, after its members. */
 @Composable
 private fun LabelSettingsFold(open: Boolean, onToggle: () -> Unit, content: @Composable () -> Unit) {
-    val state = stringResource(if (open) R.string.blk_expanded else R.string.blk_collapsed)
     Column(Modifier.padding(top = 16.dp)) {
-        ParleyListItem(
-            modifier = Modifier.clickable(onClick = onToggle).semantics { stateDescription = state; heading() },
-            leadingContent = { Icon(Icons.Rounded.Tune, null) },
-            headlineContent = { Text(stringResource(R.string.lbl_settings_fold), style = MaterialTheme.typography.titleMedium) },
-            supportingContent = { Text(stringResource(R.string.lbl_settings_fold_sub)) },
-            trailingContent = { Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null) },
+        ExpandableHeader(
+            stringResource(R.string.lbl_settings_fold), open, onToggle,
+            summary = stringResource(R.string.lbl_settings_fold_sub), icon = Icons.Rounded.Tune, style = ExpandableStyle.Row,
         )
-        AnimatedVisibility(open) { Column { content() } }
+        ExpandableBody(open) { content() }
     }
 }

@@ -1,8 +1,9 @@
 package app.parley.ui.cases
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.common.catching
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,13 +20,10 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PhoneCallback
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -131,22 +129,16 @@ private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState
         actions = {
             if (case != null) {
                 IconButton({ st.exporting = true }, enabled = exportable) { Icon(Icons.Rounded.PictureAsPdf, stringResource(R.string.case_export)) }
-                Box {
-                    IconButton({ st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
-                    DropdownMenu(st.menu, { st.menu = false }) {
-                        // "They'll call me back…": the same sheet as after a call (an expected window and a To call line).
-                        case.numbers.firstOrNull()?.let { number ->
-                            val context = LocalContext.current
-                            DropdownMenuItem(
-                                { Text(stringResource(R.string.callback_row)) }, leadingIcon = { Icon(Icons.Rounded.PhoneCallback, null) },
-                                onClick = { st.menu = false; context.startActivity(CallPromiseActivity.intent(context, number, null, callback = true)) },
-                            )
+                OverflowMenu(st.menu, { st.menu = it }) { close ->
+                    // "They'll call me back…": the same sheet as after a call (an expected window and a To call line).
+                    case.numbers.firstOrNull()?.let { number ->
+                        val context = LocalContext.current
+                        ParleyMenuItem(stringResource(R.string.callback_row), Icons.Rounded.PhoneCallback) {
+                            close()
+                            context.startActivity(CallPromiseActivity.intent(context, number, null, callback = true))
                         }
-                        DropdownMenuItem(
-                            { Text(stringResource(R.string.case_stop)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) },
-                            onClick = { st.menu = false; st.stopping = true },
-                        )
                     }
+                    ParleyMenuItem(stringResource(R.string.case_stop), Icons.Rounded.Delete, destructive = true) { close(); st.stopping = true }
                 }
             }
         },

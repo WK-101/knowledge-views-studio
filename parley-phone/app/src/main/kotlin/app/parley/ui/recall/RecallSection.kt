@@ -1,5 +1,7 @@
 package app.parley.ui.recall
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import app.parley.ui.calls.NetworkNameTag
 import android.content.Context
 import androidx.annotation.StringRes
@@ -7,12 +9,7 @@ import android.text.format.DateUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.rounded.AddComment
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -245,15 +242,8 @@ private fun RecallRow(vm: AppViewModel, hit: RecallHit, open: (Destination) -> U
 /** A result's ⋮, where it can take something to talk about. */
 @Composable
 private fun RecallRowMenu(title: String, onAddAgenda: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_for, title)) }
-        DropdownMenu(menu, { menu = false }) {
-            DropdownMenuItem(
-                { Text(stringResource(R.string.agenda_add)) }, leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
-                onClick = { menu = false; onAddAgenda() },
-            )
-        }
+    OverflowMenu(label = stringResource(R.string.label_more_for, title)) { close ->
+        ParleyMenuItem(stringResource(R.string.agenda_add), Icons.Rounded.AddComment) { close(); onAddAgenda() }
     }
 }
 

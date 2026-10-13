@@ -8,8 +8,6 @@ import android.net.Uri
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,13 +15,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -38,9 +32,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
@@ -49,8 +41,10 @@ import app.parley.R
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
 import app.parley.common.catching
+import app.parley.ui.ExpandableBody
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ExpandableStyle
 import app.parley.ui.OnGroupSurface
-import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyShapes
 
 /**
@@ -59,25 +53,18 @@ import app.parley.ui.ParleyShapes
  */
 @Composable
 fun CollapsibleSection(title: String, help: String, summary: List<String>, expanded: Boolean, onToggle: () -> Unit, icon: ImageVector? = null, content: @Composable () -> Unit) {
-    val state = stringResource(if (expanded) R.string.blk_expanded else R.string.blk_collapsed)
-    // Each section is one inset card (M3 Expressive grouped surfaces).
+    // Each section is one inset card (M3 Expressive grouped surfaces); its header is a heading TalkBack can jump between.
     BlockingCard {
-        ParleyListItem(
-            modifier = Modifier
-                .clickable(onClick = onToggle)
-                // A section header: TalkBack's heading navigation jumps between the sections.
-                .semantics { stateDescription = state; heading() },
-            leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.primary) } },
-            headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
-            supportingContent = {
+        ExpandableHeader(
+            title, expanded, onToggle, icon = icon, style = ExpandableStyle.Row,
+            supporting = {
                 Column {
                     Text(help, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (summary.isNotEmpty()) SummaryChips(summary, Modifier.padding(top = 6.dp))
                 }
             },
-            trailingContent = { Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null) },
         )
-        AnimatedVisibility(expanded) { Column { content() } }
+        ExpandableBody(expanded) { content() }
     }
 }
 

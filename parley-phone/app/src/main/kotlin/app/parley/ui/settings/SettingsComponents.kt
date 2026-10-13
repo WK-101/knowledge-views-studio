@@ -1,32 +1,17 @@
 package app.parley.ui.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.clickable
+import app.parley.ui.ExpandableHeader
+import app.parley.ui.ExpandableBody
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import app.parley.common.SettingsCatalog
 import app.parley.ui.Spacing
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.LocalHighlightKey
@@ -68,25 +53,11 @@ fun AdvancedSection(keys: Set<String> = emptySet(), content: @Composable () -> U
     val highlight = LocalHighlightKey.current
     var open by rememberSaveable { mutableStateOf(SettingsCatalog.isAdvanced(highlight) || (highlight != null && highlight in keys)) }
     Column {
-        Row(
-            Modifier.fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable(onClickLabel = stringResource(if (open) R.string.set_advanced_hide else R.string.set_advanced_show)) { open = !open }
-                .padding(horizontal = 32.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                stringResource(R.string.label_advanced),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f).semantics { heading() },
-            )
-            Icon(
-                if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        AnimatedVisibility(open) {
+        ExpandableHeader(
+            stringResource(R.string.label_advanced), open, { open = !open },
+            actionLabel = stringResource(if (open) R.string.set_advanced_hide else R.string.set_advanced_show),
+        )
+        ExpandableBody(open) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.groupGap)) { content() }
         }
     }

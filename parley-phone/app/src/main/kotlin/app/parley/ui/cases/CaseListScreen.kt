@@ -1,19 +1,16 @@
 package app.parley.ui.cases
 
+import app.parley.ui.ParleyMenuItem
+import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,7 +65,6 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val privacy by vm.privacy.collectAsStateWithLifecycle()
     val listed = remember(state) { CaseFiles.listed(state) }
     val (active, resolved) = remember(listed) { listed.partition { it.status != CaseStatus.RESOLVED } }
-    var menu by remember { mutableStateOf(false) }
     var stopping by rememberSaveable { mutableStateOf(false) }
     // A duress unlock hides case files: nothing done then may change them.
     val changeable = privacy.notesShown
@@ -77,14 +73,8 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             stringResource(R.string.label_case_files), onBack = back,
             actions = {
                 if (changeable && listed.isNotEmpty()) {
-                    Box {
-                        IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.label_more_options)) }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(
-                                { Text(stringResource(R.string.case_list_stop_all)) }, leadingIcon = { Icon(Icons.Rounded.FolderOff, null) },
-                                onClick = { menu = false; stopping = true },
-                            )
-                        }
+                    OverflowMenu { close ->
+                        ParleyMenuItem(stringResource(R.string.case_list_stop_all), Icons.Rounded.FolderOff) { close(); stopping = true }
                     }
                 }
             },
