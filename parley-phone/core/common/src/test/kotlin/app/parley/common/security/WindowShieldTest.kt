@@ -8,7 +8,9 @@ import org.junit.Test
 
 /** Recents thumbnails and FLAG_SECURE (docs/audit/SECURITY_PRESSURE_7_0.md, recents finding). */
 class WindowShieldTest {
-    private val shown = PrivacyView(discreet = false, duress = DuressState(hiding = false, vaultLocked = false), lockScreen = LockScreenCaller.NAME, appLocked = false)
+    private val shown = PrivacyView(
+        discreet = false, duress = DuressState(hiding = false, vaultLocked = false), lockScreen = LockScreenCaller.NAME, appLocked = false,
+    )
 
     @Test fun private_contacts_on_screen_keep_parley_out_of_recents_without_the_app_lock() {
         assertTrue(WindowShield.privateExposed(shown, hasPrivate = true, detailsOpen = false))
@@ -30,7 +32,9 @@ class WindowShieldTest {
     }
 
     @Test fun the_app_lock_and_hide_screen_content_behave_as_before() {
-        for (sdk in listOf(29, 33, 36)) for (locked in listOf(false, true)) for (leaving in listOf(false, true)) for (secure in listOf(false, true)) {
+        val cases = listOf(29, 33, 36).flatMap { sdk -> (0 until 8).map { bits -> sdk to bits } }
+        for ((sdk, bits) in cases) {
+            val (locked, leaving, secure) = Triple(bits and 1 != 0, bits and 2 != 0, bits and 4 != 0)
             val w = WindowShield.window(sdk, appLock = true, locked = locked, secureScreen = secure, privateExposed = false, leaving = leaving)
             assertFalse(w.recentsScreenshot)
             assertEquals(secure || locked || (leaving && sdk < 33), w.secure)

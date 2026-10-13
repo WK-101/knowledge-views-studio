@@ -7,6 +7,7 @@ import app.parley.data.CallLogRepository
 import app.parley.data.ContactsRepository
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -30,3 +31,10 @@ suspend fun forgetHiddenCallLogNames(callLog: CallLogRepository, contacts: Conta
     val hidden = withContext(Dispatchers.IO) { numbers.filter { it.isNotBlank() }.distinct().filter { catching { contacts.lookup(it) }.getOrNull() == null } }
     return callLog.clearCachedNames(hidden, region)
 }
+
+/**
+ * [CallLogRepository.insert] (a restore) with only the names Android's call log may keep: archived and private people's
+ * calls go back without theirs ([CallLogNames]). Blocking: for readers that stream a backup section on an IO thread.
+ */
+fun CallLogRepository.insertNamed(records: List<CallLogRecord>, contacts: ContactsRepository, vault: VaultRepository): Int =
+    insert(runBlocking { callLogNames(contacts, vault).scrub(records) })
