@@ -1470,6 +1470,7 @@
     <string name="rst_origin_unconfirmed">Signed by a phone that was never confirmed with your backup passphrase. Backups from a phone that used Parley before backups were signed look like this until you tap “Mark this phone\'s backups as yours” in its backup settings. Restore it if you made it yourself.</string>
     <string name="rst_origin_unsigned">This backup isn\'t signed (older versions of Parley didn\'t sign backups). Restore it only if you made it yourself.</string>
     <string name="rst_origin_bad">This backup\'s signature doesn\'t match its content, so it may have been changed. Don\'t restore it unless you\'re sure where it came from.</string>
+    <string name="rst_origin_unticked">To be safe, nothing below is ticked. Tick each part you want to restore.</string>
 
     <!-- Temporary contacts whose time is up wait for an answer (no names: shown on the lock screen too). -->
     <plurals name="temp_due_title">

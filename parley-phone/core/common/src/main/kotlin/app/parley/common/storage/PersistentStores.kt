@@ -307,6 +307,10 @@ object PersistentStores {
         PersistentStore("records.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped small-records key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore("vault_calls.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped private-calls key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore(
+            "lines.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped key of the fingerprints call notes and SIM choices are stored under"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
+        PersistentStore(
             "vault_summaries", StoreKind.FILES, local("Private contacts' list rows, sealed, so a cold start lists them at once"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),

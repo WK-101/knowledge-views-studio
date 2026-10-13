@@ -1,13 +1,25 @@
 package app.parley.data.db
 
 import android.content.Context
+import android.database.Cursor
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import app.parley.common.PhoneIdentity
+import app.parley.data.PrefsRepository
+import app.parley.data.StatePrefs
+import app.parley.data.backup.TimeMachine
 import app.parley.data.history.HistoryDatabase
+import app.parley.data.records.ContactRecordStore
+import app.parley.data.security.LineKeys
+import app.parley.data.security.RecordCrypto
+import app.parley.data.security.RecordSealing
+import app.parley.data.security.SealedMetaDao
+import app.parley.data.testing.FakeAndroidKeyStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -195,9 +207,90 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * 11 → 12 adds the sealed line key beside call notes and remembered SIMs: every row survives as it was (still
+     * plain, keyed later by the app), and once Room opens the file the app keys them and finds them by their number.
+     */
+    @Test fun elevenToTwelveKeepsNotesAndSimsAndTheAppKeysThem() = runBlocking {
+        val key = PhoneIdentity.key("+44 20 7946 0123", "GB")
+        val legacy = PhoneIdentity.legacyKey("+44 20 7946 0456")
+        helper.createDatabase(NAME, 11).use { db ->
+            db.execSQL("INSERT INTO call_notes (id, numberKey, callDate, text, createdAt) VALUES (4, ?, 1000, 'Owes me a call', 900)", arrayOf(key))
+            db.execSQL("INSERT INTO call_notes (id, numberKey, callDate, text, createdAt) VALUES (5, ?, 2000, 'Older key', 1900)", arrayOf(legacy))
+            db.execSQL("INSERT INTO number_sim (matchKey, phoneAccountId) VALUES (?, 'sim-2')", arrayOf(key))
+            db.execSQL("INSERT INTO speed_dial (`key`, number, label) VALUES (4, '+442079460123', 'Ada')")
+        }
+        helper.runMigrationsAndValidate(NAME, 12, true, *Migrations.ALL).use { db ->
+            db.query("SELECT id, numberKey, callDate, text, createdAt, sealedKey FROM call_notes ORDER BY id").use { c ->
+                assertEquals(2, c.count)
+                c.moveToFirst()
+                assertEquals(4L, c.getLong(0))
+                assertEquals(key, c.getString(1))
+                assertEquals(1000L, c.getLong(2))
+                assertEquals("Owes me a call", c.getString(3))
+                assertEquals(900L, c.getLong(4))
+                assertTrue(c.isNull(5))
+                c.moveToNext()
+                assertEquals(legacy, c.getString(1))
+            }
+            db.query("SELECT matchKey, phoneAccountId, sealedKey FROM number_sim").use { c ->
+                c.moveToFirst()
+                assertEquals(key, c.getString(0))
+                assertEquals("sim-2", c.getString(1))
+                assertTrue(c.isNull(2))
+            }
+        }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        FakeAndroidKeyStore.install()
+        StatePrefs.open(context, "record_sealing").edit().clear().commit()
+        val room = Room.databaseBuilder(context, AppDatabase::class.java, NAME).addMigrations(*Migrations.ALL).allowMainThreadQueries().build()
+        try {
+            val crypto = RecordCrypto.get(context)
+            val lines = LineKeys.get(context)
+            val prefs = PrefsRepository(room, crypto, lines) { "GB" }
+            RecordSealing(context, room, { TimeMachine(context, ContactRecordStore(context)) }) { listOf(prefs) }.runIfNeeded()
+            val raw = room.openHelper.readableDatabase
+            for (table in listOf("call_notes", "number_sim", "speed_dial")) {
+                raw.query("SELECT * FROM $table").use { c ->
+                    while (c.moveToNext()) for (i in 0 until c.columnCount) {
+                        if (c.getType(i) != Cursor.FIELD_TYPE_STRING) continue
+                        val text = c.getString(i)
+                        assertFalse("$table keeps a number", text.contains("79460123") || text.contains("79460456"))
+                    }
+                }
+            }
+            val meta = SealedMetaDao(room.metaDao(), crypto, lines)
+            assertEquals("Owes me a call", meta.callNotesNow(PhoneIdentity.lookupKeys("020 7946 0123", "GB")).single().text)
+            assertEquals("Older key", meta.callNotesNow(PhoneIdentity.lookupKeys("+44 20 7946 0456", "GB")).single().text)
+            assertEquals("sim-2", prefs.simFor("+44 20 7946 0123"))
+            assertEquals("+442079460123", prefs.speedDial(4)?.number)
+        } finally {
+            room.close()
+        }
+    }
+
+    /** Deleted rows are overwritten, not left in the file's free pages: secure_delete is on for every opened database. */
+    @Test fun secureDeleteIsOn() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.deleteDatabase("parley.db")
+        val room = AppDatabase.create(context)
+        try {
+            val db = room.openHelper.writableDatabase
+            assertTrue(SecureDelete.isOn(db))
+            val marker = "Forget-me-note-31415926"
+            val id = room.metaDao().addCallNote(CallNoteEntity(numberKey = "#k", callDate = 1, text = marker.repeat(40)))
+            room.metaDao().deleteCallNote(id)
+            db.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+        } finally {
+            room.close()
+        }
+        val bytes = String(context.getDatabasePath("parley.db").readBytes(), Charsets.ISO_8859_1)
+        assertFalse("the deleted note is gone from the file", bytes.contains("Forget-me-note"))
+    }
+
     private companion object {
         const val NAME = "migration-test.db"
-        const val LATEST = 11
+        const val LATEST = 12
     }
 }
 

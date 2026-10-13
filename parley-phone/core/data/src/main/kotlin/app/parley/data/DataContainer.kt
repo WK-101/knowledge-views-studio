@@ -56,6 +56,7 @@ import app.parley.data.people.TemporaryContactStore
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.security.AppPinStore
 import app.parley.data.security.Concealment
+import app.parley.data.security.LineKeys
 import app.parley.data.security.RecordCrypto
 import app.parley.data.security.RecordSealing
 import app.parley.data.security.SealedMetaDao
@@ -116,7 +117,7 @@ class DataContainer(context: Context) {
     val callLog = CallLogRepository(appContext, scope, fullStart.sharing)
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }
-    val prefs by lazy { PrefsRepository(db) { PhoneEnv.countryIso(appContext) } }
+    val prefs by lazy { PrefsRepository(db, RecordCrypto.get(appContext), LineKeys.get(appContext)) { PhoneEnv.countryIso(appContext) } }
     val screener by lazy {
         CallScreener(
             appContext, contacts, blocks, sims, settings, vault, scope, lists, labelRingtones = { peoplePrefs.current().labelRingtones }, callLog = callLog,
@@ -285,7 +286,7 @@ class DataContainer(context: Context) {
     val privateTrash: PrivateTrash by lazy { PrivateTrash(appContext, vault) { contactKeys } }
 
     /** Pinned notes, call notes and journal payloads are sealed at rest behind this DAO. */
-    val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext)) }
+    val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext), LineKeys.get(appContext)) }
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { FolderSync(appContext, contacts, records) }
 
@@ -403,7 +404,7 @@ class DataContainer(context: Context) {
         RecordSealing(appContext, db, { timeMachine }) {
             listOf(
                 toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus, cases, people.listHead, archive, people.backgrounds,
-                contacts.passport, callRound,
+                contacts.passport, callRound, prefs,
             )
         }
     }

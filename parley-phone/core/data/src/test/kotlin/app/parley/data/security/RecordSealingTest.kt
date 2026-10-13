@@ -42,7 +42,7 @@ class RecordSealingTest {
     private fun String?.readable() = this != null && !crypto.isSealed(this)
 
     @Test fun notes_and_names_are_sealed_in_the_table_and_plain_above_it() = runBlocking {
-        val meta = SealedMetaDao(db.metaDao(), crypto)
+        val meta = SealedMetaDao(db.metaDao(), crypto, LineKeys.get(context))
         meta.setMeta(ContactMetaEntity("k1", pinnedNote = "Allergic to peanuts"))
         assertTrue(crypto.isSealed(db.metaDao().meta("k1")!!.pinnedNote))
         assertEquals("Allergic to peanuts", meta.meta("k1")!!.pinnedNote)
@@ -68,7 +68,7 @@ class RecordSealingTest {
 
     /** A device contact's relation kept in Parley only names a private contact: sealed in the table, plain above it. */
     @Test fun parley_only_relations_are_sealed_and_survive_whole_row_writes() = runBlocking {
-        val meta = SealedMetaDao(db.metaDao(), crypto)
+        val meta = SealedMetaDao(db.metaDao(), crypto, LineKeys.get(context))
         meta.setMeta(ContactMetaEntity("k3", parleyRelations = "Ana\t13\t"))
         assertTrue(crypto.isSealed(db.metaDao().meta("k3")!!.parleyRelations))
         assertEquals("Ana\t13\t", meta.meta("k3")!!.parleyRelations)
@@ -91,7 +91,7 @@ class RecordSealingTest {
         raw.addJournal(JournalEntity(contactKey = "k2", displayName = "Bo", action = "EDIT", time = 2, payload = byteArrayOf(1, 2, 3, 4, 5)))
         // A journal photo kept plain during a Keystore hiccup (later copies of the same photo point at it).
         raw.addJournalPhoto(JournalPhotoEntity("cafe", byteArrayOf(9, 8, 7, 6, 5, 4)))
-        val meta = SealedMetaDao(raw, crypto)
+        val meta = SealedMetaDao(raw, crypto, LineKeys.get(context))
         assertEquals("Plain from before", meta.meta("k2")!!.pinnedNote)
 
         val blobs = File(context.filesDir, "timemachine/blobs").apply { deleteRecursively() }
@@ -101,11 +101,14 @@ class RecordSealingTest {
         StatePrefs.open(context, "record_sealing").edit().clear().commit()
         val sealing = RecordSealing(context, db, { app.parley.data.backup.TimeMachine(context, app.parley.data.records.ContactRecordStore(context)) })
         val n = sealing.runIfNeeded()
-        assertEquals(6, n)
+        // Six values sealed, and the call note's line keyed.
+        assertEquals(7, n)
         assertTrue(sealing.done)
 
         assertTrue(crypto.isSealed(raw.meta("k2")!!.pinnedNote))
         assertTrue(crypto.isSealed(raw.allCallNotesNow().single().text))
+        assertTrue(LineKeys.isKeyed(raw.allCallNotesNow().single().numberKey))
+        assertEquals("n2", meta.callNotesNow(listOf("n2")).single().numberKey)
         assertTrue(crypto.isSealed(db.blockDao().screenedSince(0).single().callerName))
         assertTrue(crypto.isSealed(raw.journalEntry(raw.journalIds().single())!!.payload))
         assertEquals("Plain from before", meta.meta("k2")!!.pinnedNote)

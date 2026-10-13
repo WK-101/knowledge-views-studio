@@ -49,14 +49,14 @@ class RecordKeySafetyTest {
     private fun recordAliases() = FakeAndroidKeyStore.keys.keys.filter { it.startsWith("parley_records_wrap") }.toSet()
 
     @Test fun a_note_that_cant_be_opened_now_survives_whole_row_writes() = runBlocking {
-        SealedMetaDao(db.metaDao(), RecordCrypto.fresh(context)).setMeta(ContactMetaEntity("k1", pinnedNote = "Allergic to peanuts"))
+        SealedMetaDao(db.metaDao(), RecordCrypto.fresh(context), LineKeys.get(context)).setMeta(ContactMetaEntity("k1", pinnedNote = "Allergic to peanuts"))
         db.metaDao().addCallNote(CallNoteEntity(numberKey = "n1", callDate = 1, text = RecordCrypto.fresh(context).sealText("Owes me a call")!!))
         val stored = db.metaDao().meta("k1")!!.pinnedNote
 
         // After a restart the first unwrap hits a Keystore hiccup.
         FakeAndroidKeyStore.failure = { ProviderException("keystore busy") }
         val crypto = RecordCrypto.fresh(context)
-        val meta = SealedMetaDao(db.metaDao(), crypto)
+        val meta = SealedMetaDao(db.metaDao(), crypto, LineKeys.get(context))
         val row = meta.meta("k1")!!
         assertNull("shown as no note while it can't be opened", row.pinnedNote)
         assertThrows(RecordCrypto.UnreadableException::class.java) { crypto.openTextOrThrow(stored) }
@@ -86,9 +86,9 @@ class RecordKeySafetyTest {
         FakeAndroidKeyStore.failure = { UnrecoverableKeyException("keystore2 system error") }
         val crypto = RecordCrypto.fresh(context)
         val context2 = StatePrefs.open(context, "record_sealing")
-        context2.edit().putBoolean("done_v2", true).commit()
+        context2.edit().putBoolean("done_v3", true).commit()
         assertEquals("kept plain rather than lost", "New note", crypto.sealText("New note"))
-        assertFalse("the next sealing run picks it up", context2.getBoolean("done_v2", true))
+        assertFalse("the next sealing run picks it up", context2.getBoolean("done_v3", true))
         assertNull(crypto.openText(sealed))
         // Nothing was replaced or deleted, and there is nothing to tell the user.
         assertEquals(aliases, recordAliases())
@@ -100,13 +100,13 @@ class RecordKeySafetyTest {
     }
 
     @Test fun a_key_that_is_provably_gone_is_replaced_without_deleting_anything() = runBlocking {
-        val meta = SealedMetaDao(db.metaDao(), RecordCrypto.fresh(context))
+        val meta = SealedMetaDao(db.metaDao(), RecordCrypto.fresh(context), LineKeys.get(context))
         meta.setMeta(ContactMetaEntity("k2", pinnedNote = "Old note"))
         val old = db.metaDao().meta("k2")!!.pinnedNote
         FakeAndroidKeyStore.delete("parley_records_wrap_v1")
 
         val crypto = RecordCrypto.fresh(context)
-        val fresh = SealedMetaDao(db.metaDao(), crypto)
+        val fresh = SealedMetaDao(db.metaDao(), crypto, LineKeys.get(context))
         fresh.setMeta(ContactMetaEntity("k3", pinnedNote = "New note"))
         // A new key under a new alias; the old wrapped key is set aside and the user is told.
         assertTrue(crypto.isSealed(db.metaDao().meta("k3")!!.pinnedNote))

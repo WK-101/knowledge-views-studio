@@ -47,9 +47,9 @@ four Medium, one Low and a robustness fix); the rest are low-risk, documented, a
 | SP-4 | Medium | A private contact's number was written in the clear (only file-based encryption) with the time of each call: in `call_rings` (every incoming ring, 60 days) and in the call-time ledger `call_usage` (35 days, when an allowance is set). A forensic image got the numbers the sealed private history hides | **Fixed** |
 | SP-5 | Low | Two writes of the same file at once shared one `.tmp`: one could truncate it while the other renamed it into place, so a torn file (or, with a crash, a damaged key file) was possible | **Fixed** |
 | SP-6 | Low | An empty passphrase made the backup reader throw an `IllegalArgumentException` instead of "wrong passphrase" (the restore screen already blocked it) | **Fixed** |
-| SP-7 | Low | Plain number keys for private contacts remain in `call_notes` (a note's number and call date), `number_sim` (a chosen SIM), `speed_dial`, and `private_calls`' date, duration and type beside the sealed number | **Accepted / Owner** |
-| SP-8 | Low | A backup that opens with your passphrase can be forged by anyone who saw one of your backups (the public-key wrap); it is shown as unsigned or from an unknown phone, and safety settings are never restored silently, but contacts, blocking and the other data parts are ticked by default | **Accepted / Owner** |
-| SP-9 | Low | Deleted rows stay in SQLite's free pages until reused (`secure_delete` is off). Sealed rows stay sealed; the plain columns of SP-7 linger a little longer | **Accepted / Owner** |
+| SP-7 | Low | Plain number keys for private contacts remain in `call_notes` (a note's number and call date), `number_sim` (a chosen SIM), `speed_dial`, and `private_calls`' date, duration and type beside the sealed number | **Fixed (7.1)**: accepted as recommended |
+| SP-8 | Low | A backup that opens with your passphrase can be forged by anyone who saw one of your backups (the public-key wrap); it is shown as unsigned or from an unknown phone, and safety settings are never restored silently, but contacts, blocking and the other data parts are ticked by default | **Fixed (7.1)**: accepted as recommended |
+| SP-9 | Low | Deleted rows stay in SQLite's free pages until reused (`secure_delete` is off). Sealed rows stay sealed; the plain columns of SP-7 linger a little longer | **Fixed (7.1)**: accepted as recommended |
 | SP-10 | Low | Passphrases and PINs pass through Compose text fields as Java strings, which can't be wiped | **Accepted** |
 | SP-11 | Low | The in-call screen's note field (a separate activity) doesn't yet ask the keyboard not to learn | **Accepted** (follow-up) |
 | SP-12 | Info | Sealed rows carry no associated data binding them to their row (round 2's C-16): swapping needs write access to the database (root) | **Accepted** |
@@ -116,6 +116,19 @@ These hold a private contact's number (not the name) beside a time, protected by
 private history's call times. Sealing them means keying lookups by an HMAC, a migration of four stores read on the
 call path. **Owner:** do it in 7.1 (recommended, together with C-16's blob binding), or accept.
 
+*Accepted as recommended (7.1); fixed.* `LineKeys` keys line keys with HMAC-SHA-256 under a random per-install key
+wrapped by a Keystore key without authentication (`lines.keys`): `call_notes.numberKey` and `number_sim.matchKey`
+hold the fingerprint, with the line key sealed beside it (`sealedKey`, small-records key; schema 12, a nullable column
+each). Every key form a lookup tries is keyed the same way, so older forms still match. `SealedMetaDao` and
+`PrefsRepository` hand plain keys to everything above them; speed dial numbers are sealed. Private calls keep their
+time, length and direction inside the seal; the row keeps its entry and a keyed fingerprint of "entry|time|direction"
+for de-duplication, and calls are ordered after opening. Rows from before are keyed or sealed whole by the re-sealing
+pass (`RecordSealing`, `PrefsRepository.resealPlain`, `PrivateCallSeal.resealOlder`) without a Keystore wait in the
+schema step; a key the Keystore loses is replaced and rows keyed again from their sealed copies. Backups carry plain
+line keys inside their encryption (no format change) and are keyed again on restore. C-16's blob binding stays
+open (SP-12). Tests: `LineKeysTest`, `PrivateCallsTest`, `AppDatabaseMigrationTest.elevenToTwelve…`,
+`GoldenBackupsTest`, `BackupRoundTripTest`.
+
 ### SP-8 (Low): forged backups — accepted, owner decision
 
 The signature design already tells a forgery apart (`ArchiveOrigin`: unsigned, unknown signer, altered) and the restore
@@ -123,11 +136,20 @@ screen warns; safety settings and private-name approvals are never restored sile
 choose their file and confirm. **Owner:** untick the data parts by default for an unsigned, unknown or altered backup
 (one line in `RestoreFlow`), or keep today's behaviour.
 
+*Accepted as recommended (7.1); fixed.* `RestoreOptions.forOrigin`: a backup from this phone or another of yours
+starts with every data part ticked; an unsigned, unknown-signer, unconfirmed or altered one with none, under a line
+saying so, and Next stays off until a part is ticked. Tests: `RestoreOptionsTest`.
+
 ### SP-9 (Low): SQLite free pages — accepted, owner decision
 
 `PRAGMA secure_delete` would overwrite deleted rows at a write cost on every delete (the history prune deletes in bulk).
 Everything personal is sealed, so remnants are ciphertext under keys that "Delete all data" destroys. **Owner:** turn it
 on for `parley.db` only (small, few deletes), or accept.
+
+*Accepted as recommended (7.1); fixed.* `SecureDelete` (a Room callback) sets `PRAGMA secure_delete = ON` on the
+writing connection each time `parley.db` opens. The history database stays as it is (sealed rows and fingerprints
+only; its prune deletes in bulk). Tests: `AppDatabaseMigrationTest.secureDeleteIsOn` (the pragma, and a deleted
+note's text gone from the file).
 
 ## Every check
 
@@ -155,7 +177,7 @@ on for `parley.db` only (small, few deletes), or accept.
 | Recents thumbnail | **Fixed** (SP-2) |
 | Keyboard learning | **Fixed** (SP-3); in-call note field: SP-11 |
 | Android's call log names | **Fixed** (SP-1) |
-| Plain number keys in Parley's tables | **Fixed** for rings and the ledger (SP-4); others SP-7 |
+| Plain number keys in Parley's tables | **Fixed** for rings and the ledger (SP-4); the others in 7.1 (SP-7) |
 | Logs | Pass: R8 removes every `android.util.Log` call in release; no `printStackTrace`/`System.out` in app code; crash reports keep frames without messages |
 | WorkManager inputs (stored plain in its database) | Pass: job ids, generic labels, an export's own URI; no names or numbers |
 | Cache folders | Pass: shared files swept after an hour, camera shots and framed avatars swept, backup photo spool sealed with a key held only in memory and unlinked at once |
@@ -202,8 +224,8 @@ on for `parley.db` only (small, few deletes), or accept.
 
 ## Owner decisions
 
-1. **SP-7:** seal the remaining number keys with an HMAC in 7.1 (recommended), or accept.
-2. **SP-8:** untick a suspicious backup's data parts by default, or keep today's warning only.
-3. **SP-9:** turn on `secure_delete` for `parley.db`, or accept.
+1. **SP-7:** seal the remaining number keys with an HMAC in 7.1 (recommended), or accept. *Accepted as recommended (7.1).*
+2. **SP-8:** untick a suspicious backup's data parts by default, or keep today's warning only. *Accepted as recommended (7.1).*
+3. **SP-9:** turn on `secure_delete` for `parley.db`, or accept. *Accepted as recommended (7.1).*
 
 No new permission, setting or menu item was added.

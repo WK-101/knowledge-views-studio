@@ -62,5 +62,17 @@ object Migrations {
         )
     }
 
-    val ALL: Array<Migration> = arrayOf(V10_TO_11)
+    /**
+     * Gives call_notes and number_sim a nullable `sealedKey` column: the line key, sealed, beside the keyed fingerprint
+     * the row is then found by. Rows keep their plain key until the app keys them ([app.parley.data.security.RecordSealing]
+     * and [app.parley.data.PrefsRepository]), which needs the Keystore: a schema step must never fail or wait on it.
+     */
+    val V11_TO_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `call_notes` ADD COLUMN `sealedKey` TEXT")
+            db.execSQL("ALTER TABLE `number_sim` ADD COLUMN `sealedKey` TEXT")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(V10_TO_11, V11_TO_12)
 }
