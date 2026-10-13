@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import app.parley.telecom.R
+import app.parley.ui.ParleyMotion
 import app.parley.ui.Bidi
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -103,7 +104,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
     val canReply = !ringing.hidden && !ringing.number.isNullOrBlank()
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     val res = LocalResources.current
-    AnimatedVisibility(visible, enter = slideInVertically { it } + fadeIn()) {
+    AnimatedVisibility(visible, enter = slideInVertically(ParleyMotion.spatial()) { it } + fadeIn(ParleyMotion.effects())) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = ParleyShapes.hero.topOnly(),

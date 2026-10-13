@@ -12,8 +12,6 @@ import android.os.Bundle
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -53,6 +51,8 @@ import app.parley.security.LockedActivity
 import app.parley.ui.ChoiceRow
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import app.parley.ui.ParleyTopBar
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -214,7 +214,6 @@ internal object FavouritesDrawing {
 class FavoritesWidgetConfigActivity : LockedActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
@@ -229,11 +228,11 @@ class FavoritesWidgetConfigActivity : LockedActivity() {
         // While a widget is being placed the system sends it no update, so it is drawn now (as it shows until Done):
         // Back, or Parley's lock, then never leaves an empty widget behind.
         if (savedInstanceState == null) PeopleWidget.drawOnPlacing(applicationContext)
-        setContent {
+        setParleyContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
             val loaded by container.settings.loaded.collectAsStateWithLifecycle()
             val locked by AppLock.locked.collectAsStateWithLifecycle()
-            ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+            ParleyTheme(s.themeLook) {
                 if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
                     LockScreen { AppLock.authenticate(this@FavoritesWidgetConfigActivity) }

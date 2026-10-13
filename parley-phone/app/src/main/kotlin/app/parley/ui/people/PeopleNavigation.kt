@@ -3,6 +3,8 @@
 
 package app.parley.ui.people
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -56,8 +58,8 @@ object PeopleRoutes {
 
 /** Labels, "Edit this copy", SIM import, who can see what, private names, diagnostics, My card and the Archived list. */
 fun NavGraphBuilder.peopleGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<PeopleRoutes.Labels> { ManageLabelsScreen(appVm(), back, open) }
     composable<PeopleRoutes.Label> { LabelScreen(appVm(), it.toRoute<PeopleRoutes.Label>().title, back, open) }
     composable<PeopleRoutes.EditRaw> {

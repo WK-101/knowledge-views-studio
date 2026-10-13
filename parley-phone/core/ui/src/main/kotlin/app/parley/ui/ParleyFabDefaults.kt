@@ -100,12 +100,14 @@ fun Modifier.clearOfFab(fab: Boolean = true): Modifier = if (fab) padding(bottom
 /** How every floating button comes and goes (a quick spring from small, the same for all of them). */
 @Composable
 private fun FabVisibility(visible: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
-    val spring = ParleyMotion.fastSpatial<Float>()
+    // Scale on a spatial spring (it may overshoot a little); alpha on an effects spec, which never does.
+    val grow = ParleyMotion.fastSpatial<Float>()
+    val fade = ParleyMotion.fastEffects<Float>()
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = scaleIn(spring, initialScale = 0.4f) + fadeIn(spring),
-        exit = scaleOut(spring, targetScale = 0.4f) + fadeOut(spring),
+        enter = scaleIn(grow, initialScale = 0.4f) + fadeIn(fade),
+        exit = scaleOut(grow, targetScale = 0.4f) + fadeOut(fade),
     ) { content() }
 }
 

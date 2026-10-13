@@ -6,10 +6,6 @@ import android.content.res.Resources
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -491,27 +487,57 @@ private fun SafetyLine(s: ScreenState, sheets: InCallSheets, a: ScreenActions, l
     if (promised) PromisedHint(primary)
 }
 
+/** Which set of controls the bottom half shows; a change of phase animates, a change within one doesn't. */
+internal enum class ControlsPhase { ENDED, BLOCKING, RINGING, SELECT_ACCOUNT, ONGOING }
+
+internal fun controlsPhase(primary: CallUi?): ControlsPhase = when {
+    primary == null -> ControlsPhase.ENDED
+    // "Block & decline" is under way: nothing left to answer.
+    primary.state == CallState.RINGING && primary.blockingDecline -> ControlsPhase.BLOCKING
+    primary.state == CallState.RINGING -> ControlsPhase.RINGING
+    primary.state == CallState.SELECT_ACCOUNT -> ControlsPhase.SELECT_ACCOUNT
+    else -> ControlsPhase.ONGOING
+}
+
+/**
+ * Swaps the bottom half when [phase] of [state] changes (answering, the call ending) with the keypad's short scale
+ * and fade, instead of a cut. The leaving controls keep the state they were drawn for, so a call that just ended
+ * never shows its grid without a call.
+ */
+@Composable
+internal fun <T> ControlsSwap(state: T, phase: (T) -> ControlsPhase, content: @Composable (T, ControlsPhase) -> Unit) {
+    val swap = ParleyMotion.swapScaled()
+    AnimatedContent(
+        state,
+        transitionSpec = { swap },
+        contentAlignment = Alignment.BottomCenter,
+        contentKey = phase,
+        label = "controls",
+    ) { shown -> content(shown, phase(shown)) }
+}
+
 /** The bottom half: what can be done now. */
 @Composable
-private fun ColumnScope.ControlsSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions, scrollKeypad: Boolean) {
-    val primary = s.primary
-    when {
-        primary == null -> EndedCards(s, a, sheets.safetyChecked)
-        // "Block & decline" is under way: nothing left to answer.
-        primary.state == CallState.RINGING && primary.blockingDecline -> BlockingDecline()
-        primary.state == CallState.RINGING -> IncomingControls(
-            call = primary,
-            gesture = s.incoming.answerGesture,
-            hasActiveCall = s.others.any { it.state == CallState.ACTIVE },
-            onMessage = { sheets.replyFor = primary.id },
-            onBlockAndDecline = if (primary.canBlockAndDecline && !s.incoming.simple) ({ CallManager.blockAndDecline(primary.id) }) else null,
-            // Saved numbers are listed only once the phone is unlocked.
-            onDeflect = if (primary.canDeflect && !s.incoming.simple) ({ a.onUnlock { sheets.handOff = primary.id } }) else null,
-            simple = s.incoming.simple,
-            confirmDecline = s.incoming.confirmDecline,
-        )
-        primary.state == CallState.SELECT_ACCOUNT -> SimPicker(primary)
-        else -> OngoingControls(primary, s, sheets, a, scrollKeypad)
+private fun ControlsSection(screen: ScreenState, sheets: InCallSheets, a: ScreenActions, scrollKeypad: Boolean) {
+    ControlsSwap(screen, { controlsPhase(it.primary) }) { s, phase ->
+        val primary = s.primary
+        when {
+            primary == null || phase == ControlsPhase.ENDED -> EndedCards(s, a, sheets.safetyChecked)
+            phase == ControlsPhase.BLOCKING -> BlockingDecline()
+            phase == ControlsPhase.RINGING -> IncomingControls(
+                call = primary,
+                gesture = s.incoming.answerGesture,
+                hasActiveCall = s.others.any { it.state == CallState.ACTIVE },
+                onMessage = { sheets.replyFor = primary.id },
+                onBlockAndDecline = if (primary.canBlockAndDecline && !s.incoming.simple) ({ CallManager.blockAndDecline(primary.id) }) else null,
+                // Saved numbers are listed only once the phone is unlocked.
+                onDeflect = if (primary.canDeflect && !s.incoming.simple) ({ a.onUnlock { sheets.handOff = primary.id } }) else null,
+                simple = s.incoming.simple,
+                confirmDecline = s.incoming.confirmDecline,
+            )
+            phase == ControlsPhase.SELECT_ACCOUNT -> SimPicker(primary)
+            else -> OngoingControls(primary, s, sheets, a, scrollKeypad)
+        }
     }
 }
 
@@ -547,11 +573,10 @@ private fun EndedCards(s: ScreenState, a: ScreenActions, safetyChecked: Set<Stri
 /** The grid (or the keypad in its place), then End call. */
 @Composable
 private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, a: ScreenActions, scrollKeypad: Boolean) {
-    val fast = ParleyMotion.fastEffects<Float>()
-    val spatial = ParleyMotion.spatial<Float>()
+    val swap = ParleyMotion.swapScaled()
     AnimatedContent(
         s.keypadOpen,
-        transitionSpec = { (fadeIn(fast) + scaleIn(spatial, initialScale = 0.92f)) togetherWith fadeOut(fast) },
+        transitionSpec = { swap },
         contentAlignment = Alignment.BottomCenter,
         label = "keypad",
     ) { open ->
