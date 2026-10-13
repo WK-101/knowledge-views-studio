@@ -3,6 +3,8 @@
 
 package app.parley.ui.history
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -46,8 +48,8 @@ object HistoryRoutes {
 
 /** Call history: a number's history, insights, import, the SIMs' settings and case files. */
 fun NavGraphBuilder.historyGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<Routes.History> { NumberHistoryScreen(appVm(), it.toRoute<Routes.History>().number, back = back, open = open) }
     composable<HistoryRoutes.Insights> { InsightsScreen(appVm(), back = back, open = open, quality = it.toRoute<HistoryRoutes.Insights>().quality) }
     // Old links to the former sub-screen land on its section of the settings page.

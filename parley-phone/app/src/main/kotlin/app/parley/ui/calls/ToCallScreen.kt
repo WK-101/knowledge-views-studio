@@ -3,6 +3,8 @@
 
 package app.parley.ui.calls
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import app.parley.ui.PrivateMarked
@@ -80,7 +82,7 @@ object ToCallRoutes {
 
 /** The To call list (opened from the strip at the top of Recents and from its reminder). */
 fun NavGraphBuilder.toCallGraph(nav: NavController) {
-    composable<ToCallRoutes.List> { ToCallScreen(appVm(), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+    composable<ToCallRoutes.List> { ToCallScreen(appVm(), back = nav.parleyBack(), open = nav.parleyOpen()) }
 }
 
 /** The name, or the number kept left to right. */

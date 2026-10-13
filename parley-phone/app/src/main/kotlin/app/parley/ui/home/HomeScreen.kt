@@ -87,7 +87,7 @@ import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.PreviewedBackHandler
-import app.parley.ui.fadeThrough
+import app.parley.ui.ParleyMotion
 import app.parley.ui.rememberBackPreview
 import androidx.compose.material.icons.automirrored.rounded.MergeType
 
@@ -310,7 +310,7 @@ fun HomeScreen(
                     // Each tab keeps its own saved state (its list's scroll position above all) while another is open,
                     // as a navigation bar's destinations should: Contacts → Recents → Contacts comes back where it was.
                     val tabStates = rememberSaveableStateHolder()
-                    val through = fadeThrough()
+                    val through = ParleyMotion.fadeThrough()
                     val tabContent: @Composable (StartTab) -> Unit = { t ->
                         when (t) {
                             StartTab.FAVORITES -> Centred(window.contentMaxDp) { FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" }) }

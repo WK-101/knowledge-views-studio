@@ -17,8 +17,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import app.parley.common.widgets.WidgetShape
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,6 +27,8 @@ import app.parley.picker.PickerScreen
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -108,7 +108,6 @@ class DialWidget : AppWidgetProvider() {
 /** Chooses the phone number for a new direct-dial widget. */
 class DialWidgetConfigActivity : LockedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
@@ -121,11 +120,11 @@ class DialWidgetConfigActivity : LockedActivity() {
             finish()
             return
         }
-        setContent {
+        setParleyContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
             val loaded by container.settings.loaded.collectAsStateWithLifecycle()
             val locked by AppLock.locked.collectAsStateWithLifecycle()
-            ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
+            ParleyTheme(s.themeLook) {
                 if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
                     LockScreen { AppLock.authenticate(this@DialWidgetConfigActivity) }

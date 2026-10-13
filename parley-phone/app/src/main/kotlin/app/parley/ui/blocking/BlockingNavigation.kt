@@ -3,6 +3,8 @@
 
 package app.parley.ui.blocking
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -35,8 +37,8 @@ object BlockingRoutes {
 
 /** Blocking & screening and its sub-screens. */
 fun NavGraphBuilder.blockingGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    composable<Routes.Blocking> { BlockingScreen(appVm(), back = back, open = { r -> nav.navigate(r) }) }
+    val back: () -> Unit = nav.parleyBack()
+    composable<Routes.Blocking> { BlockingScreen(appVm(), back = back, open = nav.parleyOpen()) }
     composable<BlockingRoutes.Lists> { SpamListsScreen(appVm(), back) }
     composable<BlockingRoutes.Transfer> { TransferScreen(appVm(), back) }
     composable<BlockingRoutes.DryRun> { DryRunScreen(appVm(), back) }

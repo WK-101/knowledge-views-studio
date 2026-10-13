@@ -3,6 +3,8 @@
 
 package app.parley.ui.qr
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -16,5 +18,5 @@ object QrRoutes {
 }
 
 fun NavGraphBuilder.qrGraph(nav: NavController) {
-    composable<QrRoutes.Scan> { QrScanScreen(appVm(), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+    composable<QrRoutes.Scan> { QrScanScreen(appVm(), back = nav.parleyBack(), open = nav.parleyOpen()) }
 }

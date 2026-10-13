@@ -3,6 +3,8 @@
 
 package app.parley.ui.timemachine
 
+import app.parley.ui.ParleyMotion
+import app.parley.ui.parleyBack
 import app.parley.common.catching
 import app.parley.data.backup.SyncWatch
 import android.app.Application
@@ -95,7 +97,7 @@ object WatchRoutes {
 }
 
 fun NavGraphBuilder.watchGraph(nav: NavController) {
-    composable<WatchRoutes.Restore> { e -> WatchRestoreScreen(appVm(), e.toRoute<WatchRoutes.Restore>().event, back = { nav.popBackStack() }) }
+    composable<WatchRoutes.Restore> { e -> WatchRestoreScreen(appVm(), e.toRoute<WatchRoutes.Restore>().event, back = nav.parleyBack()) }
 }
 
 /** The watchdog's words, shared by its card and its notification. Accounts are named; people never are. */
@@ -145,7 +147,7 @@ fun openSyncSettings(context: Context, failed: () -> Unit) {
 @Composable
 fun SyncWatchdogCards(vm: AppViewModel, open: (Destination) -> Unit) {
     val memory by vm.c.syncWatch.memory.collectAsStateWithLifecycle()
-    Column(Modifier.animateContentSize()) {
+    Column(Modifier.animateContentSize(ParleyMotion.spatial())) {
         CoachMark(Tips.SYNC_WATCHDOG, stringResource(R.string.watch_tip))
         memory.pending.asReversed().forEach { e -> WatchCard(vm, e, open) }
     }

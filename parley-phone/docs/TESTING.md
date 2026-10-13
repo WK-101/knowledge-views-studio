@@ -3865,6 +3865,29 @@ Automated: `SituationWidgetPlanTest` (core:common); `SituationsWidgetTest` (app:
 3. Lock the phone and, on a launcher that shows home-screen widgets above the lock screen, tap a chip: nothing changes (as the tile asks for the unlock first).
 4. App lock on and Parley locked: the widget still shows the Situations' names and still switches them, like the tile (Situations aren't private). Unlock with the duress PIN: the widget looks and works the same; Rescue call is never on it.
 
+### 54.10 Page transitions
+Automated: `NavigationGuardTest` (the root reads ParleyMotion's page specs) (app); `NavMotionTest` (the forward shift flips right to left) (core:ui).
+1. **Forward.** Open Settings, then a category: each page slides a short way in from the right as the one beneath drifts left and fades. No double fade, no flash of the window background.
+2. **Back.** Tap Back: the page shrinks a little and fades while the page beneath grows back into place. On Android 14+ with predictive back on (Android 16 by default), swipe back slowly from the edge: the page shrinks with your finger and the page beneath shows. Let go early: it settles back. Finish: it pops.
+3. **Arabic.** Switch the phone to Arabic: forward pages come in from the left.
+4. **Remove animations.** Settings › Accessibility › Remove animations: every page change is instant, and the floating button, the A–Z bubble, the Situation and return-to-call chips appear and disappear without movement.
+5. **Small swaps.** Settings › search: the bar changes to the search field with a short fade. Contact page: scroll until the header docks; the name fades into the top bar. Editor: tap Save on a big contact; the label fades to the spinner. Turn a Situation on: its chip under the top bar opens like the other cards. The floating button grows from small with no flicker of its colour.
+6. **Call waiting.** During a call, have a second call come in: the waiting panel rises from the bottom with the same spring.
+
+### 54.11 Back and open once
+Automated: `NavigationGuardTest` (two Backs in one frame pop once and never Home; a double tap opens one page; every graph uses the guarded Back and open) (app).
+1. **Double Back.** Open Settings (or Tools, Blocking, a contact page). Tap the top bar's Back twice as fast as you can: you land on Home, never on a blank screen. From a second-level page (Settings › Calls) a fast double tap lands on Settings, not Home.
+2. **Double open.** Double-tap a contact row, a Settings category and a Tools row: one page opens each time; one Back returns.
+3. **Every window.** Open the call-promise sheet ("Call back later" from a missed-call notification), the direct-dial widget's set-up and the contact picker from another app: each draws edge to edge with the theme's colours, in light, dark and AMOLED, with no coloured flash of the status bar on open.
+
+### 54.12 Call screen controls
+Automated: `ControlsSwapTest` (each call state has its phase; answering leaves one set of controls) (telecom).
+1. **Answer.** Have a call come in and answer it: the answer controls fade out as the call's controls grow in from slightly smaller, at the bottom, in about a quarter of a second. It is never a jump, and there is never a second End button.
+2. **End.** Hang up: the controls give way to the ended screen (or the post-call card) the same way. A call that fails or drops shows its card without the grid flashing back.
+3. **Keypad.** Open and close the keypad: the same short scale and fade as before.
+4. **Press.** Press and hold Mute, End call, Answer and Reply: each squares off (End call also widens) while held, and springs back on release, as before.
+5. **Remove animations** on: answering and hanging up change the controls at once.
+
 ### 54.13 Home tabs keep their place and move like Material
 Automated: `HomeShellTest.contacts_keep_their_scroll_position_across_a_tab_switch` (app).
 1. Contacts: scroll to "M". Switch to Recents, then back to Contacts: the list is still at "M". Do the same with Recents (scroll down a few days) and Favourites: each comes back where it was. Rotate: still there.

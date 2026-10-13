@@ -87,3 +87,10 @@ the bottom of the list. The fix keeps the button where it is and makes everythin
   margins, that the index and every list under a button use it, and that no screen with a button has a hand-made
   bottom clearance (72 dp or more) instead.
 
+## Moving between pages (7.0)
+
+- **One source of motion.** Page changes, swaps and expanding sections all read `ParleyMotion`, which reads the theme's expressive `MotionScheme`. Spatial springs move and scale things; effects specs fade them (they never overshoot, so alpha never "bounces").
+- **Pages.** Forward: shared axis, the new page sliding 30 dp in from the end side (left in right-to-left languages) as the old one drifts toward the start and fades. Back: the leaving page scales to 90 % and fades, and the page beneath grows back from 95 %. The navigation host's predictive back scrubs these with the gesture, so the swipe previews the page beneath. The specs are read in composition (`navEnter`/`navExit`/`navPopEnter`/`navPopExit`) because the host's transition lambdas aren't composable.
+- **Swaps.** `swap()` (a fade) for one label or bar replacing another; `swapScaled()` for one panel of controls replacing another (the call screen's ringing, talking and ended controls, and its keypad); `fadeThrough()` for top-level places.
+- **Back and open once.** Every graph takes `nav.parleyBack()` and `nav.parleyOpen()`. A Back that lands on a page is ignored until that page has settled, and Home is never popped, so a fast double tap can't leave an empty host. A second open of the same page while it still slides in is dropped.
+- **Windows.** Every activity starts with `setParleyContent` (edge to edge before the first frame) and themes itself with `ParleyTheme(settings.themeLook)`.

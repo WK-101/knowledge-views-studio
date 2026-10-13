@@ -9,6 +9,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -117,15 +119,8 @@ internal data class ControlSpec(
 internal fun CallControlButton(spec: ControlSpec, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val corner by animateDpAsState(
-        when {
-            pressed && spec.enabled -> CallButtonSize.pressedCorner
-            spec.active -> CallButtonSize.selectedCorner
-            else -> CallButtonSize.restCorner
-        },
-        ParleyMotion.fastSpatial(), label = "corner",
-    )
+    val rest = if (spec.active) CallButtonSize.selectedCorner else CallButtonSize.restCorner
+    val corner by rememberPressMorph(source, rest, if (spec.enabled) CallButtonSize.pressedCorner else rest)
     val container by animateColorAsState(if (spec.active) scheme.primary else scheme.surfaceContainerHighest, ParleyMotion.effects(), label = "container")
     val content by animateColorAsState(
         when {
@@ -202,7 +197,7 @@ internal fun CallActionButton(
 ) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    val corner by animateDpAsState(if (pressed) size * 0.3f else size / 2, ParleyMotion.fastSpatial(), label = "corner")
+    val corner by rememberPressMorph(source, rest = size / 2, pressed = size * 0.3f)
     val scale by animateFloatAsState(if (pressed) 0.94f else 1f, ParleyMotion.fastSpatial(), label = "scale")
     Column(modifier.widthIn(min = size + Spacing.l), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -227,14 +222,20 @@ internal fun CallActionButton(
     }
 }
 
+/** A size (a corner, a width) that springs from [rest] to [pressed] while [source] is pressed: every call button's morph. */
+@Composable
+private fun rememberPressMorph(source: InteractionSource, rest: Dp, pressed: Dp, label: String = "corner"): State<Dp> {
+    val down by source.collectIsPressedAsState()
+    return animateDpAsState(if (down) pressed else rest, ParleyMotion.fastSpatial(), label = label)
+}
+
 /** End call: the wide red pill, centred at the bottom within thumb reach. */
 @Composable
 internal fun EndCallButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val endCall = stringResource(R.string.tile_end_call)
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val corner by animateDpAsState(if (pressed) 22.dp else CallButtonSize.endHeight / 2, ParleyMotion.fastSpatial(), label = "corner")
-    val width by animateDpAsState(if (pressed) CallButtonSize.endWidth + 12.dp else CallButtonSize.endWidth, ParleyMotion.fastSpatial(), label = "width")
+    val corner by rememberPressMorph(source, rest = CallButtonSize.endHeight / 2, pressed = 22.dp)
+    val width by rememberPressMorph(source, rest = CallButtonSize.endWidth, pressed = CallButtonSize.endWidth + 12.dp, label = "width")
     Box(
         modifier
             .size(width = width, height = CallButtonSize.endHeight)
@@ -285,8 +286,7 @@ internal fun QuietAction(
 ) {
     val scheme = MaterialTheme.colorScheme
     val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val corner by animateDpAsState(if (pressed) CallButtonSize.pressedCorner else CallButtonSize.quiet / 2, ParleyMotion.fastSpatial(), label = "corner")
+    val corner by rememberPressMorph(source, rest = CallButtonSize.quiet / 2, pressed = CallButtonSize.pressedCorner)
     val container by animateColorAsState(
         if (selected) scheme.secondaryContainer else scheme.onSurface.copy(alpha = QUIET_VEIL), ParleyMotion.effects(), label = "container",
     )

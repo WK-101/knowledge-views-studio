@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import app.parley.common.AppSettings
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 
@@ -178,6 +180,30 @@ fun ParleyTheme(
             content = content,
         )
     }
+}
+
+/** The appearance settings every Parley window is themed by. */
+data class ThemeLook(
+    val mode: ThemeMode = ThemeMode.SYSTEM,
+    val amoled: Boolean = false,
+    val dynamicColor: Boolean = true,
+    val density: ListDensity = ListDensity.COMFORTABLE,
+)
+
+val AppSettings.themeLook: ThemeLook get() = ThemeLook(themeMode, amoledBlack, dynamicColor, density)
+
+@Composable
+fun ParleyTheme(look: ThemeLook, content: @Composable () -> Unit) =
+    ParleyTheme(look.mode, look.amoled, look.dynamicColor, look.density, content)
+
+/**
+ * Every Parley window's content: edge to edge from before the first frame (so the bars don't flash a colour), then
+ * [content], which themes itself with [ParleyTheme] once the settings are known. [ParleyTheme] re-applies the bars'
+ * icon colours for the chosen theme.
+ */
+fun ComponentActivity.setParleyContent(content: @Composable () -> Unit) {
+    enableEdgeToEdge()
+    setContent(content = content)
 }
 
 private val LightScrim = android.graphics.Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
