@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Situations widget (RemoteViews, no Glance): "Night is on" (two cells high and up), then rows of chips added at
+     run time (SituationWidgetPlan.fit). One cell draws widget_compact instead. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sit_root"
+    style="@style/ParleyWidget"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/sit_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:textColor="@color/c2_widget_accent"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:id="@+id/sit_rows"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical" />
+
+</LinearLayout>

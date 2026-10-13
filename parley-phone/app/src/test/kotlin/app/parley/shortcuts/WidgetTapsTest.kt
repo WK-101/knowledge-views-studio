@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import androidx.test.core.app.ApplicationProvider
 import app.parley.MainActivity
 import app.parley.common.people.FavoritesWidgetPlan
+import app.parley.common.situations.Situations
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -27,6 +28,7 @@ class WidgetTapsTest {
     private fun places(kind: WidgetTaps.Kind): Int = when (kind) {
         WidgetTaps.Kind.FAVOURITE -> FavoritesWidgetPlan.MAX_COLUMNS * FavoritesWidgetPlan.MAX_ROWS
         WidgetTaps.Kind.CIRCLE_PERSON, WidgetTaps.Kind.CIRCLE_CALL, WidgetTaps.Kind.CIRCLE_DATE -> 3
+        WidgetTaps.Kind.SITUATION_TOGGLE -> Situations.MAX
         else -> 1
     }
 

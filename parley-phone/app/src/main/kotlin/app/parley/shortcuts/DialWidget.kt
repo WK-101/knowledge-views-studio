@@ -14,7 +14,9 @@ import android.graphics.Paint
 import android.graphics.Shader
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
+import app.parley.common.widgets.WidgetShape
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
@@ -32,7 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 1×1 direct-dial widget: tap to call one person. */
+/** Direct-dial widget (one cell, resizable): tap to call one person. */
 class DialWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         // Photo decoding reads storage: keep it off the main thread.
@@ -44,6 +46,10 @@ class DialWidget : AppWidgetProvider() {
                 pending.finish()
             }
         }.start()
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: Bundle) {
+        onUpdate(context, manager, intArrayOf(id))
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {
@@ -64,17 +70,23 @@ class DialWidget : AppWidgetProvider() {
             val name = p.getString("$id.name", null) ?: return
             val number = p.getString("$id.number", null) ?: return
             val photo = p.getString("$id.photo", null)
-            val views = RemoteViews(context.packageName, R.layout.widget_dial)
-            views.setTextViewText(R.id.widget_name, name.substringBefore(' '))
             // runCatching, not catching: a large image can throw OutOfMemoryError, and that should fall back too.
             val icon = photo?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
                 ?: Shortcuts.monogram(name, 160)
-            views.setImageViewBitmap(R.id.widget_photo, circle(icon))
-            views.setContentDescription(R.id.widget_root, context.getString(R.string.action_call_named, name))
+            val face = circle(icon)
             val pi = WidgetTaps.activity(
                 context, WidgetTaps.Kind.DIAL, id, 0, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1), name),
             )
-            views.setOnClickPendingIntent(R.id.widget_root, pi)
+            // Drawn for each size it may show at: the name only where it fits under the photo.
+            val views = WidgetSizing.responsive(manager, id) { size ->
+                RemoteViews(context.packageName, R.layout.widget_dial).apply {
+                    setTextViewText(R.id.widget_name, name.substringBefore(' '))
+                    setViewVisibility(R.id.widget_name, if (WidgetShape.labelFits(size.heightDp)) View.VISIBLE else View.GONE)
+                    setImageViewBitmap(R.id.widget_photo, face)
+                    setContentDescription(R.id.widget_root, context.getString(R.string.action_call_named, name))
+                    setOnClickPendingIntent(R.id.widget_root, pi)
+                }
+            }
             manager.updateAppWidget(id, views)
         }
 

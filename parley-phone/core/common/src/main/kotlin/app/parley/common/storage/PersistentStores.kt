@@ -241,6 +241,7 @@ object PersistentStores {
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone"), location = LOCAL_STATE),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
         PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher"), location = LOCAL_STATE),
+        PersistentStore("situation_widgets", StoreKind.PREFS, local("How often each Situation was turned on (the widget's toggle)"), location = LOCAL_STATE),
         PersistentStore(
             "history_upkeep", StoreKind.PREFS, local("Whether calls were deleted by hand since number memory last read the whole archive"),
             location = LOCAL_STATE,

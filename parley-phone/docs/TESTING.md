@@ -3836,6 +3836,35 @@ Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its s
 
 ## 54. Polish and proof (7.0)
 
+### 54.1 The Circle widget is gone; the People widget replaces it
+Automated: `PeopleWidgetPlacingTest.the_widget_list_is_people_direct_dial_and_situations_and_the_old_circle_entry_is_gone` (app); `PeopleWidgetPlanTest`, `WhatsNewTest.an_update_from_a_release_with_the_circle_widget_says_where_it_went` (core:common).
+1. On 6.9, place an old Circle widget (Android 10–12 still list it) and a People widget in Circle mode, then update to 7.0. The old Circle widget disappears from the home screen (Android removes a widget whose entry is gone); the People widget keeps working in Circle mode.
+2. Open Parley: the What's new card says "The Circle widget is now the People widget. If yours is gone from the home screen, add the People widget and choose Your Circle." It shows once, with the card; a fresh install never shows it.
+3. The widget list (any Android version) offers Parley's **People**, **Direct dial** and **Situations**, never Circle.
+
+### 54.2 Smaller widgets
+Automated: `FavoritesWidgetPlanTest.small_widgets_get_a_layout_of_their_own_never_a_cut_off_one`, `PeopleWidgetPlanTest.the_circle_fits_its_size_and_is_never_cut_off`, `WidgetShapeTest` (core:common); `PeopleWidgetPlacingTest.every_widget_resizes_down_to_one_cell` (app).
+1. Place a People widget: it starts at 2×2 (was 4×2). Resize it down to 1×1, then 2×1, 2×2 and back to 4×3, in portrait and landscape.
+2. **Favourites.** 1×1: one face with the name under it (portrait) or faces alone (landscape, one cell high); 2×1: a row of two faces, no title; 2×2: the title and four faces. No name or face is ever cut off; TalkBack still reads "Call Ana" on a face without its name. Locked with the app lock on: at small sizes just "3 favourites", the text shrinking to fit; a tap still reveals.
+3. **Circle mode.** 1×1: the first person due, with a phone icon that calls them (TalkBack "Call Ana") and their name, or the Circle icon and "Circle" when nobody is due (a tap opens the Circle); 2×1: one person row with Call, no title; 2×2 and up: the title, people, then "Coming up" dates as room allows. Locked: counts only, never names, at every size.
+4. **Direct dial.** Resize it (it can now be resized): the photo shrinks to fit, the name shows only where it fits under it.
+5. **Look.** On Android 12+, the widgets' corners match other widgets on the home screen, and their colours follow the wallpaper (change the wallpaper: they follow); light and dark follow the system. On Android 10–11 they keep Parley's own colours with 24 dp corners.
+
+### 54.3 Situations widget
+Automated: `SituationWidgetPlanTest` (core:common); `SituationsWidgetTest` (app: a tap turns a Situation on then off through the controller, never on a locked phone; a change made elsewhere redraws it and counts for the single toggle).
+1. Long-press the home screen › Widgets › Parley: **Situations** is listed with a preview (Night filled, Meeting outlined) and the description "Turn Night, Meeting, Driving or your own Situations on and off from the home screen." Place it: 2×1, a row of chips, none filled.
+2. Tap **Night**: it fills, the Quick Settings tile says Night, the "Night is on" notice and home line appear, and the Situations page shows Night on with "Set by Night" on the pages it sets. Tap it again: it goes off and everything is put back. No "How long?" question: like the tile, it stays on until turned off.
+3. Tap **Meeting** while Night is on: Night goes off first and Meeting comes on, as from the app.
+4. Resize: 1×1 is one toggle with the Situation's name, for the one on now, else the one turned on most (turn Meeting on and off a few times, from anywhere: the 1×1 then offers Meeting); its icon is filled while on. 2×2 and up: "Meeting is on" or "No Situation" above rows of chips; tapping that line opens Settings › Calls › Situations. With more Situations than fit, the one on and the ones used most are shown.
+5. TalkBack: a chip reads "Night is off. Tap to turn it on." / "Night is on. Tap to turn it off."
+6. Tools › Calls that work better › **Situations on your home screen** ("New" in 7.0) opens its help page; its button opens Situations.
+
+### 54.4 Situations widget: always current, and safe
+1. With the widget placed, turn a Situation on or off from the app, the Quick Settings tile, the notice's Turn off, a scheduled window (set Night to start in two minutes) and the car (connect the marked car for Driving): the widget follows each within a second or two, also with Parley closed.
+2. Add a Situation, rename one and delete one in the app: the widget shows the change.
+3. Lock the phone and, on a launcher that shows home-screen widgets above the lock screen, tap a chip: nothing changes (as the tile asks for the unlock first).
+4. App lock on and Parley locked: the widget still shows the Situations' names and still switches them, like the tile (Situations aren't private). Unlock with the duress PIN: the widget looks and works the same; Rescue call is never on it.
+
 ### 54.19 Lists run edge to edge
 Automated: `ScaffoldBodyTest` (app, Robolectric: a list built with `scaffoldBody`/`scaffoldBottom` draws under a 48 dp navigation bar and its last row scrolls clear above it).
 1. Gesture navigation, a long list: Call insights, Backup & restore, Version history (a contact's ⋮), Birthdays & dates, Blocking › Templates, Spam lists, Test a call, Speed dial, Privacy dashboard, Who can see your contacts, Archived contacts, Sync between your phones, Import call history, Export, Who's in…, Talk-time reminders, Find & merge duplicates, Contact health check, SIMs and a SIM's plan, Import from SIM. Scroll: rows pass under the transparent navigation bar (no blank band above it), and at the end the last row stops clear of the bar and the gesture handle.
@@ -3853,7 +3882,7 @@ Automated: `OnboardingStepsTest` (app, Robolectric: a step opens at its top afte
 ### 54.21 Tools: rows under the job they do
 Automated: `CapabilityCatalogTest.each_row_sits_under_its_job`, `calls_that_work_better_folds_to_four` (core:common); `CapabilityRoutesTest` (app).
 1. Tools › Never lose a contact shows **Scan a contact's QR code** up front; under its "more" are **Add several numbers** and **Make a contact from pasted text**. Know who's calling no longer lists the QR row, and Message without saving lists only Message a number without saving it, Messaged numbers, Send my details, Introduce myself… and Reply when you can't answer.
-2. Tools › Calls that work better shows four rows: Situations, Rescue call, Speed dial and Simple mode; "n more" opens the rest (Answer automatically, Your car, Add a helper, Talk-time, Plan minutes, Calling abroad, Phone menus, Call quality, RTT, Voicemail, Case files, No more pocket calls, Remind me of missed calls).
+2. Tools › Calls that work better shows four rows: Situations, Rescue call, Speed dial and Simple mode; "n more" opens the rest (Answer automatically, Situations on your home screen, Your car, Add a helper, Talk-time, Plan minutes, Calling abroad, Phone menus, Call quality, RTT, Voicemail, Case files, No more pocket calls, Remind me of missed calls).
 3. Search "qr", "paste" and "several": each finds its row in the new group and opens the same screen as before.
 
 ### 54.22 Settings order and job progress
@@ -3861,3 +3890,4 @@ Automated: `SettingsOrderTest` (app: Calls and Blocking first, Appearance and La
 1. Settings: after Tools come Calls, Blocking & spam; Contacts, Recents & history; Privacy & security, Backup & sync, Reminders, Notifications & device; Appearance, Layout & gestures; About.
 2. Settings search still finds "theme", "navigation bar", "speed dial", "voicemail" and "pure black", and each opens its page at the row.
 3. Android 16: export all contacts and leave Parley while it runs. The ongoing "Exporting…" notification shows Android 16's progress bar, filling as it goes (a moving bar while the size isn't known yet); it is never promoted to a Live Update or a status chip. Lock the screen: the lock screen shows only that Parley is working. On Android 15 and older the plain progress bar shows, as before.
+

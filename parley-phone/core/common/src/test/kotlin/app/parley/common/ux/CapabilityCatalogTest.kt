@@ -54,6 +54,8 @@ class CapabilityCatalogTest {
         // The largest job shows four rows and folds the rest under "More", like the others.
         assertEquals(listOf("situations", "rescue_call", "speed_dial", "simple_mode"), CapabilityCatalog.featured(Job.BETTER_CALLS).map { it.key })
         assertTrue(CapabilityCatalog.more(Job.BETTER_CALLS).size > CapabilityCatalog.featured(Job.BETTER_CALLS).size)
+        // The Situations widget sits beside Situations, folded: its help page says how to add it.
+        assertTrue(CapabilityCatalog.more(Job.BETTER_CALLS).any { it.key == "situations_widget" })
     }
 
     @Test fun actions_run_in_place_and_still_lead_somewhere() {

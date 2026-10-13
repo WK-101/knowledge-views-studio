@@ -837,6 +837,7 @@
     <string name="action_call_named_q">Call %1$s?</string>
     <string name="widget_pick_title">Direct-dial widget</string>
     <string name="fav_widget_empty">No favourites yet. Star people in Parley to see them here.</string>
+    <string name="fav_widget_empty_short">No favourites yet</string>
     <string name="action_open_named">Open %1$s</string>
     <string name="fav_widget_tap">When you tap someone</string>
     <!-- The People widget: Favourites or your Circle, chosen when it's placed. -->

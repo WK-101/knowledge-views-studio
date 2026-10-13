@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: the system's widget corner radius, with the content clipped to it. -->
+<resources>
+    <style name="ParleyWidget">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:background">@drawable/widget_circle_bg</item>
+        <item name="android:padding">@dimen/widget_padding</item>
+        <item name="android:clipToOutline">true</item>
+    </style>
+
+    <dimen name="widget_radius">@android:dimen/system_app_widget_background_radius</dimen>
+</resources>
