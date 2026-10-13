@@ -1,5 +1,8 @@
 package app.parley.ui.cases
 
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import androidx.compose.foundation.clickable
@@ -68,9 +71,10 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     var stopping by rememberSaveable { mutableStateOf(false) }
     // A duress unlock hides case files: nothing done then may change them.
     val changeable = privacy.notesShown
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
         ParleyTopBar(
-            stringResource(R.string.label_case_files), onBack = back,
+            stringResource(R.string.label_case_files), onBack = back, scrollBehavior = barTint,
             actions = {
                 if (changeable && listed.isNotEmpty()) {
                     OverflowMenu { close ->
@@ -80,7 +84,7 @@ fun CaseListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item(key = "explain") {
                 Text(
                     stringResource(R.string.case_list_explain), style = MaterialTheme.typography.bodyMedium,

@@ -1,5 +1,7 @@
 package app.parley.ui.people
 
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import app.parley.ui.ExpandableStyle
@@ -153,7 +155,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
         val list = labels ?: return@ParleyScaffold
         val unlabelled = all.orEmpty().count { idx.extras[it.id]?.labels.isNullOrEmpty() }
         val labelsTip = tipPending(Tips.CONCEPT_LABELS)
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p), contentPadding = scaffoldBottom(p)) {
             // What labels are, the first time this screen lists some.
             if (!merging && list.isNotEmpty() && labelsTip) item(key = "tip") {
                 CoachMark(Tips.CONCEPT_LABELS, stringResource(R.string.tip_concept_labels))
@@ -485,8 +487,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
             Unit
         }
-        Box(Modifier.padding(p)) {
-            LazyColumn(state = listState) {
+        Box(Modifier.scaffoldBody(p)) {
+            LazyColumn(state = listState, contentPadding = scaffoldBottom(p)) {
                 // A chapter under way or ended has its question to ask: it stays in sight. Otherwise it waits in the fold.
                 if (hasChapter) item(key = "chapter") { ChapterSection(vm, current, members, removeLabel) }
                 item(key = "count") { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }

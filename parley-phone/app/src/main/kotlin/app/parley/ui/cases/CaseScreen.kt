@@ -1,5 +1,9 @@
 package app.parley.ui.cases
 
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import app.parley.common.catching
@@ -74,6 +78,7 @@ import kotlinx.coroutines.launch
  * One organisation's case file: where it stands (Open · Waiting for them · Resolved), the summary, the reference numbers (hidden until shown, one at a time), the open
  * promises and every call and note, newest first. Export as PDF (for a complaint) and Stop keeping are in the top bar.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val store = vm.cases
@@ -85,15 +90,16 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val timeline = owner?.let { rememberCaseTimeline(vm, case, it) }
     val queue = rememberQueueMemory(timeline)
     val st = remember { CaseScreenState() }
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(
         snackbarHost = { ScreenSnackbarHost() },
-        topBar = { CaseTopBar(case, exportable = timeline != null, st, back) },
+        topBar = { CaseTopBar(case, exportable = timeline != null, st, back, barTint) },
     ) { p ->
         if (case == null) {
             Text(stringResource(R.string.case_gone), Modifier.padding(p).padding(Spacing.xl))
             return@ParleyScaffold
         }
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Text(
                     stringResource(R.string.case_explain), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -122,10 +128,11 @@ private class CaseScreenState {
 /** The title, Export as PDF and ⋮ with Stop keeping this case file. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState, back: () -> Unit) {
+private fun CaseTopBar(case: CaseFile?, exportable: Boolean, st: CaseScreenState, back: () -> Unit, barTint: TopAppBarScrollBehavior) {
     ParleyTopBar(
         case?.let { stringResource(R.string.label_case_file, it.name) } ?: stringResource(R.string.case_title),
         onBack = back,
+        scrollBehavior = barTint,
         actions = {
             if (case != null) {
                 IconButton({ st.exporting = true }, enabled = exportable) { Icon(Icons.Rounded.PictureAsPdf, stringResource(R.string.case_export)) }

@@ -1,5 +1,8 @@
 package app.parley.ui.history
 
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.scaffoldBottom
+import app.parley.ui.scaffoldBody
 import app.parley.ui.ParleyMenuItem
 import app.parley.ui.OverflowMenu
 import app.parley.common.calls.NetworkName
@@ -178,10 +181,12 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     }
 
     // [inPane]: beside Recents on a big screen, where there is nothing to go back to and Home shows the snackbar.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(snackbarHost = { if (!inPane) ScreenSnackbarHost() }, topBar = {
         ParleyTopBar(
             stringResource(R.string.label_call_history),
             onBack = back.takeUnless { inPane },
+            scrollBehavior = barTint,
             actions = {
                 OverflowMenu { close ->
                     // To call by hand (the same fixed times as Remind me after a call).
@@ -198,7 +203,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             },
         )
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(title, contact?.photoUri, 96.dp)
