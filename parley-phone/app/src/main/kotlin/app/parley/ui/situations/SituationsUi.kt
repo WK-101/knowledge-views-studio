@@ -1,9 +1,8 @@
 package app.parley.ui.situations
 
+import app.parley.ui.ParleyMotion
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -231,7 +230,7 @@ fun SituationChip(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modif
     val state by sit.state.collectAsStateWithLifecycle()
     val list by sit.list.collectAsStateWithLifecycle()
     val active = state.activeId?.let { id -> list.firstOrNull { it.id == id } }
-    AnimatedVisibility(active != null, modifier = modifier, enter = expandVertically(), exit = shrinkVertically()) {
+    AnimatedVisibility(active != null, modifier = modifier, enter = ParleyMotion.expandIn(), exit = ParleyMotion.collapseOut()) {
         val s = active ?: return@AnimatedVisibility
         val context = LocalContext.current
         val name = SituationTriggers.name(context, s)

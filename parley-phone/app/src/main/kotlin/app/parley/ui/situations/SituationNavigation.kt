@@ -3,6 +3,8 @@
 
 package app.parley.ui.situations
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -20,8 +22,8 @@ object SituationRoutes {
 }
 
 fun NavGraphBuilder.situationGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { nav.navigate(it) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<SituationRoutes.Edit> { SituationEditScreen(appVm(), it.toRoute<SituationRoutes.Edit>().id, back, open) }
     composable<SituationRoutes.RescueCall> { RescueCallScreen(appVm(), back, open) }
 }

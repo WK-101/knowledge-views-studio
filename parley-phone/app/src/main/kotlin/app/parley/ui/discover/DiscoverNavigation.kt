@@ -3,6 +3,8 @@
 
 package app.parley.ui.discover
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -48,10 +50,11 @@ object DiscoverRoutes {
 }
 
 fun NavGraphBuilder.discoverGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
+    val back: () -> Unit = nav.parleyBack()
     composable<DiscoverRoutes.Capabilities> { CapabilitiesScreen(appVm(), back) }
     composable<DiscoverRoutes.ComingFrom> { ComingFromScreen(appVm(), back) }
-    val openTopic: (HelpTopic) -> Unit = { nav.navigate(DiscoverRoutes.HelpPage(it.key)) }
+    val openPage = nav.parleyOpen()
+    val openTopic: (HelpTopic) -> Unit = { openPage(DiscoverRoutes.HelpPage(it.key)) }
     composable<DiscoverRoutes.Help> { HelpScreen(back, openTopic) }
     composable<DiscoverRoutes.HelpPage> { HelpPageScreen(appVm(), HelpTopic.of(it.toRoute<DiscoverRoutes.HelpPage>().topic), back, openTopic) }
 }

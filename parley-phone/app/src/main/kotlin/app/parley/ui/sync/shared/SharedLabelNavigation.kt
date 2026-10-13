@@ -3,6 +3,8 @@
 
 package app.parley.ui.sync.shared
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import android.net.Uri
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -45,8 +47,8 @@ object SharedLabelInbox {
 }
 
 fun NavGraphBuilder.sharedLabelGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<SharedLabelRoutes.All> { SharedLabelsScreen(appVm(), back, open) }
     composable<SharedLabelRoutes.Share> { ShareLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Share>().title, back, open) }
     composable<SharedLabelRoutes.Manage> { ManageSharedLabelScreen(appVm(), it.toRoute<SharedLabelRoutes.Manage>().id, back, open) }

@@ -10,8 +10,6 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -43,6 +41,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import kotlinx.coroutines.withContext
 
 /** The app itself. The app lock, window protection and locale come from [LockedActivity]. */
@@ -53,13 +53,12 @@ class MainActivity : LockedActivity() {
         // The system splash stays up until the settings are read: whether the app lock is on decides what may show, so
         // there is no blank first frame and contacts never flash before the lock.
         installSplashScreen().setKeepOnScreenCondition { !container.settings.loaded.value }
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // The UI is starting: load contacts, calls and the rest (a process started for a call or a worker doesn't).
         container.startFull()
         vm.start()
         if (savedInstanceState == null) handleIntent(intent)
-        setContent {
+        setParleyContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
             val callPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
                 if (!granted) vm.toast(getString(R.string.main_call_permission_needed))
@@ -81,7 +80,7 @@ class MainActivity : LockedActivity() {
                 }
             }
             OpenExportWhenShown(showsUnlocked)
-            ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+            ParleyTheme(settings.themeLook) {
                 if (!settingsLoaded) {
                     // Behind the splash screen (kept until the settings load): nothing that could flash the contacts.
                 } else if (locked && settings.appLock) {

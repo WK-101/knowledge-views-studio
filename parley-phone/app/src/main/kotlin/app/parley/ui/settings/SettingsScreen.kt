@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.ParleyMotion
 import app.parley.common.catching
 import app.parley.ui.ParleyListItem
 import app.parley.ui.sync.shared.SharedLabelRoutes
@@ -8,9 +9,6 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -171,7 +169,8 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     ParleyScaffold(
         modifier = if (searching) Modifier else Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            AnimatedContent(searching, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "settings-search") { s ->
+            val swap = ParleyMotion.swap()
+            AnimatedContent(searching, transitionSpec = { swap }, label = "settings-search") { s ->
                 if (s) {
                     SettingsSearchBar(query, { query = it }) { searching = false; query = "" }
                 } else {

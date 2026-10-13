@@ -3,6 +3,8 @@
 
 package app.parley.ui.extras
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -20,8 +22,8 @@ object ExtrasRoutes {
 }
 
 fun NavGraphBuilder.extrasGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<ExtrasRoutes.Trip> { TripScreen(appVm(), back, open) }
     composable<ExtrasRoutes.SimpleSetup> { SimpleSetupScreen(appVm(), back, open) }
     composable<ExtrasRoutes.SimpleImport> { SimpleImportScreen(appVm(), back, open) }

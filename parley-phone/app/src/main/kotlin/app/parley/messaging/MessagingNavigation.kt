@@ -1,5 +1,7 @@
 package app.parley.messaging
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import android.net.Uri
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -39,9 +41,9 @@ object MessagingInbox {
 
 /** Messaged numbers, "Add several numbers", "Introduce myself" and the CSV column mapping. */
 fun NavGraphBuilder.messagingGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
+    val back: () -> Unit = nav.parleyBack()
     composable<MessagingRoutes.Messaged> { MessagedNumbersScreen(appVm(), back = back) }
-    composable<MessagingRoutes.BulkAdd> { BulkAddScreen(appVm(), back = back, open = { r -> nav.navigate(r) }) }
+    composable<MessagingRoutes.BulkAdd> { BulkAddScreen(appVm(), back = back, open = nav.parleyOpen()) }
     composable<MessagingRoutes.Introduce> { IntroduceScreen(appVm(), back = back) }
     composable<MessagingRoutes.CsvMapping> { CsvMappingScreen(appVm(), back = back) }
 }

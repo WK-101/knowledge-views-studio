@@ -1,5 +1,7 @@
 package app.parley.ui.settings
 
+import app.parley.ui.parleyBack
+import app.parley.ui.parleyOpen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -24,8 +26,8 @@ import app.parley.ui.temporary.TemporaryContactsScreen
 
 /** Settings and the app-wide tools reached from it: backup, sync, History & undo, call time, speed dial… */
 fun NavGraphBuilder.settingsGraph(nav: NavController) {
-    val back: () -> Unit = { nav.popBackStack() }
-    val open: (Destination) -> Unit = { r -> nav.navigate(r) }
+    val back: () -> Unit = nav.parleyBack()
+    val open: (Destination) -> Unit = nav.parleyOpen()
     composable<Routes.Settings> { SettingsScreen(appVm(), back = back, open = open) }
     composable<Routes.SettingsPage> {
         val a = it.toRoute<Routes.SettingsPage>()

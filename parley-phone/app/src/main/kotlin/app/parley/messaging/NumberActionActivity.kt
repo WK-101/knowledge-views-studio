@@ -9,8 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.WindowManager
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,6 +93,8 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyTheme
+import app.parley.ui.setParleyContent
+import app.parley.ui.themeLook
 import app.parley.ui.common.CallQuestions
 import app.parley.ui.common.Format
 import app.parley.ui.common.ProvideAppKit
@@ -184,7 +184,6 @@ class NumberActionActivity : LockedActivity() {
     private var stopped = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         stage = initialStage(intent)
         // Secure until the settings say otherwise, so nothing is captured while they load.
@@ -194,8 +193,8 @@ class NumberActionActivity : LockedActivity() {
             appLock = settings.appLock
             hidden = true
             if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            setContent {
-                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+            setParleyContent {
+                ParleyTheme(settings.themeLook) {
                     if (!hidden) ProvideAppKit { Sheet() }
                 }
             }
