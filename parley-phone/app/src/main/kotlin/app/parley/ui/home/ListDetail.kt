@@ -2,7 +2,6 @@ package app.parley.ui.home
 
 import android.app.Application
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -40,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,17 +64,30 @@ import app.parley.ui.Destination
 import app.parley.ui.LocalNavAnimScope
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyViewModels
+import app.parley.ui.PreviewedBackHandler
+import app.parley.ui.backPreview
+import app.parley.ui.rememberBackPreview
 import app.parley.ui.Routes
 import app.parley.ui.Spacing
 import app.parley.ui.contact.ContactDetailScreen
 import app.parley.ui.history.NumberHistoryScreen
 import kotlinx.coroutines.flow.StateFlow
 
-/** The app window's size (split screen and desktop windows included), as Home lays it out. */
+/**
+ * The app window's size (split screen, freeform and desktop windows included), as Home lays it out: the window's own
+ * container, which follows a resized desktop window, else (before the first layout) the configuration's screen size.
+ */
 @Composable
 fun rememberWindowLayout(): WindowLayout {
     val c = LocalConfiguration.current
-    return remember(c.screenWidthDp, c.screenHeightDp) { WindowLayout(c.screenWidthDp, c.screenHeightDp) }
+    val container = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val (w, h) = if (container.width > 0 && container.height > 0) {
+        with(density) { container.width.toDp().value.toInt() to container.height.toDp().value.toInt() }
+    } else {
+        c.screenWidthDp to c.screenHeightDp
+    }
+    return remember(w, h) { WindowLayout(w, h) }
 }
 
 /**
@@ -196,7 +210,9 @@ internal fun HomeListDetail(
     val fromList: (Destination) -> Unit = { d -> PaneTargets.encode(d)?.takeIf { opensHere(d) }?.let { e -> panes.update(tab) { it.select(e) } } ?: open(d) }
     val fromPane: (Destination) -> Unit = { d -> PaneTargets.encode(d)?.let { e -> panes.update(tab) { it.push(e) } } ?: open(d) }
     val back: () -> Unit = { panes.update(tab) { it.back() } }
-    BackHandler(enabled = backEnabled && stack.isNotEmpty(), onBack = back)
+    // The page beside the list shrinks with the back swipe, then steps back one entry.
+    val paneBack = rememberBackPreview()
+    PreviewedBackHandler(enabled = backEnabled && stack.isNotEmpty(), preview = paneBack, onBack = back)
     Row(Modifier.fillMaxSize()) {
         Box(Modifier.width(window.listPaneDp.dp).fillMaxHeight()) {
             CompositionLocalProvider(LocalOpenDetail provides stack.firstOrNull()?.let(PaneTargets::decode)) { list(fromList) }
@@ -204,7 +220,7 @@ internal fun HomeListDetail(
         }
         VerticalDivider()
         // Home's scaffold already makes room for the system bars: the pane's own bars mustn't again.
-        Box(Modifier.weight(1f).fillMaxHeight().consumeWindowInsets(WindowInsets.safeDrawing)) {
+        Box(Modifier.weight(1f).fillMaxHeight().consumeWindowInsets(WindowInsets.safeDrawing).backPreview(paneBack)) {
             val shown = stack.lastOrNull()?.let(PaneTargets::decode)
             val enter = fadeIn(ParleyMotion.effects())
             val exit = fadeOut(ParleyMotion.fastEffects())

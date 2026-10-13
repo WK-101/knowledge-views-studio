@@ -65,6 +65,7 @@ import app.parley.common.circle.CircleGlance
 import app.parley.common.circle.CircleStatus
 import app.parley.common.circle.CircleSuggestions
 import app.parley.ui.Avatar
+import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
@@ -228,14 +229,18 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = {
             Box {
-                Avatar(r.contact.displayName, r.contact.photoUri, avatarSize())
+                // The avatar and name fly into the contact's page, as from Contacts.
+                Avatar(r.contact.displayName, r.contact.photoUri, avatarSize(), Modifier.shared("avatar-${r.contact.id}"))
                 // A private contact in the Circle: the same lock as in Contacts.
                 if (r.contact.id < 0) PrivateBadge(Modifier.align(Alignment.BottomEnd))
             }
         },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(r.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(
+                    r.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).shared("name-${r.contact.id}", bounds = true),
+                )
                 // A favourite too: the star, as on their tile.
                 if (r.contact.starred) {
                     Icon(Icons.Rounded.Star, stringResource(R.string.circle_also_favourite), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)

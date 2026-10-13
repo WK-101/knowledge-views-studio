@@ -3833,3 +3833,28 @@ Automated: `PeopleWidgetPlacingTest` (a widget being placed is drawn while its s
 1. **Back out of a new People widget.** Place a People widget and press Back on its settings: the widget stays and shows your Favourites at once (no blank or "loading" widget). Long-press it › settings (Android 12+): change it to Your Circle, Done: it redraws.
 2. **Old Circle widget after the update.** With a Circle widget placed on 6.8, update: it keeps working. Remove it and add it back from the widget list on Android 10–12 (it is still listed there); on Android 13+ the list offers only People. No placed widget ever disappears after opening Parley.
 3. **Many cases due.** Set "Follow up by" to today on three case files and have a Circle member due in their good hours: Next up shows one case line, "Follow up with … (+2 more)", and the Circle line still shows.
+
+## 54. Polish and proof (7.0)
+
+### 54.13 Home tabs keep their place and move like Material
+Automated: `HomeShellTest.contacts_keep_their_scroll_position_across_a_tab_switch` (app).
+1. Contacts: scroll to "M". Switch to Recents, then back to Contacts: the list is still at "M". Do the same with Recents (scroll down a few days) and Favourites: each comes back where it was. Rotate: still there.
+2. Switching tabs fades the old tab out quickly while the new one fades in and grows slightly into place (no slow double fade). With Remove animations on, the switch is instant.
+3. Open a contact from Favourites (the tile), Recents (a saved contact's latest call), Your Circle and Contacts search: the photo and name fly into the contact's page header, as from the A–Z list. A number with no contact, a private call's row and the Favourites in Contacts open with the plain slide. A contact with several calls in Recents: only the latest row flies.
+4. Arabic (or Urdu): tap search on any tab: the field slides in from the left, and leaves to the left when closed. English: from the right.
+5. On a tablet or a resizable desktop window, make the window narrower and wider: the page beside the list appears and goes at the same widths as before, following the window, not the whole screen.
+
+### 54.14 Back previews on Home
+Automated: `HomeShellTest.a_back_swipe_closes_the_search_only_when_finished`, `a_back_swipe_over_the_page_beside_the_list_steps_back_once` (app); `KeypadFoldTest.a_back_swipe_folds_part_of_the_way_and_never_further` (core:common).
+1. Android 14+ with gesture navigation. Open search, swipe back slowly: the field shrinks with the swipe. Let go of the swipe back at the edge (cancel): the field settles back and the search stays. Swipe back fully: the search closes. The Back button closes it at once.
+2. Tablet, Contacts: open a contact beside the list, then a link inside it (for example a number's history from Recents). Swipe back slowly: the page shrinks and rounds its corners; cancel and it settles back. Finish the swipe: one step back only (the previous page beside the list), and Home stays. Once nothing is open beside the list, Back leaves as before.
+3. Keypad docked under Recents, unfolded: swipe back slowly: the keypad folds part of the way with the swipe; cancel and it springs open again; finish and it folds away into its button. With calls selected, Back clears the selection first, as before.
+4. Dialpad: with Dialpad vibration on, each key gives the same short tick as the system keyboard (not the text-handle tick).
+
+### 54.15 Reorder and switches feel the same everywhere
+Automated: `ReorderSemanticsTest` (app); `ReorderMathTest` (core:ui).
+1. Reorder in each of: Favourites (Reorder, then drag a tile), Contacts › Favourites › Reorder (sheet), Settings › Appearance › Navigation bar (the tab rows), Settings › Contacts › Contact page sections. In each: lifting gives a firm tick, the item rises with a shadow above the others, each place it passes gives a light tick, and letting go keeps the new order. Dragging a row's handle never toggles or opens the row.
+2. TalkBack on each of the four: the first item offers only the "later"/"Move down" action, the last only "earlier"/"Move up", the others both; each moves it one place and the order is kept.
+3. Any settings switch row (for example Settings › Calls) and a split row's switch: turning it on ticks, turning it off gives a lighter tick (Android 14+; on older phones the nearest the phone has).
+4. List density Compact: the people in the reorder sheet, the "Starred for Do Not Disturb" row and Simple mode's contact picker use the same smaller photos as Contacts; Comfortable: the larger ones.
+

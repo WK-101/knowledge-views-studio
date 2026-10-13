@@ -74,6 +74,7 @@ import app.parley.common.extras.SimpleConfig
 import app.parley.common.extras.SimplePerson
 import app.parley.common.extras.SimpleSetup
 import app.parley.ui.Avatar
+import app.parley.ui.avatarSize
 import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
@@ -266,7 +267,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                                 if (numbers.size == 1) onPick(c, numbers.first()) else numbersOf = c
                             },
                             colors = clearRow,
-                            leadingContent = { Avatar(c.displayName, c.photoUri, 36.dp) },
+                            leadingContent = { Avatar(c.displayName, c.photoUri, avatarSize()) },
                             headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         )
                     }

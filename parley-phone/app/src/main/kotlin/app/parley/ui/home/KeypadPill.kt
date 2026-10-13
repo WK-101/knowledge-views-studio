@@ -281,6 +281,16 @@ internal class DockFoldState(open: Boolean, private val scope: CoroutineScope, p
         return open
     }
 
+    /**
+     * Follows a back swipe over the unfolded panel ([progress] 0 to 1): it folds part of the way, and Back finishes the
+     * fold ([animateTo]) or a cancelled swipe springs it open again.
+     */
+    fun preview(progress: Float) {
+        if (dragging || !target) return
+        job?.cancel()
+        value = DockFold.backPreview(progress)
+    }
+
     fun animateTo(open: Boolean, velocityPx: Float = 0f) {
         target = open
         if (dragging) return

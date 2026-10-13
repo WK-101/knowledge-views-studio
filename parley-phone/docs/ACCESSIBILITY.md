@@ -14,6 +14,8 @@ What Parley does for people who use TalkBack, Switch Access, Voice Access, large
 | Colour is never the only signal | On hold has an icon and a different container, Mute → Muted changes the icon and word, warnings carry an icon and a filled container. |
 | Contrast | 4.5:1 for text and 3:1 for icons and outlines, tested on the design tokens (below). |
 | Motion | Endless animations stand still when Android's animations are off (`ParleyMotion.reducedMotion`). |
+| Reordering has an accessible path | Every drag-to-reorder list uses the kit's `Modifier.reorderActions`: "earlier"/"later" (or "Move up"/"Move down") custom actions, only those that can move the item, each one place. Dragging gives the same lift and place ticks everywhere (`kit/Reorder.kt`). |
+| Back previews never block Back | Surfaces inside a screen (Home's search, the page beside a list, the docked keypad) follow the back swipe through `PreviewedBackHandler`; with animations off nothing follows the swipe, and the Back button or key acts at once. |
 
 ## The 4.7 sweep
 

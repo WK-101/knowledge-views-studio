@@ -33,4 +33,13 @@ class KeypadFoldTest {
         assertEquals(0f, DockFold.preScroll(0.5f, 30f, 400f), 0.0001f)
         assertEquals(0f, DockFold.preScroll(1f, -30f, 0f), 0.0001f)
     }
+
+    @Test fun a_back_swipe_folds_part_of_the_way_and_never_further() {
+        assertEquals(1f, DockFold.backPreview(0f), 0.0001f)
+        assertEquals(1f - DockFold.BACK_PREVIEW / 2, DockFold.backPreview(0.5f), 0.0001f)
+        assertEquals(1f - DockFold.BACK_PREVIEW, DockFold.backPreview(1f), 0.0001f)
+        // Out-of-range progress from the system stays within the preview.
+        assertEquals(1f - DockFold.BACK_PREVIEW, DockFold.backPreview(1.5f), 0.0001f)
+        assertTrue(DockFold.backPreview(1f) > 0f)
+    }
 }

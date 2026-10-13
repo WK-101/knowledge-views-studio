@@ -4,9 +4,6 @@ import app.parley.ui.people.ContactsLockButton
 import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -55,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,6 +87,9 @@ import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.PreviewedBackHandler
+import app.parley.ui.fadeThrough
+import app.parley.ui.rememberBackPreview
 import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
@@ -192,9 +193,11 @@ fun HomeScreen(
     LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
     // Back closes the page beside a list only once nothing more pressing (a selection, a search) is waiting for it.
     val paneBack = selection.isEmpty() && recentsSelection.isEmpty() && !searching
-    // Back folds the docked keypad first.
-    BackHandler(enabled = tab == StartTab.RECENTS && layout.keypadDocked && dockOpen && !searching) { dockOpen = false }
-    BackHandler(enabled = searching) { closeSearch() }
+    // Back folds the docked keypad first (the keypad follows the back swipe: KeypadTab), once a selection is gone.
+    val dockBack = recentsSelection.isEmpty()
+    // The search field shrinks with the back swipe, then the search closes.
+    val searchBack = rememberBackPreview()
+    PreviewedBackHandler(enabled = searching, preview = searchBack) { closeSearch() }
 
     val barTabs = layout.barTabs(tab)
     // With a single tab left there is nothing to switch between: no bar and no rail.
@@ -254,6 +257,7 @@ fun HomeScreen(
                     },
                     onSearch = { on -> if (on) searching = true else closeSearch() },
                     scrollBehavior = scroll,
+                    backPreview = searchBack,
                     actions = { TabActions(vm, tab, settings.appLock, open) },
                     menu = { close -> TabMenu(vm, tab, settings.appLock, open, close) },
                 )
@@ -304,11 +308,16 @@ fun HomeScreen(
                     SituationSuggestionCard(vm, open)
                 }
                 Box(Modifier.weight(1f).fillMaxSize()) {
-                    AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
+                    // Each tab keeps its own saved state (its list's scroll position above all) while another is open,
+                    // as a navigation bar's destinations should: Contacts → Recents → Contacts comes back where it was.
+                    val tabStates = rememberSaveableStateHolder()
+                    val through = fadeThrough()
+                    AnimatedContent(tab, transitionSpec = { through }, label = "tab") { t ->
+                      tabStates.SaveableStateProvider(t.name) {
                         when (t) {
                             StartTab.FAVORITES -> Centred(window.contentMaxDp) { FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" }) }
                             StartTab.RECENTS -> HomeListDetail(vm, t, window, open, backEnabled = paneBack && !(layout.keypadDocked && dockOpen)) { o ->
-                                if (layout.keypadDocked) CallsSurface(vm, o, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, o)
+                                if (layout.keypadDocked) CallsSurface(vm, o, searching, dockOpen, dockBack) { dockOpen = it } else RecentsTab(vm, o)
                             }
                             StartTab.CONTACTS -> HomeListDetail(
                                 vm, t, window, open, backEnabled = paneBack,
@@ -317,6 +326,7 @@ fun HomeScreen(
                             StartTab.KEYPAD -> Centred(window.keypadMaxDp) { KeypadTab(vm, open, keypadQuery.takeIf { searching }) }
                             StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
                         }
+                      }
                     }
                 }
             }

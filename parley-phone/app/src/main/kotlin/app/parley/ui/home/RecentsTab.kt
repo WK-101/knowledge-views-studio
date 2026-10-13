@@ -128,6 +128,7 @@ import app.parley.common.ux.CallGlance
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import app.parley.ui.Avatar
+import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.MonoAvatar
 import app.parley.ui.Routes
@@ -213,6 +214,11 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val tapCalls = settings.surfaces.recentTap == RecentTap.CALL
     // Swipes don't start while this list is still flinging.
     val listState = rememberLazyListState()
+    // The latest row of each saved contact flies into their page (avatar and name); one row per contact, since two rows
+    // with the same key would both try to.
+    val flies = remember(groups) {
+        groups.orEmpty().filter { it.vaultId == null && !it.hidden && it.contact != null }.distinctBy { it.contact?.id }.map { it.key }.toSet()
+    }
     LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = bottomPadding)) {
         item(key = "filters") {
             RecentsFilterRow(
@@ -311,6 +317,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                     selected = g.key in selected,
                     unreturned = g.latest.id in unreturned,
                     tapCalls = tapCalls && selected.isEmpty() && hasNumber,
+                    sharedId = g.contact?.id?.takeIf { g.key in flies },
                     onOpen = {
                         val ct = g.contact
                         when {
@@ -337,8 +344,12 @@ fun RecentRow(
     badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false,
     /** A tap calls back; the trailing button then opens the details instead. */
     tapCalls: Boolean = false,
+    /** The saved contact whose page this row's avatar and name fly into (one row per contact on the list). */
+    sharedId: Long? = null,
     onOpen: () -> Unit, onCall: () -> Unit,
 ) {
+    val flyAvatar = if (sharedId != null) Modifier.shared("avatar-$sharedId") else Modifier
+    val flyName = if (sharedId != null) Modifier.shared("name-$sharedId", bounds = true) else Modifier
     val context = LocalContext.current
     val e = g.latest
     // Open beside the list on a big screen: what a tap opens (the contact's page, or the number's history) is marked too.
@@ -379,7 +390,7 @@ fun RecentRow(
         leadingContent = {
             // A private contact: the lock on the photo, as in Contacts.
             PrivateMarked(RecentsMark.PRIVATE in marks) {
-                if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
+                if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize(), flyAvatar)
             }
         },
         headlineContent = {
@@ -389,7 +400,7 @@ fun RecentRow(
                         g.shownTitle,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (attention) FontWeight.Bold else null,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f, fill = false).then(flyName),
                     )
                     if (RecentsMark.NETWORK_NAME in marks) {
                         Spacer(Modifier.width(6.dp))
@@ -407,7 +418,7 @@ fun RecentRow(
                         counted,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         color = if (RecentsMark.MISSED_NAME in marks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f, fill = false).then(flyName),
                     )
                     if (RecentsMark.NETWORK_NAME in marks) {
                         Spacer(Modifier.width(6.dp))

@@ -37,4 +37,10 @@ object DockFold {
         if (deltaPx >= 0f || fraction <= 0f || fullPx <= 0f) return 0f
         return maxOf(deltaPx, -fraction * fullPx)
     }
+
+    /** How far a whole back swipe folds the panel before it is let go (the rest of the fold is Back's). */
+    const val BACK_PREVIEW = 0.4f
+
+    /** The fold while a back swipe [progress] (0 to 1) is held over the unfolded panel: it follows, part of the way. */
+    fun backPreview(progress: Float): Float = 1f - BACK_PREVIEW * progress.coerceIn(0f, 1f)
 }
