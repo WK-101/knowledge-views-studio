@@ -57,6 +57,9 @@ import app.parley.ui.Spacing
 import app.parley.ui.common.Format
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
 
 /**
  * An archived contact's own page (docs/CONTACT_MODEL.md, "Archived"): read-only, what it holds and when it was
@@ -77,13 +80,14 @@ fun ArchivedContactScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (D
     // Unarchived (here or elsewhere) while open: the page closes, the contact is back in the lists.
     var wasShown by remember { mutableStateOf(false) }
     LaunchedEffect(card != null) { if (card != null) wasShown = true else if (wasShown) back() }
-    ParleyScaffold(topBar = { ParleyTopBar(card?.name.orEmpty(), onBack = back) }) { p ->
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
+    ParleyScaffold(topBar = { ParleyTopBar(card?.name.orEmpty(), onBack = back, scrollBehavior = barTint) }) { p ->
         if (card == null) {
             // Unarchived meanwhile (here or elsewhere): nothing to show.
             EmptyState(Icons.Rounded.Unarchive, stringResource(R.string.archive_page_gone), modifier = Modifier.padding(p))
             return@ParleyScaffold
         }
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item(key = "head") {
                 Column(
                     Modifier.fillMaxWidth().padding(Spacing.l), horizontalAlignment = Alignment.CenterHorizontally,

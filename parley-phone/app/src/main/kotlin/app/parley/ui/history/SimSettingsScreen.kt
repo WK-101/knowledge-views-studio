@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.history.BillingIncrement
@@ -53,6 +52,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /**
  * Settings › Calls › SIMs & carrier › SIMs: one row per SIM and the abroad settings. Plan minutes are hidden unless
@@ -67,11 +70,12 @@ fun SimListScreen(vm: AppViewModel, plans: Boolean, back: () -> Unit, open: (Des
     val planList by vm.c.history.plans.collectAsStateWithLifecycle()
     val showPlans = plans || planList.any { it.enabled }
     val res = LocalResources.current
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.hist_sims_title), onBack = back)
+        ParleyTopBar(stringResource(R.string.hist_sims_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
-            if (sims.isEmpty()) item { Text(stringResource(R.string.hist_sims_empty), Modifier.padding(16.dp)) }
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
+            if (sims.isEmpty()) item { Text(stringResource(R.string.hist_sims_empty), Modifier.padding(Spacing.l)) }
             sims.forEach { sim ->
                 item(key = sim.id) {
                     ParleyListItem(
@@ -106,10 +110,11 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
     val plan = plans.firstOrNull { it.simId == simId }
     fun save(p: PlanConfig) = scope.launch { vm.c.history.savePlan(p) }
 
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(topBar = {
-        ParleyTopBar(sim?.label ?: stringResource(R.string.label_sim), onBack = back)
+        ParleyTopBar(sim?.label ?: stringResource(R.string.label_sim), onBack = back, scrollBehavior = barTint)
     }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+        LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
             item { Section(stringResource(R.string.label_plan_minutes)) }
             item {
                 SwitchRow(
@@ -130,12 +135,12 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
 @Composable
 private fun UsageCard(u: PlanUsage) {
     Card(
-        Modifier.fillMaxWidth().padding(16.dp),
+        Modifier.fillMaxWidth().padding(Spacing.l),
         colors = CardDefaults.cardColors(containerColor = if (u.isNear) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(Spacing.l)) {
             Text(HistoryText.planSummary(LocalResources.current, u), style = MaterialTheme.typography.titleMedium)
-            LinearProgressIndicator(progress = { u.fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+            LinearProgressIndicator(progress = { u.fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.s))
             Text(
                 DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).let { df ->
                     pluralStringResource(
@@ -164,7 +169,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             isError = minutes.toIntOrNull()?.let { it <= 0 } ?: true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l),
         )
         var dayMenu by remember { mutableStateOf(false) }
         ParleyListItem(
@@ -182,7 +187,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
             supportingContent = {
                 Column {
                     Text(stringResource(R.string.hist_plan_billing_summary))
-                    SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.padding(top = Spacing.s)) {
                         BillingIncrement.entries.forEachIndexed { i, b ->
                             SegmentedButton(plan.increment == b, { save(plan.copy(increment = b)) }, SegmentedButtonDefaults.itemShape(i, BillingIncrement.entries.size)) {
                                 Text(stringResource(HistoryText.increment(b)))
@@ -200,7 +205,7 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
         Toggle(stringResource(R.string.hist_plan_incoming), stringResource(R.string.hist_plan_incoming_summary), plan.countIncoming) { save(plan.copy(countIncoming = it)) }
         Text(
             stringResource(R.string.hist_plan_toll_free_note, plan.warnAtPercent),
-            Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Modifier.padding(Spacing.l), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         var warnMenu by remember { mutableStateOf(false) }
         ParleyListItem(

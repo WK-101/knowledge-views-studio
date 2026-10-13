@@ -30,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.common.backup.ContactVersion
 import app.parley.common.backup.SnapshotDiff
@@ -56,6 +55,10 @@ import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
+import app.parley.ui.scaffoldBody
+import app.parley.ui.scaffoldBottom
+import androidx.compose.material3.TopAppBarDefaults
+import app.parley.ui.Spacing
 
 /** Human-readable one-liner for a stored data row. */
 fun describe(res: Resources, row: DataRow): String? {
@@ -103,18 +106,17 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
         }
     }
     var chosen by remember { mutableStateOf<ContactVersion?>(null) }
-    ParleyScaffold(topBar = {
-        ParleyTopBar(stringResource(R.string.label_version_history), onBack = back)
-    }) { p ->
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.label_version_history), onBack = back, scrollBehavior = barTint) }) { p ->
         val list = versions
         when {
-            list == null -> CircularProgressIndicator(Modifier.padding(p).padding(32.dp))
+            list == null -> CircularProgressIndicator(Modifier.padding(p).padding(Spacing.xxl))
             list.size <= 1 -> EmptyState(
                 Icons.Rounded.History, stringResource(R.string.tm_no_versions),
                 TimeMachine.KEEP_DAYS.toInt().let { pluralStringResource(R.plurals.tm_no_versions_text, it, it) }, Modifier.padding(p),
                 action = stringResource(R.string.ux_empty_back), onAction = back,
             )
-            else -> LazyColumn(Modifier.padding(p)) {
+            else -> LazyColumn(Modifier.scaffoldBody(p, barTint), contentPadding = scaffoldBottom(p)) {
                 list.forEachIndexed { i, v ->
                     item {
                         val newer = list.getOrNull(i - 1)?.record
@@ -190,7 +192,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
     run {
         LazyColumn(modifier) {
             item {
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(Spacing.m), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     listOf(1L to R.string.label_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months).forEach { (d, label) ->
                         FilterChip(days == d, { days = d }, label = { Text(stringResource(label)) })
                     }
@@ -198,7 +200,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
             }
             val l = loaded
             if (l == null) {
-                item { CircularProgressIndicator(Modifier.padding(32.dp)) }
+                item { CircularProgressIndicator(Modifier.padding(Spacing.xxl)) }
                 return@LazyColumn
             }
             val d = l.diff
