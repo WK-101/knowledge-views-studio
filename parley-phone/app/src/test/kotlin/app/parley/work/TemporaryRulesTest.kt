@@ -108,8 +108,8 @@ class TemporaryRulesTest {
     }
 
     @Test fun a_visible_contacts_date_follows_its_numbers_last_contact() = runBlocking {
-        val bob = c.contacts.save(null, ContactDetails(given = "Bob", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE))), null, null, false)!!
-            .contactId!!
+        val details = ContactDetails(given = "Bob", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE)))
+        val bob = c.contacts.save(null, details, null, null, false)!!.contactId!!
         c.temporaries.mark(bob, 7, clock = TemporaryClock.LAST_CALL)
         val key = c.contacts.lookupKeyOf(bob)!!
         val before = c.temporaries.forKey(key)!!

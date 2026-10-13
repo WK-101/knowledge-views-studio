@@ -508,7 +508,7 @@ class BackupRepository(
             val d = catching { vault.details(v.id) }.getOrNull() ?: continue
             val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
             if (v.purgeHistory) o.put("purgeHistory", true)
-            if (v.expiresAt != null) TemporaryRules.put(o, v.rule)
+            TemporaryRules.put(o, v.rule)
             putLabels(o, v)
             // The lossless phone-contact image of a moved contact, with the hash that tells whether the details
             // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older

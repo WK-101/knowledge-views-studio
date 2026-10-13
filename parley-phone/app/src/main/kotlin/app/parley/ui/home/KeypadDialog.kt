@@ -76,7 +76,9 @@ internal fun KeypadDialogHost(
             scope.launch {
                 // Private contacts locked: their unlock first; cancelled, the dialog stays with what was typed.
                 val saved = try {
-                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) { keypad.saveTemporaryNow(n, name, days, deleteHistory, visible, clock) }
+                    TemporaryContactActions.saveUnlocking(context as? ComponentActivity) {
+                        keypad.saveTemporaryNow(n, name, days, deleteHistory, visible, clock)
+                    }
                 } catch (_: VaultUnlockDeclined) {
                     return@launch
                 }

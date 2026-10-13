@@ -546,8 +546,8 @@ stored, the last digits; `VaultNumberKeys.Prefilter`), so no call caller ID reco
 
 Private calls are never pruned automatically: "Trim Android's call log" applies to the phone's call log and the archive,
 not to them. They go when deleted, with their contact, or when a temporary private contact expires. A temporary private
-contact that counts from its last call (7.1) has the daily upkeep read only the date and length of its own private
-calls (never opened); nothing else is kept about it, and chats with private contacts are still never recorded.
+contact that counts from its last call (7.1) has the daily upkeep read only the dates and lengths of its own private
+calls, in memory; nothing else is kept about it, and chats with private contacts are still never recorded.
 
 **What remains:** the moment between Telecom's insert and Parley's delete. The delete runs on the change notice, so
 the expected window is well under a second (one call-log query and one delete; debug builds log the measured time

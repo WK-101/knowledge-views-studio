@@ -200,10 +200,11 @@ object TemporaryContactActions {
      */
     suspend fun extend(vm: AppViewModel, item: TemporaryItem, days: Int) {
         val at = System.currentTimeMillis() + days * DAY_MS
+        val c = vm.c
         when {
-            item.vaultId != null -> vm.c.vault.setExpiry(item.vaultId, at)
-            item.lookupKey != null -> vm.c.temporaries.extendTo(item.lookupKey, at)
-            item.contactId != null -> vm.c.temporaries.mark(item.contactId, days, item.purgeHistory)
+            item.vaultId != null -> c.vault.setExpiry(item.vaultId, at)
+            item.lookupKey != null -> c.temporaries.extendTo(item.lookupKey, at)
+            item.contactId != null -> c.temporaries.mark(item.contactId, days, item.purgeHistory)
         }
     }
 
@@ -397,7 +398,9 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
         },
         supportingContent = {
             Text(
-                listOfNotNull(dateLine(LocalResources.current, t.expiresAt, t.rule), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "),
+                listOfNotNull(
+                    dateLine(LocalResources.current, t.expiresAt, t.rule), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) },
+                ).joinToString(" · "),
             )
         },
         trailingContent = {

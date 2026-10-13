@@ -41,7 +41,7 @@ object TemporaryRules {
             .filter { it.expiresAt != null && it.rule.clock != TemporaryClock.FIXED }
         for (v in private) {
             val stored = v.expiresAt ?: continue
-            val last = if (v.rule.clock == TemporaryClock.LAST_CALL) catching { c.vault.lastConnectedCall(v.id) }.getOrNull() else null
+            val last = if (v.rule.clock == TemporaryClock.LAST_CALL) lastPrivateCall(c, v.id) else null
             val at = TemporaryRule.follow(stored, v.rule, last, caseOf(v.numbers), now)
             if (at != stored) catching { c.vault.setExpiry(v.id, at) }
         }
@@ -54,6 +54,10 @@ object TemporaryRules {
         val chat = catching { c.messaging.lastMessagedAt(n) }.getOrNull()
         listOfNotNull(call, chat).maxOrNull()
     }.maxOrNull()
+
+    /** Entry [id]'s newest connected call (a missed or zero-length one doesn't count), or null. */
+    private suspend fun lastPrivateCall(c: DataContainer, id: Long): Long? =
+        catching { c.vault.privateCallsOf(id) }.getOrNull().orEmpty().filter { it.durationSec > 0 }.maxOfOrNull { it.date }
 
     /** Enough of the newest calls to find a connected one among missed attempts. */
     private const val RECENT_CALLS = 20

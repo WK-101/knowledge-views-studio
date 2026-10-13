@@ -65,6 +65,14 @@ internal object CallerIdCopy {
         if (rule.untilCase) o.put(C_UNTIL_CASE, true) else o.remove(C_UNTIL_CASE)
     }
 
+    /** Sets the call-history choice and the rule where given (null: unchanged); true when the copy changed. */
+    fun putExpiryChoices(o: JSONObject, purge: Boolean?, rule: TemporaryRule?): Boolean {
+        val before = o.toString()
+        if (purge != null) if (purge) o.put("purge", true) else o.remove("purge")
+        rule?.let { putRule(o, it) }
+        return o.toString() != before
+    }
+
     /** The copy's rule, read leniently: anything unreadable is a fixed date. */
     fun ruleOf(o: JSONObject): TemporaryRule =
         TemporaryRule.stored(o.optInt(C_SLIDE, 0).takeIf { it > 0 }, o.optBoolean(C_UNTIL_CASE, false))

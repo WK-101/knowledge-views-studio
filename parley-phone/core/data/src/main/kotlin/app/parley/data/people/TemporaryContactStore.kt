@@ -200,9 +200,8 @@ class TemporaryContactStore(private val c: DataContainer) {
         lastContact: suspend (List<String>) -> Long?,
         caseOf: suspend (List<String>) -> TemporaryRule.CaseNow,
     ) = withContext(Dispatchers.IO) {
-        for (t in c.meta.allTemporary()) {
+        for (t in c.meta.allTemporary().filter { it.rule.clock != TemporaryClock.FIXED }) {
             val rule = t.rule
-            if (rule.clock == TemporaryClock.FIXED) continue
             val raws = TemporaryExpiry.decodeIds(t.rawIds)
                 ?: c.contacts.resolve(t.lookupKey, t.contactId)?.let { c.contacts.rawIds(it).toSet() }.orEmpty()
             val numbers = numbersOf(raws)
@@ -212,11 +211,12 @@ class TemporaryContactStore(private val c: DataContainer) {
                 case = if (rule.clock == TemporaryClock.CASE_CLOSED) caseOf(numbers) else TemporaryRule.CaseNow.UNKNOWN,
                 now = now,
             )
-            if (at == t.expiresAt) continue
-            mutex.withLock {
-                // Read again: a choice made meanwhile (kept, a new date) wins.
-                val current = c.meta.temporary(t.lookupKey) ?: return@withLock
-                if (current.rule == rule) c.meta.setTemporary(current.copy(expiresAt = maxOf(current.expiresAt, at)))
+            if (at != t.expiresAt) {
+                mutex.withLock {
+                    // Read again: a choice made meanwhile (kept, a new date) wins.
+                    val current = c.meta.temporary(t.lookupKey)
+                    if (current != null && current.rule == rule) c.meta.setTemporary(current.copy(expiresAt = maxOf(current.expiresAt, at)))
+                }
             }
         }
     }
