@@ -3995,3 +3995,26 @@ Automated: `NavigationGuardTest.back_still_works_on_a_page_that_never_settles` (
 1. **Back is never dead.** Open Settings › Calls, tap Back, and at once pull down the notification shade (or let a permission prompt or the fingerprint sheet come up) before the page has settled. Close it and tap the top bar's Back: it goes back. A quick double tap of Back still lands on Settings, not Home.
 2. **Visible names stay in the call log.** Save a number as a phone contact "Ana" and the same number on an archived contact. Revoke Parley's Contacts permission, then run the daily upkeep (`adb shell cmd jobscheduler run -f app.parley.debug <job id>`): Google's Phone app still names those calls "Ana". Grant the permission again and run the upkeep: calls with numbers only the archived contact had lose the name; "Ana"'s keep it.
 3. **Call screen in Recents.** App lock off. Take a call from a private contact, press Home and open Recents: the call screen's card is blank (Android 13+; before, it shows blank as it leaves). Turn on discreet mode, or unlock with the duress PIN, and call again: still blank. A call from a phone contact or an unknown number shows its usual thumbnail.
+
+## 55. Clearer records (7.1)
+
+### 55.5 Number keys sealed (SP-7)
+Automated: `LineKeysTest`, `PrivateCallsTest.aCallsTimeIsSealedWithIt`, `PrivateCallsTest.olderRowsAreSealedWholeOnce`, `AppDatabaseMigrationTest.elevenToTwelveKeepsNotesAndSimsAndTheAppKeysThem`, `RecordSealingTest`, `GoldenBackupsTest`, `BackupRoundTripTest` (core:data).
+1. **Upgrade keeps everything.** On a phone with 7.0 holding a call note, a remembered SIM for a number and speed dial 2, install 7.1 and open Parley. The note shows on the number's history and the contact's page, a call to that number goes out on the remembered SIM, and long-pressing 2 dials the same number.
+2. **Nothing readable in the database.** On a debug build, wait a minute after the upgrade, then `adb shell run-as app.parley.debug sqlite3 databases/parley.db "select numberKey, sealedKey from call_notes; select matchKey from number_sim; select number from speed_dial; select date, durationSec, type, dedupeKey from private_calls;"`: no phone number appears; keys start with `#`, private calls show 0s and a `#` fingerprint.
+3. **Private calls still read right.** Open a private contact's history: calls are newest first with the right times, lengths and directions; delete one and Undo it; delete the contact and restore it from Recently deleted: its calls come back with their times.
+4. **Every form of a number still matches.** Add a call note while calling "020 7946 0123" (saved as +44 20 7946 0123): the note shows under either form, and remembering a SIM for one form uses it for the other.
+
+### 55.6 Backups stay portable (SP-7)
+Automated: `GoldenBackupsTest` (5.0, 5.7, 6.0 backups restore and are keyed), `BackupRoundTripTest.backupsCarryPlainLineKeysAndAreKeyedAgainOnRestore` (core:data).
+1. Back up phone A (with call notes, remembered SIMs and speed dial), restore the file on phone B (or after "Delete all Parley data"): every note shows on its number, the SIM choices and speed dial work.
+2. Restore a backup made with 7.0 or older on 7.1: the same.
+
+### 55.7 Suspicious backups start unticked (SP-8)
+Automated: `RestoreOptionsTest` (core:data).
+1. Restore a backup made on this phone: every data part is ticked (settings not), as before.
+2. Restore a backup the screen calls unsigned, from an unknown or unconfirmed phone, or altered: the warning shows with "To be safe, nothing below is ticked", every box is empty and Next is off. Tick Contacts: Next turns on and only contacts are restored.
+
+### 55.8 Deleted rows overwritten (SP-9)
+Automated: `AppDatabaseMigrationTest.secureDeleteIsOn` (core:data).
+1. On a debug build, save a contact "Quokka Testperson" and set it as speed dial 5 (its name is the slot's label), then clear slot 5. Force-stop Parley, pull `databases/parley.db` with `run-as`, and search it for "Quokka": not found.

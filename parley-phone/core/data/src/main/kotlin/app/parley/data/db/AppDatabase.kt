@@ -89,13 +89,16 @@ data class SpeedDialEntity(
 )
 
 /**
- * Remembered SIM per number. The column keeps its first name, but holds [app.parley.common.PhoneIdentity.key] (rows
- * from before the phone-key migration may still hold the last digits, which lookups still read).
+ * Remembered SIM per number. The column keeps its first name, but holds the keyed fingerprint of
+ * [app.parley.common.PhoneIdentity.key] ([app.parley.data.security.LineKeys]), with the line key itself sealed in
+ * [sealedKey]. Rows not keyed yet hold the line key plain (or, from before the phone-key migration, the last digits),
+ * which lookups still read; [app.parley.data.PrefsRepository] keys them.
  */
 @Entity(tableName = "number_sim")
 data class NumberSimEntity(
     @PrimaryKey val matchKey: String,
     val phoneAccountId: String,
+    val sealedKey: String? = null,
 )
 
 /** Snapshot of a contact taken before Parley deleted, edited or merged it (30-day undo). */
@@ -244,9 +247,11 @@ data class VaultCallerRow(val id: Long, val callerIdBlob: ByteArray, val expires
 data class VaultNumberEntity(val vaultId: Long, val hmac: String)
 
 /**
- * Calls with vault contacts, removed from the system call log. [dedupeKey] ("vaultId|date|type") is unique, so a
- * sweep that runs twice (the provider delete failed after the insert) or a restore run twice stores each call once;
- * rows from before v7 have none.
+ * Calls with vault contacts, removed from the system call log. [dedupeKey] is unique, so a sweep that runs twice (the
+ * provider delete failed after the insert) or a restore run twice stores each call once; rows from before v7 have none.
+ * A call sealed whole ([app.parley.data.vault.PrivateCallSeal]) keeps its time, length and direction in [blob] (the
+ * columns hold 0) and a keyed fingerprint of "vaultId|date|type" as [dedupeKey]; older rows keep them plain beside it
+ * until they are sealed whole.
  */
 @Entity(
     tableName = "private_calls",
@@ -268,8 +273,10 @@ data class PrivateCallEntity(
 }
 
 /**
- * Notes attached to a call (from the in-call screen or history). [numberKey] is [app.parley.common.PhoneIdentity.key];
- * notes from before the phone-key migration may still hold the last digits (read with
+ * Notes attached to a call (from the in-call screen or history). [numberKey] is [app.parley.common.PhoneIdentity.key]
+ * as everything above [app.parley.data.security.SealedMetaDao] sees it; the table holds its keyed fingerprint
+ * ([app.parley.data.security.LineKeys]) with the line key sealed in [sealedKey]. Rows not keyed yet hold the line key
+ * plain, and notes from before the phone-key migration may still hold the last digits (read with
  * [app.parley.common.PhoneIdentity.lookupKeys]).
  */
 @Entity(tableName = "call_notes", indices = [Index(value = ["numberKey"])])
@@ -279,6 +286,7 @@ data class CallNoteEntity(
     val callDate: Long,
     val text: String,
     val createdAt: Long = System.currentTimeMillis(),
+    val sealedKey: String? = null,
 )
 
 /**
@@ -502,6 +510,10 @@ interface MetaDao {
 
     @Query("UPDATE call_notes SET text = :text WHERE id = :id AND text = :old")
     suspend fun resealCallNote(id: Long, old: String, text: String)
+
+    /** Stores a note's line under its keyed fingerprint, with the line key sealed beside it, unless it changed meanwhile. */
+    @Query("UPDATE call_notes SET numberKey = :keyed, sealedKey = :sealedKey WHERE id = :id AND numberKey = :was")
+    suspend fun keyCallNote(id: Long, was: String, keyed: String, sealedKey: String)
 }
 
 @Dao
@@ -647,9 +659,18 @@ interface VaultDao {
     @Query("SELECT COUNT(*) FROM private_calls WHERE vaultId = :vaultId")
     suspend fun privateCallCount(vaultId: Long): Int
 
-    /** Replaces a call's sealed blob, unless the row changed meanwhile (then nothing is written). */
-    @Query("UPDATE private_calls SET blob = :sealed WHERE id = :id AND blob = :was")
-    suspend fun resealPrivateCall(id: Long, was: ByteArray, sealed: ByteArray): Int
+    /**
+     * Seals a call whole: its blob replaced (time included) and its time beside it cleared, under its keyed fingerprint;
+     * unless the row changed meanwhile, or the same call is stored under that fingerprint already (0 then).
+     */
+    @Query(
+        "UPDATE OR IGNORE private_calls SET blob = :sealed, date = 0, durationSec = 0, type = 0, dedupeKey = :key WHERE id = :id AND blob = :was",
+    )
+    suspend fun sealPrivateCallWhole(id: Long, was: ByteArray, sealed: ByteArray, key: String): Int
+
+    /** Drops a row that is a second copy of a call already stored under [key] (unless it changed meanwhile). */
+    @Query("DELETE FROM private_calls WHERE id = :id AND blob = :was AND EXISTS (SELECT 1 FROM private_calls WHERE dedupeKey = :key AND id != :id)")
+    suspend fun dropDuplicatePrivateCall(id: Long, was: ByteArray, key: String)
 
     @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
     suspend fun expired(now: Long): List<VaultCallerRow>
@@ -794,6 +815,20 @@ interface PrefsDao {
 
     @Query("DELETE FROM number_sim WHERE matchKey = :key")
     suspend fun clearSim(key: String)
+
+    @Query("DELETE FROM number_sim WHERE matchKey IN (:keys)")
+    suspend fun clearSims(keys: List<String>)
+
+    /** Adds the row unless one is stored under its key already (a newer choice). */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addSimIfAbsent(e: NumberSimEntity): Long
+
+    /** Seals a slot's number in place, unless it changed meanwhile. */
+    @Query("UPDATE speed_dial SET number = :sealed WHERE `key` = :slot AND number = :was")
+    suspend fun sealSpeedDial(slot: Int, was: String, sealed: String)
+
+    @Query("SELECT * FROM speed_dial ORDER BY `key`")
+    suspend fun speedDialsNow(): List<SpeedDialEntity>
 }
 
 @Database(
@@ -803,7 +838,7 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -820,6 +855,9 @@ interface PrefsDao {
     //     duplicate check, retention), the journal by time and contact, call rings by time. Additive.
     // v11 (manual, [Migrations.V10_TO_11]): the journal and vault_contacts are rebuilt with their large blob as the last
     //     column, so listings stop reading every payload; the journal keeps photos once by hash in journal_photos.
+    // v12 (manual, [Migrations.V11_TO_12]): call_notes and number_sim gain a nullable sealedKey column, the sealed line key
+    //     beside its keyed fingerprint. The rows are keyed afterwards, in the app (RecordSealing): that needs the
+    //     Keystore, which a schema migration must not wait for.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8), AutoMigration(from = 8, to = 9),
@@ -836,6 +874,8 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(Migrations.V10_TO_11).build()
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "parley.db").addMigrations(*Migrations.ALL)
+                .addCallback(SecureDelete)
+                .build()
     }
 }

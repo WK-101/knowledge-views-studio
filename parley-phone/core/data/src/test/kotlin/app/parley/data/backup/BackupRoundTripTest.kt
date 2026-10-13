@@ -20,6 +20,8 @@ import app.parley.data.DataItem
 import app.parley.data.circle.AgendaStore
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
+import app.parley.data.security.LineKeys
+import app.parley.data.security.RecordCrypto
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +29,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -146,6 +149,36 @@ class BackupRoundTripTest {
         val met = c.circle.interactions.interactionsFor(restored.lookupKey).single()
         assertEquals("Tea at the Royal Society", met.note)
         assertEquals(InteractionType.MEET, met.type)
+    }
+
+    /**
+     * A backup carries plain line keys and numbers inside its encryption, never this phone's fingerprints or seals, so
+     * it restores on any phone; coming in, they are keyed and sealed with the restoring phone's keys.
+     */
+    @Test fun backupsCarryPlainLineKeysAndAreKeyedAgainOnRestore() = runBlocking {
+        seed()
+        c.prefs.setSimFor("+44 20 7946 0000", "sim-2")
+        assertTrue(LineKeys.isKeyed(c.db.metaDao().allCallNotesNow().single().numberKey))
+        assertTrue(LineKeys.isKeyed(c.db.prefsDao().allSimsNow().single().matchKey))
+        c.backup.setupKeys(passphrase.toCharArray())
+        assertTrue(c.backup.backupNow(scheduled = false, target = Uri.fromFile(file)).ok)
+
+        val opened = c.backup.open(Uri.fromFile(file), Unlock.Passphrase(passphrase.toCharArray()))
+        val notes = JSONArray(opened.reader.settings()!!.getValue("x.notes.calls"))
+        assertEquals("442079460000", notes.getJSONObject(0).getString("k"))
+        val sim = opened.reader.numberSims()!!.single()
+        assertFalse(LineKeys.isKeyed(sim.matchKey))
+        assertTrue(sim.matchKey.endsWith("2079460000"))
+        assertEquals("+44 20 7946 0000", opened.reader.speedDial()!!.single().number)
+
+        wipe()
+        c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+        assertTrue(LineKeys.isKeyed(c.db.metaDao().allCallNotesNow().single().numberKey))
+        assertTrue(LineKeys.isKeyed(c.db.prefsDao().allSimsNow().single().matchKey))
+        assertTrue(RecordCrypto.get(app).isSealed(c.db.prefsDao().speedDial(2)!!.number))
+        assertEquals("Asked about the engine", c.meta.callNotesNow(listOf("442079460000")).single().text)
+        assertEquals("sim-2", c.prefs.simFor("+44 20 7946 0000"))
+        assertEquals("+44 20 7946 0000", c.prefs.speedDial(2)?.number)
     }
 
     /** The agenda is no store of its own: it comes back with the note for calls and a number's notes. */

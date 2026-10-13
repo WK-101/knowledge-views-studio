@@ -8,8 +8,9 @@ import app.parley.data.backup.TimeMachine
 import app.parley.data.db.AppDatabase
 
 /**
- * Seals the small records that older versions stored plain: pinned notes, call notes, screened callers' names, journal
- * payloads and photos, time-machine snapshots, and the [stores] that seal their own values (the To call list). Runs in the
+ * Seals the small records that older versions stored plain: pinned notes, call notes (and the line each is about, keyed
+ * with [LineKeys]), screened callers' names, journal payloads and photos, time-machine snapshots, and the [stores] that
+ * seal their own values (the To call list, remembered SIMs and speed dial). Runs in the
  * background until everything is sealed (then it remembers that and stops, until a value has to be stored plain again
  * because the key couldn't be used: [markPending]); values stay readable throughout, since readers accept both forms.
  * Each write applies only if the value is still the plain one it read, so an edit made meanwhile is never lost.
@@ -27,6 +28,7 @@ class RecordSealing(
     }
 
     private val crypto = RecordCrypto.get(context)
+    private val lines = LineKeys.get(context)
     private val prefs = StatePrefs.open(context, FILE)
 
     val done: Boolean get() = prefs.getBoolean(DONE, false)
@@ -43,6 +45,7 @@ class RecordSealing(
         for (c in meta.allCallNotesNow()) {
             if (c.text.isNotEmpty()) sealText(c.text, t) { meta.resealCallNote(c.id, c.text, it) }
         }
+        keyCallNotes(t)
         val blocks = db.blockDao()
         for (b in blocks.screenedSince(0)) {
             val name = b.callerName
@@ -77,6 +80,33 @@ class RecordSealing(
         }
     }
 
+    /**
+     * Call notes stored under a plain line key move under its keyed fingerprint, with the key sealed beside it; a note
+     * keyed with a key that has since been replaced (the Keystore lost it) is keyed again from its sealed copy. A sealed
+     * copy that can't be opened is left as it is.
+     */
+    private suspend fun keyCallNotes(t: Tally) {
+        val meta = db.metaDao()
+        for (n in meta.allCallNotesNow()) {
+            val wasKeyed = LineKeys.isKeyed(n.numberKey)
+            val plain = (if (wasKeyed) crypto.openText(n.sealedKey) else n.numberKey) ?: continue
+            if (plain.isEmpty()) continue
+            val keyed = lines.keyed(plain)
+            if (keyed == null) {
+                t.left++
+                continue
+            }
+            if (keyed == n.numberKey) continue
+            val sealed = if (wasKeyed) n.sealedKey else crypto.sealText(plain)
+            if (sealed == null || !crypto.isSealed(sealed)) {
+                t.left++
+                continue
+            }
+            meta.keyCallNote(n.id, n.numberKey, keyed, sealed)
+            t.sealed++
+        }
+    }
+
     /** The stores that seal their own values; returns how many still hold something plain or unwritten. */
     private suspend fun resealStores(): Int = stores().count { !catching { it.resealPlain() }.getOrDefault(false) }
 
@@ -98,9 +128,9 @@ class RecordSealing(
         private const val TAG = "RecordSealing"
         private const val FILE = "record_sealing"
 
-        // Raised when a store joins [stores] (archived contacts, private call-screen pictures), so phones that had
-        // finished run once more for it.
-        private const val DONE = "done_v2"
+        // Raised when a store joins [stores] (archived contacts, private call-screen pictures; keyed line keys), so
+        // phones that had finished run once more for it.
+        private const val DONE = "done_v3"
 
         /**
          * A value was just stored plain as a fallback: the next run seals it. Written at once (commit, not apply): if

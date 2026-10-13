@@ -352,7 +352,8 @@ Robolectric) measures the matching alone over 5,000 address-book contacts read t
 few ms per query on a laptop and are printed by the tests. The tests don't enforce a wall-clock frame budget (a loaded
 CI machine would fail it); they check that the time grows in proportion with the contacts (four times the contacts
 may take at most ten times as long, so per-keystroke re-reading or pairwise work fails) and only a generous absolute
-bound. Private contacts are searched over their opened details, held in memory only (`PrivateSearch`) and dropped
+bound. Since 7.1 `ContactSearchSpeedTest` times both sizes in turn, round after round, and judges the median of the
+rounds' ratios, so a burst of load on a shared machine slows both sides alike instead of failing the test. Private contacts are searched over their opened details, held in memory only (`PrivateSearch`) and dropped
 under the vault's own rule (60 s idle, the screen off, a lock); nothing is indexed on disk. Their docs are published
 at most every 750 ms while they open, since each publish rebuilds the list's search data.
 
