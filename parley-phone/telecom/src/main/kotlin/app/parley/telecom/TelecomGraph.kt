@@ -12,6 +12,7 @@ import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
@@ -270,8 +271,11 @@ interface CallPolicyHooks {
     /** True when this caller's allowance is used up and the user wants such calls to ring silently. */
     suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false
 
-    /** Retry on the failure banner. Returns what to tell the user when the call couldn't be placed, else null. */
-    suspend fun redial(number: String, accountId: String?): String? = null
+    /**
+     * Retry on the failure banner, or "Call again showing your number" ([clir]). Returns what to tell the user when the
+     * call couldn't be placed, else null.
+     */
+    suspend fun redial(number: String, accountId: String?, clir: HideNumber.Clir = HideNumber.Clir.PLAIN): String? = null
 
     /** Settings › Calls › "Answer with RTT": ask to switch an answered call to RTT where the SIM supports it. */
     fun answerWithRtt(): Boolean = false

@@ -34,7 +34,10 @@ object CallerChoiceRestore {
                 out[key] = if (there == null) {
                     choice
                 } else {
-                    CallerChoice(there.vibration ?: choice.vibration, there.autoAnswer || choice.autoAnswer, there.neverCalls || choice.neverCalls)
+                    CallerChoice(
+                        there.vibration ?: choice.vibration, there.autoAnswer || choice.autoAnswer,
+                        there.neverCalls || choice.neverCalls, there.hideCallerId || choice.hideCallerId,
+                    )
                 }
             }
         }

@@ -69,6 +69,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** The Situations widget: added from the launcher's widget list, so the page leads to the Situations it toggles. */
     SITUATIONS_WIDGET(CapabilityTarget.Setting("situations"), explainsFeature = true),
+
+    /** Hide my number (CLIR): per call on the keypad, or always on a contact, label or Situation; no one place to open. */
+    HIDE_NUMBER(null, explainsFeature = true),
     ;
 
     /** A stable name for routes and saved state. */

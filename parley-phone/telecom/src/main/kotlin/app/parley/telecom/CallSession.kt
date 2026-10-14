@@ -102,6 +102,9 @@ internal class CallSession(val id: String) {
     /** Ended because its time limit ran out. */
     var endedByLimit = false
 
+    /** Placed with the number hidden ([app.parley.common.calls.HideNumber]): the call-ended screen may offer to show it. */
+    var outgoingHidden = false
+
     /** Post-dial digits waiting for the user ("Send 1234?"). */
     var postDial: String? = null
 

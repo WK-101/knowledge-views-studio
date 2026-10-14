@@ -150,6 +150,11 @@ data class CallUi(
     val occasionPrivate: Boolean = false,
     /** A Circle member: "Anything to remember?" offers the next catch-up. */
     val inCircle: Boolean = false,
+    /**
+     * After an outgoing call placed with the number hidden ([app.parley.common.calls.HideNumber]) that the other side
+     * seems to have turned away: offer "Call again showing your number" (set on the ended call only, worded as a guess).
+     */
+    val showNumberAgain: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -320,7 +325,7 @@ data class AudioUi(
 }
 
 /** An outgoing call Parley asked Telecom to place, shown until the call exists. */
-data class PendingOutgoing(val number: String, val simLabel: String?, val atElapsed: Long)
+data class PendingOutgoing(val number: String, val simLabel: String?, val atElapsed: Long, val hidden: Boolean = false)
 
 /** The call the user declined with "Block & decline", for Undo on the call-ended screen. */
 data class DeclineBlock(

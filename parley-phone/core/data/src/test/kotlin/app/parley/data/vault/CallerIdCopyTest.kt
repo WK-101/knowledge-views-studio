@@ -36,6 +36,19 @@ class CallerIdCopyTest {
         assertEquals("Silva, Ana", s.nameAlt)
     }
 
+    @Test fun hideNumberLivesInTheSealedCopy() {
+        // SX-1: a private contact's "Always hide my number" is kept in the caller-ID copy, read while visible.
+        val o = copy()
+        val base = CallerIdCopy.summary(7, o, expiresAt = null, createdAt = 1L)
+        assertFalse(base.hideCallerId)
+        CallerIdCopy.putPageChoices(o, base.copy(hideCallerId = true))
+        assertTrue(o.getBoolean(CallerIdCopy.C_HIDE_CLIR))
+        assertTrue(CallerIdCopy.summary(7, o, expiresAt = null, createdAt = 1L).hideCallerId)
+        // Turning it off takes the key back out (an option that is off isn't stored).
+        CallerIdCopy.putPageChoices(o, base.copy(hideCallerId = false))
+        assertFalse(o.has(CallerIdCopy.C_HIDE_CLIR))
+    }
+
     @Test fun anOldCopyFallsBackToItsCreationTimeAndUnknownChoices() {
         val s = CallerIdCopy.summary(3, JSONObject().put("name", "Bo"), expiresAt = null, createdAt = 5L)
         assertEquals(5L, s.updatedAt)

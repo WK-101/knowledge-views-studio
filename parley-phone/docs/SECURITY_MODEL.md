@@ -577,6 +577,26 @@ features leave them out (missed-call notices, To call, the out-of-service check,
 screened or rang them, so its call path has nothing to hide for them; the daily sweep and the after-call sweep still
 move a private contact's rows into the private history, keeping the app, sealed with the number.
 
+## Hide my number (outgoing caller ID, 7.2)
+
+Parley can ask the network to withhold your caller ID for a call, but holds **no global always-on switch**: it is a
+per-call choice (the keypad long-press / call menu) or a policy on a contact, a label or a Situation
+(`CallerChoice.hideCallerId`, `LabelPolicy.hideCallerId`, `Situation.hideCallerId`), off everywhere by default and
+turned on by no update. When a call is placed, the right supplementary-service code for the calling SIM's country is
+put in front of the number for that one call only (`HideNumber`: `#31#`/`*31#` as standard, `*67`/`*82` in North
+America, `141`/`1470` in the UK, `1831`/`1832` in Australia, `184`/`186` in Japan). The code is a dialling instruction,
+never part of a stored number: `NumberKeys` and the call-log ingestion strip a leading code (region-aware, so a
+North-American `1 410…`/`1 860…` is never mistaken for a UK or Japanese code), so Recents, number history and redial
+name the person and reach their plain number.
+
+Emergency numbers (checked by the call path before dialling), service/USSD codes and internet/SIP calls are never
+prefixed. The network, not Parley, decides whether the number is hidden, so Help says plainly that it can't be
+guaranteed. A private contact's "Always hide my number" lives in its sealed caller-ID copy (`CallerIdCopy`, like its
+ringtone), read only while it may show; nothing about hiding appears on the lock screen, in notifications' public
+versions, in widgets or under a duress unlock, and while the vault is locked the choice can't be read, so no code is
+added. "Call again showing your number" after a refused hidden call reads nothing out; it only redials with the show
+code.
+
 ## Android's own contact picker
 
 From Android 17 another app can ask Android's own contact picker (`ACTION_PICK_CONTACTS`) instead of Parley's. It

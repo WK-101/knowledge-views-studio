@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.provider.CallLog.Calls
 import app.parley.common.CallEntry
 import app.parley.common.backup.CallLogRecord
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.InternetCalls
 import app.parley.common.history.ProviderColumns
 import app.parley.data.CallLogRepository
@@ -58,12 +59,16 @@ internal object ArchivedCalls {
         .apply { if (r.features != 0) put("f", r.features) }
         .toString()
 
-    fun decode(s: String): CallLogRecord {
+    /**
+     * [country]: the line's country, so a call placed with the number hidden (logged with the CLIR code in front) is
+     * read back under its plain number ([HideNumber.strip]); the code was never part of the number.
+     */
+    fun decode(s: String, country: String? = null): CallLogRecord {
         val o = JSONObject(s)
         fun str(k: String) = if (o.isNull(k)) null else o.optString(k)
         return CallLogRecord(
-            str("n"), o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1), str("a"), str("c"), str("m"),
-            isNew = false, isRead = true, features = o.optInt("f"),
+            str("n")?.let { HideNumber.strip(it, country) }, o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1),
+            str("a"), str("c"), str("m"), isNew = false, isRead = true, features = o.optInt("f"),
         )
     }
 }

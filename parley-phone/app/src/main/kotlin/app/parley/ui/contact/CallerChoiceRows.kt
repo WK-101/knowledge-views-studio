@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
@@ -83,6 +84,11 @@ internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String, onTun
             stringResource(R.string.caller_never_calls), stringResource(R.string.caller_never_calls_summary), choice.neverCalls,
             icon = Icons.Rounded.Shield,
         ) { v -> set { it.copy(neverCalls = v) } }
+        // Always hide my number when I call them (one call at a time; never on emergency, service or internet calls).
+        SwitchRow(
+            stringResource(R.string.caller_hide_number), stringResource(R.string.caller_hide_number_summary), choice.hideCallerId,
+            icon = Icons.Rounded.VisibilityOff,
+        ) { v -> set { it.copy(hideCallerId = v) } }
     }
     if (picking) {
         VibrationPatternDialog(

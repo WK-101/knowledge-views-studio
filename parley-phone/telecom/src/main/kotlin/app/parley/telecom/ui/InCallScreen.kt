@@ -218,6 +218,9 @@ fun InCallScreen(
     onDrop: (CallUi, Boolean) -> Unit = { _, _ -> },
     /** The SIM suggestion on the "Call dropped" card: use that SIM for the person (true) or no thanks (false). */
     onSimTip: (CallUi, Boolean) -> Unit = { _, _ -> },
+    /** "Call again showing your number" after a refused hidden call, or dismissing the offer. */
+    onShowNumberAgain: (CallUi) -> Unit = {},
+    onDismissShowNumberAgain: (CallUi) -> Unit = {},
     /** Runs the block once the phone is unlocked (saved numbers never show on the lock screen). */
     onUnlock: (() -> Unit) -> Unit = { it() },
 ) {
@@ -256,7 +259,7 @@ fun InCallScreen(
             onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
             onPostCall = withVerify(onPostCall, shown, sheets, onUnlock),
             onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock, onDrop = onDrop, onUnlock = onUnlock,
-            onSimTip = onSimTip,
+            onSimTip = onSimTip, onShowNumberAgain = onShowNumberAgain, onDismissShowNumberAgain = onDismissShowNumberAgain,
         )
         if (slots.waiting && slots.current != null && primary != null) {
             CallWaitingLayout(primary, slots.current!!, slots.held, twoPane, confirmDecline, insets) { sheets.replyFor = primary.id }
@@ -367,6 +370,9 @@ private class ScreenActions(
     val onDrop: (CallUi, Boolean) -> Unit,
     val onUnlock: (() -> Unit) -> Unit = { it() },
     val onSimTip: (CallUi, Boolean) -> Unit = { _, _ -> },
+    /** "Call again showing your number" after a refused hidden call, or dismissing the offer. */
+    val onShowNumberAgain: (CallUi) -> Unit = {},
+    val onDismissShowNumberAgain: (CallUi) -> Unit = {},
 )
 
 /** A ringing call while another call is going: the current call(s) at the top, the waiting call as a sheet. */
@@ -542,17 +548,27 @@ private fun ControlsSection(screen: ScreenState, sheets: InCallSheets, a: Screen
 }
 
 /** After the call: the reason it didn't go through (Retry), "Blocked · Undo", the post-call or memory card. */
+@Suppress("CyclomaticComplexMethod") // one branch per kind of call-ended card (failure, drop, show-number-again, …)
 @Composable
 private fun EndedCards(s: ScreenState, a: ScreenActions, safetyChecked: Set<String>) {
     val ended = s.ended
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 560.dp).padding(bottom = Spacing.l)) {
         when {
-            s.failed != null -> FailureBanner(s.failed, { a.onRetry(s.failed) }, { a.onDismissFailure(s.failed) }, Modifier.padding(bottom = Spacing.xl))
+            s.failed != null -> FailureBanner(
+                s.failed, { a.onRetry(s.failed) }, { a.onDismissFailure(s.failed) }, Modifier.padding(bottom = Spacing.xl),
+                onShowNumberAgain = if (s.failed.showNumberAgain) ({ a.onShowNumberAgain(s.failed) }) else null,
+            )
             // A connected call the network dropped: why, and a big Call again.
             ended != null && ended.drop != null ->
                 DropCard(
                     ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl),
                     onSimTip = { accept -> a.onSimTip(ended, accept) },
+                )
+            // A hidden call the other side seems to have turned away (worded as a guess).
+            ended != null && ended.showNumberAgain ->
+                ShowNumberAgainCard(
+                    onCallAgain = { a.onShowNumberAgain(ended) }, onDismiss = { a.onDismissShowNumberAgain(ended) },
+                    Modifier.padding(bottom = Spacing.xl),
                 )
             // "Blocked and declined", with Undo.
             s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })

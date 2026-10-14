@@ -7,6 +7,7 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.catching
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.SimCard
 import app.parley.common.calls.SimChoice
 import app.parley.common.calls.SimReason
@@ -32,7 +33,10 @@ class CallGate(private val c: DataContainer) {
      * The question to ask before calling [number], or null to call straight away. [simId]: the SIM the user already
      * picked (no SIM question then). [simCount]: SIMs that can call.
      */
-    suspend fun check(number: String, name: String?, simCount: Int, simId: String? = null, skipConfirm: Boolean = false): PendingCall? {
+    suspend fun check(
+        number: String, name: String?, simCount: Int, simId: String? = null, skipConfirm: Boolean = false,
+        clir: HideNumber.Clir = HideNumber.Clir.PLAIN,
+    ): PendingCall? {
         // An emergency call is never held up by a question: no confirmation, no SIM choice, no warnings, no allowance.
         if (isEmergency(number)) return null
         val settings = c.settings.current()
@@ -51,7 +55,7 @@ class CallGate(private val c: DataContainer) {
         return if (ask) {
             PendingCall(
                 number, name, confirm || note != null, chooseSim, note, simId, warnings, abroad = roam.plan, localSim = roam.localSim,
-                abroadWarnings = abroadWarnings(roam), simCards = simCards(number, chooseSim),
+                abroadWarnings = abroadWarnings(roam), simCards = simCards(number, chooseSim), clir = clir,
             )
         } else {
             null
@@ -85,11 +89,11 @@ class CallGate(private val c: DataContainer) {
     /** Places the call. [confirmed]: the user already said yes to everything the gate asked, the allowance included. */
     suspend fun place(
         number: String, simId: String?, name: String?, sims: List<SimAccount>, remember: Boolean = false, confirmed: Boolean = false,
-        subject: String? = null,
+        subject: String? = null, clir: HideNumber.Clir = HideNumber.Clir.PLAIN,
     ): Placed {
         if (isEmergency(number)) {
             // Only a SIM the user picked for this call; otherwise the platform routes it over whichever network can
-            // carry it (a remembered or label SIM may have no service).
+            // carry it (a remembered or label SIM may have no service). An emergency call is never hidden.
             CallManager.expectOutgoing(number, null)
             return Placed.Done(c.placer.call(EmergencyPolicy.asciiDigits(number), simId, simResolved = true))
         }
@@ -104,14 +108,15 @@ class CallGate(private val c: DataContainer) {
                 return Placed.Ask(
                     PendingCall(
                         number, name, note != null, false, note, simId, abroad = roam.plan, localSim = roam.localSim, subject = subject,
-                        abroadWarnings = abroadWarnings(roam),
+                        abroadWarnings = abroadWarnings(roam), clir = clir,
                     ),
                 )
             }
         }
-        // "Calling via Work SIM…" until the call exists.
-        CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
-        return Placed.Done(c.placer.call(number, resolved, simResolved = true, subject = subject))
+        // "Calling via Work SIM…" until the call exists. A hidden call is marked so the call-ended screen can offer
+        // "Call again showing my number" if it was refused.
+        CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label, hidden = clir == HideNumber.Clir.HIDE)
+        return Placed.Done(c.placer.call(number, resolved, simResolved = true, subject = subject, clir = clir))
     }
 
     /** The dial guard's warnings for the number assisted dialling would call instead (premium, listed numbers). */

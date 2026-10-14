@@ -189,6 +189,8 @@
     <string name="call_failed_generic">The network couldn\'t connect the call</string>
     <string name="call_failed_retry">Retry</string>
     <string name="call_failed_dismiss">Dismiss</string>
+    <string name="call_show_again_guess">Some people don\'t answer hidden numbers. Call again showing your number?</string>
+    <string name="call_show_again_action">Call again showing my number</string>
     <string name="decline_blocked_title">Blocked and declined</string>
     <string name="decline_blocked_body">Calls from %1$s will be declined from now on.</string>
     <string name="decline_block_already">This number was already blocked.</string>

@@ -63,6 +63,7 @@ object CapabilityText {
         "shared_labels" to (R.string.label_shared_labels to R.string.discover_shared_labels_summary),
         "parley_pin" to (R.string.discover_parley_pin_title to R.string.discover_parley_pin_summary),
         "private_names" to (R.string.pn_title to R.string.discover_private_names_summary),
+        "hide_my_number" to (R.string.discover_hide_number_title to R.string.discover_hide_number_summary),
         "drive_profile" to (R.string.label_your_car to R.string.discover_drive_profile_summary),
         "calling_abroad" to (R.string.discover_calling_abroad_title to R.string.discover_calling_abroad_summary),
         "phone_menus" to (R.string.label_phone_menus to R.string.discover_phone_menus_summary),

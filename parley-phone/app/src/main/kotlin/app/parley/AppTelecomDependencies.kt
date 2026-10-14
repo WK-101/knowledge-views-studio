@@ -36,6 +36,7 @@ import app.parley.common.Verification
 import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.CallerHaptics
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.CallerPhoto
 import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.NetworkName
@@ -513,9 +514,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** Retry places the call directly: the user already went through the checks for this number. */
-    override suspend fun redial(number: String, accountId: String?): String? = withContext(Dispatchers.IO) {
-        (c.placer.call(number, accountId) as? PlaceResult.Failed)?.let { PlaceFailureText.placeFailure(app, it.reason) }
+    /** Retry (or "Call again showing your number") places the call directly: the checks were already done. */
+    override suspend fun redial(number: String, accountId: String?, clir: HideNumber.Clir): String? = withContext(Dispatchers.IO) {
+        (c.placer.call(number, accountId, clir = clir) as? PlaceResult.Failed)?.let { PlaceFailureText.placeFailure(app, it.reason) }
     }
 
     // Memory only (the call path runs on the main thread): settings, rules and label ringtones are warmed at app

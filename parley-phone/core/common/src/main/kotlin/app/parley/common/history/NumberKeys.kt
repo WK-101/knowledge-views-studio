@@ -1,6 +1,7 @@
 package app.parley.common.history
 
 import app.parley.common.PhoneIdentity
+import app.parley.common.calls.HideNumber
 
 /**
  * Keys for grouping call history: [PhoneIdentity.exactKey], with [HIDDEN] for withheld numbers.
@@ -9,12 +10,17 @@ import app.parley.common.PhoneIdentity
  * SIM country (so "06 12 34 56 78", "+33 6 12 34 56 78" and "0033612345678" are one key in France: the
  * national trunk prefix is stripped). Numbers that can't be converted (short codes, service numbers) fall
  * back to their digits with a `#` prefix so they never collide with an E.164 key.
+ *
+ * A call Parley placed with the number hidden is logged by Android with the CLIR code in front of the number
+ * ([HideNumber]); that code is stripped first ([HideNumber.strip]), so the call is keyed, grouped and matched to the
+ * person under their plain number, never as a line of its own.
  */
 object NumberKeys {
     /** Key for calls whose number is withheld, blank or unknown. */
     const val HIDDEN = "hidden"
 
-    fun of(raw: String?, countryIso: String?): String = PhoneIdentity.exactKey(raw, countryIso) ?: HIDDEN
+    fun of(raw: String?, countryIso: String?): String =
+        PhoneIdentity.exactKey(raw?.let { HideNumber.strip(it, countryIso) }, countryIso) ?: HIDDEN
 
     /** True if [key] came from a real number (not [HIDDEN]). */
     fun isNumber(key: String): Boolean = key != HIDDEN

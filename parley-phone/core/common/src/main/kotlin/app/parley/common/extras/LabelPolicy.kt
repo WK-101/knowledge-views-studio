@@ -15,7 +15,9 @@ import kotlinx.serialization.builtins.serializer
  * haptic caller ID ([app.parley.common.calls.CallerHaptics] spec) when they have none of their own; [autoAnswer]:
  * members' calls are answered automatically when "For chosen people and labels" is on; [circleFromLabel]: "Keep in touch
  * with everyone here": every member is in the Circle through the label at [rhythmDays] (off: the rhythm is only offered
- * when a member joins). Older versions ignore the field, so a restored backup there keeps the suggestion only.
+ * when a member joins); [hideCallerId]: "Always hide my number when I call" its members (one call at a time, the right
+ * code for the SIM's country; emergency, service and internet calls are never affected). Older versions ignore a field,
+ * so a restored backup there keeps the suggestion only.
  */
 @Serializable
 data class LabelPolicy(
@@ -25,8 +27,10 @@ data class LabelPolicy(
     val vibration: String? = null,
     val autoAnswer: Boolean = false,
     val circleFromLabel: Boolean = false,
+    val hideCallerId: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = simId == null && rhythmDays == null && !allowThroughDnd && vibration == null && !autoAnswer && !circleFromLabel
+    val isEmpty: Boolean
+        get() = simId == null && rhythmDays == null && !allowThroughDnd && vibration == null && !autoAnswer && !circleFromLabel && !hideCallerId
 
     /** The label puts its members in the Circle now (switched on, with a rhythm). */
     val feedsCircle: Boolean get() = circleFromLabel && rhythmDays != null
@@ -43,8 +47,10 @@ data class CallerChoice(
     val autoAnswer: Boolean = false,
     /** "They never call me": "This number never calls you" stays on for their numbers ([app.parley.common.calls.NeverCallsYou]). */
     val neverCalls: Boolean = false,
+    /** "Always hide my number when I call them" (one call at a time, the right code for the SIM's country). */
+    val hideCallerId: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = vibration == null && !autoAnswer && !neverCalls
+    val isEmpty: Boolean get() = vibration == null && !autoAnswer && !neverCalls && !hideCallerId
 }
 
 /** Device contacts' [CallerChoice]s, by lookup key. */
@@ -71,7 +77,10 @@ object CallerChoices {
         val merged = if (there == null) {
             moving
         } else {
-            CallerChoice(there.vibration ?: moving.vibration, there.autoAnswer || moving.autoAnswer, there.neverCalls || moving.neverCalls)
+            CallerChoice(
+                there.vibration ?: moving.vibration, there.autoAnswer || moving.autoAnswer, there.neverCalls || moving.neverCalls,
+                there.hideCallerId || moving.hideCallerId,
+            )
         }
         return (map - from) + (to to merged)
     }
@@ -82,6 +91,9 @@ object CallerChoices {
 
     /** Whether any label chosen for auto-answer is one of [labels]. */
     fun labelAutoAnswer(labels: Set<String>, policies: Map<String, LabelPolicy>): Boolean = labels.any { policies[it]?.autoAnswer == true }
+
+    /** Whether any label that always hides the number is one of [labels] ([LabelPolicy.hideCallerId]). */
+    fun labelHidesCallerId(labels: Set<String>, policies: Map<String, LabelPolicy>): Boolean = labels.any { policies[it]?.hideCallerId == true }
 }
 
 object LabelPolicies {

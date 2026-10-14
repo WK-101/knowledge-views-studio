@@ -9,6 +9,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.backup.CallLogRecord
+import app.parley.common.calls.HideNumber
 import app.parley.common.catching
 import app.parley.common.history.CallLogNames
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
 
     private fun query(uri: Uri, selection: String?, args: Array<String>?): List<CallEntry> {
         val out = ArrayList<CallEntry>()
+        val iso = PhoneEnv.countryIso(context)
         cr.safeQuery(
             uri,
             arrayOf(
@@ -74,7 +76,9 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
             while (c.moveToNext()) {
                 out += CallEntry(
                     id = c.getLong(0),
-                    number = c.getString(1).orEmpty(),
+                    // A call placed with the number hidden is logged with the CLIR code in front; strip it so Recents
+                    // names the person and redial reaches their plain number (the code is never part of the number).
+                    number = HideNumber.strip(c.getString(1).orEmpty(), iso),
                     cachedName = c.getString(2),
                     type = mapType(c.getInt(3)),
                     date = c.getLong(4),

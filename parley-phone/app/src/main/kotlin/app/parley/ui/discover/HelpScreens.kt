@@ -49,6 +49,7 @@ object HelpText {
         HelpTopic.YOUR_YEAR -> HelpTexts(R.string.circle_year_review, R.string.help_your_year_body, R.string.label_call_insights)
         HelpTopic.SITUATIONS_WIDGET ->
             HelpTexts(R.string.discover_situations_widget_title, R.string.help_situations_widget_body, R.string.label_situations)
+        HelpTopic.HIDE_NUMBER -> HelpTexts(R.string.help_hide_number_title, R.string.help_hide_number_body, null)
     }
 }
 

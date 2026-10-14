@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +62,7 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import app.parley.ui.blocking.ScheduleField
 import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.drive.driveSummary
@@ -201,6 +203,12 @@ private fun WhileOn(vm: AppViewModel, s: Situation, edit: ((Situation) -> Situat
             TriRow(stringResource(R.string.sit_auto_chosen), s.autoAnswerChosen, Icons.Rounded.PhoneInTalk, answerSub) { v ->
                 edit { it.copy(autoAnswerChosen = v) }
             }
+        }
+        item("sit_hide_number") {
+            SwitchRow(
+                stringResource(R.string.sit_hide_number), stringResource(R.string.sit_hide_number_sub), s.hideCallerId,
+                icon = Icons.Rounded.VisibilityOff,
+            ) { v -> edit { it.copy(hideCallerId = v) } }
         }
     }
     if (replying) ReplyDialog(s.reply.orEmpty(), onDismiss = { replying = false }) { text ->

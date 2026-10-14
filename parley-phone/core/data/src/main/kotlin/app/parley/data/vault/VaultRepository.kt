@@ -85,6 +85,8 @@ data class VaultSummary(
     val autoAnswer: Boolean = false,
     /** "They never call me": "This number never calls you" stays on for its numbers. */
     val neverCalls: Boolean = false,
+    /** "Always hide my number when I call them" ([app.parley.common.extras.CallerChoice.hideCallerId]). */
+    val hideCallerId: Boolean = false,
     /**
      * The caller-ID copy holds the star, labels, ringtone and "send to voicemail". False for an entry saved before
      * they were kept there and not seeded yet ([VaultRepository.seedCallerChoices]): the fields above are then only

@@ -132,6 +132,10 @@
     <string name="caller_auto_answer_summary">Their calls are answered after a few seconds, with Cancel on the call screen</string>
     <string name="caller_never_calls">They never call me</string>
     <string name="caller_never_calls_summary">A call from their number says \"This number never calls you\", so you can check it\'s really them</string>
+    <string name="caller_hide_number">Always hide my number when I call</string>
+    <string name="caller_hide_number_summary">Your number is hidden when you call them (never on emergency, service or internet calls)</string>
+    <string name="hide_number_this_call">Hide my number for this call</string>
+    <string name="hide_number_this_call_summary">Add the right code for your SIM so the network hides your number this once</string>
     <!-- A number's two buttons on the contact page, each saying what it does (%1$s: the number). -->
     <string name="detail_reach_number">Message or call on…, %1$s</string>
     <string name="detail_message_number_on">Message %1$s on %2$s</string>

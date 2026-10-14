@@ -156,6 +156,8 @@ class InCallActivity : ComponentActivity() {
                     background = look.callBackground,
                     onDrop = ::onDrop,
                     onSimTip = ::onSimTip,
+                    onShowNumberAgain = ::callAgainShowing,
+                    onDismissShowNumberAgain = { c -> c.number?.let { CallManager.dismissShowNumberAgain(it) } },
                     onUnlock = ::unlockKeepingEnded,
                 )
             }
@@ -280,6 +282,17 @@ class InCallActivity : ComponentActivity() {
             val problem = CallManager.redial(number, c.accountId)
             if (problem != null) systemMessage(this@InCallActivity, problem, long = true)
             // The new call opens this screen again; if it never comes, the screen closes as usual.
+            keepEnded = false
+        }
+    }
+
+    /** "Call again showing your number" after a refused hidden call: the same number and SIM, with the show code. */
+    private fun callAgainShowing(c: CallUi) {
+        val number = c.number ?: return
+        keepEnded = true
+        lifecycleScope.launch {
+            val problem = CallManager.callAgainShowing(number, c.accountId)
+            if (problem != null) systemMessage(this@InCallActivity, problem, long = true)
             keepEnded = false
         }
     }
