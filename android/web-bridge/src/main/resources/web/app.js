@@ -87,11 +87,6 @@
     return api.dataJson ? JSON.parse(api.dataJson) : null;
   }
 
-  async function awaitChanges(since, signal) {
-    const api = await call({ kind: "await", paramsJson: JSON.stringify(since || {}) }, signal);
-    return api.ok && api.dataJson ? JSON.parse(api.dataJson) : null; // null = timeout, re-poll
-  }
-
   async function hello() {
     const api = await call({ kind: "hello" });
     return api.ok && api.dataJson ? JSON.parse(api.dataJson) : { readOnly: false };
@@ -538,27 +533,24 @@
   }
 
   // ---- load + live refresh -----------------------------------------------------------------------
+  const DOMAIN_RENDER = {
+    tasks: renderTasks,
+    notes: renderNotes,
+    calendar: renderCalendar,
+    time: renderTime,
+    habits: renderHabits,
+  };
+
+  async function reloadDomain(d) {
+    state[d] = await query(d, "list");
+    DOMAIN_RENDER[d]();
+  }
+
   async function reload(domain) {
-    if (domain === "tasks" || !domain) {
-      state.tasks = await query("tasks", "list");
-      renderTasks();
-    }
-    if (domain === "notes" || !domain) {
-      state.notes = await query("notes", "list");
-      renderNotes();
-    }
-    if (domain === "calendar" || !domain) {
-      state.calendar = await query("calendar", "list");
-      renderCalendar();
-    }
-    if (domain === "time" || !domain) {
-      state.time = await query("time", "list");
-      renderTime();
-    }
-    if (domain === "habits" || !domain) {
-      state.habits = await query("habits", "list");
-      renderHabits();
-    }
+    // Run the per-domain fetches concurrently (the server handles parallel /api calls) — a single reload
+    // of all five was 5 sequential encrypted round-trips; in parallel it is ~1.
+    const domains = domain ? [domain] : Object.keys(DOMAIN_RENDER);
+    await Promise.all(domains.map(reloadDomain));
     el("footText").textContent =
       state.tasks.length + " tasks · " + state.notes.length + " notes · end-to-end encrypted";
   }
@@ -574,25 +566,97 @@
     }
   }
 
-  async function liveLoop() {
-    // Long-poll the encrypted /api for change ticks; reload only what changed. Backs off on error.
-    for (;;) {
-      try {
-        const now = await awaitChanges(seen);
-        if (now) {
-          const known = TABS.map((t) => t.key);
-          const changed = Object.keys(now).filter((d) => (now[d] || 0) > (seen[d] || 0));
-          seen = now;
-          for (const d of changed) {
-            if (known.includes(d)) await reload(d);
-          }
-          setStatus("", "ok");
-        }
-      } catch (_e) {
-        setStatus("Reconnecting…", "err");
-        await new Promise((r) => setTimeout(r, 3000));
-      }
+  // ---- live connection (WebSocket) ---------------------------------------------------------------
+  // Replaces the long-poll: a persistent wss:// socket isolated from /api traffic, with app-level
+  // heartbeat, exponential backoff + jitter, online/offline + visibility handling, and a debounced
+  // "Reconnecting…" banner so a brief blip never flashes. All frames reuse the same AES-GCM envelope.
+  const live = { ws: null, backoff: 0, reconnectTimer: null, hbTimer: null, pongTimer: null, bannerTimer: null };
+
+  function wsUrl() {
+    return (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/live";
+  }
+  async function sealFrame(obj) {
+    return sealText(JSON.stringify(obj));
+  }
+
+  function startLive() {
+    stopLive(); // single-flight: never two sockets or two timers
+    let sock;
+    try {
+      sock = new WebSocket(wsUrl());
+    } catch (_e) {
+      scheduleReconnect();
+      return;
     }
+    live.ws = sock;
+    sock.onopen = async () => {
+      live.backoff = 0;
+      clearBannerTimer();
+      setStatus("", "ok");
+      try { sock.send(await sealFrame({ t: "hello", nonce: nonce(), since: seen })); } catch (_e) { /* closed */ }
+      startHeartbeat();
+    };
+    sock.onmessage = async (ev) => {
+      if (typeof ev.data !== "string") return;
+      let msg;
+      try { msg = JSON.parse(await openText(ev.data)); } catch (_e) { return; }
+      if (msg.t === "pong") { clearPong(); return; }
+      if (msg.t === "tick" && msg.versions) {
+        const now = msg.versions;
+        const changed = Object.keys(now).filter((d) => (now[d] || 0) > (seen[d] || 0) && DOMAIN_RENDER[d]);
+        seen = Object.assign({}, seen, now);
+        for (const d of changed) { try { await reloadDomain(d); } catch (_e) { /* transient */ } }
+      }
+    };
+    sock.onclose = () => { if (live.ws === sock) { stopHeartbeat(); live.ws = null; scheduleReconnect(); } };
+    sock.onerror = () => { try { sock.close(); } catch (_e) { /* noop */ } };
+  }
+
+  function stopLive() {
+    stopHeartbeat();
+    if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; }
+    if (live.ws) { const s = live.ws; live.ws = null; try { s.onclose = null; s.close(); } catch (_e) { /* noop */ } }
+  }
+
+  function scheduleReconnect() {
+    if (live.reconnectTimer) return;
+    showBannerSoon();
+    const base = 1000, cap = 10000;
+    const delay = Math.floor(Math.random() * Math.min(cap, base * Math.pow(2, live.backoff)));
+    live.backoff = Math.min(live.backoff + 1, 6);
+    live.reconnectTimer = setTimeout(() => { live.reconnectTimer = null; startLive(); }, delay);
+  }
+
+  function startHeartbeat() {
+    stopHeartbeat();
+    live.hbTimer = setInterval(async () => {
+      if (!live.ws || live.ws.readyState !== WebSocket.OPEN) return;
+      try { live.ws.send(await sealFrame({ t: "ping", nonce: nonce() })); } catch (_e) { return; }
+      // If no pong within 10s the socket is silently dead (Wi-Fi drop) → force reconnect.
+      if (!live.pongTimer) {
+        live.pongTimer = setTimeout(() => { live.pongTimer = null; try { live.ws && live.ws.close(); } catch (_e) { /* noop */ } }, 10000);
+      }
+    }, 25000);
+  }
+  function stopHeartbeat() { if (live.hbTimer) { clearInterval(live.hbTimer); live.hbTimer = null; } clearPong(); }
+  function clearPong() { if (live.pongTimer) { clearTimeout(live.pongTimer); live.pongTimer = null; } }
+
+  function showBannerSoon() {
+    if (live.bannerTimer) return;
+    live.bannerTimer = setTimeout(() => { live.bannerTimer = null; setStatus("Reconnecting…", "err"); }, 2000);
+  }
+  function clearBannerTimer() { if (live.bannerTimer) { clearTimeout(live.bannerTimer); live.bannerTimer = null; } }
+
+  function reconnectNow() {
+    live.backoff = 0;
+    if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; }
+    if (!live.ws || live.ws.readyState !== WebSocket.OPEN) startLive();
+  }
+
+  function wireLiveEvents() {
+    window.addEventListener("online", reconnectNow);
+    window.addEventListener("offline", () => { setStatus("Offline — no network", "err"); stopLive(); });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnectNow(); });
   }
 
   async function boot() {
@@ -633,12 +697,13 @@
       readOnly = false; // non-fatal: default to full UI; the server still enforces access
     }
 
+    wireLiveEvents();
     try {
       await loadAll();
-      liveLoop();
     } catch (_e) {
       /* status already shown; user can hit refresh */
     }
+    startLive(); // open the live channel regardless, so it recovers even if the first load failed
   }
 
   window.addEventListener("DOMContentLoaded", boot);

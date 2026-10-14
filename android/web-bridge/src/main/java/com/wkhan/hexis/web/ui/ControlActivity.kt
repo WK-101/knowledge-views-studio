@@ -60,6 +60,9 @@ class ControlActivity : Activity() {
         super.onCreate(savedInstanceState)
         grants = GrantStore(this)
         clients = ClientStore(this)
+        // Generate/parse the TLS keystore in the background now, so the first "Start server" tap doesn't
+        // wait on the one-time RSA keygen + PKCS#12 parse.
+        com.wkhan.hexis.web.server.WebTls.prewarm(this)
         setContentView(buildUi())
     }
 

@@ -31,8 +31,8 @@ android {
         applicationId = "com.wkhan.hexis.web"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         resourceConfigurations += listOf("en")
     }
 
@@ -96,6 +96,7 @@ dependencies {
     val ktor = "2.3.12"
     implementation("io.ktor:ktor-server-core:$ktor")
     implementation("io.ktor:ktor-server-netty:$ktor")
+    implementation("io.ktor:ktor-server-websockets:$ktor") // live channel (replaces the long-poll)
     implementation("io.ktor:ktor-network-tls-certificates:$ktor")
 
     // QR of the pairing URL on the control screen.

@@ -15,6 +15,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.embeddedServer
@@ -28,6 +29,16 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import io.ktor.websocket.readText
+
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -74,7 +85,7 @@ class WebServer(
                 host = "0.0.0.0"
                 this.port = this@WebServer.port
             }
-            module { configureRouting() }
+            module { configureServer() }
         }
         engine = embeddedServer(Netty, env).start(wait = false)
     }
@@ -84,11 +95,76 @@ class WebServer(
         engine = null
     }
 
-    private fun Application.configureRouting() {
+    private fun Application.configureServer() {
+        install(WebSockets) {
+            // Server-side ping keeps the socket warm and detects dead clients (Ktor default is DISABLED).
+            pingPeriodMillis = WS_PING_SEC * 1000
+            timeoutMillis = WS_TIMEOUT_SEC * 1000
+            maxFrameSize = WS_MAX_FRAME
+            masking = false
+        }
         routing {
             get("/health") { call.respondText(appContext.packageName) }
+            webSocket("/live") { handleLive() }
             post("/api") { call.handleApi() }
             get("/{path...}") { call.serveStatic() }
+        }
+    }
+
+    // ---- live channel (WebSocket) --------------------------------------------------------------------
+
+    /**
+     * The live-change channel. Replaces the long-poll: a persistent WebSocket whose fate is isolated from
+     * `/api` traffic (no shared HTTP/2 stream to reset). Auth reuses the exact `/api` crypto — the first
+     * frame is a sealed `hello` carrying the client's last-seen version cursor; the server trial-decrypts it
+     * against the live client set, replay-checks the nonce, sends an immediate catch-up if it already moved
+     * past the cursor, then pushes a sealed version snapshot on every [ChangeHub] tick. App-level ping/pong
+     * lets the browser detect a silently-dead socket (onclose often doesn't fire on Wi-Fi drop).
+     */
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
+    private suspend fun DefaultWebSocketServerSession.handleLive() {
+        val host = call.request.host()
+        if (!RequestGuard.hostAllowed(host) ||
+            !RequestGuard.originAllowed(host, call.request.port(), call.request.headers["Origin"])
+        ) {
+            close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "forbidden")); return
+        }
+        val firstText = (runCatching { incoming.receive() }.getOrNull() as? Frame.Text)?.readText()
+            ?: return close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "no hello"))
+        val match = matchClient(firstText)
+            ?: return close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unauthorized"))
+        val (client, plaintext) = match
+        val key = aeadKeyFor(client)
+        ClientPresence.mark(client.id)
+        val hello = runCatching { BridgeCodec.decodeString<LiveFrame>(plaintext) }.getOrNull()
+        if (hello == null || hello.t != "hello" || !freshAndUnseen(hello.nonce)) {
+            return close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "bad hello"))
+        }
+
+        suspend fun sealedSend(frame: LiveFrame) =
+            send(Frame.Text(CryptoBox.sealText(key, BridgeCodec.encodeString(frame))))
+
+        var lastSent = changeHub.snapshot()
+        if (changeHub.isNewer(lastSent, hello.since)) sealedSend(LiveFrame(t = "tick", versions = lastSent))
+
+        val pushJob = launch {
+            changeHub.ticks.collect {
+                val now = changeHub.snapshot()
+                if (changeHub.isNewer(now, lastSent)) {
+                    lastSent = now
+                    runCatching { sealedSend(LiveFrame(t = "tick", versions = now)) }
+                }
+            }
+        }
+        try {
+            for (frame in incoming) {
+                if (frame !is Frame.Text) continue
+                val msg = runCatching { CryptoBox.openText(key, frame.readText()) }.getOrNull() ?: continue
+                val f = runCatching { BridgeCodec.decodeString<LiveFrame>(msg) }.getOrNull() ?: continue
+                if (f.t == "ping") runCatching { sealedSend(LiveFrame(t = "pong")) }
+            }
+        } finally {
+            pushJob.cancel()
         }
     }
 
@@ -224,6 +300,9 @@ class WebServer(
         const val NONCE_MAX = 4096 // bound the replay-guard set; FIFO eviction drops the oldest
         const val NONCE_INIT = 512
         const val NONCE_LOAD = 0.75f
+        const val WS_PING_SEC = 20L
+        const val WS_TIMEOUT_SEC = 15L
+        const val WS_MAX_FRAME = 1L * 1024 * 1024
         const val STOP_GRACE_MS = 300L
         const val STOP_TIMEOUT_MS = 1000L
         const val AWAIT_MS = 25_000L

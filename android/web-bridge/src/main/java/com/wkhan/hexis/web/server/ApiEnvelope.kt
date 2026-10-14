@@ -33,3 +33,16 @@ data class HelloInfo(
     val readOnly: Boolean = false,
     val name: String = "",
 )
+
+/**
+ * A frame on the `/live` WebSocket (sealed with the client's AEAD key, same as `/api`).
+ * [t]: "hello" (client→server, first frame, with [since] cursor + [nonce]), "ping"/"pong" (heartbeat),
+ * "tick" (server→client, carrying the current [versions] snapshot).
+ */
+@Serializable
+data class LiveFrame(
+    val t: String,
+    val nonce: String = "",
+    val since: Map<String, Long> = emptyMap(),
+    val versions: Map<String, Long> = emptyMap(),
+)

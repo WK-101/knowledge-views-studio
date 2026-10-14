@@ -15,8 +15,11 @@ import java.util.concurrent.ConcurrentHashMap
 class ChangeHub {
 
     private val versions = ConcurrentHashMap<String, Long>()
-    // replay=0: a tick only wakes polls that are currently suspended; the version check covers the rest.
+    // replay=0: a tick only wakes collectors that are currently suspended; the version check covers the rest.
     private val signal = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
+
+    /** A hot stream that emits once per change — the WebSocket `/live` push collects this. */
+    val ticks: kotlinx.coroutines.flow.SharedFlow<Unit> = signal
 
     /** Called from the bridge callback thread on each core tick. Non-blocking + thread-safe. */
     fun publish(domain: String) {
@@ -25,6 +28,10 @@ class ChangeHub {
     }
 
     fun snapshot(): Map<String, Long> = HashMap(versions)
+
+    /** True if [now] has advanced past the versions in [since] for any domain. */
+    fun isNewer(now: Map<String, Long>, since: Map<String, Long>): Boolean =
+        now.any { (domain, v) -> v > (since[domain] ?: 0L) }
 
     /**
      * Suspend until the hub is newer than [since], or [timeoutMs] elapses. Returns the current snapshot when
