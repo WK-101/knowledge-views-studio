@@ -263,6 +263,23 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** Private contacts stored, counted without opening anything (cheap: a cold start asks before the listing is open). */
     suspend fun countNow(): Int = withContext(Dispatchers.IO) { dao.count() }
 
+    /** What a read-only data self-check found: counts of private contacts and calls, and how many can't be opened now. */
+    data class Check(val contacts: Int, val contactsUnreadable: Int, val calls: Int, val callsUnreadable: Int)
+
+    /**
+     * Read-only check for the data self-check ([app.parley.data.DataSelfCheck]): how many private contacts and private
+     * calls are stored and how many of each can't be opened right now. It reads the always-available caller-ID key
+     * only, never the unlock-bound detail key, so it needs no unlock and shows no content; it writes, migrates and
+     * deletes nothing.
+     */
+    suspend fun check(): Check = withContext(Dispatchers.IO) {
+        val rows = dao.callerRowsNow()
+        val contactsBad = rows.count { summarize(it) == null }
+        val callRows = dao.allPrivateCalls()
+        val callsBad = callRows.count { callSeal.opened(it) == null }
+        Check(rows.size, contactsBad, callRows.size, callsBad)
+    }
+
     val privateCalls: StateFlow<List<PrivateCall>> = dao.privateCalls()
         .map { list -> list.openedCalls().also { callSeal.resealOlder(list, scope, ::sealCallWhole) } }
         .flowOn(Dispatchers.IO)

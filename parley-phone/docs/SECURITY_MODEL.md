@@ -111,6 +111,20 @@ sealed document of its own under the same key, so the ring path can read it whil
 contacts' numbers and lookup keys, stays on this phone (not in backups or transfers) and never holds private contacts'
 numbers. A document that can't be opened is never overwritten and warns about nothing.
 
+### Checking your data, without changing it (7.2)
+
+"Check Parley's data" (Tools, and Help & troubleshooting) is a **read-only** self-check (`DataSelfCheck`). It opens
+each sealed store, every `SealedDocument` and the databases, counts what they hold and confirms each record still
+decrypts; it checks that the line-key fingerprints resolve and that a backup could be produced (a dry run — nothing is
+written). It then reports in plain words: "Everything checks out", or how many records couldn't be read.
+
+It **only reports.** Unlike a competitor's "self-healing" (which deletes the database whenever a key fails), it never
+writes, migrates, deletes or re-creates anything. A record it can't open is reported and left exactly as it is, byte
+for byte, and the single remedy it offers is Backup's restore — the same fail-closed rule every store already follows
+(an unreadable value is kept, never overwritten). The read-only probes it uses add no key side effects: they open
+existing records and never seal, renew or mark a key pending. Under a duress unlock the hidden private stores are
+reported exactly as a phone with none would report them, so the check reveals nothing about private data.
+
 ## Backups
 
 - **Envelope.** STREAM construction over AES-256-GCM, 64 KiB segments, the header as associated data of every segment

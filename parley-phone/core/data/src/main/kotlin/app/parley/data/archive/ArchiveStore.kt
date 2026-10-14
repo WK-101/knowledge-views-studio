@@ -105,6 +105,17 @@ class ArchiveStore(private val c: DataContainer) : RecordSealing.Resealable {
         return cards
     }
 
+    /**
+     * Read-only check for the data self-check ([app.parley.data.DataSelfCheck]): how many archived-contact files there
+     * are and how many can't be read right now. It opens the card files only, never the index it would otherwise
+     * rewrite, so it writes, migrates and deletes nothing.
+     */
+    suspend fun check(): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        val files = dir.listFiles().orEmpty().filter { it.name.endsWith(CARD) }
+        val bad = files.count { f -> catching { Archive.decode(String(crypto.openBytes(f.readBytes()), Charsets.UTF_8)) }.getOrNull() == null }
+        files.size to bad
+    }
+
     private fun readIndex(): List<ArchivedCard>? {
         val f = File(dir, INDEX)
         if (!f.isFile) return null

@@ -14,6 +14,9 @@
     <string name="help_did_not_ring_title">A call didn\'t ring</string>
     <string name="help_did_not_ring_body">Your blocking rules, the spam lists or a Situation may have kept it quiet. Test a call shows what your rules would do with any number, and replays last week\'s calls so you can see which rule stopped one. On a number\'s page in Recents, \"Why it rang, or didn\'t\" says the same for one call.</string>
 
+    <string name="help_no_recording_title">Why Parley doesn\'t record calls</string>
+    <string name="help_no_recording_body">On today\'s Android (10 to 16), an app can\'t capture the other person\'s voice during a call. That audio is closed to apps — only your phone maker\'s own dialer or the system can reach it. The microphone is muted to apps during a call too, so the \"speakerphone and microphone\" trick records only a poor, one-sided version and plays both sides aloud to the room. The ways around this — an accessibility service, or rooting the phone — are unsafe or banned from app stores, and are the same route stalkerware uses, so Parley won\'t ship them. Recording a call can also be against the law where you are unless everyone agrees.\n\nWhat Parley keeps instead is a written record of what was said and agreed, with no audio. A Call receipt and a call record are coming. For now, Case files hold the calls, hold times and reference numbers for a bank or other service, and notes keep the rest. If you truly need the audio, your phone maker\'s own Phone app records in some countries and tells both sides.</string>
+
     <string name="help_situation_quiet_title">Calls are quiet while a Situation is on</string>
     <string name="help_situation_quiet_body">A Situation (Driving, Meeting, Night, Travelling or your own) sets who may ring while it\'s on. The chip above the tabs shows which one is on and turns it off in one tap. Turning it off puts every setting back as it was. To let more people ring during one, open it and choose who may ring.</string>
 
@@ -23,6 +26,9 @@
     <string name="help_notifications_title">Missed calls and reminders don\'t show</string>
     <string name="help_notifications_body">Android may have turned off Parley\'s notifications, or one of their kinds. Check that Parley\'s notifications are allowed, Missed calls among them. On the lock screen, Parley shows only \"Missed call\" or \"Reminder\" until you unlock, as you chose.</string>
     <string name="label_notification_settings">Notification settings</string>
+
+    <string name="help_flash_ring_title">A flashing light when the phone rings</string>
+    <string name="help_flash_ring_body">Parley doesn\'t add a flash of its own. Android has one built in that works for every app: open Settings › Accessibility › Flash notifications and turn on the camera flash, the screen flash, or both. Because it\'s Android\'s own, it keeps working whether or not Parley is your phone app. Whether incoming calls flash can vary by phone.</string>
 
     <string name="help_late_title">Reminders, backups or Situations come late</string>
     <string name="help_late_body">To save battery, some phones stop apps that work in the background. Parley does little in the background, but scheduled backups, reminders and a Situation\'s end time need it. Let Parley run without battery limits, and on some phones also allow it to start on its own.</string>
@@ -36,6 +42,9 @@
 
     <string name="help_new_phone_title">I\'m moving to a new phone</string>
     <string name="help_new_phone_body">On this phone, open Encrypted backups and choose Move to a new phone, or Back up now. Copy the backup to the new phone, install Parley there and choose \"From another phone with Parley? Restore a backup\" on the first screen. Private contacts, notes, Situations and settings come along.</string>
+
+    <string name="help_check_data_title">Parley\'s screens look empty, or show an error</string>
+    <string name="help_check_data_body">If a list looks empty when it shouldn\'t, or opening something shows an error, Check Parley\'s data looks over everything Parley keeps sealed on this phone and tells you, in plain words, what it can and can\'t read. It only looks: it never changes, moves or deletes anything, so it can\'t make things worse. Anything it can\'t read is left exactly as it is, and you can put it back from a backup. This is rare — it can follow a phone update that lost Parley\'s secure keys, or restoring app data the wrong way.</string>
 
     <string name="help_something_else_title">Something else isn\'t working</string>
     <string name="help_something_else_body">Export diagnostics makes a short report about your phone and Parley\'s settings, with no names, numbers or notes in it. You choose whether to share it, and with whom.</string>

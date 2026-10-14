@@ -27,6 +27,9 @@ object HelpText {
     fun of(t: HelpTopic): HelpTexts = when (t) {
         HelpTopic.CALL_SCREEN -> HelpTexts(R.string.help_call_screen_title, R.string.help_call_screen_body, R.string.label_default_phone_app)
         HelpTopic.DID_NOT_RING -> HelpTexts(R.string.help_did_not_ring_title, R.string.help_did_not_ring_body, R.string.action_test_a_call)
+        HelpTopic.WHY_NO_RECORDING -> HelpTexts(R.string.help_no_recording_title, R.string.help_no_recording_body, null)
+        HelpTopic.FLASH_ON_RING -> HelpTexts(R.string.help_flash_ring_title, R.string.help_flash_ring_body, null)
+        HelpTopic.CHECK_DATA -> HelpTexts(R.string.help_check_data_title, R.string.help_check_data_body, R.string.label_check_data)
         HelpTopic.SITUATION_QUIET ->
             HelpTexts(R.string.help_situation_quiet_title, R.string.help_situation_quiet_body, R.string.label_situations)
         HelpTopic.EXPECTING -> HelpTexts(R.string.help_expecting_title, R.string.help_expecting_body, R.string.label_expecting_a_call)

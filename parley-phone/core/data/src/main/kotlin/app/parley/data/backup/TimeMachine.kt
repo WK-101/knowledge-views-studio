@@ -84,6 +84,17 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         withContext(Dispatchers.IO) { store.all().count { catching { store.resealIfPlain(it) }.getOrDefault(false) } }
     }
 
+    /**
+     * Read-only check for the data self-check ([app.parley.data.DataSelfCheck]): how many snapshot blobs are stored and
+     * how many can't be opened right now. It reads the blobs only, never the version index it would otherwise fold old
+     * files into, so it writes, migrates and deletes nothing.
+     */
+    suspend fun check(): Pair<Int, Int> = withContext(Dispatchers.IO) {
+        val files = store.all().toList()
+        val bad = files.count { f -> catching { store.get(f.name) }.getOrNull() == null }
+        files.size to bad
+    }
+
     /** One full index per snapshot, as versions before 5.4 wrote them; only read to move them over. */
     private val oldIndexDir = File(root, "index")
     private val logFile = File(root, "versions.bin")

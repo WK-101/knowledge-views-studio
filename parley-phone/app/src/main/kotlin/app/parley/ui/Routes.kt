@@ -72,6 +72,9 @@ object Routes {
 
     @Serializable data object Health : Destination
 
+    /** "Check Parley's data": the read-only self-check of Parley's sealed stores. */
+    @Serializable data object CheckData : Destination
+
     /** History & undo, on one tab ([HistoryTab.key]). */
     @Serializable data class Journal(val tab: String? = null) : Destination
 

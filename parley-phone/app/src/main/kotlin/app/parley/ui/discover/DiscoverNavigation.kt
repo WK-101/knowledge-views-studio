@@ -87,6 +87,7 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.BACKUP -> Routes.Backup
     AppScreen.SYNC -> Routes.Sync
     AppScreen.HEALTH_CHECK -> Routes.Health
+    AppScreen.CHECK_DATA -> Routes.CheckData
     AppScreen.DUPLICATES -> Routes.Duplicates
     AppScreen.COMING_FROM -> DiscoverRoutes.ComingFrom
     AppScreen.BIRTHDAYS -> Routes.Birthdays

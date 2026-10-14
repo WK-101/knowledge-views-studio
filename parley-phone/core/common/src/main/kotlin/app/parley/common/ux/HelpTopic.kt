@@ -2,9 +2,11 @@ package app.parley.common.ux
 
 /**
  * Help & troubleshooting: short task pages for what people ask a phone app about, each ending in the one place that
- * fixes it ([target]: a screen or a setting, opened as Tools opens it). Nothing here is a setting of its own. The
- * pages are in the order Help lists them: the call itself first, then contacts, then everything else. A few
- * [explainsFeature] pages also say what a feature is, for Tools rows whose feature lives on each label or contact.
+ * fixes it ([target]: a screen or a setting, opened as Tools opens it). A few pages have no in-app place (a null
+ * [target]): they only explain, and say where in their own words (why Parley doesn't record calls, Android's own
+ * flash on ring). Nothing here is a setting of its own. The pages are in the order Help lists them: the call itself
+ * first, then contacts, then everything else. A few [explainsFeature] pages also say what a feature is, for Tools rows
+ * whose feature lives on each label or contact.
  */
 enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean = false) {
     /** "Parley's call screen doesn't show": Parley isn't the default phone app. */
@@ -12,6 +14,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** "A call didn't ring": Test a call says which rule did it, and replays last week. */
     DID_NOT_RING(CapabilityTarget.Screen(AppScreen.TEST_A_CALL)),
+
+    /** "Why Parley doesn't record calls": what Android allows, and the written record it keeps instead. Text only. */
+    WHY_NO_RECORDING(null),
 
     /** "Calls are quiet while a Situation is on": Situations set who may ring. */
     SITUATION_QUIET(CapabilityTarget.Setting("situations")),
@@ -21,6 +26,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** "Notifications for missed calls don't show": Android's notification settings for Parley. */
     NOTIFICATIONS(CapabilityTarget.Setting("notification_settings")),
+
+    /** "A flashing light when the phone rings": Parley adds none; Android's own Flash notifications do. Text only. */
+    FLASH_ON_RING(null),
 
     /** "Reminders, backups or Situations come late": battery optimisation. */
     LATE(CapabilityTarget.Setting("battery")),
@@ -33,6 +41,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
 
     /** "I'm moving to a new phone": Backups (restore on the new one). */
     NEW_PHONE(CapabilityTarget.Screen(AppScreen.BACKUP)),
+
+    /** "Check Parley's data": a read-only self-check of Parley's sealed stores that never deletes or repairs anything. */
+    CHECK_DATA(CapabilityTarget.Screen(AppScreen.CHECK_DATA)),
 
     /** "Something else isn't working": Diagnostics, with nothing personal in it. */
     SOMETHING_ELSE(CapabilityTarget.Setting("diagnostics")),
@@ -77,6 +88,9 @@ enum class HelpTopic(val target: CapabilityTarget?, val explainsFeature: Boolean
     companion object {
         /** The pages Help lists (the feature pages are opened from their Tools rows). */
         val troubleshooting: List<HelpTopic> get() = entries.filterNot { it.explainsFeature }
+
+        /** Listed task pages that only explain, with no in-app place to open (they say where in their body). */
+        val textOnly: List<HelpTopic> get() = troubleshooting.filter { it.target == null }
 
         fun of(key: String): HelpTopic? = entries.firstOrNull { it.key == key }
     }

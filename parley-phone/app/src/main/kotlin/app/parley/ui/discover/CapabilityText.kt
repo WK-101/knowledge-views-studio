@@ -24,6 +24,7 @@ object CapabilityText {
         "sync" to (R.string.sync_title to R.string.discover_sync_summary),
         "coming_from" to (R.string.discover_coming_from_title to R.string.discover_coming_from_summary),
         "health" to (R.string.label_contact_health_check to R.string.discover_health_summary),
+        "check_data" to (R.string.label_check_data to R.string.discover_check_data_summary),
         "import_export" to (R.string.discover_import_export_title to R.string.discover_import_export_summary),
         "reminders" to (R.string.discover_reminders_title to R.string.discover_reminders_summary),
         "lock_now" to (R.string.discover_lock_now_title to R.string.discover_lock_now_summary),
