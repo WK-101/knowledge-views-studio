@@ -14,8 +14,9 @@ reads and `calendar` writes) shipped in **0.3.1**;
 `notes.notebooks` read and colour/emoji on `notes` writes) shipped in **0.3.2**;
 **R3d** (Time dashboard with a running-timer clock + stat tiles + a 14-day bar chart + per-activity bars, a
 Habits check-in-card + 12-week heatmap view, with `time.activities`/`habits.history` reads and
-`time.start`/`time.stop`/`habits.checkin` writes) shipped in **0.3.3**.
-R3e (command palette + keyboard + polish) remains. Blueprint below.
+`time.start`/`time.stop`/`habits.checkin` writes) shipped in **0.3.3**;
+**R3e** (a Cmd/Ctrl-K **command palette** that searches items + commands, keyboard shortcuts, and
+optimistic updates on the tap interactions) shipped in **0.3.4** — **R3 complete**. Blueprint below.
 
 ---
 
@@ -114,10 +115,12 @@ list". Every reference app splits the width into panes. Target shell (TickTick /
 - **Habits** ✅ (R3d): check-in **cards** with a progress ring (tap to cycle today's count, done-state
   tinted) + a **12-week habit × day heatmap** (one colour-graded strip per habit). Tap cycles the check-in.
 
-**Cross-cutting**: a **Cmd/Ctrl-K command palette** (the strongest "native desktop" signal), a real keyboard
-model, **optimistic updates** (mutate local state immediately; the WS reconciles; roll back + toast on
-error), density + hover + right-click affordances, illustrated empty states, light/dark via the existing
-tokens.
+**Cross-cutting** ✅ (R3e): a **Cmd/Ctrl-K command palette** (searches tasks/notes/events + commands:
+navigate, switch view, create, toggle theme/sidebar — arrow/enter/esc, also reachable via the ⌘K rail
+button or `/`); **keyboard shortcuts** (`1`–`5` domains, `c` create-in-context, `m` sidebar, `Esc` close);
+**optimistic updates** on the tap interactions (task complete + star, habit check-in apply locally at once,
+then the mutation + WS reconcile, rolling back on error). Illustrated empty states + light/dark via the
+existing tokens were already in from R3a.
 
 **Responsive ladder** (keep phone unchanged): ≥1280 all four columns · 960–1280 inspector overlays ·
 720–960 sidebar off-canvas, nav rail icon-only · <720 today's single column + bottom nav + bottom-sheet edit.

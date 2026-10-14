@@ -1132,9 +1132,15 @@
     const t = state.tasks.find((x) => x.id === rowEl.dataset.id);
     if (!t) return;
     if (act === "toggle" && !readOnly) {
-      try { await mutate("tasks", "complete", { id: t.id, completed: !t.completed }); await reloadDomain("tasks"); render(); } catch (err) { toast(err.message); }
+      const want = !t.completed; t.completed = want; render(); // optimistic — reconciled on reload
+      try { await mutate("tasks", "complete", { id: t.id, completed: want }); await reloadDomain("tasks"); render(); }
+      catch (err) { t.completed = !want; render(); toast(err.message); }
     } else if (act === "star" && !readOnly) {
-      saveTask(t, { star: !t.star });
+      const want = !t.star; t.star = want; render();
+      try {
+        await mutate("tasks", "upsert", { id: t.id, title: t.title, note: t.note, dueDate: t.dueDate, startDate: t.startDate, importance: t.importance, urgency: t.urgency, star: want });
+        await reloadDomain("tasks"); render();
+      } catch (err) { t.star = !want; render(); toast(err.message); }
     } else {
       openInspector("tasks", t.id);
       rowEl.classList.add("sel");
@@ -1337,7 +1343,15 @@
     el("mainBody").onclick = async (e) => {
       const c = e.target.closest("[data-checkin]");
       if (!c) return;
-      try { await mutate("habits", "checkin", { id: c.dataset.checkin }); await reloadDomain("habits"); render(); } catch (err) { toast(err.message); }
+      const h = state.habits.find((x) => x.id === c.dataset.checkin);
+      if (h) { // optimistic cycle, mirroring the core's cycleCheckin
+        const target = Math.max(1, h.targetPerDay);
+        const next = (h.todayCount || 0) + 1;
+        if (next > target) { h.todayCount = 0; h.doneToday = false; } else { h.todayCount = next; h.doneToday = true; }
+        render();
+      }
+      try { await mutate("habits", "checkin", { id: c.dataset.checkin }); await reloadDomain("habits"); render(); }
+      catch (err) { await reloadDomain("habits").catch(() => {}); render(); toast(err.message); }
     };
   }
 
@@ -1361,15 +1375,22 @@
   function wireGlobal() {
     document.querySelectorAll(".rail-btn[data-domain]").forEach((b) => b.onclick = () => selectDomain(b.dataset.domain));
     el("themeBtn").onclick = toggleTheme;
+    const pb = el("paletteBtn"); if (pb) pb.onclick = openPalette;
     el("scrim").onclick = () => { closeInspector(); if (window.innerWidth < 920) { ui.sidebar = false; render(); } };
     document.addEventListener("keydown", onKey);
   }
   function toggleSidebar() { ui.sidebar = !ui.sidebar; saveUi(); render(); }
   function onKey(e) {
+    if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); if (palette.open) closePalette(); else openPalette(); return; }
+    if (palette.open) return; // the palette owns its own keys while open
     if (e.key === "Escape" && ui.sel) { closeInspector(); return; }
     const tag = (e.target.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea") return;
-    if (e.key === "m" || e.key === "M") toggleSidebar();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key >= "1" && e.key <= "5") { selectDomain(DOMAINS[Number(e.key) - 1]); return; }
+    if (e.key === "m" || e.key === "M") { toggleSidebar(); return; }
+    if (e.key === "c" || e.key === "C") { paletteCreate(); return; }
+    if (e.key === "/") { e.preventDefault(); openPalette(); }
   }
 
   let theme = null;
@@ -1434,6 +1455,94 @@
     window.addEventListener("online", reconnectNow);
     window.addEventListener("offline", () => { setConn("err"); stopLive(); });
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnectNow(); });
+  }
+
+  // ============================================================== command palette (Cmd/Ctrl-K)
+  const palette = { open: false, items: [], sel: 0 };
+  function paletteCommands() {
+    const cmds = [];
+    const labels = { tasks: "Tasks", notes: "Notes", calendar: "Calendar", time: "Time", habits: "Habits" };
+    DOMAINS.forEach((d) => cmds.push({ label: "Go to " + labels[d], hint: "Navigate", run: () => selectDomain(d) }));
+    if (!readOnly) {
+      cmds.push({ label: "New task", hint: "Create", run: () => { selectDomain("tasks"); setTimeout(() => { const i = el("quickAddInput"); if (i) i.focus(); }, 0); } });
+      cmds.push({ label: "New note", hint: "Create", run: () => { selectDomain("notes"); openInspector("notes", "__new__"); } });
+      cmds.push({ label: "New event", hint: "Create", run: () => { selectDomain("calendar"); newEvent(null); } });
+    }
+    cmds.push({ label: "Tasks: List view", hint: "View", run: () => setTaskView("list") });
+    cmds.push({ label: "Tasks: Board view", hint: "View", run: () => setTaskView("board") });
+    cmds.push({ label: "Tasks: Matrix view", hint: "View", run: () => setTaskView("matrix") });
+    cmds.push({ label: "Calendar: Month", hint: "View", run: () => setCalView("month") });
+    cmds.push({ label: "Calendar: Week", hint: "View", run: () => setCalView("week") });
+    cmds.push({ label: "Calendar: Agenda", hint: "View", run: () => setCalView("agenda") });
+    cmds.push({ label: "Toggle theme", hint: "Command", run: toggleTheme });
+    cmds.push({ label: "Toggle sidebar", hint: "Command", run: toggleSidebar });
+    return cmds;
+  }
+  function setTaskView(v) { ui.domain = "tasks"; ui.taskView = v; saveUi(); render(); }
+  function setCalView(v) { ui.domain = "calendar"; ui.calView = v; saveUi(); reloadThenRender("calendar"); }
+  function paletteItems() {
+    const out = [];
+    state.tasks.filter((t) => !t.completed).forEach((t) => out.push({ label: t.title, hint: "Task", domain: "tasks", id: t.id }));
+    state.notes.forEach((n) => out.push({ label: n.title || "Untitled note", hint: "Note", domain: "notes", id: n.id }));
+    const seenEvt = {};
+    state.calendar.forEach((e) => { if (!seenEvt[e.id]) { seenEvt[e.id] = 1; out.push({ label: e.title || "Untitled event", hint: "Event", domain: "calendar", id: e.id }); } });
+    return out;
+  }
+  function paletteResults(q) {
+    const ql = q.trim().toLowerCase();
+    const cmds = paletteCommands();
+    if (!ql) return cmds.slice(0, 40);
+    const pool = cmds.concat(paletteItems());
+    return pool.filter((c) => c.label.toLowerCase().includes(ql))
+      .sort((a, b) => a.label.toLowerCase().indexOf(ql) - b.label.toLowerCase().indexOf(ql))
+      .slice(0, 40);
+  }
+  function openPalette() {
+    if (palette.open) return;
+    palette.open = true;
+    let p = el("palette");
+    if (!p) {
+      p = document.createElement("div");
+      p.id = "palette"; p.className = "palette-scrim";
+      p.innerHTML = '<div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">' +
+        '<input id="palInput" class="palette-input" type="text" placeholder="Search tasks, notes, events — or a command…" autocomplete="off" spellcheck="false">' +
+        '<ul id="palList" class="palette-list"></ul>' +
+        '<div class="palette-foot"><span>&#8593;&#8595; navigate &#183; &#8629; open &#183; esc close</span></div></div>';
+      document.body.appendChild(p);
+      p.addEventListener("mousedown", (e) => { if (e.target === p) closePalette(); });
+      el("palInput").addEventListener("input", (e) => renderPalette(e.target.value));
+      el("palInput").addEventListener("keydown", onPalKey);
+      el("palList").addEventListener("mousedown", (e) => { const li = e.target.closest("[data-i]"); if (li) { e.preventDefault(); runPalette(Number(li.dataset.i)); } });
+    }
+    p.hidden = false;
+    const inp = el("palInput"); inp.value = ""; renderPalette(""); inp.focus();
+  }
+  function closePalette() { palette.open = false; const p = el("palette"); if (p) p.hidden = true; }
+  function renderPalette(q) { palette.items = paletteResults(q); palette.sel = 0; drawPalette(); }
+  function drawPalette() {
+    const list = el("palList"); if (!list) return;
+    list.innerHTML = palette.items.length ? palette.items.map((c, i) =>
+      '<li class="pal-row' + (i === palette.sel ? " sel" : "") + '" data-i="' + i + '"><span class="pal-label">' + esc(c.label) + "</span>" +
+      (c.hint ? '<span class="pal-hint">' + esc(c.hint) + "</span>" : "") + "</li>").join("") : '<li class="pal-empty">No matches</li>';
+    const sel = list.querySelector(".pal-row.sel"); if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
+  function onPalKey(e) {
+    if (e.key === "ArrowDown") { e.preventDefault(); palette.sel = Math.min(palette.items.length - 1, palette.sel + 1); drawPalette(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); palette.sel = Math.max(0, palette.sel - 1); drawPalette(); }
+    else if (e.key === "Enter") { e.preventDefault(); runPalette(palette.sel); }
+    else if (e.key === "Escape") { e.preventDefault(); closePalette(); }
+  }
+  function runPalette(i) {
+    const c = palette.items[i]; if (!c) return;
+    closePalette();
+    if (c.domain) { selectDomain(c.domain); openInspector(c.domain, c.id); }
+    else if (c.run) c.run();
+  }
+  function paletteCreate() {
+    if (readOnly) return;
+    if (ui.domain === "tasks") { const i = el("quickAddInput"); if (i) i.focus(); }
+    else if (ui.domain === "notes") openInspector("notes", "__new__");
+    else if (ui.domain === "calendar") newEvent(null);
   }
 
   // ============================================================== boot
