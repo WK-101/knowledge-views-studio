@@ -1,11 +1,14 @@
 "use strict";
-/* Hexis Web — Notes (Keep-style masonry + markdown editor). Ported to the H framework; respects the
- * phone's notebook mode / sort where it can. Full folder-tree parity lands in a later milestone. */
+/* Hexis Web — Notes. Parity with the mobile NotesScreen browse surface: a flat container picker (not a
+ * tree — mobile Notes never nests), three view modes (cards grid/list · board · calendar), the mobile
+ * NoteCard (left colour bar, cover emoji, 2-line title, plain 160-char preview), pinned-float-first in a
+ * single list, and the notes_notebook_mode / note_default_view / notes_view_mode / notes_sort settings.
+ * Favorites/Untagged/Trash + the favorite star need the `favorite`/tag fields and arrive with M3. */
 (function () {
   const H = window.H;
   const NOTE_COLORS = [null, "#e5484d", "#f5a623", "#f6c744", "#1e9e64", "#30a0c0", "#5b57d9", "#9b59b6", "#8a93a3"];
 
-  // ---- markdown (escape first, then format) ----
+  // ---- markdown (for the editor preview only; cards use a plain stripped preview) ----
   function mdInline(s) {
     return s.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>").replace(/~~([^~]+)~~/g, "<del>$1</del>")
@@ -13,8 +16,7 @@
   }
   function mdToHtml(src) {
     const lines = String(src || "").replace(/\r\n/g, "\n").split("\n");
-    let html = "", i = 0, inUl = false, inOl = false;
-    const esc = H.esc;
+    let html = "", i = 0, inUl = false, inOl = false; const esc = H.esc;
     const closeLists = () => { if (inUl) { html += "</ul>"; inUl = false; } if (inOl) { html += "</ol>"; inOl = false; } };
     while (i < lines.length) {
       const raw = lines[i];
@@ -34,79 +36,133 @@
   }
   H.mdToHtml = mdToHtml;
 
+  // NoteDerived.preview: per line strip leading markers, drop blanks, join with two spaces, strip inline marks, cap 160.
+  function notePreview(body) {
+    const out = [];
+    String(body || "").replace(/\r\n/g, "\n").split("\n").forEach((raw) => {
+      let s = raw.trim(); if (!s) return;
+      s = s.replace(/^#{1,6}\s+/, "").replace(/^&gt;\s?/, "").replace(/^>\s?/, "").replace(/^[-*+]\s+(\[[ xX]\]\s+)?/, "").replace(/^`+/, "");
+      out.push(s);
+    });
+    const t = out.join("  ").replace(/[*_~`]/g, "");
+    return t.length > 160 ? t.slice(0, 160) : t;
+  }
+
+  // ---- view settings (phone defaults; locally switchable like the mobile toolbar) ----
+  let inited = false;
+  function initView() {
+    if (inited) return; inited = true;
+    if (H.ui.notesView == null) H.ui.notesView = ["cards", "board", "calendar"].includes(H.settings.notesViewMode) ? H.settings.notesViewMode : "cards";
+    if (H.ui.notesGrid == null) H.ui.notesGrid = (H.settings.noteDefaultView || "grid") !== "list";
+  }
+  function useNotebooks() { return H.settings.notesNotebookMode === "notebooks"; }
+  function containers() { const src = useNotebooks() ? H.state.notebooks : H.state.folders; return (src || []).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)); }
+  function containerOf(n) { return useNotebooks() ? n.notebookId : n.folderId; }
+
   function sortNotes(list) {
     const s = H.settings.notesSort || "updated";
-    const cmp = { updated: (a, b) => b.updatedAt - a.updatedAt, created: (a, b) => (b.createdAt || 0) - (a.createdAt || 0), titleAsc: (a, b) => (a.title || "").localeCompare(b.title || ""), titleDesc: (a, b) => (b.title || "").localeCompare(a.title || "") }[s] || ((a, b) => b.updatedAt - a.updatedAt);
+    const cmp = {
+      created: (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+      titleAsc: (a, b) => (a.title || "￿").toLowerCase().localeCompare((b.title || "￿").toLowerCase()),
+      titleDesc: (a, b) => (b.title || "").toLowerCase().localeCompare((a.title || "").toLowerCase()),
+    }[s] || ((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     return list.slice().sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || cmp(a, b));
   }
   function filtered() {
     const f = H.ui.noteFilter;
-    if (f.kind === "notebook") return H.state.notes.filter((n) => n.notebookId === f.value && !n.archived);
-    if (f.kind === "folder") return H.state.notes.filter((n) => n.folderId === f.value && !n.archived);
+    if (f.kind === "container") return H.state.notes.filter((n) => !n.archived && containerOf(n) === f.value);
     if (f.value === "archived") return H.state.notes.filter((n) => n.archived);
     const base = H.state.notes.filter((n) => !n.archived);
     if (f.value === "pinned") return base.filter((n) => n.pinned);
     return base;
   }
-  function label() {
+  function filterLabel() {
     const f = H.ui.noteFilter;
-    if (f.kind === "notebook") { const b = H.state.notebooks.find((x) => x.id === f.value); return b ? b.name : "Notebook"; }
-    if (f.kind === "folder") { const b = H.state.folders.find((x) => x.id === f.value); return b ? b.name : "Folder"; }
-    return { all: "Notes", pinned: "Pinned", archived: "Archived" }[f.value] || "Notes";
+    if (f.kind === "container") { const c = containers().find((x) => x.id === f.value); return c ? c.name : (useNotebooks() ? "Notebook" : "Folder"); }
+    return { all: "All notes", pinned: "Pinned", archived: "Archived" }[f.value] || "Notes";
   }
+
+  // ---- sidebar: flat filters + flat container list (by sortOrder) ----
   function sidebar() {
-    const f = H.ui.noteFilter;
-    const nonArch = H.state.notes.filter((n) => !n.archived);
-    const smart = [["all", "All notes", "article", nonArch.length], ["pinned", "Pinned", "push_pin", nonArch.filter((n) => n.pinned).length], ["archived", "Archived", "folder", H.state.notes.filter((n) => n.archived).length]];
-    const smartHtml = smart.map((s) => { const on = f.kind === "smart" && f.value === s[0]; return '<li class="sb-item' + (on ? " active" : "") + '" data-nsmart="' + s[0] + '"><span class="sb-ico">' + H.icon(s[2]) + "</span><span class=\"sb-label\">" + s[1] + "</span>" + (s[3] ? '<span class="sb-count">' + s[3] + "</span>" : "") + "</li>"; }).join("");
-    // grouping source: notebooks (notes_notebook_mode=notebooks) else folders
-    const useNotebooks = H.settings.notesNotebookMode === "notebooks";
-    const groups = useNotebooks ? H.state.notebooks : H.state.folders;
-    const groupsHtml = groups && groups.length ? '<h3 class="sb-sub">' + (useNotebooks ? "Notebooks" : "Folders") + '</h3><ul class="sb-list">' + groups.map((b) => {
-      const on = f.kind === (useNotebooks ? "notebook" : "folder") && f.value === b.id; const dot = H.argb(b.colorArgb);
-      const cnt = H.state.notes.filter((n) => !n.archived && (useNotebooks ? n.notebookId === b.id : n.folderId === b.id)).length;
-      return '<li class="sb-item' + (on ? " active" : "") + '" data-' + (useNotebooks ? "notebook" : "folder") + '="' + H.esc(b.id) + '"><span class="sb-ico">' + ((b.emoji || b.icon) ? H.esc(b.emoji || b.icon) : (dot ? '<span class="sb-dot" style="background:' + dot + '"></span>' : H.icon("folder"))) + "</span><span class=\"sb-label\">" + H.esc(b.name) + "</span>" + (cnt ? '<span class="sb-count">' + cnt + "</span>" : "") + "</li>";
+    const f = H.ui.noteFilter, nonArch = H.state.notes.filter((n) => !n.archived);
+    const smart = [["all", "All notes", "article", nonArch.length], ["pinned", "Pinned", "push_pin", nonArch.filter((n) => n.pinned).length], ["archived", "Archived", "inventory_2", H.state.notes.filter((n) => n.archived).length]];
+    const smartHtml = smart.map((s) => { const on = f.kind === "smart" && f.value === s[0]; return '<li class="sb-item' + (on ? " active" : "") + '" data-nsmart="' + s[0] + '"><span class="sb-ico">' + H.icon(s[2]) + '</span><span class="sb-label">' + s[1] + "</span>" + (s[3] ? '<span class="sb-count">' + s[3] + "</span>" : "") + "</li>"; }).join("");
+    const cs = containers();
+    const csHtml = cs.length ? '<h3 class="sb-sub">' + (useNotebooks() ? "Notebooks" : "Folders") + '</h3><ul class="sb-list">' + cs.map((c) => {
+      const on = f.kind === "container" && f.value === c.id, dot = H.argb(c.colorArgb), ico = (c.emoji || c.icon);
+      const cnt = H.state.notes.filter((n) => !n.archived && containerOf(n) === c.id).length;
+      return '<li class="sb-item' + (on ? " active" : "") + '" data-container="' + H.esc(c.id) + '"><span class="sb-ico">' + (ico ? H.esc(ico) : (dot ? '<span class="sb-dot" style="background:' + dot + '"></span>' : H.icon("folder"))) + '</span><span class="sb-label">' + H.esc(c.name) + "</span>" + (cnt ? '<span class="sb-count">' + cnt + "</span>" : "") + "</li>";
     }).join("") + "</ul>" : "";
-    return '<h2 class="sb-title">Notes</h2><ul class="sb-list">' + smartHtml + "</ul>" + groupsHtml;
+    return '<h2 class="sb-title">Notes</h2><ul class="sb-list">' + smartHtml + "</ul>" + csHtml;
   }
-  function head() { return H.headTitle(label(), H.readOnly ? "" : '<button class="btn primary" data-new="note">' + H.icon("add") + "New note</button>"); }
-  function noteCard(n) {
+  function head() {
+    initView();
+    const modes = [["cards", "grid_view"], ["board", "view_kanban"], ["calendar", "calendar_month"]];
+    const seg = '<div class="segmented">' + modes.map((m) => '<button class="seg' + (H.ui.notesView === m[0] ? " on" : "") + '" data-nview="' + m[0] + '" title="' + m[0] + '">' + H.icon(m[1]) + "</button>").join("") + "</div>";
+    const gridToggle = H.ui.notesView === "cards" ? '<div class="segmented"><button class="seg' + (H.ui.notesGrid ? " on" : "") + '" data-ngrid="1" title="Grid">' + H.icon("grid_view") + '</button><button class="seg' + (!H.ui.notesGrid ? " on" : "") + '" data-ngrid="0" title="List">' + H.icon("format_list_bulleted") + "</button></div>" : "";
+    const right = seg + gridToggle + (H.readOnly ? "" : '<button class="btn primary" data-new="note">' + H.icon("add") + "New note</button>");
+    return H.headTitle(filterLabel(), right);
+  }
+
+  // ---- card ----
+  function noteCard(n, boardW) {
     const sel = H.ui.sel && H.ui.sel.domain === "notes" && H.ui.sel.id === n.id;
-    const tint = H.argb(n.colorArgb); const style = tint ? ' style="--nc:' + tint + '"' : "";
-    const preview = (n.body || "").slice(0, 500);
-    return '<article class="ncard' + (tint ? " tinted" : "") + (sel ? " sel" : "") + '" data-id="' + H.esc(n.id) + '" data-act="open"' + style + ">" +
-      (n.pinned ? '<span class="pin">' + H.icon("push_pin") + "</span>" : "") + (n.coverEmoji ? '<div class="ncard-emoji">' + H.esc(n.coverEmoji) + "</div>" : "") +
-      (n.title ? "<h4>" + H.esc(n.title) + "</h4>" : "") + (preview ? '<div class="ncard-md">' + mdToHtml(preview) + "</div>" : (n.title ? "" : '<p class="ncard-untitled">Untitled</p>')) + "</article>";
+    const tint = H.argb(n.colorArgb), prev = notePreview(n.body);
+    const bar = tint ? '<span class="ncard-bar" style="background:' + tint + ";height:" + ((n.body || "").trim() ? 92 : 54) + 'px"></span>' : "";
+    const style = boardW ? ' style="width:' + boardW + 'px"' : "";
+    return '<article class="ncard' + (sel ? " sel" : "") + '" data-id="' + H.esc(n.id) + '"' + style + ">" + bar +
+      (n.pinned ? '<span class="pin">' + H.icon("push_pin") + "</span>" : "") +
+      '<div class="ncard-in">' + (n.coverEmoji ? '<div class="ncard-emoji">' + H.esc(n.coverEmoji) + "</div>" : "") +
+      '<h4>' + H.esc(n.title || "Untitled") + "</h4>" + (prev ? '<p class="ncard-prev">' + H.esc(prev) + "</p>" : "") + "</div></article>";
   }
   function main() {
-    const notes = filtered();
+    initView();
+    if (H.ui.notesView === "board") return boardView();
+    if (H.ui.notesView === "calendar") return calendarView();
+    const notes = sortNotes(filtered());
     if (!notes.length) return H.empty("No notes here", H.readOnly ? "" : "Create one with “New note”.");
-    const showGroups = H.ui.noteFilter.kind === "smart" && H.ui.noteFilter.value === "all";
-    if (showGroups) {
-      const sorted = sortNotes(notes); const pinned = sorted.filter((n) => n.pinned), others = sorted.filter((n) => !n.pinned);
-      let html = "";
-      if (pinned.length) html += '<h3 class="group-h">Pinned</h3><div class="ncards">' + pinned.map(noteCard).join("") + "</div>";
-      if (others.length) html += (pinned.length ? '<h3 class="group-h">Others</h3>' : "") + '<div class="ncards">' + others.map(noteCard).join("") + "</div>";
-      return html;
-    }
-    return '<div class="ncards">' + sortNotes(notes).map(noteCard).join("") + "</div>";
+    return '<div class="ncards ' + (H.ui.notesGrid ? "grid" : "list") + '">' + notes.map((n) => noteCard(n)).join("") + "</div>";
+  }
+  function boardView() {
+    const cs = containers(), notes = H.state.notes.filter((n) => !n.archived);
+    const shelves = cs.map((c) => ({ name: c.name, emoji: c.emoji || c.icon, items: sortNotes(notes.filter((n) => containerOf(n) === c.id)) }));
+    const loose = sortNotes(notes.filter((n) => !containerOf(n)));
+    if (loose.length) shelves.push({ name: useNotebooks() ? "Unsorted" : "Unfiled", items: loose });
+    if (!shelves.some((s) => s.items.length)) return H.empty("No notes", H.readOnly ? "" : "Create one with “New note”.");
+    return '<div class="nboard">' + shelves.filter((s) => s.items.length).map((s) =>
+      '<section class="nshelf"><h3 class="group-h">' + (s.emoji ? H.esc(s.emoji) + " " : "") + H.esc(s.name) + ' <span class="shelf-n">' + s.items.length + '</span></h3><div class="nshelf-row">' + s.items.map((n) => noteCard(n, 210)).join("") + "</div></section>"
+    ).join("") + "</div>";
+  }
+  function calendarView() {
+    const notes = H.state.notes.filter((n) => !n.archived).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (!notes.length) return H.empty("No notes", H.readOnly ? "" : "Create one with “New note”.");
+    const groups = []; let cur = null;
+    notes.forEach((n) => { const d = new Date(n.updatedAt || 0), key = d.getFullYear() + "-" + d.getMonth(); if (!cur || cur.key !== key) { cur = { key, label: d.toLocaleDateString(undefined, { month: "long", year: "numeric" }), items: [] }; groups.push(cur); } cur.items.push(n); });
+    return '<div class="ncal">' + groups.map((g) =>
+      '<section class="ncal-mo"><h3 class="group-h">' + H.esc(g.label) + '</h3><ul class="ncal-list">' + g.items.map((n) => {
+        const d = new Date(n.updatedAt || 0);
+        return '<li class="ncal-row" data-id="' + H.esc(n.id) + '"><span class="ncal-date">' + d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }) + "</span>" + (n.coverEmoji ? '<span class="ncal-emoji">' + H.esc(n.coverEmoji) + "</span>" : "") + '<span class="ncal-title">' + H.esc(n.title || "Untitled") + "</span></li>";
+      }).join("") + "</ul></section>"
+    ).join("") + "</div>";
   }
   function wire() {
     const sbt = H.el("sbToggle"); if (sbt) sbt.onclick = H.toggleSidebar;
-    const nb = H.el("mainHead").querySelector('[data-new="note"]'); if (nb) nb.onclick = () => H.openInspector("notes", "__new__");
-    H.el("mainBody").onclick = (e) => { const card = e.target.closest(".ncard"); if (card) H.openInspector("notes", card.dataset.id); };
+    const head = H.el("mainHead");
+    const nb = head.querySelector('[data-new="note"]'); if (nb) nb.onclick = () => H.openInspector("notes", "__new__");
+    head.querySelectorAll("[data-nview]").forEach((b) => b.onclick = () => { H.ui.notesView = b.dataset.nview; H.saveUi(); H.render(); });
+    head.querySelectorAll("[data-ngrid]").forEach((b) => b.onclick = () => { H.ui.notesGrid = b.dataset.ngrid === "1"; H.saveUi(); H.render(); });
+    H.el("mainBody").onclick = (e) => { const card = e.target.closest("[data-id]"); if (card) H.openInspector("notes", card.dataset.id); };
     const sb = H.el("sidebar"); if (sb) sb.onclick = (e) => {
       const item = e.target.closest(".sb-item"); if (!item) return;
       if (item.dataset.nsmart) H.ui.noteFilter = { kind: "smart", value: item.dataset.nsmart };
-      else if (item.dataset.notebook) H.ui.noteFilter = { kind: "notebook", value: item.dataset.notebook };
-      else if (item.dataset.folder) H.ui.noteFilter = { kind: "folder", value: item.dataset.folder };
+      else if (item.dataset.container) H.ui.noteFilter = { kind: "container", value: item.dataset.container };
       else return;
       H.saveUi(); H.closeInspector(); H.render(); if (window.innerWidth < 960) { H.ui.sidebar = false; H.render(); }
     };
   }
   H.views.notes = { title: "Notes", sidebar, head, main, wire };
 
-  // ---- inspector (markdown editor) ----
+  // ---- inspector (markdown editor) — unchanged ----
   H.inspectors.notes = function (ins, id) {
     if (id === "__new__") H.ui.noteEdit = true;
     const n = id === "__new__" ? { id: "", title: "", body: "", pinned: false, archived: false, colorArgb: null, coverEmoji: "" } : H.state.notes.find((x) => x.id === id);
