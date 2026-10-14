@@ -267,6 +267,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { catching { undo() } }
     }
 
+    /**
+     * "Keep diagnostics": on starts the diagnostic record from now; off stops it and clears whatever was kept, so
+     * nothing diagnostic is left behind. Only the diagnostic record is gated — call screening is unaffected.
+     */
+    fun setKeepDiagnostics(on: Boolean) {
+        viewModelScope.launch {
+            c.settings.update { it.copy(keepDiagnostics = on) }
+            if (!on) catching { c.people.diagnostics.clear() }
+        }
+    }
+
     /** A text in the app's language, for toasts and messages built here. */
     private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 

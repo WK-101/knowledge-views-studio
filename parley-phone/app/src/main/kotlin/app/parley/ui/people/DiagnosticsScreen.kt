@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +35,6 @@ import app.parley.AppViewModel
 import app.parley.ui.common.Intents
 import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -48,10 +48,12 @@ import app.parley.ui.ParleyScaffold
 fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
+    // Off by default: while off, nothing diagnostic is kept and no report is generated (the screen offers to turn it on).
+    val keep = vm.settings.collectAsStateWithLifecycle().value.keepDiagnostics
     var mask by remember { mutableStateOf(true) }
     var tables by remember { mutableStateOf(false) }
-    val report by produceState("", mask, tables) {
-        value = withContext(Dispatchers.IO) {
+    val report by produceState("", keep, mask, tables) {
+        value = if (!keep) "" else withContext(Dispatchers.IO) {
             val extra = linkedMapOf(
                 "defaultPhoneApp" to vm.isDefaultDialer.value.toString(),
                 "contacts" to (vm.contacts.value?.size ?: 0).toString(),
@@ -66,6 +68,9 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
                 if (tables) "\n" + vm.c.people.diagnostics.rawDump() else ""
         }
     }
+
+    // Turning it on starts collection from now; turning it off stops it and clears whatever was kept (in the view model).
+    fun setKeep(on: Boolean) = vm.setKeepDiagnostics(on)
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null) {
             val text = report
@@ -82,6 +87,17 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
         ParleyTopBar(stringResource(R.string.action_export_diagnostics), onBack = back, scrollBehavior = barTint)
     }) { p ->
         Column(Modifier.padding(p)) {
+            if (!keep) {
+                // Nothing is kept or generated until the user opts in: an explanation and a way to turn it on.
+                Text(
+                    stringResource(R.string.diag_off_body),
+                    Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium,
+                )
+                Button({ setKeep(true) }, Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.diag_turn_on)) }
+                return@Column
+            }
+            // On: the switch turns it off again (which clears what was kept), then the report to save or share.
+            SwitchRow(stringResource(R.string.diag_keep), stringResource(R.string.diag_keep_summary), keep) { setKeep(it) }
             Text(
                 stringResource(R.string.diag_intro),
                 Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,

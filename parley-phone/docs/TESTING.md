@@ -4076,3 +4076,27 @@ Automated: `StaleArchiveDeleteTest` (core:data), `TemporaryRulesTest.the_upkeep_
 1. With the call-history archive on, receive a missed call and, within a second of it appearing in Recents, delete its row. Wait a few seconds (or pull to refresh): it does not come back. Undo puts it back once, not twice.
 2. A private "from your last call" temporary contact kept permanently stays kept after the next daily upkeep (the race with the upkeep itself is covered by the automated test).
 
+## 56. Hide and prove (7.2)
+
+### 56.1 Undo for every Recents delete, filtered or not
+Automated: `RecentsViewModelTest.delete_from_a_filtered_list_offers_undo_and_restores_the_row` and `RecentsFilteredUndoTest.deleting_from_the_missed_filter_offers_undo` (app).
+1. In Recents, tap the **Missed** chip. Delete a call each way and check an **Undo** snackbar appears every time: a swipe (if swipes are on, Settings › Appearance), the selection bar's trash (long-press a row first), and the selection bar's ⋮ › **Delete from history**. Compare with the unfiltered list — Undo appears there too.
+2. Tap **Undo** each time: the row comes back. Repeat under another chip (Incoming, Unknown…): Undo appears and restores just as on the full list.
+3. With private contacts shown, delete a row for a number that also has private calls: Undo restores both the system-log and the private calls.
+
+### 56.2 Tablet two-pane opens beside the list
+Automated: `UiSmokeTest.tablet_contacts_open_the_page_beside_the_list` (made deterministic — a forced tablet display and waiting for the row to load before tapping it, so it is stable on CI runners too).
+1. On a tablet (or a large foldable in landscape), open Contacts: the list is on the left and "Choose someone to see their page here" fills the right pane.
+2. Tap a contact: their page opens in the right pane, the list stays and marks the open row. Back closes the page and leaves the list.
+
+### 56.3 Diagnostics are off until you turn them on
+Automated: `DiagnosticsTest.whileOffNothingIsRecorded` (core:data).
+1. On a phone that never turned diagnostics on: Settings › About › **Export diagnostics**. The screen explains diagnostics are off and shows **Turn on diagnostics**; no report, nothing to save or share.
+2. Make something Parley notes fail (e.g. Copy to SIM with no SIM in the slot): nothing is recorded. Turn diagnostics on afterwards and "Recent errors" shows nothing from before you opted in.
+
+### 56.4 Turning diagnostics on and off
+Automated: `DiagnosticsTest.turningOnRecordsAndTurningOffClears` (core:data).
+1. On the Diagnostics screen tap **Turn on diagnostics**: the report appears (device, settings, and from now on recent errors), **Keep diagnostics** is on, and Save as file / Share work.
+2. Make something fail again: it shows under "Recent errors".
+3. Turn **Keep diagnostics** off: the screen returns to the explanation. Turn it on again — "Recent errors" reads "None recorded"; the kept record was cleared. Blocked and allowed calls behave the same throughout, whether diagnostics are on or off.
+

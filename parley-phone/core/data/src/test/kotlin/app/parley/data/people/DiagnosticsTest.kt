@@ -29,4 +29,33 @@ class DiagnosticsTest {
         val report = Diagnostics(app).report(AppSettings(), PeopleSettings(), emptyMap(), mask = false)
         assertFalse(report, report.contains("Grace"))
     }
+
+    // "Keep diagnostics" off: nothing is recorded or stored.
+    @Test fun whileOffNothingIsRecorded() {
+        val d = Diagnostics(app) { false }
+        assertFalse(d.kept())
+        d.record("SIM write", IllegalStateException("boom"))
+        val report = d.report(AppSettings(), PeopleSettings(), emptyMap(), mask = false)
+        assertTrue(report, report.contains("None recorded"))
+        // Nothing reached the store.
+        assertTrue(StatePrefs.open(app, "diagnostics").getString("errors", "").isNullOrEmpty())
+    }
+
+    // Turning it on starts collection from then; turning it off and clearing forgets what was kept.
+    @Test fun turningOnRecordsAndTurningOffClears() {
+        var on = false
+        val d = Diagnostics(app) { on }
+        d.record("before", IllegalStateException("x"))
+        assertFalse(d.report(AppSettings(), PeopleSettings(), emptyMap(), mask = false).contains("before"))
+
+        on = true
+        d.record("after", IllegalStateException("y"))
+        assertTrue(d.report(AppSettings(), PeopleSettings(), emptyMap(), mask = false).contains("after"))
+
+        on = false
+        d.clear()
+        val report = d.report(AppSettings(), PeopleSettings(), emptyMap(), mask = false)
+        assertFalse(report, report.contains("after"))
+        assertTrue(report, report.contains("None recorded"))
+    }
 }
