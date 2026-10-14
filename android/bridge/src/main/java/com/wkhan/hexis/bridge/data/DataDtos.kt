@@ -29,10 +29,12 @@ data class TaskDto(
 data class NoteDto(
     val id: String,
     val title: String = "",
-    val body: String = "",
+    val body: String = "", // Markdown
     val notebookId: String? = null,
     val pinned: Boolean = false,
     val archived: Boolean = false,
+    val colorArgb: Long? = null,
+    val coverEmoji: String? = null,
     val updatedAt: Long = 0L,
 )
 

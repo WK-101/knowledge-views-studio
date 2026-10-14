@@ -41,6 +41,9 @@ object DataApi {
     /** List the task lists (names) for the sidebar (domain `tasks`, no params) → [ListDto][]. */
     const val OP_LISTS = "lists"
 
+    /** List the notebooks (names) for the notes sidebar (domain `notes`, no params) → [ListDto][]. */
+    const val OP_NOTEBOOKS = "notebooks"
+
     /** List the event calendars (for the web calendar picker + colour legend); domain `calendar` → [CalendarDto][]. */
     const val OP_CALENDARS = "calendars"
 

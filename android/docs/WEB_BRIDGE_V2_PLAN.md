@@ -9,8 +9,10 @@ Microsoft To Do, Google Calendar/Tasks, Notion, Obsidian, Google Keep, Morgen).
 Status: **R1 + R2 shipped in web-bridge 0.2.0.** R3 (desktop UI) is building in stages:
 **R3a** (shell + Tasks List/Board/Matrix + right inspector + `tasks.lists`) shipped in **0.3.0**;
 **R3b** (Calendar Month/Week/Agenda + event create/edit/delete, `calendar.occurrences`/`calendar.calendars`
-reads and `calendar` writes) shipped in **0.3.1**. R3c (Notes) / R3d (Time + Habits) / R3e (palette + polish)
-remain. Blueprint below.
+reads and `calendar` writes) shipped in **0.3.1**;
+**R3c** (Notes Keep-style masonry + a markdown editor with Edit/Preview, note colours + cover emoji + pin,
+`notes.notebooks` read and colour/emoji on `notes` writes) shipped in **0.3.2**.
+R3d (Time + Habits) / R3e (palette + polish) remain. Blueprint below.
 
 ---
 
@@ -92,8 +94,11 @@ list". Every reference app splits the width into panes. Target shell (TickTick /
 - **Tasks**: view switcher **List / Board / Eisenhower matrix** (2×2 droppable grid mapping our priority
   field); outliner nesting (`Ctrl+]`/`[`), drag-reorder, hover row actions, right-click menu; quick-add bar
   (`Q`/`A`) with `!due *star #list` tokens; multi-select bulk bar (reuse existing `data-bulk`).
-- **Notes**: Google-Keep **masonry card grid** (pinned group separated, attachment thumbnails) + an
-  Obsidian-style markdown editor in the inspector/full width.
+- **Notes** ✅ (R3c): Google-Keep **masonry card grid** — colour-tinted cards, cover emoji, a Pinned/Others
+  split, and the body rendered as **Markdown** (headings, lists, task checkboxes, quotes, code, bold/italic,
+  links) with a fade on long cards. Inspector is a markdown editor with an **Edit / Preview** toggle, a
+  colour-swatch picker, cover emoji, and pin; attachments show inline (read-only). Sidebar lists smart
+  filters (All / Pinned / Archived) + notebooks with counts.
 - **Calendar** ✅ (R3b): **Month grid / Week time-grid / Agenda** switcher with prev/next/today nav; the week
   grid packs overlapping events into side-by-side lanes and draws a live "now" line; create/edit/delete events
   in the right inspector (click a day/slot to seed a new one); recurring events show a ↻ chip and keep their

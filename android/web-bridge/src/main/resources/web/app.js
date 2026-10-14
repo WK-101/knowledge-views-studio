@@ -83,7 +83,7 @@
 
   // ============================================================== state
   const DOMAINS = ["tasks", "notes", "calendar", "time", "habits"];
-  const state = { tasks: [], lists: [], notes: [], calendar: [], calendars: [], time: [], habits: [] };
+  const state = { tasks: [], lists: [], notes: [], notebooks: [], calendar: [], calendars: [], time: [], habits: [] };
   let seen = {};
   let readOnly = false;
 
@@ -91,6 +91,8 @@
     domain: "tasks",
     taskView: "list", // list | board | matrix
     taskFilter: { kind: "smart", value: "all" }, // smart:(all|today|upcoming|starred|completed) | list:<id>
+    noteFilter: { kind: "smart", value: "all" }, // smart:(all|pinned|archived) | notebook:<id>
+    noteEdit: true, // notes inspector: true = edit, false = markdown preview
     calView: "month", // month | week | agenda
     calAnchor: Date.now(), // the moment the calendar is centred on (in-memory)
     draft: null, // a seed for a new item (e.g. a clicked calendar slot)
@@ -104,13 +106,15 @@
       if (["list", "board", "matrix"].includes(s.taskView)) ui.taskView = s.taskView;
       if (["month", "week", "agenda"].includes(s.calView)) ui.calView = s.calView;
       if (s.taskFilter && s.taskFilter.kind) ui.taskFilter = s.taskFilter;
+      if (s.noteFilter && s.noteFilter.kind) ui.noteFilter = s.noteFilter;
       if (typeof s.sidebar === "boolean") ui.sidebar = s.sidebar;
     } catch (_e) { /* defaults */ }
   }
   function saveUi() {
     try {
       localStorage.setItem("hexis_ui", JSON.stringify({
-        domain: ui.domain, taskView: ui.taskView, calView: ui.calView, taskFilter: ui.taskFilter, sidebar: ui.sidebar,
+        domain: ui.domain, taskView: ui.taskView, calView: ui.calView,
+        taskFilter: ui.taskFilter, noteFilter: ui.noteFilter, sidebar: ui.sidebar,
       }));
     } catch (_e) { /* private mode */ }
   }
@@ -196,6 +200,56 @@
     const c = state.calendars.find((x) => x.id === (e && e.calendarId));
     return (c && argb(c.colorArgb)) || "var(--accent)";
   }
+
+  // ---- markdown (tiny, safe: escape first, then format) ------------------
+  function mdInline(s) {
+    return s
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
+      .replace(/~~([^~]+)~~/g, "<del>$1</del>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  }
+  function mdToHtml(src) {
+    const lines = String(src || "").replace(/\r\n/g, "\n").split("\n");
+    let html = "", i = 0, inUl = false, inOl = false;
+    const closeLists = () => { if (inUl) { html += "</ul>"; inUl = false; } if (inOl) { html += "</ol>"; inOl = false; } };
+    while (i < lines.length) {
+      const raw = lines[i];
+      if (/^\s*```/.test(raw)) {
+        closeLists(); i++;
+        let code = "";
+        while (i < lines.length && !/^\s*```/.test(lines[i])) { code += esc(lines[i]) + "\n"; i++; }
+        i++; html += "<pre><code>" + code + "</code></pre>"; continue;
+      }
+      const line = esc(raw);
+      let m;
+      if ((m = line.match(/^(#{1,6})\s+(.*)$/))) { closeLists(); const lv = m[1].length; html += "<h" + lv + ">" + mdInline(m[2]) + "</h" + lv + ">"; }
+      else if (/^\s*[-*]\s+\[[ xX]\]\s+/.test(line)) {
+        if (inOl) { html += "</ol>"; inOl = false; }
+        if (!inUl) { html += '<ul class="md-tasks">'; inUl = true; }
+        const done = /\[[xX]\]/.test(line.match(/\[[ xX]\]/)[0]);
+        html += '<li class="md-task">' + (done ? "☑" : "☐") + " " + mdInline(line.replace(/^\s*[-*]\s+\[[ xX]\]\s+/, "")) + "</li>";
+      }
+      else if (/^\s*[-*]\s+/.test(line)) {
+        if (inOl) { html += "</ol>"; inOl = false; }
+        if (!inUl) { html += "<ul>"; inUl = true; }
+        html += "<li>" + mdInline(line.replace(/^\s*[-*]\s+/, "")) + "</li>";
+      }
+      else if (/^\s*\d+\.\s+/.test(line)) {
+        if (inUl) { html += "</ul>"; inUl = false; }
+        if (!inOl) { html += "<ol>"; inOl = true; }
+        html += "<li>" + mdInline(line.replace(/^\s*\d+\.\s+/, "")) + "</li>";
+      }
+      else if (/^\s*&gt;\s?/.test(line)) { closeLists(); html += "<blockquote>" + mdInline(line.replace(/^\s*&gt;\s?/, "")) + "</blockquote>"; }
+      else if (/^\s*([-*_])\1\1+\s*$/.test(raw)) { closeLists(); html += "<hr>"; }
+      else if (raw.trim() === "") { closeLists(); }
+      else { closeLists(); html += "<p>" + mdInline(line) + "</p>"; }
+      i++;
+    }
+    closeLists();
+    return html;
+  }
   function dueClass(t) {
     if (!t.dueDate || t.completed) return "";
     if (t.dueDate < startOfToday()) return "overdue";
@@ -225,6 +279,9 @@
     if (d === "tasks") {
       const [tasks, lists] = await Promise.all([query("tasks", "list"), query("tasks", "lists").catch(() => [])]);
       state.tasks = tasks; state.lists = lists;
+    } else if (d === "notes") {
+      const [notes, notebooks] = await Promise.all([query("notes", "list"), query("notes", "notebooks").catch(() => [])]);
+      state.notes = notes; state.notebooks = notebooks;
     } else if (d === "calendar") {
       const w = calWindow();
       const [events, cals] = await Promise.all([
@@ -271,7 +328,7 @@
   function renderSidebar() {
     const sb = el("sidebar");
     if (ui.domain === "tasks") { sb.innerHTML = tasksSidebar(); return; }
-    if (ui.domain === "notes") { sb.innerHTML = simpleSidebar("Notes", [["all", "All notes"]], "all"); return; }
+    if (ui.domain === "notes") { sb.innerHTML = notesSidebar(); return; }
     if (ui.domain === "calendar") { sb.innerHTML = calendarSidebar(); return; }
     if (ui.domain === "time") { sb.innerHTML = simpleSidebar("Time", [["recent", "Recent"]], "recent"); return; }
     if (ui.domain === "habits") { sb.innerHTML = simpleSidebar("Habits", [["all", "Today"]], "all"); return; }
@@ -279,6 +336,30 @@
   function simpleSidebar(title, items, active) {
     return '<h2 class="sb-title">' + esc(title) + "</h2><ul class=\"sb-list\">" +
       items.map((i) => '<li class="sb-item active">' + esc(i[1]) + "</li>").join("") + "</ul>";
+  }
+  function notesSidebar() {
+    const f = ui.noteFilter;
+    const nonArch = state.notes.filter((n) => !n.archived);
+    const smart = [
+      ["all", "All notes", "&#x1F5C2;", nonArch.length],
+      ["pinned", "Pinned", "&#x1F4CC;", nonArch.filter((n) => n.pinned).length],
+      ["archived", "Archived", "&#x1F4E6;", state.notes.filter((n) => n.archived).length],
+    ];
+    const smartHtml = smart.map((s) => {
+      const on = f.kind === "smart" && f.value === s[0];
+      return '<li class="sb-item' + (on ? " active" : "") + '" data-nsmart="' + s[0] + '">' +
+        '<span class="sb-ico">' + s[2] + '</span><span class="sb-label">' + s[1] + "</span>" +
+        (s[3] ? '<span class="sb-count">' + s[3] + "</span>" : "") + "</li>";
+    }).join("");
+    const books = state.notebooks.map((b) => {
+      const on = f.kind === "notebook" && f.value === b.id;
+      const dot = argb(b.colorArgb);
+      return '<li class="sb-item' + (on ? " active" : "") + '" data-notebook="' + esc(b.id) + '">' +
+        '<span class="sb-ico">' + (b.emoji ? esc(b.emoji) : (dot ? '<span class="sb-dot" style="background:' + dot + '"></span>' : "&#x2219;")) + "</span>" +
+        '<span class="sb-label">' + esc(b.name) + "</span>" + (b.count ? '<span class="sb-count">' + b.count + "</span>" : "") + "</li>";
+    }).join("");
+    return '<h2 class="sb-title">Notes</h2><ul class="sb-list">' + smartHtml + "</ul>" +
+      (books ? '<h3 class="sb-sub">Notebooks</h3><ul class="sb-list">' + books + "</ul>" : "");
   }
   function calendarSidebar() {
     const d = new Date(ui.calAnchor);
@@ -333,7 +414,7 @@
     const head = el("mainHead"), body = el("mainBody");
     body.onclick = null;
     if (ui.domain === "tasks") { head.innerHTML = tasksHead(); body.innerHTML = tasksMain(); wireTasksMain(); }
-    else if (ui.domain === "notes") { head.innerHTML = headTitle("Notes", readOnly ? "" : '<button class="btn primary" data-new="note">New note</button>'); body.innerHTML = notesMain(); body.onclick = onNotesClick; }
+    else if (ui.domain === "notes") { head.innerHTML = headTitle(noteFilterLabel(), readOnly ? "" : '<button class="btn primary" data-new="note">New note</button>'); body.innerHTML = notesMain(); body.onclick = onNotesClick; }
     else if (ui.domain === "calendar") { head.innerHTML = calendarHead(); body.innerHTML = calendarMain(); wireCalendar(); }
     else if (ui.domain === "time") { head.innerHTML = headTitle("Time", ""); body.innerHTML = timeMain(); }
     else if (ui.domain === "habits") { head.innerHTML = headTitle("Habits", ""); body.innerHTML = habitsMain(); }
@@ -447,17 +528,47 @@
     return '<div class="matrix">' + cells + "</div>";
   }
 
-  // ---- Notes (card grid; editor in inspector) ----------------------------
+  // ---- Notes (Keep-style masonry; markdown editor in inspector) -----------
+  const NOTE_COLORS = [null, "#e5484d", "#f5a623", "#f6c744", "#1e9e64", "#30a0c0", "#5b57d9", "#9b59b6", "#8a93a3"];
+  function filteredNotes() {
+    const f = ui.noteFilter;
+    if (f.kind === "notebook") return state.notes.filter((n) => n.notebookId === f.value && !n.archived);
+    if (f.value === "archived") return state.notes.filter((n) => n.archived);
+    const base = state.notes.filter((n) => !n.archived);
+    if (f.value === "pinned") return base.filter((n) => n.pinned);
+    return base;
+  }
+  function noteFilterLabel() {
+    const f = ui.noteFilter;
+    if (f.kind === "notebook") { const b = state.notebooks.find((x) => x.id === f.value); return b ? b.name : "Notebook"; }
+    return { all: "Notes", pinned: "Pinned", archived: "Archived" }[f.value] || "Notes";
+  }
   function notesMain() {
-    const notes = state.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
-    if (!notes.length) return emptyState("No notes", readOnly ? "" : "Create one with “New note”.");
-    return '<div class="ncards">' + notes.map((n) => {
-      const sel = ui.sel && ui.sel.domain === "notes" && ui.sel.id === n.id;
-      return '<article class="ncard' + (sel ? " sel" : "") + '" data-id="' + esc(n.id) + '" data-act="open">' +
-        (n.pinned ? '<span class="pin">&#x1F4CC;</span>' : "") +
-        "<h4>" + esc(n.title || "Untitled") + "</h4>" +
-        '<p>' + esc((n.body || "").slice(0, 240)) + "</p></article>";
-    }).join("") + "</div>";
+    const notes = filteredNotes();
+    if (!notes.length) return emptyState("No notes here", readOnly ? "" : "Create one with “New note”.");
+    const showGroups = ui.noteFilter.kind === "smart" && ui.noteFilter.value === "all";
+    if (showGroups) {
+      const pinned = notes.filter((n) => n.pinned).sort((a, b) => b.updatedAt - a.updatedAt);
+      const others = notes.filter((n) => !n.pinned).sort((a, b) => b.updatedAt - a.updatedAt);
+      let html = "";
+      if (pinned.length) html += '<h3 class="group-h">Pinned</h3><div class="ncards">' + pinned.map(noteCard).join("") + "</div>";
+      if (others.length) html += (pinned.length ? '<h3 class="group-h">Others</h3>' : "") + '<div class="ncards">' + others.map(noteCard).join("") + "</div>";
+      return html;
+    }
+    const sorted = notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
+    return '<div class="ncards">' + sorted.map(noteCard).join("") + "</div>";
+  }
+  function noteCard(n) {
+    const sel = ui.sel && ui.sel.domain === "notes" && ui.sel.id === n.id;
+    const tint = argb(n.colorArgb);
+    const style = tint ? ' style="--nc:' + tint + '"' : "";
+    const preview = (n.body || "").slice(0, 500);
+    return '<article class="ncard' + (tint ? " tinted" : "") + (sel ? " sel" : "") + '" data-id="' + esc(n.id) + '" data-act="open"' + style + ">" +
+      (n.pinned ? '<span class="pin">&#x1F4CC;</span>' : "") +
+      (n.coverEmoji ? '<div class="ncard-emoji">' + esc(n.coverEmoji) + "</div>" : "") +
+      (n.title ? "<h4>" + esc(n.title) + "</h4>" : "") +
+      (preview ? '<div class="ncard-md">' + mdToHtml(preview) + "</div>" : (n.title ? "" : '<p class="ncard-untitled">Untitled</p>')) +
+      "</article>";
   }
 
   // ---- Calendar (month / week / agenda + create/edit/delete) -------------
@@ -670,7 +781,10 @@
       ins.innerHTML = taskInspector(t);
       wireTaskInspector(t);
     } else if (ui.sel.domain === "notes") {
-      const n = ui.sel.id === "__new__" ? { id: "", title: "", body: "", pinned: false, archived: false } : state.notes.find((x) => x.id === ui.sel.id);
+      if (ui.sel.id === "__new__") ui.noteEdit = true;
+      const n = ui.sel.id === "__new__"
+        ? { id: "", title: "", body: "", pinned: false, archived: false, colorArgb: null, coverEmoji: "" }
+        : state.notes.find((x) => x.id === ui.sel.id);
       if (!n) { closeInspector(); return; }
       ins.innerHTML = noteInspector(n);
       wireNoteInspector(n);
@@ -706,11 +820,26 @@
   function noteInspector(n) {
     const ro = readOnly ? " disabled" : "";
     const isNew = !n.id;
+    const cur = n.colorArgb != null ? argb(n.colorArgb) : null;
+    const sw = readOnly ? "" : '<div class="swatches">' + NOTE_COLORS.map((c) => {
+      const on = (c === cur) || (c === null && cur === null);
+      return '<button type="button" class="swatch' + (c ? "" : " none") + (on ? " on" : "") + '" data-color="' + (c || "") + '"' +
+        (c ? ' style="background:' + c + '"' : "") + ' aria-label="' + (c || "No colour") + '">' + (c ? "" : "⊘") + "</button>";
+    }).join("") + "</div>";
+    const seg = '<div class="segmented sm"><button type="button" class="seg' + (ui.noteEdit ? " on" : "") + '" data-nmode="edit">Edit</button>' +
+      '<button type="button" class="seg' + (!ui.noteEdit ? " on" : "") + '" data-nmode="preview">Preview</button></div>';
+    const editor = '<div class="note-editor" id="noteEditor" data-mode="' + (ui.noteEdit ? "edit" : "preview") + '">' +
+      '<textarea id="iBody" rows="14" placeholder="Write in markdown…"' + ro + ">" + esc(n.body) + "</textarea>" +
+      '<div class="md-preview" id="iPreview">' + (n.body ? mdToHtml(n.body) : '<p class="md-empty">Nothing to preview</p>') + "</div></div>";
     return inspectorHead(isNew ? "New note" : "Note") +
       '<div class="ins-body">' +
-      '<label class="fld"><span>Title</span><input id="iTitle" type="text" value="' + esc(n.title) + '"' + ro + "></label>" +
-      '<label class="fld grow"><span>Body</span><textarea id="iBody" rows="12"' + ro + ">" + esc(n.body) + "</textarea></label>" +
-      '<label class="fld chk"><input id="iPin" type="checkbox"' + (n.pinned ? " checked" : "") + ro + "> Pin</label>" +
+      '<div class="note-emoji-row">' +
+      '<input id="iEmoji" class="emoji-in" type="text" maxlength="2" value="' + esc(n.coverEmoji || "") + '" placeholder="☺"' + ro + ">" +
+      '<input id="iTitle" class="note-title-in" type="text" value="' + esc(n.title) + '" placeholder="Title"' + ro + "></div>" +
+      sw +
+      '<div class="note-body-head">' + seg +
+      '<label class="chk-inline"><input id="iPin" type="checkbox"' + (n.pinned ? " checked" : "") + ro + "> Pin</label></div>" +
+      editor +
       '<div class="attachments" id="iAttach"></div>' +
       (readOnly ? "" :
         '<div class="ins-actions">' + (isNew ? "" : '<button class="btn danger" id="iDelete">Delete</button>') +
@@ -750,13 +879,31 @@
   }
   async function wireNoteInspector(n) {
     el("insClose").onclick = closeInspector;
-    if (!n.id) loadAttachments(null); else loadAttachments(n.id);
+    loadAttachments(n.id || null);
+    const ins = el("inspector");
+    // Edit / Preview toggle — done in place so unsaved edits survive the switch.
+    ins.querySelectorAll(".seg[data-nmode]").forEach((b) => b.onclick = () => {
+      const toPreview = b.dataset.nmode === "preview";
+      ui.noteEdit = !toPreview;
+      if (toPreview) { const t = el("iBody").value; el("iPreview").innerHTML = t.trim() ? mdToHtml(t) : '<p class="md-empty">Nothing to preview</p>'; }
+      el("noteEditor").dataset.mode = toPreview ? "preview" : "edit";
+      ins.querySelectorAll(".seg[data-nmode]").forEach((x) => x.classList.toggle("on", (x.dataset.nmode === "edit") === !toPreview));
+      if (!toPreview) el("iBody").focus();
+    });
     if (readOnly) return;
+    ins.querySelectorAll(".swatch").forEach((s) => s.onclick = () => {
+      ins.querySelectorAll(".swatch").forEach((x) => x.classList.remove("on")); s.classList.add("on");
+    });
     el("iSave").onclick = async () => {
+      const swOn = ins.querySelector(".swatch.on");
+      const hex = swOn ? swOn.dataset.color : "";
+      const colorArgb = hex ? (0xFF000000 + parseInt(hex.slice(1), 16)) : null;
       try {
-        const res = await mutate("notes", "upsert", { id: n.id, title: el("iTitle").value, body: el("iBody").value, pinned: el("iPin").checked });
+        const res = await mutate("notes", "upsert", {
+          id: n.id, title: el("iTitle").value, body: el("iBody").value,
+          pinned: el("iPin").checked, colorArgb: colorArgb, coverEmoji: el("iEmoji").value,
+        });
         await reloadDomain("notes");
-        // keep the inspector open on the (possibly new) note
         const newId = res && res.id ? res.id : n.id;
         ui.sel = { domain: "notes", id: newId };
         render(); toast("Saved");
@@ -1022,6 +1169,8 @@
       if (!item || item.classList.contains("static")) return;
       if (item.dataset.smart) { ui.taskFilter = { kind: "smart", value: item.dataset.smart }; }
       else if (item.dataset.list) { ui.taskFilter = { kind: "list", value: item.dataset.list }; }
+      else if (item.dataset.nsmart) { ui.noteFilter = { kind: "smart", value: item.dataset.nsmart }; }
+      else if (item.dataset.notebook) { ui.noteFilter = { kind: "notebook", value: item.dataset.notebook }; }
       else return;
       saveUi(); closeInspector(); render();
       if (window.innerWidth < 960) { ui.sidebar = false; render(); }

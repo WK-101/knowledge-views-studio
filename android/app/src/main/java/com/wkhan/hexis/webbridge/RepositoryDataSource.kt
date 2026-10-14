@@ -93,9 +93,20 @@ class RepositoryDataSource(
     private suspend fun queryNotes(query: DataQuery): DataPage = when (query.op) {
         DataApi.OP_LIST -> listPage(allNotes(), query) { it.toDto() }
         DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getNote(it)?.toDto() })
+        DataApi.OP_NOTEBOOKS -> listPage(notebookDtos(), query) { it }
         DataApi.OP_ATTACHMENTS -> listPage(noteAttachmentDtos(idParam(query)), query) { it }
         DataApi.OP_ATTACHMENT_DATA -> onePage(attachmentData(query))
         else -> throw UnsupportedDomainException("notes.${query.op}")
+    }
+
+    /** The active-workspace notebooks (names) for the notes sidebar, with non-trashed note counts. */
+    private suspend fun notebookDtos(): List<ListDto> {
+        val ws = repo.activeWs()
+        val countByBook = allNotes().groupingBy { it.notebookId }.eachCount()
+        return repo.getNotebooksOnce()
+            .filter { it.workspaceId == ws && !it.archived }
+            .sortedBy { it.sortOrder }
+            .map { ListDto(id = it.id, name = it.name, emoji = it.icon, colorArgb = it.colorArgb, count = countByBook[it.id] ?: 0) }
     }
 
     /** A note's attachment metadata — only for a note in the active workspace (default-deny otherwise). */
@@ -264,6 +275,8 @@ class RepositoryDataSource(
             body = dto.body,
             pinned = dto.pinned,
             archived = dto.archived,
+            colorArgb = dto.colorArgb,
+            coverEmoji = dto.coverEmoji?.ifBlank { null },
         ) ?: NoteEntity(
             id = "",
             title = dto.title,
@@ -271,6 +284,8 @@ class RepositoryDataSource(
             notebookId = dto.notebookId,
             pinned = dto.pinned,
             archived = dto.archived,
+            colorArgb = dto.colorArgb,
+            coverEmoji = dto.coverEmoji?.ifBlank { null },
             workspaceId = repo.activeWs(),
         )
         return ok(repo.upsertNote(entity))
@@ -530,6 +545,8 @@ private fun NoteEntity.toDto() = NoteDto(
     notebookId = notebookId,
     pinned = pinned,
     archived = archived,
+    colorArgb = colorArgb,
+    coverEmoji = coverEmoji,
     updatedAt = updatedAt,
 )
 
